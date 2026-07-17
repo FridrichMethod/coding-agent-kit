@@ -1,0 +1,285 @@
+#!/bin/sh
+
+set -eu
+
+if [ "$#" -ne 2 ]; then
+    echo "usage: codex-config-sync PORTABLE_CONFIG LIVE_CONFIG" >&2
+    exit 2
+fi
+
+portable=$1
+live=$2
+
+if [ ! -f "$portable" ]; then
+    echo "codex-config-sync: missing portable config: $portable" >&2
+    exit 1
+fi
+
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/codex-config-sync.XXXXXX")
+trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+
+portable_clean="$tmpdir/portable.toml"
+live_snapshot="$tmpdir/live.toml"
+merged="$tmpdir/merged.toml"
+
+if [ -r "$live" ]; then
+    cp "$live" "$live_snapshot"
+else
+    : >"$live_snapshot"
+fi
+
+# Extract the cross-host baseline from the tracked file. This also migrates an
+# older Stow symlink whose target has accumulated Codex Desktop runtime state.
+LC_ALL=C awk '
+function keep(section_name, key_name, line) {
+    values[section_name SUBSEP key_name] = line
+}
+
+function require_key(section_name, key_name, idx) {
+    idx = section_name SUBSEP key_name
+    if (!(idx in values)) {
+        label = section_name == "" ? key_name : "[" section_name "]." key_name
+        print "codex-config-sync: missing portable key: " label > "/dev/stderr"
+        missing = 1
+    }
+}
+
+BEGIN {
+    section = ""
+    missing = 0
+}
+
+{
+    line = $0
+    sub(/^[[:space:]]*/, "", line)
+    sub(/[[:space:]]*$/, "", line)
+
+    if (line ~ /^\[[^][]+\]$/) {
+        section = line
+        sub(/^\[/, "", section)
+        sub(/\]$/, "", section)
+        next
+    }
+
+    if (line == "" || line ~ /^#/) {
+        next
+    }
+
+    key = line
+    sub(/[[:space:]]*=.*$/, "", key)
+
+    if (section == "" && (key == "model_reasoning_effort" || key == "personality" || key == "sandbox_mode" || key == "approval_policy" || key == "approvals_reviewer" || key == "project_doc_fallback_filenames")) {
+        keep(section, key, line)
+    } else if (section == "sandbox_workspace_write" && key == "network_access") {
+        keep(section, key, line)
+    } else if (section == "features" && (key == "multi_agent" || key == "memories" || key == "js_repl")) {
+        keep(section, key, line)
+    } else if (section == "memories" && (key == "generate_memories" || key == "use_memories")) {
+        keep(section, key, line)
+    }
+}
+
+END {
+    require_key("", "model_reasoning_effort")
+    require_key("", "personality")
+    require_key("", "sandbox_mode")
+    require_key("", "approval_policy")
+    require_key("", "approvals_reviewer")
+    require_key("", "project_doc_fallback_filenames")
+    require_key("sandbox_workspace_write", "network_access")
+    require_key("features", "multi_agent")
+    require_key("features", "memories")
+    require_key("features", "js_repl")
+    require_key("memories", "generate_memories")
+    require_key("memories", "use_memories")
+
+    if (missing) {
+        exit 1
+    }
+
+    print values[SUBSEP "model_reasoning_effort"]
+    print values[SUBSEP "personality"]
+    print values[SUBSEP "sandbox_mode"]
+    print values[SUBSEP "approval_policy"]
+    print values[SUBSEP "approvals_reviewer"]
+    print values[SUBSEP "project_doc_fallback_filenames"]
+    print ""
+    print "[sandbox_workspace_write]"
+    print values["sandbox_workspace_write" SUBSEP "network_access"]
+    print ""
+    print "[features]"
+    print values["features" SUBSEP "multi_agent"]
+    print values["features" SUBSEP "memories"]
+    print values["features" SUBSEP "js_repl"]
+    print ""
+    print "[memories]"
+    print values["memories" SUBSEP "generate_memories"]
+    print values["memories" SUBSEP "use_memories"]
+}
+' "$portable" >"$portable_clean"
+
+# Portable values win. Preserve every non-portable top-level key, unknown key
+# in a portable section, and runtime-only table from the live config.
+LC_ALL=C awk '
+function trim(value) {
+    sub(/^[[:space:]]*/, "", value)
+    sub(/[[:space:]]*$/, "", value)
+    return value
+}
+
+function is_portable_section(section_name) {
+    return section_name == "sandbox_workspace_write" || section_name == "features" || section_name == "memories"
+}
+
+function is_portable_key(section_name, key_name) {
+    if (section_name == "") {
+        return key_name == "model_reasoning_effort" || key_name == "personality" || key_name == "sandbox_mode" || key_name == "approval_policy" || key_name == "approvals_reviewer" || key_name == "project_doc_fallback_filenames"
+    }
+    if (section_name == "sandbox_workspace_write") {
+        return key_name == "network_access"
+    }
+    if (section_name == "features") {
+        return key_name == "multi_agent" || key_name == "memories" || key_name == "js_repl"
+    }
+    if (section_name == "memories") {
+        return key_name == "generate_memories" || key_name == "use_memories"
+    }
+    return 0
+}
+
+function emit_portable_section(section_name, key1, key2, key3, i) {
+    print ""
+    print "[" section_name "]"
+    print portable[section_name SUBSEP key1]
+    if (key2 != "") {
+        print portable[section_name SUBSEP key2]
+    }
+    if (key3 != "") {
+        print portable[section_name SUBSEP key3]
+    }
+    for (i = 1; i <= portable_runtime_count[section_name]; i++) {
+        print portable_runtime[section_name SUBSEP i]
+    }
+}
+
+NR == FNR {
+    line = trim($0)
+    if (line ~ /^\[[^][]+\]$/) {
+        portable_section = line
+        sub(/^\[/, "", portable_section)
+        sub(/\]$/, "", portable_section)
+        next
+    }
+    if (line == "" || line ~ /^#/) {
+        next
+    }
+    key = line
+    sub(/[[:space:]]*=.*$/, "", key)
+    portable[portable_section SUBSEP key] = line
+    next
+}
+
+{
+    line = trim($0)
+    if (!live_started) {
+        live_started = 1
+        live_section = ""
+        block = 0
+    }
+
+    if (line ~ /^\[[^][]+\]$/) {
+        live_section = line
+        sub(/^\[/, "", live_section)
+        sub(/\]$/, "", live_section)
+        if (is_portable_section(live_section)) {
+            block = 0
+        } else {
+            block = ++block_count
+            block_header[block] = line
+        }
+        next
+    }
+
+    if (line ~ /^\[\[[^][]+\]\]$/) {
+        live_section = ""
+        block = ++block_count
+        block_header[block] = line
+        next
+    }
+
+    if (line == "") {
+        next
+    }
+
+    key = line
+    sub(/[[:space:]]*=.*$/, "", key)
+    if (is_portable_key(live_section, key)) {
+        next
+    }
+
+    if (live_section == "") {
+        if (block == 0) {
+            top_runtime[++top_runtime_count] = line
+        } else {
+            block_line_count[block]++
+            block_line[block SUBSEP block_line_count[block]] = line
+        }
+    } else if (is_portable_section(live_section)) {
+        portable_runtime_count[live_section]++
+        portable_runtime[live_section SUBSEP portable_runtime_count[live_section]] = line
+    } else {
+        block_line_count[block]++
+        block_line[block SUBSEP block_line_count[block]] = line
+    }
+}
+
+END {
+    print portable[SUBSEP "model_reasoning_effort"]
+    print portable[SUBSEP "personality"]
+    print portable[SUBSEP "sandbox_mode"]
+    print portable[SUBSEP "approval_policy"]
+    print portable[SUBSEP "approvals_reviewer"]
+    print portable[SUBSEP "project_doc_fallback_filenames"]
+    for (i = 1; i <= top_runtime_count; i++) {
+        print top_runtime[i]
+    }
+
+    emit_portable_section("sandbox_workspace_write", "network_access", "", "")
+    emit_portable_section("features", "multi_agent", "memories", "js_repl")
+    emit_portable_section("memories", "generate_memories", "use_memories", "")
+
+    for (i = 1; i <= block_count; i++) {
+        print ""
+        print block_header[i]
+        for (j = 1; j <= block_line_count[i]; j++) {
+            print block_line[i SUBSEP j]
+        }
+    }
+}
+' "$portable_clean" "$live_snapshot" >"$merged"
+
+live_dir=$(dirname "$live")
+mkdir -p "$live_dir"
+
+# Break the legacy Stow symlink only after both output files are ready.
+if [ -L "$live" ]; then
+    rm -f "$live"
+fi
+
+live_tmp=$(mktemp "$live_dir/.codex-config.XXXXXX")
+cp "$merged" "$live_tmp"
+chmod 600 "$live_tmp"
+if [ -f "$live" ] && cmp -s "$live_tmp" "$live"; then
+    rm -f "$live_tmp"
+else
+    mv -f "$live_tmp" "$live"
+fi
+
+# Keep the repository source canonical even when migrating from the old
+# symlink layout where Desktop had written runtime state into this file.
+if ! cmp -s "$portable_clean" "$portable"; then
+    cp "$portable_clean" "$portable"
+fi
+chmod 644 "$portable"
+
+echo "Synchronized portable Codex settings into $live"
