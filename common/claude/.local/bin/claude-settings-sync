@@ -1,0 +1,118 @@
+#!/bin/sh
+#
+# claude-settings-sync PORTABLE_SETTINGS LIVE_SETTINGS
+#
+# Merge the tracked, machine-agnostic Claude settings baseline into the live,
+# mutable ~/.claude/settings.json that Claude Code rewrites at runtime. This
+# mirrors the portable/live split used for Codex's config.toml: the portable
+# baseline is never a Stow symlink, so runtime writes never dirty the repo and
+# machine-specific values never get committed.
+#
+# Merge rule: deep-merge live <- portable. Portable values win on leaf
+# conflicts; keys present only in the live file are preserved. That keeps the
+# machine-specific permissions.additionalDirectories (absolute project paths)
+# and any runtime state Claude Code adds, while letting the tracked baseline own
+# everything it declares.
+#
+# Fail closed: a missing or malformed portable baseline, an unparseable live
+# file, or the absence of a JSON engine leaves the live file untouched.
+
+set -eu
+
+if [ "$#" -ne 2 ]; then
+    echo "usage: claude-settings-sync PORTABLE_SETTINGS LIVE_SETTINGS" >&2
+    exit 2
+fi
+
+portable=$1
+live=$2
+
+if [ ! -f "$portable" ]; then
+    echo "claude-settings-sync: missing portable settings: $portable" >&2
+    exit 1
+fi
+
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/claude-settings-sync.XXXXXX")
+trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+
+live_snapshot="$tmpdir/live.json"
+merged="$tmpdir/merged.json"
+
+# A missing or empty live file is a fresh host: start from an empty object so
+# the portable baseline seeds it. A non-empty but malformed live file is a hard
+# error handled by the JSON engine below; we never clobber unparseable state.
+if [ -s "$live" ]; then
+    cp "$live" "$live_snapshot"
+else
+    printf '%s\n' '{}' >"$live_snapshot"
+fi
+
+# Prefer jq; fall back to python3; fail closed if neither JSON engine exists.
+# Both engines deep-merge with identical semantics (portable wins, live-only
+# keys preserved) and reject documents that are not JSON objects.
+if command -v jq >/dev/null 2>&1; then
+    jq -s '
+        if (.[0] | type) != "object" or (.[1] | type) != "object" then
+            error("claude-settings-sync: both settings documents must be JSON objects")
+        else
+            .[0] * .[1]
+        end
+    ' "$live_snapshot" "$portable" >"$merged"
+elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$live_snapshot" "$portable" >"$merged" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as handle:
+    live = json.load(handle)
+with open(sys.argv[2]) as handle:
+    portable = json.load(handle)
+
+if not isinstance(live, dict) or not isinstance(portable, dict):
+    sys.stderr.write(
+        "claude-settings-sync: both settings documents must be JSON objects\n"
+    )
+    sys.exit(1)
+
+
+def deep_merge(base, override):
+    if isinstance(base, dict) and isinstance(override, dict):
+        result = dict(base)
+        for key, value in override.items():
+            result[key] = deep_merge(base[key], value) if key in base else value
+        return result
+    return override
+
+
+json.dump(deep_merge(live, portable), sys.stdout, indent=2)
+sys.stdout.write("\n")
+PY
+else
+    echo "claude-settings-sync: need jq or python3 to merge JSON settings" >&2
+    exit 1
+fi
+
+if [ ! -s "$merged" ]; then
+    echo "claude-settings-sync: merge produced no output" >&2
+    exit 1
+fi
+
+live_dir=$(dirname "$live")
+mkdir -p "$live_dir"
+
+# Break a legacy Stow symlink before writing the real regular file.
+if [ -L "$live" ]; then
+    rm -f "$live"
+fi
+
+# Write atomically; skip the replace when the merge is a no-op.
+live_tmp=$(mktemp "$live_dir/.claude-settings.XXXXXX")
+cp "$merged" "$live_tmp"
+chmod 644 "$live_tmp"
+if [ -f "$live" ] && cmp -s "$live_tmp" "$live"; then
+    rm -f "$live_tmp"
+else
+    mv -f "$live_tmp" "$live"
+fi
+
+echo "Synchronized portable Claude settings into $live"
