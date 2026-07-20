@@ -72,7 +72,7 @@ BEGIN {
         keep(section, key, line)
     } else if (section == "sandbox_workspace_write" && key == "network_access") {
         keep(section, key, line)
-    } else if (section == "features" && (key == "multi_agent" || key == "memories" || key == "js_repl")) {
+    } else if (section == "features" && (key == "multi_agent" || key == "memories")) {
         keep(section, key, line)
     } else if (section == "memories" && (key == "generate_memories" || key == "use_memories")) {
         keep(section, key, line)
@@ -89,7 +89,6 @@ END {
     require_key("sandbox_workspace_write", "network_access")
     require_key("features", "multi_agent")
     require_key("features", "memories")
-    require_key("features", "js_repl")
     require_key("memories", "generate_memories")
     require_key("memories", "use_memories")
 
@@ -110,7 +109,6 @@ END {
     print "[features]"
     print values["features" SUBSEP "multi_agent"]
     print values["features" SUBSEP "memories"]
-    print values["features" SUBSEP "js_repl"]
     print ""
     print "[memories]"
     print values["memories" SUBSEP "generate_memories"]
@@ -139,6 +137,8 @@ function is_portable_key(section_name, key_name) {
         return key_name == "network_access"
     }
     if (section_name == "features") {
+        # js_repl is a removed compatibility flag. Treat it as owned so stale
+        # live values are dropped, but do not emit it into the portable config.
         return key_name == "multi_agent" || key_name == "memories" || key_name == "js_repl"
     }
     if (section_name == "memories") {
@@ -245,7 +245,7 @@ END {
     }
 
     emit_portable_section("sandbox_workspace_write", "network_access", "", "")
-    emit_portable_section("features", "multi_agent", "memories", "js_repl")
+    emit_portable_section("features", "multi_agent", "memories", "")
     emit_portable_section("memories", "generate_memories", "use_memories", "")
 
     for (i = 1; i <= block_count; i++) {
