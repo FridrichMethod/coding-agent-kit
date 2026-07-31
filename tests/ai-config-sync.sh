@@ -140,6 +140,38 @@ grep -Fq 'codex-rules-sync' "$REPO_ROOT/stow-all.sh"
 grep -Fq 'codex-rules-sync' "$REPO_ROOT/stow-all.ps1"
 grep -Fq '\.codex/rules/portable\.rules' "$REPO_ROOT/.stowrc"
 
+if command -v stow >/dev/null 2>&1; then
+    STOW_TARGET="$TEST_TMP/stow-target"
+    mkdir -p \
+        "$STOW_TARGET/.claude" \
+        "$STOW_TARGET/.codex/rules"
+    printf '%s\n' 'claude-live-sentinel' \
+        >"$STOW_TARGET/.claude/settings.json"
+    printf '%s\n' 'codex-live-sentinel' \
+        >"$STOW_TARGET/.codex/config.toml"
+    printf '%s\n' 'rules-live-sentinel' \
+        >"$STOW_TARGET/.codex/rules/portable.rules"
+
+    (
+        cd "$REPO_ROOT"
+        stow \
+            --restow \
+            --no-folding \
+            --target="$STOW_TARGET" \
+            -d "$REPO_ROOT/common" \
+            claude codex
+    )
+
+    [[ ! -L "$STOW_TARGET/.claude/settings.json" ]]
+    [[ ! -L "$STOW_TARGET/.codex/config.toml" ]]
+    [[ ! -L "$STOW_TARGET/.codex/rules/portable.rules" ]]
+    grep -Fxq 'claude-live-sentinel' "$STOW_TARGET/.claude/settings.json"
+    grep -Fxq 'codex-live-sentinel' "$STOW_TARGET/.codex/config.toml"
+    grep -Fxq 'rules-live-sentinel' "$STOW_TARGET/.codex/rules/portable.rules"
+    [[ -L "$STOW_TARGET/.claude/CLAUDE.md" ]]
+    [[ -L "$STOW_TARGET/.codex/AGENTS.md" ]]
+fi
+
 if command -v codex >/dev/null 2>&1; then
     codex_result="$(
         codex execpolicy check \
