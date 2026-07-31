@@ -11,8 +11,8 @@
 # Merge rule: deep-merge live <- portable. Portable values win on leaf
 # conflicts; keys present only in the live file are preserved. That keeps the
 # machine-specific permissions.additionalDirectories (absolute project paths)
-# and any runtime state Claude Code adds, while letting the tracked baseline own
-# everything it declares.
+# and any runtime state Claude Code adds. The portable permissions.allow and
+# permissions.ask arrays are authoritative and replace ad-hoc live arrays.
 #
 # Fail closed: a missing or malformed portable baseline, an unparseable live
 # file, or the absence of a JSON engine leaves the live file untouched.
@@ -54,6 +54,13 @@ if command -v jq >/dev/null 2>&1; then
     jq -s '
         if (.[0] | type) != "object" or (.[1] | type) != "object" then
             error("claude-settings-sync: both settings documents must be JSON objects")
+        elif (.[1].permissions | type) != "object"
+            or (.[1].permissions.allow | type) != "array"
+            or (.[1].permissions.ask | type) != "array"
+            or (.[1].permissions.allow | all(.[]; type == "string") | not)
+            or (.[1].permissions.ask | all(.[]; type == "string") | not)
+        then
+            error("claude-settings-sync: portable permissions.allow and permissions.ask must be string arrays")
         else
             .[0] * .[1]
         end
@@ -71,6 +78,20 @@ with open(sys.argv[2]) as handle:
 if not isinstance(live, dict) or not isinstance(portable, dict):
     sys.stderr.write(
         "claude-settings-sync: both settings documents must be JSON objects\n"
+    )
+    sys.exit(1)
+
+permissions = portable.get("permissions")
+if (
+    not isinstance(permissions, dict)
+    or not isinstance(permissions.get("allow"), list)
+    or not isinstance(permissions.get("ask"), list)
+    or not all(isinstance(item, str) for item in permissions["allow"])
+    or not all(isinstance(item, str) for item in permissions["ask"])
+):
+    sys.stderr.write(
+        "claude-settings-sync: portable permissions.allow and "
+        "permissions.ask must be string arrays\n"
     )
     sys.exit(1)
 

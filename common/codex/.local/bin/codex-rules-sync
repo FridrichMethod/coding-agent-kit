@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# codex-rules-sync PORTABLE_RULES LIVE_RULES
+#
+# Materialize the reviewed cross-host exec-policy rules alongside Codex's
+# mutable, machine-local default.rules. The portable file is authoritative;
+# every other file in the live rules directory is left untouched.
+
+set -eu
+
+if [ "$#" -ne 2 ]; then
+    echo "usage: codex-rules-sync PORTABLE_RULES LIVE_RULES" >&2
+    exit 2
+fi
+
+portable=$1
+live=$2
+
+if [ ! -s "$portable" ]; then
+    echo "codex-rules-sync: missing or empty portable rules: $portable" >&2
+    exit 1
+fi
+
+live_dir=$(dirname "$live")
+mkdir -p "$live_dir"
+
+tmp=$(mktemp "$live_dir/.codex-rules.XXXXXX")
+trap 'rm -f "$tmp"' EXIT HUP INT TERM
+
+cp "$portable" "$tmp"
+chmod 644 "$tmp"
+
+if [ -f "$live" ] && cmp -s "$tmp" "$live"; then
+    rm -f "$tmp"
+else
+    mv -f "$tmp" "$live"
+fi
+
+trap - EXIT HUP INT TERM
+echo "Synchronized portable Codex rules into $live"
