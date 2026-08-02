@@ -33,6 +33,38 @@ expected_allow = {
     "WebSearch",
     "mcp__plugin_everything-claude-code_github__search_code",
     "mcp__plugin_everything-claude-code_github__get_file_contents",
+    "Bash(git commit *)",
+    "Bash(rmdir *)",
+    "Bash(mv *)",
+    "Bash(git add *)",
+    "Bash(git push *)",
+    "Bash(git pull *)",
+    "Bash(git clone *)",
+    "Bash(git reset *)",
+    "Bash(git restore *)",
+    "Bash(git checkout *)",
+    "Bash(curl *)",
+    "Bash(wget *)",
+    "Bash(ssh *)",
+    "Bash(scp *)",
+    "Bash(rsync *)",
+    "Bash(tee *)",
+    "Bash(source *)",
+    "Bash(. *)",
+    "Bash(pip install *)",
+    "Bash(pip3 install *)",
+    "Bash(uv pip install *)",
+    "Bash(conda install *)",
+    "Bash(mamba install *)",
+    "Bash(npm install *)",
+    "Bash(pnpm install *)",
+    "Bash(yarn add *)",
+    "Bash(brew install *)",
+    "Bash(gh api *)",
+    "Bash(gh pr create *)",
+    "Bash(gh pr merge *)",
+    "Bash(gh issue create *)",
+    "Bash(gh release create *)",
 }
 
 assert set(portable["permissions"]["allow"]) == expected_allow
@@ -43,15 +75,13 @@ assert live["runtimeOnly"] == {"keep": True}
 assert live["model"] == "machine-local-model"
 assert live["attribution"] == {"commit": "", "pr": ""}
 
+# permissions.ask is now the narrow list (see CLAUDE.md): only actions whose
+# worst case is unbounded or irrecoverable. Everything else lives in allow.
 unsafe_allow_fragments = (
-    "git push",
-    "git commit",
-    "curl",
-    "npx",
-    "pip",
-    "conda",
     "rm ",
-    "tee",
+    "git clean",
+    "sudo",
+    "npx",
 )
 assert not any(
     fragment in rule
