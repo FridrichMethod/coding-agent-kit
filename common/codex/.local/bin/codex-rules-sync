@@ -30,6 +30,12 @@ trap 'rm -f "$tmp"' EXIT HUP INT TERM
 cp "$portable" "$tmp"
 chmod 644 "$tmp"
 
+# A matching legacy Stow symlink is still not a valid materialized live file:
+# Codex could otherwise write through it and dirty the tracked baseline.
+if [ -L "$live" ]; then
+    rm -f "$live"
+fi
+
 if [ -f "$live" ] && cmp -s "$tmp" "$live"; then
     rm -f "$tmp"
 else

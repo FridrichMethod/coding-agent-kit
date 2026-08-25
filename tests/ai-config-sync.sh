@@ -19,6 +19,17 @@ hash_file() {
     fi
 }
 
+assert_mode() {
+    python3 - "$1" "$2" <<'PY'
+import os
+import sys
+
+actual = os.stat(sys.argv[1]).st_mode & 0o777
+expected = int(sys.argv[2], 8)
+assert actual == expected, f"{sys.argv[1]}: mode {actual:o}, expected {expected:o}"
+PY
+}
+
 assert_json_policy() {
     python3 - "$CLAUDE_PORTABLE" "$1" <<'PY'
 import json
@@ -129,6 +140,65 @@ if "$CLAUDE_SYNC" \
 fi
 [[ "$claude_after" == "$(hash_file "$TEST_TMP/claude-live.json")" ]]
 
+printf '%s\n' '{"runtimeOnly":' >"$TEST_TMP/claude-malformed-live.json"
+malformed_live_before="$(hash_file "$TEST_TMP/claude-malformed-live.json")"
+if "$CLAUDE_SYNC" \
+    "$CLAUDE_PORTABLE" \
+    "$TEST_TMP/claude-malformed-live.json" >/dev/null 2>&1; then
+    echo "ERROR: malformed Claude live settings unexpectedly succeeded" >&2
+    exit 1
+fi
+[[ "$malformed_live_before" == "$(hash_file "$TEST_TMP/claude-malformed-live.json")" ]]
+
+printf '%s\n' '[]' >"$TEST_TMP/claude-nonobject.json"
+if "$CLAUDE_SYNC" \
+    "$TEST_TMP/claude-nonobject.json" \
+    "$TEST_TMP/claude-live.json" >/dev/null 2>&1; then
+    echo "ERROR: non-object Claude baseline unexpectedly succeeded" >&2
+    exit 1
+fi
+[[ "$claude_after" == "$(hash_file "$TEST_TMP/claude-live.json")" ]]
+
+cat >"$TEST_TMP/claude-invalid-array.json" <<'JSON'
+{"permissions":{"allow":[42],"ask":[]}}
+JSON
+if "$CLAUDE_SYNC" \
+    "$TEST_TMP/claude-invalid-array.json" \
+    "$TEST_TMP/claude-live.json" >/dev/null 2>&1; then
+    echo "ERROR: non-string Claude permission unexpectedly succeeded" >&2
+    exit 1
+fi
+[[ "$claude_after" == "$(hash_file "$TEST_TMP/claude-live.json")" ]]
+
+# Missing/empty live files seed a fresh host and create their parent directory.
+"$CLAUDE_SYNC" \
+    "$CLAUDE_PORTABLE" \
+    "$TEST_TMP/fresh/.claude/settings.json" >/dev/null
+cmp -s "$CLAUDE_PORTABLE" "$TEST_TMP/fresh/.claude/settings.json"
+assert_mode "$TEST_TMP/fresh/.claude/settings.json" 644
+
+mkdir -p "$TEST_TMP/empty/.claude"
+: >"$TEST_TMP/empty/.claude/settings.json"
+"$CLAUDE_SYNC" \
+    "$CLAUDE_PORTABLE" \
+    "$TEST_TMP/empty/.claude/settings.json" >/dev/null
+cmp -s "$CLAUDE_PORTABLE" "$TEST_TMP/empty/.claude/settings.json"
+
+# Migrating a matching legacy Stow link must leave the baseline untouched and
+# replace the live path with a regular file.
+mkdir -p "$TEST_TMP/claude-symlink"
+cp "$CLAUDE_PORTABLE" "$TEST_TMP/claude-symlink/portable.json"
+ln -s portable.json "$TEST_TMP/claude-symlink/live.json"
+claude_symlink_target_before="$(hash_file "$TEST_TMP/claude-symlink/portable.json")"
+"$CLAUDE_SYNC" \
+    "$TEST_TMP/claude-symlink/portable.json" \
+    "$TEST_TMP/claude-symlink/live.json" >/dev/null
+[[ ! -L "$TEST_TMP/claude-symlink/live.json" ]]
+[[ "$claude_symlink_target_before" == "$(hash_file "$TEST_TMP/claude-symlink/portable.json")" ]]
+cmp -s \
+    "$TEST_TMP/claude-symlink/portable.json" \
+    "$TEST_TMP/claude-symlink/live.json"
+
 mkdir -p "$TEST_TMP/codex/rules"
 printf '%s\n' \
     'prefix_rule(pattern=["host-only"], decision="allow")' \
@@ -146,6 +216,27 @@ portable_before="$(hash_file "$TEST_TMP/codex/rules/portable.rules")"
     "$CODEX_RULES_PORTABLE" \
     "$TEST_TMP/codex/rules/portable.rules" >/dev/null
 [[ "$portable_before" == "$(hash_file "$TEST_TMP/codex/rules/portable.rules")" ]]
+assert_mode "$TEST_TMP/codex/rules/portable.rules" 644
+
+printf '%s\n' 'host-local-sentinel' >"$TEST_TMP/codex/rules/host-local.rules"
+"$CODEX_RULES_SYNC" \
+    "$CODEX_RULES_PORTABLE" \
+    "$TEST_TMP/codex/rules/portable.rules" >/dev/null
+grep -Fxq 'host-local-sentinel' "$TEST_TMP/codex/rules/host-local.rules"
+
+# A content-identical legacy link is not a valid materialized live rules file.
+mkdir -p "$TEST_TMP/rules-symlink"
+cp "$CODEX_RULES_PORTABLE" "$TEST_TMP/rules-symlink/source.rules"
+ln -s source.rules "$TEST_TMP/rules-symlink/live.rules"
+rules_symlink_target_before="$(hash_file "$TEST_TMP/rules-symlink/source.rules")"
+"$CODEX_RULES_SYNC" \
+    "$TEST_TMP/rules-symlink/source.rules" \
+    "$TEST_TMP/rules-symlink/live.rules" >/dev/null
+[[ ! -L "$TEST_TMP/rules-symlink/live.rules" ]]
+[[ "$rules_symlink_target_before" == "$(hash_file "$TEST_TMP/rules-symlink/source.rules")" ]]
+cmp -s \
+    "$TEST_TMP/rules-symlink/source.rules" \
+    "$TEST_TMP/rules-symlink/live.rules"
 
 : >"$TEST_TMP/empty.rules"
 if "$CODEX_RULES_SYNC" \
