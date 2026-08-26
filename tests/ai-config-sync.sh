@@ -257,6 +257,41 @@ if grep -Eq '(/Users/|/home/|/apps/)' "$CODEX_RULES_PORTABLE"; then
     exit 1
 fi
 
+# Routine workspace-local execution must not be forced through the portable
+# prompt layer. These commands remain bounded by the active sandbox and any
+# host-local rules.
+for low_friction_example in \
+    'git add README.md' \
+    'git commit -m update' \
+    'source .venv/bin/activate' \
+    "bash -lc 'echo \$HOME'" \
+    "python -c 'print(1)'" \
+    'uv run pytest' \
+    'conda run -n research python analysis.py' \
+    'git push origin main' \
+    'curl -LsS https://example.com' \
+    'ssh lab-ubuntu hostname' \
+    'npx prettier --check .' \
+    'pip install package' \
+    'gh pr create --fill'; do
+    if grep -Fq "$low_friction_example" "$CODEX_RULES_PORTABLE"; then
+        echo "ERROR: routine command remains in portable prompt policy: $low_friction_example" >&2
+        exit 1
+    fi
+done
+
+for guarded_example in \
+    'git reset --hard HEAD~1' \
+    'git clean -fd' \
+    'rm -rf build' \
+    'shred secret.txt' \
+    'sudo apt-get update'; do
+    if ! grep -Fq "$guarded_example" "$CODEX_RULES_PORTABLE"; then
+        echo "ERROR: required portable guardrail is missing: $guarded_example" >&2
+        exit 1
+    fi
+done
+
 grep -Fq 'codex-rules-sync' "$REPO_ROOT/stow-all.sh"
 grep -Fq 'codex-rules-sync' "$REPO_ROOT/stow-all.ps1"
 grep -Fq '\.codex/rules/portable\.rules' "$REPO_ROOT/.stowrc"
@@ -297,7 +332,7 @@ if command -v codex >/dev/null 2>&1; then
     codex_result="$(
         codex execpolicy check \
             --rules "$CODEX_RULES_PORTABLE" \
-            -- git push origin main 2>/dev/null
+            -- git reset --hard HEAD~1 2>/dev/null
     )"
     grep -Eq '"decision"[[:space:]]*:[[:space:]]*"prompt"' <<<"$codex_result"
 fi
