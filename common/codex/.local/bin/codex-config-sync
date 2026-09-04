@@ -68,11 +68,15 @@ BEGIN {
     key = line
     sub(/[[:space:]]*=.*$/, "", key)
 
-    if (section == "" && (key == "model_reasoning_effort" || key == "personality" || key == "sandbox_mode" || key == "approval_policy" || key == "approvals_reviewer" || key == "project_doc_fallback_filenames")) {
+    if (section == "" && (key == "model_reasoning_effort" || key == "personality" || key == "default_permissions" || key == "approval_policy" || key == "approvals_reviewer" || key == "project_doc_fallback_filenames")) {
         keep(section, key, line)
-    } else if (section == "sandbox_workspace_write" && key == "network_access") {
+    } else if (section == "features" && (key == "network_proxy" || key == "multi_agent" || key == "memories")) {
         keep(section, key, line)
-    } else if (section == "features" && (key == "multi_agent" || key == "memories")) {
+    } else if (section == "permissions.workspace-net" && (key == "description" || key == "extends")) {
+        keep(section, key, line)
+    } else if (section == "permissions.workspace-net.network" && (key == "enabled" || key == "allow_local_binding")) {
+        keep(section, key, line)
+    } else if (section == "permissions.workspace-net.network.domains" && key == "\"*\"") {
         keep(section, key, line)
     } else if (section == "memories" && (key == "generate_memories" || key == "use_memories")) {
         keep(section, key, line)
@@ -82,13 +86,18 @@ BEGIN {
 END {
     require_key("", "model_reasoning_effort")
     require_key("", "personality")
-    require_key("", "sandbox_mode")
+    require_key("", "default_permissions")
     require_key("", "approval_policy")
     require_key("", "approvals_reviewer")
     require_key("", "project_doc_fallback_filenames")
-    require_key("sandbox_workspace_write", "network_access")
+    require_key("features", "network_proxy")
     require_key("features", "multi_agent")
     require_key("features", "memories")
+    require_key("permissions.workspace-net", "description")
+    require_key("permissions.workspace-net", "extends")
+    require_key("permissions.workspace-net.network", "enabled")
+    require_key("permissions.workspace-net.network", "allow_local_binding")
+    require_key("permissions.workspace-net.network.domains", "\"*\"")
     require_key("memories", "generate_memories")
     require_key("memories", "use_memories")
 
@@ -98,17 +107,26 @@ END {
 
     print values[SUBSEP "model_reasoning_effort"]
     print values[SUBSEP "personality"]
-    print values[SUBSEP "sandbox_mode"]
+    print values[SUBSEP "default_permissions"]
     print values[SUBSEP "approval_policy"]
     print values[SUBSEP "approvals_reviewer"]
     print values[SUBSEP "project_doc_fallback_filenames"]
     print ""
-    print "[sandbox_workspace_write]"
-    print values["sandbox_workspace_write" SUBSEP "network_access"]
-    print ""
     print "[features]"
+    print values["features" SUBSEP "network_proxy"]
     print values["features" SUBSEP "multi_agent"]
     print values["features" SUBSEP "memories"]
+    print ""
+    print "[permissions.workspace-net]"
+    print values["permissions.workspace-net" SUBSEP "description"]
+    print values["permissions.workspace-net" SUBSEP "extends"]
+    print ""
+    print "[permissions.workspace-net.network]"
+    print values["permissions.workspace-net.network" SUBSEP "enabled"]
+    print values["permissions.workspace-net.network" SUBSEP "allow_local_binding"]
+    print ""
+    print "[permissions.workspace-net.network.domains]"
+    print values["permissions.workspace-net.network.domains" SUBSEP "\"*\""]
     print ""
     print "[memories]"
     print values["memories" SUBSEP "generate_memories"]
@@ -126,20 +144,38 @@ function trim(value) {
 }
 
 function is_portable_section(section_name) {
-    return section_name == "sandbox_workspace_write" || section_name == "features" || section_name == "memories"
+    return section_name == "features" ||
+        section_name == "permissions.workspace-net" ||
+        section_name == "permissions.workspace-net.network" ||
+        section_name == "permissions.workspace-net.network.domains" ||
+        section_name == "memories"
+}
+
+function is_retired_section(section_name) {
+    # Permission profiles replace the legacy sandbox table. Drop the entire
+    # table so an old live value cannot override the portable profile.
+    return section_name == "sandbox_workspace_write"
 }
 
 function is_portable_key(section_name, key_name) {
     if (section_name == "") {
-        return key_name == "model_reasoning_effort" || key_name == "personality" || key_name == "sandbox_mode" || key_name == "approval_policy" || key_name == "approvals_reviewer" || key_name == "project_doc_fallback_filenames"
-    }
-    if (section_name == "sandbox_workspace_write") {
-        return key_name == "network_access"
+        # sandbox_mode is a retired compatibility key. Treat it as owned so
+        # stale live values are removed instead of shadowing the profile.
+        return key_name == "model_reasoning_effort" || key_name == "personality" || key_name == "default_permissions" || key_name == "sandbox_mode" || key_name == "approval_policy" || key_name == "approvals_reviewer" || key_name == "project_doc_fallback_filenames"
     }
     if (section_name == "features") {
         # js_repl is a removed compatibility flag. Treat it as owned so stale
         # live values are dropped, but do not emit it into the portable config.
-        return key_name == "multi_agent" || key_name == "memories" || key_name == "js_repl"
+        return key_name == "network_proxy" || key_name == "multi_agent" || key_name == "memories" || key_name == "js_repl"
+    }
+    if (section_name == "permissions.workspace-net") {
+        return key_name == "description" || key_name == "extends"
+    }
+    if (section_name == "permissions.workspace-net.network") {
+        return key_name == "enabled" || key_name == "allow_local_binding"
+    }
+    if (section_name == "permissions.workspace-net.network.domains") {
+        return key_name == "\"*\""
     }
     if (section_name == "memories") {
         return key_name == "generate_memories" || key_name == "use_memories"
@@ -191,7 +227,7 @@ NR == FNR {
         live_section = line
         sub(/^\[/, "", live_section)
         sub(/\]$/, "", live_section)
-        if (is_portable_section(live_section)) {
+        if (is_portable_section(live_section) || is_retired_section(live_section)) {
             block = 0
         } else {
             block = ++block_count
@@ -227,6 +263,8 @@ NR == FNR {
     } else if (is_portable_section(live_section)) {
         portable_runtime_count[live_section]++
         portable_runtime[live_section SUBSEP portable_runtime_count[live_section]] = line
+    } else if (is_retired_section(live_section)) {
+        next
     } else {
         block_line_count[block]++
         block_line[block SUBSEP block_line_count[block]] = line
@@ -236,7 +274,7 @@ NR == FNR {
 END {
     print portable[SUBSEP "model_reasoning_effort"]
     print portable[SUBSEP "personality"]
-    print portable[SUBSEP "sandbox_mode"]
+    print portable[SUBSEP "default_permissions"]
     print portable[SUBSEP "approval_policy"]
     print portable[SUBSEP "approvals_reviewer"]
     print portable[SUBSEP "project_doc_fallback_filenames"]
@@ -244,8 +282,10 @@ END {
         print top_runtime[i]
     }
 
-    emit_portable_section("sandbox_workspace_write", "network_access", "", "")
-    emit_portable_section("features", "multi_agent", "memories", "")
+    emit_portable_section("features", "network_proxy", "multi_agent", "memories")
+    emit_portable_section("permissions.workspace-net", "description", "extends", "")
+    emit_portable_section("permissions.workspace-net.network", "enabled", "allow_local_binding", "")
+    emit_portable_section("permissions.workspace-net.network.domains", "\"*\"", "", "")
     emit_portable_section("memories", "generate_memories", "use_memories", "")
 
     for (i = 1; i <= block_count; i++) {

@@ -252,14 +252,19 @@ if grep -Eq 'decision[[:space:]]*=[[:space:]]*"allow"' "$CODEX_RULES_PORTABLE"; 
     exit 1
 fi
 
+if grep -Eq 'decision[[:space:]]*=[[:space:]]*"forbidden"' "$CODEX_RULES_PORTABLE"; then
+    echo "ERROR: portable Codex policy must keep destructive commands reviewable" >&2
+    exit 1
+fi
+
 if grep -Eq '(/Users/|/home/|/apps/)' "$CODEX_RULES_PORTABLE"; then
     echo "ERROR: portable Codex policy contains a host-specific path" >&2
     exit 1
 fi
 
 # Routine workspace-local execution must not be forced through the portable
-# prompt layer. These commands remain bounded by the active sandbox and any
-# host-local rules.
+# policy layer. These commands remain bounded by the active permission profile
+# and any host-local rules.
 for low_friction_example in \
     'git add README.md' \
     'git commit -m update' \
@@ -280,14 +285,19 @@ for low_friction_example in \
     fi
 done
 
-for guarded_example in \
+for auto_reviewed_example in \
     'git reset --hard HEAD~1' \
     'git clean -fd' \
     'rm -rf build' \
+    'rm -f -r build' \
+    'Remove-Item -Recurse build' \
+    'rd /s build' \
     'shred secret.txt' \
+    'dd if=image.raw of=device.img' \
+    'mkfs /dev/example' \
     'sudo apt-get update'; do
-    if ! grep -Fq "$guarded_example" "$CODEX_RULES_PORTABLE"; then
-        echo "ERROR: required portable guardrail is missing: $guarded_example" >&2
+    if ! grep -Fq "$auto_reviewed_example" "$CODEX_RULES_PORTABLE"; then
+        echo "ERROR: required auto-review guardrail is missing: $auto_reviewed_example" >&2
         exit 1
     fi
 done
@@ -329,12 +339,44 @@ if command -v stow >/dev/null 2>&1; then
 fi
 
 if command -v codex >/dev/null 2>&1; then
-    codex_result="$(
-        codex execpolicy check \
-            --rules "$CODEX_RULES_PORTABLE" \
-            -- git reset --hard HEAD~1 2>/dev/null
-    )"
-    grep -Eq '"decision"[[:space:]]*:[[:space:]]*"prompt"' <<<"$codex_result"
+    assert_codex_decision() {
+        expected=$1
+        shift
+        codex_result="$(
+            codex execpolicy check \
+                --rules "$CODEX_RULES_PORTABLE" \
+                -- "$@" 2>/dev/null
+        )"
+        grep -Eq \
+            '"decision"[[:space:]]*:[[:space:]]*"'"$expected"'"' \
+            <<<"$codex_result"
+    }
+
+    assert_codex_no_decision() {
+        codex_result="$(
+            codex execpolicy check \
+                --rules "$CODEX_RULES_PORTABLE" \
+                -- "$@" 2>/dev/null
+        )"
+        grep -Eq '"matchedRules"[[:space:]]*:[[:space:]]*\[\]' <<<"$codex_result"
+        ! grep -Eq '"decision"[[:space:]]*:' <<<"$codex_result"
+    }
+
+    assert_codex_no_decision rm artifact.txt
+    assert_codex_no_decision rm -f artifact.txt
+    assert_codex_no_decision rmdir empty-directory
+    assert_codex_no_decision mv source.txt destination.txt
+    assert_codex_no_decision git reset --soft HEAD~1
+    assert_codex_decision prompt git reset --hard HEAD~1
+    assert_codex_decision prompt git clean -fd
+    assert_codex_decision prompt rm -rf build
+    assert_codex_decision prompt rm -f -r build
+    assert_codex_decision prompt Remove-Item -Recurse build
+    assert_codex_decision prompt rd /s build
+    assert_codex_decision prompt shred secret.txt
+    assert_codex_decision prompt dd if=image.raw of=device.img
+    assert_codex_decision prompt mkfs /dev/example
+    assert_codex_decision prompt sudo apt-get update
 fi
 
 echo "ai-config-sync=PASS"

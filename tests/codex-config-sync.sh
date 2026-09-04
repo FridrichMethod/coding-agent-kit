@@ -46,6 +46,7 @@ cat >"$TEST_TMP/portable.toml" <<'TOML'
 model = "source-only-runtime"
 model_reasoning_effort = "high"
 personality = "pragmatic"
+default_permissions = "workspace-net"
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
@@ -56,10 +57,25 @@ network_access = true
 source_only = "drop-me"
 
 [features]
+network_proxy = true
 memories = true
 multi_agent = true
 js_repl = true
 source_only = "drop-me"
+
+[permissions.workspace-net]
+description = "Workspace editing with unrestricted public network access."
+extends = ":workspace"
+source_only = "drop-me"
+
+[permissions.workspace-net.network]
+enabled = true
+allow_local_binding = false
+source_only = "drop-me"
+
+[permissions.workspace-net.network.domains]
+"*" = "allow"
+"source-only.example.com" = "deny"
 
 [memories]
 use_memories = true
@@ -73,6 +89,7 @@ TOML
 cat >"$TEST_TMP/live.toml" <<'TOML'
 model_reasoning_effort = "low"
 personality = "friendly"
+default_permissions = ":read-only"
 sandbox_mode = "read-only"
 approval_policy = "never"
 approvals_reviewer = "manual"
@@ -84,7 +101,25 @@ runtime_flag = true
 network_access = false
 writable_roots = ["/machine-only/project"]
 
+[permissions.machine_local]
+extends = ":workspace"
+
+[permissions.workspace-net]
+description = "live description"
+extends = ":read-only"
+runtime_profile = "keep-me"
+
+[permissions.workspace-net.network]
+enabled = false
+allow_local_binding = true
+runtime_network = "keep-me"
+
+[permissions.workspace-net.network.domains]
+"*" = "deny"
+"private.example.com" = "deny"
+
 [features]
+network_proxy = false
 multi_agent = false
 memories = false
 js_repl = true
@@ -108,17 +143,26 @@ chmod 600 "$TEST_TMP/portable.toml"
 cat >"$TEST_TMP/expected-portable.toml" <<'TOML'
 model_reasoning_effort = "high"
 personality = "pragmatic"
-sandbox_mode = "workspace-write"
+default_permissions = "workspace-net"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 project_doc_fallback_filenames = ["CLAUDE.md"]
 
-[sandbox_workspace_write]
-network_access = true
-
 [features]
+network_proxy = true
 multi_agent = true
 memories = true
+
+[permissions.workspace-net]
+description = "Workspace editing with unrestricted public network access."
+extends = ":workspace"
+
+[permissions.workspace-net.network]
+enabled = true
+allow_local_binding = false
+
+[permissions.workspace-net.network.domains]
+"*" = "allow"
 
 [memories]
 generate_memories = true
@@ -128,26 +172,40 @@ TOML
 cat >"$TEST_TMP/expected-live.toml" <<'TOML'
 model_reasoning_effort = "high"
 personality = "pragmatic"
-sandbox_mode = "workspace-write"
+default_permissions = "workspace-net"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 project_doc_fallback_filenames = ["CLAUDE.md"]
 model = "machine-local-model"
 runtime_flag = true
 
-[sandbox_workspace_write]
-network_access = true
-writable_roots = ["/machine-only/project"]
-
 [features]
+network_proxy = true
 multi_agent = true
 memories = true
 runtime_feature = "keep-me"
+
+[permissions.workspace-net]
+description = "Workspace editing with unrestricted public network access."
+extends = ":workspace"
+runtime_profile = "keep-me"
+
+[permissions.workspace-net.network]
+enabled = true
+allow_local_binding = false
+runtime_network = "keep-me"
+
+[permissions.workspace-net.network.domains]
+"*" = "allow"
+"private.example.com" = "deny"
 
 [memories]
 generate_memories = true
 use_memories = true
 retention_days = 30
+
+[permissions.machine_local]
+extends = ":workspace"
 
 [projects."/machine-only/project"]
 trust_level = "trusted"
@@ -200,6 +258,42 @@ cmp -s "$TEST_TMP/symlink/portable.toml" "$TEST_TMP/symlink/live.toml"
 cat >"$TEST_TMP/incomplete.toml" <<'TOML'
 model_reasoning_effort = "high"
 personality = "pragmatic"
+default_permissions = "workspace-net"
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+[features]
+network_proxy = true
+multi_agent = true
+memories = true
+
+[permissions.workspace-net]
+description = "Workspace editing with unrestricted public network access."
+extends = ":workspace"
+
+[permissions.workspace-net.network]
+enabled = true
+allow_local_binding = false
+
+[permissions.workspace-net.network.domains]
+"*" = "allow"
+
+[memories]
+generate_memories = true
+TOML
+printf '%s\n' 'live-sentinel = true' >"$TEST_TMP/failure-live.toml"
+incomplete_hash="$(hash_file "$TEST_TMP/incomplete.toml")"
+failure_live_hash="$(hash_file "$TEST_TMP/failure-live.toml")"
+assert_status 1 "$SYNC" "$TEST_TMP/incomplete.toml" "$TEST_TMP/failure-live.toml"
+[[ "$incomplete_hash" == "$(hash_file "$TEST_TMP/incomplete.toml")" ]]
+[[ "$failure_live_hash" == "$(hash_file "$TEST_TMP/failure-live.toml")" ]]
+
+# A legacy-only baseline must fail closed instead of silently retaining an old
+# sandbox_mode that would bypass the selected permission profile.
+cat >"$TEST_TMP/legacy-only.toml" <<'TOML'
+model_reasoning_effort = "high"
+personality = "pragmatic"
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
@@ -214,12 +308,11 @@ memories = true
 
 [memories]
 generate_memories = true
+use_memories = true
 TOML
-printf '%s\n' 'live-sentinel = true' >"$TEST_TMP/failure-live.toml"
-incomplete_hash="$(hash_file "$TEST_TMP/incomplete.toml")"
-failure_live_hash="$(hash_file "$TEST_TMP/failure-live.toml")"
-assert_status 1 "$SYNC" "$TEST_TMP/incomplete.toml" "$TEST_TMP/failure-live.toml"
-[[ "$incomplete_hash" == "$(hash_file "$TEST_TMP/incomplete.toml")" ]]
+legacy_hash="$(hash_file "$TEST_TMP/legacy-only.toml")"
+assert_status 1 "$SYNC" "$TEST_TMP/legacy-only.toml" "$TEST_TMP/failure-live.toml"
+[[ "$legacy_hash" == "$(hash_file "$TEST_TMP/legacy-only.toml")" ]]
 [[ "$failure_live_hash" == "$(hash_file "$TEST_TMP/failure-live.toml")" ]]
 
 assert_status 1 "$SYNC" "$TEST_TMP/missing.toml" "$TEST_TMP/failure-live.toml"
