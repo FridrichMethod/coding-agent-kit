@@ -68,7 +68,7 @@ BEGIN {
     key = line
     sub(/[[:space:]]*=.*$/, "", key)
 
-    if (section == "" && (key == "model_reasoning_effort" || key == "personality" || key == "default_permissions" || key == "approval_policy" || key == "approvals_reviewer" || key == "project_doc_fallback_filenames")) {
+    if (section == "" && (key == "model" || key == "model_reasoning_effort" || key == "personality" || key == "default_permissions" || key == "approval_policy" || key == "approvals_reviewer" || key == "project_doc_fallback_filenames")) {
         keep(section, key, line)
     } else if (section == "features" && (key == "network_proxy" || key == "multi_agent" || key == "memories")) {
         keep(section, key, line)
@@ -84,6 +84,7 @@ BEGIN {
 }
 
 END {
+    require_key("", "model")
     require_key("", "model_reasoning_effort")
     require_key("", "personality")
     require_key("", "default_permissions")
@@ -105,6 +106,7 @@ END {
         exit 1
     }
 
+    print values[SUBSEP "model"]
     print values[SUBSEP "model_reasoning_effort"]
     print values[SUBSEP "personality"]
     print values[SUBSEP "default_permissions"]
@@ -161,7 +163,7 @@ function is_portable_key(section_name, key_name) {
     if (section_name == "") {
         # sandbox_mode is a retired compatibility key. Treat it as owned so
         # stale live values are removed instead of shadowing the profile.
-        return key_name == "model_reasoning_effort" || key_name == "personality" || key_name == "default_permissions" || key_name == "sandbox_mode" || key_name == "approval_policy" || key_name == "approvals_reviewer" || key_name == "project_doc_fallback_filenames"
+        return key_name == "model" || key_name == "model_reasoning_effort" || key_name == "personality" || key_name == "default_permissions" || key_name == "sandbox_mode" || key_name == "approval_policy" || key_name == "approvals_reviewer" || key_name == "project_doc_fallback_filenames"
     }
     if (section_name == "features") {
         # js_repl is a removed compatibility flag. Treat it as owned so stale
@@ -237,7 +239,7 @@ NR == FNR {
     }
 
     if (line ~ /^\[\[[^][]+\]\]$/) {
-        live_section = ""
+        live_section = line
         block = ++block_count
         block_header[block] = line
         next
@@ -272,6 +274,7 @@ NR == FNR {
 }
 
 END {
+    print portable[SUBSEP "model"]
     print portable[SUBSEP "model_reasoning_effort"]
     print portable[SUBSEP "personality"]
     print portable[SUBSEP "default_permissions"]

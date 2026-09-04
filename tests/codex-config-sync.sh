@@ -43,8 +43,8 @@ assert_status() {
 
 cat >"$TEST_TMP/portable.toml" <<'TOML'
 # Runtime state left by an older symlink layout must not stay in the baseline.
-model = "source-only-runtime"
-model_reasoning_effort = "high"
+model = "gpt-6-astra"
+model_reasoning_effort = "xhigh"
 personality = "pragmatic"
 default_permissions = "workspace-net"
 sandbox_mode = "workspace-write"
@@ -133,15 +133,21 @@ retention_days = 30
 [projects."/machine-only/project"]
 trust_level = "trusted"
 
+[profiles.custom]
+model = "profile-specific-model"
+model_reasoning_effort = "low"
+
 [[mcp_servers.demo.tools]]
 name = "runtime-tool"
+model = "tool-specific-model"
 TOML
 
 chmod 600 "$TEST_TMP/portable.toml"
 "$SYNC" "$TEST_TMP/portable.toml" "$TEST_TMP/live.toml" >/dev/null
 
 cat >"$TEST_TMP/expected-portable.toml" <<'TOML'
-model_reasoning_effort = "high"
+model = "gpt-6-astra"
+model_reasoning_effort = "xhigh"
 personality = "pragmatic"
 default_permissions = "workspace-net"
 approval_policy = "on-request"
@@ -170,13 +176,13 @@ use_memories = true
 TOML
 
 cat >"$TEST_TMP/expected-live.toml" <<'TOML'
-model_reasoning_effort = "high"
+model = "gpt-6-astra"
+model_reasoning_effort = "xhigh"
 personality = "pragmatic"
 default_permissions = "workspace-net"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 project_doc_fallback_filenames = ["CLAUDE.md"]
-model = "machine-local-model"
 runtime_flag = true
 
 [features]
@@ -210,8 +216,13 @@ extends = ":workspace"
 [projects."/machine-only/project"]
 trust_level = "trusted"
 
+[profiles.custom]
+model = "profile-specific-model"
+model_reasoning_effort = "low"
+
 [[mcp_servers.demo.tools]]
 name = "runtime-tool"
+model = "tool-specific-model"
 TOML
 
 cmp -s "$TEST_TMP/expected-portable.toml" "$TEST_TMP/portable.toml"
@@ -256,6 +267,7 @@ cmp -s "$TEST_TMP/symlink/portable.toml" "$TEST_TMP/symlink/live.toml"
 
 # Validation failures are fail-closed for both the portable source and live file.
 cat >"$TEST_TMP/incomplete.toml" <<'TOML'
+model = "gpt-6-astra"
 model_reasoning_effort = "high"
 personality = "pragmatic"
 default_permissions = "workspace-net"
@@ -289,9 +301,17 @@ assert_status 1 "$SYNC" "$TEST_TMP/incomplete.toml" "$TEST_TMP/failure-live.toml
 [[ "$incomplete_hash" == "$(hash_file "$TEST_TMP/incomplete.toml")" ]]
 [[ "$failure_live_hash" == "$(hash_file "$TEST_TMP/failure-live.toml")" ]]
 
+# A missing default model must also leave both files unchanged.
+sed '/^model = /d' "$TEST_TMP/portable.toml" >"$TEST_TMP/missing-model.toml"
+missing_model_hash="$(hash_file "$TEST_TMP/missing-model.toml")"
+assert_status 1 "$SYNC" "$TEST_TMP/missing-model.toml" "$TEST_TMP/failure-live.toml"
+[[ "$missing_model_hash" == "$(hash_file "$TEST_TMP/missing-model.toml")" ]]
+[[ "$failure_live_hash" == "$(hash_file "$TEST_TMP/failure-live.toml")" ]]
+
 # A legacy-only baseline must fail closed instead of silently retaining an old
 # sandbox_mode that would bypass the selected permission profile.
 cat >"$TEST_TMP/legacy-only.toml" <<'TOML'
+model = "gpt-6-astra"
 model_reasoning_effort = "high"
 personality = "pragmatic"
 sandbox_mode = "workspace-write"
