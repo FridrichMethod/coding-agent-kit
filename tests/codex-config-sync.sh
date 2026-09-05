@@ -4,6 +4,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SYNC="$REPO_ROOT/common/codex/.local/bin/codex-config-sync"
+SYNC_PYTHON=${DOTFILES_SYNC_PYTHON:-$REPO_ROOT/.venv-sync/bin/python}
 TEST_TMP="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-codex-sync.XXXXXX")"
 trap 'rm -rf "$TEST_TMP"' EXIT HUP INT TERM
 
@@ -23,6 +24,19 @@ import sys
 actual = os.stat(sys.argv[1]).st_mode & 0o777
 expected = int(sys.argv[2], 8)
 assert actual == expected, f"{sys.argv[1]}: mode {actual:o}, expected {expected:o}"
+PY
+}
+
+assert_toml_equal() {
+    "$SYNC_PYTHON" - "$1" "$2" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as handle:
+    expected = tomllib.load(handle)
+with open(sys.argv[2], "rb") as handle:
+    actual = tomllib.load(handle)
+assert actual == expected, (actual, expected)
 PY
 }
 
@@ -146,7 +160,10 @@ model = "tool-specific-model"
 TOML
 
 chmod 600 "$TEST_TMP/portable.toml"
+cp "$TEST_TMP/portable.toml" "$TEST_TMP/portable-before.toml"
 "$SYNC" "$TEST_TMP/portable.toml" "$TEST_TMP/live.toml" >/dev/null
+cmp -s "$TEST_TMP/portable-before.toml" "$TEST_TMP/portable.toml"
+assert_mode "$TEST_TMP/portable.toml" 600
 
 cat >"$TEST_TMP/expected-portable.toml" <<'TOML'
 model = "gpt-6-astra"
@@ -231,8 +248,31 @@ name = "runtime-tool"
 model = "tool-specific-model"
 TOML
 
-cmp -s "$TEST_TMP/expected-portable.toml" "$TEST_TMP/portable.toml"
-cmp -s "$TEST_TMP/expected-live.toml" "$TEST_TMP/live.toml"
+assert_toml_equal "$TEST_TMP/expected-live.toml" "$TEST_TMP/live.toml"
+
+# Cleaning polluted tracked input is an explicit migration, never a side
+# effect of regular sync or preflight. Its live-only state remains materialized.
+"$SYNC" --migrate-portable "$TEST_TMP/portable.toml" "$TEST_TMP/live.toml" >/dev/null
+assert_toml_equal "$TEST_TMP/expected-portable.toml" "$TEST_TMP/portable.toml"
+"$SYNC_PYTHON" - "$TEST_TMP/expected-live.toml" "$TEST_TMP/live.toml" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as handle:
+    expected = tomllib.load(handle)
+with open(sys.argv[2], "rb") as handle:
+    live = tomllib.load(handle)
+
+# Explicit migration retains the source-only runtime state before removing
+# it from the tracked baseline. Current live values win any runtime conflicts.
+expected["source_only"] = {"drop": True}
+for table in (expected["features"], expected["memories"],
+              expected["permissions"]["workspace-net"],
+              expected["permissions"]["workspace-net"]["network"]):
+    table["source_only"] = "drop-me"
+expected["permissions"]["workspace-net"]["network"]["domains"]["source-only.example.com"] = "deny"
+assert live == expected, (live, expected)
+PY
 
 assert_mode "$TEST_TMP/portable.toml" 644
 assert_mode "$TEST_TMP/live.toml" 600

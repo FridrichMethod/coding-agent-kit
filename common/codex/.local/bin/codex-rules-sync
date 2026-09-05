@@ -1,46 +1,31 @@
 #!/bin/sh
-#
-# codex-rules-sync PORTABLE_RULES LIVE_RULES
-#
-# Materialize the reviewed cross-host exec-policy rules alongside Codex's
-# mutable, machine-local default.rules. The portable file is authoritative;
-# every other file in the live rules directory is left untouched.
-
+# codex-rules-sync [--check] PORTABLE LIVE
+# Resolve Stow links without GNU readlink -f; paths may contain spaces.
 set -eu
 
-if [ "$#" -ne 2 ]; then
-    echo "usage: codex-rules-sync PORTABLE_RULES LIVE_RULES" >&2
-    exit 2
-fi
-
-portable=$1
-live=$2
-
-if [ ! -s "$portable" ]; then
-    echo "codex-rules-sync: missing or empty portable rules: $portable" >&2
-    exit 1
-fi
-
-live_dir=$(dirname "$live")
-mkdir -p "$live_dir"
-
-tmp=$(mktemp "$live_dir/.codex-rules.XXXXXX")
-trap 'rm -f "$tmp"' EXIT HUP INT TERM
-
-cp "$portable" "$tmp"
-chmod 644 "$tmp"
-
-# A matching legacy Stow symlink is still not a valid materialized live file:
-# Codex could otherwise write through it and dirty the tracked baseline.
-if [ -L "$live" ]; then
-    rm -f "$live"
-fi
-
-if [ -f "$live" ] && cmp -s "$tmp" "$live"; then
-    rm -f "$tmp"
-else
-    mv -f "$tmp" "$live"
-fi
-
-trap - EXIT HUP INT TERM
-echo "Synchronized portable Codex rules into $live"
+sync_script=$0
+case "$sync_script" in
+    */*) ;;
+    *) sync_script=$(command -v "$sync_script") ;;
+esac
+sync_links=0
+while [ -L "$sync_script" ]; do
+    sync_links=$((sync_links + 1))
+    if [ "$sync_links" -gt 40 ]; then
+        echo "codex-rules-sync: wrapper symlink loop" >&2
+        exit 1
+    fi
+    sync_dir=$(CDPATH='' cd -P -- "$(dirname -- "$sync_script")" && pwd)
+    sync_link=$(readlink "$sync_script")
+    if command -v cygpath >/dev/null 2>&1; then
+        sync_link=$(cygpath -u "$sync_link")
+    fi
+    case "$sync_link" in
+        /*) sync_script=$sync_link ;;
+        *) sync_script=$sync_dir/$sync_link ;;
+    esac
+done
+sync_root=$(CDPATH='' cd -P -- "$(dirname -- "$sync_script")/../../../.." && pwd)
+sync_kind=codex-rules-sync
+# shellcheck source=lib/sync-runtime.sh
+. "$sync_root/lib/sync-runtime.sh"

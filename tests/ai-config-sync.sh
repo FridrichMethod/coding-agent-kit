@@ -113,6 +113,23 @@ assert not any(
 PY
 }
 
+# Preflight validates a complete candidate without creating an absent target
+# parent, materializing a file, or touching either portable source.
+claude_source_before="$(hash_file "$CLAUDE_PORTABLE")"
+rules_source_before="$(hash_file "$CODEX_RULES_PORTABLE")"
+"$CLAUDE_SYNC" --check "$CLAUDE_PORTABLE" "$TEST_TMP/check-only/claude/settings.json" >/dev/null
+"$CODEX_RULES_SYNC" --check "$CODEX_RULES_PORTABLE" "$TEST_TMP/check-only/codex/portable.rules" >/dev/null
+[[ ! -e "$TEST_TMP/check-only" ]]
+[[ "$claude_source_before" == "$(hash_file "$CLAUDE_PORTABLE")" ]]
+[[ "$rules_source_before" == "$(hash_file "$CODEX_RULES_PORTABLE")" ]]
+
+# Explicit source migration belongs only to Codex TOML, not JSON or rules.
+if "$CLAUDE_SYNC" --migrate-portable "$CLAUDE_PORTABLE" "$TEST_TMP/check-only/settings.json" >/dev/null 2>&1; then
+    echo "ERROR: Claude unexpectedly accepted Codex-only migration" >&2
+    exit 1
+fi
+[[ ! -e "$TEST_TMP/check-only" ]]
+
 cat >"$TEST_TMP/claude-live.json" <<'JSON'
 {
   "permissions": {

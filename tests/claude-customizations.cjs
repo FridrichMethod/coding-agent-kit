@@ -6,6 +6,17 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { test } = require('node:test');
+
+// Git exports repository overrides while running commit hooks. Isolate this
+// test process before calling the in-process gitBranch helper as well as any
+// fixture subprocess: otherwise git -C can still target the caller's checkout.
+for (const key of Object.keys(process.env)) {
+  if (key.startsWith('GIT_')) delete process.env[key];
+}
+process.env.GIT_CONFIG_GLOBAL = os.devNull;
+process.env.GIT_CONFIG_NOSYSTEM = '1';
+process.env.GIT_TEMPLATE_DIR = '';
+
 const scripts = path.resolve(__dirname, '../common/claude/.claude/dotfiles');
 const { formatStatus, gitBranch } = require(path.join(scripts, 'statusline.cjs'));
 const { notification } = require(path.join(scripts, 'notify.cjs'));
