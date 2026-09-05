@@ -13,6 +13,11 @@
 # machine-specific permissions.additionalDirectories (absolute project paths)
 # and any runtime state Claude Code adds. The portable permissions.allow and
 # permissions.ask arrays are authoritative and replace ad-hoc live arrays.
+# permissions.defaultMode also follows the portable baseline; model selection
+# stays machine-local because the baseline does not declare a model.
+# Empty portable hook arrays clear the old user-level ECC copies; the enabled
+# plugin registers its own hooks separately. Helpers under ~/.claude/dotfiles/
+# are ordinary Stow files, not part of this JSON merge.
 #
 # Fail closed: a missing or malformed portable baseline, an unparseable live
 # file, or the absence of a JSON engine leaves the live file untouched.

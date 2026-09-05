@@ -79,6 +79,17 @@ expected_allow = {
 }
 
 assert set(portable["permissions"]["allow"]) == expected_allow
+assert live["permissions"]["defaultMode"] == "auto"
+assert live["autoMode"]["classifyAllShell"] is True
+assert live["autoMode"]["environment"] == ["machine-only context"]
+assert live["effortLevel"] == "xhigh"
+assert live["statusLine"] == portable["statusLine"]
+assert live["hooks"]["PreToolUse"] == portable["hooks"]["PreToolUse"]
+assert live["hooks"]["Notification"] == portable["hooks"]["Notification"]
+assert live["hooks"]["SessionStart"] == []
+assert live["hooks"]["Stop"] == []
+assert live["hooks"]["SessionEnd"] == []
+assert live["hooks"]["PostToolUse"] == []
 assert live["permissions"]["allow"] == portable["permissions"]["allow"]
 assert live["permissions"]["ask"] == portable["permissions"]["ask"]
 assert live["permissions"]["additionalDirectories"] == ["/machine-only/project"]
@@ -105,11 +116,22 @@ PY
 cat >"$TEST_TMP/claude-live.json" <<'JSON'
 {
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": ["Bash(local-only *)"],
     "ask": ["Bash(old-policy *)"],
     "additionalDirectories": ["/machine-only/project"]
   },
   "runtimeOnly": {"keep": true},
+  "autoMode": {"classifyAllShell": false, "environment": ["machine-only context"]},
+  "effortLevel": "medium",
+  "statusLine": {"type": "command", "command": "old-status-line"},
+  "hooks": {
+    "PreToolUse": [{"hooks": [{"type": "command", "command": "npx old-guard"}]}],
+    "SessionStart": [{"hooks": [{"type": "command", "command": "old-plugin-copy"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "old-plugin-copy"}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "old-plugin-copy"}]}],
+    "PostToolUse": []
+  },
   "model": "machine-local-model"
 }
 JSON
@@ -335,6 +357,9 @@ if command -v stow >/dev/null 2>&1; then
     grep -Fxq 'codex-live-sentinel' "$STOW_TARGET/.codex/config.toml"
     grep -Fxq 'rules-live-sentinel' "$STOW_TARGET/.codex/rules/portable.rules"
     [[ -L "$STOW_TARGET/.claude/CLAUDE.md" ]]
+    [[ -L "$STOW_TARGET/.claude/dotfiles/statusline.cjs" ]]
+    [[ -L "$STOW_TARGET/.claude/dotfiles/notify.cjs" ]]
+    [[ -L "$STOW_TARGET/.claude/dotfiles/check-git-hooks.cjs" ]]
     [[ -L "$STOW_TARGET/.codex/AGENTS.md" ]]
 fi
 
