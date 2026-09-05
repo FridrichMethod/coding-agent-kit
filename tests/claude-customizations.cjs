@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { test } = require('node:test');
+const { after, test } = require('node:test');
 
 // Git exports repository overrides while running commit hooks. Isolate this
 // test process before calling the in-process gitBranch helper as well as any
@@ -13,9 +13,15 @@ const { test } = require('node:test');
 for (const key of Object.keys(process.env)) {
   if (key.startsWith('GIT_')) delete process.env[key];
 }
-process.env.GIT_CONFIG_GLOBAL = os.devNull;
+// Git for Windows rejects Node's device path (\\.\nul) as a config file.
+// A regular empty file and directory work consistently on every platform.
+const gitEnvironment = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-git-env-'));
+after(() => fs.rmSync(gitEnvironment, { recursive: true, force: true }));
+process.env.GIT_CONFIG_GLOBAL = path.join(gitEnvironment, 'empty.gitconfig');
+fs.writeFileSync(process.env.GIT_CONFIG_GLOBAL, '');
 process.env.GIT_CONFIG_NOSYSTEM = '1';
-process.env.GIT_TEMPLATE_DIR = '';
+process.env.GIT_TEMPLATE_DIR = path.join(gitEnvironment, 'empty-template');
+fs.mkdirSync(process.env.GIT_TEMPLATE_DIR);
 
 const scripts = path.resolve(__dirname, '../common/claude/.claude/dotfiles');
 const { formatStatus, gitBranch } = require(path.join(scripts, 'statusline.cjs'));
@@ -30,6 +36,13 @@ function run(script, input) {
     timeout: 5000,
   });
 }
+
+test('Git fixtures use ordinary empty config and template paths', () => {
+  assert.ok(fs.lstatSync(process.env.GIT_CONFIG_GLOBAL).isFile());
+  assert.equal(fs.readFileSync(process.env.GIT_CONFIG_GLOBAL, 'utf8'), '');
+  assert.ok(fs.lstatSync(process.env.GIT_TEMPLATE_DIR).isDirectory());
+  assert.deepEqual(fs.readdirSync(process.env.GIT_TEMPLATE_DIR), []);
+});
 
 test('status line handles real values, absent data and zero without inventing usage', () => {
   assert.equal(formatStatus({
