@@ -45,6 +45,7 @@ cat >"$TEST_TMP/portable.toml" <<'TOML'
 # Runtime state left by an older symlink layout must not stay in the baseline.
 model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
+plan_mode_reasoning_effort = "xhigh"
 personality = "pragmatic"
 default_permissions = "workspace-net"
 sandbox_mode = "workspace-write"
@@ -88,6 +89,7 @@ TOML
 
 cat >"$TEST_TMP/live.toml" <<'TOML'
 model_reasoning_effort = "low"
+plan_mode_reasoning_effort = "medium"
 personality = "friendly"
 default_permissions = ":read-only"
 sandbox_mode = "read-only"
@@ -136,6 +138,7 @@ trust_level = "trusted"
 [profiles.custom]
 model = "profile-specific-model"
 model_reasoning_effort = "low"
+plan_mode_reasoning_effort = "low"
 
 [[mcp_servers.demo.tools]]
 name = "runtime-tool"
@@ -148,6 +151,7 @@ chmod 600 "$TEST_TMP/portable.toml"
 cat >"$TEST_TMP/expected-portable.toml" <<'TOML'
 model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
+plan_mode_reasoning_effort = "xhigh"
 personality = "pragmatic"
 default_permissions = "workspace-net"
 approval_policy = "on-request"
@@ -178,6 +182,7 @@ TOML
 cat >"$TEST_TMP/expected-live.toml" <<'TOML'
 model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
+plan_mode_reasoning_effort = "xhigh"
 personality = "pragmatic"
 default_permissions = "workspace-net"
 approval_policy = "on-request"
@@ -219,6 +224,7 @@ trust_level = "trusted"
 [profiles.custom]
 model = "profile-specific-model"
 model_reasoning_effort = "low"
+plan_mode_reasoning_effort = "low"
 
 [[mcp_servers.demo.tools]]
 name = "runtime-tool"
@@ -269,6 +275,7 @@ cmp -s "$TEST_TMP/symlink/portable.toml" "$TEST_TMP/symlink/live.toml"
 cat >"$TEST_TMP/incomplete.toml" <<'TOML'
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
 personality = "pragmatic"
 default_permissions = "workspace-net"
 approval_policy = "on-request"
@@ -301,18 +308,21 @@ assert_status 1 "$SYNC" "$TEST_TMP/incomplete.toml" "$TEST_TMP/failure-live.toml
 [[ "$incomplete_hash" == "$(hash_file "$TEST_TMP/incomplete.toml")" ]]
 [[ "$failure_live_hash" == "$(hash_file "$TEST_TMP/failure-live.toml")" ]]
 
-# A missing default model must also leave both files unchanged.
-sed '/^model = /d' "$TEST_TMP/portable.toml" >"$TEST_TMP/missing-model.toml"
-missing_model_hash="$(hash_file "$TEST_TMP/missing-model.toml")"
-assert_status 1 "$SYNC" "$TEST_TMP/missing-model.toml" "$TEST_TMP/failure-live.toml"
-[[ "$missing_model_hash" == "$(hash_file "$TEST_TMP/missing-model.toml")" ]]
-[[ "$failure_live_hash" == "$(hash_file "$TEST_TMP/failure-live.toml")" ]]
+# Missing model or Plan-mode defaults must also leave both files unchanged.
+for key in model plan_mode_reasoning_effort; do
+    sed "/^$key = /d" "$TEST_TMP/portable.toml" >"$TEST_TMP/missing-key.toml"
+    missing_key_hash="$(hash_file "$TEST_TMP/missing-key.toml")"
+    assert_status 1 "$SYNC" "$TEST_TMP/missing-key.toml" "$TEST_TMP/failure-live.toml"
+    [[ "$missing_key_hash" == "$(hash_file "$TEST_TMP/missing-key.toml")" ]]
+    [[ "$failure_live_hash" == "$(hash_file "$TEST_TMP/failure-live.toml")" ]]
+done
 
 # A legacy-only baseline must fail closed instead of silently retaining an old
 # sandbox_mode that would bypass the selected permission profile.
 cat >"$TEST_TMP/legacy-only.toml" <<'TOML'
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
 personality = "pragmatic"
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
