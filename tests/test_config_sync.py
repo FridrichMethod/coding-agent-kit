@@ -210,7 +210,8 @@ class FilesystemTests(unittest.TestCase):
         candidates.append(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe")
         bash = next((path for path in candidates if path.is_file()), None)
         self.assertIsNotNone(bash, "Git Bash is required for Windows wrapper tests")
-        return [str(bash), "--noprofile", "--norc", str(wrapper), *map(str, arguments)]
+        return [str(bash), "--noprofile", "--norc", Path(wrapper).as_posix(),
+                *(str(value).replace("\\", "/") for value in arguments)]
 
     def test_fresh_parent_and_source_immutable(self):
         before = self.portable.stat()
