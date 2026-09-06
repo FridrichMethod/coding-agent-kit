@@ -48,9 +48,11 @@ class SyncError(ValueError):
     """An unsafe or invalid synchronization request."""
 
 
-def require_runtime():
+def require_runtime(*, toml=True):
     if sys.version_info < (3, 11):
         raise SyncError("Python 3.11 or newer is required; run setup-sync explicitly")
+    if not toml:
+        return
     try:
         installed = importlib.metadata.version("tomlkit")
     except importlib.metadata.PackageNotFoundError as exc:
@@ -278,9 +280,10 @@ def synchronize(kind: str, portable: Path, live: Path, *, check=False, migrate=F
 
 def main(argv=None):
     arguments = list(sys.argv[1:] if argv is None else argv)
+    args = None
     try:
-        require_runtime()
         if arguments == ["--runtime-check"]:
+            require_runtime()
             print(f"config-sync runtime: Python {sys.version.split()[0]}, tomlkit {TOMLKIT_VERSION}")
             return 0
         parser = argparse.ArgumentParser(description=__doc__)
@@ -294,6 +297,7 @@ def main(argv=None):
         args = parser.parse_args(arguments)
         if args.migrate_portable and args.kind != "codex-config-sync":
             parser.error("--migrate-portable is only supported by codex-config-sync")
+        require_runtime(toml=args.kind == "codex-config-sync")
         synchronize(args.kind, args.portable, args.live, check=args.check, migrate=args.migrate_portable)
         if not args.quiet:
             label = {
@@ -309,6 +313,8 @@ def main(argv=None):
     except Exception as exc:
         # tomlkit's parser errors do not all inherit ValueError. Keep malformed
         # input fail-closed and report its diagnostic without a traceback.
+        if args is None or args.kind != "codex-config-sync":
+            raise
         from tomlkit.exceptions import TOMLKitError
 
         if isinstance(exc, TOMLKitError):

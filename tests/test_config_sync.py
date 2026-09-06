@@ -1,6 +1,7 @@
 """Native, isolated config-backend tests; run with the provisioned interpreter."""
 
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+import venv
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("config_sync", ROOT / "lib/config_sync.py")
@@ -598,6 +600,90 @@ class FilesystemTests(unittest.TestCase):
                 with mock.patch.object(sync.importlib.metadata, "version", return_value=installed, side_effect=effect):
                     with self.assertRaisesRegex(sync.SyncError, "setup-sync"):
                         sync.require_runtime()
+
+    def test_cli_tomlkit_requirement_applies_only_to_codex_and_full_runtime_check(self):
+        for installed in ("0.0.0", None):
+            effect = sync.importlib.metadata.PackageNotFoundError("tomlkit") if installed is None else None
+            for kind, portable in (("codex-config-sync", CODEX),
+                                   ("claude-settings-sync", CLAUDE),
+                                   ("codex-rules-sync", b"# rules\n")):
+                self.portable.write_bytes(portable)
+                for check in (False, True):
+                    with self.subTest(installed=installed, kind=kind, check=check):
+                        self.live.unlink(missing_ok=True)
+                        with mock.patch.object(sync.importlib.metadata, "version", return_value=installed,
+                                               side_effect=effect) as version:
+                            with mock.patch.object(sync.sys, "stdout", new_callable=io.StringIO) as stdout:
+                                with mock.patch.object(sync.sys, "stderr", new_callable=io.StringIO) as stderr:
+                                    result = sync.main([kind, "--quiet", *(["--check"] if check else []),
+                                                        str(self.portable), str(self.live)])
+                        self.assertEqual(stdout.getvalue(), "")
+                        if kind == "codex-config-sync":
+                            self.assertEqual(result, 1)
+                            self.assertIn("tomlkit", stderr.getvalue())
+                            self.assertFalse(self.live.exists())
+                            version.assert_called_once_with("tomlkit")
+                        else:
+                            self.assertEqual(result, 0, stderr.getvalue())
+                            self.assertEqual(stderr.getvalue(), "")
+                            self.assertEqual(self.live.exists(), not check)
+                            version.assert_not_called()
+            with self.subTest(installed=installed, kind="--runtime-check"):
+                with mock.patch.object(sync.importlib.metadata, "version", return_value=installed,
+                                       side_effect=effect):
+                    with mock.patch.object(sync.sys, "stderr", new_callable=io.StringIO) as stderr:
+                        self.assertEqual(sync.main(["--runtime-check"]), 1)
+                self.assertIn("tomlkit", stderr.getvalue())
+
+    def test_all_helpers_keep_python_version_floor(self):
+        for kind in ("codex-config-sync", "claude-settings-sync", "codex-rules-sync", "--runtime-check"):
+            with self.subTest(kind=kind):
+                arguments = [kind] if kind == "--runtime-check" else [kind, "--quiet", str(self.portable), str(self.live)]
+                with mock.patch.object(sync.sys, "version_info", (3, 10)):
+                    with mock.patch.object(sync.sys, "stderr", new_callable=io.StringIO) as stderr:
+                        self.assertEqual(sync.main(arguments), 1)
+                self.assertIn("Python 3.11", stderr.getvalue())
+                self.assertFalse(self.live.parent.exists())
+
+    def test_wrappers_accept_explicit_stdlib_only_runtime_except_codex(self):
+        # A fresh venv without pip or site packages is a real no-tomlkit
+        # interpreter on every CI platform, without downloading anything.
+        runtime = self.directory / "stdlib runtime"
+        venv.EnvBuilder(with_pip=False).create(runtime)
+        interpreter = runtime / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        env = dict(os.environ, DOTFILES_SYNC_PYTHON=str(interpreter))
+        for kind, package, portable in (("claude-settings-sync", "claude", CLAUDE),
+                                        ("codex-rules-sync", "codex", b"# rules\n"),
+                                        ("codex-config-sync", "codex", CODEX)):
+            helper = ROOT / "common" / package / ".local/bin" / kind
+            self.portable.write_bytes(portable)
+            for check in (True, False):
+                with self.subTest(kind=kind, check=check):
+                    self.live.unlink(missing_ok=True)
+                    result = subprocess.run(self.wrapper_command(helper, "--quiet",
+                                                                 *(["--check"] if check else []),
+                                                                 self.portable, self.live),
+                                            env=env, capture_output=True, encoding="utf-8", check=False)
+                    self.assertEqual(result.stdout, "")
+                    if kind == "codex-config-sync":
+                        self.assertEqual(result.returncode, 1)
+                        self.assertIn("missing tomlkit", result.stderr)
+                        self.assertFalse(self.live.exists())
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(result.stderr, "")
+                        self.assertEqual(self.live.exists(), not check)
+
+        self.portable.write_bytes(b"{")
+        self.live.unlink(missing_ok=True)
+        helper = ROOT / "common/claude/.local/bin/claude-settings-sync"
+        result = subprocess.run(self.wrapper_command(helper, "--quiet", self.portable, self.live),
+                                env=env, capture_output=True, encoding="utf-8", check=False)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("config-sync:", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse(self.live.exists())
 
 
 if __name__ == "__main__":
