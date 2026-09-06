@@ -274,7 +274,7 @@ expected["permissions"]["workspace-net"]["network"]["domains"]["source-only.exam
 assert live == expected, (live, expected)
 PY
 
-assert_mode "$TEST_TMP/portable.toml" 644
+assert_mode "$TEST_TMP/portable.toml" 600
 assert_mode "$TEST_TMP/live.toml" 600
 
 # A no-op sync must not replace either file.

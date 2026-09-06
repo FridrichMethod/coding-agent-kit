@@ -219,6 +219,13 @@ def read_regular(path: Path, *, missing_ok: bool = False) -> bytes | None:
 
 def atomic_write(path: Path, data: bytes, mode: int, previous: bytes | None):
     """Replace the directory entry, never unlink or write through a live link."""
+    # Defaults are an upper bound, not permission grants. Preserve a regular
+    # file's tighter mode on both no-ops and replacements; symlinks use the
+    # defaults without inheriting or changing their portable target's mode.
+    if os.name != "nt" and previous is not None:
+        existing = path.lstat()
+        if stat.S_ISREG(existing.st_mode):
+            mode &= stat.S_IMODE(existing.st_mode)
     if not path.is_symlink() and previous == data:
         if os.name != "nt" and stat.S_IMODE(path.stat().st_mode) != mode:
             path.chmod(mode)
@@ -281,13 +288,20 @@ def main(argv=None):
         options = parser.add_mutually_exclusive_group()
         options.add_argument("--check", action="store_true", help="validate the complete merge without writing")
         options.add_argument("--migrate-portable", action="store_true", help="explicitly clean an old polluted Codex baseline after preserving its live state")
+        parser.add_argument("--quiet", action="store_true", help="suppress success messages, but always report errors")
         parser.add_argument("portable", type=Path)
         parser.add_argument("live", type=Path)
         args = parser.parse_args(arguments)
         if args.migrate_portable and args.kind != "codex-config-sync":
             parser.error("--migrate-portable is only supported by codex-config-sync")
         synchronize(args.kind, args.portable, args.live, check=args.check, migrate=args.migrate_portable)
-        print(f"{'Validated' if args.check else 'Synchronized'} {args.kind} into {args.live}")
+        if not args.quiet:
+            label = {
+                "codex-config-sync": "portable Codex settings",
+                "claude-settings-sync": "portable Claude settings",
+                "codex-rules-sync": "portable Codex rules",
+            }[args.kind]
+            print(f"{'Validated' if args.check else 'Synchronized'} {label} into {args.live}")
         return 0
     except (OSError, ValueError, ImportError) as exc:
         print(f"config-sync: {exc}", file=sys.stderr)

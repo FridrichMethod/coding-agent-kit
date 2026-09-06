@@ -334,12 +334,69 @@ class FilesystemTests(unittest.TestCase):
 
     @unittest.skipIf(os.name == "nt", "POSIX permission bits")
     def test_unix_permissions(self):
+        for kind, portable, mode in (("codex-config-sync", CODEX, 0o600),
+                                     ("claude-settings-sync", CLAUDE, 0o644),
+                                     ("codex-rules-sync", b"# portable rules\n", 0o644)):
+            with self.subTest(kind=kind):
+                self.portable.write_bytes(portable)
+                self.run_sync(kind=kind)
+                self.assertEqual(stat.S_IMODE(self.live.stat().st_mode), mode)
+                self.live.unlink()
+
+    @unittest.skipIf(os.name == "nt", "POSIX permission bits")
+    def test_existing_permissions_never_widen_on_noop_or_replacement(self):
+        for kind, portable, mode in (("codex-config-sync", CODEX, 0o600),
+                                     ("claude-settings-sync", CLAUDE, 0o644),
+                                     ("codex-rules-sync", b"# portable rules\n", 0o644)):
+            for initial in (0o400, 0o600, 0o640, 0o644, 0o660, 0o755):
+                for changed in (False, True):
+                    with self.subTest(kind=kind, initial=oct(initial), changed=changed):
+                        self.portable.write_bytes(portable)
+                        self.live.unlink(missing_ok=True)
+                        self.run_sync(kind=kind)
+                        if changed:
+                            self.live.write_bytes(b"{}" if kind == "claude-settings-sync" else b"# old content\n")
+                        self.live.chmod(initial)
+                        before = self.live.stat()
+                        self.run_sync(kind=kind)
+                        after = self.live.stat()
+                        self.assertEqual(stat.S_IMODE(after.st_mode), initial & mode)
+                        if not changed:
+                            self.assertEqual((before.st_ino, before.st_mtime_ns),
+                                             (after.st_ino, after.st_mtime_ns))
+                        else:
+                            self.assertNotEqual(self.live.read_bytes(),
+                                                b"{}" if kind == "claude-settings-sync" else b"# old content\n")
+
+    @unittest.skipIf(os.name == "nt", "POSIX permission bits")
+    def test_legacy_symlink_does_not_copy_or_change_source_permissions(self):
+        for kind, portable, mode in (("codex-config-sync", CODEX, 0o600),
+                                     ("claude-settings-sync", CLAUDE, 0o644),
+                                     ("codex-rules-sync", b"# portable rules\n", 0o644)):
+            with self.subTest(kind=kind):
+                self.portable.write_bytes(portable)
+                self.portable.chmod(0o751)
+                before = self.portable.stat()
+                self.live.parent.mkdir(exist_ok=True)
+                self.live.symlink_to(self.portable)
+                self.run_sync(kind=kind)
+                self.assertFalse(self.live.is_symlink())
+                self.assertEqual(stat.S_IMODE(self.live.stat().st_mode), mode)
+                self.assertEqual(self.portable.read_bytes(), portable)
+                after = self.portable.stat()
+                self.assertEqual((before.st_mode, before.st_ino, before.st_mtime_ns),
+                                 (after.st_mode, after.st_ino, after.st_mtime_ns))
+                self.live.unlink()
+
+    @unittest.skipIf(os.name == "nt", "POSIX permission bits")
+    def test_check_does_not_restrict_existing_permissions(self):
         self.run_sync()
-        self.assertEqual(stat.S_IMODE(self.live.stat().st_mode), 0o600)
-        self.portable.write_bytes(CLAUDE)
-        self.live.unlink()
-        self.run_sync(kind="claude-settings-sync")
-        self.assertEqual(stat.S_IMODE(self.live.stat().st_mode), 0o644)
+        self.live.chmod(0o644)
+        before = self.live.stat()
+        self.run_sync(check=True)
+        after = self.live.stat()
+        self.assertEqual((before.st_mode, before.st_ino, before.st_mtime_ns),
+                         (after.st_mode, after.st_ino, after.st_mtime_ns))
 
     @unittest.skipIf(os.name == "nt", "POSIX FIFO")
     def test_fifo_rejected_without_blocking(self):
@@ -372,10 +429,15 @@ class FilesystemTests(unittest.TestCase):
 
     def test_fsync_failure_preserves_regular_file_and_cleans_temp(self):
         self.create_live(b'local="keep"\n')
+        self.live.chmod(0o600)
+        before = self.live.stat()
         with mock.patch.object(sync.os, "fsync", side_effect=OSError("injected write failure")):
             with self.assertRaises(OSError):
                 self.run_sync()
         self.assertEqual(self.live.read_bytes(), b'local="keep"\n')
+        after = self.live.stat()
+        self.assertEqual((before.st_mode, before.st_ino, before.st_mtime_ns),
+                         (after.st_mode, after.st_ino, after.st_mtime_ns))
         self.assertEqual(list(self.live.parent.iterdir()), [self.live])
 
     def test_temp_creation_failure_keeps_legacy_symlink(self):
@@ -433,6 +495,46 @@ class FilesystemTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("配置.toml", result.stdout)
         self.assertFalse(self.live.parent.exists())
+
+    def test_cli_quiet_suppresses_success_and_check_output(self):
+        for kind, portable, label in (("codex-config-sync", CODEX, "portable Codex settings"),
+                                      ("claude-settings-sync", CLAUDE, "portable Claude settings"),
+                                      ("codex-rules-sync", b"# rules\n", "portable Codex rules")):
+            self.portable.write_bytes(portable)
+            for check in (True, False):
+                for quiet in (True, False):
+                    with self.subTest(kind=kind, check=check, quiet=quiet):
+                        self.live.unlink(missing_ok=True)
+                        arguments = (["--check"] if check else []) + (["--quiet"] if quiet else [])
+                        result = subprocess.run([sys.executable, "-I", "-B", "-X", "utf8",
+                                                 str(ROOT / "lib/config_sync.py"), kind, *arguments,
+                                                 str(self.portable), str(self.live)],
+                                                capture_output=True, encoding="utf-8", check=False)
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(result.stderr, "")
+                        if quiet:
+                            self.assertEqual(result.stdout, "")
+                        else:
+                            self.assertIn(f"{'Validated' if check else 'Synchronized'} {label} into", result.stdout)
+                        self.assertEqual(self.live.exists(), not check)
+
+    def test_cli_quiet_never_suppresses_errors(self):
+        for kind, portable in (("codex-config-sync", b"bad = ["),
+                               ("claude-settings-sync", b"{"),
+                               ("codex-rules-sync", b"")):
+            self.portable.write_bytes(portable)
+            for check in (True, False):
+                with self.subTest(kind=kind, check=check):
+                    result = subprocess.run([sys.executable, "-I", "-B", "-X", "utf8",
+                                             str(ROOT / "lib/config_sync.py"), kind, "--quiet",
+                                             *(["--check"] if check else []),
+                                             str(self.portable), str(self.live)],
+                                            capture_output=True, encoding="utf-8", check=False)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn("config-sync:", result.stderr)
+                    self.assertNotIn("Traceback", result.stderr)
+                    self.assertFalse(self.live.parent.exists())
 
     def test_stowed_wrapper_resolves_relative_symlinks_and_spaced_paths(self):
         bin_dir = self.directory / "fake home" / ".local" / "bin"
