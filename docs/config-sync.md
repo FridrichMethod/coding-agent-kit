@@ -8,8 +8,10 @@ TOML parser or alternate jq merge implementation remains.
 
 ## Explicit provisioning
 
-AI sync requires Python 3.11 or newer and the exact pure-Python `tomlkit` version
-and wheel hash in `requirements-sync.txt`. On each checkout/device, run one of:
+All AI helpers require Python 3.11 or newer. Codex TOML sync additionally needs
+the exact pure-Python `tomlkit` version in `requirements-sync.txt`; setup verifies
+its wheel hash. Claude JSON and Codex rules use only Python's standard library.
+To provision the complete installer runtime on each checkout/device, run one of:
 
 ```sh
 ./setup-sync.sh
@@ -30,7 +32,7 @@ refuses an unrelated directory or a linked virtual environment. It does not
 install Python itself; select an already installed supported interpreter.
 
 Profiles, installers, and automatic updates **never** install or download
-dependencies. A missing runtime, or a changed required parser version after a
+AI-sync/parser dependencies. A missing runtime, or a changed required parser version after a
 pull, fails with a request to rerun explicit setup. An offline host can provision
 from a previously downloaded matching wheel using pip's normal offline options
 (for example `PIP_NO_INDEX=1` and `PIP_FIND_LINKS=/path/to/wheels`).
@@ -45,6 +47,12 @@ converted for Git Bash's executable lookup. Backend paths and arguments remain
 quoted, and Python runs with `-I -B -X utf8` (no user-site/PYTHONPATH injection or
 bytecode cache writes, and UTF-8 diagnostics for Windows paths).
 
+Python itself does not need a venv. A separately provisioned interpreter selected
+with `DOTFILES_SYNC_PYTHON` can run the helpers without one. JSON/rules do not
+require `tomlkit` on that path, but TOML sync and the full `--runtime-check` still
+require the exact pin. The default launcher continues to use `.venv-sync`; it
+does not silently search system Python. See [dependency options](dependencies.md).
+
 The clone must remain present for its stowed wrappers to work, just as for other
 Stow-managed files. Re-provision rather than copying virtual environments to a
 different OS, Python installation, or checkout location.
@@ -52,9 +60,9 @@ different OS, Python installation, or checkout location.
 ## Helper API
 
 ```text
-codex-config-sync [--check | --migrate-portable] PORTABLE LIVE
-claude-settings-sync [--check] PORTABLE LIVE
-codex-rules-sync [--check] PORTABLE LIVE
+codex-config-sync [--quiet] [--check | --migrate-portable] PORTABLE LIVE
+claude-settings-sync [--quiet] [--check] PORTABLE LIVE
+codex-rules-sync [--quiet] [--check] PORTABLE LIVE
 ```
 
 All paths are explicit; helpers do not infer a user's real home. `--check`
@@ -64,6 +72,9 @@ It permits an absent live file and validates a legacy live symlink's contents
 without replacing it. This is the installers' preflight interface. It is not a
 promise that a later write will succeed: permissions or files can change after
 preflight, and a filesystem can run out of space.
+
+`--quiet` suppresses successful validation/sync messages, never errors. Installers
+use it for both preflight and apply, and report their own stages and final summary.
 
 Missing portable input, unreadable/nonregular input, dangling live symlinks,
 malformed JSON/TOML, and invalid required portable fields fail closed. Empty live
@@ -136,8 +147,12 @@ Each changed file is serialized and validated before writes, staged in an
 adjacent temporary file, flushed, and replaced with `os.replace`. There is no
 preliminary unlink of an existing live symlink. Failed temporary creation,
 writing or replacement leaves the prior file/link in place and cleans the
-temporary file. Codex config is mode `0600`, Claude settings/rules are `0644`
-on Unix. Windows uses native replacement behavior and inherited directory ACLs;
+temporary file. New regular files and materialized legacy symlinks default to
+`0600` for Codex config and `0644` for Claude settings/rules on Unix. Existing
+regular-file permissions are intersected with those defaults, never broadened:
+for example, a private `0600` Claude file stays private on both changed writes
+and no-ops. Explicit portable migration also preserves stricter source modes.
+Windows uses native replacement behavior and inherited directory ACLs;
 Unix permission bits are not an ACL policy there.
 
 Unchanged regular files keep their inode and mtime; Unix mode drift may still be
