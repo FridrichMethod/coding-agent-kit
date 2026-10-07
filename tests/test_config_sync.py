@@ -23,6 +23,33 @@ CLAUDE = b'{"permissions":{"allow":[],"ask":[]},"flag":false,"nil":null,"hooks":
 
 
 class TransformTests(unittest.TestCase):
+    def test_opt_in_hooks_preserve_local_registrations_permissions_and_runtime(self):
+        local = {"matcher": "Bash", "hooks": [{"type": "command", "command": "local-check"}]}
+        owned = {"matcher": "Bash", "hooks": [{"type": "command", "command": "shk guard --client claude"}]}
+        live = {"model": "host-choice", "runtime": True,
+                "permissions": {"allow": ["old"], "additionalDirectories": ["/synthetic/local"]},
+                "hooks": {"PreToolUse": [local], "HostEvent": [local]}}
+        portable = sync.parse_json(CLAUDE)
+        portable["hooks"]["PreToolUse"] = []
+        merged = sync.merge_claude(json.dumps(portable).encode(), json.dumps(live).encode(),
+                                   scoped_hooks={"PreToolUse": [owned]})
+        result = sync.parse_json(merged)
+        self.assertEqual(result["hooks"]["PreToolUse"], [local, owned])
+        self.assertEqual(result["hooks"]["HostEvent"], [local])
+        self.assertEqual(result["model"], "host-choice")
+        self.assertTrue(result["runtime"])
+        self.assertEqual(result["permissions"]["allow"], [])
+        self.assertEqual(result["permissions"]["additionalDirectories"], ["/synthetic/local"])
+        self.assertEqual(sync.merge_claude(json.dumps(portable).encode(), merged,
+                         scoped_hooks={"PreToolUse": [owned]}), merged)
+
+    def test_opt_in_hook_structure_rejected_before_mutation(self):
+        for scoped in ({}, [], {"PreToolUse": ["bad"]}, {"PreToolUse": [{"hooks": []}]},
+                       {"PreToolUse": [{"hooks": [{"type": "prompt", "prompt": "unsafe"}]}]},
+                       {"PreToolUse": [{"hooks": [{"type": "command", "command": "check", "timeout": False}]}]}):
+            with self.subTest(scoped=scoped), self.assertRaises(sync.SyncError):
+                sync.merge_claude(CLAUDE, b"{}", scoped_hooks=scoped)
+
     def codex(self, live, portable=CODEX):
         result, _ = sync.merge_codex(portable, live)
         return sync.parse_toml(result).unwrap(), result
@@ -488,6 +515,23 @@ class FilesystemTests(unittest.TestCase):
         self.portable.write_bytes(CLAUDE)
         self.run_sync(kind="claude-settings-sync", check=True)
         self.assertFalse(self.live.parent.exists())
+
+    def test_scoped_hook_check_preserves_bytes_modes_and_source_symlink(self):
+        self.portable.write_bytes(CLAUDE)
+        self.live.parent.mkdir()
+        source = self.directory / "local-settings.json"
+        source.write_text('{"model":"host","hooks":{"PreToolUse":[]}}')
+        source.chmod(0o600)
+        self.live.symlink_to(source)
+        hooks = self.directory / "opt-in-hooks.json"
+        hooks.write_text('{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"shk guard --client claude"}]}]}')
+        before = source.stat()
+        sync.synchronize("claude-settings-sync", self.portable, self.live, check=True, hooks=hooks)
+        self.assertTrue(self.live.is_symlink())
+        self.assertEqual(before.st_mtime_ns, source.stat().st_mtime_ns)
+        sync.synchronize("claude-settings-sync", self.portable, self.live, hooks=hooks)
+        self.assertFalse(self.live.is_symlink())
+        self.assertEqual(source.read_text(), '{"model":"host","hooks":{"PreToolUse":[]}}')
 
     def test_cli_native_python_paths_with_spaces(self):
         self.live = self.directory / "文档 home" / "配置.toml"

@@ -61,7 +61,7 @@ different OS, Python installation, or checkout location.
 
 ```text
 codex-config-sync [--quiet] [--check | --migrate-portable] PORTABLE LIVE
-claude-settings-sync [--quiet] [--check] PORTABLE LIVE
+claude-settings-sync [--quiet] [--check] [--hooks EVENTS.json] PORTABLE LIVE
 codex-rules-sync [--quiet] [--check] PORTABLE LIVE
 ```
 
@@ -117,6 +117,12 @@ numeric values remain distinct. Portable `permissions.allow` and `permissions.as
 must be string arrays, and portable `model` is rejected to protect per-host model
 selection. This refactor does not change the contents of the portable policies
 or the separate Node-based Claude hooks.
+
+Explicit `--hooks EVENTS.json` enables scoped Claude hook-array preservation for
+selected events. It validates command registrations, combines live/portable/opt-in
+arrays without exact duplicates, and keeps host-only registrations. This input
+does not change ordinary array ownership or enable a global hook automatically.
+See [Sherlock integration](sherlock-kit.md) for the pending client activation gates.
 
 Codex rules remain an opaque, authoritative byte copy: the backend does not
 parse, reformat or edit rule syntax. Siblings such as `default.rules` are untouched.

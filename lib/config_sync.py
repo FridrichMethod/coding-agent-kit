@@ -180,7 +180,46 @@ def same_json(left, right):
     return left == right
 
 
-def merge_claude(portable_bytes: bytes, live_bytes: bytes) -> bytes:
+def merge_claude_hook_arrays(live, portable, scoped):
+    """Opt-in events retain local registrations; other baseline arrays stay authoritative."""
+    if not isinstance(scoped, dict) or not scoped:
+        raise SyncError("scoped Claude hooks must be a nonempty event object")
+    result = copy.deepcopy(portable)
+    for event, registrations in scoped.items():
+        if not isinstance(event, str) or not event or not isinstance(registrations, list) or not registrations:
+            raise SyncError("scoped Claude hook events require nonempty registration arrays")
+        for registration in registrations:
+            if not isinstance(registration, dict) or set(registration) - {"matcher", "hooks"}:
+                raise SyncError("invalid scoped Claude hook registration")
+            if "matcher" in registration and not isinstance(registration["matcher"], str):
+                raise SyncError("scoped Claude hook matcher must be a string")
+            hooks = registration.get("hooks")
+            if not isinstance(hooks, list) or not hooks:
+                raise SyncError("scoped Claude registration requires hooks")
+            for hook in hooks:
+                if not isinstance(hook, dict) or hook.get("type") != "command" or not isinstance(hook.get("command"), str) or not hook["command"]:
+                    raise SyncError("scoped Claude hooks must be command objects")
+                if set(hook) - {"type", "command", "timeout", "statusMessage", "async"}:
+                    raise SyncError("unsupported scoped Claude command hook key")
+                if "timeout" in hook and (type(hook["timeout"]) not in (int, float) or hook["timeout"] <= 0):
+                    raise SyncError("invalid scoped Claude hook timeout")
+                if "statusMessage" in hook and not isinstance(hook["statusMessage"], str):
+                    raise SyncError("invalid scoped Claude hook statusMessage")
+                if "async" in hook and type(hook["async"]) is not bool:
+                    raise SyncError("invalid scoped Claude hook async")
+        combined = []
+        for document in (live, portable, scoped):
+            existing = document.get(event, [])
+            if not isinstance(existing, list) or not all(isinstance(item, dict) for item in existing):
+                raise SyncError(f"invalid existing Claude hook registrations: {event}")
+            for registration in existing:
+                if not any(same_json(registration, previous) for previous in combined):
+                    combined.append(copy.deepcopy(registration))
+        result[event] = combined
+    return result
+
+
+def merge_claude(portable_bytes: bytes, live_bytes: bytes, *, scoped_hooks=None) -> bytes:
     portable = parse_json(portable_bytes)
     live = parse_json(live_bytes or b"{}")
     permissions = portable.get("permissions")
@@ -193,6 +232,11 @@ def merge_claude(portable_bytes: bytes, live_bytes: bytes) -> bytes:
     if "model" in portable:
         raise SyncError("portable Claude model is not allowed; keep model selection machine-local")
     merged = deep_merge(live, portable)
+    if scoped_hooks is not None:
+        live_hooks, portable_hooks = live.get("hooks", {}), portable.get("hooks", {})
+        if not isinstance(live_hooks, dict) or not isinstance(portable_hooks, dict):
+            raise SyncError("opt-in hook sync requires existing hooks objects")
+        merged["hooks"] = deep_merge(live_hooks, merge_claude_hook_arrays(live_hooks, portable_hooks, scoped_hooks))
     # Preserve the original bytes on a semantic no-op, including whitespace.
     if same_json(merged, live) and live_bytes:
         return live_bytes
@@ -249,7 +293,7 @@ def atomic_write(path: Path, data: bytes, mode: int, previous: bytes | None):
         temporary.unlink(missing_ok=True)
 
 
-def synchronize(kind: str, portable: Path, live: Path, *, check=False, migrate=False):
+def synchronize(kind: str, portable: Path, live: Path, *, check=False, migrate=False, hooks=None):
     portable_bytes = read_regular(portable)
     live_bytes = read_regular(live, missing_ok=True)
     if portable.absolute() == live.absolute() or (
@@ -263,7 +307,8 @@ def synchronize(kind: str, portable: Path, live: Path, *, check=False, migrate=F
         merged, cleaned = merge_codex(portable_bytes, live_bytes or b"", migrate=migrate)
         mode = 0o600
     elif kind == "claude-settings-sync":
-        merged = merge_claude(portable_bytes, live_bytes or b"")
+        scoped = parse_json(read_regular(hooks)) if hooks is not None else None
+        merged = merge_claude(portable_bytes, live_bytes or b"", scoped_hooks=scoped)
         mode = 0o644
     else:
         if not portable_bytes:
@@ -292,13 +337,16 @@ def main(argv=None):
         options.add_argument("--check", action="store_true", help="validate the complete merge without writing")
         options.add_argument("--migrate-portable", action="store_true", help="explicitly clean an old polluted Codex baseline after preserving its live state")
         parser.add_argument("--quiet", action="store_true", help="suppress success messages, but always report errors")
+        parser.add_argument("--hooks", type=Path, help="explicit scoped Claude hook event JSON; preserves local registrations for selected events")
         parser.add_argument("portable", type=Path)
         parser.add_argument("live", type=Path)
         args = parser.parse_args(arguments)
         if args.migrate_portable and args.kind != "codex-config-sync":
             parser.error("--migrate-portable is only supported by codex-config-sync")
+        if args.hooks is not None and args.kind != "claude-settings-sync":
+            parser.error("--hooks requires claude-settings-sync; Codex registration/trust is not yet verified")
         require_runtime(toml=args.kind == "codex-config-sync")
-        synchronize(args.kind, args.portable, args.live, check=args.check, migrate=args.migrate_portable)
+        synchronize(args.kind, args.portable, args.live, check=args.check, migrate=args.migrate_portable, hooks=args.hooks)
         if not args.quiet:
             label = {
                 "codex-config-sync": "portable Codex settings",
