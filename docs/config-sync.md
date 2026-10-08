@@ -60,7 +60,7 @@ different OS, Python installation, or checkout location.
 ## Helper API
 
 ```text
-codex-config-sync [--quiet] [--check | --migrate-portable] PORTABLE LIVE
+codex-config-sync [--quiet] [--check | --migrate-portable] [--hooks EVENTS.json] PORTABLE LIVE
 claude-settings-sync [--quiet] [--check] [--hooks EVENTS.json] PORTABLE LIVE
 codex-rules-sync [--quiet] [--check] PORTABLE LIVE
 ```
@@ -90,7 +90,7 @@ migration to a mutable regular file.
 ## Merge ownership
 
 Codex ownership, required types, and retired paths are centralized in
-`CODEX_POLICY` and `CODEX_RETIRED` in `lib/config_sync.py`. The current owned
+`CODEX_POLICY`, `CODEX_OPTIONAL_POLICY` and `CODEX_RETIRED` in `lib/config_sync.py`. The current owned
 fields are:
 
 | TOML path | Owned required keys |
@@ -101,6 +101,7 @@ fields are:
 | `permissions.workspace-net.network` | `enabled`, `allow_local_binding` |
 | `permissions.workspace-net.network.domains` | `"*"` |
 | `memories` | `generate_memories`, `use_memories` |
+| `hooks` (optional) | Typed command event arrays, only when explicitly present |
 
 Portable values replace these paths only. Other live keys, tables, comments,
 multiline strings and arrays of tables are retained by TOMLKit's document model.
@@ -118,11 +119,22 @@ must be string arrays, and portable `model` is rejected to protect per-host mode
 selection. This refactor does not change the contents of the portable policies
 or the separate Node-based Claude hooks.
 
-Explicit `--hooks EVENTS.json` enables scoped Claude hook-array preservation for
-selected events. It validates command registrations, combines live/portable/opt-in
-arrays without exact duplicates, and keeps host-only registrations. This input
-does not change ordinary array ownership or enable a global hook automatically.
-See [Sherlock integration](sherlock-kit.md) for the pending client activation gates.
+Explicit `--hooks EVENTS.json` enables scoped hook-array preservation for Claude
+or Codex. It validates command registrations, combines live/portable/opt-in arrays
+without exact duplicates, and keeps host-only registrations. Claude's other
+portable arrays retain their ordinary ownership. For Codex, absent portable
+`hooks` leaves all existing runtime hooks intact, including previously opted-in
+registrations; optional portable hook events also merge with host registrations.
+Removing a portable/scoped registration does not revoke a live opt-in registration;
+review and remove the exact live handler when retiring or upgrading it.
+
+Codex's on-disk timeout field is `timeout`, a positive integer in seconds. The
+normalized API field `timeoutSec` and the unsupported `timeout_sec` are rejected
+by sync because Codex 0.161.0 can silently ignore them. Non-command handlers,
+unknown events/fields, and conflicting Windows command spellings fail before
+writes. Registration and client trust remain separate from file sync. See
+[Sherlock integration](sherlock-kit.md) for explicit temporary-target commands and
+the remaining client activation gates.
 
 Codex rules remain an opaque, authoritative byte copy: the backend does not
 parse, reformat or edit rule syntax. Siblings such as `default.rules` are untouched.

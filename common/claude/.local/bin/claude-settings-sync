@@ -1,5 +1,5 @@
 #!/bin/sh
-# claude-settings-sync [--check] PORTABLE LIVE
+# claude-settings-sync [--check] [--hooks EVENTS.json] PORTABLE LIVE
 # Resolve Stow links without GNU readlink -f; paths may contain spaces.
 set -eu
 

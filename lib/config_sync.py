@@ -42,6 +42,12 @@ CODEX_RETIRED = (
     ("sandbox_workspace_write",),
     ("features", "js_repl"),
 )
+# Optional hook ownership: absent from the baseline means host runtime state stays
+# untouched. Inline hooks use the documented on-disk `timeout`, not timeoutSec.
+CODEX_OPTIONAL_POLICY = {"hooks": dict}
+HOOK_EVENTS = {"PreToolUse", "PermissionRequest", "PostToolUse", "PreCompact", "PostCompact",
+               "SessionStart", "SessionEnd", "UserPromptSubmit", "SubagentStart", "SubagentStop",
+               "Stop", "Interrupt"}
 
 
 class SyncError(ValueError):
@@ -112,7 +118,7 @@ def retain_missing(source, target):
             retain_missing(value, target[key])
 
 
-def merge_codex(portable_bytes: bytes, live_bytes: bytes, *, migrate=False) -> tuple[bytes, bytes]:
+def merge_codex(portable_bytes: bytes, live_bytes: bytes, *, migrate=False, scoped_hooks=None) -> tuple[bytes, bytes]:
     import tomlkit
 
     portable = parse_toml(portable_bytes)
@@ -130,6 +136,21 @@ def merge_codex(portable_bytes: bytes, live_bytes: bytes, *, migrate=False) -> t
     for path, value in values:
         set_toml_path(live, path, value)
         set_toml_path(clean, path, value)
+    portable_hooks = plain(portable.get("hooks", {}))
+    if "hooks" in portable or scoped_hooks is not None:
+        if not isinstance(portable_hooks, CODEX_OPTIONAL_POLICY["hooks"]):
+            raise SyncError("optional portable Codex hooks must be an event object")
+        if portable_hooks:
+            validate_hook_events(portable_hooks, client="codex")
+        live_hooks = plain(live.get("hooks", {}))
+        if not isinstance(live_hooks, dict):
+            raise SyncError("live Codex hooks must be an event object")
+        combined = merge_hook_arrays(live_hooks, {}, portable_hooks, client="codex") if portable_hooks else copy.deepcopy(live_hooks)
+        if scoped_hooks is not None:
+            combined = merge_hook_arrays(combined, {}, scoped_hooks, client="codex")
+        set_toml_path(live, ("hooks",), tomlkit.item(combined))
+        if "hooks" in portable:
+            set_toml_path(clean, ("hooks",), tomlkit.item(portable_hooks))
     merged = tomlkit.dumps(live).encode("utf-8")
     canonical = tomlkit.dumps(clean).encode("utf-8")
     # A parser successfully reading input is not enough: validate serialized
@@ -180,38 +201,58 @@ def same_json(left, right):
     return left == right
 
 
-def merge_claude_hook_arrays(live, portable, scoped):
-    """Opt-in events retain local registrations; other baseline arrays stay authoritative."""
+def validate_hook_events(scoped, *, client):
+    """Validate supported command registrations for the client's on-disk schema."""
     if not isinstance(scoped, dict) or not scoped:
-        raise SyncError("scoped Claude hooks must be a nonempty event object")
-    result = copy.deepcopy(portable)
+        raise SyncError(f"scoped {client} hooks must be a nonempty event object")
     for event, registrations in scoped.items():
+        if client == "codex" and event not in HOOK_EVENTS:
+            raise SyncError(f"unsupported Codex hook event: {event}")
         if not isinstance(event, str) or not event or not isinstance(registrations, list) or not registrations:
-            raise SyncError("scoped Claude hook events require nonempty registration arrays")
+            raise SyncError(f"scoped {client} hook events require nonempty registration arrays")
         for registration in registrations:
             if not isinstance(registration, dict) or set(registration) - {"matcher", "hooks"}:
-                raise SyncError("invalid scoped Claude hook registration")
+                raise SyncError(f"invalid scoped {client} hook registration")
             if "matcher" in registration and not isinstance(registration["matcher"], str):
-                raise SyncError("scoped Claude hook matcher must be a string")
+                raise SyncError(f"scoped {client} hook matcher must be a string")
             hooks = registration.get("hooks")
             if not isinstance(hooks, list) or not hooks:
-                raise SyncError("scoped Claude registration requires hooks")
+                raise SyncError(f"scoped {client} registration requires hooks")
             for hook in hooks:
                 if not isinstance(hook, dict) or hook.get("type") != "command" or not isinstance(hook.get("command"), str) or not hook["command"]:
-                    raise SyncError("scoped Claude hooks must be command objects")
-                if set(hook) - {"type", "command", "timeout", "statusMessage", "async"}:
-                    raise SyncError("unsupported scoped Claude command hook key")
-                if "timeout" in hook and (type(hook["timeout"]) not in (int, float) or hook["timeout"] <= 0):
-                    raise SyncError("invalid scoped Claude hook timeout")
+                    raise SyncError(f"scoped {client} hooks must be command objects")
+                allowed = {"type", "command", "timeout", "statusMessage", "async"}
+                if client == "codex":
+                    allowed |= {"commandWindows", "command_windows", "additionalContextLimit"}
+                if set(hook) - allowed:
+                    raise SyncError(f"unsupported scoped {client} command hook key")
+                if "commandWindows" in hook and "command_windows" in hook:
+                    raise SyncError("use only one Codex Windows command spelling")
+                if "timeout" in hook and (type(hook["timeout"]) not in ((int,) if client == "codex" else (int, float)) or hook["timeout"] <= 0):
+                    raise SyncError(f"invalid scoped {client} hook timeout")
+                if client == "codex" and event in {"SessionEnd", "Interrupt"} and hook.get("timeout", 1) > 3:
+                    raise SyncError("Codex SessionEnd/Interrupt timeout may not exceed 3 seconds")
+                for key in ("commandWindows", "command_windows"):
+                    if key in hook and (not isinstance(hook[key], str) or not hook[key]):
+                        raise SyncError(f"invalid scoped Codex hook {key}")
+                if "additionalContextLimit" in hook and (type(hook["additionalContextLimit"]) is not int or hook["additionalContextLimit"] < 0):
+                    raise SyncError("invalid scoped Codex additionalContextLimit")
                 if "statusMessage" in hook and not isinstance(hook["statusMessage"], str):
-                    raise SyncError("invalid scoped Claude hook statusMessage")
+                    raise SyncError(f"invalid scoped {client} hook statusMessage")
                 if "async" in hook and type(hook["async"]) is not bool:
-                    raise SyncError("invalid scoped Claude hook async")
+                    raise SyncError(f"invalid scoped {client} hook async")
+
+
+def merge_hook_arrays(live, portable, scoped, *, client):
+    """Opt-in events retain local registrations; other baseline arrays stay authoritative."""
+    validate_hook_events(scoped, client=client)
+    result = deep_merge(live, portable)
+    for event in scoped:
         combined = []
         for document in (live, portable, scoped):
             existing = document.get(event, [])
             if not isinstance(existing, list) or not all(isinstance(item, dict) for item in existing):
-                raise SyncError(f"invalid existing Claude hook registrations: {event}")
+                raise SyncError(f"invalid existing {client} hook registrations: {event}")
             for registration in existing:
                 if not any(same_json(registration, previous) for previous in combined):
                     combined.append(copy.deepcopy(registration))
@@ -236,7 +277,7 @@ def merge_claude(portable_bytes: bytes, live_bytes: bytes, *, scoped_hooks=None)
         live_hooks, portable_hooks = live.get("hooks", {}), portable.get("hooks", {})
         if not isinstance(live_hooks, dict) or not isinstance(portable_hooks, dict):
             raise SyncError("opt-in hook sync requires existing hooks objects")
-        merged["hooks"] = deep_merge(live_hooks, merge_claude_hook_arrays(live_hooks, portable_hooks, scoped_hooks))
+        merged["hooks"] = merge_hook_arrays(live_hooks, portable_hooks, scoped_hooks, client="claude")
     # Preserve the original bytes on a semantic no-op, including whitespace.
     if same_json(merged, live) and live_bytes:
         return live_bytes
@@ -304,7 +345,8 @@ def synchronize(kind: str, portable: Path, live: Path, *, check=False, migrate=F
         raise SyncError("explicit migration requires a regular portable source, not a symlink")
     cleaned = None
     if kind == "codex-config-sync":
-        merged, cleaned = merge_codex(portable_bytes, live_bytes or b"", migrate=migrate)
+        scoped = parse_json(read_regular(hooks)) if hooks is not None else None
+        merged, cleaned = merge_codex(portable_bytes, live_bytes or b"", migrate=migrate, scoped_hooks=scoped)
         mode = 0o600
     elif kind == "claude-settings-sync":
         scoped = parse_json(read_regular(hooks)) if hooks is not None else None
@@ -337,14 +379,14 @@ def main(argv=None):
         options.add_argument("--check", action="store_true", help="validate the complete merge without writing")
         options.add_argument("--migrate-portable", action="store_true", help="explicitly clean an old polluted Codex baseline after preserving its live state")
         parser.add_argument("--quiet", action="store_true", help="suppress success messages, but always report errors")
-        parser.add_argument("--hooks", type=Path, help="explicit scoped Claude hook event JSON; preserves local registrations for selected events")
+        parser.add_argument("--hooks", type=Path, help="explicit scoped client hook event JSON; preserves local registrations for selected events")
         parser.add_argument("portable", type=Path)
         parser.add_argument("live", type=Path)
         args = parser.parse_args(arguments)
         if args.migrate_portable and args.kind != "codex-config-sync":
             parser.error("--migrate-portable is only supported by codex-config-sync")
-        if args.hooks is not None and args.kind != "claude-settings-sync":
-            parser.error("--hooks requires claude-settings-sync; Codex registration/trust is not yet verified")
+        if args.hooks is not None and args.kind == "codex-rules-sync":
+            parser.error("--hooks requires claude-settings-sync or codex-config-sync")
         require_runtime(toml=args.kind == "codex-config-sync")
         synchronize(args.kind, args.portable, args.live, check=args.check, migrate=args.migrate_portable, hooks=args.hooks)
         if not args.quiet:

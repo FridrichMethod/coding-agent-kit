@@ -1,5 +1,5 @@
 #!/bin/sh
-# codex-config-sync [--check | --migrate-portable] PORTABLE LIVE
+# codex-config-sync [--check | --migrate-portable] [--hooks EVENTS.json] PORTABLE LIVE
 # Resolve Stow links without GNU readlink -f; paths may contain spaces.
 set -eu
 
