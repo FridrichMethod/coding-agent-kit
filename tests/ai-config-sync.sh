@@ -296,6 +296,17 @@ if grep -Eq 'decision[[:space:]]*=[[:space:]]*"forbidden"' "$CODEX_RULES_PORTABL
     exit 1
 fi
 
+# The two global instruction files may differ only in the destructive-action
+# bullets under "Autonomy and scope" (Claude auto-mode classification versus
+# Codex exec-policy review). Any other divergence is drift.
+if ! diff \
+    <(sed '/^- Before destructive or difficult-to-reverse actions/d' "$REPO_ROOT/common/claude/.claude/CLAUDE.md") \
+    <(sed '/^- Keep routine, scoped cleanup autonomous/,/^- Before an exceptionally destructive action/d' "$REPO_ROOT/common/codex/.codex/AGENTS.md") \
+    >/dev/null; then
+    echo "ERROR: global CLAUDE.md and AGENTS.md diverge outside the tool-specific destructive-action bullets" >&2
+    exit 1
+fi
+
 if grep -Eq '(/Users/|/home/|/apps/)' "$CODEX_RULES_PORTABLE"; then
     echo "ERROR: portable Codex policy contains a host-specific path" >&2
     exit 1
