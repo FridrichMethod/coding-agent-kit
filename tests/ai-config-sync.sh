@@ -97,6 +97,14 @@ assert live["runtimeOnly"] == {"keep": True}
 assert live["model"] == "machine-local-model"
 assert live["attribution"] == {"commit": "", "pr": ""}
 
+# The stub import is external when launched from a subdirectory; older clients
+# read only the legacy plugin ID, so native AGENTS.md loading needs both IDs.
+for plugin_id in ("agents-md@builtin", "cc-plugin-agents-md@builtin"):
+    assert portable["pluginConfigs"][plugin_id] == {
+        "options": {"instructionFiles": "claude-md-and-agents-md"}
+    }
+    assert live["pluginConfigs"][plugin_id] == portable["pluginConfigs"][plugin_id]
+
 # permissions.ask is now the narrow list (see CLAUDE.md): only actions whose
 # worst case is unbounded or irrecoverable. Everything else lives in allow.
 unsafe_allow_fragments = (
