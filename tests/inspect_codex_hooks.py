@@ -25,7 +25,7 @@ def inspect(home, cwd, executable="codex"):
     reader = threading.Thread(target=read, daemon=True)
     reader.start()
     requests = [{"id": 1, "method": "initialize", "params": {
-        "clientInfo": {"name": "sherlock-hook-inspection", "version": "1"},
+        "clientInfo": {"name": "dotfiles-hook-inspection", "version": "1"},
         "capabilities": {"experimentalApi": True}}}, {"method": "initialized"},
         {"id": 2, "method": "hooks/list", "params": {"cwds": [str(cwd)]}}]
     try:
@@ -54,11 +54,12 @@ if __name__ == "__main__":
     parser.add_argument("--home", type=Path, required=True)
     parser.add_argument("--cwd", type=Path, required=True)
     parser.add_argument("--codex", default="codex")
+    parser.add_argument("--command", help="report only hooks registered with this exact command")
     args = parser.parse_args()
     result = inspect(args.home, args.cwd, args.codex)
     summary = []
     for entry in result["data"]:
         summary.append({"errors": entry["errors"], "warnings": entry["warnings"], "hooks": [
             {key: hook.get(key) for key in ("command", "commandWindows", "matcher", "timeoutSec", "enabled", "trustStatus", "currentHash")}
-            for hook in entry["hooks"] if hook.get("command") == "shk guard --client codex"]})
+            for hook in entry["hooks"] if args.command is None or hook.get("command") == args.command]})
     print(json.dumps(summary, indent=2))
