@@ -322,6 +322,19 @@ if ! diff \
     exit 1
 fi
 
+# Sherlock instructions reach agents only through the sherlock-kit submodule's
+# linked rules (docs/sherlock-kit.md), never as a block spliced into the
+# common global files that every host, Sherlock included, stows. The class
+# spells out \b, which BSD grep on macOS does not promise in an ERE.
+for global_instructions in \
+    "$REPO_ROOT/common/claude/.claude/CLAUDE.md" \
+    "$REPO_ROOT/common/codex/.codex/AGENTS.md"; do
+    if grep -Eq 'SHERLOCK-KIT|(^|[^[:alnum:]_])shk([^[:alnum:]_]|$)' "$global_instructions"; then
+        echo "ERROR: ${global_instructions#"$REPO_ROOT"/} carries Sherlock toolkit text; it belongs in the sherlock-kit submodule rules" >&2
+        exit 1
+    fi
+done
+
 if grep -Eq '(/Users/|/home/|/apps/)' "$CODEX_RULES_PORTABLE"; then
     echo "ERROR: portable Codex policy contains a host-specific path" >&2
     exit 1
