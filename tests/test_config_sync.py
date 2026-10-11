@@ -21,8 +21,8 @@ sync = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(sync)
 CODEX = (ROOT / "common/codex/.codex/config.toml").read_bytes()
 CLAUDE = b'{"permissions":{"allow":[],"ask":[]},"flag":false,"nil":null,"hooks":{"Stop":[]}}'
-CODEX_GUARD = {"PreToolUse": [{"matcher": "^Bash$", "hooks": [
-    {"type": "command", "command": "shk guard --client codex", "timeout": 5, "async": False}]}]}
+CODEX_SCOPED = {"PreToolUse": [{"matcher": "^Bash$", "hooks": [
+    {"type": "command", "command": "fixture-hook --client codex", "timeout": 5, "async": False}]}]}
 
 
 class TransformTests(unittest.TestCase):
@@ -42,21 +42,21 @@ timeout=17
 type="command"
 command="host-stop"
 '''
-        merged, _ = sync.merge_codex(CODEX, live, scoped_hooks=CODEX_GUARD)
+        merged, _ = sync.merge_codex(CODEX, live, scoped_hooks=CODEX_SCOPED)
         value = sync.parse_toml(merged).unwrap()
         self.assertEqual(value["host_runtime"], "keep")
         self.assertEqual(value["hooks"]["PreToolUse"][0]["hooks"][0]["command"], "host-local-check")
-        self.assertEqual(value["hooks"]["PreToolUse"][1], CODEX_GUARD["PreToolUse"][0])
+        self.assertEqual(value["hooks"]["PreToolUse"][1], CODEX_SCOPED["PreToolUse"][0])
         self.assertEqual(value["hooks"]["Stop"][0]["hooks"][0]["command"], "host-stop")
-        again, _ = sync.merge_codex(CODEX, merged, scoped_hooks=CODEX_GUARD)
+        again, _ = sync.merge_codex(CODEX, merged, scoped_hooks=CODEX_SCOPED)
         self.assertEqual(again, merged)
         ordinary, _ = sync.merge_codex(CODEX, merged)
         self.assertEqual(ordinary, merged)
         portable = sync.parse_toml(CODEX)
-        portable["hooks"] = tomlkit.item(CODEX_GUARD)
+        portable["hooks"] = tomlkit.item(CODEX_SCOPED)
         baseline, cleaned = sync.merge_codex(tomlkit.dumps(portable).encode(), live)
         self.assertEqual(sync.parse_toml(baseline).unwrap()["hooks"], value["hooks"])
-        self.assertEqual(sync.parse_toml(cleaned).unwrap()["hooks"], CODEX_GUARD)
+        self.assertEqual(sync.parse_toml(cleaned).unwrap()["hooks"], CODEX_SCOPED)
 
     def test_codex_hook_schema_rejects_normalized_timeout_and_invalid_values(self):
         import copy
@@ -64,34 +64,39 @@ command="host-stop"
         for change in ({"timeoutSec": 5}, {"timeout_sec": 5}, {"timeout": False},
                        {"timeout": 1.5}, {"command": ""}, {"async": "false"},
                        {"additionalContextLimit": -1}, {"commandWindows": 42}):
-            scoped = copy.deepcopy(CODEX_GUARD)
+            scoped = copy.deepcopy(CODEX_SCOPED)
             scoped["PreToolUse"][0]["hooks"][0].update(change)
             with self.subTest(change=change), self.assertRaises(sync.SyncError):
                 sync.merge_codex(CODEX, b"", scoped_hooks=scoped)
         with self.assertRaisesRegex(sync.SyncError, "unsupported Codex hook event"):
-            sync.merge_codex(CODEX, b"", scoped_hooks={"NotAnEvent": CODEX_GUARD["PreToolUse"]})
+            sync.merge_codex(CODEX, b"", scoped_hooks={"NotAnEvent": CODEX_SCOPED["PreToolUse"]})
         with self.assertRaisesRegex(sync.SyncError, "3 seconds"):
-            sync.merge_codex(CODEX, b"", scoped_hooks={"SessionEnd": CODEX_GUARD["PreToolUse"]})
+            sync.merge_codex(CODEX, b"", scoped_hooks={"SessionEnd": CODEX_SCOPED["PreToolUse"]})
         with self.assertRaisesRegex(sync.SyncError, "live Codex hooks"):
-            sync.merge_codex(CODEX, b'hooks="invalid"', scoped_hooks=CODEX_GUARD)
+            sync.merge_codex(CODEX, b'hooks="invalid"', scoped_hooks=CODEX_SCOPED)
 
-    def test_reviewed_hook_inputs_use_each_client_raw_format(self):
+    def test_scoped_hook_inputs_use_each_client_raw_format(self):
         for client in ("claude", "codex"):
-            hooks = sync.parse_json((ROOT / "config/sherlock-kit" / f"{client}-hooks.json").read_bytes())
-            sync.validate_hook_events(hooks, client=client)
-            command = hooks["PreToolUse"][0]["hooks"][0]
-            self.assertEqual(command["command"], f"shk guard --client {client}")
-            self.assertEqual(command["timeout"], 5)
+            command = {"type": "command", "command": f"fixture-hook --client {client}", "timeout": 5}
             if client == "codex":
-                self.assertEqual(command["commandWindows"], "shk.cmd guard --client codex")
+                command.update({"commandWindows": "fixture-hook.cmd --client codex", "async": False})
+            hooks = sync.parse_json(json.dumps(
+                {"PreToolUse": [{"matcher": "Bash", "hooks": [command]}]}).encode())
+            sync.validate_hook_events(hooks, client=client)
+            if client == "codex":
                 invalid = copy.deepcopy(hooks)
                 invalid["PreToolUse"][0]["hooks"][0]["command_windows"] = "duplicate"
                 with self.assertRaisesRegex(sync.SyncError, "only one"):
                     sync.validate_hook_events(invalid, client=client)
+            else:
+                invalid = copy.deepcopy(hooks)
+                invalid["PreToolUse"][0]["hooks"][0]["commandWindows"] = "codex-only"
+                with self.assertRaisesRegex(sync.SyncError, "unsupported scoped claude"):
+                    sync.validate_hook_events(invalid, client=client)
 
     def test_opt_in_hooks_preserve_local_registrations_permissions_and_runtime(self):
         local = {"matcher": "Bash", "hooks": [{"type": "command", "command": "local-check"}]}
-        owned = {"matcher": "Bash", "hooks": [{"type": "command", "command": "shk guard --client claude"}]}
+        owned = {"matcher": "Bash", "hooks": [{"type": "command", "command": "fixture-hook --client claude"}]}
         live = {"model": "host-choice", "runtime": True,
                 "permissions": {"allow": ["old"], "additionalDirectories": ["/synthetic/local"]},
                 "hooks": {"PreToolUse": [local], "HostEvent": [local]}}
@@ -590,7 +595,7 @@ class FilesystemTests(unittest.TestCase):
         source.chmod(0o600)
         self.live.symlink_to(source)
         hooks = self.directory / "opt-in-hooks.json"
-        hooks.write_text('{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"shk guard --client claude"}]}]}')
+        hooks.write_text('{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"fixture-hook --client claude"}]}]}')
         before = source.stat()
         sync.synchronize("claude-settings-sync", self.portable, self.live, check=True, hooks=hooks)
         self.assertTrue(self.live.is_symlink())
@@ -604,7 +609,7 @@ class FilesystemTests(unittest.TestCase):
         self.live.chmod(0o600)
         before = self.live.stat()
         hooks = self.directory / "scoped-codex-hooks.json"
-        hooks.write_text(json.dumps(CODEX_GUARD))
+        hooks.write_text(json.dumps(CODEX_SCOPED))
         sync.synchronize("codex-config-sync", self.portable, self.live, check=True, hooks=hooks)
         self.assertEqual(self.live.read_bytes(), b'host_runtime="keep"\n')
         self.assertEqual(before.st_mtime_ns, self.live.stat().st_mtime_ns)
@@ -614,7 +619,7 @@ class FilesystemTests(unittest.TestCase):
         if os.name != "nt":
             self.assertEqual(self.live.stat().st_mode & 0o777, 0o600)
         before = self.live.read_bytes()
-        hooks.write_text('{"PreToolUse":[{"hooks":[{"type":"command","command":"shk guard --client codex","timeoutSec":5}]}]}')
+        hooks.write_text('{"PreToolUse":[{"hooks":[{"type":"command","command":"fixture-hook --client codex","timeoutSec":5}]}]}')
         with self.assertRaises(sync.SyncError):
             sync.synchronize("codex-config-sync", self.portable, self.live, check=True, hooks=hooks)
         self.assertEqual(self.live.read_bytes(), before)
