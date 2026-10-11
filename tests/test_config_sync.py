@@ -1155,8 +1155,12 @@ class InstructionsTests(unittest.TestCase):
         interpreter = runtime / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         bin_dir = self.directory / "fake home" / ".local" / "bin"
         bin_dir.mkdir(parents=True)
+        # The checkout and the temporary directory may sit on different
+        # Windows drives, so only the second hop is relative.
+        intermediary = self.directory / "relative wrapper"
+        intermediary.symlink_to(ROOT / "common/codex/.local/bin/codex-instructions-sync")
         wrapper = bin_dir / "codex-instructions-sync"
-        wrapper.symlink_to(os.path.relpath(ROOT / "common/codex/.local/bin/codex-instructions-sync", bin_dir))
+        wrapper.symlink_to(os.path.relpath(intermediary, bin_dir))
         env = dict(os.environ, DOTFILES_SYNC_PYTHON=str(interpreter))
         result = subprocess.run(self.wrapper_command(wrapper, "--quiet", "--append", self.rules,
                                                      self.portable, self.live),
