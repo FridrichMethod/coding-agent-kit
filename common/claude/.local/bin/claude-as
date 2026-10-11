@@ -1,0 +1,40 @@
+#!/bin/sh
+# claude-as ACCOUNT [CLAUDE_ARGS...]
+# Run Claude Code as ACCOUNT: export the long-lived OAuth token stored in
+# ~/.secrets/claude-ACCOUNT (from `claude setup-token`) as
+# CLAUDE_CODE_OAUTH_TOKEN, then exec claude with the remaining arguments.
+set -eu
+
+secrets_dir=$HOME/.secrets
+
+if [ "$#" -eq 0 ]; then
+    echo "usage: claude-as ACCOUNT [CLAUDE_ARGS...]" >&2
+    for token_file in "$secrets_dir"/claude-*; do
+        [ -f "$token_file" ] && echo "  ${token_file##*/claude-}" >&2
+    done
+    exit 2
+fi
+
+account=$1
+shift
+case "$account" in
+    -* | .* | */*)
+        echo "claude-as: invalid account name: $account" >&2
+        exit 2
+        ;;
+esac
+
+token_file=$secrets_dir/claude-$account
+if [ ! -f "$token_file" ] || [ ! -r "$token_file" ]; then
+    echo "claude-as: no readable token file: $token_file" >&2
+    exit 1
+fi
+token=$(tr -d '[:space:]' <"$token_file")
+if [ -z "$token" ]; then
+    echo "claude-as: empty token file: $token_file" >&2
+    exit 1
+fi
+
+CLAUDE_CODE_OAUTH_TOKEN=$token
+export CLAUDE_CODE_OAUTH_TOKEN
+exec claude "$@"
