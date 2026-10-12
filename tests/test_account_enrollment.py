@@ -12,6 +12,7 @@ import sys
 import time
 import unittest
 from io import StringIO
+from unittest.mock import patch
 
 from test_codex_as import CodexAs, FAKE, ROOT, SHELLS
 
@@ -128,6 +129,8 @@ os.execv(sys.argv[2], sys.argv[2:])
                             chunk = os.read(master, 4096)
                         except OSError:
                             break
+                        if not chunk:
+                            break
                         output.extend(chunk)
                         transcript.extend(chunk)
                         if remaining and remaining[0][0].encode() in output:
@@ -138,6 +141,8 @@ os.execv(sys.argv[2], sys.argv[2:])
                 while select.select([master], [], [], 0)[0]:
                     try:
                         chunk = os.read(master, 4096)
+                        if not chunk:
+                            break
                         transcript.extend(chunk)
                     except OSError:
                         break
@@ -148,6 +153,33 @@ os.execv(sys.argv[2], sys.argv[2:])
                 if process.poll() is None:
                     process.kill()  # Only the isolated test launcher, never a real client.
                     process.wait()
+
+    def test_terminal_drain_returns_at_eof(self):
+        # A PTY can signal EOF with b'' instead of OSError. Keep the real
+        # launcher/process, and inject that platform boundary after its exit.
+        real_read, real_select = os.read, select.select
+        state = {'fd': None, 'read': False}
+
+        def eof_select(readers, writers, errors, timeout=None):
+            if timeout == 0:
+                state['fd'] = readers[0]
+                return readers, [], []
+            return real_select(readers, writers, errors, timeout)
+
+        def eof_read(fd, count):
+            if fd == state['fd']:
+                if state['read']:
+                    raise AssertionError('PTY drain continued reading after EOF')
+                state['read'] = True
+                return b''
+            return real_read(fd, count)
+
+        with patch.object(select, 'select', side_effect=eof_select), \
+             patch.object(os, 'read', side_effect=eof_read):
+            code, out, err, _ = self.terminal(['--help'], [], {'TERM': 'dumb'})
+        self.assertEqual(code, 0)
+        self.assertIn('Usage: codex-as', out)
+        self.assertEqual(err, '')
 
     def test_prompt_colors_respect_preferences_and_preserve_client_io(self):
         # Removing destination-aware color or coloring native client streams
