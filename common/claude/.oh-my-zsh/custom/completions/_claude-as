@@ -1,0 +1,22 @@
+#compdef claude-as
+
+local -a names suggestions
+if ((CURRENT == 2)); then
+    names=("${(@f)$(python3 -I -B "$HOME/.local/lib/claude-as/launch.py" --list-accounts 2>/dev/null)}")
+    names=("${(@)names:#}")
+    ((${#names})) && _describe -t accounts 'Claude accounts' names
+    return
+fi
+if ((CURRENT == 3)); then
+    suggestions=('--help:show CLI help' '--version:show CLI version' '--print:print a response' '--continue:continue last session' '--resume:resume a session')
+    _describe 'Claude arguments' suggestions
+elif (($+functions[_claude])); then
+    local -a words=("${words[@]}")
+    local CURRENT=$CURRENT
+    words[2]=()
+    words[1]=claude
+    ((CURRENT--))
+    _claude
+else
+    _default
+fi

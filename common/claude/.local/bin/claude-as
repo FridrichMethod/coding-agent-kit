@@ -1,40 +1,29 @@
 #!/bin/sh
 # claude-as ACCOUNT [CLAUDE_ARGS...]
-# Run Claude Code as ACCOUNT: export the long-lived OAuth token stored in
-# ~/.secrets/claude-ACCOUNT (from `claude setup-token`) as
-# CLAUDE_CODE_OAUTH_TOKEN, then exec claude with the remaining arguments.
+# Existing token: launch. Missing token: confirm, native setup-token, save, launch.
 set -eu
-
-secrets_dir=$HOME/.secrets
-
-if [ "$#" -eq 0 ]; then
-    echo "usage: claude-as ACCOUNT [CLAUDE_ARGS...]" >&2
-    for token_file in "$secrets_dir"/claude-*; do
-        [ -f "$token_file" ] && echo "  ${token_file##*/claude-}" >&2
-    done
+umask 077
+# Only style this command's heading, never the native Claude streams.
+_claude_as_message() {
+    if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ] &&
+        { [ "${DOTFILES_COLOR:-auto}" = always ] ||
+            { [ "${DOTFILES_COLOR:-auto}" != never ] && [ -t "$2" ]; }; }; then
+        printf '\033[%sm%s\033[0m\n' "$1" "$3" >&"$2"
+    else
+        printf '%s\n' "$3" >&"$2"
+    fi
+}
+if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
+    _claude_as_message '1;36' 1 'Usage: claude-as NAME [claude arguments...]'
+    printf '%s\n' \
+        'Credentials: ~/.secrets/claude-NAME; owner-only 0600 OAuth token.' \
+        'Missing account: confirm [y/N], native setup-token, save, launch.' \
+        'Automatic capture audited for Claude Code 2.1.296; otherwise explicit manual fallback.' \
+        'No server validation, OAuth implementation or automatic token renewal.' \
+        'login/logout/setup-token, --bare, unsupported flags and auth/provider overrides are refused.' \
+        'Daily configuration is inherited. No global process killing or concurrency lock.' \
+        'Requires Python 3.11+ (stdlib). See ~/dotfiles/docs/account-launchers.md.'
+    [ "$#" -gt 0 ] && exit 0
     exit 2
 fi
-
-account=$1
-shift
-case "$account" in
-    -* | .* | */*)
-        echo "claude-as: invalid account name: $account" >&2
-        exit 2
-        ;;
-esac
-
-token_file=$secrets_dir/claude-$account
-if [ ! -f "$token_file" ] || [ ! -r "$token_file" ]; then
-    echo "claude-as: no readable token file: $token_file" >&2
-    exit 1
-fi
-token=$(tr -d '[:space:]' <"$token_file")
-if [ -z "$token" ]; then
-    echo "claude-as: empty token file: $token_file" >&2
-    exit 1
-fi
-
-CLAUDE_CODE_OAUTH_TOKEN=$token
-export CLAUDE_CODE_OAUTH_TOKEN
-exec claude "$@"
+exec python3 -I -B "$HOME/.local/lib/claude-as/launch.py" "$@"

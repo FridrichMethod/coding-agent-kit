@@ -1,0 +1,22 @@
+#compdef codex-as
+
+local -a names suggestions
+if ((CURRENT == 2)); then
+    names=("${(@f)$(python3 -I -B "$HOME/.local/lib/codex-as/check.py" accounts 2>/dev/null)}")
+    names=("${(@)names:#}")
+    ((${#names})) && _describe -t accounts 'Codex accounts' names
+    return
+fi
+if ((CURRENT == 3)); then
+    suggestions=('exec:execute a prompt' 'resume:resume a shared session' 'fork:fork a session' '--help:show CLI help' '--version:show CLI version')
+    _describe 'Codex arguments' suggestions
+elif (($+functions[_codex])); then
+    local -a words=("${words[@]}")
+    local CURRENT=$CURRENT
+    words[2]=()
+    words[1]=codex
+    ((CURRENT--))
+    _codex
+else
+    _default
+fi
