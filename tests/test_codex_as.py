@@ -172,6 +172,9 @@ class CodexAs(unittest.TestCase):
 
     def test_arguments_io_cwd_exit_and_umask(self):
         cases = [[], ["resume", "--last"], ["fork", "--last"], ["--help"],
+                 ["hello"], ["hello", "exec", "login"], ["--", "logout"],
+                 ["resume", "--last", "logout"], ["fork", "--last", "login"],
+                 ["-m", "logout", "hello"],
                  ["exec", "--json", 'spaces "double" and \'single\'', "", "--color", "never"],
                  ["exec", "login"], ["exec", "logout"], ["exec", "--", "--config", "auth=prompt"],
                  ["exec", "resume", "--last", "检查测试"],
@@ -194,6 +197,48 @@ class CodexAs(unittest.TestCase):
                     self.assertEqual(record["cwd"], str(self.cwd))
                     self.assertEqual(record["stdin"], "stdin text\n第二行\n")
                     self.assertEqual(record["umask"], 0o077)
+
+    def test_root_prompt_cannot_hide_a_later_subcommand(self):
+        # Codex clap still dispatches a root subcommand after its optional
+        # PROMPT. Refusal must happen before switching the shared auth link.
+        for shell in SHELLS:
+            for args in (["hello", "login"], ["hello", "logout"],
+                         ["hello", "--no-alt-screen", "logout"],
+                         ["-m", "login", "hello", "logout"],
+                         ["hello", "mcp"], ["hello", "help", "logout"]):
+                with self.subTest(shell=shell, args=args):
+                    result = self.rejected(shell, ["B", *args])
+                    self.assertIn("unsupported subcommand", result.stderr)
+
+    def test_non_finite_credential_json_is_refused_before_switching(self):
+        # Python's permissive JSON constants cannot enter Codex's strict
+        # serde_json authentication reader, even in an unknown nested field.
+        target = self.secret / "codex-B.json"
+        for shell in SHELLS:
+            for constant in ("NaN", "Infinity", "-Infinity"):
+                with self.subTest(shell=shell, constant=constant):
+                    target.write_text('{"OPENAI_API_KEY":"fixture-key","unknown":{"value":'
+                                      + constant + '}}')
+                    self.rejected(shell, ["B"])
+
+    def test_api_key_optional_fields_must_match_native_credential_schema(self):
+        # Falsy values are not interchangeable with absent/null Option fields
+        # in the native authentication reader. A refusal preserves account A.
+        for shell in SHELLS:
+            for field, value in (("tokens", {}), ("tokens", []), ("tokens", False),
+                                 ("tokens", 0), ("tokens", ""),
+                                 ("last_refresh", "bad-date"), ("last_refresh", False),
+                                 ("last_refresh", "2026-13-01T00:00:00Z"),
+                                 ("last_refresh", "2026-10-01T00:00:00")):
+                with self.subTest(shell=shell, field=field, value=value):
+                    self.write_credential("B", {"OPENAI_API_KEY": "fixture-key", field: value})
+                    self.rejected(shell, ["B"])
+            for fields in ({}, {"tokens": None, "last_refresh": None},
+                           {"last_refresh": "2026-10-01T00:00:00Z"}):
+                with self.subTest(shell=shell, fields=fields):
+                    self.write_credential("B", {"OPENAI_API_KEY": "fixture-key", **fields})
+                    result = self.run_as(shell, ["B", "exec", "prompt"])
+                    self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_invalid_inputs_and_conflicts(self):
         for shell in SHELLS:

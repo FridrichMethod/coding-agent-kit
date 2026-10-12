@@ -18,6 +18,8 @@ codex-as ayting exec --json "检查测试"
 - AuthManager 的刷新保存调用该 storage.save。导入与备份保存完整原字节，实际刷新格式由 Codex 自己管理；wrapper 不实现 OAuth refresh。
 - CLI 支持单次 `-c 'cli_auth_credentials_store="file"'`。交互、resume、fork 添加 `--no-daemon`，避免复用长驻 app-server 的旧认证；exec 保持独立调用。
 - 原生 login 会清除已有认证并可能 revoke，所以只在无旧凭据的临时 home 登录，不在共享 home logout/login。
+- 根命令的 prompt 后仍可能出现原生子命令；wrapper 同样拒绝这些位置的 login/logout。exec、resume、fork 中的 prompt 与选项值保持原样。
+- 切换前按原生 JSON 格式检查完整凭据：拒绝 NaN/Infinity、非 null 的无效 tokens，以及任何已提供但无效的 last_refresh。
 
 这是版本对应实现的静态核实。fake Codex 的写入／原子替换测试只证明 wrapper 逻辑，不能证明真实 Codex 写回；本次没有做真实授权、切换或刷新验证。版本改变会拒绝启动，直到重新核实。
 

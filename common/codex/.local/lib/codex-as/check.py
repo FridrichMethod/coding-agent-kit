@@ -35,7 +35,9 @@ def fail(message):
 
 def arguments(args):
     # A bounded guard, not a replacement for clap. Values/prompts are never
-    # interpreted as login/logout. Options after a prompt still need checking.
+    # interpreted as login/logout inside an allowed subcommand. A root
+    # PROMPT does not end clap's subcommand recognition; keep checking until
+    # exec/resume/fork or --. Options after a prompt still need checking.
     values = {
         "-c", "--config", "-m", "--model", "-i", "--image", "-C", "--cd",
         "-s", "--sandbox", "-a", "--ask-for-approval", "--add-dir", "--enable",
@@ -79,9 +81,11 @@ def arguments(args):
             if root:
                 if arg in {"exec", "e"}:
                     mode = "exec"
+                    root = False
+                elif arg in {"resume", "fork"}:
+                    root = False
                 elif arg in commands:
                     fail("unsupported subcommand; login/logout must run outside codex-as.")
-                root = False
             continue
         if flag in {"-c", "--config"}:
             key = value.partition("=")[0]
@@ -124,7 +128,8 @@ def credential(path):
         if stat.S_IMODE(info.st_mode) != 0o600:
             fail("credential permissions must be 0600; no chmod was performed.")
         raw = stream.read()
-        data = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_keys)
+        data = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_keys,
+                          parse_constant=lambda _: fail("credential JSON contains a non-finite number."))
     if not isinstance(data, dict):
         fail("credential JSON must be a complete file login object.")
     tokens = data.get("tokens")
@@ -138,15 +143,19 @@ def credential(path):
         and data.get("auth_mode") in (None, "chatgpt")
         and key is None
     )
-    apikey = nonempty(key) and not tokens and data.get("auth_mode") in (None, "apikey")
+    apikey = nonempty(key) and tokens is None and data.get("auth_mode") in (None, "apikey")
     if not (chatgpt or apikey):
         fail("credential has no complete ChatGPT tokens or file API-key login; not server validation.")
-    if chatgpt:
-        refreshed = data.get("last_refresh")
+    refreshed = data.get("last_refresh")
+    if chatgpt or refreshed is not None:
         if not isinstance(refreshed, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})", refreshed):
-            fail("ChatGPT credential requires a valid last_refresh timestamp.")
+            fail("credential requires a valid last_refresh timestamp.")
         try:
             datetime.fromisoformat(refreshed)
+        except ValueError:
+            fail("credential requires a valid last_refresh timestamp.")
+    if chatgpt:
+        try:
             parts = tokens["id_token"].split(".")
             if len(parts) != 3 or not all(parts) or not re.fullmatch(r"[A-Za-z0-9_-]+", parts[1]):
                 fail("invalid ID token envelope.")
