@@ -62,7 +62,9 @@ class CodexAs(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="codex-as-test-")
         self.addCleanup(self.tmp.cleanup)
-        self.base = Path(self.tmp.name)
+        # macOS TMPDIR uses /var -> /private/var; getcwd() reports the physical
+        # path. Keep all fixture expectations in that same directory spelling.
+        self.base = Path(self.tmp.name).resolve()
         self.home = self.base / "home with spaces"
         self.home.mkdir(mode=0o700)
         self.codex = self.home / ".codex"
