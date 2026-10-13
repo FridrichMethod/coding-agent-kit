@@ -1,10 +1,14 @@
 #compdef codex-as
 
 local -a names suggestions
-if ((CURRENT == 2)); then
+if ((CURRENT == 2)) || { ((CURRENT == 3)) && [[ $words[2] == --migrate || $words[2] == --recover ]]; }; then
     names=("${(@f)$(python3 -I -B "$HOME/.local/lib/codex-as/check.py" accounts 2>/dev/null)}")
     names=("${(@)names:#}")
     ((${#names})) && _describe -t accounts 'Codex accounts' names
+    if ((CURRENT == 2)); then
+        suggestions=('--migrate:migrate root auth to fixed account views' '--recover:recover an idle account auth link')
+        _describe 'Account management' suggestions
+    fi
     return
 fi
 if ((CURRENT == 3)); then

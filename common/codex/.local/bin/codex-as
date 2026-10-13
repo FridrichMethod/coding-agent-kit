@@ -1,6 +1,6 @@
 #!/bin/bash
 # codex-as NAME [CODEX_ARGS...] — invoked directly, like claude-as.
-# Serial use only; no lock. Audited against codex-cli 0.162.1.
+# Fixed account views; shared sessions. Audited against codex-cli 0.162.1.
 
 # This process keeps the caller's umask, variables, cwd and options intact.
 umask 077
@@ -18,22 +18,25 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
     _codex_as_message '1;36' 1 'Usage: codex-as NAME [codex arguments...]'
     printf '%s\n' \
         'Credentials: ~/.secrets/codex-NAME.json (complete JSON, owner-only 0600).' \
-        'Shared home: ~/.codex; file authentication; no OAuth implementation.' \
+        'Account home: ~/.codex/accounts/NAME; config/sessions/SQLite shared from ~/.codex.' \
         'Supports interactive, exec, resume and fork; NAME --help reaches Codex.' \
         'Refuses login/logout, profiles, remote/provider/auth overrides and unknown flags.' \
         'Missing account: confirm [y/N], device login in empty temporary home, save, launch.' \
-        'First initialization asks separately, preserves/backups current file credentials.' \
-        'Replaced auth links stop automatically; see recovery instructions.' \
-        'Global symlink, NO concurrency protection or lock. Never switch while a client' \
-        'is running or suspended, including other terminals, desktop and IDE extensions.' \
+        'Migration: codex-as --migrate DEFAULT_ACCOUNT (close root/desktop/IDE clients first).' \
+        'Recovery: codex-as --recover NAME (idle account, explicit source and backups).' \
+        'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
+        'Same-account OAuth refresh retains native cross-process limitations.' \
+        'Resume by UUID, --last or picker; explicit session names are refused.' \
         'Requires Python 3.11+ (stdlib) and the audited Codex version 0.162.1.' \
         'Initialization and recovery: ~/dotfiles/docs/codex-as.md'
     [ "$#" -gt 0 ] && exit 0
     exit 2
 fi
 
-_codex_as_account=$1
-shift
+case $1 in
+    --migrate | --recover) _codex_as_account=${2-} ;;
+    *) _codex_as_account=$1 ;;
+esac
 case $_codex_as_account in
     '' | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
         _codex_as_message 31 2 'codex-as: invalid account name (use ASCII letters, digits, _ or -).'
@@ -44,39 +47,9 @@ if ! command -v python3 >/dev/null 2>&1; then
     _codex_as_message 31 2 'codex-as: Python 3.11+ is required for local JSON and file checks.'
     exit 1
 fi
-_codex_as_checker=$HOME/.local/lib/codex-as/check.py
-if [ ! -r "$_codex_as_checker" ]; then
-    _codex_as_message 31 2 'codex-as: missing ~/.local/lib/codex-as/check.py; reinstall the helper.'
+_codex_as_launcher=$HOME/.local/lib/codex-as/launch.py
+if [ ! -r "$_codex_as_launcher" ]; then
+    _codex_as_message 31 2 'codex-as: missing ~/.local/lib/codex-as/launch.py; reinstall the helper.'
     exit 1
 fi
-# Check args/environment before even invoking the executable's version probe.
-_codex_as_mode=$(command python3 -I -B "$_codex_as_checker" preflight "$_codex_as_account" "$@") || exit "$?"
-_codex_as_version=$(command \codex --version </dev/null) || exit "$?"
-if [ "$_codex_as_version" != 'codex-cli 0.162.1' ]; then
-    _codex_as_message 31 2 'codex-as: Codex version has changed; re-audit auth writes before enabling.'
-    exit 1
-fi
-# Help/version queries never initialize or enroll an account. Only root queries
-# are special: an exec prompt containing these words remains a prompt.
-case "$*" in
-    --help | -h | --version | -V) _codex_as_query=1 ;;
-    *) _codex_as_query=0 ;;
-esac
-if [ "$_codex_as_query" = 0 ]; then
-    command python3 -I -B "$_codex_as_checker" prepare "$_codex_as_account" || exit "$?"
-fi
-if [ "$_codex_as_mode" = interactive ]; then
-    # This version otherwise reuses a long-lived shared app-server daemon.
-    set -- --no-daemon "$@"
-fi
-if CODEX_HOME="$HOME/.codex" command \codex -c 'cli_auth_credentials_store="file"' "$@"; then
-    _codex_as_result=0
-else
-    _codex_as_result=$?
-fi
-# Report replacement/damage without copying stale credentials back or changing
-# Codex's exit status. The next invocation will also refuse the damaged state.
-if [ "$_codex_as_query" = 0 ]; then
-    command python3 -I -B "$_codex_as_checker" after "$_codex_as_account" || :
-fi
-exit "$_codex_as_result"
+exec python3 -I -B "$_codex_as_launcher" "$@"

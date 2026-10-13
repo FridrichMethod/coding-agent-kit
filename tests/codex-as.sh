@@ -8,3 +8,4 @@ unset DOTFILES_AUTO_UPDATE DOTFILES_AUTO_STOW DOTFILES_HOST DOTFILES_DIR _DOTFIL
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 python3 -I -B "$TEST_DIR/test_codex_as.py"
+python3 -I -B "$TEST_DIR/test_codex_sharing_native.py"

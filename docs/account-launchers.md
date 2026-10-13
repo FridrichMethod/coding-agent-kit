@@ -1,64 +1,72 @@
-# Codex／Claude 多账号启动
+# Codex/Claude account launchers
 
-两个可执行命令由工具各自 Stow package 安装至 `~/.local/bin`，无需 source。小型 Python 标准库辅助程序在工具自己的 `~/.local/lib`；需要 Python 3.11+，不安装依赖、不自建 OAuth、不运行后台服务。
+Each tool's Stow package installs its executable command in `~/.local/bin`; no sourcing is required. Small Python standard-library helpers live in each tool's `~/.local/lib`. They require Python 3.11+, install no dependencies, implement no OAuth flow, and run no background service.
 
-## 日常使用与新增账号
+## Daily use and adding accounts
 
 ```sh
 codex-as ayting
 codex-as work resume --last
-codex-as ayting exec --json "检查测试"
+codex-as ayting exec --json "Check the tests"
 claude-as work
-claude-as work -p "检查测试"
+claude-as work -p "Check the tests"
 ```
 
-已有有效本地凭据直接启动。缺少账号时显示已有账号、询问 `[y/N]`，默认否，不会自动纠正近似名字。确认后原生登录、保存成功，再继续原命令。损坏文件、断链、权限异常不是“账号不存在”，不会覆盖重登。
+Valid local credentials launch immediately. A missing account lists existing accounts and asks `[y/N]`, defaulting to no, without correcting similar names. After confirmation, successful native login, and saving, the original command continues. Corrupt files, broken links, and permission errors are not treated as missing accounts and are never overwritten for a fresh login.
 
-- **Codex**：在私密空临时 `CODEX_HOME` 中调用 `codex -c 'cli_auth_credentials_store="file"' login --device-auth`。账号 Security 或 workspace admin 必须开启 device login；失败、取消、超时不保存或自动转浏览器。使用官方 URL/code 完成本机发起的授权。[官方认证说明](https://learn.chatgpt.com/docs/auth)
-- **Claude**：在临时 `CLAUDE_CONFIG_DIR` 中调用 `claude setup-token`，没有 `generate` 子命令或相同 device code 流程。临时禁用自动浏览器打开，展示原生手工授权链接；若网页返回 code，完整粘贴 `code#state` 并 Enter。浏览器 Cookie 不随 CLI 配置目录隔离，应在浏览器中选择目标账号。
-- Claude 没有机器可读的 token 导出接口。本机 `2.1.296` 适配器捕获完整成功 section、去重、等待成功退出后保存，不回放原始输出。流式处理 ANSI／OSC／分块／换行，缓冲有界。版本未知、捕获异常或失败时，另询问是否运行官方命令并无回显粘贴，默认否。**人工回退中官方命令会展示 token，wrapper 的粘贴输入不回显。**
+- **Codex**: runs `codex -c 'cli_auth_credentials_store="file"' login --device-auth` in a private, empty temporary `CODEX_HOME`. Device login must be enabled in the account's Security settings or by the workspace admin. Failure, cancellation, or timeout does not save credentials or automatically switch to a browser flow. Use the official URL/code to complete authorization initiated on this machine. [Official authentication documentation](https://learn.chatgpt.com/docs/auth)
+- **Claude**: runs `claude setup-token` in a temporary `CLAUDE_CONFIG_DIR`; there is no `generate` subcommand or equivalent device-code flow. Automatic browser opening is temporarily disabled, and the native manual authorization link is displayed. If the page returns a code, paste the complete `code#state` and press Enter. Browser cookies are not isolated by the CLI configuration directory; choose the intended account in the browser.
+- Claude has no machine-readable token export interface. The local `2.1.296` adapter captures the complete success section, deduplicates it, and saves only after a successful exit, without replaying raw output. It streams ANSI/OSC sequences, chunks, and line breaks with bounded buffering. An unknown version, capture error, or failure prompts separately to run the official command and paste without echo; the default is no. **In the manual fallback, the official command displays the token; the wrapper's paste input does not echo it.**
 
-Claude setup-token token 通常有效一年，不自动续期；适用于模型请求，不承诺 Remote Control 或 claude.ai connectors，本地 MCP 仍可使用。[官方说明](https://code.claude.com/docs/en/authentication)
+Claude setup-token tokens typically last one year and do not renew automatically. They support model requests, with no guarantee for Remote Control or claude.ai connectors; local MCP remains usable. [Official documentation](https://code.claude.com/docs/en/authentication)
 
-确认与登录 I/O 使用独立 `/dev/tty`，保留最终 stdin/stdout/stderr、cwd、参数、退出码。无控制终端时缺少账号直接拒绝，不提供 `--yes`。wrapper 的 `--help` 及 `NAME --help`／根级版本查询不触发初始化或登录。
+Confirmation and login I/O use a separate `/dev/tty`, preserving the final stdin/stdout/stderr, cwd, arguments, and exit code. A missing account is refused without a controlling terminal; there is no `--yes`. The wrapper's `--help`, `NAME --help`, and root-level version queries do not trigger initialization or login.
 
-## Codex 首次初始化
+## First-time Codex initialization
 
-**先退出当前 Codex，关闭其他终端、挂起进程、桌面端和 IDE 扩展，再运行：**
+**If the root home already has credentials, exit the current Codex and close all terminals, suspended processes, desktop clients, and IDE extensions using that root home before running:**
 
 ```sh
-codex-as ayting
+codex-as --migrate stanford
 ```
 
-普通 `~/.codex/auth.json` 触发单独初始化确认。与唯一已存账号逐字节匹配时提示该别名；否则询问当前文件应归档到哪个本地别名。文件不能证明 Keychain／IDE 当前身份，不会自行猜测。
+`stanford` is an example local default account; replace it with the alias belonging to the current root credentials. Migration confirms, backs up the current root file and any existing account snapshot, imports the original bytes, and fixes the root link to the default account. Different bytes must match a stable user identity: a shared workspace `account_id` does not prove the same user, and unknown identities are never guessed. Migration retries support both regular root files and safe existing default links.
 
-若指定别名已有不同快照，额外确认更新并先备份两份。备份在私密 `~/.secrets/.codex-as-backup-*`，不参与补全。自己拥有的 `.codex` 仅在这次明确初始化时收紧至 0700；已有 `.secrets` 权限异常会拒绝自行 chmod。
+Private backups live at `~/.secrets/.codex-as-backup-*` and are excluded from completion. User-owned `.codex` and `.codex/.tmp` directories are tightened to 0700 only during explicit migration, preserving their contents. Migration rejects temporary directories owned by someone else or represented by symlinks, and permission errors name the exact path. Incorrect permissions on an existing `.secrets` directory cause refusal rather than an automatic chmod. The old `codex-as.initialized` marker remains; the new `codex-as.layout.json` records the layout version and default alias, not credentials. Markers are fully written to temporary files before atomic publication; private pending setup is also recorded before account creation. Interrupted setup can be retried; unknown existing directories are preserved and initialization is refused. Migration neither deletes old markers nor overwrites files with mismatched identities.
 
-初始化创建 `~/.codex/codex-as.initialized`（0600）及受管理链接；标记在替换前写入，中断会安全停止。它不是锁或事务日志。之后共享原有 config、skills、MCP、sessions、history；凭据为完整 `~/.secrets/codex-NAME.json`，固定共享 home、强制文件认证。
+Each account has a fixed entry point: `~/.codex/accounts/NAME/auth.json -> ~/.secrets/codex-NAME.json`. Account directories are 0700; complete credentials are 0600. Normal startup no longer switches the global link. Native `codex` keeps using the root default account; `codex-as NAME` sets an account-specific `CODEX_HOME` and enforces file authentication. A new home without root credentials can create the account layout directly; existing credentials or initialization markers require explicit migration.
 
-已初始化后 auth.json 变成普通文件或消失，一律停止并保留现场。**不要删标记重启，也不要用旧快照覆盖它。**先关闭客户端，把最新普通文件另存为私密恢复备份，核实归属后再恢复账号文件和链接；归属不明则停止。源码核实与真实测试限制见 [Codex 核实记录](codex-as.md)。
+Config, both AGENTS files, rules, skills, agents, memories, session directories, history, the session index, and the complete SQLite home are shared. Database files and WAL/SHM use the original directory together, rather than individual file links. Configuration path fields must be absolute because native relative paths resolve against the account directory; the launcher reports the field name and never rewrites configuration. An explicit `sqlite_home` retains its absolute directory; otherwise, the root directory is used. Conflicting environment, project, or CLI overrides are refused.
 
-## Claude 配置与安全边界
+Native thread writer locks and the rollout maintenance lock are shared. An active writer prevents another account from writing the same session; after it exits, use `codex-as OTHER resume UUID`. `resume --last` and the picker share discovery results. Explicit session names have account-path filtering problems, so the launcher rejects them and requests a UUID. Names can still be displayed and edited in the native UI.
 
-token 保存为 `~/.secrets/claude-NAME`，0600、当前用户拥有的普通文件、单 hardlink。日常只向子进程设置 `CLAUDE_CODE_OAUTH_TOKEN`，继承原有 `CLAUDE_CONFIG_DIR`；不强设为 `~/.claude`，保留 `.claude.json`、MCP、配置和信任状态的既有来源。
+Cloud policy, the model catalog/cache, remote plugin installations/cache, MCP/Connector login, daemons, IPC, temporary files, and logs remain separate for each account. Local plugin paths in shared configuration can be shared. Remote plugin cache directories cannot be linked wholesale: one account's sync could delete another account's bundles. These existing root account caches are not imported into new accounts.
 
-显式 API key／OAuth token／认证 FD／替代 provider／endpoint／profile 覆盖，以及 settings 的认证 helper／组织限制会拒绝，只报告变量名或来源，不输出值。禁止透传 login/logout/setup-token、`--bare`、remote／SDK／managed-settings／project-config-root 等认证配置来源覆盖，以及未审核选项。只按原生参数边界识别首个命令操作数，不扫描提示词中的单词；原生 Claude 即使带 `-p` 或 `--`，精确的首个 `auth` 操作数仍会调度认证子命令，因此拒绝。required／optional／variadic 参数值保持其原生角色。这是有限的本地 CLI 选项检查，不承诺兼容所有命令。
+If account credentials are atomically replaced with a regular file, the link is restored when there are no other wrapper clients and the file matches secrets. If secrets have not changed during this run and the user identity matches, both copies are backed up, the new original bytes are imported, and the link is restored. If both copies changed, no startup snapshot exists, or identities differ, repair stops without guessing from timestamps. The last exiting client or the next idle startup can perform safe repair; repair errors do not replace the native exit code.
 
-不绕过 managed policy：自动注册遇到非空 managed cache、系统策略、policy helper、认证绑定或无法保留的 profile 加载链就停止。空／缺失 cache 不因此封锁；本机检查的 cache 为空对象，运行时仍重新检查。
+For manual source selection, close all clients for that account and run `codex-as --recover NAME`: choose 1 to keep secrets, 2 to import the account directory's regular file, or empty input to cancel. Confirmation is followed by backup and link restoration. A missing link requires explicitly choosing saved secrets. **Do not delete markers or overwrite regular files yourself with old snapshots.** Damaged root default credentials require another explicit migration; account recovery cannot guess their source. See the [Codex verification record](codex-as.md) for source and test limitations.
 
-新账号文件独占创建，权限／所有者／symlink／hardlink 异常均拒绝。账号名仅允许非空 ASCII 字母、数字、下划线、连字符。本地格式检查不是服务端认证，不自动删除过期凭据或重新登录。
+## Claude configuration and security boundaries
 
-## 补全、安装与并发
+Tokens are saved at `~/.secrets/claude-NAME`: 0600, a regular file owned by the current user, with a single hard link. Daily startup sets only `CLAUDE_CODE_OAUTH_TOKEN` for the child and inherits the existing `CLAUDE_CONFIG_DIR`. It does not force `~/.claude`, preserving existing sources of `.claude.json`, MCP, configuration, and trust state.
 
-zsh 使用工具 package 中的 OMZ custom completions、现有 compinit；Bash 使用标准 bash-completion 用户目录自动加载。首参仅枚举安全文件名与 metadata，不读取凭据、不运行 CLI、不联网；损坏内容由启动校验。后续先补全支持范围，有既有原生补全时再委托。
+Explicit API key/OAuth token/authentication FD/alternative provider/endpoint/profile overrides, authentication helpers in settings, and organization restrictions are refused. Only variable names or sources are reported, never values. Passthrough of login/logout/setup-token, `--bare`, authentication configuration source overrides such as remote/SDK/managed-settings/project-config-root, and unaudited options is prohibited. Only the first command operand is identified using native argument boundaries; words inside prompts are not scanned. Native Claude dispatches an exact first `auth` operand to authentication subcommands even with `-p` or `--`, so it is refused. Required/optional/variadic argument values retain their native roles. This is a bounded local CLI option check, without a promise of compatibility with every command.
 
-fzf-tab 使用同一候选；两个账号命令的预览只打印文字，不读文件。无 fzf 仍能普通 Tab。新终端加载新补全；不向 rc 追加 source 或 PATH。安装沿用 Stow，不会触发真实初始化／登录／模型请求。
+Managed policy is respected: automatic enrollment stops for nonempty managed caches, system policy, policy helpers, authentication bindings, or profile loading chains that cannot be preserved. Empty or missing caches do not cause this refusal. The local cache inspected was an empty object; it is checked again at runtime.
 
-启动器自己的步骤／帮助标题用青色，确认／警告用黄色，保存／初始化成功用绿色，错误用红色。默认仅对实际接收消息的终端启用颜色，重定向日志保持纯文本；独立 `/dev/tty` 上的确认仍可着色，不影响重定向的 Codex／Claude 输出。沿用 `DOTFILES_COLOR=auto|always|never`，非空 `NO_COLOR` 或 `TERM=dumb` 优先禁用颜色。原生命令输出、补全账号列表与内部机器输出不经着色。
+New account files are created exclusively; incorrect permissions, ownership, symlinks, or hard links are refused. Account names must be nonempty and contain only ASCII letters, digits, underscores, and hyphens. Local format validation is not server authentication; expired credentials are not automatically deleted or replaced through login.
 
-**Codex 的全局软链接没有并发保护。** A 运行或挂起时不能切 B；其他终端、桌面端和 IDE 可能访问同一目录。不会自动杀进程、切额度、后台保活或续期 Claude token。
+## Completion, installation, and concurrency
 
-## 验证
+zsh uses OMZ custom completions from each tool's package and the existing compinit; Bash autoloads from the standard bash-completion user directory. The first argument enumerates only safe filenames and metadata, without reading credentials, running the CLI, or using the network. Corrupt contents are detected at startup. Later arguments first complete the supported scope, then delegate to existing native completion when available.
+
+fzf-tab uses the same candidates; previews for both account commands only print text and do not read files. Normal Tab works without fzf. New terminals load the new completions; no source or PATH lines are appended to rc files. Installation uses Stow and triggers no real initialization, login, or model requests.
+
+The launcher's own step/help headings are cyan, confirmations/warnings yellow, successful saves/initialization green, and errors red. By default, color is enabled only for the terminal receiving the message; redirected logs stay plain. Confirmations on a separate `/dev/tty` can still use color without affecting redirected Codex/Claude output. `DOTFILES_COLOR=auto|always|never` is supported; nonempty `NO_COLOR` or `TERM=dumb` takes priority and disables color. Native command output, completion account lists, and internal machine output are not colorized.
+
+**Codex supports concurrent sessions across accounts and different sessions within one account.** Each wrapper and native child holds a shared account lease; credential repair requires an exclusive lease. Suspended processes or a child surviving an abnormal supervisor exit still block repair. Lease files persist and are not deleted based on PIDs. A shell inheriting `CODEX_HOME` from account A can launch B directly, but the inherited source must be a verified managed account directory. Native same-account OAuth refresh has only an in-process lock, so multiple processes can still refresh simultaneously or briefly read partial JSON; the wrapper implements no additional OAuth. Direct CLI, desktop, and IDE clients do not participate in wrapper leases, and automatic exit repair cannot exclude them. Migration/manual recovery requires closing related clients; this boundary also applies to unmanaged clients using the root default account. Processes are not automatically killed, quotas are not switched automatically, no background keepalive runs, and Claude tokens are not renewed.
+
+## Validation
 
 ```sh
 tests/codex-as.sh
@@ -66,4 +74,4 @@ tests/account-enrollment.sh
 pre-commit run --all-files
 ```
 
-测试全部使用临时 HOME、虚构凭据和 fake CLI，覆盖 Bash/zsh、TTY、重定向 stdin／JSON stdout、登录失败、人工回退、刷新写回及原子替换、异常权限及认证来源、补全和预览不泄密。Mock 测试通过、版本实现已核实、真实账号切换已验证是三种不同结论；本次验证前两种。
+Routine tests use temporary HOME directories, fictitious credentials, and fake CLIs. They cover Bash/zsh, TTY, stdin/JSON stdout, migration/recovery/interruption, concurrent leases, signals, refresh writeback, incorrect permissions, and completion/preview secrecy. When the audited version is installed, an additional real Codex offline app-server fixture checks legacy/paginated history, shared SQLite discovery, and native writer locks, without login or model calls and with zero requests. Missing or mismatched versions explicitly skip this check. Native protocol tests do not verify real-account server authorization, quotas, or OAuth refresh, and do not directly operate the terminal picker/`--last`.

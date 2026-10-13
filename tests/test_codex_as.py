@@ -1,19 +1,26 @@
 """Isolated HOME, fabricated JSON and fake executable; never runs real Codex."""
 
 import base64
+import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import pty
 import re
 import select
+import signal
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
+import time
+import tomllib
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,20 +36,22 @@ ENV_CONFLICTS = (
     "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL", "CODEX_AGENT_IDENTITY_JWKS_BASE_URL",
 )
 FAKE = r'''
-import json, os, pathlib, sys
+import json, os, pathlib, sys, time, signal
 if sys.argv[1:] == ["--version"]:
     print(os.environ.get("FAKE_VERSION", "codex-cli 0.162.1"))
     sys.exit(0)
 args = sys.argv[1:]
 assert args[:2] == ["-c", 'cli_auth_credentials_store="file"']
 home = pathlib.Path(os.environ["HOME"])
-assert os.environ["CODEX_HOME"] == str(home / ".codex")
-auth = home / ".codex/auth.json"
+account_home = pathlib.Path(os.environ["CODEX_HOME"])
+auth = account_home / "auth.json"
 mode = os.environ.get("FAKE_MODE", "normal")
 record = {"args": args, "cwd": os.getcwd(), "stdin": sys.stdin.read(),
+          "codex_home": str(account_home), "sqlite_home": os.environ["CODEX_SQLITE_HOME"],
           "tty": [os.isatty(n) for n in (0, 1, 2)], "umask": os.umask(0o077)}
 pathlib.Path(os.environ["FAKE_RECORD"]).write_text(json.dumps(record))
-if mode in ("refresh", "rename"):
+if mode in ("refresh", "rename", "diverged"):
+    canonical = auth.resolve()
     data = json.loads(auth.read_text())
     data["tokens"]["access_token"] = "fabricated-refreshed-A"
     data["tokens"]["refresh_token"] = "fabricated-new-refresh-A"
@@ -52,6 +61,20 @@ if mode in ("refresh", "rename"):
         temporary = auth.with_suffix(".new")
         temporary.write_text(json.dumps(data))
         os.replace(temporary, auth)
+        if mode == "diverged":
+            other = dict(data)
+            other["tokens"] = dict(data["tokens"], access_token="fixture-other-refresh")
+            canonical.write_text(json.dumps(other))
+if mode == "hold":
+    if os.environ.get("FAKE_SIGINT_COUNT"):
+        count = [0]
+        def interrupted(signum, frame):
+            count[0] += 1
+            pathlib.Path(os.environ["FAKE_SIGINT_COUNT"]).write_text(str(count[0]))
+        signal.signal(signal.SIGINT, interrupted)
+    pathlib.Path(os.environ["FAKE_READY"]).write_text(str(os.getpid()))
+    while not pathlib.Path(os.environ["FAKE_GATE"]).exists():
+        time.sleep(.01)
 print("stdout sentinel")
 print("stderr sentinel", file=sys.stderr)
 sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
@@ -97,7 +120,7 @@ class CodexAs(unittest.TestCase):
         for name, token in zip(("A", "B"), TOKENS):
             self.write_credential(name, {
                 "auth_mode": "chatgpt", "OPENAI_API_KEY": None,
-                "tokens": {"id_token": "fake." + base64.urlsafe_b64encode(b'{}').decode().rstrip("=") + ".fake", "access_token": token,
+                "tokens": {"id_token": "fake." + base64.urlsafe_b64encode(json.dumps({"sub": "fixture-" + name}).encode()).decode().rstrip("=") + ".fake", "access_token": token,
                            "refresh_token": "fabricated-refresh-" + name, "account_id": name},
                 "last_refresh": "2026-10-01T00:00:00Z",
                 "unknown": {"preserve": [1, {"nested": True}]},
@@ -105,12 +128,15 @@ class CodexAs(unittest.TestCase):
         marker = self.codex / "codex-as.initialized"
         marker.write_text("codex-as v1\n")
         marker.chmod(0o600)
+        marker = self.codex / "codex-as.layout.json"
+        marker.write_text(json.dumps({"version": 2, "default_account": "A"}))
+        marker.chmod(0o600)
         self.shared = self.snapshot()
         # Explicitly initialized, managed link; the function never adopts a
         # regular file or repairs a missing link on its own.
         self.auth.symlink_to(self.secret / "codex-A.json")
         self.env = os.environ.copy()
-        for name in (*ENV_CONFLICTS, "CODEX_HOME", "PYTHONPATH", "BASH_ENV", "ENV", "ZDOTDIR"):
+        for name in (*ENV_CONFLICTS, "CODEX_HOME", "CODEX_SQLITE_HOME", "PYTHONPATH", "BASH_ENV", "ENV", "ZDOTDIR"):
             self.env.pop(name, None)
         self.record = self.base / "record.json"
         self.env.update(HOME=str(self.home), PATH=os.pathsep.join((str(self.bin), str(self.command_bin), self.env["PATH"])),
@@ -155,7 +181,8 @@ class CodexAs(unittest.TestCase):
                 for name in ("A", "B", "A"):
                     result = self.run_as(shell, [name])
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual(os.readlink(self.auth), str(self.secret / f"codex-{name}.json"))
+                    self.assertEqual(os.readlink(self.codex / "accounts" / name / "auth.json"), str(self.secret / f"codex-{name}.json"))
+                    self.assertEqual(os.readlink(self.auth), str(self.secret / "codex-A.json"))
                 before_b = (self.secret / "codex-B.json").read_bytes()
                 self.assertEqual(self.run_as(shell, ["A"], {"FAKE_MODE": "refresh"}).returncode, 0)
                 self.assertTrue(self.auth.is_symlink())
@@ -167,8 +194,236 @@ class CodexAs(unittest.TestCase):
                 self.assertEqual(data["unknown"], {"preserve": [1, {"nested": True}]})
                 self.assertTrue((self.secret / "codex-B.json").read_bytes() == before_b,
                                 "wrong account was modified (values hidden)")
-                self.assertEqual({k: v for k, v in self.snapshot().items() if k != "auth.json"}, self.shared)
+                snapshot = self.snapshot()
+                self.assertEqual({k: snapshot[k] for k in self.shared}, self.shared)
                 self.assertEqual(list(self.codex.glob(".codex-as-*")), [])
+
+    def test_accounts_have_fixed_auth_and_shared_state(self):
+        root_before = os.readlink(self.auth)
+        for name in ("A", "B", "A"):
+            result = self.run_as(SHELLS[0], [name, "exec", "prompt"])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            account_home = self.codex / "accounts" / name
+            self.assertEqual(os.readlink(account_home / "auth.json"), str(self.secret / f"codex-{name}.json"))
+            for shared in ("config.toml", "sessions", "archived_sessions", "skills", "history.jsonl", "thread-writer-locks"):
+                self.assertEqual((account_home / shared).resolve(), self.codex / shared)
+            self.assertEqual(os.readlink(self.auth), root_before)
+            record = json.loads(self.record.read_text())
+            self.assertEqual(record["codex_home"], str(account_home))
+            self.assertEqual(record["sqlite_home"], str(self.codex))
+
+    def test_named_resume_is_refused_but_ids_and_prompts_are_preserved(self):
+        for args in (["resume", "friendly name"], ["resume", "--", "friendly name"],
+                     ["fork", "--", "friendly name"], ["exec", "resume", "--", "friendly name"]):
+            result = self.run_as(SHELLS[0], ["A", *args])
+            self.assertNotEqual(result.returncode, 0, args)
+            self.assertIn("UUID", result.stderr)
+        for args in (["resume", "12345678-1234-4234-8234-123456789abc", "follow-up"],
+                     ["resume", "--last", "follow-up"], ["exec", "friendly name"]):
+            result = self.run_as(SHELLS[0], ["A", *args])
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_same_account_leases_allow_clients_but_exclude_repairs(self):
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        account_home = self.codex / "accounts/A"
+        auth = account_home / "auth.json"
+        lease = self.codex / "accounts/.locks/A.lock"
+        with lease.open("rb") as first, lease.open("rb") as second:
+            fcntl.flock(first, fcntl.LOCK_SH)
+            fcntl.flock(second, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            raw = auth.read_bytes()
+            auth.unlink()
+            auth.write_bytes(raw)
+            auth.chmod(0o600)
+            result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("active", result.stderr)
+            self.assertFalse(auth.is_symlink())
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(auth.is_symlink())
+
+    def start_held(self, account, label, overrides=None):
+        ready, gate, record = (self.base / (label + suffix) for suffix in ("-ready", "-gate", "-record"))
+        env = self.env | {"FAKE_MODE": "hold", "FAKE_READY": str(ready), "FAKE_GATE": str(gate),
+                          "FAKE_RECORD": str(record)} | (overrides or {})
+        process = subprocess.Popen([str(self.command_bin / "codex-as"), account, "exec", "prompt"],
+                                   cwd=self.cwd, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.addCleanup(lambda: (process.kill(), process.wait()) if process.poll() is None else None)
+        deadline = time.monotonic() + 8
+        while not ready.exists() and time.monotonic() < deadline and process.poll() is None:
+            time.sleep(.01)
+        self.assertTrue(ready.exists(), "fake client failed to reach its barrier")
+        return process, int(ready.read_text()), gate, record
+
+    def test_concurrent_accounts_and_same_account_clients(self):
+        processes = [self.start_held(account, str(index)) for index, account in enumerate(("A", "B", "A"))]
+        for (process, _, gate, record), account in zip(processes, ("A", "B", "A")):
+            data = json.loads(record.read_text())
+            self.assertEqual(data["codex_home"], str(self.codex / "accounts" / account))
+            self.assertIsNone(process.poll())
+            gate.write_text("release")
+        for process, _, _, _ in processes:
+            self.assertEqual(process.wait(timeout=8), 0)
+        self.assertEqual(os.readlink(self.auth), str(self.secret / "codex-A.json"))
+
+    def test_child_keeps_lease_after_supervisor_is_killed(self):
+        process, child_pid, gate, _ = self.start_held("A", "orphan")
+        process.kill()
+        process.wait(timeout=8)
+        try:
+            lease = self.codex / "accounts/.locks/A.lock"
+            with lease.open("rb") as stream:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            auth = self.codex / "accounts/A/auth.json"
+            raw = auth.read_bytes()
+            auth.unlink()
+            auth.write_bytes(raw)
+            auth.chmod(0o600)
+            result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("active", result.stderr)
+        finally:
+            gate.write_text("release")
+            # Only this test's fabricated child; never a real Codex process.
+            try:
+                os.kill(child_pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+    def test_interrupt_is_not_duplicated_and_termination_is_forwarded(self):
+        counter = self.base / 'interrupt-count'
+        process, child_pid, gate, _ = self.start_held("A", "interrupt", {"FAKE_SIGINT_COUNT": str(counter)})
+        os.kill(process.pid, signal.SIGINT)
+        os.kill(child_pid, signal.SIGINT)
+        deadline = time.monotonic() + 5
+        while not counter.exists() and time.monotonic() < deadline:
+            time.sleep(.01)
+        self.assertEqual(counter.read_text(), "1")
+        self.assertIsNone(process.poll())
+        gate.write_text("release")
+        self.assertEqual(process.wait(timeout=8), 0)
+        for signum in (signal.SIGTERM, signal.SIGHUP):
+            process, _, _, _ = self.start_held("A", str(signum))
+            os.kill(process.pid, signum)
+            self.assertEqual(process.wait(timeout=8), 128 + signum)
+
+    def test_suspended_client_still_prevents_recovery(self):
+        process, child_pid, gate, _ = self.start_held("A", "suspended")
+        os.kill(child_pid, signal.SIGSTOP)
+        try:
+            result = self.run_as(SHELLS[0], ["--recover", "A"])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("active", result.stderr)
+        finally:
+            os.kill(child_pid, signal.SIGCONT)
+            gate.write_text("release")
+        self.assertEqual(process.wait(timeout=8), 0)
+
+    def test_both_changed_credentials_are_preserved_for_explicit_recovery(self):
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {"FAKE_MODE": "diverged", "FAKE_EXIT": "17"})
+        self.assertEqual(result.returncode, 17)
+        self.assertIn("diverged", result.stderr)
+        auth = self.codex / "accounts/A/auth.json"
+        self.assertFalse(auth.is_symlink())
+        local, canonical = auth.read_bytes(), (self.secret / "codex-A.json").read_bytes()
+        self.assertNotEqual(local, canonical)
+        self.record.unlink()
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(auth.read_bytes(), local)
+        self.assertEqual((self.secret / "codex-A.json").read_bytes(), canonical)
+
+    def test_shared_relative_paths_and_sqlite_overrides_are_refused(self):
+        config = self.codex / "config.toml"
+        for content in ('model_instructions_file="relative.md"\n', 'sqlite_home="state"\n',
+                        '[agents.worker]\nconfig_file="worker.toml"\n',
+                        '[[skills.config]]\npath="skills/example"\nenabled=true\n',
+                        '[otel.exporter.otlp-http.tls]\nca-certificate="certs/ca.pem"\n',
+                        '[otel.exporter.otlp-grpc.tls]\nclient-certificate="certs/client.pem"\n',
+                        '[otel.exporter.otlp-grpc.tls]\nclient-private-key="certs/key.pem"\n'):
+            config.write_text(content)
+            result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("absolute", result.stderr)
+            self.assertEqual(config.read_text(), content)
+        config.write_text('model="unchanged-model"\n')
+        self.rejected(SHELLS[0], ["A", "-c", 'sqlite_home="/tmp/other"'])
+        self.rejected(SHELLS[0], ["A"], {"CODEX_SQLITE_HOME": str(self.base / "other")})
+
+    def test_inherited_managed_account_home_can_switch_accounts(self):
+        self.assertEqual(self.run_as(SHELLS[0], ["A", "exec", "prompt"]).returncode, 0)
+        result = self.run_as(SHELLS[0], ["B", "exec", "prompt"],
+                             {"CODEX_HOME": str(self.codex / "accounts/A")})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(self.record.read_text())["codex_home"], str(self.codex / "accounts/B"))
+
+    def test_unicode_sqlite_override_is_valid_native_toml(self):
+        sqlite = self.base / "sqlite-📁"
+        sqlite.mkdir()
+        (self.codex / "config.toml").write_text('sqlite_home=' + json.dumps(str(sqlite), ensure_ascii=False) + '\n')
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        override = json.loads(self.record.read_text())["args"][3]
+        self.assertEqual(tomllib.loads(override)["sqlite_home"], str(sqlite))
+
+    def test_interrupted_marker_publication_can_retry_without_partial_markers(self):
+        def load(name):
+            spec = importlib.util.spec_from_file_location('fixture_' + name, self.install / (name + '.py'))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+        guard, storage = load('check'), load('layout')
+        tty = SimpleNamespace(write=lambda *args: None, close=lambda: None)
+        with patch.dict(os.environ, self.env, clear=True), \
+             patch.object(guard, 'terminal', return_value=tty), patch.object(guard, 'confirm'):
+            for kind, account in (('root', 'A'), ('account', 'B')):
+                layout = storage.Layout(guard, account)
+                layout.acquire(exclusive=True)
+                marker = self.codex / 'codex-as.layout.json' if kind == 'root' else layout.home / 'codex-as.initialized'
+                if kind == 'root':
+                    marker.unlink()
+                raw = (json.dumps({'version': 2, 'default_account': account}).encode() + b'\n'
+                       if kind == 'root' else b'codex-as v2\n')
+                original = guard.exclusive
+                interrupted = [False]
+
+                def halfway(path, data):
+                    if data == raw and not interrupted[0]:
+                        interrupted[0] = True
+                        original(path, b'')
+                        raise OSError('fixture process interrupted before marker write')
+                    return original(path, data)
+
+                try:
+                    action = layout.migrate if kind == 'root' else layout.prepare
+                    with patch.object(guard, 'exclusive', side_effect=halfway):
+                        with self.assertRaises(OSError):
+                            action()
+                    self.assertFalse(marker.exists(), 'a partial marker was published')
+                    action()
+                    self.assertTrue(marker.exists())
+                    layout.validate()
+                finally:
+                    layout.close()
+
+    def test_foreign_account_views_and_shared_link_drift_are_refused(self):
+        self.assertEqual(self.run_as(SHELLS[0], ["A", "exec", "prompt"]).returncode, 0)
+        account = self.codex / "accounts/A"
+        (account / "auth.json").unlink()
+        (account / "auth.json").symlink_to(self.secret / "codex-B.json")
+        self.rejected(SHELLS[0], ["A"])
+        (account / "auth.json").unlink()
+        (account / "auth.json").symlink_to(self.secret / "codex-A.json")
+        (account / "config.toml").unlink()
+        (account / "config.toml").write_text('model="forked"\n')
+        self.rejected(SHELLS[0], ["A"])
 
     def test_arguments_io_cwd_exit_and_umask(self):
         cases = [[], ["resume", "--last"], ["fork", "--last"], ["--help"],
@@ -190,7 +445,7 @@ class CodexAs(unittest.TestCase):
                     self.assertEqual(result.stderr, "stderr sentinel\n")
                     record = json.loads(self.record.read_text())
                     mode = "exec" if "exec" in args else "interactive"
-                    expected = ["-c", 'cli_auth_credentials_store="file"']
+                    expected = ["-c", 'cli_auth_credentials_store="file"', "-c", "sqlite_home=" + json.dumps(str(self.codex))]
                     if mode == "interactive":
                         expected += ["--no-daemon"]
                     self.assertEqual(record["args"], expected + args)
@@ -257,6 +512,19 @@ class CodexAs(unittest.TestCase):
                 self.assertIn(variable, result.stderr)
             self.rejected(shell, ["A"], {"CODEX_HOME": str(self.base / "other-home")})
             self.rejected(shell, ["A"], {"FAKE_VERSION": "codex-cli 99.0.0"})
+
+    def test_permission_error_identifies_the_actual_directory(self):
+        temporary = self.codex / '.tmp'
+        temporary.mkdir(mode=0o775)
+        temporary.chmod(0o775)
+
+        result = self.run_as(SHELLS[0], ['A', 'exec', 'prompt'])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(str(temporary), result.stderr)
+        self.assertIn('group/other writable', result.stderr)
+        self.assertEqual(temporary.stat().st_mode & 0o777, 0o775)
+        self.assertFalse(self.record.exists())
 
     def test_json_permission_and_link_refusals(self):
         for shell in SHELLS:
@@ -330,14 +598,15 @@ class CodexAs(unittest.TestCase):
             old = (self.secret / "codex-A.json").read_bytes()
             result = self.run_as(shell, ["A", "exec"], {"FAKE_MODE": "rename", "FAKE_EXIT": "17"})
             self.assertEqual(result.returncode, 17)
-            self.assertIn("preserve it and recover", result.stderr)
-            self.assertFalse(self.auth.is_symlink())
-            newest = self.auth.read_bytes()
+            self.assertEqual(result.stderr, "stderr sentinel\n")
+            auth = self.codex / "accounts/A/auth.json"
+            self.assertTrue(auth.is_symlink())
+            newest = auth.read_bytes()
             self.assertTrue(json.loads(newest)["tokens"]["access_token"] == TOKENS[2], "newest credentials lost (values hidden)")
-            self.rejected(shell, ["B"])
-            self.assertTrue(self.auth.read_bytes() == newest, "newest credentials overwritten (values hidden)")
-            self.assertTrue((self.secret / "codex-A.json").read_bytes() == old, "old account rewritten (values hidden)")
-            self.auth.unlink()
+            self.assertEqual(self.run_as(shell, ["B"]).returncode, 0)
+            self.assertTrue(auth.read_bytes() == newest, "newest credentials overwritten (values hidden)")
+            backups = list(self.secret.glob(".codex-as-backup-*"))
+            self.assertTrue(any(p.read_bytes() == old for p in backups))
 
     def test_local_policy_and_provider_refusals(self):
         cfg = self.codex / "config.toml"
@@ -375,7 +644,7 @@ class CodexAs(unittest.TestCase):
             command = [shell, *flags, "-c", '. "$1"; . "$1"; codex-as --help', "alias", str(alias_file)]
             result = subprocess.run(command, cwd=self.cwd, env=self.env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("NO concurrency protection", result.stdout)
+            self.assertIn("Concurrent accounts", result.stdout)
 
     def test_tty_fds_are_preserved(self):
         for shell in SHELLS:

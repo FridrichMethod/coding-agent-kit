@@ -6,12 +6,10 @@ import json
 import os
 from pathlib import Path
 import re
-import secrets
 import stat
-import shutil
 import subprocess
 import sys
-import tempfile
+import uuid
 
 
 def styled(text, style, fd):
@@ -58,11 +56,14 @@ def arguments(args):
         "app", "cloud-tasks", "tcp-tunnel", "execpolicy", "responses-api-proxy", "stdio-to-uds",
     }
     mode, root, cwd = "interactive", True, Path.cwd()
+    command, target, last = None, None, False
     i = 0
     while i < len(args):
         arg = args[i]
         i += 1
         if arg == "--":
+            if command in {"resume", "fork", "exec-resume"} and target is None and i < len(args):
+                target = args[i]
             break
         flag, sep, value = arg.partition("=")
         if flag in values:
@@ -74,6 +75,8 @@ def arguments(args):
         elif arg.startswith("-c") and not arg.startswith("--"):
             flag, value = "-c", arg[2:]
         elif arg in switches:
+            if arg == "--last":
+                last = True
             continue
         elif arg.startswith("-") and arg != "-":
             fail("unsupported option; profiles, remote/provider/auth overrides are refused.")
@@ -81,31 +84,42 @@ def arguments(args):
             if root:
                 if arg in {"exec", "e"}:
                     mode = "exec"
+                    command = "exec"
                     root = False
                 elif arg in {"resume", "fork"}:
+                    command = arg
                     root = False
                 elif arg in commands:
                     fail("unsupported subcommand; login/logout must run outside codex-as.")
+            elif command == "exec":
+                command = "exec-resume" if arg == "resume" else "exec-prompt"
+            elif command in {"resume", "fork", "exec-resume"} and target is None:
+                target = arg
             continue
         if flag in {"-c", "--config"}:
             key = value.partition("=")[0]
-            if re.search(r"auth|login|provider|base_url|workspace_id|remote|api_key|access_token", key, re.I):
+            if re.search(r"auth|login|provider|base_url|workspace_id|remote|api_key|access_token|sqlite_home", key, re.I):
                 fail("authentication/provider configuration overrides are refused.")
         elif flag in {"-C", "--cd"}:
             cwd = Path(value).expanduser().absolute()
         elif flag in {"--enable", "--disable"} and re.search(r"auth|login|provider|remote|identity", value, re.I):
             fail("authentication/provider feature overrides are refused (conservative local guard).")
+    if target is not None and not last:
+        try:
+            uuid.UUID(target)
+        except ValueError:
+            fail("resume/fork requires a session UUID; use --last or the native picker instead of a session name.")
     return mode, cwd
 
 
 def directory(path, private=False, initializing=False):
     info = path.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
-        fail("home, .codex and .secrets must be owned directories, never symlinks.")
+        fail(f"{path}: must be an owned directory, never a symlink.")
     if info.st_mode & 0o022 and not initializing:
-        fail("home/.codex directory is group/other writable; review and restrict it first.")
+        fail(f"{path}: directory is group/other writable; review and restrict it first.")
     if private and stat.S_IMODE(info.st_mode) != 0o700:
-        fail(".secrets must have permissions 0700; review it before changing permissions.")
+        fail(f"{path}: private credential/account directory must have permissions 0700; review it before changing permissions.")
 
 
 def unique_keys(pairs):
@@ -233,155 +247,6 @@ def exclusive(path, raw):
         raise
 
 
-def marker_valid(marker):
-    if not os.path.lexists(marker):
-        return False
-    fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd, "rb") as stream:
-        info = os.fstat(stream.fileno())
-        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
-                or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600
-                or stream.read(64) != b"codex-as v1\n"):
-            fail("unsafe/unrecognized initialization marker; preserve auth.json and recover manually.")
-    return True
-
-
-def prepare(account):
-    home = Path(os.environ["HOME"])
-    directory(home)
-    codex, secret = home / ".codex", home / ".secrets"
-    auth, target = codex / "auth.json", secret / f"codex-{account}.json"
-    marker = codex / "codex-as.initialized"
-    if os.path.lexists(codex):
-        directory(codex, initializing=True)
-    initialized = marker_valid(marker) if codex.exists() else False
-    if initialized:
-        directory(codex)
-    if os.path.lexists(secret):
-        directory(secret, private=True)
-    if initialized:
-        managed_link(auth, target)
-    elif auth.is_symlink():
-        managed_link(auth, target)
-    ordinary = os.path.lexists(auth) and not auth.is_symlink()
-    current = credential(auth) if ordinary else None
-    missing = not os.path.lexists(target)
-    if not missing:
-        credential(target)
-    tty = None
-    current_alias, replace_snapshot = None, False
-    try:
-        if not initialized:
-            tty = terminal()
-            matches = [name for name in accounts() if current is not None
-                       and credential(secret / f"codex-{name}.json") == current]
-            if current is not None:
-                if len(matches) == 1:
-                    current_alias = matches[0]
-                else:
-                    tty.write("Current file auth cannot identify Keychain/IDE login. Enter its local account name (empty cancels): ")
-                    current_alias = tty.readline().strip()
-                    if not re.fullmatch(r"[A-Za-z0-9_-]+", current_alias):
-                        fail("cancelled/invalid current account name; auth.json preserved.")
-                existing = secret / f"codex-{current_alias}.json"
-                if os.path.lexists(existing) and credential(existing) != current:
-                    confirm(tty, f"Replace the different {current_alias} snapshot with current file auth after backing up both?")
-                    replace_snapshot = True
-            detail = f"; preserve current file as {current_alias}" if current_alias else ""
-            confirm(tty, "Initialize shared auth link" + detail + "; close ALL terminals/desktop/IDE clients first. No lock or concurrency protection")
-        if missing and current_alias != account:
-            tty = tty or terminal()
-            tty.write("Existing accounts: " + (", ".join(accounts()) or "(none)") + "\n")
-            confirm(tty, f"Account {account} does not exist. Login and save a new account?")
-            with tempfile.TemporaryDirectory(prefix="codex-as-login-") as temp:
-                env = os.environ.copy()
-                env["CODEX_HOME"] = temp
-                result = subprocess.run([shutil.which("codex"), "-c", 'cli_auth_credentials_store="file"',
-                                         "login", "--device-auth"], env=env, stdin=tty, stdout=tty, stderr=tty)
-                if result.returncode:
-                    fail("native device login failed/cancelled; no credentials imported. Device login must be enabled by the account/workspace.")
-                raw = credential(Path(temp) / "auth.json")
-                secret.mkdir(mode=0o700, exist_ok=True)
-                directory(secret, private=True)
-                exclusive(target, raw)
-                tty.write(f"Credentials saved for account {account}.\n", "32")
-        if not initialized:
-            codex.mkdir(mode=0o700, exist_ok=True)
-            directory(codex, initializing=True)
-            secret.mkdir(mode=0o700, exist_ok=True)
-            directory(secret, private=True)
-            if ordinary:
-                if credential(auth) != current:
-                    fail("auth.json changed during initialization; preserve it and stop all clients.")
-                exclusive(secret / (".codex-as-backup-" + secrets.token_hex(12)), current)
-                existing = secret / f"codex-{current_alias}.json"
-                if not os.path.lexists(existing):
-                    exclusive(existing, current)
-                elif replace_snapshot:
-                    old = credential(existing)
-                    exclusive(secret / (".codex-as-backup-" + secrets.token_hex(12)), old)
-                    staged = secret / (".codex-as-import-" + secrets.token_hex(12))
-                    exclusive(staged, current)
-                    os.replace(staged, existing)
-                elif credential(existing) != current:
-                    fail("account snapshot changed; no overwrite performed.")
-            credential(target)
-            # Mark BEFORE replacement: interrupted initialization is fail-closed,
-            # never confused with a later CLI's atomic replacement of the link.
-            os.chmod(codex, 0o700)
-            exclusive(marker, b"codex-as v1\n")
-            link = codex / (".codex-as-" + secrets.token_hex(12))
-            os.symlink(str(target), link)
-            try:
-                if ordinary and credential(auth) != current:
-                    fail("auth.json changed; initialized marker retained for manual recovery.")
-                if not ordinary and os.path.lexists(auth):
-                    managed_link(auth, target)
-                os.replace(link, auth)
-            finally:
-                link.unlink(missing_ok=True)
-            tty.write(f"Shared auth link initialized for account {account}.\n", "32")
-        else:
-            credential(target)
-            managed_link(auth, target)
-            if Path(os.readlink(auth)) != target:
-                staged = codex / (".codex-as-" + secrets.token_hex(12))
-                os.symlink(str(target), staged)
-                try:
-                    managed_link(auth, target)
-                    os.replace(staged, auth)
-                finally:
-                    staged.unlink(missing_ok=True)
-    finally:
-        if tty:
-            tty.close()
-
-
-def paths(account):
-    home = Path(os.environ["HOME"])
-    if not home.is_absolute() or home == Path("/"):
-        fail("HOME must be an absolute user home directory.")
-    codex, secret = home / ".codex", home / ".secrets"
-    for path in (home, codex):
-        directory(path)
-    directory(secret, private=True)
-    return codex / "auth.json", secret / f"codex-{account}.json"
-
-
-def managed_link(auth, target, after=False):
-    if not auth.is_symlink():
-        fail("auth.json is absent/replaced or a regular file: preserve it and recover current credentials; initialize only after closing clients; see docs/codex-as.md.")
-    if auth.lstat().st_uid != os.getuid():
-        fail("auth.json symlink is not owned by the current user.")
-    old = Path(os.readlink(auth))
-    if old.parent != target.parent or not re.fullmatch(r"codex-[A-Za-z0-9_-]+\.json", old.name):
-        fail("auth.json points outside the managed absolute ~/.secrets/codex-NAME.json namespace.")
-    if after and old != target:
-        fail("auth.json changed during Codex; close every client and recover before switching.")
-    credential(old)
-    return True
-
-
 def config_sources(cwd):
     home = Path(os.environ["HOME"])
     paths = {home / ".codex/config.toml", Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml")}
@@ -406,63 +271,61 @@ def config_sources(cwd):
     # Codex still loads/enforces its own system, workspace and cloud policies.
 
 
-def main():
-    action, *rest = sys.argv[1:]
-    if action == "accounts":
-        names = accounts()
-        if names:
-            print("\n".join(names))
-        return
-    account, *args = rest
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", account):
-        fail("invalid account name.")
-    if action == "preflight":
-        expected = os.path.join(os.environ["HOME"], ".codex")
-        if "CODEX_HOME" in os.environ and os.path.abspath(os.environ["CODEX_HOME"]) != expected:
-            fail("CODEX_HOME conflicts with ~/.codex; no switch performed.")
-        names = (
-            "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY", "OPENAI_BASE_URL",
-            "OPENAI_IDENTITY_TOKEN_FILE", "OPENAI_ORGANIZATION", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID",
-            "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID",
-            "OPENAI_FEDERATION_RULE_ID", "OPENAI_WORKLOAD_IDENTITY_CONTEXT",
-            "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "CODEX_APP_SERVER_LOGIN_CLIENT_ID",
-            "CODEX_AUTHAPI_BASE_URL", "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL",
-            "CODEX_AGENT_IDENTITY_JWKS_BASE_URL",
-        )
-        conflicts = [name for name in names if name in os.environ]
-        if conflicts:
-            fail("authentication/endpoint environment conflict: " + ", ".join(conflicts) + " (values hidden).")
-        mode, cwd = arguments(args)
-        config_sources(cwd)
-        print(mode)
-        return
-    if action == "prepare":
-        prepare(account)
-        return
-    auth, target = paths(account)
-    credential(target)
-    exists = managed_link(auth, target, after=action == "after")
-    if action == "switch":
-        if exists and Path(os.readlink(auth)) == target:
-            return
-        temporary = auth.parent / (".codex-as-" + secrets.token_hex(12))
-        os.symlink(str(target), temporary)
-        try:
-            managed_link(auth, target)
-            os.replace(temporary, auth)
-        finally:
-            temporary.unlink(missing_ok=True)
+def preflight(account, args):
+    expected = Path(os.environ["HOME"]) / ".codex"
+    allowed = (expected, expected / "accounts" / account)
+    if "CODEX_HOME" in os.environ:
+        inherited = Path(os.path.abspath(os.environ["CODEX_HOME"]))
+        if inherited not in allowed:
+            if inherited.parent != expected / "accounts" or not re.fullmatch(r"[A-Za-z0-9_-]+", inherited.name):
+                fail("CODEX_HOME conflicts with the shared root/managed accounts; no launch performed.")
+            directory(inherited.parent, private=True)
+            directory(inherited, private=True)
+            if private_metadata(inherited / "codex-as.initialized") != b"codex-as v2\n":
+                fail("inherited account home is not initialized by codex-as.")
+    names = (
+        "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY", "OPENAI_BASE_URL",
+        "OPENAI_IDENTITY_TOKEN_FILE", "OPENAI_ORGANIZATION", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID",
+        "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID",
+        "OPENAI_FEDERATION_RULE_ID", "OPENAI_WORKLOAD_IDENTITY_CONTEXT",
+        "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "CODEX_APP_SERVER_LOGIN_CLIENT_ID",
+        "CODEX_AUTHAPI_BASE_URL", "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL",
+        "CODEX_AGENT_IDENTITY_JWKS_BASE_URL",
+    )
+    conflicts = [name for name in names if name in os.environ]
+    if conflicts:
+        fail("authentication/endpoint environment conflict: " + ", ".join(conflicts) + " (values hidden).")
+    mode, cwd = arguments(args)
+    config_sources(cwd)
+    return mode, cwd
+
+
+def private_metadata(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600):
+            fail("unsafe layout/lease metadata; no repair performed.")
+        return stream.read()
+
+
+def report(error):
+    message = str(error) if type(error) is ValueError else "missing, unreadable or malformed credential/configuration; no unsafe repair performed."
+    print(styled("codex-as: " + message, "31", 2), file=sys.stderr)
 
 
 if __name__ == "__main__":
     try:
-        main()
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
-        # Never render exception payloads: JSON/TOML errors can include secrets.
-        error = sys.exc_info()[1]
-        message = str(error) if type(error) is ValueError else "missing, unreadable or malformed credential/configuration; no unsafe repair performed."
-        print(styled("codex-as: " + message, "31", 2), file=sys.stderr)
+        action, *rest = sys.argv[1:]
+        if action == "accounts":
+            names = accounts()
+            if names:
+                print("\n".join(names))
+        elif action == "preflight":
+            print(preflight(rest[0], rest[1:])[0])
+        else:
+            fail("unsupported internal action.")
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError) as error:
+        report(error)
         sys.exit(1)
-    except KeyboardInterrupt:
-        print(styled("codex-as: cancelled; credentials/shared auth preserved unless initialization already completed.", "33", 2), file=sys.stderr)
-        sys.exit(130)
