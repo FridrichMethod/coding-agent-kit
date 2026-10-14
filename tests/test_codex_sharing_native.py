@@ -9,6 +9,8 @@ Protocol thread/list tests cover discovery, not literal terminal picker/--last.
 from __future__ import annotations
 
 import json
+import importlib.util
+import hashlib
 import os
 from pathlib import Path
 import queue
@@ -23,6 +25,7 @@ import uuid
 from datetime import datetime, timezone
 from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
 
 
 class RpcError(RuntimeError):
@@ -179,7 +182,7 @@ class NativeSharingTests(unittest.TestCase):
         for directory in (
             "sessions", "archived_sessions", "thread-writer-locks", "rollout-migrations",
         ):
-            (self.root / directory).mkdir()
+            (self.root / directory).mkdir(mode=0o700)
         self.accounts = {}
         for name in ("a", "b"):
             account = self.root / "accounts" / name
@@ -227,6 +230,121 @@ class NativeSharingTests(unittest.TestCase):
         if history_mode:
             params["historyMode"] = history_mode
         return server.request("thread/start", params)["thread"]
+
+    def test_confirmed_daemon_takeover_preserves_uuid_history_and_other_threads(self):
+        source = Path(__file__).resolve().parents[1] / 'common/codex/.local/lib/codex-as'
+
+        def load(name):
+            spec = importlib.util.spec_from_file_location('native_handoff_' + name, source / (name + '.py'))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+        handoff, guard = load('handoff'), load('check')
+        original = self.server('a')
+        saved = []
+        for mode in ('legacy', 'paginated'):
+            thread = self.start_thread(original, mode)
+            marker = 'fictional takeover history ' + mode
+            original.request('thread/inject_items', {'threadId': thread['id'], 'items': [{
+                'type': 'message', 'role': 'user',
+                'content': [{'type': 'input_text', 'text': marker}],
+            }]})
+            self.wait_for_persisted_rollout(thread)
+            saved.append((mode, thread, marker))
+        children = []
+        parent = saved[0][1]['id']
+        for marker in ('fictional visible child', 'fictional archived grandchild'):
+            child = self.start_thread(original, 'legacy')
+            original.request('thread/inject_items', {'threadId': child['id'], 'items': [{
+                'type': 'message', 'role': 'user',
+                'content': [{'type': 'input_text', 'text': marker}],
+            }]})
+            self.wait_for_persisted_rollout(child)
+            children.append((child, marker, parent))
+            parent = child['id']
+        original.close()
+        for _, thread, marker in saved:
+            self.seed_completed_turn(thread, marker)
+        # Saved spawn fixtures require no model calls. Populate both the real
+        # persisted source and the real native relation index while stopped.
+        for depth, (child, marker, parent) in enumerate(children, 1):
+            self.seed_completed_turn(child, marker)
+            path = Path(child['path'])
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+            child_source = {'subagent': {'thread_spawn': {'parent_thread_id': parent, 'depth': depth}}}
+            records[0]['payload']['source'] = child_source
+            path.write_text(''.join(json.dumps(record) + '\n' for record in records))
+            with closing(sqlite3.connect(self.root / 'state_5.sqlite')) as connection:
+                with connection:
+                    connection.execute('UPDATE threads SET source = ? WHERE id = ?',
+                                       (json.dumps(child_source), child['id']))
+                    connection.execute('INSERT INTO thread_spawn_edges VALUES (?, ?, ?)',
+                                       (parent, child['id'], 'closed'))
+        setup = self.server('a')
+        setup.request('thread/archive', {'threadId': children[1][0]['id']})
+        setup.close()
+        env = {**self.base_env, 'CODEX_HOME': str(self.root)}
+        binary = os.environ.get('CODEX_NATIVE_DAEMON_BINARY', str(self.binary))
+        errors = tempfile.TemporaryFile()
+        self.addCleanup(errors.close)
+        process = subprocess.Popen([binary, 'app-server', '--listen', 'unix://'],
+                                   env=env, cwd=self.workspace, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.DEVNULL, stderr=errors)
+
+        def stop_fixture():
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=10)
+            logical = (self.root / 'app-server-control').resolve() / 'app-server-control.sock'
+            protected = (Path('/tmp').resolve() / f'codex-daemon-{os.geteuid()}' /
+                         hashlib.sha256(os.fsencode(logical)).hexdigest())
+            protected.unlink(missing_ok=True)
+
+        self.servers.append(SimpleNamespace(close=stop_fixture))
+        owner = None
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and process.poll() is None:
+            try:
+                owner = handoff.Client(self.root, guard)
+                break
+            except OSError:
+                time.sleep(.02)
+        self.assertIsNotNone(owner, 'fixture daemon failed to start')
+        self.addCleanup(owner.close)
+        self.assertEqual(handoff.descendants(owner, saved[0][1]['id'], False), {children[0][0]['id']})
+        self.assertEqual(handoff.descendants(owner, saved[0][1]['id'], True), {children[1][0]['id']})
+        owner.request('thread/resume', {'threadId': children[0][0]['id']})
+        # The owner connection stays attached: takeover must stop only the selected subtree.
+        other = self.start_thread(owner)
+        second = self.server('b')
+        locks = self.root / 'accounts/.locks'
+        locks.mkdir(parents=True, mode=0o700)
+        tty = SimpleNamespace(write=lambda *args: None, close=lambda: None)
+        confirmed = []
+        management = SimpleNamespace(directory=guard.directory, private_metadata=guard.private_metadata,
+                                     exclusive=guard.exclusive, terminal=lambda: tty,
+                                     confirm=lambda *args: confirmed.append(True))
+        for mode, thread, marker in saved:
+            with self.subTest(history=mode):
+                before = owner.request('thread/resume', {'threadId': thread['id']})
+                self.assertIn(marker, json.dumps(before['thread']['turns']))
+                self.assertTrue(handoff.locked(self.root, thread['id']))
+                handoff.prepare(management, self.root, 'b', thread['id'])
+                self.assertFalse(handoff.locked(self.root, thread['id']))
+                resumed = second.request('thread/resume', {'threadId': thread['id']})
+                self.assertEqual(resumed['thread']['id'], thread['id'])
+                read = second.request('thread/read', {'threadId': thread['id'], 'includeTurns': True})
+                self.assertIn(marker, json.dumps(read['thread']['turns']))
+                self.assertTrue(handoff.locked(self.root, other['id']))
+                self.assertIn(other['id'], owner.request('thread/loaded/list', {})['data'])
+                if mode == 'legacy':
+                    self.assertFalse(handoff.locked(self.root, children[0][0]['id']))
+                    self.assertEqual(handoff.descendants(owner, thread['id'], False), {children[0][0]['id']})
+                    self.assertEqual(handoff.descendants(owner, thread['id'], True), {children[1][0]['id']})
+                    child_read = owner.request('thread/read', {'threadId': children[0][0]['id'], 'includeTurns': True})
+                    self.assertIn(children[0][1], json.dumps(child_read['thread']['turns']))
+        self.assertEqual(len(confirmed), 2)
 
     def seed_completed_turn(self, thread, marker):
         """Append a synthetic completed turn only after the fixture server stops.

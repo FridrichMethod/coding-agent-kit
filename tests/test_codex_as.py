@@ -12,10 +12,13 @@ import re
 import select
 import signal
 import shutil
+import socket
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tomllib
 import unittest
@@ -79,6 +82,151 @@ print("stdout sentinel")
 print("stderr sentinel", file=sys.stderr)
 sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 '''
+
+
+class HandoffDaemon:
+    """Small local protocol peer; writer locks and archive moves are real."""
+
+    def __init__(self, root, thread, child, already_archived, unrelated):
+        self.root, self.thread = root, thread
+        self.parents = {thread: None, child: thread, already_archived: child, unrelated: None}
+        self.original_archived = {already_archived}
+        self.archived = set(self.original_archived)
+        self.writers = {}
+        self.mutations = []
+        self.fail_restore = False
+        self.fail_archive = False
+        self.version = '0.162.1'
+        self.originator = 'codex_cli_rs'
+        self.agent_suffix = ''
+        self.claimed_home = root
+        for name in self.parents:
+            directory = root / ('archived_sessions' if name in self.archived else 'sessions')
+            directory.mkdir(exist_ok=True)
+            (directory / (name + '.jsonl')).write_text('saved fixture history\n')
+            lock = root / 'thread-writer-locks' / (name + '.lock')
+            lock.parent.mkdir(mode=0o700, exist_ok=True)
+            stream = lock.open('wb')
+            fcntl.flock(stream, fcntl.LOCK_EX)
+            self.writers[name] = stream
+        logical = root / 'app-server-control/app-server-control.sock'
+        logical.parent.mkdir(mode=0o700, exist_ok=True)
+        directory = Path('/tmp').resolve() / f'codex-daemon-{os.geteuid()}'
+        directory.mkdir(mode=0o700, exist_ok=True)
+        self.path = directory / hashlib.sha256(os.fsencode(logical)).hexdigest()
+        self.server = socket.socket(socket.AF_UNIX)
+        self.server.bind(str(self.path))
+        self.server.listen()
+        self.server.settimeout(.1)
+        self.stopped = threading.Event()
+        self.worker = threading.Thread(target=self.serve, daemon=True)
+        self.worker.start()
+
+    def close(self):
+        self.stopped.set()
+        self.worker.join(timeout=3)
+        self.server.close()
+        self.path.unlink(missing_ok=True)
+        for stream in self.writers.values():
+            stream.close()
+
+    @staticmethod
+    def read_exact(stream, count):
+        value = stream.read(count)
+        if len(value) != count:
+            raise EOFError
+        return value
+
+    def serve(self):
+        while not self.stopped.is_set():
+            try:
+                connection, _ = self.server.accept()
+            except socket.timeout:
+                continue
+            with connection:
+                connection.settimeout(2)
+                try:
+                    self.serve_client(connection)
+                except (EOFError, OSError):
+                    pass
+
+    def serve_client(self, connection):
+        with connection.makefile('rb') as stream:
+            self.read_exact(stream, len(b'GET / HTTP/1.1\r\n'))
+            headers = {}
+            while (line := stream.readline()) != b'\r\n':
+                if not line:
+                    raise EOFError
+                name, value = line.decode().split(':', 1)
+                headers[name.lower()] = value.strip()
+            key = headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+            accept = base64.b64encode(hashlib.sha1(key.encode()).digest())
+            connection.sendall(b'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n'
+                               b'Connection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + b'\r\n\r\n')
+            while True:
+                first, second = self.read_exact(stream, 2)
+                length = second & 127
+                if length == 126:
+                    length = struct.unpack('!H', self.read_exact(stream, 2))[0]
+                elif length == 127:
+                    length = struct.unpack('!Q', self.read_exact(stream, 8))[0]
+                mask = self.read_exact(stream, 4) if second & 128 else b'\0' * 4
+                payload = self.read_exact(stream, length)
+                payload = bytes(value ^ mask[i % 4] for i, value in enumerate(payload))
+                if first & 15 == 8:
+                    return
+                message = json.loads(payload)
+                if 'id' not in message:
+                    continue
+                try:
+                    result = self.dispatch(message['method'], message.get('params', {}))
+                    reply = {'id': message['id'], 'result': result}
+                except ValueError:
+                    reply = {'id': message['id'], 'error': {'code': -32600, 'message': 'fixture refusal'}}
+                encoded = json.dumps(reply).encode()
+                header = bytes((129, len(encoded))) if len(encoded) < 126 else b'\x81\x7e' + struct.pack('!H', len(encoded))
+                connection.sendall(header + encoded)
+
+    def dispatch(self, method, params):
+        if method == 'initialize':
+            return {'codexHome': str(self.claimed_home), 'userAgent': self.originator + '/' + self.version + self.agent_suffix,
+                    'platformFamily': 'unix', 'platformOs': 'linux'}
+        if method == 'thread/loaded/list':
+            return {'data': list(self.writers), 'nextCursor': None}
+        if method == 'thread/list':
+            ids = [name for name in self.subtree(params['ancestorThreadId'])[1:]
+                   if (name in self.archived) == params['archived']]
+            return {'data': [{'id': name} for name in ids], 'nextCursor': None}
+        name = params['threadId']
+        if method == 'thread/read':
+            directory = 'archived_sessions' if name in self.archived else 'sessions'
+            return {'thread': {'id': name, 'path': str(self.root / directory / (name + '.jsonl'))}}
+        if method == 'thread/archive':
+            names = self.subtree(name)
+            for item in names:
+                if item in self.archived:
+                    continue
+                self.writers.pop(item).close()
+                (self.root / 'sessions' / (item + '.jsonl')).rename(self.root / 'archived_sessions' / (item + '.jsonl'))
+                self.archived.add(item)
+                self.mutations.append((method, item))
+                if self.fail_archive:
+                    raise ValueError('partial archive')
+            return {}
+        if method == 'thread/unarchive':
+            if self.fail_restore or name not in self.archived:
+                raise ValueError('restore failed')
+            (self.root / 'archived_sessions' / (name + '.jsonl')).rename(self.root / 'sessions' / (name + '.jsonl'))
+            self.archived.remove(name)
+            self.mutations.append((method, name))
+            return {'thread': {'id': name}}
+        raise ValueError('unsupported method')
+
+    def subtree(self, root):
+        result = [root]
+        for parent in result:
+            result.extend(child for child, ancestor in self.parents.items() if ancestor == parent)
+        return result
 
 
 class CodexAs(unittest.TestCase):
@@ -222,6 +370,168 @@ class CodexAs(unittest.TestCase):
                      ["resume", "--last", "follow-up"], ["exec", "friendly name"]):
             result = self.run_as(SHELLS[0], ["A", *args])
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    def handoff_fixture(self, answer='y'):
+        ids = ['12345678-1234-4234-8234-123456789ab' + char for char in 'cdef']
+        daemon = HandoffDaemon(self.codex, *ids)
+        self.addCleanup(daemon.close)
+        spec = importlib.util.spec_from_file_location('handoff_test_launch', self.install / 'launch.py')
+        launcher = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(launcher)
+        tty = SimpleNamespace(write=lambda *args: None, readline=lambda: answer, close=lambda: None)
+        attempts = []
+
+        def launch_after_release(command, env, fd=None):
+            attempts.append((command, env))
+            with (self.codex / 'thread-writer-locks' / (ids[0] + '.lock')).open('rb') as stream:
+                try:
+                    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    return 77
+            return 0
+
+        def run(native_args=None):
+            with patch.dict(os.environ, self.env, clear=True), \
+                 patch.object(launcher.guard, 'terminal', return_value=tty), \
+                 patch.object(launcher, 'run_native', side_effect=launch_after_release):
+                return launcher.main(['B', *(native_args if native_args is not None else ['resume', ids[0]])])
+
+        run.launcher = launcher
+        return daemon, ids, attempts, run
+
+    def test_confirmed_handoff_releases_target_and_preserves_visibility(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        root_auth = self.auth.read_bytes()
+        self.assertEqual(run(), 0, 'account backend must start only after the old writer releases the UUID')
+        self.assertEqual(attempts[0][1]['CODEX_HOME'], str(self.codex / 'accounts/B'))
+        self.assertIn('--no-daemon', attempts[0][0])
+        self.assertEqual(daemon.archived, {ids[2]})
+        self.assertIn(ids[3], daemon.writers, 'unrelated session must remain loaded')
+        self.assertEqual(self.auth.read_bytes(), root_auth)
+        self.assertFalse(list((self.codex / 'accounts/.locks').glob('*.handoff.json')))
+
+    def test_native_group_writable_lock_is_accepted_only_in_private_directory(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        (self.codex / 'thread-writer-locks' / (ids[0] + '.lock')).chmod(0o664)
+        directory = self.codex / 'thread-writer-locks'
+        directory.chmod(0o775)
+        with self.assertRaisesRegex(ValueError, 'directory.*0700'):
+            run()
+        self.assertEqual(daemon.mutations, [])
+        self.assertEqual(attempts, [])
+        directory.chmod(0o700)
+        self.assertEqual(run(), 0)
+
+    def test_help_last_fork_and_prompt_operands_never_trigger_takeover(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        for args in (['resume', ids[0], '--help'], ['resume', '--last', ids[0]],
+                     ['fork', ids[0]], ['exec', 'resume', ids[0]], ['--', 'resume', ids[0]],
+                     ['--model', 'resume', 'ordinary prompt']):
+            with self.subTest(args=args):
+                run(args)
+                self.assertEqual(daemon.mutations, [])
+        self.assertEqual(len(attempts), 6)
+
+    def test_without_controlling_terminal_handoff_is_refused_without_mutation(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        with patch.object(run.launcher.guard, 'terminal', side_effect=ValueError('controlling terminal required')):
+            # run() supplies its own terminal; exercise the production helper directly.
+            with self.assertRaisesRegex(ValueError, 'terminal'):
+                (self.codex / 'accounts/.locks').mkdir(parents=True, mode=0o700)
+                run.launcher.handoff.prepare(run.launcher.guard, self.codex, 'B', ids[0])
+        self.assertEqual(daemon.mutations, [])
+        self.assertEqual(attempts, [])
+
+    def test_declined_handoff_does_not_mutate_or_launch(self):
+        daemon, ids, attempts, run = self.handoff_fixture('n')
+        with self.assertRaisesRegex(ValueError, 'cancelled'):
+            run()
+        self.assertEqual(daemon.mutations, [])
+        self.assertEqual(attempts, [])
+        self.assertIn(ids[0], daemon.writers)
+
+    def test_partial_archive_restores_visibility_and_does_not_launch(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.fail_archive = True
+        with self.assertRaisesRegex(ValueError, 'archive|handoff|takeover'):
+            run()
+        self.assertIn(('thread/archive', ids[0]), daemon.mutations)
+        self.assertEqual(daemon.archived, {ids[2]})
+        self.assertEqual(attempts, [])
+
+    def test_failed_restore_keeps_recovery_record_and_retry_recovers(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.fail_restore = True
+        with self.assertRaisesRegex(ValueError, 'recover|restore'):
+            run()
+        journals = list((self.codex / 'accounts/.locks').glob('*.handoff.json'))
+        self.assertEqual(len(journals), 1)
+        self.assertEqual(stat.S_IMODE(journals[0].stat().st_mode), 0o600)
+        self.assertEqual(attempts, [])
+        daemon.fail_restore = False
+        self.assertEqual(run(), 0)
+        self.assertEqual(daemon.archived, {ids[2]})
+        self.assertFalse(journals[0].exists())
+
+    def test_handoff_refuses_unknown_daemon_identity_before_mutation(self):
+        for bad_home, bad_version in ((True, False), (False, True)):
+            daemon, ids, attempts, run = self.handoff_fixture()
+            daemon.claimed_home = self.cwd if bad_home else self.codex
+            daemon.version = '9.9.9' if bad_version else '0.162.1'
+            with self.assertRaisesRegex(ValueError, 'daemon|version|identity'):
+                run()
+            self.assertEqual(daemon.mutations, [])
+            self.assertEqual(attempts, [])
+            daemon.close()
+
+    def test_audited_desktop_daemon_identity_uses_backend_version(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.originator = 'Codex Desktop'
+        daemon.version = '0.161.0'
+        daemon.agent_suffix = ' (Ubuntu 24.4.0; x86_64) unknown (codex-tui; 0.162.1)'
+        try:
+            result = run()
+        except ValueError as error:
+            self.fail('audited desktop backend must be accepted: ' + str(error))
+        self.assertEqual(result, 0)
+
+    def test_audited_client_suffix_does_not_accept_unknown_backend_version(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.originator = 'Codex Desktop'
+        daemon.version = '9.9.9'
+        daemon.agent_suffix = ' (codex-tui; 0.162.1)'
+        with self.assertRaisesRegex(ValueError, 'version|identity'):
+            run()
+        self.assertEqual(daemon.mutations, [])
+        self.assertEqual(attempts, [])
+
+    def test_timed_out_archive_keeps_journal_until_late_completion_is_recovered(self):
+        self.check_ambiguous_archive(TimeoutError('archive outcome unknown'))
+
+    def test_interrupted_archive_keeps_journal_until_late_completion_is_recovered(self):
+        self.check_ambiguous_archive(KeyboardInterrupt())
+
+    def check_ambiguous_archive(self, error):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        client = run.launcher.handoff.Client
+        request = client.request
+
+        def interrupted(connection, method, params):
+            if method == 'thread/archive':
+                raise error
+            return request(connection, method, params)
+
+        with patch.object(client, 'request', new=interrupted):
+            with self.assertRaises((OSError, ValueError, KeyboardInterrupt)):
+                run()
+        journals = list((self.codex / 'accounts/.locks').glob('*.handoff.json'))
+        self.assertEqual(len(journals), 1, 'an unacknowledged archive may still finish later')
+        self.assertEqual(attempts, [])
+        # The native operation can finish after the original connection is gone.
+        daemon.dispatch('thread/archive', {'threadId': ids[0]})
+        self.assertEqual(run(), 0)
+        self.assertEqual(daemon.archived, {ids[2]})
+        self.assertFalse(journals[0].exists())
 
     def test_same_account_leases_allow_clients_but_exclude_repairs(self):
         result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])

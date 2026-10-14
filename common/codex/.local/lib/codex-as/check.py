@@ -56,7 +56,7 @@ def arguments(args):
         "app", "cloud-tasks", "tcp-tunnel", "execpolicy", "responses-api-proxy", "stdio-to-uds",
     }
     mode, root, cwd = "interactive", True, Path.cwd()
-    command, target, last = None, None, False
+    command, target, last, query = None, None, False, False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -77,6 +77,8 @@ def arguments(args):
         elif arg in switches:
             if arg == "--last":
                 last = True
+            if arg in {"-h", "--help", "-V", "--version"}:
+                query = True
             continue
         elif arg.startswith("-") and arg != "-":
             fail("unsupported option; profiles, remote/provider/auth overrides are refused.")
@@ -109,7 +111,8 @@ def arguments(args):
             uuid.UUID(target)
         except ValueError:
             fail("resume/fork requires a session UUID; use --last or the native picker instead of a session name.")
-    return mode, cwd
+    resume_id = str(uuid.UUID(target)) if command == "resume" and target is not None and not last and not query else None
+    return mode, cwd, resume_id
 
 
 def directory(path, private=False, initializing=False):
@@ -295,9 +298,9 @@ def preflight(account, args):
     conflicts = [name for name in names if name in os.environ]
     if conflicts:
         fail("authentication/endpoint environment conflict: " + ", ".join(conflicts) + " (values hidden).")
-    mode, cwd = arguments(args)
+    mode, cwd, resume_id = arguments(args)
     config_sources(cwd)
-    return mode, cwd
+    return mode, cwd, resume_id
 
 
 def private_metadata(path):

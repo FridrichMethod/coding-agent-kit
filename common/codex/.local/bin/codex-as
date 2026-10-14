@@ -25,6 +25,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'Migration: codex-as --migrate DEFAULT_ACCOUNT (close root/desktop/IDE clients first).' \
         'Recovery: codex-as --recover NAME (idle account, explicit source and backups).' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
+        'Explicit resume UUID: confirm takeover from the root daemon, ending that session and its agents.' \
+        'Interrupted takeover: keep its recovery record and retry the same resume UUID.' \
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
         'Requires Python 3.11+ (stdlib) and the audited Codex version 0.162.1.' \

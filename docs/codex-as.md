@@ -10,6 +10,41 @@ codex-as ayting exec --json "Check the tests"
 
 Existing accounts launch directly. Missing accounts require confirmation, followed by native device login in an empty temporary `CODEX_HOME`; after saving complete JSON credentials, the original command continues. No sourcing or old /tmp initialization examples are needed.
 
+## Confirmed daemon takeover
+
+```sh
+codex-as work resume SESSION_UUID
+```
+
+Ordinary `codex resume` can reuse a root daemon's loaded session. An account
+launch uses an independent backend to keep authentication fixed, so it needs
+that daemon to release the UUID first. For an explicit interactive resume UUID,
+the launcher checks the actual writer lock and offers takeover from the audited
+root daemon. Close other views of that session before answering `y`.
+
+Confirmation authorizes ending the selected session and its spawned descendants,
+including active work. Native archive/unarchive temporarily changes their saved
+visibility. The launcher restores visible descendants and keeps already archived
+descendants archived before starting the account backend. Other daemon sessions
+remain loaded. SessionEnd hooks and timestamp changes may occur; runtime execution
+and hook effects cannot be rolled back. The session UUID and saved history remain
+available. Native writer locks still prevent a second writer if shutdown is delayed
+or another client resumes the thread concurrently.
+
+Before archive, a 0600 recovery journal is written and synced, including its
+directory, under `~/.codex/accounts/.locks/UUID.handoff.json`. A timeout, disconnect
+or interruption with unknown archive completion retains that journal. Retry the
+same command to confirm recovery. Root unarchive serializes behind any preceding
+native archive before descendant visibility is restored. The account backend is
+not launched while recovery remains incomplete. Keep the journal until the helper
+removes it. Cancelling the initial confirmation leaves session state untouched.
+
+This flow supports root daemons 0.161.0 and 0.162.1 and requires a controlling
+terminal. It verifies the private Unix socket and returned home/version without
+starting or stopping a daemon. Standalone CLI owners must exit normally. Help,
+exec, fork, `--last` and the native picker do not trigger takeover; select the UUID
+explicitly when a daemon-held session needs switching.
+
 ## Symlink writeback verification
 
 The locally audited version, `codex-cli 0.162.1`, corresponds to official tag `rust-v0.162.1` and commit `092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`.
@@ -27,5 +62,21 @@ The locally audited version, `codex-cli 0.162.1`, corresponds to official tag `r
 - Complete credentials are checked against the native JSON format before switching: NaN/Infinity, invalid non-null tokens, and any supplied but invalid last_refresh are rejected.
 
 Static verification is combined with real `0.162.1` offline app-server tests. Fictitious fixtures verify legacy/paginated history resume across homes, SQLite list order, concurrent different UUIDs within/across accounts, rejection/release of writes to the same UUID, and shared config editing. There are no login, turn/start, or HTTP requests. `thread/list` checks discovery and ordering without directly operating the terminal picker/`--last`. Fake Codex refresh/atomic replacement tests prove only wrapper logic; real-account authorization, quotas, and OAuth refresh remain unverified. A version change causes startup refusal until it is audited again.
+
+Takeover also uses the pinned native protocol: `thread/unsubscribe` only removes
+the requesting client's subscription; `thread/archive` ends the selected runtime
+and spawned subtree; `thread/unarchive` restores one saved thread. A fresh helper
+cannot force unsubscribe another client. The takeover's Unix WebSocket management
+client uses the native management identity and does not modify daemon login.
+Offline native fixtures exercise confirmed handoff, both history formats, visible
+children, archived grandchildren and an unrelated loaded writer. Wrapper tests
+cover refusal, consent, partial errors, unknown completion, private recovery
+metadata and retries. To check an existing audited older daemon binary explicitly:
+
+```sh
+CODEX_NATIVE_DAEMON_BINARY=/path/to/codex-0.161.0 \
+    python3 -I -B tests/test_codex_sharing_native.py \
+    NativeSharingTests.test_confirmed_daemon_takeover_preserves_uuid_history_and_other_threads
+```
 
 Migration and manual recovery require closing related clients; native CLI/desktop/IDE clients do not participate in wrapper leases. Daily account startup does not change the root default authentication entry point.

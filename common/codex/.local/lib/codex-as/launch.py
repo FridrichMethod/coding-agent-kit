@@ -22,6 +22,7 @@ def load_module(name):
 
 guard = load_module("check")
 storage = load_module("layout")
+handoff = load_module("handoff")
 
 
 def enroll(layout, codex):
@@ -79,7 +80,7 @@ def main(args):
     if not args or not re.fullmatch(r"[A-Za-z0-9_-]+", args[0]):
         guard.fail("invalid account name (use ASCII letters, digits, _ or -).")
     account, *native_args = args
-    mode, cwd = guard.preflight(account, native_args)
+    mode, cwd, resume_id = guard.preflight(account, native_args)
     layout = storage.Layout(guard, account)
     sqlite = storage.shared_sqlite(guard, layout.root, cwd)
     layout.root_check(initializing=operation == "--migrate")
@@ -126,6 +127,7 @@ def main(args):
                 guard.fail("account has active clients and authentication needs repair; close all account clients first.")
         # Revalidate after EX->SH, whose conversion may release the lock briefly.
         baseline = layout.validate()
+        handoff.prepare(guard, layout.root, account, resume_id)
         result = run_native(command, env, layout.fd)
     finally:
         layout.close()
