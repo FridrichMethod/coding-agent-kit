@@ -1,4 +1,4 @@
-"""Offline native Codex 0.162.1 account-home sharing integration tests.
+"""Offline native Codex account-home sharing integration tests (0.161.0 or newer).
 
 Run with CODEX_NATIVE_BINARY=/absolute/path/to/codex python3 this_file.py.
 Only temporary fixture homes are modified. No login or turn/start is issued.
@@ -8,6 +8,7 @@ Protocol thread/list tests cover discovery, not literal terminal picker/--last.
 
 from __future__ import annotations
 
+import base64
 import json
 import importlib.util
 import hashlib
@@ -26,6 +27,16 @@ from datetime import datetime, timezone
 from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
+
+
+HELPERS = Path(__file__).resolve().parents[1] / "common/codex/.local/lib/codex-as"
+
+
+def load_helper(name):
+    spec = importlib.util.spec_from_file_location("native_helper_" + name, HELPERS / (name + ".py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class RpcError(RuntimeError):
@@ -132,8 +143,10 @@ class NativeSharingTests(unittest.TestCase):
                 env={"PATH": "/usr/bin:/bin", "HOME": version_home,
                      "CODEX_HOME": version_home},
             ).strip()
-        if version != "codex-cli 0.162.1":
-            raise unittest.SkipTest(f"requires codex-cli 0.162.1, found {version}")
+        try:
+            load_helper("check").codex_version(version)
+        except ValueError as error:
+            raise unittest.SkipTest(str(error)) from None
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="codex-native-sharing-")
@@ -232,15 +245,7 @@ class NativeSharingTests(unittest.TestCase):
         return server.request("thread/start", params)["thread"]
 
     def test_confirmed_daemon_takeover_preserves_uuid_history_and_other_threads(self):
-        source = Path(__file__).resolve().parents[1] / 'common/codex/.local/lib/codex-as'
-
-        def load(name):
-            spec = importlib.util.spec_from_file_location('native_handoff_' + name, source / (name + '.py'))
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            return module
-
-        handoff, guard = load('handoff'), load('check')
+        handoff, guard = load_helper('handoff'), load_helper('check')
         original = self.server('a')
         saved = []
         for mode in ('legacy', 'paginated'):
@@ -323,8 +328,8 @@ class NativeSharingTests(unittest.TestCase):
         tty = SimpleNamespace(write=lambda *args: None, close=lambda: None)
         confirmed = []
         management = SimpleNamespace(directory=guard.directory, private_metadata=guard.private_metadata,
-                                     exclusive=guard.exclusive, terminal=lambda: tty,
-                                     confirm=lambda *args: confirmed.append(True))
+                                     exclusive=guard.exclusive, codex_version=guard.codex_version,
+                                     terminal=lambda: tty, confirm=lambda *args: confirmed.append(True))
         for mode, thread, marker in saved:
             with self.subTest(history=mode):
                 before = owner.request('thread/resume', {'threadId': thread['id']})
@@ -477,6 +482,76 @@ class NativeSharingTests(unittest.TestCase):
         self.assertTrue((self.accounts["a"] / "config.toml").is_symlink())
         self.assertTrue((self.accounts["b"] / "config.toml").is_symlink())
         self.assertIn('model_reasoning_effort = "low"', self.config.read_text(encoding="utf-8"))
+
+    def test_token_refresh_writes_through_account_link(self):
+        # A local endpoint stands in for OAuth; the fabricated tokens authorize nothing.
+        guard = load_helper("check")
+        now = int(time.time())
+        claims = {"chatgpt_account_id": "fixture-account", "chatgpt_plan_type": "pro",
+                  "chatgpt_user_id": "user-fixture"}
+
+        def jwt(payload):
+            encode = lambda value: base64.urlsafe_b64encode(json.dumps(value).encode()).rstrip(b"=").decode()
+            return encode({"alg": "none", "typ": "JWT"}) + "." + encode(payload) + ".fixture-signature"
+
+        def tokens(generation):
+            return {
+                "id_token": jwt({"email": "fixture@example.invalid", "sub": "fixture-subject",
+                                 "iat": now, "exp": now + 3600, "https://api.openai.com/auth": claims}),
+                "access_token": jwt({"iat": now, "exp": now + 3600, "generation": generation,
+                                     "https://api.openai.com/auth": claims}),
+                "refresh_token": f"fixture-refresh-{generation}",
+            }
+
+        refreshes = []
+
+        class TokenEndpoint(BaseHTTPRequestHandler):
+            def do_POST(self):
+                refreshes.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+                body = json.dumps(tokens(2)).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        endpoint = ThreadingHTTPServer(("127.0.0.1", 0), TokenEndpoint)
+        worker = threading.Thread(target=endpoint.serve_forever, daemon=True)
+        worker.start()
+        self.addCleanup(worker.join, 1)
+        self.addCleanup(endpoint.server_close)
+        self.addCleanup(endpoint.shutdown)
+        secrets = self.home / ".secrets"
+        secrets.mkdir(mode=0o700)
+        target = secrets / "codex-a.json"
+        saved = {"auth_mode": "chatgpt", "OPENAI_API_KEY": None,
+                 "tokens": {**tokens(1), "account_id": "fixture-account"},
+                 "last_refresh": "2026-01-01T00:00:00Z"}
+        guard.exclusive(target, json.dumps(saved).encode())
+        link = self.accounts["a"] / "auth.json"
+        link.symlink_to(target)
+        before = target.stat()
+        env = {**self.base_env, "CODEX_HOME": str(self.accounts["a"]),
+               "CODEX_REFRESH_TOKEN_URL_OVERRIDE": f"http://127.0.0.1:{endpoint.server_port}/oauth/token"}
+        server = AppServer(self.binary, env, self.workspace)
+        self.servers.append(server)
+        server.request("getAuthStatus", {"refreshToken": True})
+        server.close()
+        # A release may refresh again on its own; the forced refresh comes first.
+        self.assertEqual(refreshes[0].get("refresh_token"), "fixture-refresh-1")
+        # Writeback must truncate the linked secret in place, never replace the link.
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(Path(os.readlink(link)), target)
+        after = target.stat()
+        self.assertEqual((after.st_ino, after.st_mode), (before.st_ino, before.st_mode))
+        refreshed = json.loads(guard.credential(target))
+        self.assertEqual(refreshed["tokens"]["refresh_token"], "fixture-refresh-2")
+        self.assertEqual(refreshed["tokens"]["access_token"], tokens(2)["access_token"])
+        self.assertNotEqual(refreshed["last_refresh"], saved["last_refresh"])
+        self.assertEqual(sorted(path.name for path in self.accounts["a"].glob("auth*")), ["auth.json"])
 
     def test_same_account_concurrent_different_threads(self):
         first = self.server("a")

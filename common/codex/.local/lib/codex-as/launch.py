@@ -91,8 +91,10 @@ def main(args):
                              text=True, check=False)
     if version.returncode:
         return version.returncode
-    if version.stdout.strip() != "codex-cli 0.162.1":
-        guard.fail("Codex version has changed; re-audit auth writes before enabling.")
+    guard.codex_version(version.stdout)
+    if native_args:
+        # The static guard ran above; also refuse subcommands this release adds.
+        guard.arguments(native_args, guard.native_commands(codex))
     query = native_args in (["--help"], ["-h"], ["--version"], ["-V"])
     env = os.environ.copy()
     env["CODEX_HOME"] = str(layout.root if query else layout.home)
@@ -132,13 +134,19 @@ def main(args):
     finally:
         layout.close()
     # Use a fresh open-file description: surviving descendants still hold SH.
+    replaced = "Codex replaced the account auth.json link with a regular file; "
     try:
         layout.acquire(exclusive=True)
+        unlinked = os.path.lexists(layout.auth) and not layout.auth.is_symlink()
         layout.repair(baseline)
         layout.validate()
+        if unlinked:
+            guard.warn(replaced + "credentials were imported into secrets and the link restored.")
     except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError) as error:
         if not (type(error) is ValueError and "active clients" in str(error)):
             guard.report(error)
+        elif os.path.lexists(layout.auth) and not layout.auth.is_symlink():
+            guard.warn(replaced + "the last client of this account to exit repairs it.")
     finally:
         layout.close()
     return result

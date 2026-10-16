@@ -61,9 +61,10 @@ class Client:
             })
             # Native originators include "Codex Desktop"; the running backend
             # version is after the FIRST slash, before platform/client suffixes.
-            version = re.match(r"[^/\r\n]+/(0\.161\.0|0\.162\.1)(?:\s|$)", result.get("userAgent", ""))
+            version = re.match(r"[^/\r\n]+/(\S+)", result.get("userAgent", ""))
             if not version or Path(result.get("codexHome", "")).resolve() != root.resolve():
-                raise ValueError("daemon home/version identity is not audited; no takeover performed.")
+                raise ValueError("daemon home/version identity is not recognized; no takeover performed.")
+            guard.codex_version("codex-cli " + version[1])
             self.send({"method": "initialized", "params": {}})
         except BaseException:
             self.close()
@@ -259,7 +260,7 @@ def prepare(guard, root, account, thread):
         try:
             client = Client(root, guard)
         except (OSError, ValueError) as error:
-            raise ValueError("session is in use; the audited root daemon is unavailable. Close the owning client, then retry. "
+            raise ValueError("session is in use; the root daemon is unavailable. Close the owning client, then retry. "
                              + (f"Preserve recovery record {journal}." if pending else str(error))) from None
         if pending:
             record = json.loads(guard.private_metadata(journal))

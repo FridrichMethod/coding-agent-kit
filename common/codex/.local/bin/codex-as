@@ -1,6 +1,6 @@
 #!/bin/bash
 # codex-as NAME [CODEX_ARGS...] — invoked directly, like claude-as.
-# Fixed account views; shared sessions. Audited against codex-cli 0.162.1.
+# Fixed account views; shared sessions. Requires codex-cli 0.161.0 or newer.
 
 # This process keeps the caller's umask, variables, cwd and options intact.
 umask 077
@@ -29,7 +29,7 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'Interrupted takeover: keep its recovery record and retry the same resume UUID.' \
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
-        'Requires Python 3.11+ (stdlib) and the audited Codex version 0.162.1.' \
+        'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit.' \
         'Initialization and recovery: ~/dotfiles/docs/codex-as.md'
     [ "$#" -gt 0 ] && exit 0
     exit 2

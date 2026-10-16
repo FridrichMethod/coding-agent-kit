@@ -38,10 +38,34 @@ ENV_CONFLICTS = (
     "CODEX_APP_SERVER_LOGIN_CLIENT_ID", "CODEX_AUTHAPI_BASE_URL",
     "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL", "CODEX_AGENT_IDENTITY_JWKS_BASE_URL",
 )
-FAKE = r'''
+# Layout of the native root help: wrapped descriptions, aliases on continuations.
+HELP = """Codex CLI
+
+Usage: codex [OPTIONS] [PROMPT]
+       codex [OPTIONS] <COMMAND> [ARGS]
+
+Commands:
+  exec              Run Codex non-interactively [aliases: e]
+  login             Manage login
+  logout            Remove stored authentication credentials
+  apply             Apply the latest diff produced by Codex agent as a `git apply` to your
+                    working tree [aliases: a]
+  resume            Resume a previous interactive session (picker by default; use --last to
+                    continue the most recent)
+  fork              Fork a previous interactive session
+  help              Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [PROMPT]
+          Optional user prompt to start the session
+"""
+FAKE = "HELP = " + repr(HELP) + r'''
 import json, os, pathlib, sys, time, signal
 if sys.argv[1:] == ["--version"]:
-    print(os.environ.get("FAKE_VERSION", "codex-cli 0.162.1"))
+    print(os.environ.get("FAKE_VERSION", "codex-cli 0.163.0"))
+    sys.exit(0)
+if sys.argv[1:] == ["--help"]:
+    print(os.environ.get("FAKE_HELP", HELP))
     sys.exit(0)
 args = sys.argv[1:]
 assert args[:2] == ["-c", 'cli_auth_credentials_store="file"']
@@ -477,14 +501,14 @@ class CodexAs(unittest.TestCase):
         for bad_home, bad_version in ((True, False), (False, True)):
             daemon, ids, attempts, run = self.handoff_fixture()
             daemon.claimed_home = self.cwd if bad_home else self.codex
-            daemon.version = '9.9.9' if bad_version else '0.162.1'
+            daemon.version = '0.160.0' if bad_version else '0.162.1'
             with self.assertRaisesRegex(ValueError, 'daemon|version|identity'):
                 run()
             self.assertEqual(daemon.mutations, [])
             self.assertEqual(attempts, [])
             daemon.close()
 
-    def test_audited_desktop_daemon_identity_uses_backend_version(self):
+    def test_desktop_daemon_identity_uses_backend_version(self):
         daemon, ids, attempts, run = self.handoff_fixture()
         daemon.originator = 'Codex Desktop'
         daemon.version = '0.161.0'
@@ -492,13 +516,19 @@ class CodexAs(unittest.TestCase):
         try:
             result = run()
         except ValueError as error:
-            self.fail('audited desktop backend must be accepted: ' + str(error))
+            self.fail('desktop backend must be accepted: ' + str(error))
         self.assertEqual(result, 0)
 
-    def test_audited_client_suffix_does_not_accept_unknown_backend_version(self):
+    def test_newer_daemon_backend_is_accepted(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.version = '0.170.2'
+        self.assertEqual(run(), 0)
+        self.assertEqual(daemon.archived, {ids[2]})
+
+    def test_client_suffix_does_not_accept_old_backend_version(self):
         daemon, ids, attempts, run = self.handoff_fixture()
         daemon.originator = 'Codex Desktop'
-        daemon.version = '9.9.9'
+        daemon.version = '0.160.0'
         daemon.agent_suffix = ' (codex-tui; 0.162.1)'
         with self.assertRaisesRegex(ValueError, 'version|identity'):
             run()
@@ -821,7 +851,28 @@ class CodexAs(unittest.TestCase):
                 result = self.rejected(shell, ["A"], {variable: "fabricated-conflict-secret"})
                 self.assertIn(variable, result.stderr)
             self.rejected(shell, ["A"], {"CODEX_HOME": str(self.base / "other-home")})
-            self.rejected(shell, ["A"], {"FAKE_VERSION": "codex-cli 99.0.0"})
+            for version in ("codex-cli 0.160.0", "codex-cli 0.161.0-alpha.1", "codex 0.163.0",
+                            "codex-cli 0.163", ""):
+                self.rejected(shell, ["A"], {"FAKE_VERSION": version})
+            self.rejected(shell, ["A", "exec", "prompt"], {"FAKE_HELP": "Usage: codex [OPTIONS] [PROMPT]\n"})
+            # Without arguments there is no subcommand to check, so recovery never needs help output.
+            self.assertEqual(self.run_as(shell, ["A"], {"FAKE_HELP": "Usage: codex\n"}).returncode, 0)
+
+    def test_newer_versions_launch_and_their_new_subcommands_are_refused(self):
+        for version in ("codex-cli 0.161.0", "codex-cli 0.170.2", "codex-cli 1.0.0-alpha.3"):
+            with self.subTest(version=version):
+                result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {"FAKE_VERSION": version})
+                self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.run_as(SHELLS[0], ["A", "auth", "status"]).returncode, 0,
+                         "an unlisted word is a prompt, as in native Codex")
+        listed = HELP.replace("  login ", "  auth              Manage authentication [aliases: au]\n  login ")
+        for word in ("auth", "au", "a", "e"):
+            with self.subTest(word=word):
+                if word == "e":
+                    self.assertEqual(self.run_as(SHELLS[0], ["A", word, "prompt"], {"FAKE_HELP": listed}).returncode, 0)
+                else:
+                    result = self.rejected(SHELLS[0], ["A", word, "status"], {"FAKE_HELP": listed})
+                    self.assertIn("unsupported subcommand", result.stderr)
 
     def test_permission_error_identifies_the_actual_directory(self):
         temporary = self.codex / '.tmp'
@@ -908,7 +959,8 @@ class CodexAs(unittest.TestCase):
             old = (self.secret / "codex-A.json").read_bytes()
             result = self.run_as(shell, ["A", "exec"], {"FAKE_MODE": "rename", "FAKE_EXIT": "17"})
             self.assertEqual(result.returncode, 17)
-            self.assertEqual(result.stderr, "stderr sentinel\n")
+            self.assertEqual(result.stderr, "stderr sentinel\ncodex-as: Codex replaced the account auth.json link "
+                             "with a regular file; credentials were imported into secrets and the link restored.\n")
             auth = self.codex / "accounts/A/auth.json"
             self.assertTrue(auth.is_symlink())
             newest = auth.read_bytes()
@@ -948,11 +1000,11 @@ class CodexAs(unittest.TestCase):
             command = [shell, *flags, "-c", 'umask 022; before=$(umask); command codex-as A --help >/dev/null 2>/dev/null; '
                        '[ "$(umask)" = "$before" ] && [ "$PWD" = "$1" ] && [ "${CODEX_HOME-unset}" = unset ]',
                        "state", str(self.cwd)]
-            result = subprocess.run(command, cwd=self.cwd, env=self.env, capture_output=True, text=True)
+            result = subprocess.run(command, cwd=self.cwd, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             alias_file = ROOT / ("common/zsh/.zsh_aliases" if Path(shell).name == "zsh" else "common/bash/.bash_aliases")
             command = [shell, *flags, "-c", '. "$1"; . "$1"; codex-as --help', "alias", str(alias_file)]
-            result = subprocess.run(command, cwd=self.cwd, env=self.env, capture_output=True, text=True)
+            result = subprocess.run(command, cwd=self.cwd, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Concurrent accounts", result.stdout)
 

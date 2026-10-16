@@ -31,7 +31,45 @@ def fail(message):
     raise ValueError(message)
 
 
-def arguments(args):
+# Oldest release with the shared thread writer locks the account homes rely on.
+MINIMUM_VERSION = (0, 161, 0)
+
+
+def codex_version(text):
+    """Accept any release from the minimum on; behavior is checked at runtime."""
+    match = re.fullmatch(r"codex-cli (\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?", text.strip())
+    if not match:
+        fail("unrecognized Codex version output; no launch performed.")
+    version = tuple(int(part) for part in match.groups()[:3])
+    # A prerelease precedes its release, so 0.161.0-alpha is below the minimum.
+    if (*version, match[4] is None) < (*MINIMUM_VERSION, True):
+        fail("Codex version %d.%d.%d or newer is required; found %s." % (*MINIMUM_VERSION, text.strip()))
+    return version
+
+
+def native_commands(codex):
+    """Root subcommands and aliases this binary lists; new ones are refused too."""
+    result = subprocess.run([codex, "--help"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, text=True, check=False)
+    names, section = set(), False
+    for line in result.stdout.splitlines() if result.returncode == 0 else ():
+        if line == "Commands:":
+            section = True
+        elif section and not line.strip():
+            break
+        elif section:
+            # Wrapped descriptions are indented further and never match a name.
+            match = re.match(r"  ([a-z][a-z0-9-]*)(?:\s|$)", line)
+            if match:
+                names.add(match[1])
+            for aliases in re.findall(r"\[aliases?: ([^\]]+)\]", line):
+                names.update(alias.strip() for alias in aliases.split(","))
+    if not {"exec", "resume", "fork", "login", "logout"} <= names:
+        fail("cannot identify native Codex subcommands from codex --help; no launch performed.")
+    return frozenset(names)
+
+
+def arguments(args, native=frozenset()):
     # A bounded guard, not a replacement for clap. Values/prompts are never
     # interpreted as login/logout inside an allowed subcommand. A root
     # PROMPT does not end clap's subcommand recognition; keep checking until
@@ -91,7 +129,7 @@ def arguments(args):
                 elif arg in {"resume", "fork"}:
                     command = arg
                     root = False
-                elif arg in commands:
+                elif arg in commands or arg in native:
                     fail("unsupported subcommand; login/logout must run outside codex-as.")
             elif command == "exec":
                 command = "exec-resume" if arg == "resume" else "exec-prompt"
@@ -311,6 +349,10 @@ def private_metadata(path):
                 or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600):
             fail("unsafe layout/lease metadata; no repair performed.")
         return stream.read()
+
+
+def warn(message):
+    print(styled("codex-as: " + message, "33", 2), file=sys.stderr)
 
 
 def report(error):
