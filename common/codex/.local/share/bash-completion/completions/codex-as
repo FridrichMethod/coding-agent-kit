@@ -2,10 +2,8 @@
 # bash-completion autoloads this file; metadata only, no CLI invocation.
 _codex_as() {
     local names name
-    if [ "$COMP_CWORD" -eq 1 ] ||
-        { [ "$COMP_CWORD" -eq 2 ] && { [ "${COMP_WORDS[1]}" = --migrate ] || [ "${COMP_WORDS[1]}" = --recover ]; }; }; then
+    if [ "$COMP_CWORD" -eq 1 ]; then
         names=$(python3 -I -B "$HOME/.local/lib/codex-as/check.py" accounts 2>/dev/null) || return
-        [ "$COMP_CWORD" -ne 1 ] || names="$names --migrate --recover"
         COMPREPLY=()
         while IFS= read -r name; do
             [ -n "$name" ] && COMPREPLY+=("$name")

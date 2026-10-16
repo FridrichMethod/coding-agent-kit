@@ -72,18 +72,13 @@ def run_native(command, env, fd=None):
 
 
 def main(args):
-    operation = None
-    if args and args[0] in {"--migrate", "--recover"}:
-        operation = args.pop(0)
-        if len(args) != 1:
-            guard.fail("usage: codex-as --migrate NAME | --recover NAME.")
-    if not args or not re.fullmatch(r"[A-Za-z0-9_-]+", args[0]):
-        guard.fail("invalid account name (use ASCII letters, digits, _ or -).")
+    if not args or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", args[0]):
+        guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
     account, *native_args = args
     mode, cwd, resume_id = guard.preflight(account, native_args)
     layout = storage.Layout(guard, account)
     sqlite = storage.shared_sqlite(guard, layout.root, cwd)
-    layout.root_check(initializing=operation == "--migrate")
+    layout.root_check()
     codex = shutil.which("codex")
     if codex is None:
         guard.fail("Codex is not installed on PATH.")
@@ -106,27 +101,17 @@ def main(args):
     command.extend(native_args)
     if query:
         return run_native(command, env)
-    if operation != "--migrate":
-        layout.layout_check()
     # Reject malformed existing secrets before creating runtime metadata.
     if os.path.lexists(layout.target):
         guard.credential(layout.target)
     baseline = None
     try:
-        exclusive = layout.acquire(exclusive=operation is not None)
-        if operation == "--migrate":
-            layout.migrate()
-            return 0
-        if operation == "--recover":
-            layout.recover()
-            return 0
-        if exclusive:
+        if layout.acquire():
             enroll(layout, codex)
             layout.prepare()
             fcntl.flock(layout.fd, fcntl.LOCK_SH)
-        else:
-            if not layout.auth.is_symlink():
-                guard.fail("account has active clients and authentication needs repair; close all account clients first.")
+        elif not layout.auth.is_symlink():
+            guard.fail("account has active clients and authentication needs repair; close all account clients first.")
         # Revalidate after EX->SH, whose conversion may release the lock briefly.
         baseline = layout.validate()
         handoff.prepare(guard, layout.root, account, resume_id)
@@ -136,17 +121,16 @@ def main(args):
     # Use a fresh open-file description: surviving descendants still hold SH.
     replaced = "Codex replaced the account auth.json link with a regular file; "
     try:
-        layout.acquire(exclusive=True)
         unlinked = os.path.lexists(layout.auth) and not layout.auth.is_symlink()
-        layout.repair(baseline)
-        layout.validate()
-        if unlinked:
-            guard.warn(replaced + "credentials were imported into secrets and the link restored.")
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError) as error:
-        if not (type(error) is ValueError and "active clients" in str(error)):
-            guard.report(error)
-        elif os.path.lexists(layout.auth) and not layout.auth.is_symlink():
+        if layout.acquire():
+            layout.repair(baseline)
+            layout.validate()
+            if unlinked:
+                guard.warn(replaced + "credentials were imported into secrets and the link restored.")
+        elif unlinked:
             guard.warn(replaced + "the last client of this account to exit repairs it.")
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError) as error:
+        guard.report(error)
     finally:
         layout.close()
     return result

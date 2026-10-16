@@ -153,11 +153,11 @@ def arguments(args, native=frozenset()):
     return mode, cwd, resume_id
 
 
-def directory(path, private=False, initializing=False):
+def directory(path, private=False):
     info = path.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
         fail(f"{path}: must be an owned directory, never a symlink.")
-    if info.st_mode & 0o022 and not initializing:
+    if info.st_mode & 0o022:
         fail(f"{path}: directory is group/other writable; review and restrict it first.")
     if private and stat.S_IMODE(info.st_mode) != 0o700:
         fail(f"{path}: private credential/account directory must have permissions 0700; review it before changing permissions.")
@@ -362,13 +362,11 @@ def report(error):
 
 if __name__ == "__main__":
     try:
-        action, *rest = sys.argv[1:]
+        action, = sys.argv[1:]
         if action == "accounts":
             names = accounts()
             if names:
                 print("\n".join(names))
-        elif action == "preflight":
-            print(preflight(rest[0], rest[1:])[0])
         else:
             fail("unsupported internal action.")
     except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError) as error:

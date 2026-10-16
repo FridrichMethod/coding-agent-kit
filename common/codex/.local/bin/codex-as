@@ -22,26 +22,21 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'Supports interactive, exec, resume and fork; NAME --help reaches Codex.' \
         'Refuses login/logout, profiles, remote/provider/auth overrides and unknown flags.' \
         'Missing account: confirm [y/N], device login in empty temporary home, save, launch.' \
-        'Migration: codex-as --migrate DEFAULT_ACCOUNT (close root/desktop/IDE clients first).' \
-        'Recovery: codex-as --recover NAME (idle account, explicit source and backups).' \
+        'Root ~/.codex/auth.json stays native: codex-as never reads or changes it.' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
         'Explicit resume UUID: confirm takeover from the root daemon, ending that session and its agents.' \
         'Interrupted takeover: keep its recovery record and retry the same resume UUID.' \
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
         'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit.' \
-        'Initialization and recovery: ~/dotfiles/docs/codex-as.md'
+        'Details and manual repair: ~/dotfiles/docs/account-launchers.md'
     [ "$#" -gt 0 ] && exit 0
     exit 2
 fi
 
 case $1 in
-    --migrate | --recover) _codex_as_account=${2-} ;;
-    *) _codex_as_account=$1 ;;
-esac
-case $_codex_as_account in
-    '' | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
-        _codex_as_message 31 2 'codex-as: invalid account name (use ASCII letters, digits, _ or -).'
+    '' | -* | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
+        _codex_as_message 31 2 'codex-as: invalid account name (ASCII letters, digits, _ or -; no leading -).'
         exit 2
         ;;
 esac

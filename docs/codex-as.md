@@ -75,7 +75,7 @@ The source audit below used `codex-cli 0.162.1`, official tag `rust-v0.162.1` an
 
 - [storage.rs](https://github.com/openai/codex/blob/092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/login/src/auth/storage.rs#L214) opens auth.json with OpenOptions write/truncate/create, then writes and flushes. This path uses neither rename/atomic replacement nor O_NOFOLLOW, so it follows symlinks to update the target.
 - AuthManager saves refreshes through this storage.save. Imports and backups preserve all original bytes; Codex manages the actual refresh format. The wrapper does not implement OAuth refresh.
-- Each account's link stays fixed in its own home; the global authentication link is no longer switched while processes run. Account repair leases cannot serialize native cross-process OAuth refresh: the native refresh semaphore is in-process, and file saves use truncate/write. Native multiple-client behavior and its limitations remain.
+- Each account's link stays fixed in its own home, and the root `auth.json` is never read or changed. Account repair leases cannot serialize native cross-process OAuth refresh: the native refresh semaphore is in-process, and file saves use truncate/write. Native multiple-client behavior and its limitations remain.
 - Native `thread-writer-locks` take cross-process exclusive locks by UUID. This directory and `.tmp/rollout-maintenance.lock` are shared. Compaction scheduling markers using create-new/unlink remain separate for each account; the shared lock still serializes maintenance.
 - New threads are paginated by default, with actual history in `thread_history_1.sqlite`; the complete SQLite home must therefore be shared. Sharing only sessions JSONL is insufficient. The wrapper fixes the explicit database directory override while preserving an existing absolute `sqlite_home`.
 - Native configuration editing resolves the symlink writeback path, so config/value/write preserves the shared config link. Relative paths read from configuration instead resolve against the account home, so the wrapper rejects relative path fields in shared user configuration.
@@ -104,4 +104,4 @@ CODEX_NATIVE_DAEMON_BINARY=/path/to/codex-0.162.1 \
     NativeSharingTests.test_confirmed_daemon_takeover_preserves_uuid_history_and_other_threads
 ```
 
-Migration and manual recovery require closing related clients; native CLI/desktop/IDE clients do not participate in wrapper leases. Daily account startup does not change the root default authentication entry point.
+Manual repair requires closing that account's clients; native CLI/desktop/IDE clients do not participate in wrapper leases. codex-as never reads or changes the root `auth.json`.

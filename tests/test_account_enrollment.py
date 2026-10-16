@@ -260,19 +260,18 @@ os.execv(sys.argv[2], sys.argv[2:])
         target = self.secret / 'codex-work.json'
         self.assertTrue(target.read_bytes() == self.seed.read_bytes(), 'complete JSON changed')
         self.assertEqual(os.readlink(self.codex / 'accounts/work/auth.json'), str(target))
-        self.assertEqual(os.readlink(self.auth), str(self.secret / 'codex-A.json'))
+        self.assertEqual(self.auth.read_bytes(), self.root_auth)
         record = json.loads(self.record.read_text())
         self.assertEqual(record['stdin'], 'original stdin\n')
         self.assertEqual(record['args'][-3:], ['exec', '--json', 'login "two words"'])
 
     def test_missing_decline_and_login_failure_do_not_change_auth(self):
-        old = os.readlink(self.auth)
         for answers, env in [([('[y/N]', '')], {}), ([('[y/N]', 'y')], {'LOGIN_FAIL': '1'})]:
             code, out, _, _ = self.terminal(['work'], answers, env)
             self.assertNotEqual(code, 0)
             self.assertEqual(out, '')
             self.assertFalse((self.secret / 'codex-work.json').exists())
-            self.assertEqual(os.readlink(self.auth), old)
+            self.assertEqual(self.auth.read_bytes(), self.root_auth)
             self.assertFalse(self.record.exists())
 
     def test_missing_without_tty_and_help_do_not_login(self):
@@ -283,109 +282,6 @@ os.execv(sys.argv[2], sys.argv[2:])
             result = self.run_as(shell, ['work', '--help'])
             self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.secret / 'codex-work.json').exists())
-
-    def test_migration_is_explicit_preserves_latest_default_and_is_repeatable(self):
-        self.auth.unlink()
-        old = (self.secret / 'codex-A.json').read_bytes()
-        latest = json.loads(old)
-        latest['tokens']['refresh_token'] = 'fixture-latest-root-refresh'
-        self.auth.write_text(json.dumps(latest))
-        self.auth.chmod(0o600)
-        (self.codex / 'codex-as.layout.json').unlink()
-        self.codex.chmod(0o775)
-        original = self.auth.read_bytes()
-        code, _, err, _ = self.terminal(['--migrate', 'A'], [('[y/N]', 'y')])
-        self.assertEqual(code, 0, err)
-        self.assertTrue(self.auth.is_symlink())
-        self.assertTrue((self.codex / 'codex-as.initialized').is_file())
-        self.assertTrue((self.codex / 'codex-as.layout.json').is_file())
-        self.assertEqual((self.secret / 'codex-A.json').read_bytes(), original)
-        self.assertEqual(self.codex.stat().st_mode & 0o777, 0o700)
-        backups = list(self.secret.glob('.codex-as-backup-*'))
-        self.assertTrue(any(p.read_bytes() == original for p in backups))
-        self.assertTrue(any(p.read_bytes() == old for p in backups))
-        code, _, err, _ = self.terminal(['--migrate', 'A'], [('[y/N]', 'y')])
-        self.assertEqual(code, 0, err)
-        self.auth.unlink()
-        self.auth.write_bytes(original)
-        self.auth.chmod(0o600)
-        code, _, _, _ = self.terminal(['work'], [])
-        self.assertNotEqual(code, 0)
-        self.assertTrue(self.auth.read_bytes() == original)
-        self.assertFalse((self.secret / 'codex-work.json').exists())
-
-    def test_migration_does_not_confuse_workspace_with_user_identity(self):
-        foreign = json.loads((self.secret / 'codex-B.json').read_bytes())
-        foreign['tokens']['account_id'] = 'A'
-        self.auth.unlink()
-        self.auth.write_text(json.dumps(foreign))
-        self.auth.chmod(0o600)
-        (self.codex / 'codex-as.layout.json').unlink()
-        current = self.auth.read_bytes()
-        saved = (self.secret / 'codex-A.json').read_bytes()
-        code, _, err, _ = self.terminal(['--migrate', 'A'], [])
-        self.assertNotEqual(code, 0)
-        self.assertIn('identity', err)
-        self.assertEqual(self.auth.read_bytes(), current)
-        self.assertEqual((self.secret / 'codex-A.json').read_bytes(), saved)
-
-    def test_migration_restricts_existing_temporary_directory_and_preserves_contents(self):
-        temporary = self.codex / '.tmp'
-        temporary.mkdir(mode=0o775)
-        temporary.chmod(0o775)
-        payload = temporary / 'native-state'
-        payload.write_bytes(b'preserve native temporary state\n')
-        current = self.auth.read_bytes()
-        self.auth.unlink()
-        self.auth.write_bytes(current)
-        self.auth.chmod(0o600)
-        (self.codex / 'codex-as.layout.json').unlink()
-
-        code, _, err, _ = self.terminal(['--migrate', 'A'], [('[y/N]', 'y')])
-
-        self.assertEqual(code, 0, err)
-        self.assertEqual(temporary.stat().st_mode & 0o777, 0o700)
-        self.assertEqual(payload.read_bytes(), b'preserve native temporary state\n')
-        self.assertEqual((self.secret / 'codex-A.json').read_bytes(), current)
-        self.assertTrue(self.auth.is_symlink())
-        self.assertTrue((self.codex / 'accounts/A/auth.json').is_symlink())
-        self.assertTrue((self.codex / 'accounts/A/codex-as.initialized').exists())
-
-    def test_migration_refuses_symlinked_temporary_directory_before_import(self):
-        foreign = self.base / 'foreign-temporary'
-        foreign.mkdir(mode=0o775)
-        foreign.chmod(0o775)
-        (self.codex / '.tmp').symlink_to(foreign, target_is_directory=True)
-        current = self.auth.read_bytes()
-        self.auth.unlink()
-        self.auth.write_bytes(current)
-        self.auth.chmod(0o600)
-        (self.codex / 'codex-as.layout.json').unlink()
-
-        code, _, err, transcript = self.terminal(['--migrate', 'A'], [('[y/N]', 'y')])
-
-        self.assertNotEqual(code, 0)
-        self.assertIn(str(self.codex / '.tmp'), err)
-        self.assertNotIn('[y/N]', transcript)
-        self.assertFalse(self.auth.is_symlink())
-        self.assertEqual(self.auth.read_bytes(), current)
-        self.assertEqual(foreign.stat().st_mode & 0o777, 0o775)
-        self.assertFalse(list(self.secret.glob('.codex-as-backup-*')))
-        self.assertFalse((self.codex / 'codex-as.layout.json').exists())
-
-    def test_explicit_recovery_selects_source_and_preserves_both_backups(self):
-        result = self.run_as(SHELLS[0], ['A', 'exec', 'prompt'], {'FAKE_MODE': 'diverged'})
-        self.assertEqual(result.returncode, 0)
-        auth = self.codex / 'accounts/A/auth.json'
-        local = auth.read_bytes()
-        old = (self.secret / 'codex-A.json').read_bytes()
-        code, _, err, _ = self.terminal(['--recover', 'A'], [('Recovery source:', '2'), ('[y/N]', 'y')])
-        self.assertEqual(code, 0, err)
-        self.assertTrue(auth.is_symlink())
-        self.assertEqual((self.secret / 'codex-A.json').read_bytes(), local)
-        backups = list(self.secret.glob('.codex-as-backup-*'))
-        self.assertTrue(any(p.read_bytes() == local for p in backups))
-        self.assertTrue(any(p.read_bytes() == old for p in backups))
 
     def test_claude_enroll_capture_and_continue_without_token_output(self):
         code, out, err, tty = self.terminal(['work', '-p', 'setup-token "quoted"'],
@@ -470,7 +366,7 @@ os.execv(sys.argv[2], sys.argv[2:])
             command = 'source "$HOME/.local/share/bash-completion/completions/codex-as"; COMP_WORDS=(codex-as ""); COMP_CWORD=1; _codex_as; printf "%s\\n" "${COMPREPLY[@]}"'
             result = subprocess.run([bash, '--noprofile', '--norc', '-c', command], env=self.env, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(result.stdout.splitlines(), ['A', 'B', 'C', '--migrate', '--recover'])
+            self.assertEqual(result.stdout.splitlines(), ['A', 'B', 'C'])
         zsh = shutil.which('zsh')
         if zsh:
             command = '_describe() { [[ $1 == -t ]] || return 0; shift 2; shift; print -rl -- "${(@P)1}"; }; CURRENT=2; words=(codex-as ""); source "$HOME/.oh-my-zsh/custom/completions/_codex-as"'

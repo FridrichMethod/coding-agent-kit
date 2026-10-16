@@ -1,4 +1,7 @@
-"""Fixed account views over shared Codex state; private credentials stay in secrets."""
+"""Fixed account views over shared Codex state; private credentials stay in secrets.
+
+The root ~/.codex/auth.json belongs to native clients and is never read or changed.
+"""
 
 import base64
 from contextlib import contextmanager
@@ -98,7 +101,6 @@ class Layout:
         self.home = self.root / "accounts" / account
         self.auth = self.home / "auth.json"
         self.target = self.secrets / f"codex-{account}.json"
-        self.marker = self.root / "codex-as.layout.json"
         self.fd = None
 
     def private_file(self, path):
@@ -117,27 +119,15 @@ class Layout:
         if self.setup_pending():
             (self.root / "accounts/.locks" / f".setup-{self.name}.json").unlink()
 
-    def root_check(self, initializing=False):
+    def root_check(self):
         self.g.directory(self.root.parent)
         if os.path.lexists(self.root):
-            self.g.directory(self.root, initializing=initializing)
+            self.g.directory(self.root)
         if os.path.lexists(self.secrets):
             self.g.directory(self.secrets, private=True)
 
-    def layout_check(self):
-        self.root_check()
-        if not os.path.lexists(self.marker):
-            if os.path.lexists(self.root / "auth.json") or os.path.lexists(self.root / "codex-as.initialized"):
-                self.g.fail("legacy root authentication needs explicit migration: codex-as --migrate CURRENT_ACCOUNT; close existing clients first.")
-            return False
-        data = json.loads(self.private_file(self.marker), object_pairs_hook=self.g.unique_keys)
-        if (data.get("version") != 2 or not isinstance(data.get("default_account"), str)
-                or not self.g.re.fullmatch(r"[A-Za-z0-9_-]+", data["default_account"])):
-            self.g.fail("unrecognized account layout; preserve authentication and recover manually.")
-        self.check_link(self.root / "auth.json", self.secrets / f"codex-{data['default_account']}.json")
-        return True
-
-    def acquire(self, exclusive=False):
+    def acquire(self):
+        """Exclusive when no other client of this account runs, otherwise shared."""
         self.root.mkdir(mode=0o700, exist_ok=True)
         for path in (self.root / "accounts", self.root / "accounts/.locks"):
             path.mkdir(mode=0o700, exist_ok=True)
@@ -152,8 +142,6 @@ class Layout:
             fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return True
         except BlockingIOError:
-            if exclusive:
-                self.g.fail("account has active clients; close them before migration/recovery.")
             fcntl.flock(self.fd, fcntl.LOCK_SH)
             return False
 
@@ -198,7 +186,7 @@ class Layout:
     def check_link(self, path, target):
         if (not path.is_symlink() or path.lstat().st_uid != os.getuid()
                 or Path(os.readlink(path)) != target):
-            self.g.fail("managed account link is missing/replaced; preserve it and recover before launch.")
+            self.g.fail(f"managed link {path} is missing/replaced; preserve it and restore the link before launch.")
 
     def init_home(self):
         marker = self.home / "codex-as.initialized"
@@ -268,12 +256,13 @@ class Layout:
             self.check_link(self.auth, self.target)
             return
         if not os.path.lexists(self.auth):
-            self.g.fail("account auth.json is absent; use codex-as --recover NAME while the account is idle.")
+            self.g.fail(f"account auth.json is absent; while the account is idle, run: ln -s {self.target} {self.auth}")
         latest = self.g.credential(self.auth)
         canonical = self.g.credential(self.target)
         if latest != canonical:
             if baseline is None or canonical != baseline or not same_identity(latest, baseline):
-                self.g.fail("account auth.json and secrets diverged; preserve both and use codex-as --recover NAME while idle.")
+                self.g.fail(f"account auth.json and secrets diverged; both kept. While the account is idle, back up "
+                            f"both, keep the wanted copy at {self.target}, then run: ln -sfn {self.target} {self.auth}")
             self.backup(latest)
             self.backup(canonical)
             if self.g.credential(self.auth) != latest or self.g.credential(self.target) != canonical:
@@ -285,110 +274,10 @@ class Layout:
 
     def prepare(self):
         with self.setup_lock():
-            # Another account may have initialized the default while we waited.
-            self.prepare_locked(self.layout_check())
-
-    def prepare_locked(self, initialized):
-        self.init_home()
-        if not os.path.lexists(self.auth) and self.setup_pending():
-            self.add_link(self.auth, self.target)
-        else:
-            self.repair()
-        if not initialized:
-            self.replace_bytes(self.marker, json.dumps({"version": 2, "default_account": self.name}).encode() + b"\n")
-            self.replace_link(self.root / "auth.json", self.target)
-        self.validate()
-        self.finish_setup()
-
-    def migrate(self):
-        with self.setup_lock():
-            self.migrate_locked()
-
-    def migrate_locked(self):
-        self.root_check(initializing=True)
-        if os.path.lexists(self.marker):
-            marker = json.loads(self.private_file(self.marker), object_pairs_hook=self.g.unique_keys)
-            if (marker.get("version") != 2 or not isinstance(marker.get("default_account"), str)
-                    or not self.g.re.fullmatch(r"[A-Za-z0-9_-]+", marker["default_account"])):
-                self.g.fail("unrecognized existing layout marker; preserve it before migration.")
-        auth = self.root / "auth.json"
-        if not os.path.lexists(auth) and os.path.lexists(self.marker):
-            marker = json.loads(self.private_file(self.marker), object_pairs_hook=self.g.unique_keys)
-            if marker != {"version": 2, "default_account": self.name}:
-                self.g.fail("missing root authentication has an unrecognized layout; preserve it.")
-            current = self.g.credential(self.target)
-        elif auth.is_symlink():
-            self.check_link(auth, self.target)
-            current = self.g.credential(self.target)
-        else:
-            current = self.g.credential(auth)
-        old = self.g.credential(self.target) if os.path.lexists(self.target) else None
-        if old is not None and current != old and not same_identity(current, old):
-            self.g.fail("root authentication does not match the selected user's identity; preserve both files.")
-        legacy = self.root / "codex-as.initialized"
-        if os.path.lexists(legacy) and self.private_file(legacy) != b"codex-as v1\n":
-            self.g.fail("unrecognized legacy initialization marker; preserve current authentication.")
-        temporary = self.root / ".tmp"
-        if os.path.lexists(temporary):
-            self.g.directory(temporary, initializing=True)
-        tty = self.g.terminal()
-        try:
-            self.g.confirm(tty, f"Migrate shared state; root codex stays on {self.name}. Close ALL root/desktop/IDE clients first; backup both credential files")
-            if os.path.lexists(temporary):
-                self.g.directory(temporary, initializing=True)
-                os.chmod(temporary, 0o700)
-            self.secrets.mkdir(mode=0o700, exist_ok=True)
-            self.g.directory(self.secrets, private=True)
-            self.backup(current)
-            if old is not None:
-                self.backup(old)
-            if (os.path.lexists(auth) and not auth.is_symlink() and self.g.credential(auth) != current) or (
-                    old is not None and self.g.credential(self.target) != old):
-                self.g.fail("credentials changed during migration; backups preserved.")
-            if old is None:
-                self.g.exclusive(self.target, current)
-            elif old != current:
-                self.replace_bytes(self.target, current)
-            os.chmod(self.root, 0o700)
-            # Root marker is written first; interrupted migration remains explicit.
-            data = json.dumps({"version": 2, "default_account": self.name}).encode() + b"\n"
-            self.replace_bytes(self.marker, data)
-            self.replace_link(auth, self.target)
             self.init_home()
-            if not os.path.lexists(self.auth):
+            if not os.path.lexists(self.auth) and self.setup_pending():
                 self.add_link(self.auth, self.target)
+            else:
+                self.repair()
             self.validate()
             self.finish_setup()
-            tty.write(f"Shared account layout initialized; default account {self.name}.\n", "32")
-        finally:
-            tty.close()
-
-    def recover(self):
-        self.g.directory(self.home, private=True)
-        canonical = self.g.credential(self.target)
-        local = self.g.credential(self.auth) if os.path.lexists(self.auth) and not self.auth.is_symlink() else None
-        if self.auth.is_symlink():
-            self.check_link(self.auth, self.target)
-            return
-        if local is not None and local != canonical and not same_identity(local, canonical):
-            self.g.fail("account authentication identity mismatch; no recovery performed.")
-        tty = self.g.terminal()
-        try:
-            tty.write("Recovery source: 1 keep secrets; 2 import account auth.json; empty cancels: ", "33")
-            choice = tty.readline().strip()
-            if choice not in {"1", "2"} or (choice == "2" and local is None):
-                self.g.fail("cancelled; credentials preserved.")
-            self.g.confirm(tty, "Close ALL clients for this account; back up both files and restore its fixed link")
-            self.backup(canonical)
-            if local is not None:
-                self.backup(local)
-            if self.g.credential(self.target) != canonical or (
-                    local is not None and self.g.credential(self.auth) != local):
-                self.g.fail("credentials changed during recovery; backups preserved.")
-            if choice == "2" and local != canonical:
-                self.replace_bytes(self.target, local)
-            self.replace_link(self.auth, self.target)
-            self.validate()
-            tty.write(f"Account {self.name} recovered.\n", "32")
-        finally:
-            tty.close()

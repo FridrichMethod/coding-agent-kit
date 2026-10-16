@@ -29,7 +29,8 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "common/codex/.local"
 SHELLS = [shutil.which(name) for name in ("bash", "zsh") if shutil.which(name)]
-TOKENS = ["fabricated-sensitive-access-A", "fabricated-sensitive-access-B", "fabricated-refreshed-A"]
+TOKENS = ["fabricated-sensitive-access-A", "fabricated-sensitive-access-B", "fabricated-refreshed-A",
+          "fabricated-root-native-access"]
 ENV_CONFLICTS = (
     "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY", "OPENAI_BASE_URL",
     "OPENAI_IDENTITY_TOKEN_FILE", "OPENAI_ORGANIZATION", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID",
@@ -82,6 +83,8 @@ if mode in ("refresh", "rename", "diverged"):
     data = json.loads(auth.read_text())
     data["tokens"]["access_token"] = "fabricated-refreshed-A"
     data["tokens"]["refresh_token"] = "fabricated-new-refresh-A"
+    if os.environ.get("FAKE_ID_TOKEN"):
+        data["tokens"]["id_token"] = os.environ["FAKE_ID_TOKEN"]
     if mode == "refresh":
         auth.write_text(json.dumps(data))
     else:
@@ -297,16 +300,16 @@ class CodexAs(unittest.TestCase):
                 "last_refresh": "2026-10-01T00:00:00Z",
                 "unknown": {"preserve": [1, {"nested": True}]},
             })
-        marker = self.codex / "codex-as.initialized"
-        marker.write_text("codex-as v1\n")
-        marker.chmod(0o600)
-        marker = self.codex / "codex-as.layout.json"
-        marker.write_text(json.dumps({"version": 2, "default_account": "A"}))
-        marker.chmod(0o600)
+        # A native root login of its own; codex-as never reads or changes it.
+        self.auth.write_text(json.dumps({
+            "auth_mode": "chatgpt", "OPENAI_API_KEY": None,
+            "tokens": {"id_token": "fake." + base64.urlsafe_b64encode(b'{"sub": "fixture-root"}').decode().rstrip("=") + ".fake",
+                       "access_token": TOKENS[3], "refresh_token": "fabricated-refresh-root", "account_id": "root"},
+            "last_refresh": "2026-10-01T00:00:00Z",
+        }))
+        self.auth.chmod(0o600)
+        self.root_auth = self.auth.read_bytes()
         self.shared = self.snapshot()
-        # Explicitly initialized, managed link; the function never adopts a
-        # regular file or repairs a missing link on its own.
-        self.auth.symlink_to(self.secret / "codex-A.json")
         self.env = os.environ.copy()
         for name in (*ENV_CONFLICTS, "CODEX_HOME", "CODEX_SQLITE_HOME", "PYTHONPATH", "BASH_ENV", "ENV", "ZDOTDIR"):
             self.env.pop(name, None)
@@ -354,13 +357,12 @@ class CodexAs(unittest.TestCase):
                     result = self.run_as(shell, [name])
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual(os.readlink(self.codex / "accounts" / name / "auth.json"), str(self.secret / f"codex-{name}.json"))
-                    self.assertEqual(os.readlink(self.auth), str(self.secret / "codex-A.json"))
                 before_b = (self.secret / "codex-B.json").read_bytes()
                 self.assertEqual(self.run_as(shell, ["A"], {"FAKE_MODE": "refresh"}).returncode, 0)
-                self.assertTrue(self.auth.is_symlink())
+                self.assertTrue((self.codex / "accounts/A/auth.json").is_symlink())
                 for name in ("B", "A"):
                     self.assertEqual(self.run_as(shell, [name]).returncode, 0)
-                data = json.loads(self.auth.read_text())
+                data = json.loads((self.secret / "codex-A.json").read_text())
                 self.assertTrue(data["tokens"]["access_token"] == TOKENS[2], "refresh not retained (values hidden)")
                 self.assertTrue(data["tokens"]["refresh_token"] == "fabricated-new-refresh-A", "refresh token not retained (values hidden)")
                 self.assertEqual(data["unknown"], {"preserve": [1, {"nested": True}]})
@@ -371,7 +373,7 @@ class CodexAs(unittest.TestCase):
                 self.assertEqual(list(self.codex.glob(".codex-as-*")), [])
 
     def test_accounts_have_fixed_auth_and_shared_state(self):
-        root_before = os.readlink(self.auth)
+        root_before = self.auth.read_bytes()
         for name in ("A", "B", "A"):
             result = self.run_as(SHELLS[0], [name, "exec", "prompt"])
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -379,7 +381,7 @@ class CodexAs(unittest.TestCase):
             self.assertEqual(os.readlink(account_home / "auth.json"), str(self.secret / f"codex-{name}.json"))
             for shared in ("config.toml", "sessions", "archived_sessions", "skills", "history.jsonl", "thread-writer-locks"):
                 self.assertEqual((account_home / shared).resolve(), self.codex / shared)
-            self.assertEqual(os.readlink(self.auth), root_before)
+            self.assertEqual(self.auth.read_bytes(), root_before)
             record = json.loads(self.record.read_text())
             self.assertEqual(record["codex_home"], str(account_home))
             self.assertEqual(record["sqlite_home"], str(self.codex))
@@ -609,7 +611,7 @@ class CodexAs(unittest.TestCase):
             gate.write_text("release")
         for process, _, _, _ in processes:
             self.assertEqual(process.wait(timeout=8), 0)
-        self.assertEqual(os.readlink(self.auth), str(self.secret / "codex-A.json"))
+        self.assertEqual(self.auth.read_bytes(), self.root_auth)
 
     def test_child_keeps_lease_after_supervisor_is_killed(self):
         process, child_pid, gate, _ = self.start_held("A", "orphan")
@@ -653,22 +655,31 @@ class CodexAs(unittest.TestCase):
             os.kill(process.pid, signum)
             self.assertEqual(process.wait(timeout=8), 128 + signum)
 
-    def test_suspended_client_still_prevents_recovery(self):
+    def test_suspended_client_still_prevents_repair(self):
         process, child_pid, gate, _ = self.start_held("A", "suspended")
         os.kill(child_pid, signal.SIGSTOP)
+        auth = self.codex / "accounts/A/auth.json"
         try:
-            result = self.run_as(SHELLS[0], ["--recover", "A"])
+            raw = auth.read_bytes()
+            auth.unlink()
+            auth.write_bytes(raw)
+            auth.chmod(0o600)
+            result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("active", result.stderr)
+            self.assertFalse(auth.is_symlink())
         finally:
             os.kill(child_pid, signal.SIGCONT)
             gate.write_text("release")
         self.assertEqual(process.wait(timeout=8), 0)
+        # The last client to exit restores the link from identical bytes.
+        self.assertTrue(auth.is_symlink())
 
-    def test_both_changed_credentials_are_preserved_for_explicit_recovery(self):
+    def test_both_changed_credentials_are_preserved_for_a_manual_choice(self):
         result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {"FAKE_MODE": "diverged", "FAKE_EXIT": "17"})
         self.assertEqual(result.returncode, 17)
         self.assertIn("diverged", result.stderr)
+        self.assertIn("ln -sfn " + str(self.secret / "codex-A.json"), result.stderr)
         auth = self.codex / "accounts/A/auth.json"
         self.assertFalse(auth.is_symlink())
         local, canonical = auth.read_bytes(), (self.secret / "codex-A.json").read_bytes()
@@ -723,14 +734,11 @@ class CodexAs(unittest.TestCase):
         tty = SimpleNamespace(write=lambda *args: None, close=lambda: None)
         with patch.dict(os.environ, self.env, clear=True), \
              patch.object(guard, 'terminal', return_value=tty), patch.object(guard, 'confirm'):
-            for kind, account in (('root', 'A'), ('account', 'B')):
+            for account in ('A', 'B'):
                 layout = storage.Layout(guard, account)
-                layout.acquire(exclusive=True)
-                marker = self.codex / 'codex-as.layout.json' if kind == 'root' else layout.home / 'codex-as.initialized'
-                if kind == 'root':
-                    marker.unlink()
-                raw = (json.dumps({'version': 2, 'default_account': account}).encode() + b'\n'
-                       if kind == 'root' else b'codex-as v2\n')
+                self.assertTrue(layout.acquire())
+                marker = layout.home / 'codex-as.initialized'
+                raw = b'codex-as v2\n'
                 original = guard.exclusive
                 interrupted = [False]
 
@@ -742,12 +750,11 @@ class CodexAs(unittest.TestCase):
                     return original(path, data)
 
                 try:
-                    action = layout.migrate if kind == 'root' else layout.prepare
                     with patch.object(guard, 'exclusive', side_effect=halfway):
                         with self.assertRaises(OSError):
-                            action()
+                            layout.prepare()
                     self.assertFalse(marker.exists(), 'a partial marker was published')
-                    action()
+                    layout.prepare()
                     self.assertTrue(marker.exists())
                     layout.validate()
                 finally:
@@ -838,6 +845,7 @@ class CodexAs(unittest.TestCase):
     def test_invalid_inputs_and_conflicts(self):
         for shell in SHELLS:
             for index, args in enumerate(([], [""], ["../A"], ["A/B"], ["A B"], ["A.1"], ["中文"], ["missing"],
+                         ["--migrate", "A"], ["--recover", "A"], ["-A"],
                          ["A", "login"], ["A", "logout"], ["A", "--remote", "server"],
                          ["A", "exec", "--oss"], ["A", "-p", "other"],
                          ["A", "-c", 'cli_auth_credentials_store="keyring"'],
@@ -855,7 +863,7 @@ class CodexAs(unittest.TestCase):
                             "codex-cli 0.163", ""):
                 self.rejected(shell, ["A"], {"FAKE_VERSION": version})
             self.rejected(shell, ["A", "exec", "prompt"], {"FAKE_HELP": "Usage: codex [OPTIONS] [PROMPT]\n"})
-            # Without arguments there is no subcommand to check, so recovery never needs help output.
+            # Without arguments there is no subcommand to check, so a plain launch never needs help output.
             self.assertEqual(self.run_as(shell, ["A"], {"FAKE_HELP": "Usage: codex\n"}).returncode, 0)
 
     def test_newer_versions_launch_and_their_new_subcommands_are_refused(self):
@@ -886,12 +894,54 @@ class CodexAs(unittest.TestCase):
         self.assertIn('group/other writable', result.stderr)
         self.assertEqual(temporary.stat().st_mode & 0o777, 0o775)
         self.assertFalse(self.record.exists())
+        temporary.rmdir()
+        foreign = self.base / 'foreign-temporary'
+        foreign.mkdir(mode=0o700)
+        temporary.symlink_to(foreign, target_is_directory=True)
+        result = self.run_as(SHELLS[0], ['A', 'exec', 'prompt'])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(str(temporary), result.stderr)
+        self.assertEqual(list(foreign.iterdir()), [])
+        self.assertFalse(self.record.exists())
+
+    def test_root_auth_is_never_read_or_changed(self):
+        cases = {"native file": None, "absent": "", "broken JSON": "{", "unmanaged link": self.base / "unmanaged.json",
+                 "older codex-as link": self.secret / "codex-A.json", "dangling link": self.secret / "codex-missing.json"}
+        for label, state in cases.items():
+            with self.subTest(root=label):
+                self.auth.unlink(missing_ok=True)
+                if state is None:
+                    self.auth.write_bytes(self.root_auth)
+                    self.auth.chmod(0o600)
+                elif state == "{":
+                    self.auth.write_text(state)
+                elif state:
+                    self.auth.symlink_to(state)
+                before = os.readlink(self.auth) if self.auth.is_symlink() else (
+                    self.auth.read_bytes() if self.auth.exists() else None)
+                for name in ("A", "B"):
+                    result = self.run_as(SHELLS[0], [name, "exec", "prompt"], {"FAKE_MODE": "refresh"})
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                after = os.readlink(self.auth) if self.auth.is_symlink() else (
+                    self.auth.read_bytes() if self.auth.exists() else None)
+                self.assertEqual(after, before)
+        self.assertEqual(json.loads((self.secret / "codex-A.json").read_text())["tokens"]["access_token"], TOKENS[2])
+
+    def test_repair_does_not_confuse_workspace_with_user_identity(self):
+        canonical = (self.secret / "codex-A.json").read_bytes()
+        # The replacement keeps workspace account_id A but names user B: never imported over A.
+        foreign = json.loads((self.secret / "codex-B.json").read_bytes())["tokens"]["id_token"]
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {"FAKE_MODE": "rename", "FAKE_ID_TOKEN": foreign})
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("diverged", result.stderr)
+        auth = self.codex / "accounts/A/auth.json"
+        self.assertFalse(auth.is_symlink())
+        self.assertEqual(json.loads(auth.read_bytes())["tokens"]["id_token"], foreign)
+        self.assertEqual((self.secret / "codex-A.json").read_bytes(), canonical)
 
     def test_json_permission_and_link_refusals(self):
         for shell in SHELLS:
             a = self.secret / "codex-A.json"
-            self.auth.unlink(missing_ok=True)
-            self.auth.symlink_to(a)
             original = a.read_bytes()
             for bad in ("broken-json", "{}", "[]", '{"tokens":{}}', '{"auth_mode":"chatgptAuthTokens"}',
                         '{"OPENAI_API_KEY":"one","OPENAI_API_KEY":"two"}',
@@ -922,18 +972,6 @@ class CodexAs(unittest.TestCase):
             self.rejected(shell, ["A"])
             a.unlink()
             backup.rename(a)
-            self.auth.unlink(missing_ok=True)
-            self.auth.write_bytes(original)
-            self.rejected(shell, ["B"])
-            self.auth.unlink()
-            self.rejected(shell, ["A"])
-            for target in (str(self.base / "unmanaged.json"), "../.secrets/codex-A.json"):
-                self.auth.symlink_to(target)
-                self.rejected(shell, ["B"])
-                self.auth.unlink()
-            self.auth.symlink_to(self.secret / "codex-missing.json")
-            self.rejected(shell, ["B"])
-            self.auth.unlink()
             for directory, mode in ((self.secret, 0o755), (self.codex, 0o775)):
                 directory.chmod(mode)
                 self.rejected(shell, ["A"])
@@ -954,8 +992,6 @@ class CodexAs(unittest.TestCase):
 
     def test_atomic_replacement_preserves_new_credentials_and_exit(self):
         for shell in SHELLS:
-            self.auth.unlink(missing_ok=True)
-            self.auth.symlink_to(self.secret / "codex-A.json")
             old = (self.secret / "codex-A.json").read_bytes()
             result = self.run_as(shell, ["A", "exec"], {"FAKE_MODE": "rename", "FAKE_EXIT": "17"})
             self.assertEqual(result.returncode, 17)
