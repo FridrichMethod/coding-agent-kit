@@ -150,7 +150,8 @@ def arguments(args, native=frozenset()):
         except ValueError:
             fail("resume/fork requires a session UUID; use --last or the native picker instead of a session name.")
     resume_id = str(uuid.UUID(target)) if command == "resume" and target is not None and not last and not query else None
-    return mode, cwd, resume_id
+    picking = command == "resume" and resume_id is None and not query
+    return mode, cwd, resume_id, picking
 
 
 def directory(path, private=False):
@@ -336,9 +337,9 @@ def preflight(account, args):
     conflicts = [name for name in names if name in os.environ]
     if conflicts:
         fail("authentication/endpoint environment conflict: " + ", ".join(conflicts) + " (values hidden).")
-    mode, cwd, resume_id = arguments(args)
+    mode, cwd, resume_id, picking = arguments(args)
     config_sources(cwd)
-    return mode, cwd, resume_id
+    return mode, cwd, resume_id, picking
 
 
 def private_metadata(path):

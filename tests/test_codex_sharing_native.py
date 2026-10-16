@@ -322,6 +322,15 @@ class NativeSharingTests(unittest.TestCase):
         owner.request('thread/resume', {'threadId': children[0][0]['id']})
         # The owner connection stays attached: takeover must stop only the selected subtree.
         other = self.start_thread(owner)
+        warnings = []
+        lister = SimpleNamespace(directory=guard.directory, codex_version=guard.codex_version,
+                                 warn=warnings.append)
+        handoff.hint(lister, self.root, 'b')
+        self.assertEqual(len(warnings), 1, warnings)
+        self.assertIn(other['id'], warnings[0])
+        # The loaded spawned child is reached through its parent, so it is not listed.
+        self.assertNotIn(children[0][0]['id'], warnings[0])
+        self.assertIn('codex-as b resume UUID', warnings[0])
         second = self.server('b')
         locks = self.root / 'accounts/.locks'
         locks.mkdir(parents=True, mode=0o700)

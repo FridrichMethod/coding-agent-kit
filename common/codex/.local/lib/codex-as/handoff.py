@@ -21,7 +21,8 @@ class RpcError(ValueError):
 class Client:
     """Bounded RFC 6455 JSON-RPC client for an existing owned Unix daemon."""
 
-    def __init__(self, root, guard):
+    def __init__(self, root, guard, timeout=30):
+        self.timeout = timeout
         logical = root / "app-server-control/app-server-control.sock"
         guard.directory(logical.parent, private=True)
         directory = Path("/tmp").resolve() / f"codex-daemon-{os.geteuid()}"
@@ -132,7 +133,7 @@ class Client:
                 return json.loads(message)
 
     def request(self, method, params):
-        self.deadline = time.monotonic() + 30
+        self.deadline = time.monotonic() + self.timeout
         self.next_id += 1
         request_id = self.next_id
         self.send({"id": request_id, "method": method, "params": params})
@@ -232,6 +233,39 @@ def sync_directory(path):
         os.fsync(fd)
     finally:
         os.close(fd)
+
+
+def hint(guard, root, account):
+    """For the picker and --last: name the root daemon sessions a UUID takeover needs."""
+    try:
+        client = Client(root, guard, timeout=5)
+    except (FileNotFoundError, ConnectionRefusedError):
+        return  # No root daemon is running.
+    except (OSError, ValueError) as error:
+        guard.warn(f"could not list sessions open in the root daemon ({error}).")
+        return
+    sessions = []
+    try:
+        loaded = client.request("thread/loaded/list", {})["data"]
+        for thread in loaded[:10]:
+            value = client.request("thread/read", {"threadId": thread, "includeTurns": False})["thread"]
+            # Spawned agents follow their parent's takeover; list only top-level sessions.
+            source = value.get("source")
+            if not (isinstance(source, dict) and "subAgent" in source):
+                # One line per session: fold whitespace first, then drop control characters.
+                label = " ".join(str(value.get("name") or value.get("preview") or "").split())
+                label = "".join(char for char in label if char.isprintable())[:60]
+                sessions.append(f"  {uuid.UUID(value['id'])}  {label}".rstrip())
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        guard.warn(f"could not list sessions open in the root daemon ({type(error).__name__}).")
+        return
+    finally:
+        client.close()
+    if len(loaded) > 10:
+        sessions.append(f"  ... and up to {len(loaded) - 10} more")
+    if sessions:
+        guard.warn("the root daemon holds these sessions; the picker and --last cannot take them over:\n"
+                   + "\n".join(sessions) + f"\nTo move one to this account: codex-as {account} resume UUID")
 
 
 def prepare(guard, root, account, thread):

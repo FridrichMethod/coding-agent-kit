@@ -43,7 +43,11 @@ This flow accepts root daemons at 0.161.0 or newer and requires a controlling
 terminal. It verifies the private Unix socket and returned home/version without
 starting or stopping a daemon. Standalone CLI owners must exit normally. Help,
 exec, fork, `--last` and the native picker do not trigger takeover; select the UUID
-explicitly when a daemon-held session needs switching.
+explicitly when a daemon-held session needs switching. Before the picker or `--last`
+starts, the launcher prints on stderr the top-level sessions the root daemon holds
+(up to ten, with UUID and name or preview) and the command that takes one over.
+Spawned agents are omitted because they follow their parent. Without a running
+daemon it prints nothing, and listing never changes daemon state.
 
 ## Version compatibility
 

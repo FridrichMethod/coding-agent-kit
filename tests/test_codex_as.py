@@ -1,9 +1,11 @@
 """Isolated HOME, fabricated JSON and fake executable; never runs real Codex."""
 
 import base64
+import contextlib
 import fcntl
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -127,6 +129,7 @@ class HandoffDaemon:
         self.originator = 'codex_cli_rs'
         self.agent_suffix = ''
         self.claimed_home = root
+        self.names = {}
         for name in self.parents:
             directory = root / ('archived_sessions' if name in self.archived else 'sessions')
             directory.mkdir(exist_ok=True)
@@ -227,7 +230,11 @@ class HandoffDaemon:
         name = params['threadId']
         if method == 'thread/read':
             directory = 'archived_sessions' if name in self.archived else 'sessions'
-            return {'thread': {'id': name, 'path': str(self.root / directory / (name + '.jsonl'))}}
+            return {'thread': {'id': name, 'path': str(self.root / directory / (name + '.jsonl')),
+                               # Native thread/read marks spawned agents in source, not parentThreadId.
+                               'parentThreadId': None, 'name': self.names.get(name), 'preview': '',
+                               'source': {'subAgent': {'thread_spawn': {'parent_thread_id': self.parents[name]}}}
+                               if self.parents[name] else 'cli'}}
         if method == 'thread/archive':
             names = self.subtree(name)
             for item in names:
@@ -457,6 +464,36 @@ class CodexAs(unittest.TestCase):
                 run(args)
                 self.assertEqual(daemon.mutations, [])
         self.assertEqual(len(attempts), 6)
+
+    def test_picker_and_last_list_daemon_sessions_without_mutation(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.names[ids[3]] = 'unrelated\nsession \x1b[31mname'
+        for args in (['resume'], ['resume', '--last'], ['resume', '--all', '--last', 'follow-up']):
+            with self.subTest(args=args):
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    # 77: the fixture launch still finds the session held; nothing was taken over.
+                    self.assertEqual(run(args), 77)
+                text = stderr.getvalue()
+                self.assertIn(ids[0], text)
+                self.assertIn(ids[3] + '  unrelated session [31mname', text)
+                # Spawned agents follow their parent; only top-level sessions are named.
+                self.assertNotIn(ids[1], text)
+                self.assertNotIn(ids[2], text)
+                self.assertIn('codex-as B resume UUID', text)
+        self.assertEqual(daemon.mutations, [])
+        self.assertEqual(len(attempts), 3)
+        for args in (['resume', ids[3], '--help'], ['exec', 'resume', '--last'], ['fork', '--last'], []):
+            with self.subTest(args=args):
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    run(args)
+                self.assertNotIn('root daemon holds', stderr.getvalue())
+        daemon.close()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(['resume']), 0)
+        self.assertEqual(stderr.getvalue(), '', 'no daemon, no output')
 
     def test_without_controlling_terminal_handoff_is_refused_without_mutation(self):
         daemon, ids, attempts, run = self.handoff_fixture()
