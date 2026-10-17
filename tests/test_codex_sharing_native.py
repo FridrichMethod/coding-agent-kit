@@ -30,6 +30,8 @@ from types import SimpleNamespace
 
 
 HELPERS = Path(__file__).resolve().parents[1] / "common/codex/.local/lib/codex-as"
+# The fixture config's offline model provider; native history filters by it.
+PROVIDER = "offline_fixture"
 
 
 def load_helper(name):
@@ -257,6 +259,11 @@ class NativeSharingTests(unittest.TestCase):
             }]})
             self.wait_for_persisted_rollout(thread)
             saved.append((mode, thread, marker))
+        unrelated = self.start_thread(original, 'legacy')
+        original.request('thread/inject_items', {'threadId': unrelated['id'], 'items': [{
+            'type': 'message', 'role': 'user', 'content': [{'type': 'input_text', 'text': 'fictional unrelated'}],
+        }]})
+        self.wait_for_persisted_rollout(unrelated)
         children = []
         parent = saved[0][1]['id']
         for marker in ('fictional visible child', 'fictional archived grandchild'):
@@ -271,6 +278,7 @@ class NativeSharingTests(unittest.TestCase):
         original.close()
         for _, thread, marker in saved:
             self.seed_completed_turn(thread, marker)
+        self.seed_completed_turn(unrelated, 'fictional unrelated')
         # Saved spawn fixtures require no model calls. Populate both the real
         # persisted source and the real native relation index while stopped.
         for depth, (child, marker, parent) in enumerate(children, 1):
@@ -321,7 +329,8 @@ class NativeSharingTests(unittest.TestCase):
         self.assertEqual(handoff.descendants(owner, saved[0][1]['id'], True), {children[1][0]['id']})
         owner.request('thread/resume', {'threadId': children[0][0]['id']})
         # The owner connection stays attached: takeover must stop only the selected subtree.
-        other = self.start_thread(owner)
+        # An unrelated session with a first message (native lists no empty one), loaded by the owner.
+        other = owner.request('thread/resume', {'threadId': unrelated['id']})['thread']
         second = self.server('b')
         locks = self.root / 'accounts/.locks'
         locks.mkdir(parents=True, mode=0o700)
@@ -352,15 +361,24 @@ class NativeSharingTests(unittest.TestCase):
                     self.assertIn(children[0][1], json.dumps(child_read['thread']['turns']))
         self.assertEqual(confirmed, [], 'native idle status needs no confirmation')
         self.assertEqual(len(warnings), 2, warnings)
-        # Picker/--last: take over the remaining idle top-level session; a loaded
+        # resume --last: the root daemon names the session an account backend opens natively.
+        params = {'limit': 1, 'sortKey': 'updated_at', 'sourceKinds': ['cli', 'vscode'], 'archived': False,
+                  'modelProviders': [PROVIDER], 'cwd': str(self.workspace), 'useStateDbOnly': True}
+        newest = second.request('thread/list', params)['data']
+        path = newest[0].get('path') if newest else None
+        expected = newest[0]['id'] if path and Path(path).exists() else None
+        self.assertIsNotNone(expected)
+        self.assertEqual(handoff.latest(owner, handoff.places(self.workspace), ['cli', 'vscode'], PROVIDER), expected)
+        self.assertIsNone(handoff.latest(owner, handoff.places(self.fixture), ['cli', 'vscode'], PROVIDER))
+        # Picker: take over the remaining idle top-level session; a loaded
         # spawned agent whose parent moved elsewhere is not a session of its own.
         owner.request('thread/resume', {'threadId': children[0][0]['id']})
         warnings.clear()
         # Native thread/read reports the session's cwd: another directory leaves it held.
-        handoff.release(management, self.root, 'b', self.fixture)
+        handoff.release(management, self.root, 'b', self.fixture, provider=PROVIDER)
         self.assertEqual(warnings, [])
         self.assertTrue(handoff.locked(self.root, other['id']))
-        handoff.release(management, self.root, 'b', self.workspace)
+        handoff.release(management, self.root, 'b', self.workspace, provider=PROVIDER)
         self.assertEqual(len(warnings), 1, warnings)
         self.assertIn(other['id'], warnings[0])
         self.assertNotIn(children[0][0]['id'], warnings[0])

@@ -429,12 +429,21 @@ os.execv(sys.argv[2], sys.argv[2:])
             self.assertNotEqual(code, 0)
 
     def test_codex_auth_feature_overrides_are_refused_before_login(self):
-        for flag in ('--enable', '--disable'):
-            for shell in SHELLS:
-                result = self.run_as(shell, ['work', flag, 'secret_auth_storage'])
+        for shell in SHELLS:
+            result = self.run_as(shell, ['work', '--enable', 'use_agent_identity'])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((self.secret / 'codex-work.json').exists())
+            self.assertIn('authentication feature', result.stderr.lower())
+            # Disabling it, or choosing the keyring backend file auth ignores, changes no login;
+            # only the missing terminal stops this enrollment.
+            for args in (['--disable', 'use_agent_identity'], ['--enable', 'secret_auth_storage']):
+                result = self.run_as(shell, ['work', *args])
                 self.assertNotEqual(result.returncode, 0)
-                self.assertFalse((self.secret / 'codex-work.json').exists())
-                self.assertIn('auth', result.stderr.lower())
+                self.assertIn('terminal', result.stderr.lower())
+            result = self.run_as(shell, ['work', '--disable', 'use_agent_identity'])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((self.secret / 'codex-work.json').exists())
+            self.assertIn('terminal', result.stderr.lower())
 
     def test_unknown_source_flags_and_unsupported_services_refuse_before_enrollment(self):
         target = self.secret / 'claude-work'
@@ -446,11 +455,16 @@ os.execv(sys.argv[2], sys.argv[2:])
             self.assertEqual(out, '')
             self.assertEqual(tty, '')
             self.assertFalse((self.base / 'login-home').exists())
-        for command in ('login', 'logout', 'update'):
+        for command in ('login', 'logout'):
             for shell in SHELLS:
                 result = self.run_as(shell, ['work', command])
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('unsupported subcommand', result.stderr)
+        # update runs as plain codex in the root home: no account and no login needed.
+        for shell in SHELLS:
+            result = self.run_as(shell, ['work', 'update'])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((self.secret / 'codex-work.json').exists())
 
     def test_claude_optional_and_variadic_values_are_not_commands(self):
         target = self.secret / 'claude-work'

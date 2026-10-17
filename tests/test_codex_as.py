@@ -34,26 +34,30 @@ SHELLS = [shutil.which(name) for name in ("bash", "zsh") if shutil.which(name)]
 TOKENS = ["fabricated-sensitive-access-A", "fabricated-sensitive-access-B", "fabricated-refreshed-A",
           "fabricated-root-native-access"]
 ENV_CONFLICTS = (
-    "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY", "OPENAI_BASE_URL",
-    "OPENAI_IDENTITY_TOKEN_FILE", "OPENAI_ORGANIZATION", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID",
-    "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID", "OPENAI_FEDERATION_RULE_ID",
+    "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY",
+    "OPENAI_IDENTITY_TOKEN_FILE", "OPENAI_ORGANIZATION", "OPENAI_PROJECT", "OPENAI_FEDERATION_RULE_ID",
     "OPENAI_WORKLOAD_IDENTITY_CONTEXT", "CODEX_REFRESH_TOKEN_URL_OVERRIDE",
-    "CODEX_APP_SERVER_LOGIN_CLIENT_ID", "CODEX_AUTHAPI_BASE_URL",
+    "CODEX_REVOKE_TOKEN_URL_OVERRIDE", "CODEX_APP_SERVER_LOGIN_CLIENT_ID",
+    "CODEX_APP_SERVER_LOGIN_ISSUER", "CODEX_AUTHAPI_BASE_URL",
     "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL", "CODEX_AGENT_IDENTITY_JWKS_BASE_URL",
 )
+# Read by no supported native release; common in other OpenAI tools.
+# OPENAI_BASE_URL only routes the user's own API key for tool subprocesses.
+ENV_UNUSED = ("OPENAI_ORG_ID", "OPENAI_PROJECT_ID", "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID", "OPENAI_BASE_URL")
 FAKE = r'''
 import json, os, pathlib, sys, time, signal
 if sys.argv[1:] == ["--version"]:
     print(os.environ.get("FAKE_VERSION", "codex-cli 0.163.0"))
     sys.exit(0)
 args = sys.argv[1:]
-assert args[:2] == ["-c", 'cli_auth_credentials_store="file"']
 home = pathlib.Path(os.environ["HOME"])
 account_home = pathlib.Path(os.environ["CODEX_HOME"])
+# Help, update and completion run in the root home, exactly as given.
+assert account_home == home / ".codex" or args[:2] == ["-c", 'cli_auth_credentials_store="file"']
 auth = account_home / "auth.json"
 mode = os.environ.get("FAKE_MODE", "normal")
 record = {"args": args, "cwd": os.getcwd(), "stdin": sys.stdin.read(),
-          "codex_home": str(account_home), "sqlite_home": os.environ["CODEX_SQLITE_HOME"],
+          "codex_home": str(account_home), "sqlite_home": os.environ.get("CODEX_SQLITE_HOME"),
           "tty": [os.isatty(n) for n in (0, 1, 2)], "umask": os.umask(0o077)}
 pathlib.Path(os.environ["FAKE_RECORD"]).write_text(json.dumps(record))
 if mode in ("refresh", "rename", "diverged"):
@@ -73,6 +77,8 @@ if mode in ("refresh", "rename", "diverged"):
             other = dict(data)
             other["tokens"] = dict(data["tokens"], access_token="fixture-other-refresh")
             canonical.write_text(json.dumps(other))
+if mode == "logout":
+    auth.unlink()  # native logout removes the account link after revoking its tokens
 if mode == "hold":
     if os.environ.get("FAKE_SIGINT_COUNT"):
         count = [0]
@@ -105,6 +111,12 @@ class HandoffDaemon:
         self.statuses = {}
         # Sessions start in the launcher's directory unless set.
         self.cwds = {}
+        # Top-level sessions are "cli" unless set; spawned agents are always subAgent.
+        self.sources = {}
+        # Every session has a first message and the default provider unless set.
+        self.previews, self.providers = {}, {}
+        # Most recently updated first: the session, its agents, then the unrelated one.
+        self.updated = {thread: 4, child: 3, already_archived: 2, unrelated: 1}
         self.version = '0.162.1'
         self.originator = 'codex_cli_rs'
         self.agent_suffix = ''
@@ -191,7 +203,7 @@ class HandoffDaemon:
                 try:
                     result = self.dispatch(message['method'], message.get('params', {}))
                     reply = {'id': message['id'], 'result': result}
-                except ValueError:
+                except (ValueError, KeyError, TypeError):
                     reply = {'id': message['id'], 'error': {'code': -32600, 'message': 'fixture refusal'}}
                 encoded = json.dumps(reply).encode()
                 header = bytes((129, len(encoded))) if len(encoded) < 126 else b'\x81\x7e' + struct.pack('!H', len(encoded))
@@ -203,21 +215,31 @@ class HandoffDaemon:
                     'platformFamily': 'unix', 'platformOs': 'linux'}
         if method == 'thread/loaded/list':
             return {'data': list(self.writers), 'nextCursor': None}
-        if method == 'thread/list':
+        if method == 'thread/list' and 'ancestorThreadId' in params:
             ids = [name for name in self.subtree(params['ancestorThreadId'])[1:]
                    if (name in self.archived) == params['archived']]
             return {'data': [{'id': name} for name in ids], 'nextCursor': None}
+        if method == 'thread/list':
+            # Native resume --last: newest first, archived excluded, filtered by source kind.
+            assert params['sortKey'] == 'updated_at' and params['modelProviders'] == ['openai']
+            cwds = params.get('cwd')
+            allowed = None if cwds is None else {os.path.realpath(c) for c in ([cwds] if isinstance(cwds, str) else cwds)}
+            ids = sorted((name for name in self.parents if (name in self.archived) == params['archived']
+                          and self.source(name) in params['sourceKinds']
+                          and self.providers.get(name, 'openai') in params['modelProviders']
+                          and (allowed is None or os.path.realpath(self.cwds.get(name, os.getcwd())) in allowed)),
+                         key=lambda name: -self.updated[name])
+            return {'data': [self.listing(name) for name in ids][:params['limit']], 'nextCursor': None}
         name = params['threadId']
         if method == 'thread/read':
-            directory = 'archived_sessions' if name in self.archived else 'sessions'
             status = self.statuses.get(name, {'type': 'idle'}) if name in self.writers else {'type': 'notLoaded'}
-            return {'thread': {'id': name, 'path': str(self.root / directory / (name + '.jsonl')),
-                               'cwd': self.cwds.get(name, os.getcwd()),
-                               **({'status': status} if status is not None else {}),
+            return {'thread': {**self.listing(name), **({'status': status} if status is not None else {}),
                                # Native thread/read marks spawned agents in source, not parentThreadId.
-                               'parentThreadId': None, 'name': self.names.get(name), 'preview': '',
+                               'parentThreadId': None, 'name': self.names.get(name),
+                               'preview': self.previews.get(name, 'fixture first message'),
+                               'modelProvider': self.providers.get(name, 'openai'),
                                'source': {'subAgent': {'thread_spawn': {'parent_thread_id': self.parents[name]}}}
-                               if self.parents[name] else 'cli'}}
+                               if self.parents[name] else self.source(name)}}
         if method == 'thread/archive':
             names = self.subtree(name)
             for item in names:
@@ -237,9 +259,19 @@ class HandoffDaemon:
                 raise ValueError('restore failed')
             (self.root / 'archived_sessions' / (name + '.jsonl')).rename(self.root / 'sessions' / (name + '.jsonl'))
             self.archived.remove(name)
+            # Like native touch_modified_time: an unarchived session becomes the newest.
+            self.updated[name] = max(self.updated.values()) + 1
             self.mutations.append((method, name))
             return {'thread': {'id': name}}
         raise ValueError('unsupported method')
+
+    def source(self, name):
+        return 'subAgent' if self.parents[name] else self.sources.get(name, 'cli')
+
+    def listing(self, name):
+        directory = 'archived_sessions' if name in self.archived else 'sessions'
+        return {'id': name, 'path': str(self.root / directory / (name + '.jsonl')),
+                'cwd': self.cwds.get(name, os.getcwd()), 'updatedAt': self.updated[name]}
 
     def subtree(self, root):
         result = [root]
@@ -432,7 +464,7 @@ class CodexAs(unittest.TestCase):
         self.assertEqual(daemon.archived, {ids[2]})
         self.assertIn(ids[3], daemon.writers, 'unrelated session must remain loaded')
         self.assertEqual(self.auth.read_bytes(), root_auth)
-        self.assertFalse(list((self.codex / 'accounts/.locks').glob('*.handoff.json')))
+        self.assertFalse(list((self.codex / 'accounts/.locks').glob('*.handoff.*')), 'no journal or lease remains')
 
     def test_possibly_running_handoff_asks_first(self):
         # A running turn, a running spawned agent, or a backend without status.
@@ -471,8 +503,8 @@ class CodexAs(unittest.TestCase):
                 self.assertEqual(stderr.getvalue(), '')
         self.assertEqual(len(attempts), 8)
 
-    def test_picker_and_last_take_over_idle_sessions_before_selection(self):
-        for args in (['resume'], ['resume', '--last'], ['resume', '--all', '--last', 'follow-up']):
+    def test_picker_takes_over_idle_sessions_before_selection(self):
+        for args in (['resume'], ['resume', '--all'], ['resume', '--all', '--include-non-interactive']):
             with self.subTest(args=args):
                 daemon, ids, attempts, run = self.handoff_fixture()
                 daemon.names[ids[3]] = 'unrelated\nsession \x1b[31mname'
@@ -492,9 +524,96 @@ class CodexAs(unittest.TestCase):
                 self.assertEqual(len(attempts), 1)
                 daemon.close()
 
+    def test_last_takes_over_only_the_session_it_opens(self):
+        # Native --last opens the newest listed session; taking more over would make another newest.
+        for args in (['resume', '--last'], ['resume', '--all', '--last', 'follow-up']):
+            with self.subTest(args=args):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    self.assertEqual(run(args), 0)
+                self.assertEqual([item for method, item in daemon.mutations if method == 'thread/archive'],
+                                 [ids[0], ids[1]])
+                self.assertIn(ids[3], daemon.writers, 'an older session stays with the root daemon')
+                self.assertNotIn(ids[3], stderr.getvalue())
+                daemon.close()
+        for label in ('newest', 'newest elsewhere', 'newest not loaded', 'newest non-interactive'):
+            with self.subTest(label=label):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.updated[ids[3]] = 10
+                if label == 'newest elsewhere':
+                    daemon.cwds[ids[3]] = str(self.cwd)
+                elif label == 'newest not loaded':
+                    daemon.writers.pop(ids[3]).close()
+                elif label == 'newest non-interactive':
+                    daemon.sources[ids[3]] = 'exec'
+                with contextlib.redirect_stderr(io.StringIO()):
+                    run(['resume', '--last'])
+                archived = [item for method, item in daemon.mutations if method == 'thread/archive']
+                expected = {'newest': [ids[3]], 'newest not loaded': []}.get(label, [ids[0], ids[1]])
+                self.assertEqual(archived, expected)
+                daemon.close()
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.updated[ids[3]] = 10
+        daemon.sources[ids[3]] = 'exec'
+        with contextlib.redirect_stderr(io.StringIO()):
+            run(['resume', '--last', '--include-non-interactive'])
+        self.assertEqual([item for method, item in daemon.mutations if method == 'thread/archive'], [ids[3]])
+
+    def test_picker_takes_over_only_sessions_the_picker_shows(self):
+        # Native lists no session without a first message, nor another provider's.
+        for setting in ('preview', 'provider'):
+            with self.subTest(setting=setting):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                if setting == 'preview':
+                    daemon.previews[ids[3]] = ''
+                else:
+                    daemon.providers[ids[3]] = 'other'
+                with contextlib.redirect_stderr(io.StringIO()):
+                    run(['resume', '--all'])
+                self.assertIn(ids[3], daemon.writers)
+                self.assertNotIn(ids[0], daemon.writers)
+                daemon.close()
+
+    def test_recovery_alone_does_not_take_a_session_over_again(self):
+        # A journaled session the daemon still holds idle, outside --last's choice.
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.cwds[ids[3]] = str(self.cwd)
+        locks = self.codex / 'accounts/.locks'
+        locks.parent.mkdir(mode=0o700, exist_ok=True)
+        locks.mkdir(mode=0o700, exist_ok=True)
+        journal = locks / (ids[3] + '.handoff.json')
+        journal.write_text(json.dumps({'version': 1, 'thread': ids[3], 'archived': []}) + '\n')
+        journal.chmod(0o600)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(run(['resume', '--last']), 0)
+        self.assertFalse(journal.exists())
+        self.assertIn(ids[3], daemon.writers, 'recovery restores visibility; it does not close the session')
+        self.assertNotIn(ids[0], daemon.writers)
+
+    def test_picker_lists_interactive_sources_unless_asked(self):
+        for args, taken in ((['resume'], False), (['resume', '--include-non-interactive'], True)):
+            with self.subTest(args=args):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.sources[ids[3]] = 'appServer'
+                with contextlib.redirect_stderr(io.StringIO()):
+                    run(args)
+                self.assertEqual(ids[3] not in daemon.writers, taken)
+                self.assertNotIn(ids[0], daemon.writers)
+                daemon.close()
+
+    def test_unrecognized_resume_option_skips_takeover(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        for args in (['resume', '--lats'], ['resume', ids[0], '--future-option'], ['--future-root', 'resume']):
+            with self.subTest(args=args):
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    run(args)
+                self.assertIn('unrecognized option', stderr.getvalue())
+                self.assertEqual(daemon.mutations, [], 'a typo must not close sessions before clap reports it')
+
     def test_picker_takes_over_only_sessions_it_would_list(self):
-        for args, outside_taken in ((['resume'], False), (['resume', '--last'], False),
-                                    (['resume', '--all'], True), (['resume', '--last', '--all'], True)):
+        for args, outside_taken in ((['resume'], False), (['resume', '--all'], True)):
             with self.subTest(args=args):
                 daemon, ids, attempts, run = self.handoff_fixture()
                 daemon.cwds[ids[3]] = str(self.cwd)
@@ -524,6 +643,12 @@ class CodexAs(unittest.TestCase):
             subprocess.run(git + args, env=env, check=True)
         (linked / 'sub').mkdir()
         (linked / 'other').mkdir()
+        # resume --last asks the daemon with native's path list: here, and the same place elsewhere.
+        spec = importlib.util.spec_from_file_location('places_test_handoff', self.install / 'handoff.py')
+        handoff = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(handoff)
+        self.assertEqual(handoff.places(main / 'sub'), [str(main / 'sub'), os.path.realpath(linked / 'sub')])
+        self.assertEqual(handoff.places(self.cwd), [str(self.cwd)])
         for cwd, taken in ((linked / 'sub', True), (linked / 'other', False), (linked, False)):
             with self.subTest(cwd=cwd.name):
                 daemon, ids, attempts, run = self.handoff_fixture()
@@ -545,9 +670,15 @@ class CodexAs(unittest.TestCase):
                             (['resume', '-m', '--all'], here),  # --all is the model value here
                             (['--all', 'resume'], here), (['resume', uuid_text, '--all'], None),
                             (['fork', '--all'], None), (['exec', 'resume', '--all'], None),
-                            (['resume', '--help'], None), (['--model', 'resume', 'prompt'], None), ([], None)):
+                            (['resume', '--help'], None), (['--model', 'resume', 'prompt'], None), ([], None),
+                            # A spaced -i takes every following word outside exec, as in clap.
+                            (['-i', 'a.png', 'resume'], None), (['resume', '-i', 'shot.png', uuid_text], here),
+                            (['exec', '-i', 'a.png', 'resume', uuid_text], None)):
             with self.subTest(args=args):
-                self.assertEqual(check.arguments(args)[3], scope)
+                self.assertEqual(check.arguments(args).scope, scope)
+        for args in (['fork', uuid_text], ['exec', 'resume', uuid_text], ['exec', 'fork', uuid_text]):
+            with self.subTest(args=args):
+                self.assertEqual(check.arguments(args).recover_id, uuid_text)
 
     def test_picker_leaves_possibly_running_sessions_and_names_them(self):
         daemon, ids, attempts, run = self.handoff_fixture()
@@ -595,10 +726,10 @@ class CodexAs(unittest.TestCase):
         client = run.launcher.handoff.Client
         request = client.request
 
-        def null_read(connection, method, params):
+        def null_read(connection, method, params, **options):
             if method == 'thread/read' and params['threadId'] == ids[3]:
                 return {'thread': None}
-            return request(connection, method, params)
+            return request(connection, method, params, **options)
 
         stderr = io.StringIO()
         with patch.object(client, 'request', new=null_read), contextlib.redirect_stderr(stderr):
@@ -629,6 +760,83 @@ class CodexAs(unittest.TestCase):
         self.assertIn('in progress', stderr.getvalue())
         self.assertIn(ids[3], daemon.writers, 'another takeover owns that session')
         self.assertEqual(daemon.archived, {ids[2]})
+
+    def test_torn_journal_means_archive_never_started(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        locks = self.codex / 'accounts/.locks'
+        locks.parent.mkdir(mode=0o700, exist_ok=True)
+        locks.mkdir(mode=0o700, exist_ok=True)
+        journal = locks / (ids[0] + '.handoff.json')
+        # A crash between the exclusive create and the synced write.
+        journal.write_text('{"version": 1, "thr')
+        journal.chmod(0o600)
+        self.assertEqual(run(), 0)
+        self.assertFalse(journal.exists())
+        self.assertEqual(daemon.archived, {ids[2]})
+
+    def test_last_does_not_launch_while_its_session_may_be_archived(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        client = run.launcher.handoff.Client
+        request = client.request
+
+        def timed_out(connection, method, params, **options):
+            if method == 'thread/archive':
+                raise TimeoutError('archive outcome unknown')
+            return request(connection, method, params, **options)
+
+        with patch.object(client, 'request', new=timed_out), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaisesRegex(ValueError, 'unknown'):
+                run(['resume', '--last'])
+        self.assertEqual(attempts, [], 'native --last would open another session')
+        daemon.dispatch('thread/archive', {'threadId': ids[0]})
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(run(['resume', '--last']), 0, 'recovery makes it the newest; then it is taken over')
+        self.assertEqual(daemon.archived, {ids[2]})
+
+    def test_torn_journal_needs_no_daemon(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.close()
+        locks = self.codex / 'accounts/.locks'
+        locks.parent.mkdir(mode=0o700, exist_ok=True)
+        locks.mkdir(mode=0o700, exist_ok=True)
+        for args in (None, ['resume']):
+            with self.subTest(args=args):
+                journal = locks / (ids[0] + '.handoff.json')
+                journal.write_text('')
+                journal.chmod(0o600)
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    run(args)
+                self.assertFalse(journal.exists())
+                self.assertNotIn('recovery record', stderr.getvalue())
+        self.assertEqual(len(attempts), 2)
+
+    def test_fork_and_exec_resume_finish_an_interrupted_takeover(self):
+        for args in (['fork', '{id}'], ['exec', 'resume', '{id}', 'prompt']):
+            with self.subTest(args=args):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.fail_restore = True
+                with self.assertRaises(ValueError):
+                    run()
+                daemon.fail_restore = False
+                journal = self.codex / 'accounts/.locks' / (ids[0] + '.handoff.json')
+                self.assertTrue(journal.exists())
+                run([arg.format(id=ids[0]) for arg in args])
+                self.assertFalse(journal.exists(), 'the saved session is visible again before it is forked')
+                self.assertEqual(daemon.archived, {ids[2]})
+                self.assertEqual(len(attempts), 1)
+                attempts.clear()
+                daemon.close()
+
+    def test_daemon_refusal_is_reported_by_name(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        error = run.launcher.handoff.RpcError('daemon thread/archive refused (-32600).')
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            run.launcher.guard.report(error)
+            run.launcher.guard.report(json.JSONDecodeError('fixture', 'quoted secret text', 0))
+        self.assertIn('thread/archive refused', stderr.getvalue())
+        self.assertNotIn('quoted secret text', stderr.getvalue())
 
     def test_picker_without_daemon_names_preserved_recovery_records(self):
         daemon, ids, attempts, run = self.handoff_fixture()
@@ -762,10 +970,10 @@ class CodexAs(unittest.TestCase):
         client = run.launcher.handoff.Client
         request = client.request
 
-        def interrupted(connection, method, params):
+        def interrupted(connection, method, params, **options):
             if method == 'thread/archive':
                 raise error
-            return request(connection, method, params)
+            return request(connection, method, params, **options)
 
         with patch.object(client, 'request', new=interrupted):
             with self.assertRaises((OSError, ValueError, KeyboardInterrupt)):
@@ -786,10 +994,10 @@ class CodexAs(unittest.TestCase):
                 client = run.launcher.handoff.Client
                 request = client.request
 
-                def interrupted(connection, method, params, request=request, error=error):
+                def interrupted(connection, method, params, request=request, error=error, **options):
                     if method == 'thread/archive' and params['threadId'] == ids[0]:
                         raise error
-                    return request(connection, method, params)
+                    return request(connection, method, params, **options)
 
                 with patch.object(client, 'request', new=interrupted), contextlib.redirect_stderr(io.StringIO()):
                     if isinstance(error, KeyboardInterrupt):
@@ -895,7 +1103,12 @@ class CodexAs(unittest.TestCase):
         for signum in (signal.SIGTERM, signal.SIGHUP):
             process, _, _, _ = self.start_held("A", str(signum))
             os.kill(process.pid, signum)
-            self.assertEqual(process.wait(timeout=8), 128 + signum)
+            # The child dies of the forwarded signal; the launcher dies of it too, like native Codex.
+            self.assertEqual(process.wait(timeout=8), -signum)
+        # An out-of-memory kill of native Codex is reported the same way, not as a launcher error.
+        process, child_pid, _, _ = self.start_held("A", "killed")
+        os.kill(child_pid, signal.SIGKILL)  # only this test's fabricated child
+        self.assertEqual(process.wait(timeout=8), -signal.SIGKILL)
 
     def test_suspended_client_still_prevents_repair(self):
         process, child_pid, gate, _ = self.start_held("A", "suspended")
@@ -1028,7 +1241,8 @@ class CodexAs(unittest.TestCase):
         for shell in SHELLS:
             for args in cases:
                 with self.subTest(shell=shell, args=args):
-                    result = self.run_as(shell, ["A", *args], {"FAKE_EXIT": "23"}, input="stdin text\n第二行\n")
+                    result = self.run_as(shell, ["A", *args], {"FAKE_EXIT": "23"}, input="stdin text\n第二行\n",
+                                         setup="umask 027; ")
                     self.assertEqual(result.returncode, 23, result.stderr)
                     self.assertEqual(result.stdout, "stdout sentinel\n")
                     self.assertEqual(result.stderr, "stderr sentinel\n")
@@ -1036,11 +1250,13 @@ class CodexAs(unittest.TestCase):
                     mode = "exec" if "exec" in args else "interactive"
                     expected = ["-c", 'cli_auth_credentials_store="file"', "-c", "sqlite_home=" + json.dumps(str(self.codex))]
                     if mode == "interactive":
-                        expected += ["--no-daemon"]
+                        expected += ["-c", "check_for_update_on_startup=false", "--no-daemon"]
+                    if args == ["--help"]:
+                        expected = []  # help is the same for every login
                     self.assertEqual(record["args"], expected + args)
                     self.assertEqual(record["cwd"], str(self.cwd))
                     self.assertEqual(record["stdin"], "stdin text\n第二行\n")
-                    self.assertEqual(record["umask"], 0o077)
+                    self.assertEqual(record["umask"], 0o027, "native Codex keeps the caller's umask")
 
     def test_root_prompt_cannot_hide_a_later_subcommand(self):
         # Codex clap still dispatches a root subcommand after its optional
@@ -1048,8 +1264,7 @@ class CodexAs(unittest.TestCase):
         for shell in SHELLS:
             for args in (["hello", "login"], ["hello", "logout"],
                          ["hello", "--no-alt-screen", "logout"],
-                         ["-m", "login", "hello", "logout"],
-                         ["hello", "update"], ["hello", "help", "logout"]):
+                         ["-m", "login", "hello", "logout"], ["hello", "login", "--device-auth"]):
                 with self.subTest(shell=shell, args=args):
                     result = self.rejected(shell, ["B", *args])
                     self.assertIn("unsupported subcommand", result.stderr)
@@ -1089,16 +1304,24 @@ class CodexAs(unittest.TestCase):
             for index, args in enumerate(([], [""], ["../A"], ["A/B"], ["A B"], ["A.1"], ["中文"], ["missing"],
                          ["--migrate", "A"], ["--recover", "A"], ["-A"],
                          ["A", "login"], ["A", "logout"], ["A", "--remote", "server"],
-                         ["A", "exec", "--oss"], ["A", "-p", "other"], ["A", "-pother"],
-                         ["A", "--profile=other", "hello"], ["A", "--remote-auth-token-env", "TOKEN"],
-                         ["A", "--local-provider", "ollama"], ["A", "update"], ["A", "mcp", "list", "-p", "x"],
+                         ["A", "exec", "--oss"], ["A", "--remote-auth-token-env", "TOKEN"],
+                         ["A", "--local-provider", "ollama"],
                          ["A", "-c", 'cli_auth_credentials_store="keyring"'],
-                         ["A", "exec", "--config=OPENAI_API_KEY=fabricated-conflict-secret"],
                          ["A", "exec", 'prompt text', "-cmodel_provider=other"],
                          ["A", "--config", ' "cli_auth_credentials_store" = "auto"'],
                          ["A", "mcp", "add", "x", "-c", "model_provider=other"],
-                         ["A", "-c", 'profile="other"'], ["A", "--config= profile = 'other'"],
-                         ["A", "exec", "-cprofile=other", "prompt"], ["A", "-c", "features.agent_identity=true"])):
+                         ["A", "-c", "features.use_agent_identity=true"],
+                         ["A", "--enable", "use_agent_identity"], ["A", "exec", "--enable=use_agent_identity", "p"],
+                         ["A", "features", "enable", "use_agent_identity"],
+                         # TOML 1.1 that tomllib before 3.15 cannot read must not pass as text.
+                         ["A", "-c", "features={use_agent_identity=true,}"], ["A", "queue", "x", "message"],
+                         ["A", "-c", 'model_providers={openai={base_url="https://example.invalid"}}'],
+                         ["A", "-c", 'chatgpt_base_url="https://example.invalid"'],
+                         ["A", "agents"], *([["A", "app"]] if sys.platform in ("darwin", "win32") else []),
+                         ["A", "remote-control", "start"],
+                         ["A", "app-server", "daemon", "start"], ["A", "app-server", "--listen", "x", "daemon", "start"],
+                         ["A", "-c", "check_for_update_on_startup=true"],
+                         ["A", "resume", "uuid:12345678-1234-4234-8234-123456789abc"])):
                 with self.subTest(shell=shell, case=index):
                     self.rejected(shell, args)
             for variable in ENV_CONFLICTS:
@@ -1116,17 +1339,102 @@ class CodexAs(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
         # Subcommands and options codex-as does not know reach native Codex unchanged.
         prefix = ["-c", 'cli_auth_credentials_store="file"', "-c", "sqlite_home=" + json.dumps(str(self.codex))]
-        for args, interactive in ((["auth", "status"], True), (["mcp", "list", "--json"], True),
-                                  (["mcp", "login", "server"], True), (["mcp", "logout", "server"], True),
-                                  (["features", "list"], True), (["apply", "--future-flag"], True),
-                                  (["--future-switch", "hello"], True), (["--ignore-rules", "hello"], True),
-                                  (["-c", 'permission_profile="workspace"', "hello"], True),
-                                  (["exec", "--ignore-user-config", "--future=value", "prompt"], False)):
+        interactive = ["-c", "check_for_update_on_startup=false", "--no-daemon"]
+        for args, extra in ((["auth", "status"], interactive), (["mcp", "list", "--json"], interactive),
+                            (["mcp", "login", "server"], interactive), (["mcp", "logout", "server"], interactive),
+                            (["features", "list"], interactive), (["apply", "--future-flag"], interactive),
+                            (["--future-switch", "hello"], interactive), (["--ignore-rules", "hello"], interactive),
+                            (["-c", 'permission_profile="workspace"', "hello"], interactive),
+                            (["exec", "--ignore-user-config", "--future=value", "prompt"], []),
+                            # Exact settings, not substrings: these change no login.
+                            (["-c", "allow_login_shell=false", "hello"], interactive),
+                            (["-c", 'projects."/srv/remote-sensing".trust_level="trusted"'], interactive),
+                            (["-c", "mcp_oauth_callback_port=5555", "--enable", "remote_models"], interactive),
+                            (["-c", 'model_provider="openai"', "exec", "prompt"], []),
+                            (["exec", "--config=OPENAI_API_KEY=not-a-setting", "prompt"], []),
+                            # Words after a subcommand are its own: a command line, a branch, a prompt.
+                            (["sandbox", "bash", "-c", "git remote -v"], interactive),
+                            (["sandbox", "brew", "update"], interactive), (["review", "--base", "update"], interactive),
+                            (["login", "status"], interactive),
+                            (["remote-control"], interactive), (["app-server", "proxy"], interactive),
+                            # clap's attached values and a root --no-daemon of the caller's own.
+                            (["-C" + str(self.base), "resume", "--last"], interactive),
+                            (["--no-daemon", "hello"], interactive[:2]),
+                            (["--no-daemon", "resume", "--no-daemon", "--last"], interactive[:2]),
+                            # Native forms that change no login.
+                            (["login", "--help"], interactive), (["login", "-c", "x=1", "status"], interactive),
+                            (["logout", "--help"], interactive), (["--yolo", "resume", "--last"], interactive),
+                            (["-i", "a.png", "b.png", "resume"], interactive),
+                            (["-c", 'profile="legacy"'], interactive), (["-c", 'profiles.x.model_provider="o"'], interactive),
+                            (["--enable", "secret_auth_storage"], interactive),
+                            *([(["app", "is a prompt here"], interactive)] if sys.platform not in ("darwin", "win32") else [])):
             with self.subTest(args=args):
                 result = self.run_as(SHELLS[0], ["A", *args])
                 self.assertEqual(result.returncode, 0, result.stderr)
                 record = json.loads(self.record.read_text())
-                self.assertEqual(record["args"], prefix + (["--no-daemon"] if interactive else []) + args)
+                self.assertEqual(record["args"], prefix + extra + args)
+        for variable in ENV_UNUSED:
+            with self.subTest(variable=variable):
+                result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {variable: "fixture-value"})
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_profiles_layer_the_shared_profile_file(self):
+        # Native -p NAME layers $CODEX_HOME/NAME.config.toml; the account home shows the shared one.
+        profile = self.codex / "work.config.toml"
+        profile.write_text('model="profile-model"\n')
+        for args in (["-p", "work", "exec", "prompt"], ["--profile=work", "hello"], ["resume", "-pwork", "--last"]):
+            with self.subTest(args=args):
+                result = self.run_as(SHELLS[0], ["A", *args])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(self.record.read_text())["args"][-len(args):], args)
+                self.assertEqual(os.readlink(self.codex / "accounts/A/work.config.toml"), str(profile))
+        for content in ('model_provider="other"\n', 'model_instructions_file="relative.md"\n',
+                        'sqlite_home="/elsewhere"\n', '[features]\nuse_agent_identity=true\n'):
+            with self.subTest(content=content):
+                profile.write_text(content)
+                self.rejected(SHELLS[0], ["A", "-p", "work", "exec", "prompt"])
+        profile.unlink()
+        result = self.run_as(SHELLS[0], ["A", "-p", "missing", "exec", "prompt"])
+        self.assertEqual(result.returncode, 0, "native Codex reports a missing profile itself")
+        self.assertFalse(os.path.lexists(self.codex / "accounts/A/missing.config.toml"))
+
+    def test_help_update_and_completion_run_as_plain_codex(self):
+        # They need no account: the root home, no added flags, no environment refusal.
+        for args in (["--help"], ["help", "logout"], ["update"], ["completion", "zsh"], ["-V"]):
+            for account in ("A", "missing"):
+                with self.subTest(args=args, account=account):
+                    self.record.unlink(missing_ok=True)
+                    result = self.run_as(SHELLS[0], [account, *args], {"OPENAI_API_KEY": "fixture-value"})
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    record = json.loads(self.record.read_text())
+                    self.assertEqual(record["args"], args)
+                    self.assertEqual(record["codex_home"], str(self.codex))
+                    self.assertIsNone(record["sqlite_home"])
+        self.assertFalse((self.secret / "codex-missing.json").exists(), "no login for a command that needs none")
+        self.assertFalse((self.codex / "accounts/missing").exists())
+        # A help flag after a subcommand may belong to a command Codex runs: the account is used.
+        for args in (["exec", "--help"], ["mcp", "add", "x", "npx", "-h"]):
+            with self.subTest(args=args):
+                result = self.run_as(SHELLS[0], ["A", *args])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(self.record.read_text())["codex_home"], str(self.codex / "accounts/A"))
+
+    def test_logout_and_identity_change_inside_codex_are_reported(self):
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {"FAKE_MODE": "logout"})
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("logout", result.stderr)
+        self.assertIn("codex-as A", result.stderr)
+        self.assertTrue((self.secret / "codex-A.json").exists(), "the secret is never deleted")
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("logout", result.stderr)
+        (self.codex / "accounts/A/auth.json").symlink_to(self.secret / "codex-A.json")
+        # A write through the link that names another ChatGPT user is kept but reported.
+        foreign = json.loads((self.secret / "codex-B.json").read_bytes())["tokens"]["id_token"]
+        result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {"FAKE_MODE": "refresh", "FAKE_ID_TOKEN": foreign})
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("different ChatGPT user", result.stderr)
+        self.assertTrue((self.codex / "accounts/A/auth.json").is_symlink())
 
     def test_permission_error_identifies_the_actual_directory(self):
         temporary = self.codex / '.tmp'
@@ -1266,8 +1574,12 @@ class CodexAs(unittest.TestCase):
             cfg.write_text('model="unchanged-model"\n')
             project_cfg = self.cwd / ".codex/config.toml"
             project_cfg.parent.mkdir(exist_ok=True)
-            project_cfg.write_text('model_provider="project-provider"\n')
-            self.rejected(shell, ["A"])
+            # Native drops provider and endpoint keys from project config; other keys still apply.
+            project_cfg.write_text('model_provider="project-provider"\nchatgpt_base_url="https://example.invalid"\n')
+            self.assertEqual(self.run_as(shell, ["A", "exec", "prompt"]).returncode, 0)
+            for content in ('forced_login_method="api"\n', '[features]\nuse_agent_identity=true\n'):
+                project_cfg.write_text(content)
+                self.rejected(shell, ["A"])
             project_cfg.unlink()
 
     def test_executable_parent_state_and_command_bypass(self):

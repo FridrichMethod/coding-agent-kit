@@ -53,7 +53,7 @@ def validate_paths(guard, value, prefix=()):
             validate_paths(guard, item, (*prefix, "[]"))
 
 
-def shared_sqlite(guard, root, cwd):
+def shared_sqlite(guard, root, cwd, profile=None):
     result = root
     config = root / "config.toml"
     if config.exists():
@@ -61,10 +61,18 @@ def shared_sqlite(guard, root, cwd):
             data = guard.tomllib.load(stream)
         validate_paths(guard, data)
         result = Path(data.get("sqlite_home", str(root)))
+    # A -p profile layers on the user config from the same directory: same path rules.
+    layered = root / (profile + ".config.toml") if profile is not None else None
+    if layered is not None and layered.exists():
+        with layered.open("rb") as stream:
+            data = guard.tomllib.load(stream)
+        validate_paths(guard, data)
+        if "sqlite_home" in data and Path(data["sqlite_home"]) != result:
+            guard.fail("the selected profile conflicts with shared SQLite storage; no launch performed.")
     inherited = os.environ.get("CODEX_SQLITE_HOME")
     if inherited and Path(os.path.abspath(inherited)) != result:
         guard.fail("CODEX_SQLITE_HOME conflicts with shared SQLite storage (value hidden).")
-    for parent in (cwd, *cwd.parents):
+    for parent in {*(cwd, *cwd.parents), *(cwd.resolve(), *cwd.resolve().parents)}:
         path = parent / ".codex/config.toml"
         if path.exists() and path != config:
             with path.open("rb") as stream:
@@ -235,6 +243,15 @@ class Layout:
         if not os.path.lexists(marker):
             self.replace_bytes(marker, b"codex-as v2\n")
 
+    def link_profile(self, profile):
+        """Show ~/.codex/PROFILE.config.toml in the account home, where native -p reads it."""
+        target = self.root / (profile + ".config.toml")
+        if os.path.exists(target):
+            try:
+                self.add_link(self.home / target.name, target)
+            except FileExistsError:
+                self.check_link(self.home / target.name, target)  # another launch just made it
+
     def add_link(self, path, target):
         if not os.path.lexists(path):
             os.symlink(str(target), path)
@@ -256,7 +273,10 @@ class Layout:
             self.check_link(self.auth, self.target)
             return
         if not os.path.lexists(self.auth):
-            self.g.fail(f"account auth.json is absent; while the account is idle, run: ln -s {self.target} {self.auth}")
+            self.g.fail(f"account auth.json is absent. A logout inside Codex removes it and revokes the tokens in "
+                        f"{self.target}: move that file aside under a name that does not match codex-NAME.json and "
+                        f"run codex-as {self.name} to log in again. Otherwise, while the account is idle, run: "
+                        f"ln -s {self.target} {self.auth}")
         latest = self.g.credential(self.auth)
         canonical = self.g.credential(self.target)
         if latest != canonical:

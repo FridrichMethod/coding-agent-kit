@@ -1,9 +1,9 @@
 #!/bin/bash
-# codex-as NAME [CODEX_ARGS...] — invoked directly, like claude-as.
+# codex-as NAME [CODEX_ARGS...] - invoked directly, like claude-as.
 # Fixed account views; shared sessions. Requires codex-cli 0.161.0 or newer.
 
-# This process keeps the caller's umask, variables, cwd and options intact.
-umask 077
+# Native Codex gets the caller's umask, variables, cwd and options; the Python
+# launcher writes its own files under umask 077.
 # Match the dotfiles terminal policy without changing native Codex output.
 _codex_as_message() {
     if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ] &&
@@ -19,14 +19,18 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
     printf '%s\n' \
         'Credentials: ~/.secrets/codex-NAME.json (complete JSON, owner-only 0600).' \
         'Account home: ~/.codex/accounts/NAME; config/sessions/SQLite shared from ~/.codex.' \
-        'Forwards codex arguments unchanged; NAME --help reaches Codex.' \
-        'Refuses login, logout, update, profiles and remote/provider/auth overrides.' \
+        'Forwards codex arguments after its own -c file-auth and sqlite_home flags; every command but' \
+        'exec also gets -c check_for_update_on_startup=false and --no-daemon.' \
+        'Root help or version, help, update and completion run as plain codex in ~/.codex.' \
+        'Refuses login (not login status), logout, agents, queue, app, daemon management' \
+        'and remote/provider/auth overrides; -p NAME uses ~/.codex/NAME.config.toml.' \
         'Missing account: confirm [y/N], device login in empty temporary home, save, launch.' \
         'Root ~/.codex/auth.json stays native: codex-as never reads or changes it.' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
         'Resume UUID: takes it over from the root daemon, asking only if it may be running.' \
-        'Picker or --last: first takes over the idle daemon sessions they list (all with --all).' \
-        'Takeover ends the session and its agents there; an interrupted one finishes next resume.' \
+        'resume --last: takes over the session it opens if idle; the picker: the idle sessions it lists.' \
+        'Takeover ends the session and its agents there; resume, fork or exec resume of that UUID,' \
+        'the picker or --last finishes an interrupted one.' \
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
         'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit.' \

@@ -1,6 +1,7 @@
 """Small stdlib guard for the executable shell command; never rewrites JSON."""
 
 import base64
+from dataclasses import dataclass
 from datetime import datetime
 import json
 import os
@@ -46,30 +47,125 @@ def codex_version(text):
     return version
 
 
+# Native Codex 0.161-0.163 options that take a value (root, resume, fork, exec, review).
+VALUES = {
+    "-c", "--config", "-m", "--model", "-i", "--image", "-C", "--cd", "-p", "--profile",
+    "-s", "--sandbox", "-a", "--ask-for-approval", "--add-dir", "--enable",
+    "--disable", "--output-schema", "--color", "-o", "--output-last-message",
+    "--thread-source", "--cyber-access-program", "--base", "--commit", "--title", "--listen",
+}
+SWITCHES = {
+    "--strict-config", "--approve-for-me", "--dangerously-bypass-approvals-and-sandbox",
+    "--dangerously-bypass-hook-trust", "--worktree", "--search", "--no-alt-screen",
+    "--no-daemon", "-h", "--help", "-V", "--version", "--json", "--last",
+    "--all", "--include-non-interactive", "--skip-git-repo-check", "--ephemeral",
+    "--ignore-user-config", "--ignore-rules", "--uncommitted", "--yolo", "--not-so-yolo",
+    "--experimental-json",
+}
+# Remote backends and local providers bypass the account login.
+REFUSED = {"--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
+# Native `app` is a subcommand only where the Desktop app exists; elsewhere it is a prompt.
+DESKTOP = sys.platform in {"darwin", "win32"}
+EXEC = {"exec", "exec-prompt", "exec-resume"}
+# Root subcommands and aliases of native Codex 0.163.0, plus clap's help.
+COMMANDS = {
+    "agents", "tcp-tunnel", "exec", "e", "review", "login", "logout", "mcp", "plugin",
+    "app-server", "remote-control", "app", "completion", "update", "doctor", "sandbox",
+    "debug", "execpolicy", "apply", "a", "resume", "queue", "archive", "delete",
+    "migrate-rollouts", "unarchive", "fork", "cloud", "cloud-tasks", "responses-api-proxy",
+    "stdio-to-uds", "exec-server", "features", "help",
+}
+# The launcher sets these; the update check is off because its installer writes under CODEX_HOME.
+FIXED_KEYS = {"cli_auth_credentials_store", "sqlite_home", "check_for_update_on_startup"}
+# Replaces the ChatGPT login with an agent identity.
+FEATURES = {"use_agent_identity"}
+PROFILE = re.compile(r"[A-Za-z0-9_-]+")  # native ProfileV2Name
+# uuid::Uuid::parse_str forms; anything else is a session name to native Codex.
+HYPHENATED = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+SESSION_ID = re.compile(rf"(?:urn:uuid:)?{HYPHENATED}|\{{{HYPHENATED}\}}|[0-9a-fA-F]{{32}}")
+
+
+@dataclass(frozen=True)
+class Plan:
+    mode: str  # "interactive" or "exec"
+    cwd: Path
+    command: str | None  # first root subcommand, "exec-resume", or None for the TUI
+    resume_id: str | None  # interactive resume UUID to take over
+    recover_id: str | None  # fork/exec resume UUID: only finish an interrupted takeover
+    scope: object  # picker/--last: None, "all", or the directory whose sessions are listed
+    last: bool
+    include_non_interactive: bool
+    no_daemon: bool  # root --no-daemon given; native refuses a second one
+    rootless: bool  # root help or version, update and completion need no account
+    unknown: tuple  # options this scan does not know (typos fail in clap after any takeover)
+    profile: str | None  # -p/--profile: layers ~/.codex/NAME.config.toml
+
+
+def session_id(text):
+    return str(uuid.UUID(text)) if isinstance(text, str) and SESSION_ID.fullmatch(text) else None
+
+
+def toml_value(raw):
+    # Native -c parses the value as TOML, else keeps the unquoted text.
+    try:
+        return tomllib.loads("_x_ = " + raw)["_x_"]
+    except tomllib.TOMLDecodeError:
+        # Native parses TOML 1.1 (trailing commas, newlines in inline tables); a table or
+        # array this parser cannot read could hide a key, so it is not taken as text.
+        if raw.strip()[:1] in ("{", "["):
+            fail("a -c table or array uses TOML this Python cannot check; write it as TOML 1.0.")
+        return raw.strip().strip("\"'")
+
+
+def settings(cfg, project=False):
+    """Fail on settings that select another login, provider, endpoint or credential store.
+
+    Native drops the provider and endpoint keys from project config, which comes from
+    repository contents, so a project layer is checked only for the others."""
+    if not isinstance(cfg, dict):
+        return
+    if not project:
+        if cfg.get("model_provider", "openai") != "openai":
+            fail("a configuration selects another model provider; review its auth/billing source first.")
+        providers = cfg.get("model_providers")
+        provider = providers.get("openai") if isinstance(providers, dict) else None
+        if isinstance(provider, dict) and any(k in provider for k in (
+                "env_key", "experimental_bearer_token", "base_url", "http_headers", "env_http_headers",
+                "requires_openai_auth", "auth", "gateway_oauth", "aws")):
+            fail("configuration overrides OpenAI provider authentication/endpoint; review it first.")
+        if cfg.get("chatgpt_base_url") or cfg.get("openai_base_url"):
+            fail("configuration overrides ChatGPT authentication endpoint; review it first.")
+    if cfg.get("forced_login_method") or cfg.get("forced_chatgpt_workspace_id"):
+        fail("local login/workspace restrictions require credential review; no switch performed and no policy removed.")
+    features = cfg.get("features")
+    if isinstance(features, dict) and any(features.get(name) not in (None, False) for name in FEATURES):
+        fail("an authentication feature (" + ", ".join(sorted(FEATURES)) + ") is enabled; it replaces the account login.")
+
+
+def override(text):
+    """Check one -c KEY=VALUE the way native Codex applies it: dotted key, TOML value."""
+    key, _, raw = text.partition("=")
+    parts = [part.strip().strip("\"'") for part in key.strip().split(".")]
+    if parts == ["use_legacy_landlock"]:
+        parts = ["features", "use_legacy_landlock"]
+    if parts[0] in FIXED_KEYS:
+        fail("authentication/provider configuration overrides are refused.")
+    nested = cfg = {}
+    for part in parts[:-1]:
+        nested = nested.setdefault(part, {})
+    nested[parts[-1]] = toml_value(raw)
+    settings(cfg)
+
+
 def arguments(args):
     # A bounded scan, not a replacement for clap: arguments are forwarded
-    # unchanged. Values/prompts are never interpreted as login/logout inside
-    # exec/resume/fork/mcp. A root PROMPT does not end clap's subcommand
-    # recognition; keep checking until exec/resume/fork/mcp or --. Unknown
+    # unchanged. Values and prompts are never read as subcommands once a
+    # subcommand is known. A root PROMPT does not end clap's subcommand
+    # recognition, so words are checked until a subcommand or --. Unknown
     # options are forwarded as switches, so their values are scanned as words.
-    values = {
-        "-c", "--config", "-m", "--model", "-i", "--image", "-C", "--cd",
-        "-s", "--sandbox", "-a", "--ask-for-approval", "--add-dir", "--enable",
-        "--disable", "--output-schema", "--color", "-o", "--output-last-message",
-        "--thread-source", "--cyber-access-program",
-    }
-    switches = {
-        "--strict-config", "--approve-for-me", "--dangerously-bypass-approvals-and-sandbox",
-        "--dangerously-bypass-hook-trust", "--worktree", "--search", "--no-alt-screen",
-        "--no-daemon", "-h", "--help", "-V", "--version", "--json", "--last",
-        "--all", "--include-non-interactive", "--skip-git-repo-check", "--ephemeral",
-    }
-    # login/logout revoke the account's tokens; update installs under CODEX_HOME.
-    commands = {"login", "logout", "update"}
-    # Profiles, remote backends and local providers bypass the account login.
-    refused = {"-p", "--profile", "--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query, show_all = None, None, False, False, False
+    no_daemon, others, words, unknown, bare, profile = False, False, [], [], False, None
     i = 0
     while i < len(args):
         arg = args[i]
@@ -78,65 +174,106 @@ def arguments(args):
             if command in {"resume", "fork", "exec-resume"} and target is None and i < len(args):
                 target = args[i]
             break
-        flag, sep, value = arg.partition("=")
-        if flag in values:
+        if arg.startswith("--"):
+            flag, sep, value = arg.partition("=")
+        elif len(arg) > 2 and arg[0] == "-" and (arg[:2] in VALUES or arg[:2] == "-p"):
+            # clap's attached short values: -C/dir, -C=/dir, -cmodel=x.
+            flag, sep, value = arg[:2], "=", arg[2:].removeprefix("=")
+        else:
+            flag, sep, value = arg, "", ""
+        if flag in REFUSED:
+            fail("unsupported option; profiles, remote/provider/auth overrides are refused.")
+        if flag in VALUES:
             if not sep:
                 if i == len(args):
                     fail("option requires a value; no account switch performed.")
                 value = args[i]
                 i += 1
-        elif arg.startswith("-c") and not arg.startswith("--"):
-            flag, value = "-c", arg[2:]
-        elif arg in switches:
-            if arg == "--last":
-                last = True
-            if arg == "--all" and command == "resume":
-                show_all = True
-            if arg in {"-h", "--help", "-V", "--version"}:
-                query = True
+                # Outside exec, a spaced -i/--image takes every following non-option word.
+                while flag in {"-i", "--image"} and command not in EXEC and i < len(args) and not args[i].startswith("-"):
+                    i += 1
+        elif flag in SWITCHES:
+            last |= flag == "--last"
+            show_all |= flag == "--all" and command == "resume"
+            others |= flag == "--include-non-interactive"
+            no_daemon |= flag == "--no-daemon" and root
+            query |= flag in {"-h", "--help", "-V", "--version"}
+            # Only root help or version is the same for every login; elsewhere -h may be a command's.
+            bare |= flag in {"-h", "--help", "-V", "--version"} and root and not words
             continue
-        elif flag in refused or (arg.startswith("-p") and not arg.startswith("--")):
-            fail("unsupported option; profiles, remote/provider/auth overrides are refused.")
         elif arg.startswith("-") and arg != "-":
+            unknown.append(flag)
             continue
         else:
+            if root and arg not in COMMANDS:
+                words.append(arg)  # a root prompt
             if root:
-                if arg in {"exec", "e"}:
-                    mode = "exec"
-                    command = "exec"
-                    root = False
-                elif arg in {"resume", "fork", "mcp"}:
-                    # mcp login/logout authenticate MCP servers, not the account.
-                    command = arg
-                    root = False
-                elif arg in commands:
-                    fail("unsupported subcommand; run login, logout and update with plain codex "
+                if arg in {"login", "logout"} and not harmless(arg, args[i:]):
+                    fail("unsupported subcommand; login and logout revoke the account's tokens "
                          "(a missing account logs in on its first codex-as NAME).")
+                if arg in {"agents", "queue"} or (arg == "app" and DESKTOP):
+                    # Each needs or starts a daemon in the account home, which would hold its lease.
+                    fail(f"codex {arg} needs the shared Codex daemon; codex-as accounts run without one.")
+                if arg == "help":
+                    query = bare = True  # help never runs the subcommand it describes
+                    break
+                if arg in COMMANDS and (arg != "app" or DESKTOP):
+                    root, words = False, []
+                    command = {"e": "exec", "a": "apply", "cloud-tasks": "cloud"}.get(arg, arg)
+                    if command == "exec":
+                        mode = "exec"
+                    elif command == "sandbox":
+                        break  # the rest is the sandboxed command line
             elif command == "exec":
-                command = "exec-resume" if arg == "resume" else "exec-prompt"
+                command = "exec-resume" if arg in {"resume", "fork"} else "exec-prompt"
             elif command in {"resume", "fork", "exec-resume"} and target is None:
                 target = arg
+            else:
+                words.append(arg)
+                # Foreground remote-control and stdio app-server need no daemon; these manage one.
+                if command == "remote-control" or (command == "app-server" and "daemon" in words):
+                    fail("this command manages a Codex daemon; codex-as accounts run without one.")
+                if command == "features" and words[:1] == ["enable"] and arg in FEATURES:
+                    fail("an authentication feature replaces the account login; it is refused.")
             continue
         if flag in {"-c", "--config"}:
-            key = value.partition("=")[0]
-            # profile selects a profile like -p, so it is refused like -p.
-            if (re.search(r"auth|login|provider|base_url|workspace_id|remote|api_key|access_token|sqlite_home|identity", key, re.I)
-                    or re.fullmatch(r"""\s*["']?profile["']?\s*""", key)):
-                fail("authentication/provider configuration overrides are refused.")
+            override(value)
         elif flag in {"-C", "--cd"}:
             cwd = Path(value).expanduser().absolute()
-        elif flag in {"--enable", "--disable"} and re.search(r"auth|login|provider|remote|identity", value, re.I):
-            fail("authentication/provider feature overrides are refused (conservative local guard).")
-    if target is not None and not last:
-        try:
-            uuid.UUID(target)
-        except ValueError:
-            fail("resume/fork requires a session UUID; use --last or the native picker instead of a session name.")
-    resume_id = str(uuid.UUID(target)) if command == "resume" and target is not None and not last and not query else None
+        elif flag in {"-p", "--profile"}:
+            profile = value
+        elif flag == "--enable" and value.strip() in FEATURES:
+            fail("an authentication feature replaces the account login; it is refused.")
+    exact = target is not None and not last and not query
+    if exact and not unknown and session_id(target) is None:
+        fail("resume/fork requires a session UUID; use --last or the native picker instead of a session name.")
+    target_id = session_id(target) if exact else None
+    resume_id = target_id if command == "resume" else None
     picking = command == "resume" and resume_id is None and not query
     # The picker and --last list this directory's sessions unless --all.
     scope = None if not picking else "all" if show_all else cwd
-    return mode, cwd, resume_id, scope
+    return Plan(mode, cwd, command, resume_id, target_id if command in {"fork", "exec-resume"} else None,
+                scope, last and picking, others, no_daemon,
+                bare or command in {"update", "completion"}, tuple(unknown),
+                profile if profile is not None and PROFILE.fullmatch(profile) else None)
+
+
+
+def harmless(command, rest):
+    """login status, or help for login or logout, revokes nothing."""
+    j = 0
+    while j < len(rest):
+        arg = rest[j]
+        j += 1
+        if arg in {"-h", "--help"}:
+            return True
+        if arg == "--":
+            return False
+        if arg in {"-c", "--config", "--enable", "--disable"}:
+            j += 1
+        elif not arg.startswith("-"):
+            return command == "login" and arg == "status"
+    return False
 
 
 def directory(path, private=False):
@@ -250,7 +387,7 @@ def terminal():
     try:
         return Terminal()
     except OSError:
-        fail("an interactive controlling terminal is required to confirm initialization/new login.")
+        fail("an interactive controlling terminal is required to confirm a new login or a takeover.")
 
 
 def confirm(tty, text):
@@ -274,31 +411,31 @@ def exclusive(path, raw):
         raise
 
 
-def config_sources(cwd):
+def config_sources(cwd, profile=None):
     home = Path(os.environ["HOME"])
-    paths = {home / ".codex/config.toml", Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml")}
-    paths.update(parent / ".codex/config.toml" for parent in (cwd, *cwd.parents))
-    paths.add(Path("/etc/codex/requirements.toml"))
-    for path in paths:
+    user = {home / ".codex/config.toml", Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"),
+            Path("/etc/codex/requirements.toml")}
+    if profile is not None:
+        user.add(home / ".codex" / (profile + ".config.toml"))
+    project = set()
+    # Lexical and resolved parents: a symlinked -C has both.
+    for place in (cwd, cwd.resolve()):
+        project.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
+    for path in sorted(user | project):
         if not path.exists():
             continue
         with path.open("rb") as stream:
-            cfg = tomllib.load(stream)
-        if cfg.get("model_provider", "openai") != "openai":
-            fail("a configuration selects another model provider; review its auth/billing source first.")
-        provider = cfg.get("model_providers", {}).get("openai", {})
-        if any(k in provider for k in ("env_key", "experimental_bearer_token", "base_url", "http_headers", "env_http_headers", "requires_openai_auth", "auth", "gateway_oauth", "aws")):
-            fail("configuration overrides OpenAI provider authentication/endpoint; review it first.")
-        if cfg.get("chatgpt_base_url") or cfg.get("openai_base_url"):
-            fail("configuration overrides ChatGPT authentication endpoint; review it first.")
-        if cfg.get("forced_login_method") or cfg.get("forced_chatgpt_workspace_id"):
-            fail("local login/workspace restrictions require credential review; no switch performed and no policy removed.")
+            try:
+                cfg = tomllib.load(stream)
+            except tomllib.TOMLDecodeError as error:
+                fail(f"{path}: TOML this Python cannot check ({error}); no launch performed.")
+        settings(cfg, project=path not in user)
         if path.name in {"requirements.toml", "managed_config.toml"} and cfg.get("cli_auth_credentials_store", "file") != "file":
             fail("administrator credential-store policy conflicts with file authentication; no switch performed.")
     # Codex still loads/enforces its own system, workspace and cloud policies.
 
 
-def preflight(account, args):
+def preflight(account, plan):
     expected = Path(os.environ["HOME"]) / ".codex"
     allowed = (expected, expected / "accounts" / account)
     if "CODEX_HOME" in os.environ:
@@ -310,21 +447,20 @@ def preflight(account, args):
             directory(inherited, private=True)
             if private_metadata(inherited / "codex-as.initialized") != b"codex-as v2\n":
                 fail("inherited account home is not initialized by codex-as.")
+    # Variables that native Codex 0.161-0.163 reads as a login, token endpoint or billing scope.
     names = (
-        "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY", "OPENAI_BASE_URL",
-        "OPENAI_IDENTITY_TOKEN_FILE", "OPENAI_ORGANIZATION", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID",
-        "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID",
+        "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY",
+        "OPENAI_IDENTITY_TOKEN_FILE", "OPENAI_ORGANIZATION", "OPENAI_PROJECT",
         "OPENAI_FEDERATION_RULE_ID", "OPENAI_WORKLOAD_IDENTITY_CONTEXT",
-        "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "CODEX_APP_SERVER_LOGIN_CLIENT_ID",
+        "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "CODEX_REVOKE_TOKEN_URL_OVERRIDE",
+        "CODEX_APP_SERVER_LOGIN_CLIENT_ID", "CODEX_APP_SERVER_LOGIN_ISSUER",
         "CODEX_AUTHAPI_BASE_URL", "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL",
         "CODEX_AGENT_IDENTITY_JWKS_BASE_URL",
     )
     conflicts = [name for name in names if name in os.environ]
     if conflicts:
         fail("authentication/endpoint environment conflict: " + ", ".join(conflicts) + " (values hidden).")
-    mode, cwd, resume_id, scope = arguments(args)
-    config_sources(cwd)
-    return mode, cwd, resume_id, scope
+    config_sources(plan.cwd, plan.profile)
 
 
 def private_metadata(path):
@@ -342,7 +478,9 @@ def warn(message):
 
 
 def report(error):
-    message = str(error) if type(error) is ValueError else "missing, unreadable or malformed credential/configuration; no unsafe repair performed."
+    # Only messages written by codex-as are shown; other errors may quote file contents.
+    own = type(error) is ValueError or getattr(error, "own_message", False)
+    message = str(error) if own else "missing, unreadable or malformed credential/configuration; no unsafe repair performed."
     print(styled("codex-as: " + message, "31", 2), file=sys.stderr)
 
 
