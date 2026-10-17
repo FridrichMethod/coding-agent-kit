@@ -29,14 +29,23 @@ archive/unarchive:
   `systemError`). When any of them may be running (an active turn, any other
   status, or a backend that reports none), the launcher asks first. The status
   is a snapshot: a turn that starts just before the archive is still ended.
-- The picker and `--last` select inside native Codex, after the launcher has
-  run. So before they start, the launcher takes over every idle top-level
-  session the root daemon holds and names them on stderr, including sessions
-  that are not selected afterwards; this wider reach is deliberate, so that the
-  selection never meets a daemon-held session. Sessions that may be
-  running are left alone and named; selecting one shows the native conflict
-  screen, and `codex-as NAME resume UUID` asks before ending it. Spawned agents
-  follow their parent.
+- The picker and `--last` select inside native Codex, which reports the choice
+  nowhere outside its process, so the launcher cannot wait for it. Before they
+  start, it takes over the idle top-level root daemon sessions they list by
+  default and names them on stderr, including ones not selected afterwards:
+  sessions whose cwd is the launch directory (`-C`/`--cd` included) or, in a
+  Git repository with linked worktrees, the same place in another checkout
+  (same common directory and prefix). With `--all`, every idle top-level
+  session is taken over. Sessions that may be running are left alone and named;
+  selecting one shows the native conflict screen, and `codex-as NAME resume UUID`
+  asks before ending it. Spawned agents follow their parent. A daemon-held
+  session from another directory, reached by switching the picker to all
+  sessions, also shows the conflict screen; R cannot help there, so quit and
+  rerun with `--all` or `codex-as NAME resume UUID`. The match uses resolved
+  paths and Git's common directory, so it can be slightly wider than native in
+  rare layouts (a symlinked alias of the directory, bare-repository worktrees,
+  or the Worktrees feature disabled). Linked worktrees need git 2.31 or newer
+  on PATH; without it only the directory itself matches.
 - A session held by any other process, such as another terminal or an IDE
   extension's own backend, is never touched; native Codex shows its conflict
   screen. Help, exec and fork never take over.
@@ -123,7 +132,7 @@ cannot force unsubscribe another client. The takeover's Unix WebSocket managemen
 client uses the native management identity and does not modify daemon login.
 `thread/read` reports each loaded thread's `status` (`idle`, `active`, `notLoaded`,
 `systemError`); anything but idle or systemError counts as possibly running.
-Offline native fixtures exercise idle handoff without a prompt, the picker/`--last`
+Offline native fixtures exercise idle handoff without a prompt, the scoped picker/`--last`
 release, both history formats, visible children, archived grandchildren, a loaded
 spawned agent and an unrelated loaded writer. Wrapper tests cover running and
 status-less sessions, refusal, consent, partial errors, unknown completion, private

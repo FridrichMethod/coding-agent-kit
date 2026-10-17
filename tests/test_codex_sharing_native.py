@@ -356,7 +356,11 @@ class NativeSharingTests(unittest.TestCase):
         # spawned agent whose parent moved elsewhere is not a session of its own.
         owner.request('thread/resume', {'threadId': children[0][0]['id']})
         warnings.clear()
-        handoff.release(management, self.root, 'b')
+        # Native thread/read reports the session's cwd: another directory leaves it held.
+        handoff.release(management, self.root, 'b', self.fixture)
+        self.assertEqual(warnings, [])
+        self.assertTrue(handoff.locked(self.root, other['id']))
+        handoff.release(management, self.root, 'b', self.workspace)
         self.assertEqual(len(warnings), 1, warnings)
         self.assertIn(other['id'], warnings[0])
         self.assertNotIn(children[0][0]['id'], warnings[0])

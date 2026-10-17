@@ -25,7 +25,7 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'Root ~/.codex/auth.json stays native: codex-as never reads or changes it.' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
         'Resume UUID: takes it over from the root daemon, asking only if it may be running.' \
-        'Picker or --last: first takes over the idle sessions the root daemon holds.' \
+        'Picker or --last: first takes over the idle daemon sessions they list (all with --all).' \
         'Takeover ends the session and its agents there; an interrupted one finishes next resume.' \
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \

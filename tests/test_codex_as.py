@@ -103,6 +103,8 @@ class HandoffDaemon:
         self.fail_archive = False
         # Loaded sessions are idle unless set; None omits the field like an unknown backend.
         self.statuses = {}
+        # Sessions start in the launcher's directory unless set.
+        self.cwds = {}
         self.version = '0.162.1'
         self.originator = 'codex_cli_rs'
         self.agent_suffix = ''
@@ -210,6 +212,7 @@ class HandoffDaemon:
             directory = 'archived_sessions' if name in self.archived else 'sessions'
             status = self.statuses.get(name, {'type': 'idle'}) if name in self.writers else {'type': 'notLoaded'}
             return {'thread': {'id': name, 'path': str(self.root / directory / (name + '.jsonl')),
+                               'cwd': self.cwds.get(name, os.getcwd()),
                                **({'status': status} if status is not None else {}),
                                # Native thread/read marks spawned agents in source, not parentThreadId.
                                'parentThreadId': None, 'name': self.names.get(name), 'preview': '',
@@ -488,6 +491,63 @@ class CodexAs(unittest.TestCase):
                 self.assertEqual(daemon.archived, {ids[2]}, 'saved visibility is restored')
                 self.assertEqual(len(attempts), 1)
                 daemon.close()
+
+    def test_picker_takes_over_only_sessions_it_would_list(self):
+        for args, outside_taken in ((['resume'], False), (['resume', '--last'], False),
+                                    (['resume', '--all'], True), (['resume', '--last', '--all'], True)):
+            with self.subTest(args=args):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.cwds[ids[3]] = str(self.cwd)
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    self.assertEqual(run(args), 0)
+                self.assertIn(ids[0], stderr.getvalue())
+                self.assertEqual(ids[3] in stderr.getvalue(), outside_taken)
+                self.assertEqual(ids[3] not in daemon.writers, outside_taken)
+                daemon.close()
+        # -C moves the filter like native Codex.
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.cwds[ids[3]] = str(self.cwd)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(run(['-C', str(self.cwd), 'resume']), 77, 'the other directory stays held')
+        self.assertNotIn(ids[3], daemon.writers)
+        self.assertIn(ids[0], daemon.writers)
+
+    def test_picker_scope_includes_the_same_place_in_linked_worktrees(self):
+        git = ['git', '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid']
+        # A pre-commit hook inherits GIT_INDEX_FILE and friends from the outer commit.
+        env = {name: value for name, value in os.environ.items() if not name.startswith('GIT_')}
+        main, linked = self.base / 'repository', self.base / 'linked checkout'
+        (main / 'sub').mkdir(parents=True)
+        for args in (['init', '-q', str(main)], ['-C', str(main), 'commit', '-q', '--allow-empty', '-m', 'fixture'],
+                     ['-C', str(main), 'worktree', 'add', '-q', '--detach', str(linked)]):
+            subprocess.run(git + args, env=env, check=True)
+        (linked / 'sub').mkdir()
+        (linked / 'other').mkdir()
+        for cwd, taken in ((linked / 'sub', True), (linked / 'other', False), (linked, False)):
+            with self.subTest(cwd=cwd.name):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.cwds[ids[3]] = str(cwd)
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(run(['--cd', str(main / 'sub'), 'resume']), 77)
+                self.assertEqual(ids[3] not in daemon.writers, taken)
+                self.assertIn(ids[0], daemon.writers, 'sessions of the launcher directory are outside --cd')
+                daemon.close()
+
+    def test_picker_scope_arguments(self):
+        spec = importlib.util.spec_from_file_location('scope_test_check', self.install / 'check.py')
+        check = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(check)
+        here, uuid_text = Path.cwd(), '12345678-1234-4234-8234-123456789abc'
+        for args, scope in ((['resume'], here), (['resume', '--last'], here), (['resume', '--all'], 'all'),
+                            (['resume', '--all', '--last'], 'all'), (['resume', '-C', str(self.cwd)], self.cwd),
+                            (['--cd', str(self.cwd), 'resume', '--all'], 'all'),
+                            (['resume', '-m', '--all'], here),  # --all is the model value here
+                            (['--all', 'resume'], here), (['resume', uuid_text, '--all'], None),
+                            (['fork', '--all'], None), (['exec', 'resume', '--all'], None),
+                            (['resume', '--help'], None), (['--model', 'resume', 'prompt'], None), ([], None)):
+            with self.subTest(args=args):
+                self.assertEqual(check.arguments(args)[3], scope)
 
     def test_picker_leaves_possibly_running_sessions_and_names_them(self):
         daemon, ids, attempts, run = self.handoff_fixture()

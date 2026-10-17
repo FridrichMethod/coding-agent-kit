@@ -69,7 +69,7 @@ def arguments(args):
     # Profiles, remote backends and local providers bypass the account login.
     refused = {"-p", "--profile", "--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
     mode, root, cwd = "interactive", True, Path.cwd()
-    command, target, last, query = None, None, False, False
+    command, target, last, query, show_all = None, None, False, False, False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -90,6 +90,8 @@ def arguments(args):
         elif arg in switches:
             if arg == "--last":
                 last = True
+            if arg == "--all" and command == "resume":
+                show_all = True
             if arg in {"-h", "--help", "-V", "--version"}:
                 query = True
             continue
@@ -132,7 +134,9 @@ def arguments(args):
             fail("resume/fork requires a session UUID; use --last or the native picker instead of a session name.")
     resume_id = str(uuid.UUID(target)) if command == "resume" and target is not None and not last and not query else None
     picking = command == "resume" and resume_id is None and not query
-    return mode, cwd, resume_id, picking
+    # The picker and --last list this directory's sessions unless --all.
+    scope = None if not picking else "all" if show_all else cwd
+    return mode, cwd, resume_id, scope
 
 
 def directory(path, private=False):
@@ -318,9 +322,9 @@ def preflight(account, args):
     conflicts = [name for name in names if name in os.environ]
     if conflicts:
         fail("authentication/endpoint environment conflict: " + ", ".join(conflicts) + " (values hidden).")
-    mode, cwd, resume_id, picking = arguments(args)
+    mode, cwd, resume_id, scope = arguments(args)
     config_sources(cwd)
-    return mode, cwd, resume_id, picking
+    return mode, cwd, resume_id, scope
 
 
 def private_metadata(path):

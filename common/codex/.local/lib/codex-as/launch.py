@@ -75,7 +75,7 @@ def main(args):
     if not args or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", args[0]):
         guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
     account, *native_args = args
-    mode, cwd, resume_id, picking = guard.preflight(account, native_args)
+    mode, cwd, resume_id, scope = guard.preflight(account, native_args)
     layout = storage.Layout(guard, account)
     sqlite = storage.shared_sqlite(guard, layout.root, cwd)
     layout.root_check()
@@ -112,8 +112,8 @@ def main(args):
         # Revalidate after EX->SH, whose conversion may release the lock briefly.
         baseline = layout.validate()
         handoff.prepare(guard, layout.root, account, resume_id)
-        if picking:
-            handoff.release(guard, layout.root, account)
+        if scope is not None:
+            handoff.release(guard, layout.root, account, None if scope == "all" else scope)
         result = run_native(command, env, layout.fd)
     finally:
         layout.close()

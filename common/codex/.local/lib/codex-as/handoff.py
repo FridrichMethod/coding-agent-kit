@@ -10,6 +10,7 @@ import re
 import socket
 import stat
 import struct
+import subprocess
 import time
 import uuid
 
@@ -360,8 +361,42 @@ def prepare(guard, root, account, thread):
         guard.warn(f"took over {thread} from the root daemon; it is closed there.")
 
 
-def release(guard, root, account):
-    """Picker and --last: before the native selection, take over the root daemon's idle top-level sessions."""
+def checkout(path):
+    """(Git common directory, path within its checkout) for PATH, or None outside Git."""
+    env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    try:
+        result = subprocess.run(["git", "-C", path, "rev-parse", "--path-format=absolute",
+                                 "--git-common-dir", "--show-prefix"], env=env, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=5, check=False)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    lines = result.stdout.split("\n")
+    if result.returncode or len(lines) < 2 or not os.path.isabs(lines[0]):
+        return None
+    return os.path.realpath(lines[0]), lines[1]
+
+
+def scope(cwd):
+    """The native default picker/--last filter: CWD itself or, in a repository with
+    linked worktrees, the same location in any of its checkouts."""
+    here, repository = os.path.realpath(cwd), None
+
+    def matches(path):
+        nonlocal repository
+        if not isinstance(path, str) or not os.path.isabs(path) or not os.path.isdir(path):
+            return False
+        if os.path.realpath(path) == here:
+            return True
+        if repository is None:
+            repository = checkout(str(cwd)) or False
+        return bool(repository) and checkout(path) == repository
+
+    return matches
+
+
+def release(guard, root, account, cwd):
+    """Picker and --last: before the native selection, take over the root daemon's idle
+    top-level sessions that it would list (those of CWD, or all when CWD is None)."""
     locks = root / "accounts/.locks"
     # Interrupted takeovers first: their sessions may be archived and no longer loaded.
     journals = [path.name.removesuffix(".handoff.json") for path in sorted(locks.glob("*.handoff.json"))]
@@ -375,6 +410,7 @@ def release(guard, root, account):
             guard.warn(f"could not reach the root daemon ({error}); no takeover performed.")
         return
     taken, running = [], []
+    listed = scope(cwd) if cwd is not None else lambda path: True
     try:
         for thread in dict.fromkeys(journals + client.request("thread/loaded/list", {})["data"]):
             try:
@@ -384,7 +420,7 @@ def release(guard, root, account):
                     value = client.request("thread/read", {"threadId": thread, "includeTurns": False})["thread"]
                     # Spawned agents follow their parent's takeover.
                     source = value.get("source")
-                    if isinstance(source, dict) and "subAgent" in source:
+                    if (isinstance(source, dict) and "subAgent" in source) or not listed(value.get("cwd")):
                         continue
                 outcome = take_over(guard, root, client, account, thread, ask=False)
                 if outcome in ("running", "taken"):
