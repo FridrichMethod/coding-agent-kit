@@ -57,12 +57,14 @@ oldest local release that passes the native suite below: 0.160.1 and 0.158.0 fai
 the daemon takeover fixture, and 0.155.1 also fails the refresh writeback test and
 lacks `--no-daemon`. Runtime checks replace the former exact pin:
 
-- A launch with arguments reads the root subcommands and aliases from
-  `codex --help` and refuses them like login/logout, so a root subcommand that a
-  later release lists never runs under an account home. Help output without the
-  expected command list stops the launch. Hidden subcommands and new `exec`
-  subcommands are not discovered; an unlisted word stays a prompt, as in native
-  Codex. Unknown options stay refused.
+- Arguments are forwarded unchanged, including subcommands and options added by
+  later releases; the launcher never parses `codex --help`. It refuses only
+  `login` and `logout`, which revoke the account's tokens, `update`, whose
+  installer writes under `CODEX_HOME`, and profile, remote, local-provider and
+  auth/provider configuration overrides. `mcp login` and `mcp logout`
+  authenticate MCP servers and pass through. A future subcommand that changes
+  authentication would also pass through; the exit repair below detects a
+  replaced link, but a server-side revocation cannot be undone.
 - The exit repair below still detects an auth link replaced by a regular file and
   imports it only when the identity matches and secrets are unchanged. Either way
   the launcher warns, because the tested releases write through the link.
@@ -86,7 +88,7 @@ The source audit below used `codex-cli 0.162.1`, official tag `rust-v0.162.1` an
 - Session-name lookup uses lexical prefix filtering by account path; cross-account resume is limited to UUIDs, `--last`, and the picker. Native remote plugin sync removes bundles not installed by the current account, so remote caches are isolated.
 - The CLI supports a one-time `-c 'cli_auth_credentials_store="file"'` override. Interactive, resume, and fork commands add `--no-daemon` to avoid reusing stale authentication in a persistent app-server; exec remains a separate invocation.
 - Native login clears existing authentication and may revoke it. Login therefore runs only in a temporary home without old credentials, never through logout/login in the shared home.
-- Native subcommands can still appear after the root command's prompt; the wrapper also rejects login/logout in those positions. Prompts and option values in exec, resume, and fork are preserved.
+- Native subcommands can still appear after the root command's prompt; the wrapper also rejects login, logout and update in those positions. Prompts and option values in exec, resume, fork and mcp are preserved.
 - Complete credentials are checked against the native JSON format before switching: NaN/Infinity, invalid non-null tokens, and any supplied but invalid last_refresh are rejected.
 
 Static verification is combined with real offline app-server tests of each tested release. Fictitious fixtures verify legacy/paginated history resume across homes, SQLite list order, concurrent different UUIDs within/across accounts, rejection/release of writes to the same UUID, and shared config editing. There are no login or turn/start requests, and no HTTP requests besides the local token endpoint of the refresh test. `thread/list` checks discovery and ordering without directly operating the terminal picker/`--last`. A native refresh test sends `getAuthStatus` with `refreshToken` to a local token endpoint (`CODEX_REFRESH_TOKEN_URL_OVERRIDE`) and checks that the rotated tokens land in the same secrets inode with the account link intact. Fake Codex atomic replacement tests prove only wrapper logic; real-account authorization, quotas and server-side token lifetimes remain unverified.

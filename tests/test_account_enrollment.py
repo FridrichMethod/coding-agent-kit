@@ -446,7 +446,7 @@ os.execv(sys.argv[2], sys.argv[2:])
             self.assertEqual(out, '')
             self.assertEqual(tty, '')
             self.assertFalse((self.base / 'login-home').exists())
-        for command in ('app', 'cloud-tasks', 'tcp-tunnel', 'execpolicy', 'responses-api-proxy', 'stdio-to-uds'):
+        for command in ('login', 'logout', 'update'):
             for shell in SHELLS:
                 result = self.run_as(shell, ['work', command])
                 self.assertNotEqual(result.returncode, 0)

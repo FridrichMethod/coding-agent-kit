@@ -87,9 +87,6 @@ def main(args):
     if version.returncode:
         return version.returncode
     guard.codex_version(version.stdout)
-    if native_args:
-        # The static guard ran above; also refuse subcommands this release adds.
-        guard.arguments(native_args, guard.native_commands(codex))
     query = native_args in (["--help"], ["-h"], ["--version"], ["-V"])
     env = os.environ.copy()
     env["CODEX_HOME"] = str(layout.root if query else layout.home)

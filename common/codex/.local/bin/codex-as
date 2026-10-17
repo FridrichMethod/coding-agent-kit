@@ -19,8 +19,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
     printf '%s\n' \
         'Credentials: ~/.secrets/codex-NAME.json (complete JSON, owner-only 0600).' \
         'Account home: ~/.codex/accounts/NAME; config/sessions/SQLite shared from ~/.codex.' \
-        'Supports interactive, exec, resume and fork; NAME --help reaches Codex.' \
-        'Refuses login/logout, profiles, remote/provider/auth overrides and unknown flags.' \
+        'Forwards codex arguments unchanged; NAME --help reaches Codex.' \
+        'Refuses login, logout, update, profiles and remote/provider/auth overrides.' \
         'Missing account: confirm [y/N], device login in empty temporary home, save, launch.' \
         'Root ~/.codex/auth.json stays native: codex-as never reads or changes it.' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \

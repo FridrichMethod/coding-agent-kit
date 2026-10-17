@@ -41,34 +41,10 @@ ENV_CONFLICTS = (
     "CODEX_APP_SERVER_LOGIN_CLIENT_ID", "CODEX_AUTHAPI_BASE_URL",
     "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL", "CODEX_AGENT_IDENTITY_JWKS_BASE_URL",
 )
-# Layout of the native root help: wrapped descriptions, aliases on continuations.
-HELP = """Codex CLI
-
-Usage: codex [OPTIONS] [PROMPT]
-       codex [OPTIONS] <COMMAND> [ARGS]
-
-Commands:
-  exec              Run Codex non-interactively [aliases: e]
-  login             Manage login
-  logout            Remove stored authentication credentials
-  apply             Apply the latest diff produced by Codex agent as a `git apply` to your
-                    working tree [aliases: a]
-  resume            Resume a previous interactive session (picker by default; use --last to
-                    continue the most recent)
-  fork              Fork a previous interactive session
-  help              Print this message or the help of the given subcommand(s)
-
-Arguments:
-  [PROMPT]
-          Optional user prompt to start the session
-"""
-FAKE = "HELP = " + repr(HELP) + r'''
+FAKE = r'''
 import json, os, pathlib, sys, time, signal
 if sys.argv[1:] == ["--version"]:
     print(os.environ.get("FAKE_VERSION", "codex-cli 0.163.0"))
-    sys.exit(0)
-if sys.argv[1:] == ["--help"]:
-    print(os.environ.get("FAKE_HELP", HELP))
     sys.exit(0)
 args = sys.argv[1:]
 assert args[:2] == ["-c", 'cli_auth_credentials_store="file"']
@@ -844,7 +820,7 @@ class CodexAs(unittest.TestCase):
             for args in (["hello", "login"], ["hello", "logout"],
                          ["hello", "--no-alt-screen", "logout"],
                          ["-m", "login", "hello", "logout"],
-                         ["hello", "mcp"], ["hello", "help", "logout"]):
+                         ["hello", "update"], ["hello", "help", "logout"]):
                 with self.subTest(shell=shell, args=args):
                     result = self.rejected(shell, ["B", *args])
                     self.assertIn("unsupported subcommand", result.stderr)
@@ -884,12 +860,16 @@ class CodexAs(unittest.TestCase):
             for index, args in enumerate(([], [""], ["../A"], ["A/B"], ["A B"], ["A.1"], ["中文"], ["missing"],
                          ["--migrate", "A"], ["--recover", "A"], ["-A"],
                          ["A", "login"], ["A", "logout"], ["A", "--remote", "server"],
-                         ["A", "exec", "--oss"], ["A", "-p", "other"],
+                         ["A", "exec", "--oss"], ["A", "-p", "other"], ["A", "-pother"],
+                         ["A", "--profile=other", "hello"], ["A", "--remote-auth-token-env", "TOKEN"],
+                         ["A", "--local-provider", "ollama"], ["A", "update"], ["A", "mcp", "list", "-p", "x"],
                          ["A", "-c", 'cli_auth_credentials_store="keyring"'],
                          ["A", "exec", "--config=OPENAI_API_KEY=fabricated-conflict-secret"],
                          ["A", "exec", 'prompt text', "-cmodel_provider=other"],
                          ["A", "--config", ' "cli_auth_credentials_store" = "auto"'],
-                         ["A", "exec", "--ignore-rules"], ["A", "exec", "--ignore-user-config"])):
+                         ["A", "mcp", "add", "x", "-c", "model_provider=other"],
+                         ["A", "-c", 'profile="other"'], ["A", "--config= profile = 'other'"],
+                         ["A", "exec", "-cprofile=other", "prompt"], ["A", "-c", "features.agent_identity=true"])):
                 with self.subTest(shell=shell, case=index):
                     self.rejected(shell, args)
             for variable in ENV_CONFLICTS:
@@ -899,25 +879,25 @@ class CodexAs(unittest.TestCase):
             for version in ("codex-cli 0.160.0", "codex-cli 0.161.0-alpha.1", "codex 0.163.0",
                             "codex-cli 0.163", ""):
                 self.rejected(shell, ["A"], {"FAKE_VERSION": version})
-            self.rejected(shell, ["A", "exec", "prompt"], {"FAKE_HELP": "Usage: codex [OPTIONS] [PROMPT]\n"})
-            # Without arguments there is no subcommand to check, so a plain launch never needs help output.
-            self.assertEqual(self.run_as(shell, ["A"], {"FAKE_HELP": "Usage: codex\n"}).returncode, 0)
 
-    def test_newer_versions_launch_and_their_new_subcommands_are_refused(self):
+    def test_newer_versions_launch_and_native_arguments_are_forwarded(self):
         for version in ("codex-cli 0.161.0", "codex-cli 0.170.2", "codex-cli 1.0.0-alpha.3"):
             with self.subTest(version=version):
                 result = self.run_as(SHELLS[0], ["A", "exec", "prompt"], {"FAKE_VERSION": version})
                 self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.run_as(SHELLS[0], ["A", "auth", "status"]).returncode, 0,
-                         "an unlisted word is a prompt, as in native Codex")
-        listed = HELP.replace("  login ", "  auth              Manage authentication [aliases: au]\n  login ")
-        for word in ("auth", "au", "a", "e"):
-            with self.subTest(word=word):
-                if word == "e":
-                    self.assertEqual(self.run_as(SHELLS[0], ["A", word, "prompt"], {"FAKE_HELP": listed}).returncode, 0)
-                else:
-                    result = self.rejected(SHELLS[0], ["A", word, "status"], {"FAKE_HELP": listed})
-                    self.assertIn("unsupported subcommand", result.stderr)
+        # Subcommands and options codex-as does not know reach native Codex unchanged.
+        prefix = ["-c", 'cli_auth_credentials_store="file"', "-c", "sqlite_home=" + json.dumps(str(self.codex))]
+        for args, interactive in ((["auth", "status"], True), (["mcp", "list", "--json"], True),
+                                  (["mcp", "login", "server"], True), (["mcp", "logout", "server"], True),
+                                  (["features", "list"], True), (["apply", "--future-flag"], True),
+                                  (["--future-switch", "hello"], True), (["--ignore-rules", "hello"], True),
+                                  (["-c", 'permission_profile="workspace"', "hello"], True),
+                                  (["exec", "--ignore-user-config", "--future=value", "prompt"], False)):
+            with self.subTest(args=args):
+                result = self.run_as(SHELLS[0], ["A", *args])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                record = json.loads(self.record.read_text())
+                self.assertEqual(record["args"], prefix + (["--no-daemon"] if interactive else []) + args)
 
     def test_permission_error_identifies_the_actual_directory(self):
         temporary = self.codex / '.tmp'

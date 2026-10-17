@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import re
 import stat
-import subprocess
 import sys
 import uuid
 
@@ -47,33 +46,12 @@ def codex_version(text):
     return version
 
 
-def native_commands(codex):
-    """Root subcommands and aliases this binary lists; new ones are refused too."""
-    result = subprocess.run([codex, "--help"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL, text=True, check=False)
-    names, section = set(), False
-    for line in result.stdout.splitlines() if result.returncode == 0 else ():
-        if line == "Commands:":
-            section = True
-        elif section and not line.strip():
-            break
-        elif section:
-            # Wrapped descriptions are indented further and never match a name.
-            match = re.match(r"  ([a-z][a-z0-9-]*)(?:\s|$)", line)
-            if match:
-                names.add(match[1])
-            for aliases in re.findall(r"\[aliases?: ([^\]]+)\]", line):
-                names.update(alias.strip() for alias in aliases.split(","))
-    if not {"exec", "resume", "fork", "login", "logout"} <= names:
-        fail("cannot identify native Codex subcommands from codex --help; no launch performed.")
-    return frozenset(names)
-
-
-def arguments(args, native=frozenset()):
-    # A bounded guard, not a replacement for clap. Values/prompts are never
-    # interpreted as login/logout inside an allowed subcommand. A root
-    # PROMPT does not end clap's subcommand recognition; keep checking until
-    # exec/resume/fork or --. Options after a prompt still need checking.
+def arguments(args):
+    # A bounded scan, not a replacement for clap: arguments are forwarded
+    # unchanged. Values/prompts are never interpreted as login/logout inside
+    # exec/resume/fork/mcp. A root PROMPT does not end clap's subcommand
+    # recognition; keep checking until exec/resume/fork/mcp or --. Unknown
+    # options are forwarded as switches, so their values are scanned as words.
     values = {
         "-c", "--config", "-m", "--model", "-i", "--image", "-C", "--cd",
         "-s", "--sandbox", "-a", "--ask-for-approval", "--add-dir", "--enable",
@@ -86,13 +64,10 @@ def arguments(args, native=frozenset()):
         "--no-daemon", "-h", "--help", "-V", "--version", "--json", "--last",
         "--all", "--include-non-interactive", "--skip-git-repo-check", "--ephemeral",
     }
-    commands = {
-        "agents", "login", "logout", "mcp", "plugin", "app-server", "remote-control",
-        "completion", "update", "doctor", "sandbox", "debug", "apply", "a", "queue",
-        "archive", "delete", "migrate-rollouts", "unarchive", "cloud", "exec-server",
-        "features", "help", "review",
-        "app", "cloud-tasks", "tcp-tunnel", "execpolicy", "responses-api-proxy", "stdio-to-uds",
-    }
+    # login/logout revoke the account's tokens; update installs under CODEX_HOME.
+    commands = {"login", "logout", "update"}
+    # Profiles, remote backends and local providers bypass the account login.
+    refused = {"-p", "--profile", "--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query = None, None, False, False
     i = 0
@@ -118,19 +93,23 @@ def arguments(args, native=frozenset()):
             if arg in {"-h", "--help", "-V", "--version"}:
                 query = True
             continue
-        elif arg.startswith("-") and arg != "-":
+        elif flag in refused or (arg.startswith("-p") and not arg.startswith("--")):
             fail("unsupported option; profiles, remote/provider/auth overrides are refused.")
+        elif arg.startswith("-") and arg != "-":
+            continue
         else:
             if root:
                 if arg in {"exec", "e"}:
                     mode = "exec"
                     command = "exec"
                     root = False
-                elif arg in {"resume", "fork"}:
+                elif arg in {"resume", "fork", "mcp"}:
+                    # mcp login/logout authenticate MCP servers, not the account.
                     command = arg
                     root = False
-                elif arg in commands or arg in native:
-                    fail("unsupported subcommand; login/logout must run outside codex-as.")
+                elif arg in commands:
+                    fail("unsupported subcommand; run login, logout and update with plain codex "
+                         "(a missing account logs in on its first codex-as NAME).")
             elif command == "exec":
                 command = "exec-resume" if arg == "resume" else "exec-prompt"
             elif command in {"resume", "fork", "exec-resume"} and target is None:
@@ -138,7 +117,9 @@ def arguments(args, native=frozenset()):
             continue
         if flag in {"-c", "--config"}:
             key = value.partition("=")[0]
-            if re.search(r"auth|login|provider|base_url|workspace_id|remote|api_key|access_token|sqlite_home", key, re.I):
+            # profile selects a profile like -p, so it is refused like -p.
+            if (re.search(r"auth|login|provider|base_url|workspace_id|remote|api_key|access_token|sqlite_home|identity", key, re.I)
+                    or re.fullmatch(r"""\s*["']?profile["']?\s*""", key)):
                 fail("authentication/provider configuration overrides are refused.")
         elif flag in {"-C", "--cd"}:
             cwd = Path(value).expanduser().absolute()
