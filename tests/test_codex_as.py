@@ -101,6 +101,8 @@ class HandoffDaemon:
         self.mutations = []
         self.fail_restore = False
         self.fail_archive = False
+        # Loaded sessions are idle unless set; None omits the field like an unknown backend.
+        self.statuses = {}
         self.version = '0.162.1'
         self.originator = 'codex_cli_rs'
         self.agent_suffix = ''
@@ -206,7 +208,9 @@ class HandoffDaemon:
         name = params['threadId']
         if method == 'thread/read':
             directory = 'archived_sessions' if name in self.archived else 'sessions'
+            status = self.statuses.get(name, {'type': 'idle'}) if name in self.writers else {'type': 'notLoaded'}
             return {'thread': {'id': name, 'path': str(self.root / directory / (name + '.jsonl')),
+                               **({'status': status} if status is not None else {}),
                                # Native thread/read marks spawned agents in source, not parentThreadId.
                                'parentThreadId': None, 'name': self.names.get(name), 'preview': '',
                                'source': {'subAgent': {'thread_spawn': {'parent_thread_id': self.parents[name]}}}
@@ -216,7 +220,9 @@ class HandoffDaemon:
             for item in names:
                 if item in self.archived:
                     continue
-                self.writers.pop(item).close()
+                writer = self.writers.pop(item, None)  # A spawned agent need not be loaded.
+                if writer is not None:
+                    writer.close()
                 (self.root / 'sessions' / (item + '.jsonl')).rename(self.root / 'archived_sessions' / (item + '.jsonl'))
                 self.archived.add(item)
                 self.mutations.append((method, item))
@@ -387,7 +393,9 @@ class CodexAs(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('handoff_test_launch', self.install / 'launch.py')
         launcher = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(launcher)
-        tty = SimpleNamespace(write=lambda *args: None, readline=lambda: answer, close=lambda: None)
+        prompts = []
+        tty = SimpleNamespace(write=lambda *args: None, readline=lambda: prompts.append(answer) or answer,
+                              close=lambda: None)
         attempts = []
 
         def launch_after_release(command, env, fd=None):
@@ -405,19 +413,35 @@ class CodexAs(unittest.TestCase):
                  patch.object(launcher, 'run_native', side_effect=launch_after_release):
                 return launcher.main(['B', *(native_args if native_args is not None else ['resume', ids[0]])])
 
-        run.launcher = launcher
+        run.launcher, run.prompts = launcher, prompts
         return daemon, ids, attempts, run
 
-    def test_confirmed_handoff_releases_target_and_preserves_visibility(self):
+    def test_idle_handoff_takes_over_without_prompt(self):
         daemon, ids, attempts, run = self.handoff_fixture()
         root_auth = self.auth.read_bytes()
-        self.assertEqual(run(), 0, 'account backend must start only after the old writer releases the UUID')
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(), 0, 'account backend must start only after the old writer releases the UUID')
+        self.assertEqual(run.prompts, [], 'an idle session needs no confirmation')
+        self.assertIn('took over ' + ids[0], stderr.getvalue())
         self.assertEqual(attempts[0][1]['CODEX_HOME'], str(self.codex / 'accounts/B'))
         self.assertIn('--no-daemon', attempts[0][0])
         self.assertEqual(daemon.archived, {ids[2]})
         self.assertIn(ids[3], daemon.writers, 'unrelated session must remain loaded')
         self.assertEqual(self.auth.read_bytes(), root_auth)
         self.assertFalse(list((self.codex / 'accounts/.locks').glob('*.handoff.json')))
+
+    def test_possibly_running_handoff_asks_first(self):
+        # A running turn, a running spawned agent, or a backend without status.
+        for target, status in ((0, {'type': 'active', 'activeFlags': []}),
+                               (1, {'type': 'active', 'activeFlags': ['waitingOnApproval']}), (0, None)):
+            with self.subTest(target=target, status=status):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.statuses[ids[target]] = status
+                self.assertEqual(run(), 0)
+                self.assertEqual(len(run.prompts), 1)
+                self.assertEqual(daemon.archived, {ids[2]})
+                daemon.close()
 
     def test_native_group_writable_lock_is_accepted_only_in_private_directory(self):
         daemon, ids, attempts, run = self.handoff_fixture()
@@ -431,63 +455,174 @@ class CodexAs(unittest.TestCase):
         directory.chmod(0o700)
         self.assertEqual(run(), 0)
 
-    def test_help_last_fork_and_prompt_operands_never_trigger_takeover(self):
+    def test_help_fork_exec_and_prompt_operands_never_trigger_takeover(self):
         daemon, ids, attempts, run = self.handoff_fixture()
-        for args in (['resume', ids[0], '--help'], ['resume', '--last', ids[0]],
-                     ['fork', ids[0]], ['exec', 'resume', ids[0]], ['--', 'resume', ids[0]],
-                     ['--model', 'resume', 'ordinary prompt']):
-            with self.subTest(args=args):
-                run(args)
-                self.assertEqual(daemon.mutations, [])
-        self.assertEqual(len(attempts), 6)
-
-    def test_picker_and_last_list_daemon_sessions_without_mutation(self):
-        daemon, ids, attempts, run = self.handoff_fixture()
-        daemon.names[ids[3]] = 'unrelated\nsession \x1b[31mname'
-        for args in (['resume'], ['resume', '--last'], ['resume', '--all', '--last', 'follow-up']):
+        for args in (['resume', ids[0], '--help'], ['fork', ids[0]], ['fork', '--last'],
+                     ['exec', 'resume', ids[0]], ['exec', 'resume', '--last'], ['--', 'resume', ids[0]],
+                     ['--model', 'resume', 'ordinary prompt'], []):
             with self.subTest(args=args):
                 stderr = io.StringIO()
                 with contextlib.redirect_stderr(stderr):
-                    # 77: the fixture launch still finds the session held; nothing was taken over.
-                    self.assertEqual(run(args), 77)
+                    run(args)
+                self.assertEqual(daemon.mutations, [])
+                self.assertEqual(stderr.getvalue(), '')
+        self.assertEqual(len(attempts), 8)
+
+    def test_picker_and_last_take_over_idle_sessions_before_selection(self):
+        for args in (['resume'], ['resume', '--last'], ['resume', '--all', '--last', 'follow-up']):
+            with self.subTest(args=args):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.names[ids[3]] = 'unrelated\nsession \x1b[31mname'
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    self.assertEqual(run(args), 0, 'the selection must find the session released')
                 text = stderr.getvalue()
                 self.assertIn(ids[0], text)
                 self.assertIn(ids[3] + '  unrelated session [31mname', text)
                 # Spawned agents follow their parent; only top-level sessions are named.
                 self.assertNotIn(ids[1], text)
                 self.assertNotIn(ids[2], text)
-                self.assertIn('codex-as B resume UUID', text)
+                self.assertEqual(run.prompts, [])
+                self.assertEqual([item for method, item in daemon.mutations if method == 'thread/archive'],
+                                 [ids[0], ids[1], ids[3]])
+                self.assertEqual(daemon.archived, {ids[2]}, 'saved visibility is restored')
+                self.assertEqual(len(attempts), 1)
+                daemon.close()
+
+    def test_picker_leaves_possibly_running_sessions_and_names_them(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.statuses[ids[3]] = {'type': 'active', 'activeFlags': []}
+        daemon.statuses[ids[1]] = None
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(['resume']), 77, 'the running session stays with the root daemon')
+        text = stderr.getvalue()
+        self.assertIn('left running', text)
+        self.assertIn(ids[0], text)
+        self.assertIn(ids[3], text)
+        self.assertIn('codex-as B resume UUID', text)
         self.assertEqual(daemon.mutations, [])
-        self.assertEqual(len(attempts), 3)
-        for args in (['resume', ids[3], '--help'], ['exec', 'resume', '--last'], ['fork', '--last'], []):
-            with self.subTest(args=args):
-                stderr = io.StringIO()
-                with contextlib.redirect_stderr(stderr):
-                    run(args)
-                self.assertNotIn('root daemon holds', stderr.getvalue())
+        self.assertEqual(run.prompts, [])
         daemon.close()
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
             self.assertEqual(run(['resume']), 0)
         self.assertEqual(stderr.getvalue(), '', 'no daemon, no output')
 
-    def test_without_controlling_terminal_handoff_is_refused_without_mutation(self):
+    def test_picker_failure_warns_and_still_launches(self):
         daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.fail_restore = True
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            run(['resume'])
+        self.assertIn('could not take over ' + ids[0], stderr.getvalue())
+        self.assertEqual(len(attempts), 1)
+        self.assertTrue((self.codex / 'accounts/.locks' / (ids[0] + '.handoff.json')).exists())
+        # The next picker launch finishes the interrupted takeover first.
+        daemon.fail_restore = False
+        self.assertEqual(run(['resume']), 0)
+        self.assertEqual(daemon.archived, {ids[2]})
+        self.assertFalse(list((self.codex / 'accounts/.locks').glob('*.handoff.json')))
+
+    def test_picker_survives_malformed_records_and_daemon_replies(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        locks = self.codex / 'accounts/.locks'
+        locks.parent.mkdir(mode=0o700, exist_ok=True)
+        locks.mkdir(mode=0o700, exist_ok=True)
+        journal = locks / (ids[0] + '.handoff.json')
+        journal.write_text('[]\n')
+        journal.chmod(0o600)
+        client = run.launcher.handoff.Client
+        request = client.request
+
+        def null_read(connection, method, params):
+            if method == 'thread/read' and params['threadId'] == ids[3]:
+                return {'thread': None}
+            return request(connection, method, params)
+
+        stderr = io.StringIO()
+        with patch.object(client, 'request', new=null_read), contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(['resume']), 77)
+        self.assertIn('could not take over ' + ids[0], stderr.getvalue())
+        self.assertIn('could not take over ' + ids[3], stderr.getvalue())
+        self.assertTrue(journal.exists(), 'an unrecognized record is preserved')
+        self.assertEqual(daemon.mutations, [])
+        with self.assertRaisesRegex(ValueError, 'recovery record'):
+            run()
+        self.assertEqual(len(attempts), 1, 'an explicit UUID never launches with unknown recovery')
+
+    def test_picker_recovers_spawned_agent_journal_and_skips_busy_lease(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.fail_restore = True
+        with self.assertRaises(ValueError):
+            run(['resume', ids[1]])
+        journal = self.codex / 'accounts/.locks' / (ids[1] + '.handoff.json')
+        self.assertTrue(journal.exists())
+        daemon.fail_restore = False
+        lease = os.open(self.codex / 'accounts/.locks' / (ids[3] + '.handoff.lock'), os.O_RDWR | os.O_CREAT, 0o600)
+        self.addCleanup(os.close, lease)
+        fcntl.flock(lease, fcntl.LOCK_EX)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(['resume']), 0)
+        self.assertFalse(journal.exists(), 'a spawned agent journal is recovered too')
+        self.assertIn('in progress', stderr.getvalue())
+        self.assertIn(ids[3], daemon.writers, 'another takeover owns that session')
+        self.assertEqual(daemon.archived, {ids[2]})
+
+    def test_picker_without_daemon_names_preserved_recovery_records(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.fail_restore = True
+        with self.assertRaises(ValueError):
+            run()
+        daemon.close()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(['resume']), 0)
+        self.assertIn('recovery records', stderr.getvalue())
+        self.assertTrue((self.codex / 'accounts/.locks' / (ids[0] + '.handoff.json')).exists())
+
+    def test_loaded_session_reported_not_loaded_counts_as_running(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.statuses[ids[0]] = {'type': 'notLoaded'}
+        self.assertEqual(run(), 0)
+        self.assertEqual(len(run.prompts), 1)
+
+    def test_without_controlling_terminal_only_running_handoff_is_refused(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.statuses[ids[0]] = {'type': 'active', 'activeFlags': []}
+        (self.codex / 'accounts/.locks').mkdir(parents=True, mode=0o700)
         with patch.object(run.launcher.guard, 'terminal', side_effect=ValueError('controlling terminal required')):
             # run() supplies its own terminal; exercise the production helper directly.
             with self.assertRaisesRegex(ValueError, 'terminal'):
-                (self.codex / 'accounts/.locks').mkdir(parents=True, mode=0o700)
                 run.launcher.handoff.prepare(run.launcher.guard, self.codex, 'B', ids[0])
-        self.assertEqual(daemon.mutations, [])
+            self.assertEqual(daemon.mutations, [])
+            del daemon.statuses[ids[0]]
+            run.launcher.handoff.prepare(run.launcher.guard, self.codex, 'B', ids[0])
+        self.assertEqual(daemon.archived, {ids[2]})
         self.assertEqual(attempts, [])
 
     def test_declined_handoff_does_not_mutate_or_launch(self):
         daemon, ids, attempts, run = self.handoff_fixture('n')
+        daemon.statuses[ids[0]] = {'type': 'active', 'activeFlags': []}
         with self.assertRaisesRegex(ValueError, 'cancelled'):
             run()
         self.assertEqual(daemon.mutations, [])
         self.assertEqual(attempts, [])
         self.assertIn(ids[0], daemon.writers)
+
+    def test_session_held_elsewhere_launches_native_conflict_view(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        daemon.writers.pop(ids[3]).close()
+        lock = (self.codex / 'thread-writer-locks' / (ids[3] + '.lock')).open('wb')
+        self.addCleanup(lock.close)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            run(['resume', ids[3]])
+        self.assertIn('another client', stderr.getvalue())
+        self.assertEqual(daemon.mutations, [])
+        self.assertEqual(len(attempts), 1, 'native Codex shows its own conflict view')
 
     def test_partial_archive_restores_visibility_and_does_not_launch(self):
         daemon, ids, attempts, run = self.handoff_fixture()
@@ -514,14 +649,19 @@ class CodexAs(unittest.TestCase):
 
     def test_handoff_refuses_unknown_daemon_identity_before_mutation(self):
         for bad_home, bad_version in ((True, False), (False, True)):
-            daemon, ids, attempts, run = self.handoff_fixture()
-            daemon.claimed_home = self.cwd if bad_home else self.codex
-            daemon.version = '0.160.0' if bad_version else '0.162.1'
-            with self.assertRaisesRegex(ValueError, 'daemon|version|identity'):
-                run()
-            self.assertEqual(daemon.mutations, [])
-            self.assertEqual(attempts, [])
-            daemon.close()
+            for args in (None, ['resume']):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                daemon.claimed_home = self.cwd if bad_home else self.codex
+                daemon.version = '0.160.0' if bad_version else '0.162.1'
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    # Native Codex then shows its own conflict view for the held session.
+                    self.assertEqual(run(args), 77)
+                self.assertRegex(stderr.getvalue(), 'identity|version')
+                self.assertIn('no takeover performed', stderr.getvalue())
+                self.assertEqual(daemon.mutations, [])
+                self.assertEqual(len(attempts), 1)
+                daemon.close()
 
     def test_desktop_daemon_identity_uses_backend_version(self):
         daemon, ids, attempts, run = self.handoff_fixture()
@@ -545,10 +685,11 @@ class CodexAs(unittest.TestCase):
         daemon.originator = 'Codex Desktop'
         daemon.version = '0.160.0'
         daemon.agent_suffix = ' (codex-tui; 0.162.1)'
-        with self.assertRaisesRegex(ValueError, 'version|identity'):
-            run()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(), 77)
+        self.assertIn('no takeover performed', stderr.getvalue())
         self.assertEqual(daemon.mutations, [])
-        self.assertEqual(attempts, [])
 
     def test_timed_out_archive_keeps_journal_until_late_completion_is_recovered(self):
         self.check_ambiguous_archive(TimeoutError('archive outcome unknown'))
@@ -577,6 +718,34 @@ class CodexAs(unittest.TestCase):
         self.assertEqual(run(), 0)
         self.assertEqual(daemon.archived, {ids[2]})
         self.assertFalse(journals[0].exists())
+
+    def test_picker_interrupt_cancels_but_unknown_outcome_still_launches(self):
+        for error in (KeyboardInterrupt(), TimeoutError('archive outcome unknown')):
+            with self.subTest(error=type(error).__name__):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                client = run.launcher.handoff.Client
+                request = client.request
+
+                def interrupted(connection, method, params, request=request, error=error):
+                    if method == 'thread/archive' and params['threadId'] == ids[0]:
+                        raise error
+                    return request(connection, method, params)
+
+                with patch.object(client, 'request', new=interrupted), contextlib.redirect_stderr(io.StringIO()):
+                    if isinstance(error, KeyboardInterrupt):
+                        with self.assertRaisesRegex(ValueError, 'unknown'):
+                            run(['resume'])
+                        self.assertEqual(attempts, [], 'Ctrl-C cancels the launch')
+                    else:
+                        self.assertEqual(run(['resume']), 77)
+                        self.assertEqual(len(attempts), 1)
+                self.assertTrue((self.codex / 'accounts/.locks' / (ids[0] + '.handoff.json')).exists())
+                daemon.dispatch('thread/archive', {'threadId': ids[0]})
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(run(['resume']), 0)
+                self.assertEqual(daemon.archived, {ids[2]})
+                self.assertFalse(list((self.codex / 'accounts/.locks').glob('*.handoff.json')))
+                daemon.close()
 
     def test_same_account_leases_allow_clients_but_exclude_repairs(self):
         result = self.run_as(SHELLS[0], ["A", "exec", "prompt"])

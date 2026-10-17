@@ -10,44 +10,67 @@ codex-as ayting exec --json "Check the tests"
 
 Existing accounts launch directly. Missing accounts require confirmation, followed by native device login in an empty temporary `CODEX_HOME`; after saving complete JSON credentials, the original command continues. No sourcing or old /tmp initialization examples are needed.
 
-## Confirmed daemon takeover
+## Daemon takeover
 
 ```sh
 codex-as work resume SESSION_UUID
+codex-as work resume
 ```
 
 Ordinary `codex resume` can reuse a root daemon's loaded session. An account
-launch uses an independent backend to keep authentication fixed, so it needs
-that daemon to release the UUID first. For an explicit interactive resume UUID,
-the launcher checks the actual writer lock and offers takeover from the
-root daemon. Close other views of that session before answering `y`.
+launch uses an independent backend to keep authentication fixed, so the root
+daemon must release a session before the account can write it; otherwise native
+Codex shows "This conversation is open in another app". Before an interactive
+resume starts, the launcher releases such sessions through native
+archive/unarchive:
 
-Confirmation authorizes ending the selected session and its spawned descendants,
-including active work. Native archive/unarchive temporarily changes their saved
-visibility. The launcher restores visible descendants and keeps already archived
-descendants archived before starting the account backend. Other daemon sessions
-remain loaded. SessionEnd hooks and timestamp changes may occur; runtime execution
-and hook effects cannot be rolled back. The session UUID and saved history remain
-available. Native writer locks still prevent a second writer if shutdown is delayed
-or another client resumes the thread concurrently.
+- An explicit `resume UUID` held by the root daemon is taken over without a
+  prompt when the session and its loaded spawned agents report `idle` (or
+  `systemError`). When any of them may be running (an active turn, any other
+  status, or a backend that reports none), the launcher asks first. The status
+  is a snapshot: a turn that starts just before the archive is still ended.
+- The picker and `--last` select inside native Codex, after the launcher has
+  run. So before they start, the launcher takes over every idle top-level
+  session the root daemon holds and names them on stderr, including sessions
+  that are not selected afterwards; this wider reach is deliberate, so that the
+  selection never meets a daemon-held session. Sessions that may be
+  running are left alone and named; selecting one shows the native conflict
+  screen, and `codex-as NAME resume UUID` asks before ending it. Spawned agents
+  follow their parent.
+- A session held by any other process, such as another terminal or an IDE
+  extension's own backend, is never touched; native Codex shows its conflict
+  screen. Help, exec and fork never take over.
+
+Takeover ends the selected session and its spawned descendants in the root
+daemon, so every client attached to it closes that session: Desktop, or a plain
+`codex` TUI that attached to the daemon. Native archive/unarchive temporarily
+changes their saved visibility. The launcher restores visible descendants and
+keeps already archived descendants archived before starting the account backend.
+Other daemon sessions remain loaded. SessionEnd hooks and timestamp changes may
+occur; runtime execution and hook effects cannot be rolled back. The session UUID
+and saved history remain available. Native writer locks still prevent a second
+writer if shutdown is delayed or another client resumes the thread concurrently,
+for example a Desktop that reopens the session right after the unarchive; native
+Codex then shows its conflict screen. The lock probe briefly holds a free writer
+lock, so a native client opening it at that instant also sees the conflict screen.
 
 Before archive, a 0600 recovery journal is written and synced, including its
 directory, under `~/.codex/accounts/.locks/UUID.handoff.json`. A timeout, disconnect
-or interruption with unknown archive completion retains that journal. Retry the
-same command to confirm recovery. Root unarchive serializes behind any preceding
-native archive before descendant visibility is restored. The account backend is
-not launched while recovery remains incomplete. Keep the journal until the helper
-removes it. Cancelling the initial confirmation leaves session state untouched.
+or interruption with unknown archive completion retains that journal. The next
+`resume UUID` of that session, or the next picker or `--last` launch, finishes the
+recovery without a prompt. Root unarchive serializes behind any preceding native
+archive before descendant visibility is restored. An explicit `resume UUID` does
+not launch the account backend while its recovery remains incomplete; the picker
+and `--last` warn and launch, and name the preserved records when the daemon is
+not running. Keep the journal until the helper removes it.
+Declining the confirmation leaves session state untouched.
 
-This flow accepts root daemons at 0.161.0 or newer and requires a controlling
-terminal. It verifies the private Unix socket and returned home/version without
-starting or stopping a daemon. Standalone CLI owners must exit normally. Help,
-exec, fork, `--last` and the native picker do not trigger takeover; select the UUID
-explicitly when a daemon-held session needs switching. Before the picker or `--last`
-starts, the launcher prints on stderr the top-level sessions the root daemon holds
-(up to ten, with UUID and name or preview) and the command that takes one over.
-Spawned agents are omitted because they follow their parent. Without a running
-daemon it prints nothing, and listing never changes daemon state.
+This flow accepts root daemons at 0.161.0 or newer; it needs a controlling
+terminal only to confirm a session that may be running. It verifies the private
+Unix socket and returned home/version without starting or stopping a daemon. A
+daemon that fails these checks is not used, and native Codex shows its conflict
+screen. Without a running daemon the launcher prints nothing unless recovery
+records are preserved.
 
 ## Version compatibility
 
@@ -98,16 +121,19 @@ the requesting client's subscription; `thread/archive` ends the selected runtime
 and spawned subtree; `thread/unarchive` restores one saved thread. A fresh helper
 cannot force unsubscribe another client. The takeover's Unix WebSocket management
 client uses the native management identity and does not modify daemon login.
-Offline native fixtures exercise confirmed handoff, both history formats, visible
-children, archived grandchildren and an unrelated loaded writer. Wrapper tests
-cover refusal, consent, partial errors, unknown completion, private recovery
-metadata and retries. To check a root daemon binary that differs from the client, for
+`thread/read` reports each loaded thread's `status` (`idle`, `active`, `notLoaded`,
+`systemError`); anything but idle or systemError counts as possibly running.
+Offline native fixtures exercise idle handoff without a prompt, the picker/`--last`
+release, both history formats, visible children, archived grandchildren, a loaded
+spawned agent and an unrelated loaded writer. Wrapper tests cover running and
+status-less sessions, refusal, consent, partial errors, unknown completion, private
+recovery metadata and retries. To check a root daemon binary that differs from the client, for
 example one still running from before an update:
 
 ```sh
 CODEX_NATIVE_DAEMON_BINARY=/path/to/codex-0.162.1 \
     python3 -I -B tests/test_codex_sharing_native.py \
-    NativeSharingTests.test_confirmed_daemon_takeover_preserves_uuid_history_and_other_threads
+    NativeSharingTests.test_daemon_takeover_preserves_uuid_history_and_other_threads
 ```
 
 Manual repair requires closing that account's clients; native CLI/desktop/IDE clients do not participate in wrapper leases. codex-as never reads or changes the root `auth.json`.

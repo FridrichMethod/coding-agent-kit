@@ -113,7 +113,7 @@ def main(args):
         baseline = layout.validate()
         handoff.prepare(guard, layout.root, account, resume_id)
         if picking:
-            handoff.hint(guard, layout.root, account)
+            handoff.release(guard, layout.root, account)
         result = run_native(command, env, layout.fd)
     finally:
         layout.close()

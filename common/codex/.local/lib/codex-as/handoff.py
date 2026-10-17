@@ -1,4 +1,4 @@
-"""Confirmed native archive/unarchive takeover; never kills a daemon or removes locks."""
+"""Native archive/unarchive takeover from the root daemon; never kills a daemon or removes locks."""
 
 import base64
 import fcntl
@@ -235,50 +235,37 @@ def sync_directory(path):
         os.close(fd)
 
 
-def hint(guard, root, account):
-    """For the picker and --last: name the root daemon sessions a UUID takeover needs."""
-    try:
-        client = Client(root, guard, timeout=5)
-    except (FileNotFoundError, ConnectionRefusedError):
-        return  # No root daemon is running.
-    except (OSError, ValueError) as error:
-        guard.warn(f"could not list sessions open in the root daemon ({error}).")
-        return
-    sessions = []
-    try:
-        loaded = client.request("thread/loaded/list", {})["data"]
-        for thread in loaded[:10]:
-            value = client.request("thread/read", {"threadId": thread, "includeTurns": False})["thread"]
-            # Spawned agents follow their parent's takeover; list only top-level sessions.
-            source = value.get("source")
-            if not (isinstance(source, dict) and "subAgent" in source):
-                # One line per session: fold whitespace first, then drop control characters.
-                label = " ".join(str(value.get("name") or value.get("preview") or "").split())
-                label = "".join(char for char in label if char.isprintable())[:60]
-                sessions.append(f"  {uuid.UUID(value['id'])}  {label}".rstrip())
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        guard.warn(f"could not list sessions open in the root daemon ({type(error).__name__}).")
-        return
-    finally:
-        client.close()
-    if len(loaded) > 10:
-        sessions.append(f"  ... and up to {len(loaded) - 10} more")
-    if sessions:
-        guard.warn("the root daemon holds these sessions; the picker and --last cannot take them over:\n"
-                   + "\n".join(sessions) + f"\nTo move one to this account: codex-as {account} resume UUID")
+def label(value):
+    # One line per session: fold whitespace first, then drop control characters.
+    text = " ".join(str(value.get("name") or value.get("preview") or "").split())
+    return f"  {uuid.UUID(value['id'])}  {''.join(char for char in text if char.isprintable())[:60]}".rstrip()
 
 
-def prepare(guard, root, account, thread):
-    """Prompt only for an explicit interactive resume UUID held by the root daemon."""
-    if thread is None:
-        return
+def describe(client, thread):
+    try:
+        return label(client.request("thread/read", {"threadId": thread, "includeTurns": False})["thread"])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return f"  {thread}"
+
+
+def busy(client, thread, loaded):
+    """Whether the session or a loaded spawned agent may be running; an unknown status counts.
+
+    Only a snapshot: a turn that starts before thread/archive is still ended."""
+    for item in [thread, *sorted(descendants(client, thread, False) & set(loaded))]:
+        value = client.request("thread/read", {"threadId": item, "includeTurns": False})["thread"]
+        status = value.get("status") if isinstance(value, dict) else None
+        if not isinstance(status, dict) or status.get("type") not in ("idle", "systemError"):
+            return True
+    return False
+
+
+def take_over(guard, root, client, account, thread, ask):
+    """Release THREAD from the root daemon: "free", "taken", "running" (left alone) or "elsewhere"."""
     journal = root / "accounts/.locks" / (thread + ".handoff.json")
-    if not os.path.lexists(journal) and not locked(root, thread):
-        return
     # Serialize wrapper takeovers; the native writer lock is never removed.
     lease = journal.with_suffix(".lock")
     fd = os.open(lease, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
-    client = None
     try:
         info = os.fstat(fd)
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
@@ -288,68 +275,133 @@ def prepare(guard, root, account, thread):
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise ValueError("another codex-as takeover is in progress for this UUID.") from None
-        pending = os.path.lexists(journal)
-        if not pending and not locked(root, thread):
-            return
-        try:
-            client = Client(root, guard)
-        except (OSError, ValueError) as error:
-            raise ValueError("session is in use; the root daemon is unavailable. Close the owning client, then retry. "
-                             + (f"Preserve recovery record {journal}." if pending else str(error))) from None
-        if pending:
+        if os.path.lexists(journal):
+            # Finish an interrupted takeover; restoring saved visibility needs no confirmation.
             record = json.loads(guard.private_metadata(journal))
-            if (record.get("version") != 1 or record.get("thread") != thread
+            if (not isinstance(record, dict) or record.get("version") != 1 or record.get("thread") != thread
                     or not isinstance(record.get("archived"), list)):
                 raise ValueError("unrecognized takeover recovery record; preserve it.")
-            original_archived = {str(uuid.UUID(item)) for item in record["archived"]}
-        else:
-            loaded = client.request("thread/loaded/list", {})["data"]
-            if thread not in loaded:
-                raise ValueError("session writer belongs to another client; exit that client before switching accounts.")
-            if root_archived(client, root, thread):
-                raise ValueError("session is already archived; unarchive it in the original client first.")
-            original_archived = descendants(client, thread, True)
-        tty = guard.terminal()
-        try:
-            if pending:
-                guard.confirm(tty, f"Restore interrupted takeover of {thread} before resuming with {account}?")
-            else:
-                tty.write("Takeover ends this session AND its spawned agents in the old daemon, including active work.\n"
-                          "Close other views of this session first. Saved history is kept; archive visibility is restored.\n", "33")
-                guard.confirm(tty, f"Take over {thread} for account {account}?")
-        finally:
-            tty.close()
-        if pending:
             try:
-                restore(client, root, thread, original_archived)
+                restore(client, root, thread, {str(uuid.UUID(item)) for item in record["archived"]})
             except (OSError, ValueError, KeyError, TypeError) as error:
                 raise ValueError(f"takeover recovery failed; preserve {journal} and retry the same command.") from error
             journal.unlink()
-        else:
-            # Refresh after confirmation: reading the tree is not a transaction.
-            original_archived = descendants(client, thread, True)
-            guard.exclusive(journal, (json.dumps({"version": 1, "thread": thread,
-                                                "archived": sorted(original_archived)}) + "\n").encode())
-            sync_directory(journal.parent)
-            completed = False
+        if not locked(root, thread):
+            return "free"
+        loaded = client.request("thread/loaded/list", {})["data"]
+        if thread not in loaded:
+            return "elsewhere"
+        if root_archived(client, root, thread):
+            raise ValueError("session is already archived; unarchive it in the original client first.")
+        if busy(client, thread, loaded):
+            if not ask:
+                return "running"
+            tty = guard.terminal()
             try:
-                client.request("thread/archive", {"threadId": thread})
-                completed = True
-            except RpcError:
-                completed = True
-                raise
-            except BaseException as error:
-                raise ValueError(f"takeover outcome is unknown; preserve {journal} and retry the same command to recover.") from error
+                tty.write("This session may be running in the root daemon. Takeover ends it AND its spawned agents,\n"
+                          "including active work. Saved history is kept; archive visibility is restored.\n", "33")
+                guard.confirm(tty, f"Take over {thread} for account {account}?")
             finally:
-                if completed:
-                    try:
-                        restore(client, root, thread, original_archived)
-                    except (OSError, ValueError, KeyError, TypeError) as error:
-                        raise ValueError(f"takeover restore failed; preserve {journal} and retry the same command.") from error
-                    journal.unlink()
-        if locked(root, thread):
-            raise ValueError("takeover ended the session but its writer is still shutting down; retry after it exits.")
+                tty.close()
+        # Read the tree after any confirmation: reading it is not a transaction.
+        original_archived = descendants(client, thread, True)
+        guard.exclusive(journal, (json.dumps({"version": 1, "thread": thread,
+                                            "archived": sorted(original_archived)}) + "\n").encode())
+        sync_directory(journal.parent)
+        completed = False
+        try:
+            client.request("thread/archive", {"threadId": thread})
+            completed = True
+        except RpcError:
+            completed = True
+            raise
+        except BaseException as error:
+            raise ValueError(f"takeover outcome is unknown; preserve {journal} and retry the same command to recover.") from error
+        finally:
+            if completed:
+                try:
+                    restore(client, root, thread, original_archived)
+                except (OSError, ValueError, KeyError, TypeError) as error:
+                    raise ValueError(f"takeover restore failed; preserve {journal} and retry the same command.") from error
+                journal.unlink()
+        deadline = time.monotonic() + 5
+        while locked(root, thread):
+            if time.monotonic() > deadline:
+                raise ValueError("takeover ended the session but its writer is still shutting down; retry after it exits.")
+            time.sleep(.05)
+        return "taken"
     finally:
-        if client is not None:
-            client.close()
         os.close(fd)
+
+
+def prepare(guard, root, account, thread):
+    """Explicit interactive resume UUID: take it over from the root daemon, asking only if it may be running."""
+    if thread is None:
+        return
+    journal = root / "accounts/.locks" / (thread + ".handoff.json")
+    pending = os.path.lexists(journal)
+    if not pending and not locked(root, thread):
+        return
+    try:
+        client = Client(root, guard)
+    except (OSError, ValueError) as error:
+        if pending:
+            raise ValueError(f"the root daemon is unavailable; preserve recovery record {journal} and retry.") from None
+        # Native Codex shows its own conflict screen, as it would without codex-as.
+        guard.warn(f"session is in use and the root daemon is unavailable ({error}); no takeover performed.")
+        return
+    try:
+        outcome = take_over(guard, root, client, account, thread, ask=True)
+    finally:
+        client.close()
+    if outcome == "elsewhere":
+        guard.warn("session is in use by another client, not the root daemon; no takeover performed.")
+    elif outcome == "taken":
+        guard.warn(f"took over {thread} from the root daemon; it is closed there.")
+
+
+def release(guard, root, account):
+    """Picker and --last: before the native selection, take over the root daemon's idle top-level sessions."""
+    locks = root / "accounts/.locks"
+    # Interrupted takeovers first: their sessions may be archived and no longer loaded.
+    journals = [path.name.removesuffix(".handoff.json") for path in sorted(locks.glob("*.handoff.json"))]
+    try:
+        client = Client(root, guard)
+    except (OSError, ValueError) as error:
+        if journals:
+            guard.warn(f"the root daemon is unavailable ({error}); interrupted takeovers keep their "
+                       f"recovery records in {locks} and those sessions may stay archived until it runs.")
+        elif not isinstance(error, (FileNotFoundError, ConnectionRefusedError)):
+            guard.warn(f"could not reach the root daemon ({error}); no takeover performed.")
+        return
+    taken, running = [], []
+    try:
+        for thread in dict.fromkeys(journals + client.request("thread/loaded/list", {})["data"]):
+            try:
+                if not isinstance(thread, str) or thread != str(uuid.UUID(thread)):
+                    continue
+                if thread not in journals:
+                    value = client.request("thread/read", {"threadId": thread, "includeTurns": False})["thread"]
+                    # Spawned agents follow their parent's takeover.
+                    source = value.get("source")
+                    if isinstance(source, dict) and "subAgent" in source:
+                        continue
+                outcome = take_over(guard, root, client, account, thread, ask=False)
+                if outcome in ("running", "taken"):
+                    (running if outcome == "running" else taken).append(describe(client, thread))
+            except (ValueError, KeyError, TypeError, AttributeError, UnicodeError, RecursionError) as error:
+                if isinstance(error.__cause__, KeyboardInterrupt):
+                    raise
+                # The selection may not need this session; native Codex guards it.
+                guard.warn(f"could not take over {thread} ({error}).")
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, UnicodeError, RecursionError) as error:
+        if isinstance(error.__cause__, KeyboardInterrupt):
+            raise
+        guard.warn(f"stopped taking over root daemon sessions ({error}).")
+    finally:
+        client.close()
+    if taken:
+        guard.warn("took over from the root daemon; these sessions are closed there:\n" + "\n".join(taken))
+    if running:
+        guard.warn("left running in the root daemon; selecting one shows Codex's conflict screen:\n"
+                   + "\n".join(running) + f"\nTo end it there and continue here: codex-as {account} resume UUID")

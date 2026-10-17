@@ -244,7 +244,7 @@ class NativeSharingTests(unittest.TestCase):
             params["historyMode"] = history_mode
         return server.request("thread/start", params)["thread"]
 
-    def test_confirmed_daemon_takeover_preserves_uuid_history_and_other_threads(self):
+    def test_daemon_takeover_preserves_uuid_history_and_other_threads(self):
         handoff, guard = load_helper('handoff'), load_helper('check')
         original = self.server('a')
         saved = []
@@ -322,23 +322,15 @@ class NativeSharingTests(unittest.TestCase):
         owner.request('thread/resume', {'threadId': children[0][0]['id']})
         # The owner connection stays attached: takeover must stop only the selected subtree.
         other = self.start_thread(owner)
-        warnings = []
-        lister = SimpleNamespace(directory=guard.directory, codex_version=guard.codex_version,
-                                 warn=warnings.append)
-        handoff.hint(lister, self.root, 'b')
-        self.assertEqual(len(warnings), 1, warnings)
-        self.assertIn(other['id'], warnings[0])
-        # The loaded spawned child is reached through its parent, so it is not listed.
-        self.assertNotIn(children[0][0]['id'], warnings[0])
-        self.assertIn('codex-as b resume UUID', warnings[0])
         second = self.server('b')
         locks = self.root / 'accounts/.locks'
         locks.mkdir(parents=True, mode=0o700)
         tty = SimpleNamespace(write=lambda *args: None, close=lambda: None)
-        confirmed = []
+        confirmed, warnings = [], []
         management = SimpleNamespace(directory=guard.directory, private_metadata=guard.private_metadata,
                                      exclusive=guard.exclusive, codex_version=guard.codex_version,
-                                     terminal=lambda: tty, confirm=lambda *args: confirmed.append(True))
+                                     terminal=lambda: tty, confirm=lambda *args: confirmed.append(True),
+                                     warn=warnings.append)
         for mode, thread, marker in saved:
             with self.subTest(history=mode):
                 before = owner.request('thread/resume', {'threadId': thread['id']})
@@ -358,7 +350,20 @@ class NativeSharingTests(unittest.TestCase):
                     self.assertEqual(handoff.descendants(owner, thread['id'], True), {children[1][0]['id']})
                     child_read = owner.request('thread/read', {'threadId': children[0][0]['id'], 'includeTurns': True})
                     self.assertIn(children[0][1], json.dumps(child_read['thread']['turns']))
-        self.assertEqual(len(confirmed), 2)
+        self.assertEqual(confirmed, [], 'native idle status needs no confirmation')
+        self.assertEqual(len(warnings), 2, warnings)
+        # Picker/--last: take over the remaining idle top-level session; a loaded
+        # spawned agent whose parent moved elsewhere is not a session of its own.
+        owner.request('thread/resume', {'threadId': children[0][0]['id']})
+        warnings.clear()
+        handoff.release(management, self.root, 'b')
+        self.assertEqual(len(warnings), 1, warnings)
+        self.assertIn(other['id'], warnings[0])
+        self.assertNotIn(children[0][0]['id'], warnings[0])
+        self.assertFalse(handoff.locked(self.root, other['id']))
+        self.assertFalse(handoff.root_archived(owner, self.root, other['id']))
+        self.assertEqual(owner.request('thread/loaded/list', {})['data'], [children[0][0]['id']])
+        self.assertEqual(confirmed, [])
 
     def seed_completed_turn(self, thread, marker):
         """Append a synthetic completed turn only after the fixture server stops.
