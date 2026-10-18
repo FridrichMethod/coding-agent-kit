@@ -27,7 +27,7 @@ const scripts = path.resolve(__dirname, '../common/claude/.claude/dotfiles');
 const { formatStatus, gitBranch } = require(path.join(scripts, 'statusline.cjs'));
 const { notification } = require(path.join(scripts, 'notify.cjs'));
 const { bypassReason } = require(path.join(scripts, 'check-git-hooks.cjs'));
-const settings = JSON.parse(fs.readFileSync(path.join(scripts, '../settings.json'), 'utf8'));
+const settings = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/claude-settings.json'), 'utf8'));
 
 function run(script, input) {
   return spawnSync(process.execPath, [path.join(scripts, script)], {

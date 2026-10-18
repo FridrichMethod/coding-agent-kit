@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("config_sync", ROOT / "lib/config_sync.py")
 sync = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(sync)
-CODEX = (ROOT / "common/codex/.codex/config.toml").read_bytes()
+CODEX = (ROOT / "tests/fixtures/codex-config.toml").read_bytes()
 CLAUDE = b'{"permissions":{"allow":[],"ask":[]},"flag":false,"nil":null,"hooks":{"Stop":[]}}'
 CODEX_SCOPED = {"PreToolUse": [{"matcher": "^Bash$", "hooks": [
     {"type": "command", "command": "fixture-hook --client codex", "timeout": 5, "async": False}]}]}

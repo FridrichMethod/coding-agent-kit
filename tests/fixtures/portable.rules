@@ -1,0 +1,180 @@
+# Cross-host guardrails. Host-generated approvals remain in default.rules.
+# Routine workspace execution, simple file deletion, empty-directory removal,
+# and moves stay low-friction. Destructive commands are reviewable rather than
+# forbidden; the configured automatic reviewer handles these prompts.
+
+prefix_rule(
+    pattern = [
+        ["git", "git.exe", "/bin/git", "/usr/bin/git"],
+        "clean",
+    ],
+    decision = "prompt",
+    justification = "git clean can irreversibly delete untracked work and requires automatic review.",
+    match = ["git clean -fd"],
+    not_match = [
+        "git status --short",
+        "git reset --hard HEAD~1",
+        "git diff",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        ["git", "git.exe", "/bin/git", "/usr/bin/git"],
+        "reset",
+        "--hard",
+    ],
+    decision = "prompt",
+    justification = "git reset --hard can discard worktree and index state and requires automatic review.",
+    match = ["git reset --hard HEAD~1"],
+    not_match = [
+        "git reset --soft HEAD~1",
+        "git reset HEAD README.md",
+        "git status --short",
+        "git clean -fd",
+        "git diff",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        [
+            "rm",
+            "/bin/rm",
+            "/usr/bin/rm",
+        ],
+        [
+            "-r",
+            "-R",
+            "-rf",
+            "-fr",
+            "-rv",
+            "-vr",
+            "-rfv",
+            "-rvf",
+            "-frv",
+            "-fvr",
+            "-vrf",
+            "-vfr",
+            "--recursive",
+        ],
+    ],
+    decision = "prompt",
+    justification = "Recursive deletion can remove a large tree and requires automatic review.",
+    match = [
+        "rm -rf build",
+        "/usr/bin/rm --recursive generated",
+    ],
+    not_match = [
+        "rm artifact.txt",
+        "rm -f artifact.txt",
+        "rmdir empty-directory",
+        "mv source.txt destination.txt",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        ["rm", "/bin/rm", "/usr/bin/rm"],
+        ["-f", "--force"],
+        ["-r", "-R", "--recursive"],
+    ],
+    decision = "prompt",
+    justification = "Forced recursive deletion can remove a large tree and requires automatic review.",
+    match = [
+        "rm -f -r build",
+        "rm --force --recursive generated",
+    ],
+    not_match = ["rm -f artifact.txt"],
+)
+
+prefix_rule(
+    pattern = [
+        [
+            "Remove-Item",
+            "remove-item",
+            "rm",
+            "ri",
+        ],
+        ["-Recurse", "-recurse"],
+    ],
+    decision = "prompt",
+    justification = "Recursive PowerShell deletion requires automatic review.",
+    match = ["Remove-Item -Recurse build"],
+    not_match = ["Remove-Item artifact.txt"],
+)
+
+prefix_rule(
+    pattern = [
+        ["Remove-Item", "remove-item", "rm", "ri"],
+        ["-Force", "-force"],
+        ["-Recurse", "-recurse"],
+    ],
+    decision = "prompt",
+    justification = "Forced recursive PowerShell deletion requires automatic review.",
+    match = ["Remove-Item -Force -Recurse build"],
+    not_match = ["Remove-Item -Force artifact.txt"],
+)
+
+prefix_rule(
+    pattern = [
+        ["del", "erase", "rd", "rmdir"],
+        ["/s", "/S"],
+    ],
+    decision = "prompt",
+    justification = "Recursive Windows deletion requires automatic review.",
+    match = [
+        "rd /s build",
+        "del /s generated",
+    ],
+    not_match = ["rmdir empty-directory"],
+)
+
+prefix_rule(
+    pattern = [
+        [
+            "shred",
+            "/usr/bin/shred",
+            "truncate",
+            "/usr/bin/truncate",
+            "dd",
+            "/bin/dd",
+            "/usr/bin/dd",
+            "mkfs",
+            "mkfs.ext2",
+            "mkfs.ext3",
+            "mkfs.ext4",
+            "mkfs.xfs",
+            "mkfs.btrfs",
+            "mkswap",
+            "wipefs",
+            "fdisk",
+            "parted",
+            "diskpart",
+        ],
+    ],
+    decision = "prompt",
+    justification = "Irreversible overwrite or disk-management commands require automatic review and may also require explicit user authorization.",
+    match = [
+        "shred secret.txt",
+        "truncate -s 0 results.csv",
+        "dd if=image.raw of=device.img",
+        "mkfs /dev/example",
+    ],
+    not_match = [
+        "cp source.txt destination.txt",
+        "mv source.txt /tmp/source.txt",
+    ],
+)
+
+prefix_rule(
+    pattern = [["sudo", "/usr/bin/sudo", "su", "/bin/su", "doas"]],
+    decision = "prompt",
+    justification = "Privilege escalation always requires review.",
+    match = [
+        "sudo apt-get update",
+        "su root",
+        "doas pkg_add package",
+    ],
+    not_match = ["id"],
+)

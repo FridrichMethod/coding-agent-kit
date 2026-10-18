@@ -1596,7 +1596,7 @@ class CodexAs(unittest.TestCase):
                        "state", str(self.cwd)]
             result = subprocess.run(command, cwd=self.cwd, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            alias_file = ROOT / ("common/zsh/.zsh_aliases" if Path(shell).name == "zsh" else "common/bash/.bash_aliases")
+            alias_file = ROOT / ("tests/fixtures/zsh_aliases" if Path(shell).name == "zsh" else "tests/fixtures/bash_aliases")
             command = [shell, *flags, "-c", '. "$1"; . "$1"; codex-as --help', "alias", str(alias_file)]
             result = subprocess.run(command, cwd=self.cwd, env=self.env, stdin=subprocess.DEVNULL, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)

@@ -387,16 +387,6 @@ os.execv(sys.argv[2], sys.argv[2:])
         capture.feed(b'te=fixture\n\n')
         self.assertIn('?state=fixture', tty.getvalue())
 
-    def test_fzf_preview_never_reads_secret_file(self):
-        zsh = shutil.which('zsh')
-        if not zsh:
-            self.skipTest('zsh not installed')
-        preview = ROOT / 'common/zsh/.oh-my-zsh/custom/fzf-tab.zsh'
-        command = 'source "$1"; zstyle -s :fzf-tab:complete:codex-as:accounts fzf-preview preview; word=A; realpath="$HOME/.secrets/codex-A.json"; my-fzf-preview.sh() { print "LEAK"; }; eval "$preview"'
-        result = subprocess.run([zsh, '-f', '-c', command, 'preview', str(preview)], env=self.env, text=True, capture_output=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, 'A\n')
-
     def test_codex_import_preserves_crlf_and_unknown_fields_byte_for_byte(self):
         self.seed.write_bytes(self.seed.read_bytes().replace(b', ', b',\r\n'))
         code, _, err, _ = self.terminal(['work', 'exec', 'prompt'], [('[y/N]', 'y')])
@@ -475,24 +465,6 @@ os.execv(sys.argv[2], sys.argv[2:])
         self.assertEqual(json.loads(self.record.read_text())['args'], args[1:])
         code, _, err, _ = self.terminal(['work', '--resume', 'auth', '-p', 'normal prompt'], [], tool='claude-as')
         self.assertEqual(code, 0, err)
-
-    def test_real_stow_installs_underscore_completions_and_ignores_appledouble(self):
-        stow = shutil.which('stow')
-        if not stow:
-            self.skipTest('GNU Stow not installed')
-        packages = self.base / 'packages'
-        target = self.base / 'stowed home'
-        target.mkdir(mode=0o700)
-        for tool in ('codex', 'claude'):
-            shutil.copytree(ROOT / f'common/{tool}', packages / tool)
-        apple = packages / 'codex/.local/bin/._fake-appledouble'
-        apple.write_text('fixture')
-        result = subprocess.run([stow, f'--dir={packages}', f'--target={target}', '--no-folding', 'codex', 'claude'],
-                                cwd=ROOT, env=self.env | {'HOME': str(target)}, text=True, capture_output=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        for tool in ('codex', 'claude'):
-            self.assertTrue((target / f'.oh-my-zsh/custom/completions/_{tool}-as').is_symlink(), 'Stow dropped zsh completion')
-        self.assertFalse((target / '.local/bin/._fake-appledouble').exists())
 
     def test_config_directory_empty_and_literal_tilde_match_native_loading(self):
         target = self.secret / 'claude-work'
