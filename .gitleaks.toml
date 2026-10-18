@@ -1,0 +1,22 @@
+# Gitleaks rules for the pre-commit hook: the upstream defaults plus the
+# secrets this repository's own tools handle, which those defaults miss.
+title = "coding-agent-kit"
+
+[extend]
+useDefault = true
+
+# The defaults cover only sk-ant-api03 and sk-ant-admin01 keys. This also
+# catches the Claude Code OAuth tokens `claude setup-token` prints
+# (sk-ant-oat01-..., read by claude-as) and any other sk-ant-<kind><nn> family.
+[[rules]]
+id = "anthropic-token"
+description = "Anthropic API key, OAuth token or session key"
+regex = '''\b(sk-ant-[a-z]+[0-9]{2}-[A-Za-z0-9_\-]{32,})'''
+keywords = ["sk-ant-"]
+
+# claude-as reads its tokens from ~/.secrets; no file under a .secrets
+# directory belongs in this public repository, whatever it contains.
+[[rules]]
+id = "secrets-directory"
+description = "File under a .secrets directory"
+path = '''(^|/)\.secrets/'''

@@ -1,0 +1,63 @@
+# OS metadata
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+Icon?
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.apdisk
+Desktop.ini
+Thumbs.db
+ehthumbs.db
+$RECYCLE.BIN/
+*.stackdump
+
+# Editor/IDE files
+*~
+*.swp
+*.swo
+*.swn
+*.swm
+*.tmp
+*.bak
+*.orig
+*.rej
+*.patch
+.#*
+\#*#
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+.history/
+*.log
+
+# Language/runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.venv*/
+.cache/
+
+# Package/dependency directories
+node_modules/
+
+# Build/test artifacts
+dist/
+build/
+coverage/
+.coverage
+coverage.xml
+
+# Cursor (local-only AI assistant config)
+.cursor/

@@ -1,0 +1,5 @@
+# Git for Windows enables core.autocrlf in its system config, so a plain
+# clone there would rewrite every working-tree file to CRLF. Those files are
+# exactly what Stow symlinks into $HOME and what POSIX tools then read, so
+# pin LF and keep checkouts byte-identical on every platform.
+* text=auto eol=lf
