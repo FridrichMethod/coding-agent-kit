@@ -1,0 +1,112 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux behavior and lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # Full depth, every branch and tag, for the gitleaks history scan.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Provision pinned configuration parser explicitly
+        run: ./setup-sync.sh
+      - name: Run behavior tests with required CI prerequisites
+        run: /bin/bash ./tests/run.sh --ci
+      # The same steps pre-commit/action@v3.0.1 runs, without its unmaintained
+      # actions/cache@v4 pin (Node 20). Same cache path and key.
+      - name: Install pre-commit
+        run: python -m pip install pre-commit==4.6.2
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-3|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Run pre-commit
+        run: pre-commit run --show-diff-on-failure --color=always --all-files
+      - name: Scan the full Git history for secrets
+        run: pre-commit run --color=always --hook-stage manual gitleaks-history
+      # An untracked file in a dotfiles host's submodule checkout stops its
+      # automatic update, so tests and hooks must leave nothing behind.
+      - name: Check that tests and hooks left no file behind
+        run: |
+          git status --porcelain --untracked-files=all
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+  macos:
+    name: macOS system Bash behavior
+    runs-on: macos-15
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: /bin/bash --noprofile --norc -eo pipefail {0}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Provision pinned configuration parser explicitly
+        run: ./setup-sync.sh
+      - name: Run behavior tests with system Bash and BSD utilities
+        run: /bin/bash ./tests/run.sh --ci
+      - name: Check that tests left no file behind
+        run: |
+          git status --porcelain --untracked-files=all
+          test -z "$(git status --porcelain --untracked-files=all)"
+
+  windows:
+    name: Windows native PowerShell behavior
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh -NoProfile -NonInteractive -Command ". '{0}'"
+    steps:
+      # The runner's default core.autocrlf stays on, so the LF check below
+      # proves .gitattributes, not a runner setting.
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Provision pinned configuration parser explicitly
+        run: ./setup-sync.ps1
+      # stow-all.ps1 runs the POSIX sh helpers under Git Bash, where a CRLF
+      # `set -eu` fails.
+      - name: Check that the working tree has LF line endings
+        run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
+          $crlf = @(git ls-files --eol | Select-String -SimpleMatch 'w/crlf')
+          if ($crlf.Count -gt 0) {
+              $crlf | ForEach-Object { Write-Output $_.Line }
+              throw 'Files in the working tree have CRLF line endings.'
+          }
+      - name: Run required native PowerShell and Node suites
+        run: ./tests/run.ps1 -CI
+      - name: Check that tests left no file behind
+        shell: bash
+        run: |
+          git status --porcelain --untracked-files=all
+          test -z "$(git status --porcelain --untracked-files=all)"
