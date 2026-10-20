@@ -6,23 +6,18 @@ its own repository:
 
 - `codex-as` and `claude-as`, account launchers that run the native CLI as a
   named account;
-- the AI config sync engine `lib/config_sync.py` behind `codex-config-sync`,
-  `claude-settings-sync`, `codex-rules-sync` and `codex-instructions-sync`;
 - the Claude Code status line, notification and Git-hook helpers.
 
 Dotfiles consumes it as the submodule `common/codex/coding-agent-kit`. The
-settings data the helpers apply (the portable Claude `settings.json`, the Codex
-`config.toml` and `portable.rules`, and the global instruction files) stays in
-dotfiles. Version 0.1.0 is the dotfiles code at 6fe50bc, moved with no behavior
-change; see [CHANGELOG.md](CHANGELOG.md).
+settings data (the portable Claude `settings.json`, the Codex `config.toml` and
+`portable.rules`, and the global instruction files) and the AI config sync
+engine that applies it stay in dotfiles. Version 0.1.0 is the dotfiles code at
+6fe50bc, moved with no behavior change; see [CHANGELOG.md](CHANGELOG.md).
 
 ## Requirements
 
 - POSIX `sh` or Bash with ordinary POSIX utilities.
 - Python 3.11+ standard library, run as `python3 -I -B`.
-- The pinned `tomlkit` in [`requirements-sync.txt`](requirements-sync.txt),
-  only for TOML sync and the full runtime check, provisioned by
-  `./setup-sync.sh` (Windows: `./setup-sync.ps1`).
 - Node.js 22+ for the `.cjs` Claude helpers.
 - The tool a launcher wraps: Codex CLI 0.161.0 or newer for `codex-as`, Claude
   Code for `claude-as`.
@@ -51,68 +46,21 @@ relative link per file. Their paths and modes are the interface:
 | `common/codex/.local/share/bash-completion/completions/codex-as` | 100644 |
 | `common/codex/.oh-my-zsh/custom/completions/_codex-as` | 100644 |
 
-The engine `lib/config_sync.py` is canonical here; dotfiles calls it at
-`common/codex/coding-agent-kit/lib/config_sync.py`. The binding (the four
-`*-sync` launchers, `lib/sync-runtime.sh`, `setup-sync.sh`, `setup-sync.ps1`
-and `requirements-sync.txt`) is a reference twin: dotfiles keeps its own
-byte-identical copy, apart from the engine path, and its delivery test refuses
-drift, including in the `tomlkit` pin.
-
-### E2: helper CLI
-
-```text
-codex-config-sync [--quiet] [--check | --migrate-portable] [--hooks EVENTS.json] PORTABLE LIVE
-claude-settings-sync [--quiet] [--check] [--hooks EVENTS.json] PORTABLE LIVE
-codex-rules-sync [--quiet] [--check] PORTABLE LIVE
-codex-instructions-sync [--quiet] [--check] [--append RULES] PORTABLE LIVE
-```
-
-Every path is an argument; no helper infers a home or a dotfiles checkout.
-`--check` is a read-only preflight, `--quiet` hides only successful chatter,
-and every helper fails closed. See [docs/config-sync.md](docs/config-sync.md)
-for merge ownership, the instructions overlay, migration and file safety.
-
-### E3: runtime lookup
-
-A launcher resolves its own symlink chain and takes the checkout root four
-levels above the directory of the real launcher file. It runs the engine with
-`DOTFILES_SYNC_PYTHON` when that is set (an invalid value fails, with no
-fallback), and otherwise with `<root>/.venv-sync/bin/python`, or
-`<root>/.venv-sync/Scripts/python.exe` under Git Bash. Python runs as
-`-I -B -X utf8`. It never searches for a system Python.
-
-### E4: provisioning
-
-`./setup-sync.sh [--python PYTHON]` (Windows:
-`./setup-sync.ps1 [-Python PYTHON]`) creates the ignored, checkout-local
-`.venv-sync/`, installs only the hash-pinned `tomlkit` wheel and runs
-`lib/config_sync.py --runtime-check`. Profiles, installers and automatic
-updates never install anything; a missing or outdated runtime fails with a
-request to rerun setup.
-
-### E5: frozen strings
+### E2: frozen strings
 
 These strings keep their bytes, because dotfiles or existing hosts depend on
 them:
 
-- `INSTRUCTIONS_MARKER`, the first line and ownership key of every generated
-  `~/.codex/AGENTS.override.md`;
-- `SUBMODULE_HINT` (`git submodule update --init --recursive`), the
-  foreign-instructions refusal texts and the `(current)`/`(stale)` suffixes of
-  `codex-instructions-sync --check`, which the dotfiles doctor parses;
-- the setup-sync hints (`run setup-sync.sh or setup-sync.ps1`,
-  `rerun setup-sync explicitly`);
 - the `--help` pointer `~/dotfiles/docs/account-launchers.md` of both
   launchers;
-- the knob names `DOTFILES_COLOR` and `DOTFILES_SYNC_PYTHON`.
+- the knob name `DOTFILES_COLOR`.
 
 ## Why the paths mirror Stow packages
 
-Each file sits at the path it had in dotfiles. The `*-sync` launchers find the
-checkout root at a fixed depth, every test's repository-root arithmetic and
-every pre-commit file pattern keep working, and the imported history needs no
-renames. Dotfiles can then link each delivered file from the same package path,
-so every stowed `$HOME` link keeps its exact text.
+Each file sits at the path it had in dotfiles. Every test's repository-root
+arithmetic and every pre-commit file pattern keep working, and the imported
+history needs no renames. Dotfiles can then link each delivered file from the
+same package path, so every stowed `$HOME` link keeps its exact text.
 
 ## Account launchers
 
@@ -184,21 +132,19 @@ host's submodule checkout stops that host's automatic update.
 ## Tests
 
 ```sh
-./setup-sync.sh
 ./tests/run.sh             # CI: ./tests/run.sh --ci
 pre-commit run --all-files
 ```
 
 ```powershell
-./setup-sync.ps1
 ./tests/run.ps1            # CI: ./tests/run.ps1 -CI
 ```
 
 The suites read frozen copies of the dotfiles settings in `tests/fixtures/`.
-Dotfiles replaces `codex-config.toml`, `claude-settings.json` and
-`portable.rules` there with its real files and reruns the engine suites, so
-those names are an interface. CI runs the Unix suite on Linux and macOS, the
-native suite on Windows, and every pre-commit hook on Linux.
+Dotfiles replaces `claude-settings.json` there with its real file and reruns
+`claude-customizations.cjs`, so that name is an interface. CI runs the Unix
+suite on Linux and macOS, the native suite on Windows, and every pre-commit
+hook on Linux.
 [tests/COVERAGE.md](tests/COVERAGE.md) maps each source file to the tests that
 cover it.
 

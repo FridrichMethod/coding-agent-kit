@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The AI config sync engine moved back to dotfiles. `lib/config_sync.py`, the
+  four `*-sync` launchers, `lib/sync-runtime.sh`, `setup-sync.*`,
+  `requirements-sync.txt`, the engine suites and fixtures and
+  `docs/config-sync.md` are removed, so the kit needs no `tomlkit` and runs on
+  the Python 3.11+ standard library and Node.js 22+.
+
 ## 0.1.0
 
 - Extracted from dotfiles 6fe50bc, no behavior change. The `codex-as` and

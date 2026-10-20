@@ -25,8 +25,6 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - name: Provision pinned configuration parser explicitly
-        run: ./setup-sync.sh
       - name: Run behavior tests with required CI prerequisites
         run: /bin/bash ./tests/run.sh --ci
       # The same steps pre-commit/action@v3.0.1 runs, without its unmaintained
@@ -64,8 +62,6 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - name: Provision pinned configuration parser explicitly
-        run: ./setup-sync.sh
       - name: Run behavior tests with system Bash and BSD utilities
         run: /bin/bash ./tests/run.sh --ci
       - name: Check that tests left no file behind
@@ -91,9 +87,7 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - name: Provision pinned configuration parser explicitly
-        run: ./setup-sync.ps1
-      # stow-all.ps1 runs the POSIX sh helpers under Git Bash, where a CRLF
+      # The launchers and completions are shell scripts, where a CRLF
       # `set -eu` fails.
       - name: Check that the working tree has LF line endings
         run: |

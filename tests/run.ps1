@@ -25,27 +25,10 @@ foreach ($dependency in @('git', 'node')) {
         throw "Required test dependency not found: $dependency"
     }
 }
-$repoRoot = Split-Path -Parent $PSScriptRoot
-$syncPython = if ($env:DOTFILES_SYNC_PYTHON) { $env:DOTFILES_SYNC_PYTHON }
-    elseif ($IsWindows) { Join-Path $repoRoot '.venv-sync/Scripts/python.exe' }
-    else { Join-Path $repoRoot '.venv-sync/bin/python' }
-if (-not (Test-Path -LiteralPath $syncPython -PathType Leaf)) {
-    throw 'AI-sync runtime missing; run setup-sync.ps1 explicitly.'
-}
-$env:DOTFILES_SYNC_PYTHON = $syncPython
-& $syncPython -I -B (Join-Path $repoRoot 'lib/config_sync.py') --runtime-check
-if ($LASTEXITCODE -ne 0) { throw 'Configuration runtime check failed.' }
 if ($CheckPrerequisites) {
     Write-Output 'test-prerequisites=PASS'
     exit 0
 }
-
-Write-Output '==> test_config_sync.py'
-if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'test_config_sync.py') -PathType Leaf)) {
-    throw 'Required configuration backend test suite is missing.'
-}
-& $syncPython -I -B -m unittest discover -s $PSScriptRoot -p 'test_config_sync.py' -v
-if ($LASTEXITCODE -ne 0) { throw 'Configuration backend tests failed.' }
 
 Write-Output '==> claude-customizations.cjs'
 & node --test (Join-Path $PSScriptRoot 'claude-customizations.cjs')

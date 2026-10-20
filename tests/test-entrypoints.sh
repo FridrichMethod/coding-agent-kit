@@ -43,9 +43,9 @@ else
 fi
 
 # Every entry point drops the same dotfiles knobs, tests/run.ps1 too, and the
-# list names every DOTFILES_* and AWESOME_SKILLS_* variable the code can read
-# (but DOTFILES_SYNC_PYTHON, which tests/run.sh provisions), so a shell that
-# exports DOTFILES_AUTO_UPDATE=0 while provisioning cannot fail a suite.
+# list names every DOTFILES_* and AWESOME_SKILLS_* variable the code can read,
+# so a shell that exports DOTFILES_AUTO_UPDATE=0 while provisioning cannot fail
+# a suite.
 REPO_ROOT="$(cd -- "$TEST_DIR/.." && pwd)"
 # knob_list FILE: the names of FILE's "unset DOTFILES_AUTO_UPDATE ..." statement.
 knob_list() {
@@ -81,23 +81,22 @@ if ! KNOB_NAMES=$(git -C "$REPO_ROOT" -c grep.lineNumber=false -c grep.column=fa
 fi
 READ_KNOBS=$(printf '%s\n' "$KNOB_NAMES" | sed -E 's/^[^A-Z_]//' | LC_ALL=C sort -u)
 for knob in $READ_KNOBS; do
-    case $knob in
-        DOTFILES_SYNC_PYTHON | DOTFILES_TEST_*) continue ;;
-    esac
     if ! grep -Fxq -- "$knob" <<<"$KNOBS"; then
         printf 'ERROR: tracked code reads %s, which the test entry points do not unset.\n' "$knob" >&2
         exit 1
     fi
 done
 
-# The provisioning exports in the caller's shell change nothing.
+# The provisioning exports in the caller's shell change nothing. The fastest
+# suite stands in for all of them; it must run at least one test and pass.
 if ! env DOTFILES_AUTO_UPDATE=0 AWESOME_SKILLS_AUTO_UPDATE=0 DOTFILES_HOST= _DOTFILES_CHECKED=1 \
     AWESOME_SKILLS_FORCE=1 AWESOME_SKILLS_BG=1 _AWESOME_SKILLS_CHECKED=1 \
-    /bin/bash "$TEST_DIR/codex-config-sync.sh" >"$TEST_TMP/hermetic.stdout" 2>"$TEST_TMP/hermetic.stderr"; then
+    /bin/bash "$TEST_DIR/account-enrollment.sh" >"$TEST_TMP/hermetic.stdout" 2>"$TEST_TMP/hermetic.stderr"; then
     cat "$TEST_TMP/hermetic.stdout" "$TEST_TMP/hermetic.stderr" >&2
-    printf 'ERROR: tests/codex-config-sync.sh fails under the provisioning exports.\n' >&2
+    printf 'ERROR: tests/account-enrollment.sh fails under the provisioning exports.\n' >&2
     exit 1
 fi
-grep -Fxq 'codex-config-sync=PASS' "$TEST_TMP/hermetic.stdout"
+grep -Eq '^Ran [1-9][0-9]* tests? in ' "$TEST_TMP/hermetic.stderr"
+grep -Eq '^OK( \(.*\))?$' "$TEST_TMP/hermetic.stderr"
 
 printf 'test-entrypoints=PASS\n'

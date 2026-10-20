@@ -34,7 +34,7 @@ repos:
     hooks:
       - id: shellcheck
         args: [--severity=warning]
-        files: (\.sh$|/\.local/bin/[^/]+-sync$|/\.local/bin/(codex|claude)-as$|/bash-completion/completions/.*$)
+        files: (\.sh$|/\.local/bin/(codex|claude)-as$|/bash-completion/completions/.*$)
         types: [file]
 
   - repo: https://github.com/scop/pre-commit-shfmt
@@ -43,10 +43,9 @@ repos:
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, bash]
         files: (\.sh$|/\.local/bin/codex-as$|/bash-completion/completions/.*$)
-        exclude: ^(setup-sync\.sh|lib/sync-runtime\.sh)$
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, posix]
-        files: (/\.local/bin/([^/]+-sync|claude-as)$|^(setup-sync\.sh|lib/sync-runtime\.sh)$)
+        files: /\.local/bin/claude-as$
         types: [file]
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, zsh]
@@ -64,32 +63,12 @@ repos:
         entry: '[^\x09\x0a\x0d\x20-\x7e]'
         types: [file]
         files: '(?i)(\.(md|markdown|mdx|rst|txt)$|(^|/)(README|CHANGELOG|CONTRIBUTING|AUTHORS|LICENSE|NOTICE)(\.[^/]*)?$)'
-      # The engine suites below load lib/; in dotfiles the installer and
-      # doctor hooks covered engine edits, and those hooks do not exist here.
-      - id: structured-config-sync
-        name: structured configuration merge and safe writes
-        entry: tests/config-sync.sh
-        language: script
-        pass_filenames: false
-        files: ^(lib/.*|requirements-sync\.txt|setup-sync\.(sh|ps1)|tests/(test_config_sync\.py|config-sync\.sh|fixtures/codex-config\.toml)|common/(claude|codex)/\.local/bin/.*)$
-      - id: ai-config-sync
-        name: ai config and rules sync
-        entry: tests/ai-config-sync.sh
-        language: script
-        pass_filenames: false
-        files: ^(lib/.*|common/(claude|codex)/.*|tests/(ai-config-sync\.sh|fixtures/(claude-settings\.json|portable\.rules)))$
       - id: claude-customizations
         name: Claude status line, notifications and Git hook guard
         entry: node --test tests/claude-customizations.cjs
         language: system
         pass_filenames: false
         files: ^(common/claude/.*|tests/(claude-customizations\.cjs|fixtures/claude-settings\.json))$
-      - id: codex-config-sync
-        name: codex config sync behavior
-        entry: tests/codex-config-sync.sh
-        language: script
-        pass_filenames: false
-        files: ^(lib/.*|common/codex/\.local/bin/codex-config-sync|tests/codex-config-sync\.sh)$
       - id: codex-as
         name: Codex account views and native sharing (isolated Bash/zsh)
         entry: tests/codex-as.sh
