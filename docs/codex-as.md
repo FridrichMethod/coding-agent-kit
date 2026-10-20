@@ -1,6 +1,6 @@
 # codex-as
 
-See [account launchers](account-launchers.md) for daily use, first-time initialization, new-account login, and completion.
+See [account launchers](account-launchers.md) for daily use, first-time initialization, new-account login, and completion. Paths below use the configured `<codex_home>` (default `~/.codex`) and `<secrets_dir>` (default `~/.secrets`); see [configuration](configuration.md).
 
 ```sh
 codex-as ayting
@@ -9,6 +9,8 @@ codex-as ayting exec --json "Check the tests"
 ```
 
 Existing accounts launch directly. Missing accounts require confirmation, followed by native device login in an empty temporary `CODEX_HOME`; after saving complete JSON credentials, the original command continues. No sourcing or old /tmp initialization examples are needed.
+
+Apart from `--help`, the launcher has two options of its own, each accepted only as the single argument and neither starting Codex: `codex-as --list-accounts` prints the account names (what completion offers), and `codex-as --show-config` prints the configuration file in use, the `codex` executable, `<codex_home>` and `<secrets_dir>`.
 
 ## Daemon takeover
 
@@ -81,7 +83,7 @@ Codex then shows its conflict screen. The lock probe briefly holds a free writer
 lock, so a native client opening it at that instant also sees the conflict screen.
 
 Before archive, a 0600 recovery journal is written and synced, including its
-directory, under `~/.codex/accounts/.locks/UUID.handoff.json`; a per-UUID lease
+directory, under `<codex_home>/accounts/.locks/UUID.handoff.json`; a per-UUID lease
 next to it serializes takeovers and is removed when one ends. A timeout,
 disconnect or interruption with unknown archive completion retains the journal.
 The next `resume`, `fork` or `exec resume` of that UUID, or the next picker or
@@ -95,7 +97,7 @@ visibility is restored. An explicit UUID, and `--last` for the session it
 opens, do not launch the account backend while that session's recovery remains
 incomplete, because native Codex would open it archived or open another one;
 the picker warns and launches. Both point to the preserved records in
-`~/.codex/accounts/.locks` when the daemon is not running. `--last` chooses its session after recovering the others, since
+`<codex_home>/accounts/.locks` when the daemon is not running. `--last` chooses its session after recovering the others, since
 a restored session becomes the newest. Keep the journal until the helper
 removes it. Declining the confirmation leaves session state untouched.
 
@@ -151,7 +153,7 @@ pin:
   table or array is refused when it uses TOML 1.1 syntax (such as a trailing
   comma in an inline table) that this Python's `tomllib` cannot read.
 - `-p NAME` and `--profile NAME` select profile v2, which layers
-  `~/.codex/NAME.config.toml`: the launcher links that file into the account
+  `<codex_home>/NAME.config.toml`: the launcher links that file into the account
   home, where native Codex reads it, and checks it like the user
   configuration (absolute paths, the shared `sqlite_home`). A legacy
   `profile` key is a native error, and `[profiles.*]` tables are never
@@ -164,8 +166,8 @@ pin:
   Codex reads as a login, token endpoint or billing scope (`CODEX_API_KEY`,
   `CODEX_ACCESS_TOKEN`, `OPENAI_API_KEY`, which realtime voice uses as its
   login, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT`, the token and login URL
-  overrides and the workload identity variables); a `CODEX_HOME` other than `~/.codex` or
-  a managed account home; a `CODEX_SQLITE_HOME` or project `sqlite_home` other
+  overrides and the workload identity variables); a `CODEX_HOME` other than `<codex_home>` or
+  an initialized account home in `<codex_home>/accounts`; a `CODEX_SQLITE_HOME` or project `sqlite_home` other
   than the shared one; relative path fields in shared configuration; and an
   administrator `cli_auth_credentials_store` other than `file`. Variables no
   supported release reads as Codex's own login, such as `OPENAI_ORG_ID`, pass,
@@ -211,7 +213,7 @@ running `codex ARGS...`. What still differs:
   native Codex dies of SIGINT, SIGTERM, SIGHUP, SIGKILL or SIGPIPE, the launcher
   dies of the same signal; other signals exit with 128 plus the signal number.
 - A logout inside Codex (`/logout`) is native and revokes the account's tokens
-  in `~/.secrets/codex-NAME.json`; the launcher cannot stop it, and warns at
+  in `<secrets_dir>/codex-NAME.json`; the launcher cannot stop it, and warns at
   exit with the steps to log in again. A write through the link that names
   another ChatGPT user is kept and reported.
 

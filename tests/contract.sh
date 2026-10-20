@@ -36,6 +36,7 @@ LAYOUT='100755 bin/codex-as
 100755 install.sh
 100644 docs/account-launchers.md
 100644 docs/codex-as.md
+100644 docs/configuration.md
 100644 tests/claude-customizations.cjs
 100644 tests/fixtures/claude-settings.json'
 JOBS='Linux behavior and lint
