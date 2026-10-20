@@ -6,13 +6,10 @@ param([switch]$CI, [switch]$CheckPrerequisites)
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 
-# Hermetic: the provisioning exports (DOTFILES_AUTO_UPDATE=0 and the like,
-# dotfiles docs/bootstrap.md) and other dotfiles knobs never reach the suites
-# from the caller; each case sets what it needs. The same list as tests/*.sh.
-foreach ($knob in @('DOTFILES_AUTO_UPDATE', 'DOTFILES_AUTO_STOW', 'DOTFILES_HOST', 'DOTFILES_DIR',
-        '_DOTFILES_CHECKED', 'DOTFILES_STOW_WITHOUT_OH_MY_ZSH', 'DOTFILES_COLOR',
-        'AWESOME_SKILLS_AUTO_UPDATE', 'AWESOME_SKILLS_FORCE', 'AWESOME_SKILLS_BG',
-        'AWESOME_SKILLS_INSTALLER_URL', 'AWESOME_SKILLS_REFRESH_DAYS', '_AWESOME_SKILLS_CHECKED')) {
+# Hermetic: a caller's kit configuration, colour choice and XDG directories
+# never reach the suites; each case sets what it needs. The same names, in
+# the same order, as the unset statement of tests/*.sh.
+foreach ($knob in @('CODING_AGENT_KIT_CONFIG', 'CODING_AGENT_KIT_COLOR', 'XDG_CONFIG_HOME', 'NO_COLOR')) {
     Remove-Item -LiteralPath "Env:$knob" -ErrorAction Ignore
 }
 

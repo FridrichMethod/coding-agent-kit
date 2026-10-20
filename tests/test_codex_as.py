@@ -44,6 +44,8 @@ ENV_CONFLICTS = (
 # Read by no supported native release; common in other OpenAI tools.
 # OPENAI_BASE_URL only routes the user's own API key for tool subprocesses.
 ENV_UNUSED = ("OPENAI_ORG_ID", "OPENAI_PROJECT_ID", "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID", "OPENAI_BASE_URL")
+# The kit's own knobs: a caller's value never reaches a fixture, which sets what it needs.
+KIT_KNOBS = ("CODING_AGENT_KIT_CONFIG", "CODING_AGENT_KIT_COLOR", "XDG_CONFIG_HOME", "NO_COLOR")
 FAKE = r'''
 import json, os, pathlib, sys, time, signal
 if sys.argv[1:] == ["--version"]:
@@ -296,6 +298,7 @@ class CodexAs(unittest.TestCase):
         self.auth = self.codex / "auth.json"
         self.install = self.home / ".local/lib/codex-as"
         shutil.copytree(SOURCE / "lib/codex-as", self.install)
+        shutil.copytree(SOURCE / "lib/coding-agent-kit", self.home / ".local/lib/coding-agent-kit")
         self.command_bin = self.home / ".local/bin"
         self.command_bin.mkdir()
         shutil.copy2(SOURCE / "bin/codex-as", self.command_bin / "codex-as")
@@ -335,11 +338,19 @@ class CodexAs(unittest.TestCase):
         self.root_auth = self.auth.read_bytes()
         self.shared = self.snapshot()
         self.env = os.environ.copy()
-        for name in (*ENV_CONFLICTS, "CODEX_HOME", "CODEX_SQLITE_HOME", "PYTHONPATH", "BASH_ENV", "ENV", "ZDOTDIR"):
+        for name in (*ENV_CONFLICTS, *KIT_KNOBS, "CODEX_HOME", "CODEX_SQLITE_HOME", "PYTHONPATH", "BASH_ENV", "ENV", "ZDOTDIR"):
             self.env.pop(name, None)
         self.record = self.base / "record.json"
         self.env.update(HOME=str(self.home), PATH=os.pathsep.join((str(self.bin), str(self.command_bin), self.env["PATH"])),
                         FAKE_RECORD=str(self.record))
+
+    def kit_config(self):
+        """The installed config.py's load() for this fixture's environment."""
+        spec = importlib.util.spec_from_file_location('fixture_config', self.home / '.local/lib/coding-agent-kit/config.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with patch.dict(os.environ, self.env, clear=True):
+            return module.load()
 
     def write_credential(self, name, data):
         path = self.secret / f"codex-{name}.json"
@@ -666,6 +677,7 @@ class CodexAs(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('scope_test_check', self.install / 'check.py')
         check = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(check)
+        config = self.kit_config()
         here, uuid_text = Path.cwd(), '12345678-1234-4234-8234-123456789abc'
         for args, scope in ((['resume'], here), (['resume', '--last'], here), (['resume', '--all'], 'all'),
                             (['resume', '--all', '--last'], 'all'), (['resume', '-C', str(self.cwd)], self.cwd),
@@ -678,10 +690,10 @@ class CodexAs(unittest.TestCase):
                             (['-i', 'a.png', 'resume'], None), (['resume', '-i', 'shot.png', uuid_text], here),
                             (['exec', '-i', 'a.png', 'resume', uuid_text], None)):
             with self.subTest(args=args):
-                self.assertEqual(check.arguments(args).scope, scope)
+                self.assertEqual(check.arguments(args, config).scope, scope)
         for args in (['fork', uuid_text], ['exec', 'resume', uuid_text], ['exec', 'fork', uuid_text]):
             with self.subTest(args=args):
-                self.assertEqual(check.arguments(args).recover_id, uuid_text)
+                self.assertEqual(check.arguments(args, config).recover_id, uuid_text)
 
     def test_picker_leaves_possibly_running_sessions_and_names_them(self):
         daemon, ids, attempts, run = self.handoff_fixture()
@@ -1193,7 +1205,7 @@ class CodexAs(unittest.TestCase):
         with patch.dict(os.environ, self.env, clear=True), \
              patch.object(guard, 'terminal', return_value=tty), patch.object(guard, 'confirm'):
             for account in ('A', 'B'):
-                layout = storage.Layout(guard, account)
+                layout = storage.Layout(guard, account, self.kit_config())
                 self.assertTrue(layout.acquire())
                 marker = layout.home / 'codex-as.initialized'
                 raw = b'codex-as v2\n'

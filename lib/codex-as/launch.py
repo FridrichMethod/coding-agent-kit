@@ -6,23 +6,33 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 
 
-def load_module(name):
-    spec = importlib.util.spec_from_file_location("codex_as_" + name, Path(__file__).with_name(name + ".py"))
+# python3 -I puts no script directory on sys.path, so the modules load by path,
+# from the real file: a linked launcher uses the kit it belongs to.
+LIB = Path(os.path.realpath(__file__)).parent.parent
+
+
+def load_module(name, path):
+    spec = importlib.util.spec_from_file_location("codex_as_" + name, LIB / path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-guard = load_module("check")
-storage = load_module("layout")
-handoff = load_module("handoff")
+try:
+    guard = load_module("check", "codex-as/check.py")  # ends the run first on Python before 3.11
+    storage = load_module("layout", "codex-as/layout.py")
+    handoff = load_module("handoff", "codex-as/handoff.py")
+    settings = load_module("config", "coding-agent-kit/config.py")
+except (OSError, ImportError, SyntaxError):
+    message = f"codex-as: incomplete install at {LIB.parent}"
+    print(guard.styled(message, "31", 2) if "guard" in globals() else message, file=sys.stderr)
+    sys.exit(1)
 
 
 def enroll(layout, codex):
@@ -31,7 +41,7 @@ def enroll(layout, codex):
         return
     tty = guard.terminal()
     try:
-        tty.write("Existing accounts: " + (", ".join(guard.accounts()) or "(none)") + "\n")
+        tty.write("Existing accounts: " + (", ".join(guard.accounts(layout.secrets)) or "(none)") + "\n")
         guard.confirm(tty, f"Account {layout.name} does not exist. Login and save a new account?")
         with tempfile.TemporaryDirectory(prefix="codex-as-login-") as temp:
             env = os.environ.copy()
@@ -144,23 +154,33 @@ def post_run(layout, baseline):
 
 
 def main(args):
+    config = settings.load()
+    for warning in config.warnings:
+        guard.warn(warning)
+    if args in (["--list-accounts"], ["--show-config"]):
+        # Metadata only: no preflight, no directories and no native CLI.
+        text = "\n".join(guard.accounts(config.secrets_dir)) if args[0] == "--list-accounts" else config.show("codex-as")
+        if text:
+            print(text)
+        return 0
     if not args or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", args[0]):
         guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
     account, *native_args = args
-    plan = guard.arguments(native_args)
-    codex = shutil.which("codex")
+    plan = guard.arguments(native_args, config)
+    codex = config.which("codex")
     if codex is None:
-        guard.fail("Codex is not installed on PATH.")
+        guard.fail("Codex is not installed on PATH." if config.codex == "codex"
+                   else f"the configured codex executable {config.codex} was not found.")
     if plan.rootless:
         # Help, version, update and completion are the same for every login; an update
         # installs under CODEX_HOME, so it goes to the root home like plain codex update.
         env = os.environ.copy()
-        env["CODEX_HOME"] = str(Path(os.environ["HOME"]) / ".codex")
+        env["CODEX_HOME"] = str(config.codex_home)
         env.pop("CODEX_SQLITE_HOME", None)
         with Supervision():
             return run_native([codex, *native_args], env)
-    guard.preflight(account, plan)
-    layout = storage.Layout(guard, account)
+    guard.preflight(account, plan, config)
+    layout = storage.Layout(guard, account, config)
     sqlite = storage.shared_sqlite(guard, layout.root, plan.cwd, plan.profile)
     layout.root_check()
     version = subprocess.run([codex, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,

@@ -74,16 +74,22 @@ repos:
         entry: tests/codex-as.sh
         language: script
         pass_filenames: false
-        files: ^(bin/codex-as|lib/codex-as/.*|tests/(codex-as\.sh|test_codex_as\.py|test_codex_sharing_native\.py|fixtures/(zsh|bash)_aliases))$
+        files: ^(bin/codex-as|lib/(codex-as|coding-agent-kit)/.*|tests/(codex-as\.sh|test_codex_as\.py|test_codex_sharing_native\.py|fixtures/(zsh|bash)_aliases))$
       - id: account-enrollment
         name: account enrollment and completion (isolated HOME and native CLI fakes)
         entry: tests/account-enrollment.sh
         language: script
         pass_filenames: false
-        files: ^(bin/.*|lib/.*|completions/.*|tests/(account-enrollment\.sh|test_account_enrollment\.py))$
+        files: ^(bin/.*|lib/.*|completions/.*|tests/(account-enrollment\.sh|test_account_enrollment\.py|test_codex_as\.py))$
+      - id: config
+        name: kit configuration, launcher location and metadata queries (isolated HOME)
+        entry: tests/config.sh
+        language: script
+        pass_filenames: false
+        files: ^(bin/.*|lib/.*|completions/.*|docs/account-launchers\.md|tests/(config\.sh|test_config\.py|test_codex_as\.py))$
       - id: test-entrypoints
-        name: test entry points and dotfiles knob hygiene
+        name: test entry points and kit knob hygiene
         entry: tests/test-entrypoints.sh
         language: script
         pass_filenames: false
-        files: ^(tests/.*\.(sh|ps1)|bin/.*|lib/.*|completions/.*|helpers/.*)$
+        files: ^(tests/(.*\.(sh|ps1)|test_config\.py)|bin/.*|lib/.*|completions/.*|helpers/.*)$

@@ -1,6 +1,6 @@
 """Fixed account views over shared Codex state; private credentials stay in secrets.
 
-The root ~/.codex/auth.json belongs to native clients and is never read or changed.
+The root codex_home/auth.json belongs to native clients and is never read or changed.
 """
 
 import base64
@@ -101,11 +101,11 @@ def same_identity(left, right):
 
 
 class Layout:
-    def __init__(self, guard, account):
+    def __init__(self, guard, account, config):
         self.g = guard
         self.name = account
-        self.root = Path(os.environ["HOME"]) / ".codex"
-        self.secrets = self.root.parent / ".secrets"
+        self.root = config.codex_home
+        self.secrets = config.secrets_dir
         self.home = self.root / "accounts" / account
         self.auth = self.home / "auth.json"
         self.target = self.secrets / f"codex-{account}.json"
@@ -128,7 +128,13 @@ class Layout:
             (self.root / "accounts/.locks" / f".setup-{self.name}.json").unlink()
 
     def root_check(self):
-        self.g.directory(self.root.parent)
+        # Their parents (HOME by default) must not let others swap them. Below a regular file
+        # (ENOTDIR) a parent does not exist either.
+        for parent in dict.fromkeys((self.root.parent, self.secrets.parent)):
+            try:
+                self.g.directory(parent)
+            except (FileNotFoundError, NotADirectoryError):
+                self.g.fail(f"{parent} does not exist; create it, owned by you and not group or other writable.")
         if os.path.lexists(self.root):
             self.g.directory(self.root)
         if os.path.lexists(self.secrets):
@@ -244,7 +250,7 @@ class Layout:
             self.replace_bytes(marker, b"codex-as v2\n")
 
     def link_profile(self, profile):
-        """Show ~/.codex/PROFILE.config.toml in the account home, where native -p reads it."""
+        """Show codex_home/PROFILE.config.toml in the account home, where native -p reads it."""
         target = self.root / (profile + ".config.toml")
         if os.path.exists(target):
             try:

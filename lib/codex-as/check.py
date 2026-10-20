@@ -3,6 +3,7 @@
 import base64
 from dataclasses import dataclass
 from datetime import datetime
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -13,8 +14,8 @@ import uuid
 
 
 def styled(text, style, fd):
-    """Use the same auto/always/never policy as lib/terminal.sh per destination."""
-    mode = os.environ.get("DOTFILES_COLOR", "auto")
+    """CODING_AGENT_KIT_COLOR=auto|always|never per destination; NO_COLOR or TERM=dumb turn it off."""
+    mode = os.environ.get("CODING_AGENT_KIT_COLOR", "auto")
     enabled = (not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
                and (mode == "always" or (mode != "never" and os.isatty(fd))))
     return f"\033[{style}m{text}\033[0m" if enabled and text.strip() else text
@@ -98,7 +99,7 @@ class Plan:
     no_daemon: bool  # root --no-daemon given; native refuses a second one
     rootless: bool  # root help or version, update and completion need no account
     unknown: tuple  # options this scan does not know (typos fail in clap after any takeover)
-    profile: str | None  # -p/--profile: layers ~/.codex/NAME.config.toml
+    profile: str | None  # -p/--profile: layers codex_home/NAME.config.toml
 
 
 def session_id(text):
@@ -157,7 +158,7 @@ def override(text):
     settings(cfg)
 
 
-def arguments(args):
+def arguments(args, config):
     # A bounded scan, not a replacement for clap: arguments are forwarded
     # unchanged. Values and prompts are never read as subcommands once a
     # subcommand is known. A root PROMPT does not end clap's subcommand
@@ -239,7 +240,7 @@ def arguments(args):
         if flag in {"-c", "--config"}:
             override(value)
         elif flag in {"-C", "--cd"}:
-            cwd = Path(value).expanduser().absolute()
+            cwd = config.expand(value).absolute()
         elif flag in {"-p", "--profile"}:
             profile = value
         elif flag == "--enable" and value.strip() in FEATURES:
@@ -345,9 +346,8 @@ def credential(path):
     return raw
 
 
-def accounts():
+def accounts(root):
     """Metadata only: completion must never open credentials or start a CLI."""
-    root = Path(os.environ["HOME"]) / ".secrets"
     if not os.path.lexists(root):
         return []
     directory(root, private=True)
@@ -411,12 +411,11 @@ def exclusive(path, raw):
         raise
 
 
-def config_sources(cwd, profile=None):
-    home = Path(os.environ["HOME"])
-    user = {home / ".codex/config.toml", Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"),
+def config_sources(root, cwd, profile=None):
+    user = {root / "config.toml", Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"),
             Path("/etc/codex/requirements.toml")}
     if profile is not None:
-        user.add(home / ".codex" / (profile + ".config.toml"))
+        user.add(root / (profile + ".config.toml"))
     project = set()
     # Lexical and resolved parents: a symlinked -C has both.
     for place in (cwd, cwd.resolve()):
@@ -435,8 +434,8 @@ def config_sources(cwd, profile=None):
     # Codex still loads/enforces its own system, workspace and cloud policies.
 
 
-def preflight(account, plan):
-    expected = Path(os.environ["HOME"]) / ".codex"
+def preflight(account, plan, config):
+    expected = config.codex_home
     allowed = (expected, expected / "accounts" / account)
     if "CODEX_HOME" in os.environ:
         inherited = Path(os.path.abspath(os.environ["CODEX_HOME"]))
@@ -460,7 +459,7 @@ def preflight(account, plan):
     conflicts = [name for name in names if name in os.environ]
     if conflicts:
         fail("authentication/endpoint environment conflict: " + ", ".join(conflicts) + " (values hidden).")
-    config_sources(plan.cwd, plan.profile)
+    config_sources(expected, plan.cwd, plan.profile)
 
 
 def private_metadata(path):
@@ -485,14 +484,26 @@ def report(error):
 
 
 if __name__ == "__main__":
+    # The completions of coding-agent-kit 0.1, still defined in shells opened
+    # before an update, run "check.py accounts"; codex-as --list-accounts is
+    # the same listing.
     try:
         action, = sys.argv[1:]
-        if action == "accounts":
-            names = accounts()
-            if names:
-                print("\n".join(names))
-        else:
+        if action != "accounts":
             fail("unsupported internal action.")
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError) as error:
+        lib = Path(os.path.realpath(__file__)).parent.parent
+        spec = importlib.util.spec_from_file_location("codex_as_config", lib / "coding-agent-kit/config.py")
+        settings = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(settings)
+        except (OSError, ImportError, SyntaxError):
+            fail(f"incomplete install at {lib.parent}")
+        config = settings.load()
+        for warning in config.warnings:
+            warn(warning)
+        names = accounts(config.secrets_dir)
+        if names:
+            print("\n".join(names))
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError, RuntimeError) as error:
         report(error)
         sys.exit(1)

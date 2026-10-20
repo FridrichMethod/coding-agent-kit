@@ -2,7 +2,8 @@
 
 local -a names suggestions
 if ((CURRENT == 2)); then
-    names=("${(@f)$(python3 -I -B "$HOME/.local/lib/claude-as/launch.py" --list-accounts 2>/dev/null)}")
+    # Metadata only: claude-as --list-accounts never starts native Claude.
+    names=("${(@f)$(command claude-as --list-accounts 2>/dev/null)}")
     names=("${(@)names:#}")
     ((${#names})) && _describe -t accounts 'Claude accounts' names
     return

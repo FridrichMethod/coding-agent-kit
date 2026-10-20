@@ -2,7 +2,8 @@
 
 local -a names suggestions
 if ((CURRENT == 2)); then
-    names=("${(@f)$(python3 -I -B "$HOME/.local/lib/codex-as/check.py" accounts 2>/dev/null)}")
+    # Metadata only: codex-as --list-accounts never starts native Codex.
+    names=("${(@f)$(command codex-as --list-accounts 2>/dev/null)}")
     names=("${(@)names:#}")
     ((${#names})) && _describe -t accounts 'Codex accounts' names
     return

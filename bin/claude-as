@@ -6,24 +6,70 @@ umask 077
 # Only style this command's heading, never the native Claude streams.
 _claude_as_message() {
     if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ] &&
-        { [ "${DOTFILES_COLOR:-auto}" = always ] ||
-            { [ "${DOTFILES_COLOR:-auto}" != never ] && [ -t "$2" ]; }; }; then
+        { [ "${CODING_AGENT_KIT_COLOR:-auto}" = always ] ||
+            { [ "${CODING_AGENT_KIT_COLOR:-auto}" != never ] && [ -t "$2" ]; }; }; then
         printf '\033[%sm%s\033[0m\n' "$1" "$3" >&"$2"
     else
         printf '%s\n' "$3" >&"$2"
     fi
 }
+# Set _claude_as_root to the kit, the physical bin/.. of this file after its
+# symlinks; readlink -f is not portable, and paths may contain spaces. Every
+# step checks its status: set -e does not apply inside a tested function.
+_claude_as_locate() {
+    _claude_as_script=$0
+    case $_claude_as_script in
+        */*) ;;
+        *) [ -e "$_claude_as_script" ] || _claude_as_script=$(command -v "$_claude_as_script") || {
+            _claude_as_message 31 2 "claude-as: cannot find this launcher ($0) on PATH."
+            return 1
+        } ;;
+    esac
+    _claude_as_links=0
+    while [ -L "$_claude_as_script" ]; do
+        _claude_as_links=$((_claude_as_links + 1))
+        if [ "$_claude_as_links" -gt 40 ]; then
+            _claude_as_message 31 2 'claude-as: launcher symlink loop (more than 40 links); reinstall the helper.'
+            return 1
+        fi
+        _claude_as_dir=$(CDPATH='' cd -P -- "$(dirname -- "$_claude_as_script")" 2>/dev/null && pwd) &&
+            _claude_as_link=$(readlink "$_claude_as_script" 2>/dev/null) || {
+            _claude_as_message 31 2 "claude-as: cannot resolve the launcher link $_claude_as_script."
+            return 1
+        }
+        case $_claude_as_link in
+            /*) _claude_as_script=$_claude_as_link ;;
+            *) _claude_as_script=$_claude_as_dir/$_claude_as_link ;;
+        esac
+    done
+    _claude_as_root=$(CDPATH='' cd -P -- "$(dirname -- "$_claude_as_script")/.." 2>/dev/null && pwd) || {
+        _claude_as_message 31 2 "claude-as: cannot resolve the launcher directory of $_claude_as_script."
+        return 1
+    }
+}
 if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
+    # Help is plain shell: a lone copy without the kit still answers it.
+    _claude_as_docs=https://github.com/FridrichMethod/coding-agent-kit/blob/main/docs/account-launchers.md
+    if _claude_as_locate 2>/dev/null && [ -f "$_claude_as_root/docs/account-launchers.md" ]; then
+        _claude_as_docs=$_claude_as_root/docs/account-launchers.md
+    fi
     _claude_as_message '1;36' 1 'Usage: claude-as NAME [claude arguments...]'
     printf '%s\n' \
-        'Credentials: ~/.secrets/claude-NAME; owner-only 0600 OAuth token.' \
+        'Credentials: <secrets_dir>/claude-NAME (default ~/.secrets); owner-only 0600 OAuth token.' \
         'Missing account: confirm [y/N], native setup-token, save, launch.' \
         'Automatic capture audited for Claude Code 2.1.296; otherwise explicit manual fallback.' \
         'No server validation, OAuth implementation or automatic token renewal.' \
         'login/logout/setup-token, --bare, unsupported flags and auth/provider overrides are refused.' \
         'Daily configuration is inherited. No global process killing or concurrency lock.' \
-        'Requires Python 3.11+ (stdlib). See ~/dotfiles/docs/account-launchers.md.'
+        'Requires Python 3.11+ (stdlib).' \
+        'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
+        "Details and manual repair: $_claude_as_docs"
     [ "$#" -gt 0 ] && exit 0
     exit 2
 fi
-exec python3 -I -B "$HOME/.local/lib/claude-as/launch.py" "$@"
+_claude_as_locate || exit 1
+if [ ! -r "$_claude_as_root/lib/claude-as/launch.py" ]; then
+    _claude_as_message 31 2 "claude-as: incomplete install at $_claude_as_root (missing lib/claude-as/launch.py)"
+    exit 1
+fi
+exec python3 -I -B "$_claude_as_root/lib/claude-as/launch.py" "$@"

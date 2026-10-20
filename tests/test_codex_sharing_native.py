@@ -218,7 +218,6 @@ class NativeSharingTests(unittest.TestCase):
             "HTTP_PROXY": endpoint, "HTTPS_PROXY": endpoint, "ALL_PROXY": endpoint,
             "http_proxy": endpoint, "https_proxy": endpoint, "all_proxy": endpoint,
             "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost",
-            "DOTFILES_AUTO_UPDATE": "0", "AWESOME_SKILLS_AUTO_UPDATE": "0",
         }
         self.servers = []
 

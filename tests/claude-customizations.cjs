@@ -149,15 +149,19 @@ test('Git guard permits ordinary commands and non-bypass -n flags', () => {
 test('portable launchers resolve stowed helpers through a home path containing spaces', () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'claude home '));
   try {
-    const target = path.join(temporary, '.claude', 'dotfiles');
-    fs.mkdirSync(target, { recursive: true });
-    for (const name of fs.readdirSync(scripts)) fs.copyFileSync(path.join(scripts, name), path.join(target, name));
+    // Each command names its install path under the home directory (dotfiles
+    // uses ~/.claude/dotfiles); install the helper it names there.
     const execute = (command, input) => {
       const match = command.match(/^node -e "([^"]+)"$/);
       assert.ok(match, command);
+      const installed = match[1].match(/^require\(require\('os'\)\.homedir\(\) \+ '\/([^']+\/)?([^'/]+\.cjs)'\)\.main\(\)$/);
+      assert.ok(installed && !(installed[1] || '').split('/').includes('..'), command);
+      const target = path.join(temporary, ...(installed[1] || '').split('/'));
+      fs.mkdirSync(target, { recursive: true });
+      fs.copyFileSync(path.join(scripts, installed[2]), path.join(target, installed[2]));
       return spawnSync(process.execPath, ['-e',
-        'require("os").homedir = () => process.env.CLAUDE_DOTFILES_TEST_HOME; ' + match[1]], {
-        env: { ...process.env, CLAUDE_DOTFILES_TEST_HOME: temporary },
+        'require("os").homedir = () => process.env.KIT_HELPER_TEST_HOME; ' + match[1]], {
+        env: { ...process.env, KIT_HELPER_TEST_HOME: temporary },
         input: JSON.stringify(input), encoding: 'utf8', timeout: 5000,
       });
     };

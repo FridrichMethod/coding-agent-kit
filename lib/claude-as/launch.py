@@ -1,6 +1,7 @@
 """Small native-login adapter; no OAuth endpoints, refresh, logs or credential output."""
 
 import codecs
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -38,8 +39,8 @@ SECTION = re.compile(r"Your OAuth token \(valid for [^\r\n)]{1,80}\):\s*(.*?)\s*
 
 
 def styled(text, style, fd):
-    """Use the same auto/always/never policy as lib/terminal.sh per destination."""
-    mode = os.environ.get("DOTFILES_COLOR", "auto")
+    """CODING_AGENT_KIT_COLOR=auto|always|never per destination; NO_COLOR or TERM=dumb turn it off."""
+    mode = os.environ.get("CODING_AGENT_KIT_COLOR", "auto")
     enabled = (not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
                and (mode == "always" or (mode != "never" and os.isatty(fd))))
     return f"\033[{style}m{text}\033[0m" if enabled and text.strip() else text
@@ -49,11 +50,12 @@ def fail(message):
     raise ValueError(message)
 
 
-def directory(path):
+def directory(path, config):
     info = path.lstat()
     if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
             or stat.S_IMODE(info.st_mode) != 0o700):
-        fail(".secrets must be an owned, real directory with permissions 0700.")
+        name = ".secrets" if path == config.home / ".secrets" else str(path)
+        fail(name + " must be an owned, real directory with permissions 0700.")
 
 
 def read_secret(path):
@@ -76,10 +78,10 @@ def validate(token):
         fail("unrecognized/empty OAuth token structure; this is not server authentication.")
 
 
-def accounts(root):
+def accounts(root, config):
     if not os.path.lexists(root):
         return []
-    directory(root)
+    directory(root, config)
     result = []
     for path in root.iterdir():
         name = path.name.removeprefix("claude-")
@@ -155,13 +157,13 @@ def inspect_config(cfg):
         fail("settings.env conflicts with account authentication (values hidden).")
 
 
-def preflight(args, home, enrollment):
+def preflight(args, kit, enrollment):
     conflicts = sorted(CONFLICTS.intersection(os.environ))
     if conflicts:
         fail("authentication/provider environment conflict: " + ", ".join(conflicts) + " (values hidden).")
     # Native paths use env || default and Node path joining, not shell '~'
     # expansion. Inspect exactly the configuration the real CLI will load.
-    config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or str(home / ".claude")).absolute()
+    config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or str(kit.home / ".claude")).absolute()
     sources = [config / "settings.json", config / "settings.local.json",
                Path("/etc/claude-code/managed-settings.json"),
                Path("/Library/Application Support/ClaudeCode/managed-settings.json")]
@@ -179,7 +181,7 @@ def preflight(args, home, enrollment):
     if enrollment and (config / "remote-settings-helper-consent").exists():
         fail("managed policy helper present; automatic enrollment cannot preserve its loading chain.")
     if enrollment:
-        profiles = Path(os.environ.get("ANTHROPIC_CONFIG_DIR") or str(Path(os.environ.get("XDG_CONFIG_HOME") or str(home / ".config")) / "anthropic"))
+        profiles = Path(os.environ.get("ANTHROPIC_CONFIG_DIR") or str(Path(os.environ.get("XDG_CONFIG_HOME") or str(kit.home / ".config")) / "anthropic"))
         if (profiles / "active_config").exists() or (profiles / "configs/default.json").exists():
             fail("Anthropic profile selection present; review its authentication before automatic enrollment.")
     values = {"--model", "--effort", "--output-format", "--input-format", "--system-prompt",
@@ -215,7 +217,7 @@ def preflight(args, home, enrollment):
                 if value.lstrip().startswith("{"):
                     inspect_config(json.loads(value))
                 else:
-                    config_check(Path(value).expanduser())
+                    config_check(kit.expand(value))
             # Native Commander does not activate the variadic collector for
             # --flag=value syntax. A lone '-' is a value, not an option.
             if flag in variadic and not sep:
@@ -341,39 +343,63 @@ def save(path, token):
         raise
 
 
+def kit_config():
+    """lib/coding-agent-kit/config.py by path, from the real file, loaded after the version check."""
+    lib = Path(os.path.realpath(__file__)).parent.parent
+    spec = importlib.util.spec_from_file_location("claude_as_config", lib / "coding-agent-kit/config.py")
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except (OSError, ImportError, SyntaxError):
+        fail(f"incomplete install at {lib.parent}")
+    config = module.load()
+    for warning in config.warnings:
+        print(styled("claude-as: " + warning, "33", 2), file=sys.stderr)
+    return config
+
+
 def main():
-    home = Path(os.environ["HOME"])
-    secret = home / ".secrets"
-    if sys.argv[1:] == ["--list-accounts"]:
-        names = accounts(secret)
-        if names:
-            print("\n".join(names))
+    config = kit_config()
+    secret = config.secrets_dir
+    if sys.argv[1:] in (["--list-accounts"], ["--show-config"]):
+        # Metadata only: no preflight, no directories and no native CLI.
+        text = "\n".join(accounts(secret, config)) if sys.argv[1] == "--list-accounts" else config.show("claude-as")
+        if text:
+            print(text)
         return
     account, *args = sys.argv[1:]
     if not NAME.fullmatch(account):
         fail("invalid account name (ASCII letters, digits, _ or - only).")
-    info = home.lstat()
-    if not home.is_absolute() or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
-        fail("HOME must be an owned, real user directory without group/other write access.")
+    # The secrets parent (HOME by default) must not let others swap the secrets. Below a regular
+    # file (ENOTDIR) it does not exist either.
+    parent = secret.parent
+    try:
+        info = parent.lstat()
+    except (FileNotFoundError, NotADirectoryError):
+        fail(f"{parent} does not exist; create it, owned by you and not group or other writable.")
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
+        fail("HOME must be an owned, real user directory without group/other write access." if parent == config.home
+             else f"{parent} must be an owned, real directory without group/other write access.")
     query = args in (["--help"], ["-h"], ["--version"], ["-v"])
     target = secret / ("claude-" + account)
     missing = not os.path.lexists(target)
-    preflight(args, home, enrollment=missing and not query)
-    executable = shutil.which("claude")
+    preflight(args, config, enrollment=missing and not query)
+    executable = config.which("claude")
     if not executable:
-        fail("real Claude executable not found on PATH.")
+        fail("real Claude executable not found on PATH." if config.claude == "claude"
+             else f"the configured claude executable {config.claude} was not found.")
     if query:
         os.execv(executable, [executable, *args])
     if os.path.lexists(secret):
-        directory(secret)
+        directory(secret, config)
     if missing:
         tty = Terminal()
         try:
-            tty.write("Existing accounts: " + (", ".join(accounts(secret)) or "(none)") + "\n")
+            tty.write("Existing accounts: " + (", ".join(accounts(secret, config)) or "(none)") + "\n")
             tty.confirm(f"Account {account} does not exist. Login and save a new account?")
             token = enroll(executable, tty)
             secret.mkdir(mode=0o700, exist_ok=True)
-            directory(secret)
+            directory(secret, config)
             save(target, token)
             tty.write(f"Credentials saved for account {account}.\n", "32")
         finally:
@@ -392,9 +418,10 @@ if __name__ == "__main__":
     os.umask(0o077)
     try:
         main()
-    except (OSError, ValueError, TypeError, KeyError, UnicodeError):
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError, RuntimeError):
         error = sys.exc_info()[1]
-        message = str(error) if type(error) is ValueError else "missing, unreadable or malformed token/settings; no unsafe repair performed."
+        own = type(error) is ValueError or getattr(error, "own_message", False)
+        message = str(error) if own else "missing, unreadable or malformed token/settings; no unsafe repair performed."
         print(styled("claude-as: " + message, "31", 2), file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:

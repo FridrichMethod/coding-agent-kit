@@ -184,14 +184,17 @@ os.execv(sys.argv[2], sys.argv[2:])
         # would break terminal readability, NO_COLOR, or machine-readable I/O.
         cases = [
             ({}, True),
-            ({'DOTFILES_COLOR': 'always'}, True),
-            ({'DOTFILES_COLOR': 'never'}, False),
+            ({'CODING_AGENT_KIT_COLOR': 'always'}, True),
+            ({'CODING_AGENT_KIT_COLOR': 'never'}, False),
+            ({'CODING_AGENT_KIT_COLOR': 'invalid'}, True),
             ({'NO_COLOR': '1'}, False),
-            ({'NO_COLOR': '1', 'DOTFILES_COLOR': 'always'}, False),
+            ({'NO_COLOR': '1', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
             ({'TERM': 'dumb'}, False),
-            ({'TERM': 'dumb', 'DOTFILES_COLOR': 'always'}, False),
+            ({'TERM': 'dumb', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
+            # The dotfiles-era knob is no longer read.
+            ({'DOTFILES_COLOR': 'never'}, True),
         ]
-        baseline = {'TERM': 'xterm-256color', 'NO_COLOR': '', 'DOTFILES_COLOR': 'auto'}
+        baseline = {'TERM': 'xterm-256color', 'NO_COLOR': '', 'CODING_AGENT_KIT_COLOR': 'auto'}
         for tool in ('codex-as', 'claude-as'):
             for preferences, colored in cases:
                 with self.subTest(tool=tool, preferences=preferences):
@@ -200,7 +203,7 @@ os.execv(sys.argv[2], sys.argv[2:])
                     self.assertNotEqual(code, 0)
                     self.assertEqual(out, '')
                     self.assertEqual('\x1b[' in tty, colored)
-                    forced = env['DOTFILES_COLOR'] == 'always' and not env['NO_COLOR'] and env['TERM'] != 'dumb'
+                    forced = env['CODING_AGENT_KIT_COLOR'] == 'always' and not env['NO_COLOR'] and env['TERM'] != 'dumb'
                     self.assertEqual('\x1b[' in err, forced)
                     self.assertFalse((self.secret / ('codex-color-account.json' if tool == 'codex-as'
                                                     else 'claude-color-account')).exists())
@@ -214,15 +217,18 @@ os.execv(sys.argv[2], sys.argv[2:])
             self.assertNotIn(CLAUDE_TOKEN, tty + out + err)
 
     def test_help_and_errors_color_only_their_output_destination(self):
-        baseline = {'TERM': 'xterm-256color', 'NO_COLOR': '', 'DOTFILES_COLOR': 'auto'}
+        baseline = {'TERM': 'xterm-256color', 'NO_COLOR': '', 'CODING_AGENT_KIT_COLOR': 'auto'}
         for tool in ('codex-as', 'claude-as'):
             for args, style, expected_code in [(['--help'], '36', 0), (['invalid/name'], '31', 2 if tool == 'codex-as' else 1)]:
                 for attached, preferences, colored in [
                     (False, {}, False), (True, {}, True),
-                    (False, {'DOTFILES_COLOR': 'always'}, True),
-                    (True, {'DOTFILES_COLOR': 'never'}, False),
-                    (True, {'NO_COLOR': '1', 'DOTFILES_COLOR': 'always'}, False),
-                    (True, {'TERM': 'dumb', 'DOTFILES_COLOR': 'always'}, False),
+                    (False, {'CODING_AGENT_KIT_COLOR': 'always'}, True),
+                    (True, {'CODING_AGENT_KIT_COLOR': 'never'}, False),
+                    (True, {'NO_COLOR': '1', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
+                    (True, {'TERM': 'dumb', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
+                    # The dotfiles-era knob is no longer read.
+                    (False, {'DOTFILES_COLOR': 'always'}, False),
+                    (True, {'DOTFILES_COLOR': 'never'}, True),
                 ]:
                     with self.subTest(tool=tool, args=args, attached=attached, preferences=preferences):
                         code, out, err, tty = self.terminal(args, [], baseline | preferences,
@@ -239,14 +245,16 @@ os.execv(sys.argv[2], sys.argv[2:])
                             self.assertEqual(err, '')
                         else:
                             self.assertEqual(out, '')
-            # Account-list output feeds completion even when color is forced.
+            # Account-list output feeds completion even when color is forced: the
+            # launcher's listing and the helper that 0.1 completions still call.
             helper = self.home / '.local/lib' / tool / ('check.py' if tool == 'codex-as' else 'launch.py')
             query = 'accounts' if tool == 'codex-as' else '--list-accounts'
-            result = subprocess.run([sys.executable, '-I', '-B', str(helper), query],
-                                    env=self.env | baseline | {'DOTFILES_COLOR': 'always'},
-                                    capture_output=True, text=True, timeout=5)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertNotIn('\x1b', result.stdout + result.stderr)
+            for command in ([str(self.command_bin / tool), '--list-accounts'],
+                            [sys.executable, '-I', '-B', str(helper), query]):
+                result = subprocess.run(command, env=self.env | baseline | {'CODING_AGENT_KIT_COLOR': 'always'},
+                                        capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn('\x1b', result.stdout + result.stderr)
 
     def test_codex_enroll_continues_original_command_and_stdin(self):
         code, out, err, tty = self.terminal(['work', 'exec', '--json', 'login "two words"'],

@@ -4,28 +4,66 @@
 
 # Native Codex gets the caller's umask, variables, cwd and options; the Python
 # launcher writes its own files under umask 077.
-# Match the dotfiles terminal policy without changing native Codex output.
+# CODING_AGENT_KIT_COLOR=auto|always|never styles these messages, never native Codex output.
 _codex_as_message() {
     if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ] &&
-        { [ "${DOTFILES_COLOR:-auto}" = always ] ||
-            { [ "${DOTFILES_COLOR:-auto}" != never ] && [ -t "$2" ]; }; }; then
+        { [ "${CODING_AGENT_KIT_COLOR:-auto}" = always ] ||
+            { [ "${CODING_AGENT_KIT_COLOR:-auto}" != never ] && [ -t "$2" ]; }; }; then
         printf '\033[%sm%s\033[0m\n' "$1" "$3" >&"$2"
     else
         printf '%s\n' "$3" >&"$2"
     fi
 }
+# Set _codex_as_root to the kit, the physical bin/.. of this file after its
+# symlinks; readlink -f is not portable, and paths may contain spaces.
+_codex_as_locate() {
+    _codex_as_script=$0
+    case $_codex_as_script in
+        */*) ;;
+        *) [ -e "$_codex_as_script" ] || _codex_as_script=$(command -v "$_codex_as_script") || {
+            _codex_as_message 31 2 "codex-as: cannot find this launcher ($0) on PATH."
+            return 1
+        } ;;
+    esac
+    _codex_as_links=0
+    while [ -L "$_codex_as_script" ]; do
+        _codex_as_links=$((_codex_as_links + 1))
+        if [ "$_codex_as_links" -gt 40 ]; then
+            _codex_as_message 31 2 'codex-as: launcher symlink loop (more than 40 links); reinstall the helper.'
+            return 1
+        fi
+        _codex_as_dir=$(CDPATH='' cd -P -- "$(dirname -- "$_codex_as_script")" 2>/dev/null && pwd) &&
+            _codex_as_link=$(readlink "$_codex_as_script" 2>/dev/null) || {
+            _codex_as_message 31 2 "codex-as: cannot resolve the launcher link $_codex_as_script."
+            return 1
+        }
+        case $_codex_as_link in
+            /*) _codex_as_script=$_codex_as_link ;;
+            *) _codex_as_script=$_codex_as_dir/$_codex_as_link ;;
+        esac
+    done
+    _codex_as_root=$(CDPATH='' cd -P -- "$(dirname -- "$_codex_as_script")/.." 2>/dev/null && pwd) || {
+        _codex_as_message 31 2 "codex-as: cannot resolve the launcher directory of $_codex_as_script."
+        return 1
+    }
+}
 if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
+    # Help is plain shell: a lone copy without the kit still answers it.
+    _codex_as_docs=https://github.com/FridrichMethod/coding-agent-kit/blob/main/docs/account-launchers.md
+    if _codex_as_locate 2>/dev/null && [ -f "$_codex_as_root/docs/account-launchers.md" ]; then
+        _codex_as_docs=$_codex_as_root/docs/account-launchers.md
+    fi
     _codex_as_message '1;36' 1 'Usage: codex-as NAME [codex arguments...]'
     printf '%s\n' \
-        'Credentials: ~/.secrets/codex-NAME.json (complete JSON, owner-only 0600).' \
-        'Account home: ~/.codex/accounts/NAME; config/sessions/SQLite shared from ~/.codex.' \
+        'Credentials: <secrets_dir>/codex-NAME.json (default ~/.secrets; complete JSON, owner-only 0600).' \
+        'Account home: <codex_home>/accounts/NAME (default ~/.codex); config/sessions/SQLite shared from <codex_home>.' \
         'Forwards codex arguments after its own -c file-auth and sqlite_home flags; every command but' \
         'exec also gets -c check_for_update_on_startup=false and --no-daemon.' \
-        'Root help or version, help, update and completion run as plain codex in ~/.codex.' \
+        'Root help or version, help, update and completion run as plain codex in <codex_home>.' \
         'Refuses login (not login status), logout, agents, queue, app, daemon management' \
-        'and remote/provider/auth overrides; -p NAME uses ~/.codex/NAME.config.toml.' \
+        'and remote/provider/auth overrides; -p NAME uses <codex_home>/NAME.config.toml.' \
         'Missing account: confirm [y/N], device login in empty temporary home, save, launch.' \
-        'Root ~/.codex/auth.json stays native: codex-as never reads or changes it.' \
+        'Root <codex_home>/auth.json stays native: codex-as never reads or changes it.' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
         'Resume UUID: takes it over from the root daemon, asking only if it may be running.' \
         'resume --last: takes over the session it opens if idle; the picker: the idle sessions it lists.' \
@@ -34,24 +72,30 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
         'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit.' \
-        'Details and manual repair: ~/dotfiles/docs/account-launchers.md'
+        'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
+        "Details and manual repair: $_codex_as_docs"
     [ "$#" -gt 0 ] && exit 0
     exit 2
 fi
+_codex_as_locate || exit 1
 
-case $1 in
-    '' | -* | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
-        _codex_as_message 31 2 'codex-as: invalid account name (ASCII letters, digits, _ or -; no leading -).'
-        exit 2
-        ;;
-esac
+# --list-accounts and --show-config alone are the launcher's own metadata queries;
+# no account name starts with -.
+if [ "$#" -ne 1 ] || { [ "$1" != --list-accounts ] && [ "$1" != --show-config ]; }; then
+    case $1 in
+        '' | -* | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
+            _codex_as_message 31 2 'codex-as: invalid account name (ASCII letters, digits, _ or -; no leading -).'
+            exit 2
+            ;;
+    esac
+fi
 if ! command -v python3 >/dev/null 2>&1; then
     _codex_as_message 31 2 'codex-as: Python 3.11+ is required for local JSON and file checks.'
     exit 1
 fi
-_codex_as_launcher=$HOME/.local/lib/codex-as/launch.py
+_codex_as_launcher=$_codex_as_root/lib/codex-as/launch.py
 if [ ! -r "$_codex_as_launcher" ]; then
-    _codex_as_message 31 2 'codex-as: missing ~/.local/lib/codex-as/launch.py; reinstall the helper.'
+    _codex_as_message 31 2 "codex-as: incomplete install at $_codex_as_root (missing lib/codex-as/launch.py)"
     exit 1
 fi
 exec python3 -I -B "$_codex_as_launcher" "$@"
