@@ -45,7 +45,7 @@ if sys.argv[1:] == ['-c', 'cli_auth_credentials_store="file"', 'login', '--devic
     sys.exit(0)
 ''' + FAKE)
         self.env['FAKE_LOGIN_SEED'] = str(self.seed)
-        claude_source = ROOT / 'common/claude/.local'
+        claude_source = ROOT
         shutil.copy2(claude_source / 'bin/claude-as', self.command_bin / 'claude-as')
         if (claude_source / 'lib/claude-as').exists():
             shutil.copytree(claude_source / 'lib/claude-as', self.home / '.local/lib/claude-as')
@@ -91,11 +91,9 @@ sys.exit(int(os.environ.get('FAKE_EXIT', '0')))
 ''')
         claude.chmod(0o700)
         self.env.update(CLAUDE_FAKE_TOKEN=CLAUDE_TOKEN, FAKE_LOGIN_HOME=str(self.base / 'login-home'))
-        for tool in ('codex', 'claude'):
-            package = ROOT / f'common/{tool}'
-            for subdir in ('.oh-my-zsh/custom/completions', '.local/share/bash-completion/completions'):
-                if (package / subdir).exists():
-                    shutil.copytree(package / subdir, self.home / subdir, dirs_exist_ok=True)
+        for source, subdir in (('completions/zsh', '.oh-my-zsh/custom/completions'),
+                               ('completions/bash', '.local/share/bash-completion/completions')):
+            shutil.copytree(ROOT / source, self.home / subdir, dirs_exist_ok=True)
         for name in ('CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CONFIG_DIR',
                      'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'):
             self.env.pop(name, None)
@@ -376,7 +374,7 @@ os.execv(sys.argv[2], sys.argv[2:])
         self.assertFalse(self.record.exists(), 'completion launched the CLI')
 
     def test_capture_never_displays_incomplete_authorization_url(self):
-        path = ROOT / 'common/claude/.local/lib/claude-as/launch.py'
+        path = ROOT / 'lib/claude-as/launch.py'
         spec = importlib.util.spec_from_file_location('claude_capture', path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

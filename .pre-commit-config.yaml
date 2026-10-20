@@ -34,7 +34,7 @@ repos:
     hooks:
       - id: shellcheck
         args: [--severity=warning]
-        files: (\.sh$|/\.local/bin/(codex|claude)-as$|/bash-completion/completions/.*$)
+        files: (\.sh$|^bin/(codex|claude)-as$|^completions/bash/.*$)
         types: [file]
 
   - repo: https://github.com/scop/pre-commit-shfmt
@@ -42,14 +42,14 @@ repos:
     hooks:
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, bash]
-        files: (\.sh$|/\.local/bin/codex-as$|/bash-completion/completions/.*$)
+        files: (\.sh$|^bin/codex-as$|^completions/bash/.*$)
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, posix]
-        files: /\.local/bin/claude-as$
+        files: ^bin/claude-as$
         types: [file]
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, zsh]
-        files: /custom/completions/_[^/]+$
+        files: ^completions/zsh/_[^/]+$
         # The upstream hook selects the shell type, which identify does not
         # give the extension-less completions; every file the pattern names
         # is checked instead.
@@ -68,22 +68,22 @@ repos:
         entry: node --test tests/claude-customizations.cjs
         language: system
         pass_filenames: false
-        files: ^(common/claude/.*|tests/(claude-customizations\.cjs|fixtures/claude-settings\.json))$
+        files: ^(helpers/.*|tests/(claude-customizations\.cjs|fixtures/claude-settings\.json))$
       - id: codex-as
         name: Codex account views and native sharing (isolated Bash/zsh)
         entry: tests/codex-as.sh
         language: script
         pass_filenames: false
-        files: ^(common/codex/\.local/(bin/codex-as|lib/codex-as/.*)|tests/(codex-as\.sh|test_codex_as\.py|test_codex_sharing_native\.py|fixtures/(zsh|bash)_aliases))$
+        files: ^(bin/codex-as|lib/codex-as/.*|tests/(codex-as\.sh|test_codex_as\.py|test_codex_sharing_native\.py|fixtures/(zsh|bash)_aliases))$
       - id: account-enrollment
         name: account enrollment and completion (isolated HOME and native CLI fakes)
         entry: tests/account-enrollment.sh
         language: script
         pass_filenames: false
-        files: ^(common/(codex|claude)/.*|tests/(account-enrollment\.sh|test_account_enrollment\.py))$
+        files: ^(bin/.*|lib/.*|completions/.*|tests/(account-enrollment\.sh|test_account_enrollment\.py))$
       - id: test-entrypoints
         name: test entry points and dotfiles knob hygiene
         entry: tests/test-entrypoints.sh
         language: script
         pass_filenames: false
-        files: ^(tests/.*\.(sh|ps1)|lib/.*|common/.*)$
+        files: ^(tests/.*\.(sh|ps1)|bin/.*|lib/.*|completions/.*|helpers/.*)$

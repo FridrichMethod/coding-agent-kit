@@ -23,7 +23,7 @@ process.env.GIT_CONFIG_NOSYSTEM = '1';
 process.env.GIT_TEMPLATE_DIR = path.join(gitEnvironment, 'empty-template');
 fs.mkdirSync(process.env.GIT_TEMPLATE_DIR);
 
-const scripts = path.resolve(__dirname, '../common/claude/.claude/dotfiles');
+const scripts = path.resolve(__dirname, '../helpers');
 const { formatStatus, gitBranch } = require(path.join(scripts, 'statusline.cjs'));
 const { notification } = require(path.join(scripts, 'notify.cjs'));
 const { bypassReason } = require(path.join(scripts, 'check-git-hooks.cjs'));

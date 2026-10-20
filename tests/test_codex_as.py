@@ -29,7 +29,7 @@ from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "common/codex/.local"
+SOURCE = ROOT
 SHELLS = [shutil.which(name) for name in ("bash", "zsh") if shutil.which(name)]
 TOKENS = ["fabricated-sensitive-access-A", "fabricated-sensitive-access-B", "fabricated-refreshed-A",
           "fabricated-root-native-access"]

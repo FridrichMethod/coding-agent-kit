@@ -18,7 +18,7 @@ source-to-test behavior matrix instead.
 
 | Production target | Test | Covered behavior |
 | --- | --- | --- |
-| `common/claude/.claude/dotfiles/*.cjs` | `claude-customizations.cjs` | status-line fallbacks and Git branches, terminal notification routing and escaping, Git bypass blocks and allowed commands, portable launchers with spaced paths; desktop delivery needs an interactive terminal |
+| `helpers/*.cjs` | `claude-customizations.cjs` | status-line fallbacks and Git branches, terminal notification routing and escaping, Git bypass blocks and allowed commands, portable launchers with spaced paths; desktop delivery needs an interactive terminal |
 | `tests/run.sh`, `tests/run.ps1` and CI | `test-entrypoints.sh`, three native CI jobs | required dependencies fail visibly, local optional skips reported, native Windows job cannot run on Unix, every entry point unsets the same dotfiles knobs (covering each `DOTFILES_*`/`AWESOME_SKILLS_*` name in any tracked file outside tests, docs, `.github` and Markdown, in shell, PowerShell or Python spelling) and a suite passes under the provisioning exports |
 
 Desktop notification delivery still requires an interactive terminal.

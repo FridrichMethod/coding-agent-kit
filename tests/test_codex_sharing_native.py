@@ -29,7 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
 
-HELPERS = Path(__file__).resolve().parents[1] / "common/codex/.local/lib/codex-as"
+HELPERS = Path(__file__).resolve().parents[1] / "lib/codex-as"
 # The fixture config's offline model provider; native history filters by it.
 PROVIDER = "offline_fixture"
 
