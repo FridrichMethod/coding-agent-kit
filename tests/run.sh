@@ -13,16 +13,16 @@ trap '' PIPE
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+ci=0
 prerequisites_only=0
 for argument in "$@"; do
     case "$argument" in
-        # CI needs no tool beyond the required set: the real Stow cases
-        # stay in dotfiles. The option keeps the dotfiles command line.
-        --ci) ;;
+        # CI installs zsh, so its launcher and completion cases cannot skip there.
+        --ci) ci=1 ;;
         --check-prerequisites) prerequisites_only=1 ;;
         --help)
             printf 'Usage: %s [--ci] [--check-prerequisites]\n' "$0"
-            printf 'CI mode requires nothing more; local optional skips are reported.\n'
+            printf 'CI mode also requires zsh; local optional skips are reported.\n'
             exit 0
             ;;
         *)
@@ -40,7 +40,12 @@ for dependency in bash sh git python3 node; do
     fi
 done
 if ! command -v zsh >/dev/null 2>&1; then
-    printf 'SKIP: optional zsh launcher and completion checks (install zsh to enable).\n'
+    if [[ "$ci" == 1 ]]; then
+        printf 'ERROR: required test dependency not found: zsh (CI runs the zsh launcher and completion checks).\n' >&2
+        missing=1
+    else
+        printf 'SKIP: optional zsh launcher and completion checks (install zsh to enable).\n'
+    fi
 fi
 if ! command -v codex >/dev/null 2>&1; then
     printf 'SKIP: optional installed-Codex native sharing checks.\n'
@@ -55,9 +60,11 @@ node --test "$TEST_DIR/claude-customizations.cjs"
 
 tests=(
     test-entrypoints.sh
+    contract.sh
     config.sh
     codex-as.sh
     account-enrollment.sh
+    standalone-e2e.sh
 )
 
 for test_name in "${tests[@]}"; do

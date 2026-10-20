@@ -15,13 +15,33 @@ mkdir "$TEST_TMP/bin"
 for dependency in bash sh git python3 node dirname; do
     ln -s "$(command -v "$dependency")" "$TEST_TMP/bin/$dependency"
 done
-for mode in --ci ''; do
-    PATH="$TEST_TMP/bin" /bin/bash "$TEST_DIR/run.sh" ${mode:+"$mode"} --check-prerequisites \
-        >"$TEST_TMP/local.stdout" 2>"$TEST_TMP/local.stderr"
-    grep -Fq 'SKIP: optional zsh launcher and completion checks' "$TEST_TMP/local.stdout"
-    grep -Fq 'SKIP: optional installed-Codex native sharing checks' "$TEST_TMP/local.stdout"
-    grep -Fxq 'test-prerequisites=PASS' "$TEST_TMP/local.stdout"
-done
+PATH="$TEST_TMP/bin" /bin/bash "$TEST_DIR/run.sh" --check-prerequisites \
+    >"$TEST_TMP/local.stdout" 2>"$TEST_TMP/local.stderr"
+grep -Fq 'SKIP: optional zsh launcher and completion checks' "$TEST_TMP/local.stdout"
+grep -Fq 'SKIP: optional installed-Codex native sharing checks' "$TEST_TMP/local.stdout"
+grep -Fxq 'test-prerequisites=PASS' "$TEST_TMP/local.stdout"
+
+# CI installs zsh, so there its launcher and completion cases cannot skip.
+if PATH="$TEST_TMP/bin" /bin/bash "$TEST_DIR/run.sh" --ci --check-prerequisites \
+    >"$TEST_TMP/ci.stdout" 2>"$TEST_TMP/ci.stderr"; then
+    printf 'ERROR: CI tests accepted a missing zsh.\n' >&2
+    exit 1
+else
+    [[ "$?" == 1 ]]
+fi
+grep -Fq 'required test dependency not found: zsh' "$TEST_TMP/ci.stderr"
+if command -v zsh >/dev/null 2>&1; then
+    ln -s "$(command -v zsh)" "$TEST_TMP/bin/zsh"
+    PATH="$TEST_TMP/bin" /bin/bash "$TEST_DIR/run.sh" --ci --check-prerequisites \
+        >"$TEST_TMP/ci.stdout" 2>"$TEST_TMP/ci.stderr"
+    if grep -Fq zsh "$TEST_TMP/ci.stdout" "$TEST_TMP/ci.stderr"; then
+        printf 'ERROR: CI tests reported zsh although it is installed.\n' >&2
+        exit 1
+    fi
+    grep -Fq 'SKIP: optional installed-Codex native sharing checks' "$TEST_TMP/ci.stdout"
+    grep -Fxq 'test-prerequisites=PASS' "$TEST_TMP/ci.stdout"
+    rm "$TEST_TMP/bin/zsh"
+fi
 
 rm "$TEST_TMP/bin/node"
 if PATH="$TEST_TMP/bin" /bin/bash "$TEST_DIR/run.sh" --check-prerequisites \

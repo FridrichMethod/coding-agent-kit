@@ -37,22 +37,24 @@ repos:
         files: (\.sh$|^bin/(codex|claude)-as$|^completions/bash/.*$)
         types: [file]
 
+  # The upstream hook selects the shell type, which identify does not give the
+  # extension-less completions; each hook checks every file its pattern names
+  # instead.
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.14.1-1
     hooks:
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, bash]
         files: (\.sh$|^bin/codex-as$|^completions/bash/.*$)
+        exclude: ^install\.sh$
+        types: [file]
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, posix]
-        files: ^bin/claude-as$
+        files: ^(bin/claude-as|install\.sh)$
         types: [file]
       - id: shfmt
         args: [-w, -i, "4", -ci, -ln, zsh]
         files: ^completions/zsh/_[^/]+$
-        # The upstream hook selects the shell type, which identify does not
-        # give the extension-less completions; every file the pattern names
-        # is checked instead.
         types: [file]
 
   - repo: local
@@ -92,4 +94,16 @@ repos:
         entry: tests/test-entrypoints.sh
         language: script
         pass_filenames: false
-        files: ^(tests/(.*\.(sh|ps1)|test_config\.py)|bin/.*|lib/.*|completions/.*|helpers/.*)$
+        files: ^(tests/(.*\.(sh|ps1)|test_config\.py)|bin/.*|lib/.*|completions/.*|helpers/.*|install\.sh)$
+      - id: contract
+        name: public contract (paths, modes, no symlinks, CI job names)
+        entry: tests/contract.sh
+        language: script
+        pass_filenames: false
+        files: ^(bin/.*|lib/.*|completions/.*|helpers/.*|docs/.*|install\.sh|\.github/workflows/ci\.yml|tests/(contract\.sh|claude-customizations\.cjs|fixtures/claude-settings\.json))$
+      - id: standalone-e2e
+        name: standalone install and launchers without dotfiles (temporary HOME, fakes)
+        entry: tests/standalone-e2e.sh
+        language: script
+        pass_filenames: false
+        files: ^(install\.sh|bin/.*|lib/.*|completions/.*|docs/account-launchers\.md|tests/standalone-e2e\.sh)$

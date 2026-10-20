@@ -25,8 +25,19 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
+      # --ci requires zsh for the zsh launcher and completion cases; dash, the
+      # image's /bin/sh, runs install.sh in the standalone end-to-end test,
+      # and GNU Stow builds its folded Stow layouts. standalone-e2e.sh skips
+      # those cases without Stow, so the step fails unless their heading is in
+      # the output; `shell: bash` adds pipefail, so a failing run.sh fails too.
+      - name: Install zsh and GNU Stow
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends zsh stow
       - name: Run behavior tests with required CI prerequisites
-        run: /bin/bash ./tests/run.sh --ci
+        shell: bash
+        run: |
+          /bin/bash ./tests/run.sh --ci | tee "$RUNNER_TEMP/tests.log"
+          grep -Fqx '==> refusals: destinations in directories GNU Stow folded into another repository' "$RUNNER_TEMP/tests.log" ||
+            { echo '::error::standalone-e2e.sh skipped its folded Stow cases.'; exit 1; }
       # The same steps pre-commit/action@v3.0.1 runs, without its unmaintained
       # actions/cache@v4 pin (Node 20). Same cache path and key.
       - name: Install pre-commit
@@ -62,7 +73,12 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - name: Run behavior tests with system Bash and BSD utilities
+      # macOS ships zsh, which --ci requires; install it only if the image lacks it.
+      - name: Check for zsh
+        run: command -v zsh || brew install zsh
+      # The tests run under /bin/bash 3.2, and the standalone end-to-end test
+      # runs install.sh under /bin/sh and drives the launchers through its links.
+      - name: Run behavior tests with system Bash, /bin/sh and BSD utilities
         run: /bin/bash ./tests/run.sh --ci
       - name: Check that tests left no file behind
         run: |
@@ -80,9 +96,7 @@ jobs:
       # The runner's default core.autocrlf stays on, so the LF check below
       # proves .gitattributes, not a runner setting.
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
+      # run.ps1 runs only the Node suite of the Claude Code helpers.
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
