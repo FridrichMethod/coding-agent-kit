@@ -355,8 +355,11 @@ class CodexAs(unittest.TestCase):
         flags = ["-f"] if Path(shell).name == "zsh" else ["--noprofile", "--norc"]
         command = [shell, *flags, "-c", setup + 'command codex-as "$@"',
                    "codex-as-test", *args]
+        # A new session has no controlling terminal, so /dev/tty prompts fail
+        # fast as they do in CI instead of waiting on the caller's terminal.
         result = subprocess.run(command, cwd=self.cwd, env=self.env | (env or {}),
-                                input=input, text=True, capture_output=True, timeout=10)
+                                input=input, text=True, capture_output=True, timeout=10,
+                                start_new_session=True)
         for token in (*TOKENS, "fabricated-new-refresh-A", "fabricated-conflict-secret"):
             if token in result.stdout + result.stderr:
                 self.fail("secret appeared in output (values hidden)")
