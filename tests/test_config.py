@@ -48,16 +48,16 @@ with open(os.environ["FAKE_RECORD"], "a") as stream:
     stream.write(json.dumps(record) + "\n")
 print("stdout sentinel")
 '''
-PACKAGES = (  # dotfiles package path (from common/) and kit path, as dotfiles links them
-    ("codex/.local/bin/codex-as", "bin/codex-as"),
-    *((f"codex/.local/lib/codex-as/{name}.py", f"lib/codex-as/{name}.py")
+PACKAGES = (  # dotfiles' coding-agent-kit package path (from common/) and kit path, as dotfiles links them
+    ("coding-agent-kit/.local/bin/codex-as", "bin/codex-as"),
+    *((f"coding-agent-kit/.local/lib/codex-as/{name}.py", f"lib/codex-as/{name}.py")
       for name in ("launch", "check", "layout", "handoff")),
-    ("codex/.local/share/bash-completion/completions/codex-as", "completions/bash/codex-as"),
-    ("codex/.oh-my-zsh/custom/completions/_codex-as", "completions/zsh/_codex-as"),
-    ("claude/.local/bin/claude-as", "bin/claude-as"),
-    ("claude/.local/lib/claude-as/launch.py", "lib/claude-as/launch.py"),
-    ("claude/.local/share/bash-completion/completions/claude-as", "completions/bash/claude-as"),
-    ("claude/.oh-my-zsh/custom/completions/_claude-as", "completions/zsh/_claude-as"),
+    ("coding-agent-kit/.local/share/bash-completion/completions/codex-as", "completions/bash/codex-as"),
+    ("coding-agent-kit/.oh-my-zsh/custom/completions/_codex-as", "completions/zsh/_codex-as"),
+    ("coding-agent-kit/.local/bin/claude-as", "bin/claude-as"),
+    ("coding-agent-kit/.local/lib/claude-as/launch.py", "lib/claude-as/launch.py"),
+    ("coding-agent-kit/.local/share/bash-completion/completions/claude-as", "completions/bash/claude-as"),
+    ("coding-agent-kit/.oh-my-zsh/custom/completions/_claude-as", "completions/zsh/_claude-as"),
 )
 
 spec = importlib.util.spec_from_file_location("kit_config_under_test", ROOT / "lib/coding-agent-kit/config.py")
@@ -672,10 +672,11 @@ class Launchers(unittest.TestCase):
                        "refresh_token": "fabricated-refresh-" + name, "account_id": name}}))
 
     def linked_home(self, home):
-        """A dotfiles host: HOME/X -> (Stow, relative) package X -> (relative) kit file; two hops."""
+        """A dotfiles host: HOME/X -> (Stow, relative) package X -> (relative) kit file; two hops.
+        The kit is the checkout at the root of dotfiles' own coding-agent-kit package."""
         self.make_home(home)
         common = home / "dotfiles/common"
-        kit = install(common / "codex/coding-agent-kit", ("bin", "lib", "docs", "completions"))
+        kit = install(common / "coding-agent-kit/coding-agent-kit", ("bin", "lib", "docs", "completions"))
         for package, target in PACKAGES:
             link = common / package
             link.parent.mkdir(parents=True, exist_ok=True)
