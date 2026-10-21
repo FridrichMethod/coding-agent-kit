@@ -14,6 +14,9 @@ Public API (load this file by path; it is never on sys.path):
         claude       str: the claude executable, the same rule
         codex_home   Path, absolute; the account root is codex_home / "accounts"
         secrets_dir  Path, absolute; neither equal to codex_home nor nested with it
+        state_dir    Path, absolute: $XDG_STATE_HOME/coding-agent-kit when XDG_STATE_HOME
+                     is absolute, else $HOME/.local/state/coding-agent-kit; the
+                     launchers keep the account metadata cache under it. Not a key.
         warnings     tuple of "<file>: unknown key <key> ignored", one per unknown key
         expand(path) -> Path: Path(path).expanduser() with this run's HOME
         which(key) -> str | None: shutil.which() of the "codex" or "claude" value
@@ -68,6 +71,7 @@ class Config:
     claude: str
     codex_home: Path
     secrets_dir: Path
+    state_dir: Path
     warnings: tuple = ()
 
     def expand(self, path):
@@ -277,5 +281,10 @@ def load():
         raise ConfigError(f"{path}: secrets_dir: must not be inside codex_home.")
     if secrets in root.parents:
         raise ConfigError(f"{path}: codex_home: must not be inside secrets_dir.")
+    xdg = Path(os.environ.get("XDG_STATE_HOME", ""))
+    state = (xdg if xdg.is_absolute() else home / ".local/state") / "coding-agent-kit"
+    # Metadata files carry the Codex credentials' names (codex-NAME.json).
+    if single(state / "accounts") == secrets:
+        raise ConfigError(f"{path}: secrets_dir: must differ from the account metadata directory {state / 'accounts'}.")
     source = f"from {VARIABLE}" if explicit else "found" if raw is not None else "not found; defaults"
-    return Config(path, source, home, warnings=tuple(warnings), **values)
+    return Config(path, source, home, state_dir=state, warnings=tuple(warnings), **values)

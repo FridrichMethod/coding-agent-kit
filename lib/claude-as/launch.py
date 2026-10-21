@@ -1,6 +1,7 @@
 """Small native-login adapter; no OAuth endpoints, refresh, logs or credential output."""
 
 import codecs
+import hashlib
 import importlib.util
 import json
 import os
@@ -12,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import termios
+import time
 from urllib.parse import urlsplit
 
 
@@ -343,27 +345,108 @@ def save(path, token):
         raise
 
 
-def kit_config():
-    """lib/coding-agent-kit/config.py by path, from the real file, loaded after the version check."""
+def kit_module(name):
+    """lib/coding-agent-kit/NAME.py by path, from the real file, loaded after the version check."""
     lib = Path(os.path.realpath(__file__)).parent.parent
-    spec = importlib.util.spec_from_file_location("claude_as_config", lib / "coding-agent-kit/config.py")
+    spec = importlib.util.spec_from_file_location("claude_as_" + name, lib / f"coding-agent-kit/{name}.py")
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
     except (OSError, ImportError, SyntaxError):
         fail(f"incomplete install at {lib.parent}")
-    config = module.load()
+    return module
+
+
+def kit_config():
+    config = kit_module("config").load()
     for warning in config.warnings:
         print(styled("claude-as: " + warning, "33", 2), file=sys.stderr)
     return config
 
 
+def ask_label(tty, metadata):
+    """An optional label, asked after the confirmation and before any token exists."""
+    for _ in range(3):
+        tty.write("Label for this account (optional, e.g. your email): ")
+        label = tty.read().strip()
+        problem = metadata.label_problem(label)
+        if not problem:
+            return label or None
+        tty.write(f"Label refused: {problem}.\n", "33")
+    tty.write("No label saved; set one later with claude-as --set-label.\n", "33")
+    return None
+
+
+def save_label(config, metadata, account, label):
+    """Best effort after the token is saved: a label problem never loses the token."""
+    try:
+        metadata.write(metadata.directory(config, create=True) / f"claude-{account}.json", {"label": label})
+    except (OSError, ValueError):
+        print(styled("claude-as: the label was not saved; set it with claude-as --set-label.", "33", 2), file=sys.stderr)
+
+
+def set_label(config, metadata, args):
+    """claude-as --set-label NAME [LABEL]: metadata only; an empty label clears it."""
+    name = args[0]
+    if not NAME.fullmatch(name) or name.startswith("-"):
+        fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
+    if name not in accounts(config.secrets_dir, config):
+        fail(f"no account {name}; run claude-as {name} to create it.")
+    if len(args) == 2:
+        label = args[1].strip()
+    else:
+        tty = Terminal()
+        try:
+            tty.write(f"Label for account {name} (empty clears it): ")
+            label = tty.read().strip()
+        finally:
+            tty.close()
+    problem = metadata.label_problem(label)
+    if problem:
+        fail(f"label refused: {problem}.")
+    path = metadata.directory(config, create=True) / f"claude-{name}.json"
+    if label:
+        metadata.write(path, {"label": label})
+    elif os.path.lexists(path):
+        path.unlink()
+    print(styled(f"claude-as: label of {name} {'set' if label else 'cleared'}.", "32", 2), file=sys.stderr)
+
+
+def usage_environment(env, config, metadata, account, token):
+    """The status line helper records this account's last rate limits through these, and
+    only while the token it runs under hashes to the same identifier."""
+    for name in ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID"):
+        env.pop(name, None)
+    try:
+        folder = metadata.directory(config, create=True)
+    except (OSError, ValueError):
+        return
+    env["CODING_AGENT_KIT_USAGE_FILE"] = str(folder / f"claude-{account}.usage.json")
+    env["CODING_AGENT_KIT_TOKEN_ID"] = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
+
+
 def main():
     config = kit_config()
     secret = config.secrets_dir
-    if sys.argv[1:] in (["--list-accounts"], ["--show-config"]):
-        # Metadata only: no preflight, no directories and no native CLI.
-        text = "\n".join(accounts(secret, config)) if sys.argv[1] == "--list-accounts" else config.show("claude-as")
+    args = sys.argv[1:]
+    if args in (["--list-accounts"], ["--show-config"], ["--account-labels"]) or (
+            len(args) == 2 and args[0] == "--account-info") or (args[:1] == ["--set-label"] and len(args) in (2, 3)):
+        # Metadata only: no preflight, no native CLI, and never a token read.
+        metadata = kit_module("accounts")
+        if args[0] == "--set-label":
+            set_label(config, metadata, args[1:])
+            return
+        if args[0] == "--account-info":
+            name = args[1]
+            if not NAME.fullmatch(name) or name.startswith("-"):
+                fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
+            if name not in accounts(secret, config):
+                fail(f"no account {name}.")
+            text = metadata.info("claude-as", name, config, time.time())
+        elif args[0] == "--account-labels":
+            text = "\n".join(metadata.labels("claude-as", accounts(secret, config), config))
+        else:
+            text = "\n".join(accounts(secret, config)) if args[0] == "--list-accounts" else config.show("claude-as")
         if text:
             print(text)
         return
@@ -398,16 +481,22 @@ def main():
         try:
             tty.write("Existing accounts: " + (", ".join(accounts(secret, config)) or "(none)") + "\n")
             tty.confirm(f"Account {account} does not exist. Login and save a new account?")
+            metadata = kit_module("accounts")
+            label = ask_label(tty, metadata)
             token = enroll(executable, tty)
             secret.mkdir(mode=0o700, exist_ok=True)
             directory(secret, config)
             save(target, token)
             tty.write(f"Credentials saved for account {account}.\n", "32")
+            if label:
+                save_label(config, metadata, account, label)
         finally:
             tty.close()
     else:
         token = read_secret(target)
+        metadata = kit_module("accounts")
     env = os.environ.copy()
+    usage_environment(env, config, metadata, account, token)
     env["CLAUDE_CODE_OAUTH_TOKEN"] = token
     os.execve(executable, [executable, *args], env)
 

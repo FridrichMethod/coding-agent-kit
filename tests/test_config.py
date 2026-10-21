@@ -195,6 +195,18 @@ class Loader(unittest.TestCase):
                          ("from-explicit", explicit, "from CODING_AGENT_KIT_CONFIG"))
         self.assertEqual(self.load(CODING_AGENT_KIT_CONFIG="").codex, "from-home")
 
+    def test_state_dir_follows_an_absolute_xdg_state_home(self):
+        # The account metadata cache; not a key, so a configuration file cannot move it.
+        default = self.home / ".local/state/coding-agent-kit"
+        self.assertEqual(self.load().state_dir, default)
+        state = self.base / "xdg state"
+        self.assertEqual(self.load(XDG_STATE_HOME=str(state)).state_dir, state / "coding-agent-kit")
+        for value in ("relative/state", ""):
+            self.assertEqual(self.load(XDG_STATE_HOME=value).state_dir, default)
+        write(self.file, 'state_dir = "/elsewhere"\n')
+        loaded = self.load()
+        self.assertEqual((loaded.state_dir, loaded.warnings), (default, (f"{self.file}: unknown key state_dir ignored",)))
+
     def test_explicit_file_must_be_absolute_and_exist(self):
         self.assertEqual(self.fails(CODING_AGENT_KIT_CONFIG="relative.toml"),
                          "relative.toml: CODING_AGENT_KIT_CONFIG must be an absolute path.")
@@ -583,6 +595,23 @@ class Loader(unittest.TestCase):
         write(self.file, 'codex_home = "~/a"\nsecrets_dir = "~/ab"\n')  # a prefix, not a parent
         self.assertEqual(self.load().secrets_dir, self.home / "ab")
 
+    def test_secrets_dir_is_never_the_metadata_directory(self):
+        # The metadata files are named like the Codex credentials (codex-NAME.json), so one
+        # directory for both would let a launch replace a login with its metadata.
+        default, moved = self.home / ".local/state/coding-agent-kit/accounts", self.home / "x/coding-agent-kit/accounts"
+        for secrets_dir, env, accounts in (("~/.local/state/coding-agent-kit/accounts", {}, default),
+                                           ("~/.local/state/coding-agent-kit/accounts/", {}, default),
+                                           (f"/{self.home}/.local/state//coding-agent-kit/accounts", {}, default),
+                                           ("~/x/coding-agent-kit/accounts", {"XDG_STATE_HOME": str(self.home / "x")}, moved)):
+            with self.subTest(secrets_dir=secrets_dir, env=env):
+                write(self.file, f'secrets_dir = "{secrets_dir}"\n')
+                self.assertEqual(self.fails(**env),
+                                 f"{self.file}: secrets_dir: must differ from the account metadata directory {accounts}.")
+        # Above or below it, each file keeps its own name.
+        for secrets_dir in ("~/.local/state/coding-agent-kit", "~/.local/state/coding-agent-kit/accounts/secrets"):
+            write(self.file, f'secrets_dir = "{secrets_dir}"\n')
+            self.assertEqual(self.load().secrets_dir, config.place(self.home, secrets_dir))
+
     def test_a_leading_double_slash_is_the_root(self):
         # pathlib keeps exactly two leading slashes as their own root; Linux and macOS read them as /.
         for codex_home, secrets_dir, reason in (
@@ -875,6 +904,9 @@ class Launchers(unittest.TestCase):
 
     def test_metadata_queries_start_nothing_and_ignore_launch_policy(self):
         shutil.rmtree(self.home / ".codex")
+        # Safe but unusable credentials: a query that opened one would fail.
+        write(self.home / ".secrets/codex-A.json", "not JSON")
+        write(self.home / ".secrets/claude-work", "not a token\n")
         before = snapshot(self.home)
         # Conflicting variables stop a launch in preflight; the queries never run it.
         env = {"OPENAI_API_KEY": "fabricated-access-conflict", "CLAUDE_CODE_OAUTH_TOKEN": "fabricated-access-conflict",
@@ -891,14 +923,33 @@ class Launchers(unittest.TestCase):
                 if tool == "codex-as":
                     expected.append(f"codex_home = {self.home}/.codex")
                 self.assertEqual(result.stdout.splitlines(), [*expected, f"secrets_dir = {self.home}/.secrets"])
+                # Account metadata: read only from the state directory, which none of these creates.
+                name = names.strip()
+                label = "codex-A.json" if tool == "codex-as" else "claude-work.json"
+                result = self.run_tool([self.kit / "bin" / tool, "--account-labels"], env)
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (0, names, ""))
+                result = self.run_tool([self.kit / "bin" / tool, "--account-info", name], env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.splitlines()[0], f"{name} ({'Codex' if tool == 'codex-as' else 'Claude'})")
+                self.assertIn("not recorded yet", result.stdout)
+                result = self.run_tool([self.kit / "bin" / tool, "--account-info", "missing"], env)
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (1, "", f"{tool}: no account missing.\n"))
+                self.assertFalse(os.path.lexists(self.home / ".local/state"), label)
         self.assertEqual(snapshot(self.home), before, "a metadata query wrote to HOME")
         self.assertEqual(self.records(), [], "a metadata query started a native CLI")
-        # Only alone: with more arguments the option is an invalid codex-as account name.
-        for args in (["--list-accounts", "x"], ["--show-config", "--show-config"]):
+        # Only alone, or --account-info with one name: with other arguments the
+        # option is an invalid codex-as account name.
+        for args in (["--list-accounts", "x"], ["--show-config", "--show-config"], ["--account-labels", "A"],
+                     ["--account-info"], ["--account-info", "A", "x"], ["--account-info", "-A"]):
             result = self.run_tool([self.kit / "bin/codex-as", *args])
-            self.assertEqual(result.returncode, 2)
+            self.assertEqual(result.returncode, 2, args)
+            self.assertIn("invalid account name", result.stderr)
+        for args in (["--account-info"], ["--account-info", "work", "x"], ["--account-info", "-x"]):
+            result = self.run_tool([self.kit / "bin/claude-as", *args])
+            self.assertEqual(result.returncode, 1, args)
             self.assertIn("invalid account name", result.stderr)
         self.assertEqual(self.run_tool([self.kit / "bin/codex-as", "--list-account"]).returncode, 2)
+        self.assertEqual(self.records(), [])
 
     def completion(self, shell, tool, home, env=None):
         env = (env or {}) | {"HOME": str(home), "PATH": os.pathsep.join((str(home / ".local/bin"), self.env["PATH"]))}
@@ -965,6 +1016,23 @@ class Launchers(unittest.TestCase):
                     for shell in shells:
                         result = self.completion(shell, tool, linked)
                         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, name + "\n", ""), shell)
+        self.assertEqual(self.records(), [])
+
+    @unittest.skipUnless(shutil.which("zsh"), "zsh not installed")
+    def test_zsh_completion_describes_accounts_by_their_email_or_label(self):
+        linked = self.base / "linked home"
+        self.linked_home(linked)
+        state = linked / ".local/state/coding-agent-kit/accounts"
+        state.mkdir(parents=True, mode=0o700)
+        write(state / "codex-A.json", json.dumps({"email": "alice@example.com"}))
+        write(state / "claude-work.json", json.dumps({"label": "Work: billing"}))
+        for tool, expected in (("codex-as", "A:alice@example.com\n"), ("claude-as", "work:Work: billing\n")):
+            with self.subTest(tool=tool):
+                result = self.completion("zsh", tool, linked)
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (0, expected, ""))
+                # Bash completes bare names.
+                result = self.completion("bash", tool, linked)
+                self.assertEqual(result.stdout, expected.split(":")[0] + "\n")
         self.assertEqual(self.records(), [])
 
     def alternate_secrets(self, home):
@@ -1149,8 +1217,8 @@ class Launchers(unittest.TestCase):
                 self.assertEqual(self.golden(variant), expected)
 
     def test_kit_code_reads_home_only_through_the_loader(self):
-        reads = re.compile(r'os\.environ\[["\']HOME["\']\]|environ\.get\(["\']HOME["\']|getenv\(["\']HOME["\']'
-                           r'|Path\.home\(\)|expanduser')
+        reads = re.compile(r'os\.environ\[["\'](?:XDG_STATE_)?HOME["\']\]|environ\.get\(["\'](?:XDG_STATE_)?HOME["\']'
+                           r'|getenv\(["\'](?:XDG_STATE_)?HOME["\']|Path\.home\(\)|expanduser')
         python = [path for path in ROOT.glob("lib/**/*.py") if path != ROOT / "lib/coding-agent-kit/config.py"]
         self.assertGreaterEqual(len(python), 5)
         for path in python:
@@ -1158,7 +1226,7 @@ class Launchers(unittest.TestCase):
                 self.assertEqual(reads.findall(path.read_text()), [])
         for path in (*ROOT.glob("bin/*"), *ROOT.glob("completions/*/*")):
             with self.subTest(path=path.relative_to(ROOT)):
-                self.assertEqual(re.findall(r"\$\{?HOME\b", path.read_text()), [])
+                self.assertEqual(re.findall(r"\$\{?(?:XDG_STATE_)?HOME\b", path.read_text()), [])
 
 
 if __name__ == "__main__":

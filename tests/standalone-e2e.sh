@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Hermetic: a caller's kit configuration, colour choice and XDG directories
 # never reach the code under test; each case sets what it needs.
-unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR XDG_CONFIG_HOME NO_COLOR
+unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -P -- "$TEST_DIR/.." && pwd)"
@@ -282,6 +282,25 @@ run list-codex codex-as --list-accounts
 expect list-codex 0 A
 run list-claude claude-as --list-accounts
 expect list-claude 0 work
+# Account metadata through the installed links: offline, from the state
+# directory only, which a query never creates.
+BEFORE="$(snapshot "$H")"
+run labels-codex codex-as --account-labels
+expect labels-codex 0 A
+run labels-claude claude-as --account-labels
+expect labels-claude 0 work
+run info-codex codex-as --account-info A
+expect info-codex 0 "A (Codex)
+email   not recorded yet
+plan    not recorded yet
+usage   not recorded yet"
+run info-claude claude-as --account-info work
+expect info-claude 0 "work (Claude)
+label   not set (claude-as --set-label work LABEL)
+usage   not recorded yet"
+run info-missing codex-as --account-info B
+expect info-missing 1 '' 'codex-as: no account B.'
+[[ "$(snapshot "$H")" == "$BEFORE" && ! -s "$RECORD" ]] || die 'an account query wrote to HOME or started a CLI'
 completions A work
 : >"$RECORD"
 run launch-codex codex-as A exec hello

@@ -89,6 +89,12 @@ repos:
         language: script
         pass_filenames: false
         files: ^(bin/.*|lib/.*|completions/.*|docs/account-launchers\.md|tests/(config\.sh|test_config\.py|test_codex_as\.py))$
+      - id: account-info
+        name: account metadata, Codex usage scan and queries (isolated HOME and fakes)
+        entry: tests/account-info.sh
+        language: script
+        pass_filenames: false
+        files: ^(bin/.*|lib/.*|tests/(account-info\.sh|test_account_info\.py))$
       - id: test-entrypoints
         name: test entry points and kit knob hygiene
         entry: tests/test-entrypoints.sh

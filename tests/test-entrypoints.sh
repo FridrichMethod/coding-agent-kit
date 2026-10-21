@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Hermetic: a caller's kit configuration, colour choice and XDG directories
 # never reach the code under test; each case sets what it needs.
-unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR XDG_CONFIG_HOME NO_COLOR
+unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TEST_TMP="$(mktemp -d "${TMPDIR:-/tmp}/kit-test-entrypoints.XXXXXX")"
@@ -76,7 +76,7 @@ case $KNOBS in
         exit 1
         ;;
 esac
-for knob in XDG_CONFIG_HOME NO_COLOR; do
+for knob in XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR; do
     if [[ " $KNOBS " != *" $knob "* ]]; then
         printf 'ERROR: tests/run.sh does not unset %s, which the launchers read.\n' "$knob" >&2
         exit 1

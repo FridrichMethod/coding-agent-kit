@@ -82,14 +82,46 @@ def shared_sqlite(guard, root, cwd, profile=None):
     return result
 
 
+def claims(data):
+    """The id_token payload of a ChatGPT login (decoded, never verified)."""
+    token = data["tokens"]["id_token"].split(".")[1]
+    return json.loads(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
+
+
 def identity(raw):
     data = json.loads(raw)
     if data.get("tokens") is None:
         return ("apikey", data.get("OPENAI_API_KEY"))
-    token = data["tokens"]["id_token"].split(".")[1]
-    payload = json.loads(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
+    payload = claims(data)
     auth = payload.get("https://api.openai.com/auth", {})
     return ("chatgpt", payload.get("sub"), auth.get("chatgpt_user_id"))
+
+
+def text(value):
+    return value if isinstance(value, str) and value else None
+
+
+def profile(raw):
+    """(email, plan) of a login for --account-info; an API-key login has no email."""
+    data = json.loads(raw)
+    if data.get("tokens") is None:
+        return None, "API key"
+    payload = claims(data)
+    auth = payload.get("https://api.openai.com/auth") or {}
+    named = payload.get("https://api.openai.com/profile") or {}
+    email = text(payload.get("email")) or (text(named.get("email")) if isinstance(named, dict) else None)
+    return email, text(auth.get("chatgpt_plan_type")) if isinstance(auth, dict) else None
+
+
+def owner(raw):
+    """(ChatGPT user, workspace) as native Codex records a thread's creator, or None."""
+    data = json.loads(raw)
+    if data.get("tokens") is None:
+        return None
+    auth = claims(data).get("https://api.openai.com/auth") or {}
+    user = text(auth.get("chatgpt_user_id")) or text(auth.get("user_id")) if isinstance(auth, dict) else None
+    account = text(data["tokens"].get("account_id"))
+    return (user, account) if user and account else None
 
 
 def same_identity(left, right):

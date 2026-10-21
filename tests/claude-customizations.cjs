@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -13,6 +14,13 @@ const { after, test } = require('node:test');
 for (const key of Object.keys(process.env)) {
   if (key.startsWith('GIT_')) delete process.env[key];
 }
+// claude-as hands its status line these; a caller's session must not let a
+// fixture run record into the caller's own usage file.
+for (const key of Object.keys(process.env)) {
+  if (key.startsWith('CODING_AGENT_KIT_') || key === 'CLAUDE_CODE_OAUTH_TOKEN' || key === 'XDG_STATE_HOME') {
+    delete process.env[key];
+  }
+}
 // Git for Windows rejects Node's device path (\\.\nul) as a config file.
 // A regular empty file and directory work consistently on every platform.
 const gitEnvironment = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-git-env-'));
@@ -24,7 +32,7 @@ process.env.GIT_TEMPLATE_DIR = path.join(gitEnvironment, 'empty-template');
 fs.mkdirSync(process.env.GIT_TEMPLATE_DIR);
 
 const scripts = path.resolve(__dirname, '../helpers');
-const { formatStatus, gitBranch } = require(path.join(scripts, 'statusline.cjs'));
+const { formatStatus, gitBranch, recordUsage } = require(path.join(scripts, 'statusline.cjs'));
 const { notification } = require(path.join(scripts, 'notify.cjs'));
 const { bypassReason } = require(path.join(scripts, 'check-git-hooks.cjs'));
 const settings = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/claude-settings.json'), 'utf8'));
@@ -176,4 +184,104 @@ test('portable launchers resolve stowed helpers through a home path containing s
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
+});
+
+const posixOnly = { skip: process.platform === 'win32' && 'claude-as and its usage file are POSIX-only' };
+const fabricatedToken = 'sk-ant-oat01-' + 'fabricated-sensitive-statusline-'.repeat(3);
+const usageInput = (five, seven) => ({ rate_limits: {
+  five_hour: { used_percentage: five, resets_at: 1767276000 },
+  seven_day: { used_percentage: seven, resets_at: 1767600000 },
+} });
+
+function usageFixture(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-usage-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const folder = path.join(root, 'accounts');
+  fs.mkdirSync(folder, { mode: 0o700 });
+  fs.chmodSync(folder, 0o700);
+  const file = path.join(folder, 'claude-work.usage.json');
+  const env = {
+    CODING_AGENT_KIT_USAGE_FILE: file,
+    CODING_AGENT_KIT_TOKEN_ID: crypto.createHash('sha256').update(fabricatedToken).digest('hex').slice(0, 16),
+    CLAUDE_CODE_OAUTH_TOKEN: fabricatedToken,
+  };
+  return { root, folder, file, env };
+}
+
+test('status line records the last rate limits for the claude-as account it runs under', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  assert.equal(recordUsage(usageInput(23.5, 41), env, 1767268800000), true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), {
+    five_hour: { used_percentage: 23.5, resets_at: 1767276000 },
+    seven_day: { used_percentage: 41, resets_at: 1767600000 },
+    seen_at: 1767268800,
+  });
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  assert.ok(!fs.readFileSync(file, 'utf8').includes('fabricated'), 'the token reached the usage file');
+  // Unchanged values are written again only after five minutes; changed ones at once.
+  assert.equal(recordUsage(usageInput(23.5, 41), env, 1767268800000 + 299000), false);
+  assert.equal(recordUsage(usageInput(23.5, 41), env, 1767268800000 + 301000), true);
+  assert.equal(recordUsage(usageInput(24, 41), env, 1767268800000 + 302000), true);
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).five_hour.used_percentage, 24);
+  assert.deepEqual(fs.readdirSync(folder), ['claude-work.usage.json'], 'a temporary file was left');
+  // Any account name claude-as accepts, however long.
+  const long = path.join(folder, `claude-${'n'.repeat(120)}.usage.json`);
+  assert.equal(recordUsage(usageInput(5, 6), { ...env, CODING_AGENT_KIT_USAGE_FILE: long }, 1767268800000), true);
+});
+
+test('status line records nothing without a matching token, a safe path or valid numbers', posixOnly, (t) => {
+  const { root, folder, file, env } = usageFixture(t);
+  const refused = [
+    {},
+    { ...env, CLAUDE_CODE_OAUTH_TOKEN: undefined },
+    { ...env, CLAUDE_CODE_OAUTH_TOKEN: fabricatedToken + 'x' },
+    { ...env, CODING_AGENT_KIT_TOKEN_ID: undefined },
+    { ...env, CODING_AGENT_KIT_USAGE_FILE: 'accounts/claude-work.usage.json' },
+    { ...env, CODING_AGENT_KIT_USAGE_FILE: path.join(folder, 'codex-work.json') },
+    { ...env, CODING_AGENT_KIT_USAGE_FILE: path.join(folder, 'claude-../x.usage.json') },
+  ];
+  for (const candidate of refused) {
+    assert.equal(recordUsage(usageInput(10, 20), candidate, 1767268800000), false, JSON.stringify(Object.keys(candidate)));
+  }
+  for (const input of [{}, { rate_limits: null }, usageInput(Number.NaN, 101),
+    { rate_limits: { five_hour: { used_percentage: 5, resets_at: 17.5 } } },
+    { rate_limits: { five_hour: { used_percentage: 5, resets_at: 253402300800 } } },
+    { rate_limits: { five_hour: { used_percentage: '5', resets_at: 1767276000 } } }]) {
+    assert.equal(recordUsage(input, env, 1767268800000), false, JSON.stringify(input));
+  }
+  assert.deepEqual(fs.readdirSync(folder), []);
+  fs.chmodSync(folder, 0o755);
+  assert.equal(recordUsage(usageInput(10, 20), env, 1767268800000), false, 'wrote into a directory others can read');
+  fs.chmodSync(folder, 0o700);
+  const elsewhere = path.join(root, 'elsewhere');
+  fs.mkdirSync(elsewhere, { mode: 0o700 });
+  fs.rmdirSync(folder);
+  fs.symlinkSync(elsewhere, folder);
+  assert.equal(recordUsage(usageInput(10, 20), env, 1767268800000), false, 'followed a linked directory');
+  assert.deepEqual(fs.readdirSync(elsewhere), []);
+  assert.ok(!fs.existsSync(file) || fs.lstatSync(folder).isSymbolicLink());
+});
+
+test('status line output is unchanged when it records usage', posixOnly, (t) => {
+  const { file, env } = usageFixture(t);
+  const input = { ...usageInput(7, 8), model: { display_name: 'Opus' } };
+  const result = spawnSync(process.execPath, [path.join(scripts, 'statusline.cjs')], {
+    input: JSON.stringify(input), encoding: 'utf8', timeout: 5000, env: { ...process.env, ...env },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, `${formatStatus(input)}\n`);
+  assert.equal(result.stderr, '');
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).seven_day.used_percentage, 8);
+});
+
+test('status line never records usage on Windows', (t) => {
+  const { file, env } = usageFixture(t);
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value: 'win32' });
+  try {
+    assert.equal(recordUsage(usageInput(10, 20), env, 1767268800000), false);
+  } finally {
+    Object.defineProperty(process, 'platform', platform);
+  }
+  assert.ok(!fs.existsSync(file));
 });

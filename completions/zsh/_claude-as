@@ -2,9 +2,11 @@
 
 local -a names suggestions
 if ((CURRENT == 2)); then
-    # Metadata only: claude-as --list-accounts never starts native Claude.
-    names=("${(@f)$(command claude-as --list-accounts 2>/dev/null)}")
+    # Metadata only: claude-as --account-labels never starts native Claude or reads
+    # a credential. NAME<TAB>LABEL lines become NAME:LABEL descriptions.
+    names=("${(@f)$(command claude-as --account-labels 2>/dev/null)}")
     names=("${(@)names:#}")
+    names=("${(@)names/$'\t'/:}")
     ((${#names})) && _describe -t accounts 'Claude accounts' names
     return
 fi

@@ -10,6 +10,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 
 # python3 -I puts no script directory on sys.path, so the modules load by path,
@@ -28,7 +29,9 @@ try:
     guard = load_module("check", "codex-as/check.py")  # ends the run first on Python before 3.11
     storage = load_module("layout", "codex-as/layout.py")
     handoff = load_module("handoff", "codex-as/handoff.py")
+    usage = load_module("usage", "codex-as/usage.py")
     settings = load_module("config", "coding-agent-kit/config.py")
+    metadata = load_module("accounts", "coding-agent-kit/accounts.py")
 except (OSError, ImportError, SyntaxError):
     message = f"codex-as: incomplete install at {LIB.parent}"
     print(guard.styled(message, "31", 2) if "guard" in globals() else message, file=sys.stderr)
@@ -124,6 +127,32 @@ def exit_status(result):
     return 128 - result
 
 
+def remember(config, layout, raw=None, plan=None, started=None):
+    """Best effort, for --account-info: this login's email and plan, and after a run the
+    last rate limits its rollouts show. Never fails a launch and writes no token."""
+    try:
+        if raw is None:
+            raw = guard.credential(layout.target)
+        email, kind = storage.profile(raw)
+        seen = None if plan is None else usage.latest(layout.root, plan.continued, storage.owner(raw), started, time.time())
+        # The old record is read only after the scan, just before the write, so a run of
+        # this account that finished meanwhile keeps its newer snapshot.
+        path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
+        try:
+            old = metadata.read(path) or {}
+        except ValueError:
+            old = {}
+        last = old.get("usage") if isinstance(old.get("usage"), dict) else None
+        known = last.get("seen_at") if last else None
+        # Concurrent runs of one account: the newest snapshot wins, by its own time.
+        if seen and (not isinstance(known, int) or seen["seen_at"] > known):
+            last = seen
+        record = {"email": email, "plan": kind, "usage": last}
+        metadata.write(path, {key: value for key, value in record.items() if value is not None})
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
+        pass
+
+
 def post_run(layout, baseline):
     """Repair or report the account link after native Codex exits; never changes the exit code."""
     replaced = "Codex replaced the account auth.json link with a regular file; "
@@ -157,9 +186,19 @@ def main(args):
     config = settings.load()
     for warning in config.warnings:
         guard.warn(warning)
-    if args in (["--list-accounts"], ["--show-config"]):
-        # Metadata only: no preflight, no directories and no native CLI.
-        text = "\n".join(guard.accounts(config.secrets_dir)) if args[0] == "--list-accounts" else config.show("codex-as")
+    if args in (["--list-accounts"], ["--show-config"], ["--account-labels"]) or (
+            len(args) == 2 and args[0] == "--account-info"):
+        # Metadata only: no preflight, no directories, no native CLI and never a credential read.
+        if args[0] == "--account-info":
+            if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", args[1]):
+                guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
+            if args[1] not in guard.accounts(config.secrets_dir):
+                guard.fail(f"no account {args[1]}.")
+            text = metadata.info("codex-as", args[1], config, time.time())
+        elif args[0] == "--account-labels":
+            text = "\n".join(metadata.labels("codex-as", guard.accounts(config.secrets_dir), config))
+        else:
+            text = "\n".join(guard.accounts(config.secrets_dir)) if args[0] == "--list-accounts" else config.show("codex-as")
         if text:
             print(text)
         return 0
@@ -212,6 +251,7 @@ def main(args):
             guard.fail("account has active clients and authentication needs repair; close all account clients first.")
         # Revalidate after EX->SH, whose conversion may release the lock briefly.
         baseline = layout.validate()
+        remember(config, layout, baseline)
         if plan.profile is not None:
             layout.link_profile(plan.profile)
         if plan.unknown and plan.command == "resume":
@@ -226,6 +266,7 @@ def main(args):
     except BaseException:
         layout.close()
         raise
+    started = time.time()
     with Supervision():
         try:
             result = run_native(command, env, layout.fd)
@@ -233,6 +274,8 @@ def main(args):
             layout.close()
         # Use a fresh open-file description: surviving descendants still hold SH.
         post_run(layout, baseline)
+        if os.path.lexists(layout.target):
+            remember(config, layout, plan=plan, started=started)
     return result
 
 

@@ -1,5 +1,6 @@
 """Real launchers with fabricated login subprocesses and isolated controlling TTYs."""
 
+import hashlib
 import json
 import importlib.util
 import os
@@ -17,6 +18,7 @@ from unittest.mock import patch
 from test_codex_as import CodexAs, FAKE, ROOT, SHELLS
 
 CLAUDE_TOKEN = 'sk-ant-oat01-' + 'fabricated-sensitive-claude-' * 4
+LABEL_PROMPT = 'Label for this account'
 
 
 class Enrollment(unittest.TestCase):
@@ -84,6 +86,7 @@ flags = termios.tcgetattr(fd)[3]; os.close(fd)
 record = {'args': sys.argv[1:], 'stdin': sys.stdin.read(), 'cwd': os.getcwd(),
           'selected': os.environ.get('CLAUDE_CODE_OAUTH_TOKEN') == os.environ['CLAUDE_FAKE_TOKEN'],
           'config_dir': os.environ.get('CLAUDE_CONFIG_DIR'), 'browser': os.environ.get('BROWSER'),
+          'usage_file': os.environ.get('CODING_AGENT_KIT_USAGE_FILE'), 'token_id': os.environ.get('CODING_AGENT_KIT_TOKEN_ID'),
           'tty_flags': [bool(flags & termios.ECHO), bool(flags & termios.ICANON)]}
 pathlib.Path(os.environ['FAKE_RECORD']).write_text(json.dumps(record))
 print('stdout sentinel'); print('stderr sentinel', file=sys.stderr)
@@ -207,7 +210,7 @@ os.execv(sys.argv[2], sys.argv[2:])
                     self.assertEqual('\x1b[' in err, forced)
                     self.assertFalse((self.secret / ('codex-color-account.json' if tool == 'codex-as'
                                                     else 'claude-color-account')).exists())
-            code, out, err, tty = self.terminal(['color-account'], [('[y/N]', 'y')],
+            code, out, err, tty = self.terminal(['color-account'], [('[y/N]', 'y'), (LABEL_PROMPT, '')],
                                                baseline | {'FAKE_EXIT': '17'}, tool=tool)
             self.assertEqual(code, 17, err)
             self.assertEqual(out, 'stdout sentinel\n')
@@ -291,7 +294,7 @@ os.execv(sys.argv[2], sys.argv[2:])
 
     def test_claude_enroll_capture_and_continue_without_token_output(self):
         code, out, err, tty = self.terminal(['work', '-p', 'setup-token "quoted"'],
-                                          [('[y/N]', 'y')], {'FAKE_EXIT': '19', 'BROWSER': 'original-browser'},
+                                          [('[y/N]', 'y'), (LABEL_PROMPT, '')], {'FAKE_EXIT': '19', 'BROWSER': 'original-browser'},
                                           tool='claude-as')
         self.assertEqual(code, 19, err)
         self.assertEqual(out, 'stdout sentinel\n')
@@ -311,7 +314,7 @@ os.execv(sys.argv[2], sys.argv[2:])
 
     def test_claude_capture_failure_and_manual_fallback_decline(self):
         for variant in ('truncated', 'different', 'failure'):
-            code, out, _, tty = self.terminal(['work'], [('[y/N]', 'y'), ('[y/N]', 'n')],
+            code, out, _, tty = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, ''), ('[y/N]', 'n')],
                                              {'CLAUDE_VARIANT': variant}, tool='claude-as')
             self.assertNotEqual(code, 0)
             self.assertEqual(out, '')
@@ -359,7 +362,7 @@ os.execv(sys.argv[2], sys.argv[2:])
         self.assertIn('Account work-2 does not exist.', tty)
 
     def test_claude_wrapped_capture_policy_and_manual_fallback(self):
-        code, _, err, tty = self.terminal(['work'], [('[y/N]', 'y')],
+        code, _, err, tty = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, '')],
                                          {'CLAUDE_VARIANT': 'wrapped'}, tool='claude-as')
         self.assertEqual(code, 0, err)
         self.assertNotIn(CLAUDE_TOKEN, tty)
@@ -371,7 +374,8 @@ os.execv(sys.argv[2], sys.argv[2:])
         self.assertNotEqual(code, 0)
         self.assertIn('managed policy', err)
         cache.write_text('{}')
-        code, _, err, _ = self.terminal(['work'], [('[y/N]', 'y'), ('[y/N]', 'y'), ('input hidden', CLAUDE_TOKEN)],
+        code, _, err, _ = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, ''), ('[y/N]', 'y'),
+                                                  ('input hidden', CLAUDE_TOKEN)],
                                        {'CLAUDE_FAKE_VERSION': '99.0.0'}, tool='claude-as')
         self.assertEqual(code, 0, err)
         self.assertTrue((self.secret / 'claude-work').read_text().strip() == CLAUDE_TOKEN)
@@ -504,10 +508,91 @@ os.execv(sys.argv[2], sys.argv[2:])
             settings.unlink()
 
     def test_native_authorization_tty_settings_do_not_leak_into_final_client(self):
-        code, _, err, _ = self.terminal(['work'], [('[y/N]', 'y')],
+        code, _, err, _ = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, '')],
                                        {'CLAUDE_DAMAGE_TTY': '1'}, tool='claude-as')
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(self.record.read_text())['tty_flags'], [True, True])
+
+    @property
+    def state(self):
+        return self.home / '.local/state/coding-agent-kit/accounts'
+
+    def test_claude_label_is_asked_after_the_confirmation_and_saved_after_the_token(self):
+        code, _, err, tty = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, '  alice@example.com  ')],
+                                          tool='claude-as')
+        self.assertEqual(code, 0, err)
+        self.assertLess(tty.index('[y/N]'), tty.index(LABEL_PROMPT))
+        self.assertLess(tty.index(LABEL_PROMPT), tty.index('Credentials saved'))
+        label = self.state / 'claude-work.json'
+        self.assertEqual(json.loads(label.read_text()), {'label': 'alice@example.com'})
+        self.assertEqual(label.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.state.stat().st_mode & 0o777, 0o700)
+
+    def test_claude_refused_labels_are_asked_again_and_a_pasted_token_is_never_stored(self):
+        code, _, err, tty = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, CLAUDE_TOKEN),
+                                                     ('refused', 'x' * 101), ('refused', 'ok label')],
+                                          tool='claude-as')
+        self.assertEqual(code, 0, err)
+        self.assertIn('Label refused: it looks like a token.', tty)
+        self.assertIn('Label refused: it is longer than 100 characters.', tty)
+        self.assertEqual(json.loads((self.state / 'claude-work.json').read_text()), {'label': 'ok label'})
+        for path in self.state.iterdir():
+            self.assertNotIn(CLAUDE_TOKEN, path.read_text())
+
+    def test_claude_without_a_label_saves_none_and_a_declined_login_saves_nothing(self):
+        code, _, err, _ = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, '')], tool='claude-as')
+        self.assertEqual(code, 0, err)
+        self.assertFalse((self.state / 'claude-work.json').exists())
+        code, _, _, _ = self.terminal(['other'], [('[y/N]', 'y'), (LABEL_PROMPT, 'never saved'), ('[y/N]', 'n')],
+                                      {'CLAUDE_VARIANT': 'failure'}, tool='claude-as')
+        self.assertNotEqual(code, 0)
+        self.assertFalse((self.secret / 'claude-other').exists())
+        self.assertFalse((self.state / 'claude-other.json').exists(), 'a label was saved without a token')
+
+    def test_set_label_changes_and_clears_a_label_without_reading_the_token(self):
+        target = self.secret / 'claude-work'
+        target.write_text('not a token\n')  # safe but unusable: reading it would fail
+        target.chmod(0o600)
+        code, out, err, tty = self.terminal(['--set-label', 'work', 'Work account'], [], tool='claude-as')
+        self.assertEqual((code, out, tty), (0, '', ''), err)
+        self.assertIn('label of work set', err)
+        self.assertEqual(json.loads((self.state / 'claude-work.json').read_text()), {'label': 'Work account'})
+        self.assertFalse(self.record.exists(), 'set-label started Claude')
+        code, _, err, tty = self.terminal(['--set-label', 'work'], [('Label for account work', 'From the terminal')],
+                                          tool='claude-as')
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads((self.state / 'claude-work.json').read_text()), {'label': 'From the terminal'})
+        code, _, err, _ = self.terminal(['--set-label', 'work', ''], [], tool='claude-as')
+        self.assertEqual(code, 0, err)
+        self.assertFalse((self.state / 'claude-work.json').exists())
+        for args, message in ((['--set-label', 'missing', 'x'], 'no account missing'),
+                              (['--set-label', 'work', 'sk-ant-oat01-x'], 'label refused: it looks like a token'),
+                              (['--set-label', '-x', 'y'], 'invalid account name')):
+            with self.subTest(args=args):
+                code, out, err, _ = self.terminal(args, [], tool='claude-as')
+                self.assertEqual((code, out), (1, ''))
+                self.assertIn(message, err)
+        self.assertFalse(self.record.exists())
+
+    def test_claude_passes_the_usage_file_and_token_id_to_its_child(self):
+        target = self.secret / 'claude-work'
+        target.write_text(CLAUDE_TOKEN + '\n')
+        target.chmod(0o600)
+        outer = {'CODING_AGENT_KIT_USAGE_FILE': str(self.base / 'outer.usage.json'), 'CODING_AGENT_KIT_TOKEN_ID': 'outer'}
+        code, _, err, _ = self.terminal(['work'], [], outer, tool='claude-as')
+        self.assertEqual(code, 0, err)
+        record = json.loads(self.record.read_text())
+        self.assertEqual(record['usage_file'], str(self.state / 'claude-work.usage.json'))
+        self.assertEqual(record['token_id'], hashlib.sha256(CLAUDE_TOKEN.encode()).hexdigest()[:16])
+        self.assertEqual(self.state.stat().st_mode & 0o777, 0o700)
+        self.assertFalse((self.state / 'claude-work.usage.json').exists(), 'the launcher wrote usage itself')
+        # A state directory others can read is never handed on, and the outer values are not inherited.
+        self.state.chmod(0o755)
+        code, _, err, _ = self.terminal(['work'], [], outer, tool='claude-as')
+        self.assertEqual(code, 0, err)
+        record = json.loads(self.record.read_text())
+        self.assertEqual((record['usage_file'], record['token_id']), (None, None))
+
 
 
 del CodexAs  # unittest should collect only this module's enrollment cases.

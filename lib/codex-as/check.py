@@ -100,6 +100,12 @@ class Plan:
     rootless: bool  # root help or version, update and completion need no account
     unknown: tuple  # options this scan does not know (typos fail in clap after any takeover)
     profile: str | None  # -p/--profile: layers codex_home/NAME.config.toml
+    forked: bool = False  # fork or exec fork: recover_id is the source, not a thread this run writes
+
+    @property
+    def continued(self):
+        """The threads this run appends to, an interactive or exec resume; a fork writes a new one."""
+        return tuple(thread for thread in (self.resume_id, None if self.forked else self.recover_id) if thread)
 
 
 def session_id(text):
@@ -166,7 +172,7 @@ def arguments(args, config):
     # options are forwarded as switches, so their values are scanned as words.
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query, show_all = None, None, False, False, False
-    no_daemon, others, words, unknown, bare, profile = False, False, [], [], False, None
+    no_daemon, others, words, unknown, bare, profile, forked = False, False, [], [], False, None, False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -227,6 +233,7 @@ def arguments(args, config):
                         break  # the rest is the sandboxed command line
             elif command == "exec":
                 command = "exec-resume" if arg in {"resume", "fork"} else "exec-prompt"
+                forked = arg == "fork"
             elif command in {"resume", "fork", "exec-resume"} and target is None:
                 target = arg
             else:
@@ -256,7 +263,8 @@ def arguments(args, config):
     return Plan(mode, cwd, command, resume_id, target_id if command in {"fork", "exec-resume"} else None,
                 scope, last and picking, others, no_daemon,
                 bare or command in {"update", "completion"}, tuple(unknown),
-                profile if profile is not None and PROFILE.fullmatch(profile) else None)
+                profile if profile is not None and PROFILE.fullmatch(profile) else None,
+                forked=forked or command == "fork")
 
 
 

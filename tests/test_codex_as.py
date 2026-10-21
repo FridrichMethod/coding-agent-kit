@@ -45,7 +45,8 @@ ENV_CONFLICTS = (
 # OPENAI_BASE_URL only routes the user's own API key for tool subprocesses.
 ENV_UNUSED = ("OPENAI_ORG_ID", "OPENAI_PROJECT_ID", "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID", "OPENAI_BASE_URL")
 # The kit's own knobs: a caller's value never reaches a fixture, which sets what it needs.
-KIT_KNOBS = ("CODING_AGENT_KIT_CONFIG", "CODING_AGENT_KIT_COLOR", "XDG_CONFIG_HOME", "NO_COLOR")
+KIT_KNOBS = ("CODING_AGENT_KIT_CONFIG", "CODING_AGENT_KIT_COLOR", "CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID",
+             "XDG_CONFIG_HOME", "XDG_STATE_HOME", "NO_COLOR")
 FAKE = r'''
 import json, os, pathlib, sys, time, signal
 if sys.argv[1:] == ["--version"]:
@@ -694,6 +695,13 @@ class CodexAs(unittest.TestCase):
         for args in (['fork', uuid_text], ['exec', 'resume', uuid_text], ['exec', 'fork', uuid_text]):
             with self.subTest(args=args):
                 self.assertEqual(check.arguments(args, config).recover_id, uuid_text)
+        # The threads a run appends to, whose rollouts are this account's whoever created them:
+        # a fork writes a new thread and never its source.
+        for args, threads in ((['resume', uuid_text], (uuid_text,)), (['exec', 'resume', uuid_text, 'go'], (uuid_text,)),
+                              (['fork', uuid_text], ()), (['exec', 'fork', uuid_text, 'go'], ()),
+                              (['exec', 'go'], ()), (['resume', '--last'], ())):
+            with self.subTest(args=args):
+                self.assertEqual(check.arguments(args, config).continued, threads)
 
     def test_picker_leaves_possibly_running_sessions_and_names_them(self):
         daemon, ids, attempts, run = self.handoff_fixture()

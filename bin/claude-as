@@ -62,6 +62,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'login/logout/setup-token, --bare, unsupported flags and auth/provider overrides are refused.' \
         'Daily configuration is inherited. No global process killing or concurrency lock.' \
         'Requires Python 3.11+ (stdlib).' \
+        '--account-info NAME: its label and the last usage its status line saw (offline, no token read);' \
+        '--account-labels: NAME<TAB>label lines for completion; --set-label NAME [LABEL] sets or clears a label.' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_claude_as_docs"
     [ "$#" -gt 0 ] && exit 0

@@ -2,9 +2,11 @@
 
 local -a names suggestions
 if ((CURRENT == 2)); then
-    # Metadata only: codex-as --list-accounts never starts native Codex.
-    names=("${(@f)$(command codex-as --list-accounts 2>/dev/null)}")
+    # Metadata only: codex-as --account-labels never starts native Codex or reads
+    # a credential. NAME<TAB>LABEL lines become NAME:LABEL descriptions.
+    names=("${(@f)$(command codex-as --account-labels 2>/dev/null)}")
     names=("${(@)names:#}")
+    names=("${(@)names/$'\t'/:}")
     ((${#names})) && _describe -t accounts 'Codex accounts' names
     return
 fi

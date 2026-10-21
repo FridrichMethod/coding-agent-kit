@@ -72,6 +72,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
         'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit.' \
+        '--account-info NAME: last-seen email, plan and usage of a run of NAME (offline, no credential read);' \
+        '--account-labels: NAME<TAB>email lines for completion; --list-accounts: the names.' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_codex_as_docs"
     [ "$#" -gt 0 ] && exit 0
@@ -79,16 +81,20 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
 fi
 _codex_as_locate || exit 1
 
-# --list-accounts and --show-config alone are the launcher's own metadata queries;
-# no account name starts with -.
-if [ "$#" -ne 1 ] || { [ "$1" != --list-accounts ] && [ "$1" != --show-config ]; }; then
-    case $1 in
-        '' | -* | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
-            _codex_as_message 31 2 'codex-as: invalid account name (ASCII letters, digits, _ or -; no leading -).'
-            exit 2
-            ;;
-    esac
+# --list-accounts, --account-labels and --show-config alone, and --account-info
+# NAME, are the launcher's own metadata queries; no account name starts with -.
+_codex_as_name=${1-}
+if [ "$#" -eq 1 ] && { [ "$1" = --list-accounts ] || [ "$1" = --account-labels ] || [ "$1" = --show-config ]; }; then
+    _codex_as_name=query
+elif [ "$#" -eq 2 ] && [ "$1" = --account-info ]; then
+    _codex_as_name=$2
 fi
+case $_codex_as_name in
+    '' | -* | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
+        _codex_as_message 31 2 'codex-as: invalid account name (ASCII letters, digits, _ or -; no leading -).'
+        exit 2
+        ;;
+esac
 if ! command -v python3 >/dev/null 2>&1; then
     _codex_as_message 31 2 'codex-as: Python 3.11+ is required for local JSON and file checks.'
     exit 1
