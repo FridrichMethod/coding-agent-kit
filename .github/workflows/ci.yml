@@ -2,8 +2,10 @@ name: ci
 
 on:
   pull_request:
+  # main, and ci/** branches: there a change runs on all three systems before
+  # main is fast-forwarded to it, with no pull request.
   push:
-    branches: [main]
+    branches: [main, "ci/**"]
 
 permissions:
   contents: read

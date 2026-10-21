@@ -247,7 +247,9 @@ pre-commit run --all-files
 - CI runs the Unix suite on Linux and on macOS with the system Bash 3.2, the
   Node suite on Windows, and every pre-commit hook on Linux. The Linux job
   installs GNU Stow and fails if the folded Stow cases did not run; macOS
-  skips them.
+  skips them. It runs on pull requests, on pushes to `main` and on pushes to
+  `ci/**` branches, so a change can be checked on all three before `main` is
+  fast-forwarded to it.
   [tests/COVERAGE.md](tests/COVERAGE.md) maps each source file to its tests.
 
 ## Versioning
