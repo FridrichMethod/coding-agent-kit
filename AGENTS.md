@@ -12,9 +12,10 @@ consumer, a submodule whose files it links.
 
 ```
 bin/codex-as, bin/claude-as      launchers (Bash, POSIX sh)
-lib/codex-as/*.py                codex-as modules: launch, check, layout, handoff
+lib/codex-as/*.py                codex-as modules: launch, check, layout, handoff, usage
 lib/claude-as/launch.py          claude-as module
 lib/coding-agent-kit/config.py   the configuration loader both launchers share
+lib/coding-agent-kit/accounts.py the account metadata cache both launchers share
 completions/{bash,zsh}/          account-name completion for both launchers
 helpers/*.cjs                    Claude Code helpers (Node)
 install.sh                       links bin/ and completions/ into a prefix
@@ -34,7 +35,7 @@ tests/                           suites, fixtures, runners, COVERAGE.md
   loads its modules inside the error handling, so a missing file prints
   `incomplete install at ROOT`, never a traceback.
 - `lib/coding-agent-kit/config.py` is the only launcher or completion code
-  that reads `HOME` or the configuration file (a test greps for other reads). It loads once per run into
+  that reads `HOME`, `XDG_STATE_HOME` or the configuration file (a test greps for other reads). It loads once per run into
   one frozen object that every consumer takes. Unknown keys warn and never
   fail, so a newer configuration file works with an older kit. See
   [docs/configuration.md](docs/configuration.md).
@@ -48,7 +49,7 @@ tests/                           suites, fixtures, runners, COVERAGE.md
 a pre-commit hook:
 
 - The public paths and their modes (`git ls-files -s`): the launchers, their
-  `lib/` modules, `config.py`, the completions, the helpers, `install.sh` and
+  `lib/` modules, `config.py` and `accounts.py`, the completions, the helpers, `install.sh` and
   the three docs. Consumers link these paths one by one (dotfiles links each
   file from its own tree), copied installs depend on the `bin/` plus `lib/`
   shape, and `--help` points at `docs/account-launchers.md`.
@@ -65,9 +66,14 @@ a pre-commit hook:
 
 The command-line surface is public too, guarded by the suites rather than
 `contract.sh`: the help text (dotfiles tests grep its `Concurrent accounts`
-line and its `Details and manual repair:` path), `--list-accounts` and
-`--show-config` with their output, the configuration file location, keys and
-defaults, `install.sh` and its options, and `CODING_AGENT_KIT_COLOR`. Changing any of it, or anything `contract.sh` pins,
+line and its `Details and manual repair:` path), `--list-accounts`,
+`--account-labels`, `--account-info NAME` (dotfiles' completion preview shows
+it), `claude-as --set-label` and `--show-config` with their output, the
+configuration file location, keys and defaults, the account metadata files in
+`${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
+fields, `install.sh` and its options, `CODING_AGENT_KIT_COLOR`, and the
+`CODING_AGENT_KIT_USAGE_FILE` and `CODING_AGENT_KIT_TOKEN_ID` that `claude-as`
+passes its child. Changing any of it, or anything `contract.sh` pins,
 is a breaking change: it needs a minor release and a matching CHANGELOG entry.
 
 ## Required conventions
@@ -108,11 +114,11 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
   - Bash: `shfmt -i 4 -ci -ln bash`
   - POSIX: `shfmt -i 4 -ci -ln posix`
   - Zsh: `shfmt -i 4 -ci -ln zsh` (needs shfmt 3.13+, the first release with a zsh dialect)
-- Launcher messages follow one colour policy in shell and Python: `CODING_AGENT_KIT_COLOR=auto|always|never` (unset or invalid means `auto`, styled only when the destination is a terminal), and a nonempty `NO_COLOR` or `TERM=dumb` disables color. Native CLI output, completion lists and the output of `--list-accounts` and `--show-config` stay untouched, and redirected logs stay plain by default.
+- Launcher messages follow one colour policy in shell and Python: `CODING_AGENT_KIT_COLOR=auto|always|never` (unset or invalid means `auto`, styled only when the destination is a terminal), and a nonempty `NO_COLOR` or `TERM=dumb` disables color. Native CLI output, completion lists and the output of `--list-accounts`, `--account-labels`, `--account-info` and `--show-config` stay untouched, and redirected logs stay plain by default.
 
 ## Testing
 
-- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR XDG_CONFIG_HOME NO_COLOR`, and `tests/run.ps1` removes the same names in the same order. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh`, and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
+- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`, and `tests/run.ps1` removes the same names in the same order. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh`, and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
 - Behavior coverage is tracked as a source-to-test matrix in `tests/COVERAGE.md`; update it with the tests.
 
 ## Windows line endings

@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.3.0
+
+Account details for previews and people: each launcher keeps a small,
+offline metadata cache per account, and new queries print it without opening
+a credential. A minor release: it adds environment variables, state files,
+an enrolment prompt, help lines and queries.
+
+Added:
+
+- `codex-as --account-info NAME` and `claude-as --account-info NAME` print an
+  account's last-seen details: the Codex email and plan, the Claude label, and
+  the 5-hour and weekly usage with their reset times and the age of the
+  snapshot, or `not recorded yet`. `--account-labels` prints `NAME<TAB>LABEL`
+  lines (the email for Codex, the label for Claude). Both are metadata only:
+  no directory is created, no preflight or native CLI runs, no credential is
+  opened, and only allow-listed fields are printed, with control characters
+  removed.
+- The cache lives in `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/`
+  (0700): `codex-NAME.json` (written by `codex-as`), `claude-NAME.json`
+  (`claude-as`) and `claude-NAME.usage.json` (`helpers/statusline.cjs`), each
+  0600, replaced atomically and only when it changes. No token is stored.
+  `Config.state_dir` in `lib/coding-agent-kit/config.py` names it; it is not a
+  configuration key.
+- `codex-as` records the email and plan from the account's `id_token` at each
+  launch and, after each run, the last rate-limit snapshot of the run's own
+  rollouts (the thread it resumes, never a fork's source, or one this account created),
+  best effort and without changing the exit code. New module
+  `lib/codex-as/usage.py`.
+- `claude-as` asks for an optional label when it creates an account, after
+  the confirmation and before any token exists, and saves it after the token;
+  control characters, more than 100 characters and anything containing
+  `sk-ant-` are refused. `claude-as --set-label NAME [LABEL]` sets, asks for
+  or (empty) clears the label of an existing account.
+- `claude-as` passes its child `CODING_AGENT_KIT_USAGE_FILE` and
+  `CODING_AGENT_KIT_TOKEN_ID` (the first 16 hex digits of the token's
+  SHA-256), dropping inherited values. `helpers/statusline.cjs` exports
+  `recordUsage` and records the session's `rate_limits` there only while
+  `CLAUDE_CODE_OAUTH_TOKEN` hashes to that identifier, into an owned 0700
+  directory, never on Windows; its printed status line is unchanged.
+- New shared module `lib/coding-agent-kit/accounts.py`, the cache.
+- A configuration whose `secrets_dir` is the cache directory is refused,
+  since the cache's `codex-NAME.json` would replace the credential of that
+  name; a cache directory that is `secrets_dir` through a link is never read
+  or written.
+
+Changed:
+
+- The zsh completions run `--account-labels` and show each account's email
+  or label as its description; Bash still completes bare names.
+- Both `--help` texts gain two lines for the new queries.
+- `bin/codex-as` accepts `--account-labels` alone and `--account-info NAME`;
+  other arities stay invalid account names.
+- Every test entry point also unsets `CODING_AGENT_KIT_USAGE_FILE`,
+  `CODING_AGENT_KIT_TOKEN_ID` and `XDG_STATE_HOME`.
+- The tests that model a dotfiles host follow its layout from October 2026:
+  the kit checked out at the root of dotfiles' own `coding-agent-kit` package.
+
+Known limits: Codex usage comes from Codex's internal rollout format, misses
+a session switched inside Codex, skips compressed rollouts, can miss this
+account's new session past 64 other accounts' rollouts of the run, and can
+count a thread this account created that another account resumed during the
+run.
+Claude usage exists only for Pro and Max subscribers, after the first API
+response, in sessions that render a status line.
+
 ## 0.2.0
 
 coding-agent-kit becomes a standalone install. The launchers find their own

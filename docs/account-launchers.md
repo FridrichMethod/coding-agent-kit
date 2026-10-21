@@ -22,7 +22,7 @@ Valid local credentials launch immediately. A missing account lists existing acc
 
 Claude setup-token tokens typically last one year and do not renew automatically. They support model requests, with no guarantee for Remote Control or claude.ai connectors; local MCP remains usable. [Official documentation](https://code.claude.com/docs/en/authentication)
 
-Confirmation and login I/O use a separate `/dev/tty`, preserving the final stdin/stdout/stderr, cwd, arguments, and exit code. A missing account is refused without a controlling terminal; there is no `--yes`. The wrapper's own `--help`, `--list-accounts` and `--show-config`, and `codex-as NAME` with a root help or version flag, `help`, `update` or `completion`, run without the account and never start a login.
+Confirmation and login I/O use a separate `/dev/tty`, preserving the final stdin/stdout/stderr, cwd, arguments, and exit code. A missing account is refused without a controlling terminal; there is no `--yes`. The wrapper's own `--help`, `--list-accounts`, `--account-labels`, `--account-info NAME` and `--show-config` (and `claude-as --set-label`), and `codex-as NAME` with a root help or version flag, `help`, `update` or `completion`, run without the account and never start a login.
 
 ## Codex account layout
 
@@ -56,9 +56,40 @@ Managed policy is respected: automatic enrollment stops for nonempty managed cac
 
 New account files are created exclusively; incorrect permissions, ownership, symlinks, or hard links are refused. Account names must be nonempty, contain only ASCII letters, digits, underscores, and hyphens, and not start with a hyphen, as in codex-as. Local format validation is not server authentication; expired credentials are not automatically deleted or replaced through login.
 
+## Account metadata
+
+Both launchers keep a small cache of what they last saw about each account, so a completion preview or a person can look it up offline: `codex-as --account-info NAME` and `claude-as --account-info NAME`. It lives in `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` (an absolute `XDG_STATE_HOME` only; the directory is created 0700 on first use and must stay an owned, real 0700 directory), never in `secrets_dir`: a configuration whose `secrets_dir` is that directory is refused, and one that reaches it through a link is never read or written. Each file is a 0600 JSON object, replaced atomically and only when its content changes, with one writer:
+
+| File | Content | Written by |
+| --- | --- | --- |
+| `codex-NAME.json` | email, plan, and the last usage snapshot | `codex-as`, before and after each run |
+| `claude-NAME.json` | the label | `claude-as` enrolment or `claude-as --set-label` |
+| `claude-NAME.usage.json` | the last 5-hour and weekly windows | `helpers/statusline.cjs` |
+
+No file holds a token, and no time in them comes from the launcher's clock: a Codex snapshot carries the time of the rollout line it came from, a Claude one the time the status line saw it.
+
+```text
+$ codex-as --account-info work
+work (Codex)
+email   alice@example.com
+plan    plus
+5h      23% used, resets 14:30 (in 2h 10m)
+weekly  41% used, resets Mon 09:00 (in 3d 4h)
+seen    12 min ago
+```
+
+Times are local. A window whose reset time has passed reads `reset since HH:MM`; missing data reads `not recorded yet`, and an account without a label reads `not set (claude-as --set-label NAME LABEL)`. `--account-labels` prints one line per account, `NAME<TAB>LABEL` (the email for Codex, the label for Claude) or the bare name when there is none; the zsh completions use it as descriptions. Both queries, like `--list-accounts`, create no directory, run no preflight or native CLI and never open a credential: they read only the state files, accept only an owned regular 0600 file with one link, at most 64 KiB, with unique keys, and print only the fields above with control characters removed. An unsafe file fails `--account-info` with one line that never quotes it; `--account-labels` shows that account's bare name.
+
+- **Codex identity**: the email (the `email` claim, else the profile claim's `email`) and the plan (`chatgpt_plan_type`) from the account's `id_token`, decoded locally at each launch and again after the run. An API-key login records the plan `API key` and no email. The plan changes only when Codex refreshes the token.
+- **Codex usage**: after native Codex exits, codex-as reads the session rollouts modified during the run, only regular files (never a FIFO, device or link), and keeps the newest `token_count` event with rate limits of the default `codex` family timestamped within the run. A rollout counts when its thread is the one the run resumes (`resume UUID`, `exec resume UUID`; a fork writes a new thread, so its source never counts), or when its `session_meta` names this account's ChatGPT user and workspace as the creator. The resumed thread comes first, then the newest rollouts: codex-as reads the tail (at most 1 MiB) of up to eight of this account's, after the first lines of at most 64 others. Of concurrent runs of one account the newest snapshot normally wins: each run reads the stored record only just before it replaces it. Times from the year 10000 on are ignored. The windows are named by their length (300 minutes is `5h`, 10080 is `weekly`). This is best effort, silent on failure and never changes the exit code. Known gaps: the rollout format is Codex's internal one, so a change leaves usage blank; a session switched inside Codex (`/resume`) is missed; compressed rollouts (`.jsonl.zst`) are skipped; past 64 other accounts' rollouts modified during the run, this account's own new session can be missed; and another account that resumes, during the run, a thread this account created can be counted here.
+- **Claude label**: a new account asks `Label for this account (optional, e.g. your email):` after the confirmation and before any token exists, and saves the label only after the token. Control characters, more than 100 characters and anything containing `sk-ant-` are refused, so a pasted token is never stored. `claude-as --set-label NAME LABEL` sets the label of an existing account, `claude-as --set-label NAME` asks for it on `/dev/tty`, and an empty label clears it.
+- **Claude usage**: Claude Code gives the status line its rate limits only for Pro and Max subscribers and only after the first API response; headless `claude-as NAME -p` runs render no status line and record nothing. claude-as passes its child `CODING_AGENT_KIT_USAGE_FILE` (the path of `claude-NAME.usage.json`) and `CODING_AGENT_KIT_TOKEN_ID` (the first 16 hex digits of the token's SHA-256), and drops inherited values first. `helpers/statusline.cjs` records only when both are set, `CLAUDE_CODE_OAUTH_TOKEN` is present and hashes to that identifier (a child that lost the token, or runs another login, records nothing), the path is absolute with a `claude-NAME.usage.json` name in an owned 0700 directory, and the numbers are valid; it writes when the windows change or the record is older than five minutes, never on Windows, and its printed status line is unchanged.
+
+Privacy: emails and labels appear in completion previews, screen shares and recordings, and the output of `--account-info` lands in any agent transcript that runs it. No token is ever printed or stored there.
+
 ## Completion, installation, and concurrency
 
-`install.sh` links the zsh completions into `PREFIX/share/zsh/site-functions`, which must be on `fpath` before `compinit` runs (with oh-my-zsh, before it is sourced; the installer prints the line), and the Bash completions into the bash-completion user directory, `${BASH_COMPLETION_USER_DIR:-${XDG_DATA_HOME:-~/.local/share}/bash-completion}/completions`, where bash-completion autoloads them. For the first argument both run `codex-as --list-accounts` or `claude-as --list-accounts`, so the launchers must be on `PATH`; the listing enumerates only safe filenames and metadata, without reading credentials, running the native CLI, or using the network, and an invalid configuration offers nothing. Corrupt contents are detected at startup. Later arguments first complete the supported scope, then delegate to existing native completion when available.
+`install.sh` links the zsh completions into `PREFIX/share/zsh/site-functions`, which must be on `fpath` before `compinit` runs (with oh-my-zsh, before it is sourced; the installer prints the line), and the Bash completions into the bash-completion user directory, `${BASH_COMPLETION_USER_DIR:-${XDG_DATA_HOME:-~/.local/share}/bash-completion}/completions`, where bash-completion autoloads them. For the first argument Bash runs `codex-as --list-accounts` or `claude-as --list-accounts` and zsh `--account-labels`, which adds each account's email or label as its description, so the launchers must be on `PATH`; the listing enumerates only safe filenames and metadata, without reading credentials, running the native CLI, or using the network, and an invalid configuration offers nothing. Corrupt contents are detected at startup. Later arguments first complete the supported scope, then delegate to existing native completion when available.
 
 fzf-tab, when present, uses the same candidates; normal Tab works without fzf. New terminals load the new completions; nothing appends source or PATH lines to rc files. Installation only creates links and triggers no real initialization, login, or model requests.
 
@@ -72,6 +103,7 @@ The launcher's own step/help headings are cyan, confirmations/warnings yellow, s
 tests/codex-as.sh
 tests/account-enrollment.sh
 tests/config.sh
+tests/account-info.sh
 tests/standalone-e2e.sh
 pre-commit run --all-files
 ```

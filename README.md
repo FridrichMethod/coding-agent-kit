@@ -135,6 +135,8 @@ codex-as work resume --last
 codex-as work exec --json "Check the tests"
 claude-as personal -p "Check the tests"
 codex-as --list-accounts              # account names, what completion offers
+codex-as --account-info work          # last-seen email, plan and usage (offline)
+claude-as --set-label personal "me@example.com"
 claude-as --show-config               # configuration in effect
 codex-as --help
 ```
@@ -158,8 +160,18 @@ codex-as --help
 - `claude-as` starts Claude Code with the `claude setup-token` OAuth token from
   `<secrets_dir>/claude-NAME` and otherwise inherits the existing
   configuration.
-- Apart from `--help`, `--list-accounts` and `--show-config`, each accepted
-  only alone, the launchers have no options of their own.
+- Apart from `--help`, `--list-accounts`, `--account-labels` and
+  `--show-config`, each accepted only alone, `--account-info NAME` and
+  `claude-as --set-label NAME [LABEL]`, the launchers have no options of their
+  own.
+- Each launcher keeps a small metadata cache per account in
+  `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/`: the Codex
+  email and plan from the account's token and the last rate limits a run saw
+  in its own rollouts, and the Claude label asked at enrolment and the last
+  rate limits the status line helper saw. `--account-info NAME` prints it
+  offline, without opening a credential, and the zsh completions show the
+  email or label as each account's description. Emails show in previews and
+  transcripts; no token is ever stored there.
 
 [docs/account-launchers.md](docs/account-launchers.md) covers the account
 layout, adding accounts, completion, safety boundaries and manual repair;
@@ -197,8 +209,8 @@ enrolment, and after moving `codex_home` export `CODEX_HOME` for plain
 
 The launchers style only their own messages: headings cyan, questions and
 warnings yellow, saves green, errors red. Native Codex and Claude output,
-completion lists and `--list-accounts`/`--show-config` output are never
-styled.
+completion lists and the output of `--list-accounts`, `--account-labels`,
+`--account-info` and `--show-config` are never styled.
 
 - `CODING_AGENT_KIT_COLOR=auto` (also when unset or invalid) styles a message
   only when its destination is a terminal, so redirected logs stay plain;
@@ -224,8 +236,9 @@ pre-commit run --all-files
 - `run.ps1` runs the Node helper suite; `-CI` requires Windows.
 - Every suite runs in a temporary HOME with fake CLIs and fictitious
   credentials, reaches no network beyond local fixtures, and first unsets
-  `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`, `XDG_CONFIG_HOME` and
-  `NO_COLOR`.
+  `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`,
+  `CODING_AGENT_KIT_USAGE_FILE`, `CODING_AGENT_KIT_TOKEN_ID`,
+  `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `NO_COLOR`.
 - `tests/standalone-e2e.sh` installs with `install.sh` under `/bin/sh`, bash and
   (when present) dash, checks its refusals and drives both launchers and their
   completions through the links;

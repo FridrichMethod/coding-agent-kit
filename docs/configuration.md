@@ -34,6 +34,12 @@ must be set to an absolute path in every case.
 
 Neither the launchers nor `install.sh` ever create the file.
 
+The account metadata cache (see the account launchers documentation) is not
+configured here: it lives in `$XDG_STATE_HOME/coding-agent-kit/accounts/` when
+`XDG_STATE_HOME` is an absolute path, else in
+`$HOME/.local/state/coding-agent-kit/accounts/`. A `state_dir` key is an
+unknown key and only warns.
+
 ## Format and keys
 
 The keys are top-level strings, all optional:
@@ -88,6 +94,10 @@ Rules for every key:
 - They must differ, and neither may lie inside the other. This check is
   lexical too, so it does not see two spellings of one directory through a
   symlink, or through case on a case-insensitive file system.
+- `secrets_dir` must also differ from the account metadata directory below
+  (`coding-agent-kit/accounts` in the state directory), whose files carry the
+  Codex credentials' names; above or below it is fine. The launchers also
+  never read or write that directory when it is `secrets_dir` through a link.
 - The parent of each must be a directory you own that neither group nor others
   can write: `codex-as` checks both parents, `claude-as` the parent of
   `secrets_dir`. With the defaults both parents are `$HOME`, checked as
@@ -211,6 +221,7 @@ TOOL: FILE: KEY: must not contain a .. component.
 TOOL: FILE: secrets_dir: must differ from codex_home.
 TOOL: FILE: secrets_dir: must not be inside codex_home.
 TOOL: FILE: codex_home: must not be inside secrets_dir.
+TOOL: FILE: secrets_dir: must differ from the account metadata directory DIR.
 ```
 
 A syntax error at the very end reads `invalid TOML at end of document.`, and
@@ -244,11 +255,13 @@ regular file, stops it with:
 TOOL: PARENT does not exist; create it, owned by you and not group or other writable.
 ```
 
-## --show-config and --list-accounts
+## --show-config, --list-accounts and the account queries
 
-Both are the launcher's own queries, accepted only as the single argument.
-They read metadata only: no environment or argument checks, no directory is
-created, no native CLI starts and nothing touches the network.
+These are the launcher's own queries: `--show-config`, `--list-accounts` and
+`--account-labels` accepted only as the single argument, `--account-info NAME`
+only with one account name. They read metadata only: no environment or
+argument checks, no directory is created, no native CLI starts, no credential
+is opened and nothing touches the network.
 
 `TOOL --show-config` prints the effective values and exits 0:
 
@@ -279,6 +292,14 @@ owned by you, mode 0600 and not hard-linked. The Bash and zsh completions run
 account argument. An invalid configuration or an unsafe `secrets_dir` prints
 nothing on stdout and an error on stderr, and exits 1, so completion offers
 no names.
+
+`TOOL --account-labels` prints the same accounts as `NAME<TAB>LABEL` lines (the
+email for Codex, the label for Claude), or a bare `NAME` when there is none;
+the zsh completions run it instead of `--list-accounts` and show the label as
+the description. `TOOL --account-info NAME` prints the last-seen details of one
+account, or exits 1 with `TOOL: no account NAME.` when the listing has no such
+account. The account launchers documentation describes both outputs and where
+the data comes from.
 
 ## Moving codex_home and secrets_dir
 
