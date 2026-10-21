@@ -917,10 +917,12 @@ class Launchers(unittest.TestCase):
         old = {"codex-as": ["python3", "-I", "-B", linked / ".local/lib/codex-as/check.py", "accounts"],
                "claude-as": ["python3", "-I", "-B", linked / ".local/lib/claude-as/launch.py", "--list-accounts"]}
         shells = [shell for shell in ("bash", "zsh") if shutil.which(shell)]
-        for label, env, prepare in (
-                ("missing explicit file", {"CODING_AGENT_KIT_CONFIG": str(missing)}, None),
-                ("invalid value", {}, lambda: self.configure('secrets_dir = "relative"\n', linked)),
-                ("insecure secrets", {}, lambda: (linked / ".secrets").chmod(0o755))):
+        # Each case names what its one error line must say, so none passes on another's error.
+        for label, env, prepare, named in (
+                ("missing explicit file", {"CODING_AGENT_KIT_CONFIG": str(missing)}, None, str(missing)),
+                ("invalid value", {}, lambda: self.configure('secrets_dir = "relative"\n', linked), "secrets_dir"),
+                ("insecure secrets", {}, lambda: ((linked / ".config/coding-agent-kit/config.toml").unlink(),
+                                                  (linked / ".secrets").chmod(0o755)), "0700")):
             if prepare:
                 prepare()
             for tool in TOOLS:
@@ -930,6 +932,7 @@ class Launchers(unittest.TestCase):
                         self.assertEqual((result.returncode, result.stdout), (1, ""))
                         self.assertEqual(len(result.stderr.splitlines()), 1, result.stderr)
                         self.assertTrue(result.stderr.startswith(tool + ": "), result.stderr)
+                        self.assertIn(named, result.stderr)
                     if label != "insecure secrets":
                         result = self.run_tool([linked / ".local/bin" / tool, "--show-config"], env | {"HOME": str(linked)})
                         self.assertEqual((result.returncode, result.stdout), (1, ""))
