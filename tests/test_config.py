@@ -416,6 +416,10 @@ class Loader(unittest.TestCase):
                     self.assertEqual(self.load().source, "found")
                 with upg(gid, login=gid + 1), patch.object(config.os, "getgid", return_value=gid):
                     self.assertEqual(self.fails(), refused)
+        # Ownership alone from here: without group write, the host's own groups (macOS users share
+        # staff) cannot decide the outcome.
+        for place in (self.home / ".config", directory):
+            place.chmod(0o755)
         with patch.object(config.os, "lstat", side_effect=owned_by(os.getuid() + 1, os.lstat, directory)):
             self.assertEqual(self.fails(), f"{self.file}: directory {directory}: owned by another user.")
         with patch.object(config.os, "lstat", side_effect=owned_by(0, os.lstat, directory)):
