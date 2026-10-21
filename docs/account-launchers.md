@@ -54,7 +54,7 @@ Explicit API key/OAuth token/authentication FD/alternative provider/endpoint/pro
 
 Managed policy is respected: automatic enrollment stops for nonempty managed caches, system policy, policy helpers, authentication bindings, or profile loading chains that cannot be preserved. Empty or missing caches do not cause this refusal. The local cache inspected was an empty object; it is checked again at runtime.
 
-New account files are created exclusively; incorrect permissions, ownership, symlinks, or hard links are refused. Account names must be nonempty and contain only ASCII letters, digits, underscores, and hyphens. Local format validation is not server authentication; expired credentials are not automatically deleted or replaced through login.
+New account files are created exclusively; incorrect permissions, ownership, symlinks, or hard links are refused. Account names must be nonempty, contain only ASCII letters, digits, underscores, and hyphens, and not start with a hyphen, as in codex-as. Local format validation is not server authentication; expired credentials are not automatically deleted or replaced through login.
 
 ## Completion, installation, and concurrency
 

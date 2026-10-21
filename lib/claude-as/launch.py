@@ -368,8 +368,9 @@ def main():
             print(text)
         return
     account, *args = sys.argv[1:]
-    if not NAME.fullmatch(account):
-        fail("invalid account name (ASCII letters, digits, _ or - only).")
+    # As in codex-as, no name starts with -, so a mistyped option is never enrolled.
+    if not NAME.fullmatch(account) or account.startswith("-"):
+        fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
     # The secrets parent (HOME by default) must not let others swap the secrets. Below a regular
     # file (ENOTDIR) it does not exist either.
     parent = secret.parent

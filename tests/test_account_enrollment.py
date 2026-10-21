@@ -340,6 +340,24 @@ os.execv(sys.argv[2], sys.argv[2:])
         code, _, _, _ = self.terminal(['work'], [], tool='claude-as')
         self.assertNotEqual(code, 0)
 
+    def test_claude_refuses_names_that_start_with_a_dash(self):
+        # As in codex-as: a mistyped option is refused, never offered for enrolment.
+        before = sorted(path.name for path in self.secret.iterdir())
+        for args in (['-x'], ['-'], ['-h'], ['--version'], ['-x', '--help'],
+                     ['--list-accounts', 'x'], ['--show-config', 'x']):
+            with self.subTest(args=args):
+                self.record.unlink(missing_ok=True)
+                code, out, err, tty = self.terminal(args, [('[y/N]', 'y')], tool='claude-as')
+                self.assertEqual((code, out, err), (1, '', 'claude-as: invalid account name '
+                                                       '(ASCII letters, digits, _ or -; no leading -).\n'))
+                self.assertEqual(tty, '')
+                self.assertFalse(self.record.exists())
+        self.assertEqual(sorted(path.name for path in self.secret.iterdir()), before)
+        # A name may still contain - after its first character.
+        code, _, _, tty = self.terminal(['work-2'], [('[y/N]', 'n')], tool='claude-as')
+        self.assertNotEqual(code, 0)
+        self.assertIn('Account work-2 does not exist.', tty)
+
     def test_claude_wrapped_capture_policy_and_manual_fallback(self):
         code, _, err, tty = self.terminal(['work'], [('[y/N]', 'y')],
                                          {'CLAUDE_VARIANT': 'wrapped'}, tool='claude-as')

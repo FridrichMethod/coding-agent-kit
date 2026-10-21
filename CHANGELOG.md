@@ -98,6 +98,11 @@ Breaking changes:
 - `codex-as --list-accounts` and `codex-as --show-config` are no longer
   refused as invalid account names, and `claude-as --show-config` is no longer
   taken as an account name.
+- `claude-as` refuses account names that start with `-`, as `codex-as` does:
+  `claude-as -x`, `claude-as -h` or `claude-as --version` prints `claude-as:
+  invalid account name (ASCII letters, digits, _ or -; no leading -).` and
+  exits 1 instead of offering to enrol an account of that name. Every invalid
+  name now gets this message, which `codex-as` already printed.
 - The AI config sync engine moved back to dotfiles: `lib/config_sync.py`, the
   four `*-sync` launchers, `lib/sync-runtime.sh`, `setup-sync.*`,
   `requirements-sync.txt`, their suites and fixtures and `docs/config-sync.md`
