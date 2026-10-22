@@ -62,10 +62,6 @@ pre-commit hook:
   says so, and the launchers and `install.sh` keep their `#!/bin/bash` or
   `#!/bin/sh` line.
 - No tracked symlinks.
-- `tests/claude-customizations.cjs` and `tests/fixtures/claude-settings.json`:
-  a consumer may copy its own Claude `settings.json` over the fixture and
-  rerun the test, which derives each helper's install directory from its
-  command in the home-relative form README.md describes.
 
 The command-line surface is public too, guarded by the suites rather than
 `contract.sh`: the help text, `--list-accounts`, `--account-labels` and

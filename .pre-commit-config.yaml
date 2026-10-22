@@ -106,7 +106,7 @@ repos:
         entry: tests/contract.sh
         language: script
         pass_filenames: false
-        files: ^(bin/.*|lib/.*|completions/.*|helpers/.*|docs/.*|install\.sh|tests/(contract\.sh|claude-customizations\.cjs|fixtures/claude-settings\.json))$
+        files: ^(bin/.*|lib/.*|completions/.*|helpers/.*|docs/.*|install\.sh|tests/contract\.sh)$
       - id: standalone-e2e
         name: standalone install and launchers from a plain clone (temporary HOME, fakes)
         entry: tests/standalone-e2e.sh

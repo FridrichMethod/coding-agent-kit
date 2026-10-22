@@ -125,9 +125,6 @@ node -e "require(require('os').homedir() + '/.claude/coding-agent-kit/statusline
 ```
 
 Each helper exports `main`, which does what running the file does.
-[tests/fixtures/claude-settings.json](tests/fixtures/claude-settings.json)
-wires all three this way, and `tests/claude-customizations.cjs` runs its
-commands in a home whose path contains spaces.
 
 Instead of `install.sh` you can link or copy the files yourself. A launcher
 follows its own symlinks (up to 40) to `bin/..` and runs `lib/<tool>/launch.py`

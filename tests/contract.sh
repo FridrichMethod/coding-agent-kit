@@ -1,7 +1,6 @@
 #!/bin/bash
 # The public contract that consumers build on: the paths they link or copy,
-# with their modes, and the two test files a consumer may rerun with its own
-# Claude settings. Changing any of it is a breaking change.
+# with their modes. Changing any of it is a breaking change.
 
 set -euo pipefail
 
@@ -38,9 +37,7 @@ LAYOUT='100755 bin/codex-as
 100755 install.sh
 100644 docs/account-launchers.md
 100644 docs/codex-as.md
-100644 docs/configuration.md
-100644 tests/claude-customizations.cjs
-100644 tests/fixtures/claude-settings.json'
+100644 docs/configuration.md'
 
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT is not a Git checkout."
 paths=()
