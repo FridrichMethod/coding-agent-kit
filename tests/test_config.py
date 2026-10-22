@@ -48,7 +48,7 @@ with open(os.environ["FAKE_RECORD"], "a") as stream:
     stream.write(json.dumps(record) + "\n")
 print("stdout sentinel")
 '''
-PACKAGES = (  # dotfiles' coding-agent-kit package path (from common/) and kit path, as dotfiles links them
+PACKAGES = (  # a link-farm package's paths (from the package root) and the kit files they link to
     ("coding-agent-kit/.local/bin/codex-as", "bin/codex-as"),
     *((f"coding-agent-kit/.local/lib/codex-as/{name}.py", f"lib/codex-as/{name}.py")
       for name in ("launch", "check", "layout", "handoff")),
@@ -467,7 +467,7 @@ class Loader(unittest.TestCase):
 
     def test_symlinks_and_resolved_directories_on_the_way(self):
         # A stowed file: config.toml -> a checkout you own; the checkout's directories count too.
-        checkout = self.home / "dotfiles/kit"
+        checkout = self.home / "pkgs/kit"
         target = write(checkout / "config.toml", 'codex = "from-checkout"\n', 0o644)
         self.file.parent.mkdir(parents=True)
         self.file.symlink_to(os.path.relpath(target, self.file.parent))
@@ -701,13 +701,13 @@ class Launchers(unittest.TestCase):
                        "refresh_token": "fabricated-refresh-" + name, "account_id": name}}))
 
     def linked_home(self, home):
-        """A dotfiles host: HOME/X -> (Stow, relative) package X -> (relative) kit file; two hops.
-        The kit is the checkout at the root of dotfiles' own coding-agent-kit package."""
+        """A link farm: HOME/X -> (Stow, relative) package X -> (relative) kit file; two hops.
+        The kit is checked out at the root of its own package in HOME/pkgs."""
         self.make_home(home)
-        common = home / "dotfiles/common"
-        kit = install(common / "coding-agent-kit/coding-agent-kit", ("bin", "lib", "docs", "completions"))
+        pkgs = home / "pkgs"
+        kit = install(pkgs / "coding-agent-kit/coding-agent-kit", ("bin", "lib", "docs", "completions"))
         for package, target in PACKAGES:
-            link = common / package
+            link = pkgs / package
             link.parent.mkdir(parents=True, exist_ok=True)
             link.symlink_to(os.path.relpath(kit / target, link.parent))
             stowed = home / package.split("/", 1)[1]
@@ -796,7 +796,7 @@ class Launchers(unittest.TestCase):
 
     def test_resolution_cases(self):
         linked = self.base / "linked home"
-        dotfiles_kit = self.linked_home(linked)
+        farm_kit = self.linked_home(linked)
         alias = self.base / "alias dir"
         alias.symlink_to(self.base, target_is_directory=True)  # like macOS /var -> /private/var
         # A second hop through a symlinked ~/.local: its ../.. must be resolved physically (cd -P);
@@ -822,7 +822,7 @@ class Launchers(unittest.TestCase):
                  {"PATH": f"{bin_dir}{os.pathsep}{self.env['PATH']}"}, self.kit),
                 ("relative", [f"./bin/{tool}"], self.kit, None, self.kit),
                 ("relative upwards", [f"../kit with spaces/bin/{tool}"], elsewhere, None, self.kit),
-                ("two-hop links", [linked / ".local/bin" / tool], None, None, dotfiles_kit),
+                ("two-hop links", [linked / ".local/bin" / tool], None, None, farm_kit),
                 ("symlinked directory", [alias / "kit with spaces/bin" / tool], None, None, self.kit),
                 ("second hop through a symlinked directory", [hop / "home/.local/bin" / tool], None, None, hop_kit),
             ]
@@ -830,7 +830,7 @@ class Launchers(unittest.TestCase):
                 cases.append((f"{interpreter[0]} path", [*interpreter, bin_dir / tool], None, None, self.kit))
                 cases.append((f"{interpreter[0]} name in cwd", [*interpreter, tool], bin_dir, None, self.kit))
                 cases.append((f"{interpreter[0]} two-hop links", [*interpreter, linked / ".local/bin" / tool],
-                              None, None, dotfiles_kit))
+                              None, None, farm_kit))
                 cases.append((f"{interpreter[0]} second hop through a symlinked directory",
                               [*interpreter, hop / "home/.local/bin" / tool], None, None, hop_kit))
             for label, command, cwd, env, root in cases:
@@ -1003,7 +1003,7 @@ class Launchers(unittest.TestCase):
         # call the library files directly through the retained links.
         old = {"codex-as": ["python3", "-I", "-B", linked / ".local/lib/codex-as/check.py", "accounts"],
                "claude-as": ["python3", "-I", "-B", linked / ".local/lib/claude-as/launch.py", "--list-accounts"]}
-        self.assertTrue(os.readlink(linked / ".local/lib/codex-as/check.py").startswith("../../../dotfiles/"))
+        self.assertTrue(os.readlink(linked / ".local/lib/codex-as/check.py").startswith("../../../pkgs/"))
         for names, prepare in ((("A", "work"), None), (("Z", "vault"), self.alternate_secrets)):
             if prepare:
                 prepare(linked)

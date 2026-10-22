@@ -1,5 +1,5 @@
 #!/bin/bash
-# A standalone install without dotfiles: install.sh under /bin/sh, bash and
+# A standalone install from a plain clone: install.sh under /bin/sh, bash and
 # dash in temporary homes, then codex-as, claude-as and their completions
 # through the installed links, with codex and claude fakes that only record.
 
@@ -410,17 +410,17 @@ done
 printf '==> refusals: a file, a directory, a link into another checkout, a Stow link into this one\n'
 home refusal
 mkdir -p "$H/.local/bin" "$H/.local/share/bash-completion/completions/codex-as" \
-    "$H/.local/share/zsh/site-functions" "$H/dotfiles/common/coding-agent-kit/.local/bin"
+    "$H/.local/share/zsh/site-functions" "$H/pkgs/coding-agent-kit/.local/bin"
 printf 'not a link\n' >"$H/.local/bin/claude-as"
 ln -s "$OTHER/completions/zsh/_claude-as" "$H/.local/share/zsh/site-functions/_claude-as"
-# A dotfiles host: HOME link (Stow, relative) -> package link -> this checkout.
-ln -s "$KIT/bin/codex-as" "$H/dotfiles/common/coding-agent-kit/.local/bin/codex-as"
-ln -s ../../dotfiles/common/coding-agent-kit/.local/bin/codex-as "$H/.local/bin/codex-as"
-refuse refusal "install.sh: refusing $H/.local/bin/codex-as: a symlink to ../../dotfiles/common/coding-agent-kit/.local/bin/codex-as, not an absolute link into $KIT
+# A link farm: HOME link (Stow, relative) -> package link -> this checkout.
+ln -s "$KIT/bin/codex-as" "$H/pkgs/coding-agent-kit/.local/bin/codex-as"
+ln -s ../../pkgs/coding-agent-kit/.local/bin/codex-as "$H/.local/bin/codex-as"
+refuse refusal "install.sh: refusing $H/.local/bin/codex-as: a symlink to ../../pkgs/coding-agent-kit/.local/bin/codex-as, not an absolute link into $KIT
 install.sh: refusing $H/.local/share/bash-completion/completions/codex-as: a directory, not an absolute link into $KIT
 install.sh: refusing $H/.local/bin/claude-as: a file, not an absolute link into $KIT
 install.sh: refusing $H/.local/share/zsh/site-functions/_claude-as: a symlink to $OTHER/completions/zsh/_claude-as, not an absolute link into $KIT" \
-    "kept $H/.local/bin/codex-as: a symlink to ../../dotfiles/common/coding-agent-kit/.local/bin/codex-as, not an absolute link into $KIT
+    "kept $H/.local/bin/codex-as: a symlink to ../../pkgs/coding-agent-kit/.local/bin/codex-as, not an absolute link into $KIT
 kept $H/.local/share/bash-completion/completions/codex-as: a directory, not an absolute link into $KIT
 kept $H/.local/bin/claude-as: a file, not an absolute link into $KIT
 kept $H/.local/share/zsh/site-functions/_claude-as: a symlink to $OTHER/completions/zsh/_claude-as, not an absolute link into $KIT"
