@@ -195,8 +195,6 @@ os.execv(sys.argv[2], sys.argv[2:])
             ({'NO_COLOR': '1', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
             ({'TERM': 'dumb'}, False),
             ({'TERM': 'dumb', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
-            # The dotfiles-era knob is no longer read.
-            ({'DOTFILES_COLOR': 'never'}, True),
         ]
         baseline = {'TERM': 'xterm-256color', 'NO_COLOR': '', 'CODING_AGENT_KIT_COLOR': 'auto'}
         for tool in ('codex-as', 'claude-as'):
@@ -230,9 +228,6 @@ os.execv(sys.argv[2], sys.argv[2:])
                     (True, {'CODING_AGENT_KIT_COLOR': 'never'}, False),
                     (True, {'NO_COLOR': '1', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
                     (True, {'TERM': 'dumb', 'CODING_AGENT_KIT_COLOR': 'always'}, False),
-                    # The dotfiles-era knob is no longer read.
-                    (False, {'DOTFILES_COLOR': 'always'}, False),
-                    (True, {'DOTFILES_COLOR': 'never'}, True),
                 ]:
                     with self.subTest(tool=tool, args=args, attached=attached, preferences=preferences):
                         code, out, err, tty = self.terminal(args, [], baseline | preferences,
