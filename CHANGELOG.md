@@ -1,10 +1,22 @@
 # Changelog
 
-## 0.4.1
+## 0.5.0
 
-The kit stops naming its consumers. Tests and documentation only: the
-launchers, libraries, completions, helpers and `install.sh` behave as in
-0.4.0.
+The kit stops naming its consumers and narrows its public contract. A minor
+release: the CI job names and the two helper test files leave the contract.
+No behavior change in the launchers, libraries, completions, helpers and
+`install.sh`, which behave as in 0.4.0, and no file moved.
+
+Breaking changes:
+
+- The CI job names `Linux behavior and lint`, `macOS system Bash behavior`
+  and `Windows native PowerShell behavior` are no longer part of the public
+  contract, and `tests/contract.sh` no longer checks them. A consumer that
+  gates on them checks them itself.
+- `tests/claude-customizations.cjs` and `tests/fixtures/claude-settings.json`
+  are no longer public paths, and `tests/contract.sh` no longer pins them.
+  They are the kit's own tests; a consumer tests its own Claude settings
+  itself.
 
 Changed:
 
@@ -13,16 +25,12 @@ Changed:
   command has the home-relative form
   `node -e "require(require('os').homedir() + '/.claude/coding-agent-kit/NAME.cjs').main()"`,
   which README.md now describes for a `settings.json` shared by machines with
-  different home directories. `tests/claude-customizations.cjs` still runs
-  each command in a home whose path contains spaces, and a consumer can still
-  copy its own settings over the fixture and rerun it.
+  different home directories, with each helper's exported `main`.
 - The location and `install.sh` refusal tests that modeled one consumer's
   layout use a generic link farm, `HOME/pkgs/coding-agent-kit/` with the kit
   checked out at its root, with the same assertions.
 - The colour tests no longer check that the colour variable 0.2.0 replaced
   with `CODING_AGENT_KIT_COLOR` is ignored.
-- `tests/contract.sh` no longer pins the CI job names; they are not part of
-  the public contract.
 - AGENTS.md and README.md describe the public contract without naming a
   consumer: the linked paths, the help text, the `--account-labels` and
   `--account-info` formats and the rest of the contract change only in a
