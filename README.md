@@ -116,6 +116,20 @@ Code's `settings.json`, the helpers go in as:
 }
 ```
 
+A `settings.json` shared by machines whose home directories differ can name
+the helpers relative to the home directory instead: copy or link
+`helpers/*.cjs` into `~/.claude/coding-agent-kit/` and give each command in
+this form, with `notify.cjs` and `check-git-hooks.cjs` for the two hooks:
+
+```
+node -e "require(require('os').homedir() + '/.claude/coding-agent-kit/statusline.cjs').main()"
+```
+
+Each helper exports `main`, which does what running the file does.
+[tests/fixtures/claude-settings.json](tests/fixtures/claude-settings.json)
+wires all three this way, and `tests/claude-customizations.cjs` runs its
+commands in a home whose path contains spaces.
+
 Instead of `install.sh` you can link or copy the files yourself. A launcher
 follows its own symlinks (up to 40) to `bin/..` and runs `lib/<tool>/launch.py`
 there, and `bin/..` has the shape of a `~/.local` prefix: link `bin/codex-as`
