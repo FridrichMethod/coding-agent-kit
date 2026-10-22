@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.1
+
+The kit stops naming its consumers. Tests and documentation only: the
+launchers, libraries, completions, helpers and `install.sh` behave as in
+0.4.0.
+
+Changed:
+
+- `tests/fixtures/claude-settings.json` holds only the Claude Code wiring of
+  the three helpers instead of a byte copy of one consumer's settings. Each
+  command has the home-relative form
+  `node -e "require(require('os').homedir() + '/.claude/coding-agent-kit/NAME.cjs').main()"`,
+  which README.md now describes for a `settings.json` shared by machines with
+  different home directories. `tests/claude-customizations.cjs` still runs
+  each command in a home whose path contains spaces, and a consumer can still
+  copy its own settings over the fixture and rerun it.
+- The location and `install.sh` refusal tests that modeled one consumer's
+  layout use a generic link farm, `HOME/pkgs/coding-agent-kit/` with the kit
+  checked out at its root, with the same assertions.
+- The colour tests no longer check that the colour variable 0.2.0 replaced
+  with `CODING_AGENT_KIT_COLOR` is ignored.
+- `tests/contract.sh` no longer pins the CI job names; they are not part of
+  the public contract.
+- AGENTS.md and README.md describe the public contract without naming a
+  consumer: the linked paths, the help text, the `--account-labels` and
+  `--account-info` formats and the rest of the contract change only in a
+  minor release, and since consumers may track patch tags automatically, a
+  patch never changes one.
+
 ## 0.4.0
 
 Claude usage is recorded at last. A minor release: `claude-as` passes its child
