@@ -6,8 +6,9 @@ pre-commit hooks run the same focused Unix tests when their production sources
 change.
 
 The suites read only the frozen fixtures in `tests/fixtures/`.
-`claude-settings.json` there is a byte copy of the dotfiles Claude settings;
-dotfiles replaces it with its real file and reruns `claude-customizations.cjs`.
+`claude-settings.json` there holds only the Claude Code wiring of the three
+helpers, in the home-relative form README.md describes; a consumer can copy
+its own `settings.json` over it and rerun `claude-customizations.cjs`.
 Checks of what a consumer's own data contains and how it wires the kit stay
 with that consumer.
 

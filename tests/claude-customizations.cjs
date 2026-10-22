@@ -157,8 +157,9 @@ test('Git guard permits ordinary commands and non-bypass -n flags', () => {
 test('portable launchers resolve stowed helpers through a home path containing spaces', () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'claude home '));
   try {
-    // Each command names its install path under the home directory (dotfiles
-    // uses ~/.claude/dotfiles); install the helper it names there.
+    // Each command names its install path under the home directory (the
+    // fixture, as README.md describes, uses ~/.claude/coding-agent-kit);
+    // install the helper it names there.
     const execute = (command, input) => {
       const match = command.match(/^node -e "([^"]+)"$/);
       assert.ok(match, command);

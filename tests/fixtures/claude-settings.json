@@ -1,178 +1,30 @@
 {
-  "permissions": {
-    "defaultMode": "auto",
-    "allow": [
-      "WebSearch",
-      "mcp__plugin_everything-claude-code_github__search_code",
-      "mcp__plugin_everything-claude-code_github__get_file_contents",
-      "Bash(git commit *)",
-      "Bash(rmdir *)",
-      "Bash(mv *)",
-      "Bash(git add *)",
-      "Bash(git push *)",
-      "Bash(git pull *)",
-      "Bash(git clone *)",
-      "Bash(git reset *)",
-      "Bash(git restore *)",
-      "Bash(git checkout *)",
-      "Bash(curl *)",
-      "Bash(wget *)",
-      "Bash(ssh *)",
-      "Bash(scp *)",
-      "Bash(rsync *)",
-      "Bash(tee *)",
-      "Bash(source *)",
-      "Bash(. *)",
-      "Bash(pip install *)",
-      "Bash(pip3 install *)",
-      "Bash(uv pip install *)",
-      "Bash(conda install *)",
-      "Bash(mamba install *)",
-      "Bash(npm install *)",
-      "Bash(pnpm install *)",
-      "Bash(yarn add *)",
-      "Bash(brew install *)",
-      "Bash(gh api *)",
-      "Bash(gh pr create *)",
-      "Bash(gh pr merge *)",
-      "Bash(gh issue create *)",
-      "Bash(gh release create *)"
-    ],
-    "deny": [
-      "Bash(sudo pip:*)",
-      "Bash(sudo pip3:*)",
-      "Bash(sudo rm *)",
-      "Bash(rm -rf /)",
-      "Bash(rm -fr /)",
-      "Bash(rm -rf ~)",
-      "Bash(rm -fr ~)"
-    ],
-    "ask": [
-      "Bash(sudo *)"
-    ]
-  },
-  "attribution": {
-    "commit": "",
-    "pr": ""
+  "statusLine": {
+    "type": "command",
+    "command": "node -e \"require(require('os').homedir() + '/.claude/coding-agent-kit/statusline.cjs').main()\""
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node -e \"require(require('os').homedir() + '/.claude/dotfiles/check-git-hooks.cjs').main()\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "SessionStart": [],
-    "Stop": [],
-    "SessionEnd": [],
     "Notification": [
       {
         "matcher": "permission_prompt|idle_prompt",
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"require(require('os').homedir() + '/.claude/dotfiles/notify.cjs').main()\"",
-            "timeout": 5
+            "command": "node -e \"require(require('os').homedir() + '/.claude/coding-agent-kit/notify.cjs').main()\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(require('os').homedir() + '/.claude/coding-agent-kit/check-git-hooks.cjs').main()\""
           }
         ]
       }
     ]
-  },
-  "enabledPlugins": {
-    "everything-claude-code@everything-claude-code": true,
-    "codex@openai-codex": true,
-    "frontend-design@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true,
-    "context7@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "github@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "ralph-loop@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "commit-commands@claude-plugins-official": true,
-    "figma@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true,
-    "slack@claude-plugins-official": true,
-    "telegram@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true,
-    "huggingface-skills@claude-plugins-official": true,
-    "lua-lsp@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "everything-claude-code": {
-      "source": {
-        "source": "github",
-        "repo": "affaan-m/everything-claude-code"
-      }
-    },
-    "openai-codex": {
-      "source": {
-        "source": "github",
-        "repo": "openai/codex-plugin-cc"
-      }
-    }
-  },
-  "pluginConfigs": {
-    "agents-md@builtin": {
-      "options": {
-        "instructionFiles": "claude-md-and-agents-md"
-      }
-    },
-    "cc-plugin-agents-md@builtin": {
-      "options": {
-        "instructionFiles": "claude-md-and-agents-md"
-      }
-    }
-  },
-  "effortLevel": "xhigh",
-  "voice": {
-    "enabled": true,
-    "mode": "hold"
-  },
-  "skipWorkflowUsageWarning": true,
-  "workflowSizeGuideline": "large",
-  "skipAutoPermissionPrompt": true,
-  "showClearContextOnPlanAccept": true,
-  "showThinkingSummaries": true,
-  "cleanupPeriodDays": 365,
-  "autoContinueAtUsageLimit": true,
-  "askUserQuestionTimeout": "10m",
-  "switchModelsOnFlag": true,
-  "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true,
-  "theme": "dark",
-  "voiceEnabled": true,
-  "tui": "fullscreen",
-  "autoMode": {
-    "classifyAllShell": true,
-    "allow": [
-      "$defaults",
-      "Removing reproducible artifacts is allowed: paths under /tmp, the session scratchpad, node_modules, .venv, __pycache__, build and dist output, and tool caches such as .pytest_cache and .mypy_cache. A build or install step regenerates them and they hold no user data."
-    ],
-    "soft_deny": [
-      "$defaults",
-      "Never remove a GNU Stow link target in the dotfiles repository, or the ~/.claude, ~/.codex, ~/.ssh and ~/.config trees those links point into: deleting a link target silently breaks every host that stows it.",
-      "Never remove a conda or mamba environment directory, .venv-sync, or any other Python environment directory: they are expensive to rebuild and are not tracked in git.",
-      "Never remove untracked or unstaged work in a git repository. When the git status shown with the command reports staged, modified or untracked files, move them aside or stash them instead of deleting them."
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "node -e \"require(require('os').homedir() + '/.claude/dotfiles/statusline.cjs').main()\"",
-    "padding": 0
   }
 }
