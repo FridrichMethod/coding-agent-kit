@@ -52,8 +52,8 @@ jobs:
         run: pre-commit run --show-diff-on-failure --color=always --all-files
       - name: Scan the full Git history for secrets
         run: pre-commit run --color=always --hook-stage manual gitleaks-history
-      # An untracked file in a dotfiles host's submodule checkout stops its
-      # automatic update, so tests and hooks must leave nothing behind.
+      # An untracked file in a consumer's submodule checkout can stop its
+      # updates, so tests and hooks must leave nothing behind.
       - name: Check that tests and hooks left no file behind
         run: |
           git status --porcelain --untracked-files=all

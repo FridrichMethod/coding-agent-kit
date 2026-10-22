@@ -10,9 +10,8 @@ Multi-account wrappers and helpers for Codex and Claude Code:
   hook guard.
 
 It installs on top of an existing `codex` or `claude` and never installs,
-updates or replaces either. [FridrichMethod/dotfiles](https://github.com/FridrichMethod/dotfiles)
-is one consumer: it carries this repository as a submodule and links its
-files.
+updates or replaces either. Install it with `install.sh`, or link or copy its
+files, for example from a Git submodule in a repository of your own.
 
 ## Requirements
 
@@ -274,11 +273,13 @@ Releases follow semantic versioning within 0.x. A minor release (0.2.0 to
 patch release (0.2.0 to 0.2.1) must not. Tags are never moved and `main` is
 never rewritten, so a fix ships as a new patch tag.
 
-dotfiles consumes patch tags automatically: a daily job moves its submodule to
-the newest tag of the pinned minor line once this repository's CI is green, so
-a patch reaches every dotfiles host within a day, and a patch that breaks the
-contract breaks them all. Minor releases reach it only through a reviewed
-change. [CHANGELOG.md](CHANGELOG.md) lists every release.
+Consumers may take patch tags automatically, for example with a scheduled job
+that moves a submodule to the newest tag of a pinned minor line. A patch is
+therefore tagged only from a green `main` and never changes a public
+interface: the linked paths, the help text, the `--account-labels` and
+`--account-info` output, or anything else in the contract in
+[AGENTS.md](AGENTS.md#public-contract). Take a minor release through a
+reviewed change. [CHANGELOG.md](CHANGELOG.md) lists every release.
 
 ## License
 

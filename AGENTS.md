@@ -4,9 +4,8 @@ This repository is coding-agent-kit, a standalone Codex and Claude Code
 multi-account wrapper: the `codex-as` and `claude-as` launchers and three
 Claude Code helpers (status line, notifications, Git hook guard). It installs
 on top of an existing `codex` or `claude` and never installs either. Users
-install it with `install.sh` or by linking or copying its files;
-[FridrichMethod/dotfiles](https://github.com/FridrichMethod/dotfiles) is one
-consumer, a submodule whose files it links.
+install it with `install.sh` or by linking or copying its files, for example
+from a Git submodule in a repository of their own.
 
 ## Scope and layout
 
@@ -45,33 +44,38 @@ tests/                           suites, fixtures, runners, COVERAGE.md
 
 ## Public contract
 
-`tests/contract.sh` pins what consumers build on, and runs in `run.sh` and as
-a pre-commit hook:
+Consumers build on public interfaces: the paths they link, the help text,
+the output formats of `--account-labels` and `--account-info`, and the rest
+of this section. Changing one needs a new minor release and a matching
+CHANGELOG entry. Consumers may track patch tags automatically, so a patch is
+tagged only from a green `main` and never changes an interface.
+
+`tests/contract.sh` pins the file layout, and runs in `run.sh` and as a
+pre-commit hook:
 
 - The public paths and their modes (`git ls-files -s`): the launchers, their
   `lib/` modules, `config.py` and `accounts.py`, the completions, the helpers, `install.sh` and
-  the three docs. Consumers link these paths one by one (dotfiles links each
-  file from its own tree), copied installs depend on the `bin/` plus `lib/`
-  shape, and `--help` points at `docs/account-launchers.md`.
+  the three docs. Consumers may link these paths one by one from a tree of
+  their own, copied installs depend on the `bin/` plus `lib/` shape, and
+  `--help` points at `docs/account-launchers.md`.
 - Each file is a regular file in the working tree, executable where its mode
   says so, and the launchers and `install.sh` keep their `#!/bin/bash` or
   `#!/bin/sh` line.
 - No tracked symlinks.
 - `tests/claude-customizations.cjs` and `tests/fixtures/claude-settings.json`:
-  dotfiles overlays its real `settings.json` on the fixture and reruns the test,
-  which derives the helper directory from each fixture command.
+  a consumer may copy its own Claude `settings.json` over the fixture and
+  rerun the test, which derives each helper's install directory from its
+  command in the home-relative form README.md describes.
 
 The command-line surface is public too, guarded by the suites rather than
-`contract.sh`: the help text (dotfiles tests grep its `Concurrent accounts`
-line and its `Details and manual repair:` path), `--list-accounts`,
-`--account-labels`, `--account-info NAME` (dotfiles' completion preview shows
-it), `claude-as --set-label` and `--show-config` with their output, the
+`contract.sh`: the help text, `--list-accounts`, `--account-labels` and
+`--account-info NAME` with their output formats, `claude-as --set-label` and
+`--show-config` with their output, the `main` each helper exports, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
 fields, `install.sh` and its options, `CODING_AGENT_KIT_COLOR`, and the
 `CODING_AGENT_KIT_USAGE_FILE`, `CODING_AGENT_KIT_TOKEN_ID` and
-`CODING_AGENT_KIT_CLAUDE_PID` that `claude-as` passes its child. Changing any of it, or anything `contract.sh` pins,
-is a breaking change: it needs a minor release and a matching CHANGELOG entry.
+`CODING_AGENT_KIT_CLAUDE_PID` that `claude-as` passes its child.
 
 ## Required conventions
 
@@ -142,5 +146,4 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
 - Versions are `vMAJOR.MINOR.PATCH` tags on `main`, with semantic versioning in the 0.x range: a minor release may break the public contract, a patch release must not. Every release gets a CHANGELOG section, and a breaking one lists its breaking changes and moved paths.
 - Tags are immutable: never move or delete one. A bad release is fixed by a new patch tag.
 - `main` is never force-pushed or rewritten, because a consumer's gitlink may point at any commit on it, and a host that cannot fetch that commit stops updating.
-- dotfiles bumps its submodule daily to the newest tag of its pinned minor line once the three CI jobs are green on it, so a patch tag ships to every dotfiles host within a day. Tag a patch only from a green `main`, and run `tests/contract.sh` and the full suite first. A minor release reaches dotfiles only through a reviewed change there.
-- History before 0.1.0 lives in dotfiles (up to 6fe50bc); the imported commits keep only this repository's files.
+- Consumers may track patch tags automatically, for example with a scheduled job that moves a submodule to the newest tag of a pinned minor line, so a patch reaches them without review. Tag a patch only from a green `main`, run `tests/contract.sh` and the full suite first, and never let a patch change a public interface; that takes a minor release.
