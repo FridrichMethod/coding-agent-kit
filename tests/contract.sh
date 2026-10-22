@@ -1,7 +1,7 @@
 #!/bin/bash
-# The public contract that consumers build on: dotfiles links these paths,
-# overlays its real settings on the two test files and gates every bump on the
-# three CI job names. Changing any of it is a breaking change.
+# The public contract that consumers build on: the paths they link or copy,
+# with their modes, and the two test files a consumer may rerun with its own
+# Claude settings. Changing any of it is a breaking change.
 
 set -euo pipefail
 
@@ -41,9 +41,6 @@ LAYOUT='100755 bin/codex-as
 100644 docs/configuration.md
 100644 tests/claude-customizations.cjs
 100644 tests/fixtures/claude-settings.json'
-JOBS='Linux behavior and lint
-Windows native PowerShell behavior
-macOS system Bash behavior'
 
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT is not a Git checkout."
 paths=()
@@ -66,20 +63,5 @@ done
 # The kit tracks no symlinks: a checkout must work where links are unsupported.
 links="$(git -C "$ROOT" ls-files -s | awk -F '\t' '$1 ~ /^120000 / { print $2 }')"
 [[ -z "$links" ]] || die "tracked symlinks: $(tr '\n' ' ' <<<"$links")"
-
-# Every job of ci.yml has a name, and the names are exactly the three above.
-workflow="$ROOT/.github/workflows/ci.yml"
-[[ -f "$workflow" ]] || die '.github/workflows/ci.yml is missing.'
-listing="$(awk '
-    /^jobs:[ \t]*$/ { jobs = 1; next }
-    jobs && /^[^ \t#]/ { jobs = 0 }
-    jobs && /^  [A-Za-z0-9_-]+:[ \t]*$/ { if (job) print "UNNAMED " job; job = $1; next }
-    jobs && job && /^    name:/ { sub(/^    name:[ \t]*/, ""); gsub(/^["'\'']|["'\''][ \t]*$/, ""); print; job = "" }
-    END { if (job) print "UNNAMED " job }
-' "$workflow" | LC_ALL=C sort)"
-if [[ "$listing" != "$JOBS" ]]; then
-    diff -u <(printf '%s\n' "$JOBS") <(printf '%s\n' "$listing") >&2 || true
-    die 'ci.yml job names differ from the contract (- expected, + found).'
-fi
 
 printf 'contract=PASS\n'

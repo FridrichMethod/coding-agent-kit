@@ -57,9 +57,6 @@ a pre-commit hook:
   says so, and the launchers and `install.sh` keep their `#!/bin/bash` or
   `#!/bin/sh` line.
 - No tracked symlinks.
-- The CI job names `Linux behavior and lint`, `macOS system Bash behavior` and
-  `Windows native PowerShell behavior`, and no other job: dotfiles' bump gate
-  requires those three check runs to be green on a release tag.
 - `tests/claude-customizations.cjs` and `tests/fixtures/claude-settings.json`:
   dotfiles overlays its real `settings.json` on the fixture and reruns the test,
   which derives the helper directory from each fixture command.
@@ -135,7 +132,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
   - basic hygiene hooks
   - the `english-documentation` ASCII check
   - `gitleaks`, plus the manual `gitleaks-history` stage that CI runs over the full history
-- CI runs `./tests/run.sh --ci` on Linux (zsh and GNU Stow installed; the test step fails if the folded Stow cases of `standalone-e2e.sh` did not run) and on macOS (system Bash 3.2, `/bin/sh`), and `./tests/run.ps1 -CI` on native Windows; each job fails if the tests or hooks leave an untracked file. The job names are part of the contract.
+- CI runs `./tests/run.sh --ci` on Linux (zsh and GNU Stow installed; the test step fails if the folded Stow cases of `standalone-e2e.sh` did not run) and on macOS (system Bash 3.2, `/bin/sh`), and `./tests/run.ps1 -CI` on native Windows; each job fails if the tests or hooks leave an untracked file.
 - `ci.yml` runs on pull requests, on pushes to `main` and on pushes to `ci/**` branches: check a change on a `ci/**` branch, then fast-forward `main` to that exact green commit and delete the branch.
 - Agents land their own changes this way without a pull request and without asking before each push, merge or release tag, once the local suite, `pre-commit` and every job of that `ci.yml` run are green. They still ask before anything this file forbids or that cannot be undone: moving or deleting a tag, rewriting `main`, or deleting someone else's work.
 - If CI behavior affects contributors, update `README.md` in the same change.

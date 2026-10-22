@@ -102,11 +102,11 @@ repos:
         pass_filenames: false
         files: ^(tests/(.*\.(sh|ps1)|test_config\.py)|bin/.*|lib/.*|completions/.*|helpers/.*|install\.sh)$
       - id: contract
-        name: public contract (paths, modes, no symlinks, CI job names)
+        name: public contract (paths, modes, no symlinks)
         entry: tests/contract.sh
         language: script
         pass_filenames: false
-        files: ^(bin/.*|lib/.*|completions/.*|helpers/.*|docs/.*|install\.sh|\.github/workflows/ci\.yml|tests/(contract\.sh|claude-customizations\.cjs|fixtures/claude-settings\.json))$
+        files: ^(bin/.*|lib/.*|completions/.*|helpers/.*|docs/.*|install\.sh|tests/(contract\.sh|claude-customizations\.cjs|fixtures/claude-settings\.json))$
       - id: standalone-e2e
         name: standalone install and launchers without dotfiles (temporary HOME, fakes)
         entry: tests/standalone-e2e.sh
