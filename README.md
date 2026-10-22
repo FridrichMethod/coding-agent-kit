@@ -238,6 +238,7 @@ pre-commit run --all-files
   credentials, reaches no network beyond local fixtures, and first unsets
   `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`,
   `CODING_AGENT_KIT_USAGE_FILE`, `CODING_AGENT_KIT_TOKEN_ID`,
+  `CODING_AGENT_KIT_CLAUDE_PID`,
   `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `NO_COLOR`.
 - `tests/standalone-e2e.sh` installs with `install.sh` under `/bin/sh`, bash and
   (when present) dash, checks its refusals and drives both launchers and their

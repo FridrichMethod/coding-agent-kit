@@ -414,8 +414,9 @@ def set_label(config, metadata, args):
 
 def usage_environment(env, config, metadata, account, token):
     """The status line helper records this account's last rate limits through these, and
-    only while the token it runs under hashes to the same identifier."""
-    for name in ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID"):
+    only under the claude this process becomes (exec keeps its pid) and a token, where it
+    sees one, that hashes to the same identifier."""
+    for name in ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID", "CODING_AGENT_KIT_CLAUDE_PID"):
         env.pop(name, None)
     try:
         folder = metadata.directory(config, create=True)
@@ -423,6 +424,7 @@ def usage_environment(env, config, metadata, account, token):
         return
     env["CODING_AGENT_KIT_USAGE_FILE"] = str(folder / f"claude-{account}.usage.json")
     env["CODING_AGENT_KIT_TOKEN_ID"] = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
+    env["CODING_AGENT_KIT_CLAUDE_PID"] = str(os.getpid())
 
 
 def main():

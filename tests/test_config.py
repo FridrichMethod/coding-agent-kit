@@ -1202,6 +1202,12 @@ class Launchers(unittest.TestCase):
             result = self.run_tool([self.kit / "bin" / tool, *args], env)
             results.append((tool, args, result.returncode, result.stdout, result.stderr))
         records = [json.loads(line) for line in record.read_text().splitlines()]
+        for item in records:
+            # The pid claude-as passes is the claude process's own (exec), new on every run.
+            pid = item.get("env", {}).get("CODING_AGENT_KIT_CLAUDE_PID")
+            if pid is not None:
+                self.assertRegex(pid, r"^[1-9][0-9]*$")
+                item["env"]["CODING_AGENT_KIT_CLAUDE_PID"] = "<pid>"
         return results, records, snapshot(home, skip={".config"})
 
     def test_explicit_defaults_reproduce_the_defaults_exactly(self):

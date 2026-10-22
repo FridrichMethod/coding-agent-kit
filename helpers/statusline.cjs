@@ -41,6 +41,7 @@ function formatStatus(input, branch = '') {
 const USAGE_FILE = /^claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json$/;
 const RECORD_AGAIN = 300;
 const LAST_TIME = 253402300800; // 10000-01-01 UTC: no calendar time from here on
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
 
 function usageWindow(value) {
   const used = value?.used_percentage;
@@ -49,23 +50,54 @@ function usageWindow(value) {
   return Number.isInteger(resets) && resets > 0 && resets < LAST_TIME ? { used_percentage: used, resets_at: resets } : null;
 }
 
+// [parent pid, command name] of PID, or null: /proc on Linux, ps elsewhere.
+function processInfo(pid) {
+  try {
+    if (process.platform === 'linux') {
+      const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+      const close = stat.lastIndexOf(')');
+      return [Number(stat.slice(close + 2).split(' ')[1]), stat.slice(stat.indexOf('(') + 1, close)];
+    }
+    const result = spawnSync('ps', ['-o', 'ppid=,comm=', '-p', String(pid)],
+      { encoding: 'utf8', timeout: 1000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const match = result.status === 0 && /^\s*(\d+)\s+(.+?)\s*$/.exec(result.stdout);
+    return match ? [Number(match[1]), match[2]] : null;
+  } catch {
+    return null;
+  }
+}
+
+// Whether the claude process with PID runs this status line: as its parent, or behind
+// the one shell Claude Code may start the command with. A claude started inside that
+// session is a process of its own, so it never counts.
+function underLauncher(pid, parent = process.ppid) {
+  if (parent === pid) return true;
+  const info = processInfo(parent);
+  return Boolean(info) && info[0] === pid && SHELLS.has(path.basename(info[1]).replace(/^-/, ''));
+}
+
 // The last 5-hour and weekly rate limits of the claude-as account this session
-// runs under, for claude-as --account-info. claude-as names the file and a hash
-// of its token; nothing is recorded unless the session still runs under that
-// token, on Windows, outside an owned 0700 directory, or when the values are
-// unchanged and less than five minutes old. Returns whether it wrote.
+// runs under, for claude-as --account-info. claude-as names the file, a hash of
+// its token and its own pid, which stays the claude session's because it execs
+// claude. Claude Code passes CLAUDE_CODE_OAUTH_TOKEN to none of the commands it
+// starts, so the session is recognised by that pid; a token that is visible all
+// the same must hash to the identifier. Nothing is recorded on Windows, outside an
+// owned 0700 directory, or when the values are unchanged and less than five
+// minutes old. Returns whether it wrote.
 function recordUsage(data, env = process.env, now = Date.now()) {
   if (process.platform === 'win32') return false;
   const file = env.CODING_AGENT_KIT_USAGE_FILE;
+  const launcher = /^[0-9]+$/.test(env.CODING_AGENT_KIT_CLAUDE_PID || '') ? Number(env.CODING_AGENT_KIT_CLAUDE_PID) : 0;
+  if (!file || !env.CODING_AGENT_KIT_TOKEN_ID || launcher <= 1) return false;
   const token = env.CLAUDE_CODE_OAUTH_TOKEN;
-  if (!file || !token || !env.CODING_AGENT_KIT_TOKEN_ID) return false;
-  if (crypto.createHash('sha256').update(token).digest('hex').slice(0, 16) !== env.CODING_AGENT_KIT_TOKEN_ID) return false;
+  if (token && crypto.createHash('sha256').update(token).digest('hex').slice(0, 16) !== env.CODING_AGENT_KIT_TOKEN_ID) return false;
   if (!path.isAbsolute(file) || !USAGE_FILE.test(path.basename(file))) return false;
   const record = {
     five_hour: usageWindow(data?.rate_limits?.five_hour),
     seven_day: usageWindow(data?.rate_limits?.seven_day),
   };
   if (!record.five_hour && !record.seven_day) return false;
+  if (!underLauncher(launcher)) return false;
   const folder = path.dirname(file);
   const info = fs.lstatSync(folder);
   if (!info.isDirectory() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) return false;

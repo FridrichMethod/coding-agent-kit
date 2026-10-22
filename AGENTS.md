@@ -72,8 +72,8 @@ it), `claude-as --set-label` and `--show-config` with their output, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
 fields, `install.sh` and its options, `CODING_AGENT_KIT_COLOR`, and the
-`CODING_AGENT_KIT_USAGE_FILE` and `CODING_AGENT_KIT_TOKEN_ID` that `claude-as`
-passes its child. Changing any of it, or anything `contract.sh` pins,
+`CODING_AGENT_KIT_USAGE_FILE`, `CODING_AGENT_KIT_TOKEN_ID` and
+`CODING_AGENT_KIT_CLAUDE_PID` that `claude-as` passes its child. Changing any of it, or anything `contract.sh` pins,
 is a breaking change: it needs a minor release and a matching CHANGELOG entry.
 
 ## Required conventions
@@ -118,7 +118,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
 
 ## Testing
 
-- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`, and `tests/run.ps1` removes the same names in the same order. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh`, and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
+- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`, and `tests/run.ps1` removes the same names in the same order. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh`, and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
 - Behavior coverage is tracked as a source-to-test matrix in `tests/COVERAGE.md`; update it with the tests.
 
 ## Windows line endings

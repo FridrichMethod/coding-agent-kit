@@ -87,6 +87,7 @@ record = {'args': sys.argv[1:], 'stdin': sys.stdin.read(), 'cwd': os.getcwd(),
           'selected': os.environ.get('CLAUDE_CODE_OAUTH_TOKEN') == os.environ['CLAUDE_FAKE_TOKEN'],
           'config_dir': os.environ.get('CLAUDE_CONFIG_DIR'), 'browser': os.environ.get('BROWSER'),
           'usage_file': os.environ.get('CODING_AGENT_KIT_USAGE_FILE'), 'token_id': os.environ.get('CODING_AGENT_KIT_TOKEN_ID'),
+          'claude_pid': os.environ.get('CODING_AGENT_KIT_CLAUDE_PID'), 'pid': os.getpid(),
           'tty_flags': [bool(flags & termios.ECHO), bool(flags & termios.ICANON)]}
 pathlib.Path(os.environ['FAKE_RECORD']).write_text(json.dumps(record))
 print('stdout sentinel'); print('stderr sentinel', file=sys.stderr)
@@ -578,12 +579,15 @@ os.execv(sys.argv[2], sys.argv[2:])
         target = self.secret / 'claude-work'
         target.write_text(CLAUDE_TOKEN + '\n')
         target.chmod(0o600)
-        outer = {'CODING_AGENT_KIT_USAGE_FILE': str(self.base / 'outer.usage.json'), 'CODING_AGENT_KIT_TOKEN_ID': 'outer'}
+        outer = {'CODING_AGENT_KIT_USAGE_FILE': str(self.base / 'outer.usage.json'), 'CODING_AGENT_KIT_TOKEN_ID': 'outer',
+                 'CODING_AGENT_KIT_CLAUDE_PID': '1'}
         code, _, err, _ = self.terminal(['work'], [], outer, tool='claude-as')
         self.assertEqual(code, 0, err)
         record = json.loads(self.record.read_text())
         self.assertEqual(record['usage_file'], str(self.state / 'claude-work.usage.json'))
         self.assertEqual(record['token_id'], hashlib.sha256(CLAUDE_TOKEN.encode()).hexdigest()[:16])
+        # claude-as becomes claude (exec), so its pid is the session's: the status line's anchor.
+        self.assertEqual(record['claude_pid'], str(record['pid']))
         self.assertEqual(self.state.stat().st_mode & 0o777, 0o700)
         self.assertFalse((self.state / 'claude-work.usage.json').exists(), 'the launcher wrote usage itself')
         # A state directory others can read is never handed on, and the outer values are not inherited.
@@ -591,7 +595,7 @@ os.execv(sys.argv[2], sys.argv[2:])
         code, _, err, _ = self.terminal(['work'], [], outer, tool='claude-as')
         self.assertEqual(code, 0, err)
         record = json.loads(self.record.read_text())
-        self.assertEqual((record['usage_file'], record['token_id']), (None, None))
+        self.assertEqual((record['usage_file'], record['token_id'], record['claude_pid']), (None, None, None))
 
 
 

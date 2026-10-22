@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0
+
+Claude usage is recorded at last. A minor release: `claude-as` passes its child
+one more environment variable.
+
+Fixed:
+
+- `helpers/statusline.cjs` recorded no Claude usage at all: it required
+  `CLAUDE_CODE_OAUTH_TOKEN` to hash to `CODING_AGENT_KIT_TOKEN_ID`, and Claude
+  Code (2.1.307 checked) passes that token to none of the commands it starts,
+  the status line included.
+
+Changed:
+
+- `claude-as` also passes `CODING_AGENT_KIT_CLAUDE_PID`, its own pid, which
+  stays the session's because it execs claude, and drops an inherited value
+  first. The status line records only when the claude with that pid runs it,
+  directly or behind one shell; a claude started inside the session has a
+  pid of its own and records nothing. A visible token must still hash to the
+  identifier.
+- Every test entry point also unsets `CODING_AGENT_KIT_CLAUDE_PID`.
+- `ci.yml` also runs on pushes to `ci/**` branches, and AGENTS.md lets agents
+  land a change that way, with no pull request, once every check is green.
+
 ## 0.3.0
 
 Account details for previews and people: each launcher keeps a small,

@@ -200,10 +200,13 @@ function usageFixture(t) {
   fs.mkdirSync(folder, { mode: 0o700 });
   fs.chmodSync(folder, 0o700);
   const file = path.join(folder, 'claude-work.usage.json');
+  // As Claude Code runs the status line: under the claude process claude-as became (for
+  // these in-process calls the test's parent), and without CLAUDE_CODE_OAUTH_TOKEN, which
+  // Claude Code passes to none of the commands it starts.
   const env = {
     CODING_AGENT_KIT_USAGE_FILE: file,
     CODING_AGENT_KIT_TOKEN_ID: crypto.createHash('sha256').update(fabricatedToken).digest('hex').slice(0, 16),
-    CLAUDE_CODE_OAUTH_TOKEN: fabricatedToken,
+    CODING_AGENT_KIT_CLAUDE_PID: String(process.ppid),
   };
   return { root, folder, file, env };
 }
@@ -227,15 +230,20 @@ test('status line records the last rate limits for the claude-as account it runs
   // Any account name claude-as accepts, however long.
   const long = path.join(folder, `claude-${'n'.repeat(120)}.usage.json`);
   assert.equal(recordUsage(usageInput(5, 6), { ...env, CODING_AGENT_KIT_USAGE_FILE: long }, 1767268800000), true);
+  // Where a token is visible after all, it must be the account's.
+  assert.equal(recordUsage(usageInput(6, 6), { ...env, CLAUDE_CODE_OAUTH_TOKEN: fabricatedToken }, 1767268800000), true);
 });
 
-test('status line records nothing without a matching token, a safe path or valid numbers', posixOnly, (t) => {
+test('status line records nothing outside its launcher, with another token, a bad path or bad numbers', posixOnly, (t) => {
   const { root, folder, file, env } = usageFixture(t);
   const refused = [
     {},
-    { ...env, CLAUDE_CODE_OAUTH_TOKEN: undefined },
     { ...env, CLAUDE_CODE_OAUTH_TOKEN: fabricatedToken + 'x' },
     { ...env, CODING_AGENT_KIT_TOKEN_ID: undefined },
+    { ...env, CODING_AGENT_KIT_CLAUDE_PID: undefined },
+    { ...env, CODING_AGENT_KIT_CLAUDE_PID: String(process.pid) },  // not a process this one runs under
+    { ...env, CODING_AGENT_KIT_CLAUDE_PID: '1' },
+    { ...env, CODING_AGENT_KIT_CLAUDE_PID: `${process.ppid}x` },  // the parent's pid, but not a number
     { ...env, CODING_AGENT_KIT_USAGE_FILE: 'accounts/claude-work.usage.json' },
     { ...env, CODING_AGENT_KIT_USAGE_FILE: path.join(folder, 'codex-work.json') },
     { ...env, CODING_AGENT_KIT_USAGE_FILE: path.join(folder, 'claude-../x.usage.json') },
@@ -262,11 +270,36 @@ test('status line records nothing without a matching token, a safe path or valid
   assert.ok(!fs.existsSync(file) || fs.lstatSync(folder).isSymbolicLink());
 });
 
+test('status line records under the claude process claude-as became, never a claude inside it', posixOnly, (t) => {
+  const { folder, env } = usageFixture(t);
+  const statusline = path.join(scripts, 'statusline.cjs');
+  // This test process plays the claude that claude-as became; an intermediate node plays
+  // a claude someone started inside that session, which inherits the variables.
+  const nested = `require('node:child_process').spawnSync(process.argv[1], process.argv.slice(2), { stdio: 'inherit' })`;
+  const cases = [
+    ['directly', [process.execPath, statusline], true],
+    ['through a shell', ['/bin/sh', '-c', '"$0" "$1"; :', process.execPath, statusline], true],
+    ['under a claude inside the session', [process.execPath, '-e', nested, process.execPath, statusline], false],
+    ['through a shell under a claude inside it', [process.execPath, '-e', nested, '/bin/sh', '-c', '"$0" "$1"; :',
+      process.execPath, statusline], false],
+  ];
+  for (const [name, command, records] of cases) {
+    const file = path.join(folder, `claude-${name.replace(/[^a-z]/g, '')}.usage.json`);
+    const result = spawnSync(command[0], command.slice(1), {
+      input: JSON.stringify(usageInput(9, 10)), encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, ...env, CODING_AGENT_KIT_USAGE_FILE: file, CODING_AGENT_KIT_CLAUDE_PID: String(process.pid) },
+    });
+    assert.equal(result.status, 0, `${name}: ${result.stderr}`);
+    assert.equal(fs.existsSync(file), records, name);
+  }
+});
+
 test('status line output is unchanged when it records usage', posixOnly, (t) => {
   const { file, env } = usageFixture(t);
   const input = { ...usageInput(7, 8), model: { display_name: 'Opus' } };
   const result = spawnSync(process.execPath, [path.join(scripts, 'statusline.cjs')], {
-    input: JSON.stringify(input), encoding: 'utf8', timeout: 5000, env: { ...process.env, ...env },
+    input: JSON.stringify(input), encoding: 'utf8', timeout: 5000,
+    env: { ...process.env, ...env, CODING_AGENT_KIT_CLAUDE_PID: String(process.pid) },
   });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, `${formatStatus(input)}\n`);
