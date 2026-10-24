@@ -183,11 +183,12 @@ try {
     $before = Get-Snapshot $script:Managed
     $beforeHelpers = Get-Snapshot (Split-Path -Parent $script:Claude)
     Assert-Result (Invoke-Installer again $Boot -Channel 0.6) 0 @('coding-agent-kit: v0.6.1 is already current (channel 0.6).')
-    Assert-Logged @('v0.6.1 -Channel 0.6')
+    # The entry point hands every install or update to the release's own -Activate.
+    Assert-Logged @('v0.6.1 -Channel 0.6', 'v0.6.1 -Activate -Channel 0.6')
     Assert-Result (Invoke-Installer update $script:Entry -Update) 0 @('coding-agent-kit: v0.6.1 is already current (channel 0.6).')
-    Assert-Logged @('v0.6.1 -Update')
+    Assert-Logged @('v0.6.1 -Update', 'v0.6.1 -Activate -Channel 0.6')
     Assert-Result (Invoke-Installer update-gnu $script:Entry --update) 0 @('coding-agent-kit: v0.6.1 is already current (channel 0.6).')
-    Assert-Logged @('v0.6.1 --update')
+    Assert-Logged @('v0.6.1 --update', 'v0.6.1 -Activate -Channel 0.6')
     if ((Get-Snapshot $script:Managed) -cne $before -or (Get-Snapshot (Split-Path -Parent $script:Claude)) -cne $beforeHelpers) {
         Fail-Test 'a run with nothing to change wrote'
     }
@@ -227,7 +228,7 @@ try {
     Assert-Installed 'v0.7.0' '0.7'
     Publish 'v0.6.4'
     Assert-Result (Invoke-Installer channel-update $script:Entry -Update) 0 @('coding-agent-kit: v0.7.0 is already current (channel 0.7).')
-    Assert-Logged @('v0.7.0 -Update')
+    Assert-Logged @('v0.7.0 -Update', 'v0.7.0 -Activate -Channel 0.7')
 
     Write-Output '==> a foreign helper refuses an update, which keeps the current release'
     Publish 'v0.7.1'
