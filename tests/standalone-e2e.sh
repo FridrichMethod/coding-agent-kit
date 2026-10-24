@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Hermetic: a caller's kit configuration, colour choice and XDG directories
 # never reach the code under test; each case sets what it needs.
-unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
+unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -P -- "$TEST_DIR/.." && pwd)"
@@ -680,7 +680,7 @@ install.sh: nothing changed; make those directories writable and searchable firs
     chmod 755 "$H/.local/share"
 fi
 
-printf '==> refusals: an incomplete checkout and a piped install.sh, before any link\n'
+printf '==> refusals: an incomplete checkout before any link; a piped install.sh is a managed install\n'
 home incomplete
 INCOMPLETE="$TMP/incomplete kit"
 mkdir "$INCOMPLETE"
@@ -688,12 +688,11 @@ cp -R "$KIT/completions" "$KIT/helpers" "$KIT/install.sh" "$INCOMPLETE/"
 BEFORE="$(snapshot "$H")"
 run incomplete /bin/sh "$INCOMPLETE/install.sh"
 expect incomplete 1 '' "install.sh: $INCOMPLETE is not a complete coding-agent-kit checkout (missing bin/codex-as)."
-# sh <install.sh has no path to the script, so the root is where sh lives.
+# sh <install.sh has no checkout next to it, so it is the managed bootstrap,
+# which these tools cannot run (tests/managed-install.sh runs it).
 run piped sh -c 'sh <"$1"' sh "$KIT/install.sh"
-[[ "$rc" == 1 && ! -s "$OUT/piped.out" && "$(wc -l <"$OUT/piped.err")" -eq 1 ]] || die "piped: exit $rc, expected 1"
-[[ "$(cat "$OUT/piped.err")" == 'install.sh: /'*' is not a complete coding-agent-kit checkout (missing bin/codex-as).' ]] ||
-    die "piped: $(cat "$OUT/piped.err")"
-[[ "$(snapshot "$H")" == "$BEFORE" ]] || die 'an incomplete checkout wrote to HOME'
+expect piped 1 '' 'install.sh: managed mode needs git, which is not on PATH.'
+[[ "$(snapshot "$H")" == "$BEFORE" ]] || die 'an incomplete checkout or a piped install.sh wrote to HOME'
 
 printf '==> --prefix with a space, XDG_DATA_HOME and BASH_COMPLETION_USER_DIR\n'
 home prefix

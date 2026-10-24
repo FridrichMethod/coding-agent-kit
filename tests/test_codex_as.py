@@ -46,7 +46,7 @@ ENV_CONFLICTS = (
 ENV_UNUSED = ("OPENAI_ORG_ID", "OPENAI_PROJECT_ID", "CODEX_CHATGPT_BASE_URL", "CODEX_CHATGPT_ACCOUNT_ID", "OPENAI_BASE_URL")
 # The kit's own knobs: a caller's value never reaches a fixture, which sets what it needs.
 KIT_KNOBS = ("CODING_AGENT_KIT_CONFIG", "CODING_AGENT_KIT_COLOR", "CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID",
-             "CODING_AGENT_KIT_CLAUDE_PID", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "NO_COLOR")
+             "CODING_AGENT_KIT_CLAUDE_PID", "CODING_AGENT_KIT_REPO_URL", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "NO_COLOR")
 FAKE = r'''
 import json, os, pathlib, sys, time, signal
 if sys.argv[1:] == ["--version"]:

@@ -9,7 +9,7 @@ $PSNativeCommandUseErrorActionPreference = $false
 # Hermetic: a caller's kit configuration, colour choice and XDG directories
 # never reach the suites; each case sets what it needs. The same names, in
 # the same order, as the unset statement of tests/*.sh.
-foreach ($knob in @('CODING_AGENT_KIT_CONFIG', 'CODING_AGENT_KIT_COLOR', 'CODING_AGENT_KIT_USAGE_FILE', 'CODING_AGENT_KIT_TOKEN_ID', 'CODING_AGENT_KIT_CLAUDE_PID', 'XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'NO_COLOR')) {
+foreach ($knob in @('CODING_AGENT_KIT_CONFIG', 'CODING_AGENT_KIT_COLOR', 'CODING_AGENT_KIT_USAGE_FILE', 'CODING_AGENT_KIT_TOKEN_ID', 'CODING_AGENT_KIT_CLAUDE_PID', 'CODING_AGENT_KIT_REPO_URL', 'XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'NO_COLOR')) {
     Remove-Item -LiteralPath "Env:$knob" -ErrorAction Ignore
 }
 

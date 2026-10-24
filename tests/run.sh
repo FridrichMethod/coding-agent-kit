@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Hermetic: a caller's kit configuration, colour choice and XDG directories
 # never reach the code under test; each case sets what it needs.
-unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
+unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
 
 # GitHub's runners start jobs with SIGPIPE ignored, so a writer into a pipe
 # whose reader stopped early prints "write error: Broken pipe" there instead
@@ -66,6 +66,7 @@ tests=(
     codex-as.sh
     account-enrollment.sh
     standalone-e2e.sh
+    managed-install.sh
 )
 
 for test_name in "${tests[@]}"; do
