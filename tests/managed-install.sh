@@ -13,7 +13,8 @@ unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -P -- "$TEST_DIR/.." && pwd)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/kit-managed-install.XXXXXX")"
-trap 'chmod -R u+rwx "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
+STALL=''
+trap '[ -z "$STALL" ] || kill "$STALL" 2>/dev/null; chmod -R u+rwx "$TMP" 2>/dev/null; rm -rf "$TMP"' EXIT
 TMP="$(cd -P -- "$TMP" && pwd)"
 
 SOURCE="$TMP/source"
@@ -502,7 +503,8 @@ run refusal-update sh "$ROOT/install.sh" --update
 expect refusal-update 1 '' "install.sh: no managed install in $M to update; install one first: install.sh --managed --channel MAJOR.MINOR"
 home channels
 for args in '--channel 0.5' '--channel 1' '--channel 0.6.1' '--channel 0.06' '--channel' '--purge' \
-    '--update --activate' '--uninstall --channel 0.6' '--uninstall --update' '--bogus'; do
+    '--update --activate' '--update --reinstall' '--uninstall --channel 0.6' '--uninstall --update' \
+    '--uninstall --reinstall' '--bogus'; do
     # shellcheck disable=SC2086 # each case is a word list
     boot channel /bin/sh -- $args
     [[ "$rc" == 2 && ! -s "$OUT/channel.out" && -s "$OUT/channel.err" ]] || die "install.sh $args: exit $rc, expected 2"
@@ -515,6 +517,112 @@ expect channel-none 1 '' "install.sh: $URL has no release in channel 0.9."
 run activate-checkout "$ROOT/install.sh" --activate
 expect activate-checkout 1 '' 'install.sh: --activate works only in a release of the managed root.'
 logged ''
+
+printf '==> a stalled repository fails a run within seconds, which leaves the lock free\n'
+home stall
+boot stall-install /bin/sh -- --channel 0.6
+[[ "$rc" == 0 ]] || die "stall-install: exit $rc"
+# A 127.0.0.1 server that accepts and never answers. Git's own
+# GIT_HTTP_LOW_SPEED_TIME shortens the 60 s that the installer allows a
+# transfer below its 1000 bytes/s; without that limit git would wait forever.
+python3 -I -c 'import os, socket, sys
+server = socket.create_server(("127.0.0.1", 0))
+with open(sys.argv[1] + ".tmp", "w") as file:
+    file.write(str(server.getsockname()[1]))
+os.rename(sys.argv[1] + ".tmp", sys.argv[1])
+held = []
+while True:
+    held.append(server.accept())' "$TMP/stall.port" &
+STALL=$!
+for _ in $(seq 100); do
+    [[ ! -e "$TMP/stall.port" ]] || break
+    sleep 0.1
+done
+STALLED="http://127.0.0.1:$(cat "$TMP/stall.port")/kit.git"
+BEFORE="$(snapshot "$H")"
+started=$SECONDS
+run stall CODING_AGENT_KIT_REPO_URL="$STALLED" GIT_HTTP_LOW_SPEED_TIME=2 sh "$M/current/install.sh" --update
+[[ "$rc" == 1 && "$((SECONDS - started))" -lt 30 && "$(wc -l <"$OUT/stall.err")" -eq 1 ]] ||
+    die "stall: exit $rc after $((SECONDS - started)) s: $(cat "$OUT/stall.err")"
+grep -Fq "install.sh: cannot list the releases at $STALLED: " "$OUT/stall.err" || die "stall: $(cat "$OUT/stall.err")"
+kill "$STALL"
+STALL=''
+[[ "$(snapshot "$H")" == "$BEFORE" ]] || die 'a stalled update wrote below HOME'
+run stall-after sh "$M/current/install.sh" --update
+expect stall-after 0 "$(already v0.6.6 0.6)"
+
+printf '==> --reinstall repairs a broken release that every other run is handed to\n'
+: >"$LOG"
+printf '#!/bin/sh\nexit 3\n' >"$M/current/install.sh"
+boot reinstall-broken /bin/sh -- --channel 0.6
+[[ "$rc" == 3 ]] || die "reinstall-broken: exit $rc"
+boot reinstall /bin/sh -- --reinstall
+expect reinstall 0 "coding-agent-kit: exported v0.6.6 again from $URL.
+$(already v0.6.6 0.6)"
+logged "v0.6.6 --activate --channel 0.6 --prefix $H/.local/"
+fixture_git -C "$REMOTE" show v0.6.6:install.sh >"$TMP/released install.sh"
+cmp -s "$TMP/released install.sh" "$M/current/install.sh" || die '--reinstall did not restore the release'
+[[ "$(releases)" == 'v0.6.6 -> releases/v0.6.6' && -d "$M/repo.git" ]] || die "reinstall: $(releases)"
+
+printf '==> the remembered prefix must be absolute; stray temporary links are removed\n'
+printf 'relative/dir\n' >"$M/prefix"
+run prefix-bad sh "$M/current/install.sh" --update
+expect prefix-bad 1 '' "install.sh: $M/prefix holds no absolute directory; pass --prefix DIR."
+printf '%s\n' "$H/.local" >"$M/prefix"
+ln -s nowhere "$H/.local/bin/.tmp.coding-agent-kit.1"
+ln -s nowhere "$H/.claude/coding-agent-kit/.tmp.coding-agent-kit.1"
+run stray sh "$M/current/install.sh" --update
+expect stray 0 "$(already v0.6.6 0.6)"
+[[ ! -L "$H/.local/bin/.tmp.coding-agent-kit.1" && ! -L "$H/.claude/coding-agent-kit/.tmp.coding-agent-kit.1" ]] ||
+    die 'a stray temporary link stayed'
+
+printf '==> without flock, as on some NFS and Lustre mounts, the lock is a directory with its owner\n'
+# python3 whose flock fails with ENOLCK, as there.
+NOLOCK="$TMP/nolock tools"
+mkdir "$NOLOCK"
+for tool in "$TOOLS"/*; do
+    [[ "${tool##*/}" == python3 ]] || ln -s "$tool" "$NOLOCK/${tool##*/}"
+done
+cat >"$NOLOCK/python3" <<EOF
+#!/bin/sh
+[ "\$1 \$2 \$3" = '-I -B -c' ] || exec "$TOOLS/python3" "\$@"
+code=\$4
+shift 4
+exec "$TOOLS/python3" -I -B -c "import errno, fcntl
+def flock(fd, operation):
+    raise OSError(errno.ENOLCK, 'No locks available')
+fcntl.flock = flock
+\$code" "\$@"
+EOF
+chmod 755 "$NOLOCK/python3"
+HOST="$(python3 -I -c 'import socket; print(socket.gethostname())')"
+home nolock
+boot nolock /bin/sh PATH="$H/.local/bin:$NOLOCK" -- --channel 0.6
+expect nolock 0 "$(installed v0.6.6)"
+[[ ! -e "$M/.lock.d" ]] || die 'the lock directory stayed after the run'
+BUSY="install.sh: another install.sh holds $MP/.lock; nothing changed."
+sh -c 'exit 0' &
+GONE=$!
+wait "$GONE"
+# A lock of another host or of a live pid here holds; a dead pid here, or an
+# owner older than an hour, is a lock left behind.
+NOW="$(date +%s)"
+for entry in "75 elsewhere 1 $NOW" "75 $HOST $$ $NOW" "0 $HOST $GONE $NOW" "0 elsewhere 1 $((NOW - 7200))"; do
+    mkdir "$M/.lock.d"
+    printf '%s\n' "${entry#* }" >"$M/.lock.d/owner"
+    run nolock-held PATH="$H/.local/bin:$NOLOCK" sh "$M/current/install.sh" --update
+    if [[ "${entry%% *}" == 75 ]]; then
+        expect nolock-held 75 '' "$BUSY"
+    else
+        expect nolock-held 0 "$(already v0.6.6 0.6)"
+        [[ ! -e "$M/.lock.d" ]] || die "nolock: the lock of ${entry#* } stayed"
+    fi
+    rm -rf "$M/.lock.d"
+done
+printf 'a file\n' >"$M/.lock.d"
+run nolock-file PATH="$H/.local/bin:$NOLOCK" sh "$M/current/install.sh" --update
+expect nolock-file 1 '' "install.sh: cannot lock $MP/.lock: this file system has no flock, and the lock directory $MP/.lock.d cannot be made (Not a directory); set XDG_DATA_HOME to a local directory."
+rm "$M/.lock.d"
 
 [[ -z "$(ls -A "$WORK")" ]] || die 'a run wrote into its working directory'
 if grep -rl -e fabricated-access "$OUT"; then

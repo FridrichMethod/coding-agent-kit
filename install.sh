@@ -24,8 +24,11 @@
 # prunes older ones and links the launchers, completions and
 # ~/.claude/coding-agent-kit/*.cjs to current/, with the ownership rules above
 # for links into the managed root. A launcher resolves to its physical
-# release, so a switch never moves a running session. All work starts on the
-# last line, so a truncated download runs nothing.
+# release, so a switch never moves a running session. Once installed, every
+# run is handed to current/install.sh; --reinstall instead exports the newest
+# patch of the channel again from a fresh clone. Every network call ends when
+# it stalls, so no run holds the lock for long. All work starts on the last
+# line, so a truncated download runs nothing.
 set -eu
 fail() {
     printf 'install.sh: %s\n' "$2" >&2
@@ -34,6 +37,7 @@ fail() {
 usage() {
     printf '%s\n' 'Usage: install.sh [--prefix DIR] [--uninstall]' \
         '       install.sh --managed [--channel MAJOR.MINOR] [--update] [--prefix DIR]' \
+        '       install.sh --managed --reinstall [--channel MAJOR.MINOR] [--prefix DIR]' \
         '       install.sh --managed --uninstall [--purge] [--prefix DIR]' \
         'From a checkout: links bin/{codex-as,claude-as} into DIR/bin (default DIR: ~/.local), their bash completions into' \
         '${BASH_COMPLETION_USER_DIR:-${XDG_DATA_HOME:-~/.local/share}/bash-completion}/completions and their' \
@@ -41,8 +45,8 @@ usage() {
         'Managed (piped to sh, or --managed): installs the newest release of the channel (default: that of the' \
         'newest release) in ${XDG_DATA_HOME:-~/.local/share}/coding-agent-kit and links the same paths and' \
         'the helpers ~/.claude/coding-agent-kit/{statusline,notify,check-git-hooks}.cjs to it; --update takes only' \
-        'a newer patch of the remembered channel; --purge also removes the managed root. Exit 75: another run holds' \
-        'the lock.' >&"$1"
+        'a newer patch of the remembered channel; --reinstall exports it again instead of running the installed' \
+        'release'"'"'s install.sh; --purge also removes the managed root. Exit 75: another run holds the lock.' >&"$1"
     exit "$2"
 }
 # number TEXT: a decimal number of at most nine digits, without a leading zero.
@@ -188,8 +192,13 @@ helpers() {
 need() {
     command -v "$1" >/dev/null 2>&1 || fail 1 "managed mode needs $1, which is not on PATH."
 }
+# kit_git ARGS: git without prompts, automatic gc or the lock; a transfer that
+# stays below 1000 bytes/s for 60 s fails, and so does a call that takes 300 s
+# where timeout(1) exists, so no run holds the lock for long.
 kit_git() {
-    GIT_TERMINAL_PROMPT=0 git -c gc.auto=0 -c maintenance.auto=false "$@" </dev/null 9>&-
+    set -- git -c gc.auto=0 -c maintenance.auto=false -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 "$@"
+    [ -z "$bounded" ] || set -- timeout 300 "$@"
+    GIT_TERMINAL_PROMPT=0 "$@" </dev/null 9>&-
 }
 REPLACE_PY='import os, sys
 try:
@@ -200,32 +209,98 @@ except OSError as error:
 replace() {
     python3 -I -B -c "$REPLACE_PY" "$1" "$2" </dev/null || exit 1
 }
-LOCK_PY='import fcntl, os, sys
+# LOCK_PY LOCK held|lock: flock on fd 9 (exit 0 or 75). Where the file system
+# has no flock (some NFS and Lustre mounts) the lock is the directory LOCK.d
+# instead (exit 4), taken by renaming a directory with its owner into place:
+# this host, the shell's pid (also after it execs a release's install.sh)
+# and the time. One left behind counts as gone when its pid is gone on this
+# host or it is older than an hour, far beyond a run with bounded git calls.
+LOCK_PY='import errno, fcntl, os, shutil, socket, sys, time
+lock = sys.argv[1]
 try:
-    held = os.path.samestat(os.fstat(9), os.stat(sys.argv[1]))
+    held = os.path.samestat(os.fstat(9), os.stat(lock))
 except OSError:
     held = False
 if sys.argv[2] == "held":
     sys.exit(0 if held else 1)
 try:
     fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    sys.exit(0)
 except BlockingIOError:
     sys.exit(75)
 except OSError as error:
-    sys.exit(f"install.sh: cannot lock {sys.argv[1]}: {error.strerror}")'
+    if error.errno not in (errno.ENOLCK, errno.ENOSYS, errno.EOPNOTSUPP, errno.ENOTSUP):
+        sys.exit(f"install.sh: cannot lock {lock}: {error.strerror}")
+directory, host, shell = lock + ".d", socket.gethostname(), os.getppid()
+temp = os.path.join(os.path.dirname(lock), f".tmp.lock.{shell}")
+def owner(path):
+    try:
+        with open(os.path.join(path, "owner")) as file:
+            name, pid, since = file.read().split()
+        return name, int(pid), int(since)
+    except (OSError, ValueError):
+        return None
+def gone(found):
+    if found is None:
+        return time.time() - os.stat(directory).st_mtime > 3600
+    if found[0] == host:
+        try:
+            os.kill(found[1], 0)
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            return True
+    return time.time() - found[2] > 3600
+try:
+    for attempt in (1, 2):
+        os.makedirs(temp, exist_ok=True)
+        with open(os.path.join(temp, "owner"), "w") as file:
+            file.write(f"{host} {shell} {int(time.time())}\n")
+        try:
+            os.rename(temp, directory)
+            sys.exit(4)
+        except OSError as error:
+            shutil.rmtree(temp, ignore_errors=True)
+            if error.errno not in (errno.EEXIST, errno.ENOTEMPTY):
+                raise
+        found = owner(directory)
+        if found is not None and found[:2] == (host, shell):
+            sys.exit(4)
+        if attempt == 2 or not gone(found):
+            sys.exit(75)
+        aside = os.path.join(os.path.dirname(lock), f".tmp.stale.{shell}")
+        os.rename(directory, aside)
+        if owner(aside) != found:
+            os.rename(aside, directory)
+            sys.exit(75)
+        shutil.rmtree(aside, ignore_errors=True)
+except FileNotFoundError:
+    sys.exit(75)
+except OSError as error:
+    sys.exit(f"install.sh: cannot lock {lock}: this file system has no flock, and the lock directory "
+             f"{directory} cannot be made ({error.strerror}); set XDG_DATA_HOME to a local directory.")'
 # lock: take the managed root's lock on fd 9, which the run that started this
-# one may already hold for it, and drop what a killed run left behind.
+# one may already hold for it, and drop what a killed run left behind, there
+# and in the directories it links into.
 lock() {
     if ! python3 -I -B -c "$LOCK_PY" "$M/.lock" held </dev/null; then
         { [ -w "$M" ] && { [ ! -e "$M/.lock" ] || { [ -r "$M/.lock" ] && [ -w "$M/.lock" ]; }; }; } ||
             fail 1 "cannot open the lock file $M/.lock."
         exec 9<>"$M/.lock"
     fi
-    python3 -I -B -c "$LOCK_PY" "$M/.lock" lock </dev/null || {
-        [ "$?" != 75 ] || fail 75 "another install.sh holds $M/.lock; nothing changed."
-        exit 1
-    }
+    python3 -I -B -c "$LOCK_PY" "$M/.lock" lock </dev/null || case $? in
+        4)
+            trap 'rm -rf -- "$M/.lock.d"' EXIT
+            trap 'exit 129' HUP
+            trap 'exit 130' INT
+            trap 'exit 143' TERM
+            ;;
+        75) fail 75 "another install.sh holds $M/.lock; nothing changed." ;;
+        *) exit 1 ;;
+    esac
     rm -rf -- "$M"/.tmp.* "$M"/releases/.tmp.*
+    rm -f -- "$prefix/bin"/.tmp.coding-agent-kit.* "$bash_dir"/.tmp.coding-agent-kit.* \
+        "$zsh_dir"/.tmp.coding-agent-kit.* "$claude_dir"/.tmp.coding-agent-kit.*
 }
 # state NAME: the value remembered in the managed root, or nothing.
 state() {
@@ -273,14 +348,18 @@ mplace() {
     replace "$temp" "$1"
     printf '%s -> %s\n' "$1" "$mroot/current/$2"
 }
+# prefix_state: the remembered prefix, unless --prefix gives one; / is kept as /.
 prefix_state() {
-    if [ -z "$prefix_given" ] && [ -f "$M/prefix" ]; then prefix=$(state prefix); fi
+    if [ -z "$prefix_given" ] && [ -f "$M/prefix" ]; then
+        prefix=$(state prefix)
+        case $prefix in /*) prefix=${prefix%/} ;; *) fail 1 "$M/prefix holds no absolute directory; pass --prefix DIR." ;; esac
+    fi
     bounds
 }
 # delegate: run the current release's install.sh with these options instead,
 # so only released code changes an existing managed install.
 delegate() {
-    [ -z "$release" ] && [ -f "$M/current/install.sh" ] || return 0
+    [ -z "$release" ] && [ "$reinstall" = 0 ] && [ -f "$M/current/install.sh" ] || return 0
     set -- --managed
     [ -z "$prefix_given" ] || set -- "$@" --prefix "$prefix/"
     [ -z "$channel" ] || set -- "$@" --channel "$channel"
@@ -307,18 +386,17 @@ activate() {
     each missing
     helpers missing
     if [ "$old" = "$release" ] && [ "$pending" = 0 ] && [ "$(state channel)" = "$ch" ] &&
-        [ -f "$M/prefix" ] && [ "$(state prefix)" = "$prefix" ]; then
+        [ -f "$M/prefix" ] && [ "$(state prefix)" = "${prefix:-/}" ]; then
         printf 'coding-agent-kit: %s is already current (channel %s).\n' "$release" "$ch"
         return 0
     fi
+    # The channel first: an update after a crash never leaves it backwards.
+    remember channel "$ch"
+    remember prefix "${prefix:-/}"
     if [ "$old" != "$release" ]; then
         rm -f -- "$M/.tmp.current.$$"
         ln -s -- "releases/$release" "$M/.tmp.current.$$"
         replace "$M/.tmp.current.$$" "$M/current"
-    fi
-    remember channel "$ch"
-    remember prefix "$prefix"
-    if [ "$old" != "$release" ]; then
         for dir in "$M"/releases/v*; do
             case ${dir##*/} in "$release" | "$old") ;; *) [ ! -d "$dir" ] || rm -rf -- "$dir" ;; esac
         done
@@ -342,11 +420,11 @@ activate() {
 }
 managed_uninstall() {
     mroot=$M
+    prefix_state
     if [ -d "$M" ]; then
         mroot=$(CDPATH='' cd -P -- "$M" && pwd)
         lock
     fi
-    prefix_state
     src=$root root=$mroot refused=0 found=0
     each uncheck
     helpers uncheck
@@ -355,7 +433,7 @@ managed_uninstall() {
     helpers remove
     if [ "$found" = 1 ] && rmdir -- "$claude_dir" 2>/dev/null; then printf 'removed %s\n' "$claude_dir"; fi
     if [ "$purge" = 1 ] && { [ -e "$M" ] || [ -L "$M" ]; }; then
-        rm -rf -- "$M/repo.git" "$M/releases" "$M/current" "$M/channel" "$M/prefix" "$M"/.tmp.* "$M/.lock"
+        rm -rf -- "$M/repo.git" "$M/releases" "$M/current" "$M/channel" "$M/prefix" "$M"/.tmp.* "$M/.lock" "$M/.lock.d"
         if rmdir -- "$M" 2>/dev/null; then
             printf 'removed %s\n' "$M"
         else
@@ -376,6 +454,12 @@ managed_main() {
     fi
     need git
     need tar
+    # ssh gives up on a host that does not answer, unless git is told how to run ssh.
+    if [ -z "${GIT_SSH_COMMAND-}${GIT_SSH-}" ] && ! git config --get core.sshCommand >/dev/null 2>&1 </dev/null 9>&-; then
+        GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4'
+        export GIT_SSH_COMMAND
+    fi
+    ! timeout 5 true </dev/null >/dev/null 2>&1 9>&- || bounded=1
     if [ "$activate" = 1 ]; then
         prefix_state
         activate
@@ -414,35 +498,44 @@ managed_main() {
         [ "$(newest "${cur#v}" "$best")" = "${cur#v}" ]; then
         target=$cur
     fi
-    if [ "$target" = "$release" ]; then
+    if [ "$target" = "$release" ] && [ "$reinstall" = 0 ]; then
         channel=$ch
         activate
         exit 0
     fi
-    if [ ! -d "$M/repo.git" ]; then
-        kit_git clone --bare --quiet -- "$url" "$M/.tmp.repo.$$" || fail 1 "cannot clone $url."
-        mv -- "$M/.tmp.repo.$$" "$M/repo.git"
-    fi
-    kit_git -C "$M/repo.git" rev-parse --quiet --verify "refs/tags/$target^{commit}" >/dev/null ||
-        kit_git -C "$M/repo.git" fetch --quiet --no-tags -- "$url" "refs/tags/$target:refs/tags/$target" ||
-        fail 1 "cannot fetch $target from $url."
-    if [ ! -f "$M/releases/$target/install.sh" ]; then
-        temp=$M/releases/.tmp.$target.$$
-        mkdir -p -- "$temp"
-        kit_git -C "$M/repo.git" archive --format=tar -o "$temp.tar" "refs/tags/$target" ||
-            fail 1 "cannot export $target."
-        (cd -- "$temp" && tar -xf "$temp.tar" </dev/null 9>&-) || fail 1 "cannot unpack $target."
-        rm -f -- "$temp.tar"
-        [ -f "$temp/install.sh" ] && [ -f "$temp/bin/codex-as" ] || fail 1 "$target is not a complete release."
-        rm -rf -- "$M/releases/$target"
-        mv -- "$temp" "$M/releases/$target"
-    fi
+    [ "$reinstall" = 0 ] && [ -f "$M/releases/$target/install.sh" ] || export_release "$target"
     exec sh "$M/releases/$target/install.sh" --activate --channel "$ch" --prefix "$prefix/"
+}
+# export_release TAG: export TAG into releases/, from a fresh clone with
+# --reinstall; the old clone and tree are replaced only once that worked.
+export_release() {
+    repo=$M/repo.git
+    if [ "$reinstall" = 1 ] || [ ! -d "$repo" ]; then
+        repo=$M/.tmp.repo.$$
+        kit_git clone --bare --quiet -- "$url" "$repo" || fail 1 "cannot clone $url."
+    fi
+    kit_git -C "$repo" rev-parse --quiet --verify "refs/tags/$1^{commit}" >/dev/null ||
+        kit_git -C "$repo" fetch --quiet --no-tags -- "$url" "refs/tags/$1:refs/tags/$1" ||
+        fail 1 "cannot fetch $1 from $url."
+    temp=$M/releases/.tmp.$1.$$
+    mkdir -p -- "$temp"
+    kit_git -C "$repo" archive --format=tar -o "$temp.tar" "refs/tags/$1" || fail 1 "cannot export $1."
+    (cd -- "$temp" && tar -xf "$temp.tar" </dev/null 9>&-) || fail 1 "cannot unpack $1."
+    rm -f -- "$temp.tar"
+    [ -f "$temp/install.sh" ] && [ -f "$temp/bin/codex-as" ] || fail 1 "$1 is not a complete release."
+    if [ "$repo" != "$M/repo.git" ]; then
+        rm -rf -- "$M/repo.git"
+        mv -- "$repo" "$M/repo.git"
+    fi
+    [ ! -e "$M/releases/$1" ] || mv -- "$M/releases/$1" "$M/releases/.tmp.old.$1.$$"
+    mv -- "$temp" "$M/releases/$1"
+    rm -rf -- "$M/releases/.tmp.old.$1.$$"
+    [ "$reinstall" = 0 ] || printf 'coding-agent-kit: exported %s again from %s.\n' "$1" "$url"
 }
 
 main() {
     unset prefix
-    uninstall=0 managed=0 update=0 purge=0 activate=0 channel=
+    uninstall=0 managed=0 update=0 purge=0 activate=0 reinstall=0 channel='' bounded=''
     while [ "$#" -gt 0 ]; do
         case $1 in
             --prefix) case ${2-} in /*) prefix=${2%/} && shift ;; *) fail 2 '--prefix needs an absolute directory.' ;; esac ;;
@@ -456,16 +549,18 @@ main() {
             --update) update=1 managed=1 ;;
             --purge) purge=1 managed=1 ;;
             --activate) activate=1 managed=1 ;;
+            --reinstall) reinstall=1 managed=1 ;;
             --help) usage 1 0 ;;
             *) usage 2 2 ;;
         esac
         shift
     done
     if [ "$uninstall" = 1 ]; then
-        [ -z "$channel" ] && [ "$update$activate" = 00 ] || fail 2 '--uninstall takes only --prefix, --managed and --purge.'
+        [ -z "$channel" ] && [ "$update$activate$reinstall" = 000 ] ||
+            fail 2 '--uninstall takes only --prefix, --managed and --purge.'
     else
         [ "$purge" = 0 ] || fail 2 '--purge needs --uninstall.'
-        [ "$update$activate" != 11 ] || fail 2 '--update and --activate exclude each other.'
+        case $update$activate$reinstall in *1*1*) fail 2 '--update, --activate and --reinstall exclude each other.' ;; esac
     fi
     case ${HOME-} in /*) ;; *) fail 1 'HOME must be set to an absolute path.' ;; esac
     prefix_given=${prefix+1}
