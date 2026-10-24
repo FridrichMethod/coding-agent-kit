@@ -1,5 +1,80 @@
 # Changelog
 
+## 0.6.0
+
+The kit installs and updates itself. A minor release: it adds the managed
+install with its commands, paths and exit code 75, `install.ps1`, and the
+environment variable `CODING_AGENT_KIT_REPO_URL`, and an `install.sh` with
+no checkout next to it, as when piped to `sh`, now installs instead of
+refusing. A checkout's `install.sh` links that checkout as in 0.5.0.
+
+Added:
+
+- A managed install that follows a channel, a `MAJOR.MINOR` line:
+  `curl -fsSL https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.sh | sh -s -- --channel 0.6`
+  installs the highest `v0.6.PATCH` release, and
+  `"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update`
+  later moves to a newer patch of the remembered channel only, never to
+  another minor line; `--uninstall` removes its links and `--purge` also
+  the managed root. These commands are the stable interface for repositories
+  that install the kit, so they no longer need to carry it as a submodule.
+- `install.sh` runs as a managed install when no checkout is next to it,
+  with `--managed`, `--channel MAJOR.MINOR`, `--update` or `--purge`, and
+  always in a release of its managed root,
+  `${XDG_DATA_HOME:-~/.local/share}/coding-agent-kit/`: `repo.git`, a bare
+  clone; `releases/vX.Y.Z/`, exported release trees, the current one and the
+  one before it; `current`, a link to one of them, replaced by a rename;
+  `channel` and `prefix`, the remembered channel and `--prefix`; and
+  `.lock`. It links `PREFIX/bin/{codex-as,claude-as}`, the bash and zsh
+  completions and `~/.claude/coding-agent-kit/{statusline,notify,check-git-hooks}.cjs`,
+  the home-relative helper paths, to `current/`, with the ownership and
+  Stow-folding refusals of a checkout install, and prints the home-relative
+  helper commands for `settings.json` when it places a link.
+- The channel: `--channel` picks the highest `vMAJOR.MINOR.PATCH` tag and is
+  remembered; without it a first install takes the newest release's line;
+  a different `--channel` switches, also to an older line. `0.6` is the
+  first channel with managed installs; `--channel` refuses older ones.
+- A run lists the tags with `git ls-remote`, exports the release it chose
+  and hands over to that release's own `install.sh --activate`, which checks
+  every destination before anything changes, renames `current` over to its
+  release, keeps the previous release, removes older ones and places the
+  links that are not yet right. Once installed, a bootstrap or checkout
+  `install.sh` hands every run to `current/install.sh`, so only released
+  code changes an install. A launcher resolves to its physical release, so
+  a switch leaves running sessions on the release they started with.
+- A run with nothing to change writes nothing and prints one line,
+  `coding-agent-kit: vX.Y.Z is already current (channel X.Y).`
+- The lock: one run at a time holds `flock` on `.lock`; another exits 75
+  with nothing changed.
+- `install.ps1`, the managed install on native Windows, where only the
+  helpers run: the same channel, update, lock and exit-code rules with
+  `-Channel`, `-Update`, `-Uninstall` and `-Purge` (also spelled
+  `--channel`, `--update`, `--uninstall` and `--purge`), a managed root in
+  `$env:LOCALAPPDATA\coding-agent-kit\` whose `current` is a file naming the
+  release and whose `install.ps1` is the current release's copy and the
+  entry point for `-Update`, and copies of the three helpers in
+  `$HOME\.claude\coding-agent-kit\`. A copy there is its own when it equals
+  the helper of a release in the managed root. It needs PowerShell 7 and
+  Git.
+- `CODING_AGENT_KIT_REPO_URL` replaces the repository a managed install
+  clones and lists, otherwise the one its managed root was cloned from.
+- `tests/managed-install.sh` and `tests/managed-install.ps1` drive both
+  managed installs against a local repository with release tags, with no
+  network: bootstrap, channels, updates, the lock, a running launcher across
+  a switch, refusals, uninstall and purge.
+
+Changed:
+
+- `install.sh` piped to `sh`, or run from a directory without the kit, is
+  the managed bootstrap; 0.5.0 refused it as `not a complete
+  coding-agent-kit checkout`. Its work now starts on its last line, so a
+  truncated download runs nothing.
+- `install.sh --help` adds the managed forms after its unchanged first line.
+- Every test entry point also unsets `CODING_AGENT_KIT_REPO_URL`.
+- `tests/contract.sh` also pins `install.ps1` and its `#Requires -Version
+  7.0` line.
+- `tests/run.ps1` also runs `tests/managed-install.ps1` and needs `pwsh`.
+
 ## 0.5.0
 
 The kit stops naming its consumers and narrows its public contract. A minor

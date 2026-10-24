@@ -10,15 +10,18 @@ Multi-account wrappers and helpers for Codex and Claude Code:
   hook guard.
 
 It installs on top of an existing `codex` or `claude` and never installs,
-updates or replaces either. Install it with `install.sh`, or link or copy its
-files, for example from a Git submodule in a repository of your own.
+updates or replaces either. Install it as a managed install that follows the
+newest patch release of a minor line and updates itself, link a checkout of
+your own with `install.sh`, or link or copy its files.
 
 ## Requirements
 
-- Linux or macOS. On native Windows only the Node helpers are tested.
+- Linux or macOS. On native Windows only the Node helpers are tested, and
+  `install.ps1` installs only them; it needs PowerShell 7 and Git.
 - Python 3.11 or newer, standard library only (run as `python3 -I -B`).
 - Bash for `codex-as` (3.2 is enough), POSIX `sh` for `claude-as` and
-  `install.sh`, and ordinary POSIX utilities.
+  `install.sh`, and ordinary POSIX utilities. The managed install also needs
+  Git and `tar`.
 - Codex CLI 0.161.0 or newer for `codex-as`, with no upper limit. Claude Code
   for `claude-as`; its token capture is audited for 2.1.296, and other
   versions fall back to an explicit manual paste.
@@ -27,14 +30,130 @@ files, for example from a Git submodule in a repository of your own.
 
 ## Install
 
+### Managed install
+
+A managed install follows one channel, a `MAJOR.MINOR` line such as `0.6`:
+it installs the highest `vMAJOR.MINOR.PATCH` release of it and later moves
+to newer patches only. Install, update and remove it with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.sh | sh -s -- --channel 0.6
+"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update
+"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --uninstall   # --purge: also the managed root
+```
+
+On native Windows, with PowerShell 7 and Git, `install.ps1` does the same for
+the three helpers, the only part that runs there:
+
+```powershell
+$f = Join-Path ([IO.Path]::GetTempPath()) "coding-agent-kit-install-$PID.ps1"
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.ps1 -OutFile $f
+pwsh -NoProfile -ExecutionPolicy Bypass -File $f -Channel 0.6; Remove-Item $f
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Update
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall   # -Purge: also the managed root
+```
+
+These commands, the paths below and the exit codes are the stable interface
+for scripts and other repositories that install the kit; they change only
+in a minor release. The same bootstrap command installs, re-installs and,
+with another `--channel`, switches the channel.
+
+`install.sh` runs as a managed install when no checkout is next to it (piped
+to `sh`), with `--managed`, `--channel`, `--update` or `--purge`, and always
+in a release of its managed root:
+
+```
+install.sh --managed [--channel MAJOR.MINOR] [--update] [--prefix DIR]
+install.sh --managed --uninstall [--purge] [--prefix DIR]
+```
+
+The managed root is `${XDG_DATA_HOME:-~/.local/share}/coding-agent-kit/`:
+
+| Path | Content |
+| --- | --- |
+| `repo.git` | a bare clone of the repository |
+| `releases/vX.Y.Z/` | exported release trees: the current one and the one before it |
+| `current` | a link to `releases/vX.Y.Z`, replaced by a rename |
+| `channel`, `prefix` | the remembered channel and `--prefix` |
+| `.lock` | the lock file |
+
+and the install links these paths to `current/`, with `DIR` as for a
+checkout below:
+
+| Link | Target |
+| --- | --- |
+| `DIR/bin/codex-as`, `DIR/bin/claude-as` | `current/bin/` |
+| `${BASH_COMPLETION_USER_DIR:-${XDG_DATA_HOME:-~/.local/share}/bash-completion}/completions/{codex-as,claude-as}` | `current/completions/bash/` |
+| `DIR/share/zsh/site-functions/{_codex-as,_claude-as}` | `current/completions/zsh/` |
+| `~/.claude/coding-agent-kit/{statusline,notify,check-git-hooks}.cjs` | `current/helpers/` |
+
+- `--channel MAJOR.MINOR` selects the channel; the managed root remembers it.
+  Without it, a first install takes the channel of the newest release. A
+  different `--channel` switches to that channel's newest release, also to
+  an older line. `0.6` is the first channel with managed installs.
+- `--update` needs an existing managed install. It lists the repository's
+  tags (`git ls-remote`, which writes nothing) and moves only to a newer
+  patch of the remembered channel, or of the one `--channel` names. With
+  nothing newer it writes nothing and prints one line,
+  `coding-agent-kit: vX.Y.Z is already current (channel X.Y).` It never
+  leaves the channel. A run without `--update` does the same, installs when
+  nothing is installed yet and puts back a missing link.
+- A run exports the release it chose into `releases/` and hands over to that
+  release's own `install.sh --activate`. It checks every destination,
+  renames `current` over to itself, keeps the release before it, removes
+  older ones and places the links that are not yet right; a switch that
+  changes no link prints only
+  `coding-agent-kit: switched from vX.Y.Z to vX.Y.W (channel X.Y).` Once a
+  release is installed, every bootstrap or checkout `install.sh` hands its
+  run to `current/install.sh`, so only released code changes an install.
+- A launcher resolves its links to its physical release directory, so a
+  switch leaves a running session on the release it started with, which
+  stays until the next switch.
+- A destination is the managed install's own only when it is a symlink whose
+  text starts with the managed root's physical path and has no `.` or `..`
+  components, with the same refusals as a checkout install below. Links of a
+  checkout install, Stow's links and every other path are refused before
+  anything changes; remove them, or run `--uninstall` from their checkout,
+  first.
+- The repository is `CODING_AGENT_KIT_REPO_URL` when set, otherwise the one
+  the managed root was cloned from, otherwise this repository on GitHub.
+- Only one run at a time holds the lock (`flock` on `.lock` through
+  `python3`); another run exits 75 and changes nothing.
+- `--uninstall` removes the managed links and reports any other path it
+  keeps, then `~/.claude/coding-agent-kit/` if it is empty; `--purge` also
+  removes the managed root.
+- Every child gets `/dev/null` as stdin and all work starts on the last line
+  of `install.sh`, so a truncated download runs nothing.
+- Exit 0 on success, `already current` included, 1 on a refusal or error, 2
+  on a usage error, and 75 when another run holds the lock. Nothing is
+  changed by a run that fails; a failed first install may leave the managed
+  root with its clone and exported release, which the next run reuses.
+
+`install.ps1` keeps its managed root in `$env:LOCALAPPDATA\coding-agent-kit\`,
+with the same `repo.git`, `releases\vX.Y.Z\`, `channel` and `.lock`, and
+two differences: `current` is a file that names the current release, and
+`install.ps1` there is a copy of that release's own installer, the entry
+point for later runs. It copies the three helpers into
+`$HOME\.claude\coding-agent-kit\` (`USERPROFILE`, as Node's `os.homedir()`
+reads it), each by a rename in that directory. A destination there is its
+own when it is missing or a plain file equal to the helper of a release in
+the managed root; a link, a directory or a file of other content is refused
+and kept. It takes `-Channel MAJOR.MINOR`, `-Update`, `-Uninstall` and
+`-Purge`, also spelled `--channel`, `--update`, `--uninstall` and
+`--purge`, has the same channel, update, lock and exit-code rules, and holds
+the lock as an exclusive open of `.lock`.
+
+### From a checkout
+
 ```sh
 git clone https://github.com/FridrichMethod/coding-agent-kit.git
 cd coding-agent-kit
 ./install.sh                   # or: sh install.sh, ./install.sh --prefix DIR
 ```
 
-`install.sh [--prefix DIR] [--uninstall]` creates absolute links into the
-checkout; `DIR` must be absolute and defaults to `~/.local`:
+`install.sh [--prefix DIR] [--uninstall]` run from a checkout creates
+absolute links into the checkout; `DIR` must be absolute and defaults to
+`~/.local`:
 
 | Link | Target |
 | --- | --- |
@@ -77,7 +196,7 @@ checkout; `DIR` must be absolute and defaults to `~/.local`:
 - Exit 0 on success, 1 on a refusal or error, 2 on a usage error. It never
   writes a configuration file and starts no login.
 
-It then prints what it cannot do for you:
+A checkout install then prints what it cannot do for you:
 
 ```
 zsh: unless fpath has it, add this before compinit (with oh-my-zsh, before sourcing it):
@@ -116,9 +235,11 @@ Code's `settings.json`, the helpers go in as:
 ```
 
 A `settings.json` shared by machines whose home directories differ can name
-the helpers relative to the home directory instead: copy or link
-`helpers/*.cjs` into `~/.claude/coding-agent-kit/` and give each command in
-this form, with `notify.cjs` and `check-git-hooks.cjs` for the two hooks:
+the helpers relative to the home directory instead: a managed install puts
+them in `~/.claude/coding-agent-kit/` (or copy or link `helpers/*.cjs` there
+yourself), and each command takes this form, with `notify.cjs` and
+`check-git-hooks.cjs` for the two hooks; a managed install prints all three
+when it places a link:
 
 ```
 node -e "require(require('os').homedir() + '/.claude/coding-agent-kit/statusline.cjs').main()"
@@ -243,20 +364,25 @@ pre-commit run --all-files
   the native Codex sharing checks, and without GNU Stow the folded Stow cases
   of `standalone-e2e.sh`, and says so; as root it skips the read-only
   directory cases.
-- `run.ps1` runs the Node helper suite; `-CI` requires Windows.
+- `run.ps1` runs the Node helper suite and `tests/managed-install.ps1`; it
+  needs git, node and pwsh, and `-CI` requires Windows.
 - Every suite runs in a temporary HOME with fake CLIs and fictitious
   credentials, reaches no network beyond local fixtures, and first unsets
   `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`,
   `CODING_AGENT_KIT_USAGE_FILE`, `CODING_AGENT_KIT_TOKEN_ID`,
-  `CODING_AGENT_KIT_CLAUDE_PID`,
+  `CODING_AGENT_KIT_CLAUDE_PID`, `CODING_AGENT_KIT_REPO_URL`,
   `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `NO_COLOR`.
 - `tests/standalone-e2e.sh` installs with `install.sh` under `/bin/sh`, bash and
   (when present) dash, checks its refusals and drives both launchers and their
   completions through the links;
+  `tests/managed-install.sh` and `tests/managed-install.ps1` build a local
+  repository with release tags, pass it as `CODING_AGENT_KIT_REPO_URL`
+  (`file://`) and drive the managed installs through bootstrap, update,
+  channel switch, lock, refusals, uninstall and purge;
   `tests/contract.sh` checks the public contract (see
   [AGENTS.md](AGENTS.md)).
 - CI runs the Unix suite on Linux and on macOS with the system Bash 3.2, the
-  Node suite on Windows, and every pre-commit hook on Linux. The Linux job
+  Node and `install.ps1` suites on Windows, and every pre-commit hook on Linux. The Linux job
   installs GNU Stow and fails if the folded Stow cases did not run; macOS
   skips them. It runs on pull requests, on pushes to `main` and on pushes to
   `ci/**` branches, so a change can be checked on all three before `main` is
@@ -270,13 +396,14 @@ Releases follow semantic versioning within 0.x. A minor release (0.2.0 to
 patch release (0.2.0 to 0.2.1) must not. Tags are never moved and `main` is
 never rewritten, so a fix ships as a new patch tag.
 
-Consumers may take patch tags automatically, for example with a scheduled job
-that moves a submodule to the newest tag of a pinned minor line. A patch is
-therefore tagged only from a green `main` and never changes a public
-interface: the linked paths, the help text, the `--account-labels` and
-`--account-info` output, or anything else in the contract in
-[AGENTS.md](AGENTS.md#public-contract). Take a minor release through a
-reviewed change. [CHANGELOG.md](CHANGELOG.md) lists every release.
+Consumers may take patch tags automatically: a managed install moves to the
+newest patch of its channel on `--update`, and a scheduled job may move a
+submodule to the newest tag of a pinned minor line. A patch is therefore
+tagged only from a green `main` and never changes a public interface: the
+linked paths, the help text, the `--account-labels` and `--account-info`
+output, the managed install's commands and paths, or anything else in the
+contract in [AGENTS.md](AGENTS.md#public-contract). Take a minor release,
+a new channel, through a reviewed change. [CHANGELOG.md](CHANGELOG.md) lists every release.
 
 ## License
 
