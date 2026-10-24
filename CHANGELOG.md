@@ -45,7 +45,18 @@ Added:
 - A run with nothing to change writes nothing and prints one line,
   `coding-agent-kit: vX.Y.Z is already current (channel X.Y).`
 - The lock: one run at a time holds `flock` on `.lock`; another exits 75
-  with nothing changed.
+  with nothing changed. Where the file system has no `flock` (some NFS and
+  Lustre mounts), the lock is the directory `.lock.d` with its host, pid
+  and time; one left behind counts as gone when its pid is gone on its host
+  or after an hour.
+- Every network git call is bounded: a transfer below 1000 bytes/s for 60 s
+  fails, ssh gives up after 30 s without a connection or a minute without an
+  answer unless git is told how to run ssh, and each call ends after 300 s
+  where `timeout` exists, so a stalled repository cannot keep the lock.
+- `--reinstall` (`-Reinstall`) repairs a broken installed release: it runs
+  without handing over to `current/install.sh`, exports the newest patch of
+  the channel again from a fresh clone and hands that release's
+  `--activate` the switch.
 - `install.ps1`, the managed install on native Windows, where only the
   helpers run: the same channel, update, lock and exit-code rules with
   `-Channel`, `-Update`, `-Uninstall` and `-Purge` (also spelled
@@ -54,8 +65,10 @@ Added:
   release and whose `install.ps1` is the current release's copy and the
   entry point for `-Update`, and copies of the three helpers in
   `$HOME\.claude\coding-agent-kit\`. A copy there is its own when it equals
-  the helper of a release in the managed root. It needs PowerShell 7 and
-  Git.
+  the helper of a release in the managed root. It stages all copies before
+  renaming them, retries a rename for 1.5 s while another process has the
+  file open, and reports exit 75 only for a sharing or lock violation that
+  lasts a second. It needs PowerShell 7 and Git.
 - `CODING_AGENT_KIT_REPO_URL` replaces the repository a managed install
   clones and lists, otherwise the one its managed root was cloned from.
 - `tests/managed-install.sh` and `tests/managed-install.ps1` drive both

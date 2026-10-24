@@ -84,8 +84,8 @@ piped to `sh -s -- --channel MAJOR.MINOR`; `install.ps1` downloaded and run
 with `-Channel`), the update and removal commands
 (`${XDG_DATA_HOME:-~/.local/share}/coding-agent-kit/current/install.sh --update`,
 `--uninstall [--purge]`; `$env:LOCALAPPDATA\coding-agent-kit\install.ps1 -Update`,
-`-Uninstall [-Purge]`), the managed root's layout (`repo.git`, `releases/`,
-`current`, `channel`, `prefix`, `.lock`), the linked and copied paths,
+`-Uninstall [-Purge]`), the repair `--reinstall` (`-Reinstall`), the managed root's layout (`repo.git`, `releases/`,
+`current`, `channel`, `prefix`, `.lock`, and `.lock.d` where there is no `flock`), the linked and copied paths,
 including `~/.claude/coding-agent-kit/{statusline,notify,check-git-hooks}.cjs`,
 the channel and update rules, the exit codes 0, 1, 2 and 75, and
 `CODING_AGENT_KIT_REPO_URL`. The hand-over is a contract between releases:
@@ -108,7 +108,7 @@ runs the old release's installer, so a new minor keeps accepting it too.
 
 The kit runs on what a host already has and stays small enough to audit.
 
-- At run time the launchers and `install.sh` need only POSIX `sh` or Bash with ordinary POSIX utilities, the Python 3.11+ standard library run as `python3 -I -B`, and the tool they wrap; the managed install also needs Git and `tar`, and takes its lock and renames over links with `python3`. `install.ps1` needs PowerShell 7 and Git. The helpers need Node.js 22+ and nothing from npm. Nothing needs a pip package, virtual environment, compiler, network service or background process of its own. The kit never installs a tool.
+- At run time the launchers and `install.sh` need only POSIX `sh` or Bash with ordinary POSIX utilities, the Python 3.11+ standard library run as `python3 -I -B`, and the tool they wrap; the managed install also needs Git and `tar`, and takes its lock and renames over links with `python3`. Every network git call is bounded (HTTP low-speed limit, ssh timeouts, `timeout` where it exists), because a run holds the lock while it waits. `install.ps1` needs PowerShell 7 and Git. The helpers need Node.js 22+ and nothing from npm. Nothing needs a pip package, virtual environment, compiler, network service or background process of its own. The kit never installs a tool.
 - A missing optional tool narrows the feature; a missing required tool fails once with a message that names it, never with a traceback or a half-done run. For example, codex-as without `git` limits takeover to the launch directory.
 - A wrapper forwards to the native tool instead of reimplementing it. It requires a minimum version, never an exact pin or an upper bound. Anything beyond the tool's documented CLI and files (internal socket paths, wire protocols, lock layouts) is best effort: a failure there warns and falls back to plain native behavior, and blocks or asks only where continuing could lose work.
 - Keep helper code proportional to what it adds over the native tool. A feature that needs its own protocol client, journal or lock scheme must justify its code and test cost; prefer the native tool's own feature when one exists.

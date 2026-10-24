@@ -64,6 +64,7 @@ in a release of its managed root:
 
 ```
 install.sh --managed [--channel MAJOR.MINOR] [--update] [--prefix DIR]
+install.sh --managed --reinstall [--channel MAJOR.MINOR] [--prefix DIR]
 install.sh --managed --uninstall [--purge] [--prefix DIR]
 ```
 
@@ -106,6 +107,12 @@ checkout below:
   `coding-agent-kit: switched from vX.Y.Z to vX.Y.W (channel X.Y).` Once a
   release is installed, every bootstrap or checkout `install.sh` hands its
   run to `current/install.sh`, so only released code changes an install.
+- `--reinstall` repairs an install whose release is broken, which every
+  other run would be handed to: the bootstrap (or any `install.sh`) runs on
+  its own, exports the newest patch of the channel again from a fresh clone,
+  replaces the old clone and tree only once that worked, and hands that
+  release's own `install.sh --activate` the switch:
+  `curl -fsSL https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.sh | sh -s -- --reinstall`.
 - A launcher resolves its links to its physical release directory, so a
   switch leaves a running session on the release it started with, which
   stays until the next switch.
@@ -118,7 +125,22 @@ checkout below:
 - The repository is `CODING_AGENT_KIT_REPO_URL` when set, otherwise the one
   the managed root was cloned from, otherwise this repository on GitHub.
 - Only one run at a time holds the lock (`flock` on `.lock` through
-  `python3`); another run exits 75 and changes nothing.
+  `python3`); another run exits 75 and changes nothing. Where the file
+  system has no `flock`, as some NFS and Lustre mounts, the lock is the
+  directory `.lock.d`, renamed into place with its owner (host, pid, time)
+  and removed at exit; one left behind counts as gone when its pid is gone on
+  that host or it is older than an hour. A managed root such a mount shares
+  between hosts is safe from concurrent runs either way.
+- Every git call that can reach the network gives up when a transfer stays
+  below 1000 bytes/s for 60 s, ssh after 30 s without a connection or a
+  minute without an answer (unless `GIT_SSH_COMMAND`, `GIT_SSH` or
+  `core.sshCommand` says how to run ssh), and, where `timeout` exists, after
+  300 s in all, so a stalled repository fails the run instead of keeping the
+  lock.
+- The remembered prefix must be an absolute directory; a run refuses
+  another one. After taking the lock, a run removes the temporary links a
+  killed run left beside its destinations, and it writes the remembered
+  channel and prefix before it renames `current`.
 - `--uninstall` removes the managed links and reports any other path it
   keeps, then `~/.claude/coding-agent-kit/` if it is empty; `--purge` also
   removes the managed root.
@@ -138,10 +160,14 @@ point for later runs. It copies the three helpers into
 reads it), each by a rename in that directory. A destination there is its
 own when it is missing or a plain file equal to the helper of a release in
 the managed root; a link, a directory or a file of other content is refused
-and kept. It takes `-Channel MAJOR.MINOR`, `-Update`, `-Uninstall` and
-`-Purge`, also spelled `--channel`, `--update`, `--uninstall` and
-`--purge`, has the same channel, update, lock and exit-code rules, and holds
-the lock as an exclusive open of `.lock`.
+and kept. It stages all copies first, then renames them one after the other,
+each again for 1.5 s while another process (Node, a scanner) has the file
+open. It takes `-Channel MAJOR.MINOR`, `-Update`, `-Reinstall`, `-Uninstall`
+and `-Purge`, also spelled `--channel`, `--update`, `--reinstall`,
+`--uninstall` and `--purge`, has the same channel, update, reinstall, git
+transfer and exit-code rules, and holds the lock as an exclusive open of
+`.lock`: only a sharing or lock violation that lasts a second is another
+run, exit 75.
 
 ### From a checkout
 
