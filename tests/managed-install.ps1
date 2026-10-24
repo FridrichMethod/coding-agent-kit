@@ -278,9 +278,70 @@ try {
     if (@(Get-ChildItem -LiteralPath $script:Claude -Force).Count -ne 1) { Fail-Test 'a refused first install copied a helper' }
     $result = Invoke-Installer no-install $Boot -Update
     Assert-Result $result 1 @() @("install.ps1: no managed install in $script:Managed to update; install one first with -Channel MAJOR.MINOR.")
+
+    Write-Output '==> a stalled repository fails a run within seconds; -Reinstall repairs a broken entry point'
+    New-Home 'repair'
+    Assert-Result (Invoke-Installer repair-install $Boot -Channel 0.6) 0 (Get-Installed 'v0.6.4')
+    Set-Content -LiteralPath $Log -Value $null
+    # A 127.0.0.1 server that accepts and never answers. Git's own
+    # GIT_HTTP_LOW_SPEED_TIME shortens the 60 s that the installer allows a
+    # transfer below its 1000 bytes/s; without that limit git would wait forever.
+    $stall = Join-Path $Temp 'stall.js'
+    $port = Join-Path $Temp 'stall.port'
+    [IO.File]::WriteAllText($stall, "const net = require('net'); const server = net.createServer(() => {});`n" +
+        "server.listen(0, '127.0.0.1', () => require('fs').writeFileSync(process.argv[2], String(server.address().port)));`n")
+    $server = Start-Process node -ArgumentList @($stall, $port) -PassThru -NoNewWindow
+    try {
+        for ($wait = 0; $wait -lt 100 -and -not (Test-Path -LiteralPath $port); $wait++) { Start-Sleep -Milliseconds 100 }
+        $stalled = "http://127.0.0.1:$(Get-Content -LiteralPath $port)/kit.git"
+        $before = Get-Snapshot $script:Managed
+        $env:CODING_AGENT_KIT_REPO_URL = $stalled
+        $env:GIT_HTTP_LOW_SPEED_TIME = '2'
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        $result = Invoke-Installer stall $script:Entry -Update
+        $clock.Stop()
+    } finally {
+        $env:CODING_AGENT_KIT_REPO_URL = $Url
+        Remove-Item -LiteralPath Env:GIT_HTTP_LOW_SPEED_TIME -ErrorAction Ignore
+        Stop-Process -Id $server.Id -Force -ErrorAction Ignore
+    }
+    if ($result.Code -ne 1 -or $clock.Elapsed.TotalSeconds -ge 30 -or $result.Err.Count -ne 1 -or
+        $result.Err[0] -notlike "install.ps1: cannot list the releases at ${stalled}: *") {
+        Fail-Test "stall: exit $($result.Code) after $($clock.Elapsed.TotalSeconds) s: $($result.Err -join ' ')"
+    }
+    Assert-Unchanged 'a stalled update wrote' $before (Get-Snapshot $script:Managed)
+    Assert-Logged @('v0.6.4 -Update')
+    [IO.File]::WriteAllText($script:Entry, "exit 3`n")
+    if ((Invoke-Installer broken $Boot -Channel 0.6).Code -ne 3) { Fail-Test 'the bootstrap did not hand over to the entry point' }
+    Assert-Result (Invoke-Installer reinstall $Boot -Reinstall) 0 @("coding-agent-kit: exported v0.6.4 again from $Url.",
+        "coding-agent-kit: v0.6.4 (channel 0.6) in $script:Managed")
+    Assert-Logged @('v0.6.4 -Activate -Channel 0.6')
+    Assert-Installed 'v0.6.4' '0.6'
+
+    Write-Output '==> an update waits while another process has a helper open'
+    Publish 'v0.6.5' 'fixture v0.6.5'
+    $notify = Join-Path $script:Claude 'notify.cjs'
+    $open = [IO.File]::Open($notify, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        $update = Start-Process pwsh -ArgumentList @('-NoProfile', '-NonInteractive', '-File', $script:Entry, '-Update') -PassThru `
+            -NoNewWindow -RedirectStandardOutput (Join-Path $Out 'busy.out') -RedirectStandardError (Join-Path $Out 'busy.err')
+        # The copies are staged once the temporary copy appears; the rename then waits for the handle.
+        for ($wait = 0; $wait -lt 600 -and @(Get-ChildItem -LiteralPath $script:Claude -Filter '.tmp.notify.cjs.*' -Force).Count -eq 0; $wait++) {
+            Start-Sleep -Milliseconds 100
+        }
+        Start-Sleep -Milliseconds 400
+    } finally {
+        $open.Dispose()
+    }
+    $update.WaitForExit()
+    if ($update.ExitCode -ne 0) { Fail-Test "busy: exit $($update.ExitCode): $(Get-Content -Raw -LiteralPath (Join-Path $Out 'busy.err'))" }
+    Assert-Logged @('v0.6.4 -Update', 'v0.6.5 -Activate -Channel 0.6')
+    Assert-Installed 'v0.6.5' '0.6'
+
     New-Home 'usage'
     foreach ($arguments in @(@('-Bogus'), @('-Channel', '0.5'), @('-Channel', '1'), @('-Channel'), @('-Purge'),
-            @('-Update', '-Activate'), @('-Uninstall', '-Channel', '0.6'))) {
+            @('-Update', '-Activate'), @('-Update', '-Reinstall'), @('-Uninstall', '-Reinstall'),
+            @('-Uninstall', '-Channel', '0.6'))) {
         $result = Invoke-Installer usage $Boot @arguments
         if ($result.Code -ne 2 -or $result.Out.Count -ne 0 -or $result.Err.Count -eq 0) {
             Fail-Test "install.ps1 $($arguments -join ' '): exit $($result.Code), expected 2"

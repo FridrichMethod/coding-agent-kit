@@ -1,5 +1,5 @@
 #Requires -Version 7.0
-# install.ps1 [-Channel MAJOR.MINOR] [-Update] | -Uninstall [-Purge]: the managed
+# install.ps1 [-Channel MAJOR.MINOR] [-Update | -Reinstall] | -Uninstall [-Purge]: the managed
 # install of coding-agent-kit on native Windows, where only the three Claude
 # Code helpers run; they are copied to $HOME\.claude\coding-agent-kit\.
 #
@@ -16,8 +16,10 @@
 # missing or a plain file equal to the helper of a release in the managed
 # root; anything else is refused and kept. A copy of this file outside the
 # managed root is the bootstrap: once the entry point exists, it hands every
-# run to it, so only released code changes an existing install. Requires
-# PowerShell 7 and git on PATH.
+# run to it, so only released code changes an existing install; -Reinstall
+# instead exports the newest patch of the channel again from a fresh clone.
+# A git transfer below 1000 bytes/s for 60 s fails, so no run holds the lock
+# for long. Requires PowerShell 7 and git on PATH.
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -35,12 +37,14 @@ function Fail([int]$Code, [string]$Message) {
 function Show-Usage([int]$Code) {
     $text = @(
         'Usage: install.ps1 [-Channel MAJOR.MINOR] [-Update]'
+        '       install.ps1 -Reinstall [-Channel MAJOR.MINOR]'
         '       install.ps1 -Uninstall [-Purge]'
         'Installs the newest release of the channel (default: that of the newest release) in'
         '$env:LOCALAPPDATA\coding-agent-kit and copies its Claude Code helpers to'
         '$HOME\.claude\coding-agent-kit\{statusline,notify,check-git-hooks}.cjs; -Update takes only a newer'
-        'patch of the remembered channel; -Purge also removes the managed root. Exit 75: another run holds'
-        'the lock. Options may also be spelled --channel, --update, --uninstall and --purge.'
+        'patch of the remembered channel; -Reinstall exports it again instead of running the installed entry'
+        'point; -Purge also removes the managed root. Exit 75: another run holds the lock. Options may also be'
+        'spelled --channel, --update, --reinstall, --uninstall and --purge.'
     ) -join [Environment]::NewLine
     if ($Code -eq 0) { [Console]::Out.WriteLine($text) } else { [Console]::Error.WriteLine($text) }
     exit $Code
@@ -75,7 +79,8 @@ function Test-SamePath([string]$A, [string]$B) {
 # Invoke-Git ARGS: git's status and its output lines, stderr included.
 function Invoke-Git {
     $ErrorActionPreference = 'Continue'
-    $output = & git -c gc.auto=0 -c maintenance.auto=false @args 2>&1 | ForEach-Object { "$_" }
+    $output = & git -c gc.auto=0 -c maintenance.auto=false -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 @args 2>&1 |
+        ForEach-Object { "$_" }
     return [pscustomobject]@{ Code = $LASTEXITCODE; Output = @($output) }
 }
 
@@ -89,24 +94,31 @@ function Join-Parts([string[]]$Parts) {
     return [IO.Path]::Combine($Parts)
 }
 
-# Lock: take the managed root's lock, unless the run that started this one holds it.
+# Lock: take the managed root's lock, unless the run that started this one
+# holds it, and drop what a killed run left behind, there and beside the
+# helpers. Only a sharing or lock violation (32, 33) that lasts a second is
+# another run; any other error is one.
 function Lock {
     if ($null -ne (Get-Lock)) { return }
     $path = Join-Path $script:Root '.lock'
-    try {
-        $global:CodingAgentKitInstallLock = [IO.File]::Open($path, [IO.FileMode]::OpenOrCreate,
-            [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
-        $script:OwnsLock = $true
-    } catch {
-        $inner = Get-Inner $_.Exception
-        if ($inner -is [IO.IOException] -and $inner -isnot [IO.DirectoryNotFoundException] -and
-            $inner -isnot [IO.FileNotFoundException]) {
-            Fail 75 "another install.ps1 holds $path; nothing changed."
+    for ($try = 1; ; $try++) {
+        try {
+            $global:CodingAgentKitInstallLock = [IO.File]::Open($path, [IO.FileMode]::OpenOrCreate,
+                [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+            $script:OwnsLock = $true
+            break
+        } catch {
+            $inner = Get-Inner $_.Exception
+            $busy = $inner -is [IO.IOException] -and $inner -isnot [IO.DirectoryNotFoundException] -and
+                $inner -isnot [IO.FileNotFoundException] -and (-not $IsWindows -or ($inner.HResult -band 0xFFFF) -in 32, 33)
+            if (-not $busy) { Fail 1 "cannot open the lock file ${path}: $($inner.Message)" }
+            if ($try -ge 5) { Fail 75 "another install.ps1 holds $path; nothing changed." }
+            Start-Sleep -Milliseconds 200
         }
-        Fail 1 "cannot open the lock file ${path}: $($inner.Message)"
     }
     foreach ($leftover in @(Get-ChildItem -LiteralPath $script:Root -Filter '.tmp.*' -Force -ErrorAction Ignore) +
-        @(Get-ChildItem -LiteralPath (Join-Path $script:Root 'releases') -Filter '.tmp.*' -Force -ErrorAction Ignore)) {
+        @(Get-ChildItem -LiteralPath (Join-Path $script:Root 'releases') -Filter '.tmp.*' -Force -ErrorAction Ignore) +
+        @(Get-ChildItem -LiteralPath $script:ClaudeDir -Filter '.tmp.*.cjs.*' -File -Force -ErrorAction Ignore)) {
         Remove-Item -LiteralPath $leftover.FullName -Recurse -Force
     }
 }
@@ -127,17 +139,29 @@ function Get-State([string]$Name) {
     return "$value".Trim()
 }
 
-# Write-Replace PATH TEXT: write a temporary file beside PATH, then rename it over PATH.
-function Write-Replace([string]$Path, [string]$Text) {
-    $temp = Join-Path (Split-Path -Parent $Path) ".tmp.$(Split-Path -Leaf $Path).$PID"
-    [IO.File]::WriteAllText($temp, $Text)
-    [IO.File]::Move($temp, $Path, $true)
+function Get-Temp([string]$Path) {
+    return Join-Path (Split-Path -Parent $Path) ".tmp.$(Split-Path -Leaf $Path).$PID"
 }
 
-function Copy-Replace([string]$Source, [string]$Path) {
-    $temp = Join-Path (Split-Path -Parent $Path) ".tmp.$(Split-Path -Leaf $Path).$PID"
-    [IO.File]::Copy($Source, $temp, $true)
-    [IO.File]::Move($temp, $Path, $true)
+# Move-Replace TEMP PATH: rename TEMP over PATH, again for 1.5 s while another
+# process (node, a scanner) has PATH open.
+function Move-Replace([string]$Temp, [string]$Path) {
+    for ($try = 1; ; $try++) {
+        try {
+            [IO.File]::Move($Temp, $Path, $true)
+            return
+        } catch {
+            $inner = Get-Inner $_.Exception
+            if ($try -ge 10 -or -not ($inner -is [IO.IOException] -or $inner -is [UnauthorizedAccessException])) { throw }
+            Start-Sleep -Milliseconds 150
+        }
+    }
+}
+
+# Write-Replace PATH TEXT: write a temporary file beside PATH, then rename it over PATH.
+function Write-Replace([string]$Path, [string]$Text) {
+    [IO.File]::WriteAllText((Get-Temp $Path), $Text)
+    Move-Replace (Get-Temp $Path) $Path
 }
 
 function Set-State([string]$Name, [string]$Value) {
@@ -229,13 +253,17 @@ function Invoke-Activate {
     } else {
         [Console]::Out.WriteLine("coding-agent-kit: $release (channel $channel) in $($script:Root)")
     }
+    # The channel first: an update after a crash never leaves it backwards.
+    Set-State 'channel' $channel
+    # All copies are staged before the renames, which then follow each other.
     if ($pending.Count -gt 0) { New-Item -ItemType Directory -Force -Path $script:ClaudeDir | Out-Null }
+    foreach ($destination in $pending) { [IO.File]::Copy($destination.Source, (Get-Temp $destination.Path), $true) }
+    if (-not $entrySame) { [IO.File]::Copy($entry, (Get-Temp $entryPath), $true) }
     foreach ($destination in $pending) {
-        Copy-Replace $destination.Source $destination.Path
+        Move-Replace (Get-Temp $destination.Path) $destination.Path
         [Console]::Out.WriteLine("$($destination.Path) <- $($destination.Source)")
     }
-    if (-not $entrySame) { Copy-Replace $entry $entryPath }
-    Set-State 'channel' $channel
+    if (-not $entrySame) { Move-Replace (Get-Temp $entryPath) $entryPath }
     if ($old -ne $release) {
         Set-State 'current' $release
         foreach ($tree in @(Get-ChildItem -LiteralPath (Join-Path $script:Root 'releases') -Directory -Filter 'v*')) {
@@ -336,32 +364,48 @@ function Invoke-Install {
         $target = $current
     }
     $tree = Join-Parts $script:Root, 'releases', $target
-    if (-not (Test-Path -LiteralPath (Join-Path $tree 'install.ps1') -PathType Leaf)) {
-        if (-not (Test-Path -LiteralPath $repo -PathType Container)) {
-            $temp = Join-Path $script:Root ".tmp.repo.$PID"
-            $result = Invoke-Git clone --bare --quiet -- $url $temp
-            if ($result.Code -ne 0) { Fail 1 "cannot clone ${url}: $($result.Output -join ' ')" }
-            [IO.Directory]::Move($temp, $repo)
-        }
-        $result = Invoke-Git -C $repo rev-parse --quiet --verify "refs/tags/$target^{commit}"
-        if ($result.Code -ne 0) {
-            $result = Invoke-Git -C $repo fetch --quiet --no-tags -- $url "refs/tags/${target}:refs/tags/$target"
-            if ($result.Code -ne 0) { Fail 1 "cannot fetch $target from ${url}: $($result.Output -join ' ')" }
-        }
-        New-Item -ItemType Directory -Force -Path (Join-Path $script:Root 'releases') | Out-Null
-        $temp = Join-Parts $script:Root, 'releases', ".tmp.$target.$PID"
-        $result = Invoke-Git -C $repo archive --format=zip -o "$temp.zip" "refs/tags/$target"
-        if ($result.Code -ne 0) { Fail 1 "cannot export ${target}: $($result.Output -join ' ')" }
-        Expand-Archive -LiteralPath "$temp.zip" -DestinationPath $temp
-        Remove-Item -LiteralPath "$temp.zip" -Force
-        if (-not (Test-Path -LiteralPath (Join-Path $temp 'install.ps1') -PathType Leaf)) {
-            Fail 1 "$target is not a complete release (missing install.ps1)."
-        }
-        if (Test-Path -LiteralPath $tree) { Remove-Item -LiteralPath $tree -Recurse -Force }
-        [IO.Directory]::Move($temp, $tree)
+    if ($script:Reinstall -or -not (Test-Path -LiteralPath (Join-Path $tree 'install.ps1') -PathType Leaf)) {
+        Export-Release $url $target
     }
     & (Join-Path $tree 'install.ps1') -Activate -Channel $channel
     exit $LASTEXITCODE
+}
+
+# Export-Release URL TAG: export TAG into releases\, from a fresh clone with
+# -Reinstall; the old clone and tree are replaced only once that worked.
+function Export-Release([string]$Url, [string]$Tag) {
+    $repo = Join-Path $script:Root 'repo.git'
+    $fresh = $script:Reinstall -or -not (Test-Path -LiteralPath $repo -PathType Container)
+    if ($fresh) {
+        $repo = Join-Path $script:Root ".tmp.repo.$PID"
+        $result = Invoke-Git clone --bare --quiet -- $Url $repo
+        if ($result.Code -ne 0) { Fail 1 "cannot clone ${Url}: $($result.Output -join ' ')" }
+    }
+    $result = Invoke-Git -C $repo rev-parse --quiet --verify "refs/tags/$Tag^{commit}"
+    if ($result.Code -ne 0) {
+        $result = Invoke-Git -C $repo fetch --quiet --no-tags -- $Url "refs/tags/${Tag}:refs/tags/$Tag"
+        if ($result.Code -ne 0) { Fail 1 "cannot fetch $Tag from ${Url}: $($result.Output -join ' ')" }
+    }
+    New-Item -ItemType Directory -Force -Path (Join-Path $script:Root 'releases') | Out-Null
+    $temp = Join-Parts $script:Root, 'releases', ".tmp.$Tag.$PID"
+    $result = Invoke-Git -C $repo archive --format=zip -o "$temp.zip" "refs/tags/$Tag"
+    if ($result.Code -ne 0) { Fail 1 "cannot export ${Tag}: $($result.Output -join ' ')" }
+    Expand-Archive -LiteralPath "$temp.zip" -DestinationPath $temp
+    Remove-Item -LiteralPath "$temp.zip" -Force
+    if (-not (Test-Path -LiteralPath (Join-Path $temp 'install.ps1') -PathType Leaf)) {
+        Fail 1 "$Tag is not a complete release (missing install.ps1)."
+    }
+    if ($fresh) {
+        $kept = Join-Path $script:Root 'repo.git'
+        if (Test-Path -LiteralPath $kept) { Remove-Item -LiteralPath $kept -Recurse -Force }
+        [IO.Directory]::Move($repo, $kept)
+    }
+    $tree = Join-Parts $script:Root, 'releases', $Tag
+    $old = Join-Parts $script:Root, 'releases', ".tmp.old.$Tag.$PID"
+    if (Test-Path -LiteralPath $tree) { [IO.Directory]::Move($tree, $old) }
+    [IO.Directory]::Move($temp, $tree)
+    if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Recurse -Force }
+    if ($script:Reinstall) { [Console]::Out.WriteLine("coding-agent-kit: exported $Tag again from $Url.") }
 }
 
 function Invoke-Main([string[]]$Arguments) {
@@ -369,6 +413,7 @@ function Invoke-Main([string[]]$Arguments) {
     $script:Update = $false
     $script:Uninstall = $false
     $script:Purge = $false
+    $script:Reinstall = $false
     $activate = $false
     for ($index = 0; $index -lt $Arguments.Count; $index++) {
         switch ($Arguments[$index].ToLowerInvariant()) {
@@ -387,16 +432,17 @@ function Invoke-Main([string[]]$Arguments) {
             { $_ -in '-purge', '--purge' } { $script:Purge = $true; break }
             { $_ -in '-managed', '--managed' } { break }
             { $_ -in '-activate', '--activate' } { $activate = $true; break }
+            { $_ -in '-reinstall', '--reinstall' } { $script:Reinstall = $true; break }
             { $_ -in '-help', '--help' } { Show-Usage 0 }
             default { Show-Usage 2 }
         }
     }
     if ($script:Uninstall) {
-        if ($script:Channel -or $script:Update -or $activate) { Fail 2 '-Uninstall takes only -Purge.' }
+        if ($script:Channel -or $script:Update -or $script:Reinstall -or $activate) { Fail 2 '-Uninstall takes only -Purge.' }
     } elseif ($script:Purge) {
         Fail 2 '-Purge needs -Uninstall.'
-    } elseif ($script:Update -and $activate) {
-        Fail 2 '-Update and -Activate exclude each other.'
+    } elseif (@($script:Update, $script:Reinstall, $activate | Where-Object { $_ }).Count -gt 1) {
+        Fail 2 '-Update, -Activate and -Reinstall exclude each other.'
     }
     $homeName = if ($IsWindows) { 'USERPROFILE' } else { 'HOME' }
     $userHome = [Environment]::GetEnvironmentVariable($homeName)
@@ -421,19 +467,24 @@ function Invoke-Main([string[]]$Arguments) {
         return
     }
     $entryPath = Join-Path $script:Root 'install.ps1'
-    if (-not $script:Release -and -not $entry -and (Test-Path -LiteralPath $entryPath -PathType Leaf)) {
+    if (-not $script:Release -and -not $entry -and -not $script:Reinstall -and (Test-Path -LiteralPath $entryPath -PathType Leaf)) {
         & $entryPath @Arguments
         exit $LASTEXITCODE
     }
-    if (-not (Get-Command git -CommandType Application -ErrorAction Ignore)) {
-        if (-not $script:Uninstall) { Fail 1 'the managed install needs git, which is not on PATH.' }
-    }
     if ($script:Uninstall) { Invoke-Uninstall; return }
+    if (-not (Get-Command git -CommandType Application -ErrorAction Ignore)) {
+        Fail 1 'the managed install needs git, which is not on PATH.'
+    }
+    # ssh gives up on a host that does not answer, unless git is told how to run ssh.
+    if (-not $env:GIT_SSH_COMMAND -and -not $env:GIT_SSH -and (Invoke-Git config --get core.sshCommand).Code -ne 0) {
+        $env:GIT_SSH_COMMAND = 'ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4'
+    }
     Invoke-Install
 }
 
 $script:OwnsLock = $false
 $savedPrompt = $env:GIT_TERMINAL_PROMPT
+$savedSsh = $env:GIT_SSH_COMMAND
 $env:GIT_TERMINAL_PROMPT = '0'
 try {
     Invoke-Main @($args)
@@ -444,4 +495,5 @@ try {
 } finally {
     Unlock
     $env:GIT_TERMINAL_PROMPT = $savedPrompt
+    $env:GIT_SSH_COMMAND = $savedSsh
 }
