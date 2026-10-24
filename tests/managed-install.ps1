@@ -95,6 +95,14 @@ function Get-Snapshot([string]$Directory) {
         }) -join "`n"
 }
 
+# Assert-Unchanged LABEL BEFORE AFTER: two snapshots are equal, or the lines that differ fail the test.
+function Assert-Unchanged([string]$Label, [string]$Before, [string]$After) {
+    if ($After -ceq $Before) { return }
+    $changes = Compare-Object -CaseSensitive ($Before -split "`n") ($After -split "`n") |
+        ForEach-Object { "$($_.SideIndicator) $($_.InputObject)" }
+    Fail-Test "${Label}:`n$($changes -join "`n")"
+}
+
 function Get-Hash([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
 }
@@ -189,9 +197,8 @@ try {
     Assert-Logged @('v0.6.1 -Update', 'v0.6.1 -Activate -Channel 0.6')
     Assert-Result (Invoke-Installer update-gnu $script:Entry --update) 0 @('coding-agent-kit: v0.6.1 is already current (channel 0.6).')
     Assert-Logged @('v0.6.1 --update', 'v0.6.1 -Activate -Channel 0.6')
-    if ((Get-Snapshot $script:Managed) -cne $before -or (Get-Snapshot (Split-Path -Parent $script:Claude)) -cne $beforeHelpers) {
-        Fail-Test 'a run with nothing to change wrote'
-    }
+    Assert-Unchanged 'a run with nothing to change wrote' $before (Get-Snapshot $script:Managed)
+    Assert-Unchanged 'a run with nothing to change wrote' $beforeHelpers (Get-Snapshot (Split-Path -Parent $script:Claude))
 
     Write-Output '==> the lock: a held lock exits 75 and changes nothing'
     $lock = [IO.File]::Open((Join-Path $script:Managed '.lock'), [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
@@ -204,7 +211,7 @@ try {
         $lock.Dispose()
     }
     Assert-Logged @('v0.6.1 -Update', 'v0.6.1 -Uninstall')
-    if ((Get-Snapshot $script:Managed) -cne $before) { Fail-Test 'a locked run wrote' }
+    Assert-Unchanged 'a locked run wrote' $before (Get-Snapshot $script:Managed)
 
     Write-Output '==> -Update takes a newer patch only and replaces a changed helper'
     Publish 'v0.6.2' 'fixture v0.6.2'
