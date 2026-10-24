@@ -85,13 +85,19 @@ function Assert-Logged([string[]]$Lines) {
     Set-Content -LiteralPath $Log -Value $null
 }
 
-# Get-Snapshot DIR: every path below DIR with its size and write time.
+# Get-Snapshot DIR: every path below DIR with its size and write time. Each
+# time is read from the path itself: NTFS updates the copy in the parent's
+# index, which a directory listing returns, only later, so a listing alone
+# can differ with nothing written.
 function Get-Snapshot([string]$Directory) {
     if (-not (Test-Path -LiteralPath $Directory)) { return '' }
-    $items = @(Get-Item -LiteralPath $Directory -Force) + @(Get-ChildItem -LiteralPath $Directory -Recurse -Force)
-    return ($items | Sort-Object FullName | ForEach-Object {
-            $size = if ($_.PSIsContainer) { '' } else { $_.Length }
-            "$($_.FullName) $size $($_.LastWriteTimeUtc.Ticks)"
+    $paths = @($Directory) + @(Get-ChildItem -LiteralPath $Directory -Recurse -Force | ForEach-Object FullName)
+    return ($paths | Sort-Object | ForEach-Object {
+            if ([IO.Directory]::Exists($_)) {
+                "$_ $([IO.Directory]::GetLastWriteTimeUtc($_).Ticks)"
+            } else {
+                "$_ $([IO.FileInfo]::new($_).Length) $([IO.File]::GetLastWriteTimeUtc($_).Ticks)"
+            }
         }) -join "`n"
 }
 
