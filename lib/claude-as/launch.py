@@ -47,6 +47,13 @@ OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h", "--vers
 PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
 
 
+def shown(word):
+    """What the hint echoes of a plain dash word: the part before the first =, since a value or a
+    secret may follow it, or None when that part holds sk- or names an own option."""
+    word = word.partition("=")[0]
+    return None if "sk-" in word.lower() or word in OPTIONS else word
+
+
 def styled(text, style, fd):
     """CODING_AGENT_KIT_COLOR=auto|always|never per destination; NO_COLOR or TERM=dumb turn it off."""
     mode = os.environ.get("CODING_AGENT_KIT_COLOR", "auto")
@@ -460,8 +467,8 @@ def main():
         if text:
             print(text)
         return
-    if args and args[0] not in OPTIONS and PLAIN.fullmatch(args[0]):
-        fail(f"{args[0]} is not a claude-as option; native options go after NAME (claude-as NAME {args[0]} ...)")
+    if args and args[0] not in OPTIONS and PLAIN.fullmatch(args[0]) and (word := shown(args[0])):
+        fail(f"{word} is not a claude-as option; native options go after NAME (claude-as NAME {word} ...)")
     account, *args = sys.argv[1:]
     # As in codex-as, no name starts with -, so a mistyped option is never enrolled.
     if not NAME.fullmatch(account) or account.startswith("-"):

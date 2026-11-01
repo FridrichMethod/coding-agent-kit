@@ -47,6 +47,13 @@ OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h", "--vers
 PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
 
 
+def shown(word):
+    """What the hint echoes of a plain dash word: the part before the first =, since a value or a
+    secret may follow it, or None when that part holds sk- or names an own option."""
+    word = word.partition("=")[0]
+    return None if "sk-" in word.lower() or word in OPTIONS else word
+
+
 def enroll(layout, codex):
     if os.path.lexists(layout.target):
         guard.credential(layout.target)
@@ -212,8 +219,8 @@ def main(args):
         if text:
             print(text)
         return 0
-    if args and args[0] not in OPTIONS and PLAIN.fullmatch(args[0]):
-        guard.fail(f"{args[0]} is not a codex-as option; native options go after NAME (codex-as NAME {args[0]} ...)")
+    if args and args[0] not in OPTIONS and PLAIN.fullmatch(args[0]) and (word := shown(args[0])):
+        guard.fail(f"{word} is not a codex-as option; native options go after NAME (codex-as NAME {word} ...)")
     if not args or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", args[0]):
         guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
     account, *native_args = args

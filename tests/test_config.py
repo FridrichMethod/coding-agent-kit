@@ -103,6 +103,7 @@ def release_tag_checks(root, wanted=None, *, head_tags=False):
 
 TOOLS = ("codex-as", "claude-as")
 CLAUDE_TOKEN = "sk-ant-oat01-" + "fabricated-config-claude-" * 3
+OPENAI_KEY = "sk-proj-" + "fabricated-config-openai-" * 3
 DEFAULTS_FILE = 'codex = "codex"\nclaude = "claude"\ncodex_home = "~/.codex"\nsecrets_dir = "~/.secrets"\n'
 # Records argv and environment, never a token; one JSON line per run.
 FAKE = r'''
@@ -1075,10 +1076,29 @@ class Launchers(unittest.TestCase):
                 with self.subTest(tool=tool, word=word):
                     result = self.run_tool([self.kit / "bin" / tool, word])
                     self.assertEqual((result.returncode, result.stdout, result.stderr), (code, "", INVALID.format(tool=tool)))
+            # Only the part before the first = is echoed, since a value or a secret may be attached, and
+            # none that holds sk- in any case or that names an own option, which the hint would deny.
+            for args, word in (([f"--token={CLAUDE_TOKEN}"], "--token"), ([f"-cOPENAI_API_KEY={OPENAI_KEY}"], "-cOPENAI_API_KEY"),
+                               (["-c", f"OPENAI_API_KEY={OPENAI_KEY}"], "-c"), ([f"--{CLAUDE_TOKEN}"], None),
+                               ([f"-{OPENAI_KEY.upper()}=x"], None), ([f"--key={OPENAI_KEY}=x"], "--key"),
+                               ([f"--info={CLAUDE_TOKEN}"], None), ([f"-i={OPENAI_KEY}"], None), (["--version=x"], None)):
+                with self.subTest(tool=tool, word=word, args=len(args)):
+                    result = self.run_tool([self.kit / "bin" / tool, *args])
+                    expected = NOT_OPTION.format(tool=tool, word=word) if word else INVALID.format(tool=tool)
+                    self.assertEqual((result.returncode, result.stdout, result.stderr), (code, "", expected))
+                    for secret in ("fabricated", "sk-", "SK-"):
+                        self.assertNotIn(secret, result.stdout + result.stderr)
+        self.assertEqual(self.run_tool([self.kit / "bin/codex-as", "--label=x"]).stderr,
+                         NOT_OPTION.format(tool="codex-as", word="--label"), "--label is claude-as's alone")
+        self.assertEqual(self.run_tool([self.kit / "bin/claude-as", "--label=x"]).stderr, INVALID.format(tool="claude-as"))
         # Run directly, the Python side of codex-as says the same.
-        result = self.run_tool(["python3", "-I", "-B", self.kit / "lib/codex-as/launch.py", "-c", "x"])
-        self.assertEqual((result.returncode, result.stdout, result.stderr),
-                         (1, "", NOT_OPTION.format(tool="codex-as", word="-c")))
+        for args, word in ((["-c", "x"], "-c"), ([f"--token={OPENAI_KEY}"], "--token"), ([f"--{OPENAI_KEY}"], None),
+                           ([f"--info={OPENAI_KEY}"], None)):
+            with self.subTest(python=word):
+                result = self.run_tool(["python3", "-I", "-B", self.kit / "lib/codex-as/launch.py", *args])
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (1, "", NOT_OPTION.format(tool="codex-as", word=word) if word
+                                  else INVALID.format(tool="codex-as")))
         self.assertEqual(snapshot(self.home), before, "a refused dash word wrote to HOME")
         self.assertEqual(self.records(), [], "a refused dash word started a native CLI")
 

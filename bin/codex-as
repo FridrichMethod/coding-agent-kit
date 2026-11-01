@@ -132,7 +132,8 @@ _codex_as_locate || exit 1
 # NAME. Like --help and --version they count only as the first argument, by
 # exact match; no account name starts with -, so a kit option never meets a
 # native one, which goes after NAME. Any other plain dash word there gets
-# that hint.
+# that hint, which echoes only the part before the first = (a value, maybe a
+# secret, can follow it), and none that holds sk- or names an own option.
 _codex_as_name=${1-}
 case $_codex_as_name in
     --list | -l | --list-accounts | --labels | --account-labels | --show-config)
@@ -144,8 +145,15 @@ case $_codex_as_name in
     --version | -V | -v) ;; # alone above; with arguments an invalid name
     -*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_=.,:/@+-]*) ;;
     -*)
-        _codex_as_message 31 2 "codex-as: $1 is not a codex-as option; native options go after NAME (codex-as NAME $1 ...)"
-        exit 2
+        _codex_as_word=${1%%=*}
+        case $_codex_as_word in
+            *[sS][kK]-* | --list | -l | --list-accounts | --labels | --account-labels | --show-config) ;;
+            --info | -i | --account-info | --version | -V | -v | --help | -h) ;;
+            *)
+                _codex_as_message 31 2 "codex-as: $_codex_as_word is not a codex-as option; native options go after NAME (codex-as NAME $_codex_as_word ...)"
+                exit 2
+                ;;
+        esac
         ;;
 esac
 case $_codex_as_name in

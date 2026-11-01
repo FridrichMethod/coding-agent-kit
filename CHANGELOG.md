@@ -75,9 +75,12 @@ Added:
   with a hint,
   `codex-as: -c is not a codex-as option; native options go after NAME (codex-as NAME -c ...)`,
   with the exit status of an invalid account name as before (2 for
-  `codex-as`, 1 for `claude-as`); nothing starts. A word with characters
-  other than ASCII letters, digits and `_=.,:/@+-` keeps the plain
-  invalid-name message, so it is never echoed.
+  `codex-as`, 1 for `claude-as`); nothing starts. The hint echoes only
+  the part before the first `=`, since a value or a secret may follow it.
+  A word with characters other than ASCII letters, digits and
+  `_=.,:/@+-`, or whose part before `=` holds `sk-` in any case or names
+  an own option, keeps the plain invalid-name message, so it is never
+  echoed.
 
 Changed:
 
