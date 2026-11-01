@@ -60,9 +60,9 @@ else
 fi
 
 # Every entry point drops the kit's knobs with the one statement of
-# tests/run.sh, tests/run.ps1 the same names in the same order, and the
-# statement names every CODING_AGENT_KIT_* variable the code can read, so a
-# caller's configuration file or colour choice cannot fail a suite.
+# tests/run.sh, and the statement names every CODING_AGENT_KIT_* variable the
+# code can read, so a caller's configuration file or colour choice cannot fail
+# a suite.
 REPO_ROOT="$(cd -- "$TEST_DIR/.." && pwd)"
 # knob_statement FILE: FILE's "unset CODING_AGENT_KIT_..." lines.
 knob_statement() {
@@ -88,16 +88,10 @@ for test_file in "$TEST_DIR"/*.sh; do
         exit 1
     fi
 done
-PS_KNOBS=$(awk '/foreach \(\$knob in @\(/ { on = 1 } on { print } on && /\)\) \{/ { exit }' "$TEST_DIR/run.ps1" |
-    grep -oE "'[A-Z_]+'" | tr -d "'" | tr '\n' ' ')
-if [[ "$PS_KNOBS" != "$KNOBS " ]]; then
-    printf 'ERROR: tests/run.ps1 does not remove the kit knobs that tests/run.sh unsets.\n' >&2
-    exit 1
-fi
 # The names come from every tracked file outside tests/, docs/, .github/ and
-# Markdown, whatever reads them: $NAME and ${NAME in shell, $env:NAME,
-# Env:NAME and GetEnvironmentVariable('NAME') in PowerShell, os.environ in
-# Python. A name embedded in a longer identifier does not count.
+# Markdown, whatever reads them: $NAME and ${NAME in shell, os.environ in
+# Python, env.NAME in Node. A name embedded in a longer identifier does not
+# count.
 if ! KNOB_NAMES=$(git -C "$REPO_ROOT" -c grep.lineNumber=false -c grep.column=false \
     grep -I -h -o --no-color -E '(^|[^A-Za-z0-9_])_?CODING_AGENT_KIT_[A-Z_]+' \
     -- ':!tests' ':!docs' ':!.github' ':!*.md'); then

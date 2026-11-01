@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.0
+
+The kit becomes Unix-only. A minor release: it removes `install.ps1`, which
+breaks native Windows only.
+
+Breaking changes:
+
+- Native Windows is no longer supported: `install.ps1`,
+  `tests/managed-install.ps1`, `tests/run.ps1` and the Windows CI job are
+  removed, and `tests/contract.sh` no longer pins `install.ps1`. There the
+  kit installed only the three Claude Code helpers, with no account
+  switching. v0.6.x is the last line with `install.ps1`: its installs keep
+  working, frozen at their release, and
+  `pwsh -NoProfile -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
+  removes one. Its `-Update -Channel 0.7` fails, since no 0.7 release has an
+  `install.ps1`. Linux and macOS, WSL included, keep `install.sh`, its
+  managed root and its commands unchanged.
+
 ## 0.6.0
 
 The kit installs and updates itself. A minor release: it adds the managed

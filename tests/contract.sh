@@ -35,7 +35,6 @@ LAYOUT='100755 bin/codex-as
 100644 helpers/notify.cjs
 100644 helpers/check-git-hooks.cjs
 100755 install.sh
-100644 install.ps1
 100644 docs/account-launchers.md
 100644 docs/codex-as.md
 100644 docs/configuration.md'
@@ -54,7 +53,7 @@ while read -r mode path; do
     [[ -f "$ROOT/$path" && ! -L "$ROOT/$path" ]] || die "$path is not a regular file in the working tree."
     [[ "$mode" == 100644 || -x "$ROOT/$path" ]] || die "$path is not executable in the working tree."
 done <<<"$LAYOUT"
-for entry in 'bin/codex-as #!/bin/bash' 'bin/claude-as #!/bin/sh' 'install.sh #!/bin/sh' 'install.ps1 #Requires -Version 7.0'; do
+for entry in 'bin/codex-as #!/bin/bash' 'bin/claude-as #!/bin/sh' 'install.sh #!/bin/sh'; do
     [[ "$(head -n 1 "$ROOT/${entry%% *}")" == "${entry#* }" ]] || die "${entry%% *} must start with ${entry#* }."
 done
 

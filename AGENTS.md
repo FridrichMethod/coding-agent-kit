@@ -5,9 +5,9 @@ multi-account wrapper: the `codex-as` and `claude-as` launchers and three
 Claude Code helpers (status line, notifications, Git hook guard). It installs
 on top of an existing `codex` or `claude` and never installs either. Users
 install it as a managed install that follows the newest patch release of a
-channel (`install.sh` piped to `sh`; `install.ps1`, helpers only, on native
-Windows), with `install.sh` from a checkout of their own, or by linking or
-copying its files.
+channel (`install.sh` piped to `sh`), with `install.sh` from a checkout of
+their own, or by linking or copying its files. It runs on Linux and macOS
+(WSL counts as Linux); native Windows is not supported.
 
 ## Scope and layout
 
@@ -20,7 +20,6 @@ lib/coding-agent-kit/accounts.py the account metadata cache both launchers share
 completions/{bash,zsh}/          account-name completion for both launchers
 helpers/*.cjs                    Claude Code helpers (Node)
 install.sh                       links a checkout's bin/ and completions/ into a prefix; the managed install
-install.ps1                      the managed install of the helpers on native Windows
 docs/                            account-launchers.md, codex-as.md, configuration.md
 tests/                           suites, fixtures, runners, COVERAGE.md
 ```
@@ -57,13 +56,13 @@ tagged only from a green `main` and never changes an interface.
 pre-commit hook:
 
 - The public paths and their modes (`git ls-files -s`): the launchers, their
-  `lib/` modules, `config.py` and `accounts.py`, the completions, the helpers, `install.sh`,
-  `install.ps1` and the three docs. Consumers may link these paths one by one from a tree of
+  `lib/` modules, `config.py` and `accounts.py`, the completions, the helpers, `install.sh`
+  and the three docs. Consumers may link these paths one by one from a tree of
   their own, copied installs depend on the `bin/` plus `lib/` shape, and
   `--help` points at `docs/account-launchers.md`.
 - Each file is a regular file in the working tree, executable where its mode
-  says so, the launchers and `install.sh` keep their `#!/bin/bash` or
-  `#!/bin/sh` line, and `install.ps1` its `#Requires -Version 7.0` line.
+  says so, and the launchers and `install.sh` keep their `#!/bin/bash` or
+  `#!/bin/sh` line.
 - No tracked symlinks.
 
 The command-line surface is public too, guarded by the suites rather than
@@ -72,27 +71,24 @@ The command-line surface is public too, guarded by the suites rather than
 `--show-config` with their output, the `main` each helper exports, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
-fields, `install.sh` and `install.ps1` with their options and exit codes,
+fields, `install.sh` with its options and exit codes,
 `CODING_AGENT_KIT_COLOR`, and the `CODING_AGENT_KIT_USAGE_FILE`,
 `CODING_AGENT_KIT_TOKEN_ID` and `CODING_AGENT_KIT_CLAUDE_PID` that
 `claude-as` passes its child.
 
 The managed install is the interface other repositories install the kit
-through, so all of it is public, guarded by `tests/managed-install.sh` and
-`tests/managed-install.ps1`: the bootstrap commands (`install.sh` from `main`
-piped to `sh -s -- --channel MAJOR.MINOR`; `install.ps1` downloaded and run
-with `-Channel`), the update and removal commands
+through, so all of it is public, guarded by `tests/managed-install.sh`: the
+bootstrap command (`install.sh` from `main` piped to
+`sh -s -- --channel MAJOR.MINOR`), the update and removal commands
 (`${XDG_DATA_HOME:-~/.local/share}/coding-agent-kit/current/install.sh --update`,
-`--uninstall [--purge]`; `$env:LOCALAPPDATA\coding-agent-kit\install.ps1 -Update`,
-`-Uninstall [-Purge]`), the repair `--reinstall` (`-Reinstall`), the managed root's layout (`repo.git`, `releases/`,
-`current`, `channel`, `prefix`, `.lock`, and `.lock.d` where there is no `flock`), the linked and copied paths,
+`--uninstall [--purge]`), the repair `--reinstall`, the managed root's layout (`repo.git`, `releases/`,
+`current`, `channel`, `prefix`, `.lock`, and `.lock.d` where there is no `flock`), the linked paths,
 including `~/.claude/coding-agent-kit/{statusline,notify,check-git-hooks}.cjs`,
 the channel and update rules, the exit codes 0, 1, 2 and 75, and
 `CODING_AGENT_KIT_REPO_URL`. The hand-over is a contract between releases:
 a release's installer runs `install.sh --activate --channel MAJOR.MINOR
---prefix DIR/` (with the lock on fd 9) or `install.ps1 -Activate -Channel
-MAJOR.MINOR` (in the same pwsh, which holds the lock) in the release it
-switches to, so every later release accepts that call. A channel switch
+--prefix DIR/` (with the lock on fd 9) in the release it switches to, so
+every later release accepts that call. A channel switch
 runs the old release's installer, so a new minor keeps accepting it too.
 
 ## Required conventions
@@ -108,7 +104,7 @@ runs the old release's installer, so a new minor keeps accepting it too.
 
 The kit runs on what a host already has and stays small enough to audit.
 
-- At run time the launchers and `install.sh` need only POSIX `sh` or Bash with ordinary POSIX utilities, the Python 3.11+ standard library run as `python3 -I -B`, and the tool they wrap; the managed install also needs Git and `tar`, and takes its lock and renames over links with `python3`. Every network git call is bounded (HTTP low-speed limit, ssh timeouts, `timeout` where it exists), because a run holds the lock while it waits. `install.ps1` needs PowerShell 7 and Git. The helpers need Node.js 22+ and nothing from npm. Nothing needs a pip package, virtual environment, compiler, network service or background process of its own. The kit never installs a tool.
+- At run time the launchers and `install.sh` need only POSIX `sh` or Bash with ordinary POSIX utilities, the Python 3.11+ standard library run as `python3 -I -B`, and the tool they wrap; the managed install also needs Git and `tar`, and takes its lock and renames over links with `python3`. Every network git call is bounded (HTTP low-speed limit, ssh timeouts, `timeout` where it exists), because a run holds the lock while it waits. The helpers need Node.js 22+ and nothing from npm. Nothing needs a pip package, virtual environment, compiler, network service or background process of its own. The kit never installs a tool.
 - A missing optional tool narrows the feature; a missing required tool fails once with a message that names it, never with a traceback or a half-done run. For example, codex-as without `git` limits takeover to the launch directory.
 - A wrapper forwards to the native tool instead of reimplementing it. It requires a minimum version, never an exact pin or an upper bound. Anything beyond the tool's documented CLI and files (internal socket paths, wire protocols, lock layouts) is best effort: a failure there warns and falls back to plain native behavior, and blocks or asks only where continuing could lose work.
 - Keep helper code proportional to what it adds over the native tool. A feature that needs its own protocol client, journal or lock scheme must justify its code and test cost; prefer the native tool's own feature when one exists.
@@ -118,8 +114,8 @@ The kit runs on what a host already has and stays small enough to audit.
 ## Working commands
 
 - Install into a prefix: `./install.sh [--prefix DIR]`; remove: `./install.sh --uninstall`
-- Managed install: `install.sh --managed --channel MAJOR.MINOR` (or piped to `sh -s --`); update: `"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update`; remove: `--uninstall [--purge]`; Windows: `install.ps1 -Channel MAJOR.MINOR`, then `$env:LOCALAPPDATA\coding-agent-kit\install.ps1 -Update`
-- Run the tests: `./tests/run.sh` (CI: `--ci`; Windows: `./tests/run.ps1`, CI: `-CI`)
+- Managed install: `install.sh --managed --channel MAJOR.MINOR` (or piped to `sh -s --`); update: `"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update`; remove: `--uninstall [--purge]`
+- Run the tests: `./tests/run.sh` (CI: `--ci`)
 - Run one suite: `tests/config.sh`, `tests/codex-as.sh`, `tests/account-enrollment.sh`, `tests/standalone-e2e.sh`, `tests/managed-install.sh`, `tests/contract.sh`
 - Run checks: `pre-commit run --all-files`
 
@@ -139,12 +135,12 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
 
 ## Testing
 
-- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`, and `tests/run.ps1` removes the same names in the same order. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh`, and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
+- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh`, and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
 - Behavior coverage is tracked as a source-to-test matrix in `tests/COVERAGE.md`; update it with the tests.
 
-## Windows line endings
+## Line endings
 
-- `.gitattributes` pins `eol=lf` because Git for Windows enables `core.autocrlf` in its system config, and Git Bash fails on a CRLF `set -eu`. A superproject's attributes do not apply inside a submodule, so this repository carries its own. The Windows CI job fails when `git ls-files --eol` reports a `w/crlf` file.
+- `.gitattributes` pins `eol=lf`, so a clone made with Git for Windows, which enables `core.autocrlf` in its system config, keeps LF files and still runs under WSL, where a CRLF `set -eu` fails. A superproject's attributes do not apply inside a submodule, so this repository carries its own.
 
 ## Workflows and checks
 
@@ -156,7 +152,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
   - basic hygiene hooks
   - the `english-documentation` ASCII check
   - `gitleaks`, plus the manual `gitleaks-history` stage that CI runs over the full history
-- CI runs `./tests/run.sh --ci` on Linux (zsh and GNU Stow installed; the test step fails if the folded Stow cases of `standalone-e2e.sh` did not run) and on macOS (system Bash 3.2, `/bin/sh`), and `./tests/run.ps1 -CI` (the Node helpers and `install.ps1`) on native Windows; each job fails if the tests or hooks leave an untracked file.
+- CI runs `./tests/run.sh --ci` on Linux (zsh and GNU Stow installed; the test step fails if the folded Stow cases of `standalone-e2e.sh` did not run) and on macOS (system Bash 3.2, `/bin/sh`); each job fails if the tests or hooks leave an untracked file.
 - `ci.yml` runs on pull requests, on pushes to `main` and on pushes to `ci/**` branches: check a change on a `ci/**` branch, then fast-forward `main` to that exact green commit and delete the branch.
 - Agents land their own changes this way without a pull request and without asking before each push, merge or release tag, once the local suite, `pre-commit` and every job of that `ci.yml` run are green. They still ask before anything this file forbids or that cannot be undone: moving or deleting a tag, rewriting `main`, or deleting someone else's work.
 - If CI behavior affects contributors, update `README.md` in the same change.

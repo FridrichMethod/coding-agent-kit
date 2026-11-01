@@ -2,7 +2,7 @@ name: ci
 
 on:
   pull_request:
-  # main, and ci/** branches: there a change runs on all three systems before
+  # main, and ci/** branches: there a change runs on both systems before
   # main is fast-forwarded to it, with no pull request.
   push:
     branches: [main, "ci/**"]
@@ -83,40 +83,6 @@ jobs:
       - name: Run behavior tests with system Bash, /bin/sh and BSD utilities
         run: /bin/bash ./tests/run.sh --ci
       - name: Check that tests left no file behind
-        run: |
-          git status --porcelain --untracked-files=all
-          test -z "$(git status --porcelain --untracked-files=all)"
-
-  windows:
-    name: Windows native PowerShell behavior
-    runs-on: windows-2025
-    timeout-minutes: 20
-    defaults:
-      run:
-        shell: pwsh -NoProfile -NonInteractive -Command ". '{0}'"
-    steps:
-      # The runner's default core.autocrlf stays on, so the LF check below
-      # proves .gitattributes, not a runner setting.
-      - uses: actions/checkout@v6
-      # run.ps1 runs only the Node suite of the Claude Code helpers.
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          package-manager-cache: false
-      # The launchers and completions are shell scripts, where a CRLF
-      # `set -eu` fails.
-      - name: Check that the working tree has LF line endings
-        run: |
-          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
-          $crlf = @(git ls-files --eol | Select-String -SimpleMatch 'w/crlf')
-          if ($crlf.Count -gt 0) {
-              $crlf | ForEach-Object { Write-Output $_.Line }
-              throw 'Files in the working tree have CRLF line endings.'
-          }
-      - name: Run required native PowerShell and Node suites
-        run: ./tests/run.ps1 -CI
-      - name: Check that tests left no file behind
-        shell: bash
         run: |
           git status --porcelain --untracked-files=all
           test -z "$(git status --porcelain --untracked-files=all)"

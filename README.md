@@ -16,8 +16,11 @@ your own with `install.sh`, or link or copy its files.
 
 ## Requirements
 
-- Linux or macOS. On native Windows only the Node helpers are tested, and
-  `install.ps1` installs only them; it needs PowerShell 7 and Git.
+- Linux or macOS; WSL counts as Linux. Native Windows is not supported.
+  v0.6.x was the last line with `install.ps1`, the managed install of the
+  helpers there: its installs keep working, frozen at their release, and
+  `pwsh -NoProfile -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
+  removes one.
 - Python 3.11 or newer, standard library only (run as `python3 -I -B`).
 - Bash for `codex-as` (3.2 is enough), POSIX `sh` for `claude-as` and
   `install.sh`, and ordinary POSIX utilities. The managed install also needs
@@ -40,17 +43,6 @@ to newer patches only. Install, update and remove it with:
 curl -fsSL https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.sh | sh -s -- --channel 0.6
 "${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update
 "${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --uninstall   # --purge: also the managed root
-```
-
-On native Windows, with PowerShell 7 and Git, `install.ps1` does the same for
-the three helpers, the only part that runs there:
-
-```powershell
-$f = Join-Path ([IO.Path]::GetTempPath()) "coding-agent-kit-install-$PID.ps1"
-Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.ps1 -OutFile $f
-pwsh -NoProfile -ExecutionPolicy Bypass -File $f -Channel 0.6; Remove-Item $f
-pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Update
-pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall   # -Purge: also the managed root
 ```
 
 These commands, the paths below and the exit codes are the stable interface
@@ -150,24 +142,6 @@ checkout below:
   on a usage error, and 75 when another run holds the lock. Nothing is
   changed by a run that fails; a failed first install may leave the managed
   root with its clone and exported release, which the next run reuses.
-
-`install.ps1` keeps its managed root in `$env:LOCALAPPDATA\coding-agent-kit\`,
-with the same `repo.git`, `releases\vX.Y.Z\`, `channel` and `.lock`, and
-two differences: `current` is a file that names the current release, and
-`install.ps1` there is a copy of that release's own installer, the entry
-point for later runs. It copies the three helpers into
-`$HOME\.claude\coding-agent-kit\` (`USERPROFILE`, as Node's `os.homedir()`
-reads it), each by a rename in that directory. A destination there is its
-own when it is missing or a plain file equal to the helper of a release in
-the managed root; a link, a directory or a file of other content is refused
-and kept. It stages all copies first, then renames them one after the other,
-each again for 1.5 s while another process (Node, a scanner) has the file
-open. It takes `-Channel MAJOR.MINOR`, `-Update`, `-Reinstall`, `-Uninstall`
-and `-Purge`, also spelled `--channel`, `--update`, `--reinstall`,
-`--uninstall` and `--purge`, has the same channel, update, reinstall, git
-transfer and exit-code rules, and holds the lock as an exclusive open of
-`.lock`: only a sharing or lock violation that lasts a second is another
-run, exit 75.
 
 ### From a checkout
 
@@ -381,17 +355,11 @@ completion lists and the output of `--list-accounts`, `--account-labels`,
 pre-commit run --all-files
 ```
 
-```powershell
-./tests/run.ps1            # CI: ./tests/run.ps1 -CI
-```
-
 - `run.sh` needs bash, sh, git, python3 and node. Without zsh it skips the zsh
   cases and says so; `--ci` requires zsh. Without `codex` on `PATH` it skips
   the native Codex sharing checks, and without GNU Stow the folded Stow cases
   of `standalone-e2e.sh`, and says so; as root it skips the read-only
   directory cases.
-- `run.ps1` runs the Node helper suite and `tests/managed-install.ps1`; it
-  needs git, node and pwsh, and `-CI` requires Windows.
 - Every suite runs in a temporary HOME with fake CLIs and fictitious
   credentials, reaches no network beyond local fixtures, and first unsets
   `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`,
@@ -401,18 +369,17 @@ pre-commit run --all-files
 - `tests/standalone-e2e.sh` installs with `install.sh` under `/bin/sh`, bash and
   (when present) dash, checks its refusals and drives both launchers and their
   completions through the links;
-  `tests/managed-install.sh` and `tests/managed-install.ps1` build a local
-  repository with release tags, pass it as `CODING_AGENT_KIT_REPO_URL`
-  (`file://`) and drive the managed installs through bootstrap, update,
-  channel switch, lock, refusals, uninstall and purge;
+  `tests/managed-install.sh` builds a local repository with release tags,
+  passes it as `CODING_AGENT_KIT_REPO_URL` (`file://`) and drives the
+  managed install through bootstrap, update, channel switch, lock, refusals,
+  uninstall and purge;
   `tests/contract.sh` checks the public contract (see
   [AGENTS.md](AGENTS.md)).
-- CI runs the Unix suite on Linux and on macOS with the system Bash 3.2, the
-  Node and `install.ps1` suites on Windows, and every pre-commit hook on Linux. The Linux job
-  installs GNU Stow and fails if the folded Stow cases did not run; macOS
-  skips them. It runs on pull requests, on pushes to `main` and on pushes to
-  `ci/**` branches, so a change can be checked on all three before `main` is
-  fast-forwarded to it.
+- CI runs the suite on Linux and on macOS with the system Bash 3.2, and
+  every pre-commit hook on Linux. The Linux job installs GNU Stow and fails
+  if the folded Stow cases did not run; macOS skips them. It runs on pull
+  requests, on pushes to `main` and on pushes to `ci/**` branches, so a
+  change can be checked on both before `main` is fast-forwarded to it.
   [tests/COVERAGE.md](tests/COVERAGE.md) maps each source file to its tests.
 
 ## Versioning
