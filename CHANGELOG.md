@@ -58,7 +58,9 @@ Added:
   test keeps a release tag equal to them:
   `KIT_RELEASE_TAG=vX.Y.Z tests/config.sh -k ReleaseVersion` checks a tag
   before it is created, and CI, which now also runs on pushed `v*` tags,
-  checks each `vX.Y.Z` tag on the commit.
+  checks each `vX.Y.Z` tag on the commit. A tag on HEAD is compared with
+  the `CHANGELOG.md` committed there, so the first bump after a release
+  passes while HEAD is still the tagged commit.
 - Completion of the own options: a first argument that starts with `-`
   offers `--help`, `--version`, `--list`, `--info`, `--labels`,
   `--show-config` and, for `claude-as`, `--label`. After `-i`, `--info` or
