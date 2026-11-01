@@ -342,13 +342,16 @@ os.execv(sys.argv[2], sys.argv[2:])
     def test_claude_refuses_names_that_start_with_a_dash(self):
         # As in codex-as: a mistyped option is refused, never offered for enrolment.
         before = sorted(path.name for path in self.secret.iterdir())
-        for args in (['-x'], ['-'], ['-h'], ['--version'], ['-x', '--help'],
-                     ['--list-accounts', 'x'], ['--show-config', 'x']):
+        invalid = 'claude-as: invalid account name (ASCII letters, digits, _ or -; no leading -).\n'
+        hint = 'claude-as: {0} is not a claude-as option; native options go after NAME (claude-as NAME {0} ...)\n'
+        for args, message in ((['-x'], hint.format('-x')), (['-'], hint.format('-')), (['-c'], hint.format('-c')),
+                              (['-x', '--help'], hint.format('-x')), (['-p', 'work'], hint.format('-p')),
+                              (['--list-accounts', 'x'], invalid), (['--show-config', 'x'], invalid),
+                              (['-l', 'x'], invalid), (['--label'], invalid)):
             with self.subTest(args=args):
                 self.record.unlink(missing_ok=True)
                 code, out, err, tty = self.terminal(args, [('[y/N]', 'y')], tool='claude-as')
-                self.assertEqual((code, out, err), (1, '', 'claude-as: invalid account name '
-                                                       '(ASCII letters, digits, _ or -; no leading -).\n'))
+                self.assertEqual((code, out, err), (1, '', message))
                 self.assertEqual(tty, '')
                 self.assertFalse(self.record.exists())
         self.assertEqual(sorted(path.name for path in self.secret.iterdir()), before)
@@ -549,25 +552,31 @@ os.execv(sys.argv[2], sys.argv[2:])
         target = self.secret / 'claude-work'
         target.write_text('not a token\n')  # safe but unusable: reading it would fail
         target.chmod(0o600)
-        code, out, err, tty = self.terminal(['--set-label', 'work', 'Work account'], [], tool='claude-as')
-        self.assertEqual((code, out, tty), (0, '', ''), err)
-        self.assertIn('label of work set', err)
-        self.assertEqual(json.loads((self.state / 'claude-work.json').read_text()), {'label': 'Work account'})
-        self.assertFalse(self.record.exists(), 'set-label started Claude')
-        code, _, err, tty = self.terminal(['--set-label', 'work'], [('Label for account work', 'From the terminal')],
-                                          tool='claude-as')
-        self.assertEqual(code, 0, err)
-        self.assertEqual(json.loads((self.state / 'claude-work.json').read_text()), {'label': 'From the terminal'})
-        code, _, err, _ = self.terminal(['--set-label', 'work', ''], [], tool='claude-as')
-        self.assertEqual(code, 0, err)
-        self.assertFalse((self.state / 'claude-work.json').exists())
-        for args, message in ((['--set-label', 'missing', 'x'], 'no account missing'),
-                              (['--set-label', 'work', 'sk-ant-oat01-x'], 'label refused: it looks like a token'),
-                              (['--set-label', '-x', 'y'], 'invalid account name')):
-            with self.subTest(args=args):
-                code, out, err, _ = self.terminal(args, [], tool='claude-as')
-                self.assertEqual((code, out), (1, ''))
-                self.assertIn(message, err)
+        # --label is the 0.7 name; --set-label stays accepted and answers the same.
+        results = {}
+        for option in ('--label', '--set-label'):
+            with self.subTest(option=option):
+                code, out, err, tty = self.terminal([option, 'work', 'Work account'], [], tool='claude-as')
+                self.assertEqual((code, out, tty), (0, '', ''), err)
+                self.assertEqual(err, 'claude-as: label of work set.\n')
+                self.assertEqual(json.loads((self.state / 'claude-work.json').read_text()), {'label': 'Work account'})
+                self.assertFalse(self.record.exists(), 'set-label started Claude')
+                code, _, err, tty = self.terminal([option, 'work'], [('Label for account work', 'From the terminal')],
+                                                  tool='claude-as')
+                self.assertEqual(code, 0, err)
+                self.assertEqual(json.loads((self.state / 'claude-work.json').read_text()), {'label': 'From the terminal'})
+                code, _, err, _ = self.terminal([option, 'work', ''], [], tool='claude-as')
+                self.assertEqual((code, err), (0, 'claude-as: label of work cleared.\n'))
+                self.assertFalse((self.state / 'claude-work.json').exists())
+                results[option] = []
+                for args, message in (([option, 'missing', 'x'], 'no account missing'),
+                                      ([option, 'work', 'sk-ant-oat01-x'], 'label refused: it looks like a token'),
+                                      ([option, '-x', 'y'], 'invalid account name')):
+                    code, out, err, _ = self.terminal(args, [], tool='claude-as')
+                    self.assertEqual((code, out), (1, ''))
+                    self.assertIn(message, err)
+                    results[option].append((code, out, err))
+        self.assertEqual(results['--label'], results['--set-label'])
         self.assertFalse(self.record.exists())
 
     def test_claude_passes_the_usage_file_and_token_id_to_its_child(self):

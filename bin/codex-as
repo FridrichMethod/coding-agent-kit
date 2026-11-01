@@ -47,7 +47,7 @@ _codex_as_locate() {
         return 1
     }
 }
-if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
+if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
     # Help is plain shell: a lone copy without the kit still answers it.
     _codex_as_docs=https://github.com/FridrichMethod/coding-agent-kit/blob/main/docs/account-launchers.md
     if _codex_as_locate 2>/dev/null && [ -f "$_codex_as_root/docs/account-launchers.md" ]; then
@@ -72,8 +72,10 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
         'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit.' \
-        '--account-info NAME: last-seen email, plan and usage of a run of NAME (offline, no credential read);' \
-        '--account-labels: NAME<TAB>email lines for completion; --list-accounts: the names.' \
+        'Own options, only as the first argument (codex options go after NAME):' \
+        '  -l, --list: the account names; --labels: NAME<TAB>email lines for completion;' \
+        '  -i, --info NAME: last-seen email, plan and usage of a run of NAME (offline, no credential read);' \
+        '  -h, --help: this help.' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_codex_as_docs"
     [ "$#" -gt 0 ] && exit 0
@@ -81,14 +83,25 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ]; then
 fi
 _codex_as_locate || exit 1
 
-# --list-accounts, --account-labels and --show-config alone, and --account-info
-# NAME, are the launcher's own metadata queries; no account name starts with -.
+# The launcher's own metadata queries: --list (-l, --list-accounts), --labels
+# (--account-labels) and --show-config alone, and --info (-i, --account-info)
+# NAME. They count only as the first argument, by exact match; no account
+# name starts with -, so a kit option never meets a native one, which goes
+# after NAME. Any other plain dash word there gets that hint.
 _codex_as_name=${1-}
-if [ "$#" -eq 1 ] && { [ "$1" = --list-accounts ] || [ "$1" = --account-labels ] || [ "$1" = --show-config ]; }; then
-    _codex_as_name=query
-elif [ "$#" -eq 2 ] && [ "$1" = --account-info ]; then
-    _codex_as_name=$2
-fi
+case $_codex_as_name in
+    --list | -l | --list-accounts | --labels | --account-labels | --show-config)
+        [ "$#" -ne 1 ] || _codex_as_name=query
+        ;;
+    --info | -i | --account-info)
+        [ "$#" -ne 2 ] || _codex_as_name=$2
+        ;;
+    -*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_=.,:/@+-]*) ;;
+    -*)
+        _codex_as_message 31 2 "codex-as: $1 is not a codex-as option; native options go after NAME (codex-as NAME $1 ...)"
+        exit 2
+        ;;
+esac
 case $_codex_as_name in
     '' | -* | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
         _codex_as_message 31 2 'codex-as: invalid account name (ASCII letters, digits, _ or -; no leading -).'

@@ -2,8 +2,10 @@
 
 ## 0.7.0
 
-The kit becomes Unix-only. A minor release: it removes `install.ps1`, which
-breaks native Windows only.
+Shorter launcher options, and the kit becomes Unix-only. A minor release:
+it adds options and changes the help text and a hint, which are public, and
+it removes `install.ps1`, which breaks native Windows only. Every 0.6
+spelling still works.
 
 Breaking changes:
 
@@ -17,6 +19,31 @@ Breaking changes:
   removes one. Its `-Update -Channel 0.7` fails, since no 0.7 release has an
   `install.ps1`. Linux and macOS, WSL included, keep `install.sh`, its
   managed root and its commands unchanged.
+
+Added:
+
+- Shorter names and short forms of the launchers' own options, still only
+  as the first argument, by exact match and with the same arguments: `-h`
+  for `--help`, `-l` and `--list` for `--list-accounts`, `--labels` for
+  `--account-labels`, `-i NAME` and `--info NAME` for `--account-info NAME`,
+  and `claude-as --label NAME [LABEL]` for `--set-label`. The older
+  spellings stay accepted for good. No short form can collide with a native
+  option: an account name never starts with `-`, and everything after
+  `NAME` goes to the native CLI as before.
+- A dash word in the first argument that is not an own option is refused
+  with a hint,
+  `codex-as: -c is not a codex-as option; native options go after NAME (codex-as NAME -c ...)`,
+  with the exit status of an invalid account name as before (2 for
+  `codex-as`, 1 for `claude-as`); nothing starts. A word with characters
+  other than ASCII letters, digits and `_=.,:/@+-` keeps the plain
+  invalid-name message, so it is never echoed.
+
+Changed:
+
+- The help lists the new names, under `Own options, only as the first
+  argument`. The `--info` line of a Claude account without a label reads
+  `not set (claude-as --label NAME LABEL)`, and the enrolment messages about
+  a label point at `claude-as --label`.
 
 ## 0.6.0
 

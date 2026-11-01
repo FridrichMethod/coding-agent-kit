@@ -31,6 +31,10 @@ ROOT = Path(__file__).resolve().parents[1]
 URL = "https://github.com/FridrichMethod/coding-agent-kit/blob/main/docs/account-launchers.md"
 CONFIGURATION = ("Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; "
                  "--show-config prints the effective values.")
+INVALID = "{tool}: invalid account name (ASCII letters, digits, _ or -; no leading -).\n"
+NOT_OPTION = "{tool}: {word} is not a {tool} option; native options go after NAME ({tool} NAME {word} ...)\n"
+# Dash words the native CLIs use; in argument 1 none is a kit option.
+NATIVE_DASH_WORDS = ("-c", "-p", "-m", "-r", "-n", "-s", "-C", "-x", "-")
 TOOLS = ("codex-as", "claude-as")
 CLAUDE_TOKEN = "sk-ant-oat01-" + "fabricated-config-claude-" * 3
 DEFAULTS_FILE = 'codex = "codex"\nclaude = "claude"\ncodex_home = "~/.codex"\nsecrets_dir = "~/.secrets"\n'
@@ -757,6 +761,17 @@ class Launchers(unittest.TestCase):
                 self.assertIn("(default ~/.secrets", result.stdout)
                 self.assertEqual(self.run_tool([self.kit / "bin" / tool]).stdout, result.stdout)
                 self.assertEqual(self.run_tool([self.kit / "bin" / tool]).returncode, 2)
+                # -h is --help, and both ignore what follows them.
+                for args in (["-h"], ["-h", "x"], ["--help", "x"]):
+                    again = self.run_tool([self.kit / "bin" / tool, *args])
+                    self.assertEqual((again.returncode, again.stdout, again.stderr), (0, result.stdout, ""), args)
+                # The help names the 0.7 options; the older spellings stay accepted but unlisted.
+                for name in ("-h, --help", "-l, --list", "-i, --info NAME", "--labels"):
+                    self.assertIn(name, result.stdout)
+                for old in ("--account-info", "--account-labels", "--list-accounts", "--set-label"):
+                    self.assertNotIn(old, result.stdout)
+                if tool == "claude-as":
+                    self.assertIn("--label NAME [LABEL]", result.stdout)
                 # A lone copy, a broken kit or a kit without docs answers with the URL.
                 write(lone / "bin" / tool, (ROOT / "bin" / tool).read_text(), 0o700)
                 result = self.run_tool([lone / "bin" / tool, "--help"])
@@ -775,11 +790,12 @@ class Launchers(unittest.TestCase):
         for name in ("dirname", "readlink"):
             (tools / name).symlink_to(shutil.which(name))
         for tool in TOOLS:
-            with self.subTest(tool=tool):
-                result = self.run_tool([self.kit / "bin" / tool, "--help"], {"PATH": str(tools)})
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(result.stdout.splitlines()[-1],
-                                 f"Details and manual repair: {self.kit}/docs/account-launchers.md")
+            for flag in ("--help", "-h"):
+                with self.subTest(tool=tool, flag=flag):
+                    result = self.run_tool([self.kit / "bin" / tool, flag], {"PATH": str(tools)})
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.splitlines()[-1],
+                                     f"Details and manual repair: {self.kit}/docs/account-launchers.md")
         # The launchers resolve their root with dirname and readlink first, then need python3.
         before = snapshot(self.home)
         required = "codex-as: Python 3.11+ is required for local JSON and file checks.\n"
@@ -935,21 +951,64 @@ class Launchers(unittest.TestCase):
                 result = self.run_tool([self.kit / "bin" / tool, "--account-info", "missing"], env)
                 self.assertEqual((result.returncode, result.stdout, result.stderr), (1, "", f"{tool}: no account missing.\n"))
                 self.assertFalse(os.path.lexists(self.home / ".local/state"), label)
+                # The 0.7 names and short forms answer exactly as the older spellings, kept for good.
+                for older, newer in ((["--list-accounts"], ["--list"]), (["--list-accounts"], ["-l"]),
+                                     (["--account-labels"], ["--labels"]), (["--account-info", name], ["--info", name]),
+                                     (["--account-info", name], ["-i", name]),
+                                     (["--account-info", "missing"], ["-i", "missing"])):
+                    with self.subTest(tool=tool, args=newer):
+                        expected = self.run_tool([self.kit / "bin" / tool, *older], env)
+                        result = self.run_tool([self.kit / "bin" / tool, *newer], env)
+                        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                         (expected.returncode, expected.stdout, expected.stderr))
         self.assertEqual(snapshot(self.home), before, "a metadata query wrote to HOME")
         self.assertEqual(self.records(), [], "a metadata query started a native CLI")
-        # Only alone, or --account-info with one name: with other arguments the
-        # option is an invalid codex-as account name.
-        for args in (["--list-accounts", "x"], ["--show-config", "--show-config"], ["--account-labels", "A"],
-                     ["--account-info"], ["--account-info", "A", "x"], ["--account-info", "-A"]):
-            result = self.run_tool([self.kit / "bin/codex-as", *args])
-            self.assertEqual(result.returncode, 2, args)
-            self.assertIn("invalid account name", result.stderr)
-        for args in (["--account-info"], ["--account-info", "work", "x"], ["--account-info", "-x"]):
-            result = self.run_tool([self.kit / "bin/claude-as", *args])
-            self.assertEqual(result.returncode, 1, args)
-            self.assertIn("invalid account name", result.stderr)
-        self.assertEqual(self.run_tool([self.kit / "bin/codex-as", "--list-account"]).returncode, 2)
+        # Only alone, or --account-info with one name, in any spelling: with other
+        # arguments the option is an invalid account name (codex-as exit 2, claude-as 1).
+        for tool, code, cases in (
+                ("codex-as", 2, (["--list-accounts", "x"], ["--show-config", "--show-config"], ["--account-labels", "A"],
+                                 ["--account-info"], ["--account-info", "A", "x"], ["--account-info", "-A"],
+                                 ["-l", "x"], ["--list", "x"], ["--labels", "A"], ["-i"], ["--info"], ["-i", "A", "x"],
+                                 ["-i", "-A"], ["--info", "-A"])),
+                ("claude-as", 1, (["--account-info"], ["--account-info", "work", "x"], ["--account-info", "-x"],
+                                  ["-l", "x"], ["--labels", "work"], ["-i"], ["--info", "work", "x"], ["-i", "-x"],
+                                  ["--label"], ["--set-label"], ["--label", "work", "x", "y"]))):
+            for args in cases:
+                with self.subTest(tool=tool, args=args):
+                    result = self.run_tool([self.kit / "bin" / tool, *args])
+                    self.assertEqual((result.returncode, result.stdout, result.stderr), (code, "", INVALID.format(tool=tool)))
+        # No prefix abbreviation: a mistyped option is a dash word, never an account.
+        for tool, code in (("codex-as", 2), ("claude-as", 1)):
+            for word in ("--list-account", "--lis", "--inf", "--version-x"):
+                with self.subTest(tool=tool, word=word):
+                    result = self.run_tool([self.kit / "bin" / tool, word])
+                    self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                     (code, "", NOT_OPTION.format(tool=tool, word=word)))
+        self.assertEqual(self.run_tool([self.kit / "bin/codex-as", "--label", "A", "x"]).stderr,
+                         NOT_OPTION.format(tool="codex-as", word="--label"), "--label is claude-as's alone")
         self.assertEqual(self.records(), [])
+
+    def test_native_dash_words_are_refused_with_a_hint_and_start_nothing(self):
+        # A dash word in argument 1 is never an account name; native options go after NAME.
+        before = snapshot(self.home)
+        for tool, code in (("codex-as", 2), ("claude-as", 1)):
+            for word in NATIVE_DASH_WORDS:
+                for args in ([word], [word, "value"], [word, "A", "exec"]):
+                    with self.subTest(tool=tool, args=args):
+                        result = self.run_tool([self.kit / "bin" / tool, *args])
+                        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                         (code, "", NOT_OPTION.format(tool=tool, word=word)))
+            # A word that is not plain text is never echoed back to the terminal.
+            for word in ("-\x1b]0;title\x07", "-c\nx", "-c x"):
+                with self.subTest(tool=tool, word=word):
+                    result = self.run_tool([self.kit / "bin" / tool, word])
+                    self.assertEqual((result.returncode, result.stdout, result.stderr), (code, "", INVALID.format(tool=tool)))
+        # Run directly, the Python side of codex-as says the same.
+        result = self.run_tool(["python3", "-I", "-B", self.kit / "lib/codex-as/launch.py", "-c", "x"])
+        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                         (1, "", NOT_OPTION.format(tool="codex-as", word="-c")))
+        self.assertEqual(snapshot(self.home), before, "a refused dash word wrote to HOME")
+        self.assertEqual(self.records(), [], "a refused dash word started a native CLI")
 
     def completion(self, shell, tool, home, env=None):
         env = (env or {}) | {"HOME": str(home), "PATH": os.pathsep.join((str(home / ".local/bin"), self.env["PATH"]))}

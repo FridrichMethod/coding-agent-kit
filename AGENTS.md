@@ -31,7 +31,7 @@ tests/                           suites, fixtures, runners, COVERAGE.md
   sibling modules by path from `os.path.realpath(__file__)`: `python3 -I` puts
   no script directory on `sys.path`.
 - Track no symlinks, so a checkout works where links are unsupported.
-- `--help` and a run without arguments are pure shell and work without
+- `--help` (`-h`) and a run without arguments are pure shell and work without
   `python3`. Every other Python entry checks the Python version first, then
   loads its modules inside the error handling, so a missing file prints
   `incomplete install at ROOT`, never a traceback.
@@ -47,8 +47,8 @@ tests/                           suites, fixtures, runners, COVERAGE.md
 ## Public contract
 
 Consumers build on public interfaces: the paths they link, the help text,
-the output formats of `--account-labels` and `--account-info`, and the rest
-of this section. Changing one needs a new minor release and a matching
+the output formats of `--labels` and `--info`, and the rest of this
+section. Changing one needs a new minor release and a matching
 CHANGELOG entry. Consumers may track patch tags automatically, so a patch is
 tagged only from a green `main` and never changes an interface.
 
@@ -66,9 +66,12 @@ pre-commit hook:
 - No tracked symlinks.
 
 The command-line surface is public too, guarded by the suites rather than
-`contract.sh`: the help text, `--list-accounts`, `--account-labels` and
-`--account-info NAME` with their output formats, `claude-as --set-label` and
-`--show-config` with their output, the `main` each helper exports, the
+`contract.sh`: the help text; the own options, only as the first argument
+and by exact match, in every spelling, the older ones kept for good:
+`-h`/`--help`, `-l`/`--list`/`--list-accounts`, `--labels`/`--account-labels`,
+`-i`/`--info`/`--account-info NAME`, `claude-as --label`/`--set-label` and
+`--show-config`, with their outputs and exit codes; the hint and exit code
+for any other dash word there; the `main` each helper exports, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
 fields, `install.sh` with its options and exit codes,
@@ -131,7 +134,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
   - Bash: `shfmt -i 4 -ci -ln bash`
   - POSIX: `shfmt -i 4 -ci -ln posix`
   - Zsh: `shfmt -i 4 -ci -ln zsh` (needs shfmt 3.13+, the first release with a zsh dialect)
-- Launcher messages follow one colour policy in shell and Python: `CODING_AGENT_KIT_COLOR=auto|always|never` (unset or invalid means `auto`, styled only when the destination is a terminal), and a nonempty `NO_COLOR` or `TERM=dumb` disables color. Native CLI output, completion lists and the output of `--list-accounts`, `--account-labels`, `--account-info` and `--show-config` stay untouched, and redirected logs stay plain by default.
+- Launcher messages follow one colour policy in shell and Python: `CODING_AGENT_KIT_COLOR=auto|always|never` (unset or invalid means `auto`, styled only when the destination is a terminal), and a nonempty `NO_COLOR` or `TERM=dumb` disables color. Native CLI output, completion lists and the output of `--list`, `--labels`, `--info` and `--show-config` stay untouched, and redirected logs stay plain by default.
 
 ## Testing
 

@@ -296,10 +296,25 @@ plan    not recorded yet
 usage   not recorded yet"
 run info-claude claude-as --account-info work
 expect info-claude 0 "work (Claude)
-label   not set (claude-as --set-label work LABEL)
+label   not set (claude-as --label work LABEL)
 usage   not recorded yet"
 run info-missing codex-as --account-info B
 expect info-missing 1 '' 'codex-as: no account B.'
+# The 0.7 names and short forms answer as the older spellings do: the
+# same exit status and the same bytes as the run named on the left.
+for pair in 'list -l' 'list --list' 'labels --labels' 'info -i' 'info --info'; do
+    for tool in codex-as claude-as; do
+        older="${pair%% *}-${tool%-as}"
+        args=("${pair#* }")
+        if [[ "$older" == info-* ]]; then
+            [[ "$tool" == codex-as ]] && args+=(A) || args+=(work)
+        fi
+        run "alias-$tool${args[0]}" "$tool" "${args[@]}"
+        [[ "$rc" == 0 ]] && cmp -s "$OUT/alias-$tool${args[0]}.out" "$OUT/$older.out" &&
+            cmp -s "$OUT/alias-$tool${args[0]}.err" "$OUT/$older.err" ||
+            die "$tool ${args[*]} differs from its older spelling"
+    done
+done
 [[ "$(snapshot "$H")" == "$BEFORE" && ! -s "$RECORD" ]] || die 'an account query wrote to HOME or started a CLI'
 completions A work
 : >"$RECORD"

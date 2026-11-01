@@ -38,6 +38,15 @@ except (OSError, ImportError, SyntaxError):
     sys.exit(1)
 
 
+# The 0.7 names and short forms of the launcher's own queries, which count only
+# as the first argument and by exact match; the older spellings stay accepted.
+QUERIES = {"--list": "--list-accounts", "-l": "--list-accounts", "--labels": "--account-labels",
+           "--info": "--account-info", "-i": "--account-info"}
+OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h"}
+# A dash word that is safe to echo back in the hint, as bin/codex-as checks it.
+PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
+
+
 def enroll(layout, codex):
     if os.path.lexists(layout.target):
         guard.credential(layout.target)
@@ -186,6 +195,7 @@ def main(args):
     config = settings.load()
     for warning in config.warnings:
         guard.warn(warning)
+    args = [QUERIES.get(args[0], args[0]), *args[1:]] if args else args
     if args in (["--list-accounts"], ["--show-config"], ["--account-labels"]) or (
             len(args) == 2 and args[0] == "--account-info"):
         # Metadata only: no preflight, no directories, no native CLI and never a credential read.
@@ -202,6 +212,8 @@ def main(args):
         if text:
             print(text)
         return 0
+    if args and args[0] not in OPTIONS and PLAIN.fullmatch(args[0]):
+        guard.fail(f"{args[0]} is not a codex-as option; native options go after NAME (codex-as NAME {args[0]} ...)")
     if not args or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", args[0]):
         guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
     account, *native_args = args

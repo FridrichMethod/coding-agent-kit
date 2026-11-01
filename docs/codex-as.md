@@ -10,7 +10,7 @@ codex-as ayting exec --json "Check the tests"
 
 Existing accounts launch directly. Missing accounts require confirmation, followed by native device login in an empty temporary `CODEX_HOME`; after saving complete JSON credentials, the original command continues. No sourcing or old /tmp initialization examples are needed.
 
-Apart from `--help`, the launcher has its own queries, none starting Codex or opening a credential: `codex-as --list-accounts` prints the account names (what Bash completion offers), `codex-as --account-labels` prints them with their last-seen emails (the zsh descriptions), `codex-as --account-info NAME` prints the last-seen email, plan and usage of one account, and `codex-as --show-config` prints the configuration file in use, the `codex` executable, `<codex_home>` and `<secrets_dir>`. Each but `--account-info NAME` is accepted only as the single argument.
+Apart from `-h` (`--help`), the launcher has its own queries, none starting Codex or opening a credential: `codex-as -l` (`--list`) prints the account names (what Bash completion offers), `codex-as --labels` prints them with their last-seen emails (the zsh descriptions), `codex-as -i NAME` (`--info NAME`) prints the last-seen email, plan and usage of one account, and `codex-as --show-config` prints the configuration file in use, the `codex` executable, `<codex_home>` and `<secrets_dir>`. Each but `-i NAME` is accepted only as the single argument; the older spellings `--list-accounts`, `--account-labels` and `--account-info NAME` still work, and any other dash word before `NAME` is refused with a hint that Codex options go after it (see [own options](account-launchers.md#own-options)).
 
 ## Daemon takeover
 

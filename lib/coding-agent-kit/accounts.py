@@ -246,7 +246,7 @@ def info(tool, name, config, now):
     else:
         data = read(folder / f"claude-{name}.json") or {}
         label = clean(data.get("label"), LABEL_LIMIT)
-        lines = [f"{name} (Claude)", f"{'label':<8}{label or f'not set (claude-as --set-label {name} LABEL)'}"]
+        lines = [f"{name} (Claude)", f"{'label':<8}{label or f'not set (claude-as --label {name} LABEL)'}"]
         usage = read(folder / f"claude-{name}.usage.json")
     lines.extend(usage_lines(tool, usage, now) or [f"{'usage':<8}not recorded yet"])
     return "\n".join(lines)

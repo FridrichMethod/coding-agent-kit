@@ -162,7 +162,7 @@ class Store(unittest.TestCase):
         self.assertEqual(accounts.info("codex-as", "A", self.config, NOW).splitlines(), [
             "A (Codex)", "email   not recorded yet", "plan    not recorded yet", "usage   not recorded yet"])
         self.assertEqual(accounts.info("claude-as", "B", self.config, NOW).splitlines(), [
-            "B (Claude)", "label   not set (claude-as --set-label B LABEL)", "usage   not recorded yet"])
+            "B (Claude)", "label   not set (claude-as --label B LABEL)", "usage   not recorded yet"])
         self.put("claude-B.json", {"label": "bob@example.com"})
         self.put("claude-B.usage.json", {"five_hour": {"used_percentage": 80, "resets_at": NOW - 60},
                                          "seven_day": {"used_percentage": 12.6, "resets_at": NOW + 1800},

@@ -265,11 +265,11 @@ codex-as work                         # Codex as account "work"
 codex-as work resume --last
 codex-as work exec --json "Check the tests"
 claude-as personal -p "Check the tests"
-codex-as --list-accounts              # account names, what completion offers
-codex-as --account-info work          # last-seen email, plan and usage (offline)
-claude-as --set-label personal "me@example.com"
+codex-as -l                           # account names, what completion offers (--list)
+codex-as -i work                      # last-seen email, plan and usage, offline (--info)
+claude-as --label personal "me@example.com"
 claude-as --show-config               # configuration in effect
-codex-as --help
+codex-as -h                           # help (--help)
 ```
 
 `<codex_home>` and `<secrets_dir>` below are configurable and default to
@@ -291,15 +291,18 @@ codex-as --help
 - `claude-as` starts Claude Code with the `claude setup-token` OAuth token from
   `<secrets_dir>/claude-NAME` and otherwise inherits the existing
   configuration.
-- Apart from `--help`, `--list-accounts`, `--account-labels` and
-  `--show-config`, each accepted only alone, `--account-info NAME` and
-  `claude-as --set-label NAME [LABEL]`, the launchers have no options of their
-  own.
+- The launchers' own options count only as the first argument, by exact
+  match: `-h` (`--help`), `-l` (`--list`), `--labels` and `--show-config`,
+  each accepted only alone, `-i NAME` (`--info NAME`) and
+  `claude-as --label NAME [LABEL]`. The older spellings `--list-accounts`,
+  `--account-labels`, `--account-info` and `--set-label` still work.
+  Native options go after `NAME`; any other dash word before it is refused
+  with that hint and starts nothing.
 - Each launcher keeps a small metadata cache per account in
   `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/`: the Codex
   email and plan from the account's token and the last rate limits a run saw
   in its own rollouts, and the Claude label asked at enrolment and the last
-  rate limits the status line helper saw. `--account-info NAME` prints it
+  rate limits the status line helper saw. `--info NAME` prints it
   offline, without opening a credential, and the zsh completions show the
   email or label as each account's description. Emails show in previews and
   transcripts; no token is ever stored there.
@@ -340,8 +343,8 @@ enrolment, and after moving `codex_home` export `CODEX_HOME` for plain
 
 The launchers style only their own messages: headings cyan, questions and
 warnings yellow, saves green, errors red. Native Codex and Claude output,
-completion lists and the output of `--list-accounts`, `--account-labels`,
-`--account-info` and `--show-config` are never styled.
+completion lists and the output of `--list`, `--labels`, `--info` and
+`--show-config` are never styled.
 
 - `CODING_AGENT_KIT_COLOR=auto` (also when unset or invalid) styles a message
   only when its destination is a terminal, so redirected logs stay plain;
@@ -393,8 +396,8 @@ Consumers may take patch tags automatically: a managed install moves to the
 newest patch of its channel on `--update`, and a scheduled job may move a
 submodule to the newest tag of a pinned minor line. A patch is therefore
 tagged only from a green `main` and never changes a public interface: the
-linked paths, the help text, the `--account-labels` and `--account-info`
-output, the managed install's commands and paths, or anything else in the
+linked paths, the help text, the own options and the `--labels` and
+`--info` output, the managed install's commands and paths, or anything else in the
 contract in [AGENTS.md](AGENTS.md#public-contract). Take a minor release,
 a new channel, through a reviewed change. [CHANGELOG.md](CHANGELOG.md) lists every release.
 

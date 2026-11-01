@@ -7,10 +7,10 @@ names executables; it adds no behavior.
 
 `lib/coding-agent-kit/config.py` is the only code that reads it, and the only
 launcher or completion code that reads `HOME`. Each run loads it once, after
-the Python version check: every launch, `--list-accounts`, `--show-config`
-and therefore every completion. `--help` and a run without arguments are
-plain shell and never read it, nor does a `codex-as` account name that fails
-the name check.
+the Python version check: every launch, `--list`, `--show-config` and
+therefore every completion. `--help` and a run without arguments are plain
+shell and never read it, nor does a `codex-as` account name that fails the
+name check.
 
 ## Location
 
@@ -255,13 +255,15 @@ regular file, stops it with:
 TOOL: PARENT does not exist; create it, owned by you and not group or other writable.
 ```
 
-## --show-config, --list-accounts and the account queries
+## --show-config, --list and the account queries
 
-These are the launcher's own queries: `--show-config`, `--list-accounts` and
-`--account-labels` accepted only as the single argument, `--account-info NAME`
-only with one account name. They read metadata only: no environment or
-argument checks, no directory is created, no native CLI starts, no credential
-is opened and nothing touches the network.
+These are the launcher's own queries: `--show-config`, `--list` (`-l`) and
+`--labels` accepted only as the single argument, `--info NAME` (`-i NAME`)
+only with one account name. The older spellings `--list-accounts`,
+`--account-labels` and `--account-info NAME` still work; the account
+launchers documentation lists every own option. They read metadata only: no
+environment or argument checks, no directory is created, no native CLI
+starts, no credential is opened and nothing touches the network.
 
 `TOOL --show-config` prints the effective values and exits 0:
 
@@ -285,7 +287,7 @@ secrets_dir = /home/u/.secrets
 - Paths are shown expanded and normalized, exactly as the launchers use them.
 - Warnings go to stderr first. An invalid file prints its error and exits 1.
 
-`TOOL --list-accounts` prints one account name per line, sorted, from
+`TOOL --list` prints one account name per line, sorted, from
 `secrets_dir`: the `codex-NAME.json` or `claude-NAME` files that are regular,
 owned by you, mode 0600 and not hard-linked. The Bash and zsh completions run
 `command TOOL --list-accounts 2>/dev/null` and offer nothing else for the
@@ -293,10 +295,10 @@ account argument. An invalid configuration or an unsafe `secrets_dir` prints
 nothing on stdout and an error on stderr, and exits 1, so completion offers
 no names.
 
-`TOOL --account-labels` prints the same accounts as `NAME<TAB>LABEL` lines (the
+`TOOL --labels` prints the same accounts as `NAME<TAB>LABEL` lines (the
 email for Codex, the label for Claude), or a bare `NAME` when there is none;
 the zsh completions run it instead of `--list-accounts` and show the label as
-the description. `TOOL --account-info NAME` prints the last-seen details of one
+the description. `TOOL --info NAME` prints the last-seen details of one
 account, or exits 1 with `TOOL: no account NAME.` when the listing has no such
 account. The account launchers documentation describes both outputs and where
 the data comes from.

@@ -38,6 +38,13 @@ TOKEN = re.compile(r"sk-ant-oat[A-Za-z0-9_.-]{1,8192}")
 CSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 OSC = re.compile(r"\x1b\]([^\x07]*?)(?:\x07|\x1b\\)", re.S)
 SECTION = re.compile(r"Your OAuth token \(valid for [^\r\n)]{1,80}\):\s*(.*?)\s*Store this token securely\.", re.S)
+# The 0.7 names and short forms of the launcher's own options, which count only as
+# the first argument and by exact match; the older spellings stay accepted.
+QUERIES = {"--list": "--list-accounts", "-l": "--list-accounts", "--labels": "--account-labels",
+           "--info": "--account-info", "-i": "--account-info", "--label": "--set-label"}
+OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h"}
+# A dash word that is safe to echo back in the hint.
+PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
 
 
 def styled(text, style, fd):
@@ -373,7 +380,7 @@ def ask_label(tty, metadata):
         if not problem:
             return label or None
         tty.write(f"Label refused: {problem}.\n", "33")
-    tty.write("No label saved; set one later with claude-as --set-label.\n", "33")
+    tty.write("No label saved; set one later with claude-as --label.\n", "33")
     return None
 
 
@@ -382,11 +389,11 @@ def save_label(config, metadata, account, label):
     try:
         metadata.write(metadata.directory(config, create=True) / f"claude-{account}.json", {"label": label})
     except (OSError, ValueError):
-        print(styled("claude-as: the label was not saved; set it with claude-as --set-label.", "33", 2), file=sys.stderr)
+        print(styled("claude-as: the label was not saved; set it with claude-as --label.", "33", 2), file=sys.stderr)
 
 
 def set_label(config, metadata, args):
-    """claude-as --set-label NAME [LABEL]: metadata only; an empty label clears it."""
+    """claude-as --label (--set-label) NAME [LABEL]: metadata only; an empty label clears it."""
     name = args[0]
     if not NAME.fullmatch(name) or name.startswith("-"):
         fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
@@ -431,6 +438,7 @@ def main():
     config = kit_config()
     secret = config.secrets_dir
     args = sys.argv[1:]
+    args = [QUERIES.get(args[0], args[0]), *args[1:]] if args else args
     if args in (["--list-accounts"], ["--show-config"], ["--account-labels"]) or (
             len(args) == 2 and args[0] == "--account-info") or (args[:1] == ["--set-label"] and len(args) in (2, 3)):
         # Metadata only: no preflight, no native CLI, and never a token read.
@@ -452,6 +460,8 @@ def main():
         if text:
             print(text)
         return
+    if args and args[0] not in OPTIONS and PLAIN.fullmatch(args[0]):
+        fail(f"{args[0]} is not a claude-as option; native options go after NAME (claude-as NAME {args[0]} ...)")
     account, *args = sys.argv[1:]
     # As in codex-as, no name starts with -, so a mistyped option is never enrolled.
     if not NAME.fullmatch(account) or account.startswith("-"):
