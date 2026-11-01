@@ -3,6 +3,9 @@
 # Existing token: launch. Missing token: confirm, native setup-token, save, launch.
 set -eu
 umask 077
+# The kit release of this launcher; tests/test_config.py checks it against
+# the first heading of CHANGELOG.md.
+_claude_as_version=0.7.0
 # Only style this command's heading, never the native Claude streams.
 _claude_as_message() {
     if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ] &&
@@ -47,6 +50,41 @@ _claude_as_locate() {
         return 1
     }
 }
+# The install form that --version names, from the physical root alone: a
+# release of a managed root (ROOT is .../releases/vX.Y.Z, its channel in
+# ../../channel), a checkout (ROOT/.git exists), copied files, or unknown.
+_claude_as_form() {
+    if ! _claude_as_locate 2>/dev/null; then
+        printf unknown
+        return 0
+    fi
+    _claude_as_tag=${_claude_as_root##*/}
+    case ${_claude_as_root%/*} in
+        */releases)
+            case $_claude_as_tag in
+                v*[!0123456789.]* | v*.*.*.*) ;;
+                v[0123456789]*.[0123456789]*.[0123456789]*)
+                    _claude_as_channel=
+                    if [ -f "$_claude_as_root/../../channel" ]; then
+                        IFS= read -r _claude_as_channel 2>/dev/null <"$_claude_as_root/../../channel" || :
+                    fi
+                    case $_claude_as_channel in
+                        *[!0123456789.]* | *.*.* | .* | *.) _claude_as_channel= ;;
+                        *.*) ;;
+                        *) _claude_as_channel= ;;
+                    esac
+                    printf 'managed %s%s' "$_claude_as_tag" "${_claude_as_channel:+, channel $_claude_as_channel}"
+                    return 0
+                    ;;
+            esac
+            ;;
+    esac
+    if [ -e "$_claude_as_root/.git" ]; then
+        printf 'checkout %s' "$_claude_as_root"
+    else
+        printf 'files %s' "$_claude_as_root"
+    fi
+}
 if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
     # Help is plain shell: a lone copy without the kit still answers it.
     _claude_as_docs=https://github.com/FridrichMethod/coding-agent-kit/blob/main/docs/account-launchers.md
@@ -65,11 +103,17 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'Own options, only as the first argument (claude options go after NAME):' \
         '  -l, --list: the account names; --labels: NAME<TAB>label lines for completion;' \
         '  -i, --info NAME: its label and the last usage its status line saw (offline, no token read);' \
-        '  --label NAME [LABEL]: sets or clears a label; -h, --help: this help.' \
+        '  --label NAME [LABEL]: sets or clears a label; -h, --help: this help;' \
+        '  -V, -v, --version: the kit version (NAME --version prints the Claude Code version).' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_claude_as_docs"
     [ "$#" -gt 0 ] && exit 0
     exit 2
+fi
+if [ "$#" -eq 1 ] && { [ "$1" = --version ] || [ "$1" = -V ] || [ "$1" = -v ]; }; then
+    # Plain shell like the help: no python3, git or native CLI, nothing written.
+    printf 'coding-agent-kit %s (%s)\n' "$_claude_as_version" "$(_claude_as_form)"
+    exit 0
 fi
 _claude_as_locate || exit 1
 if [ ! -r "$_claude_as_root/lib/claude-as/launch.py" ]; then

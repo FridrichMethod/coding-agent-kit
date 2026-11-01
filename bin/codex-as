@@ -2,6 +2,10 @@
 # codex-as NAME [CODEX_ARGS...] - invoked directly, like claude-as.
 # Fixed account views; shared sessions. Requires codex-cli 0.161.0 or newer.
 
+# The kit release of this launcher; tests/test_config.py checks it against
+# the first heading of CHANGELOG.md.
+_codex_as_version=0.7.0
+
 # Native Codex gets the caller's umask, variables, cwd and options; the Python
 # launcher writes its own files under umask 077.
 # CODING_AGENT_KIT_COLOR=auto|always|never styles these messages, never native Codex output.
@@ -47,6 +51,41 @@ _codex_as_locate() {
         return 1
     }
 }
+# The install form that --version names, from the physical root alone: a
+# release of a managed root (ROOT is .../releases/vX.Y.Z, its channel in
+# ../../channel), a checkout (ROOT/.git exists), copied files, or unknown.
+_codex_as_form() {
+    if ! _codex_as_locate 2>/dev/null; then
+        printf unknown
+        return 0
+    fi
+    _codex_as_tag=${_codex_as_root##*/}
+    case ${_codex_as_root%/*} in
+        */releases)
+            case $_codex_as_tag in
+                v*[!0123456789.]* | v*.*.*.*) ;;
+                v[0123456789]*.[0123456789]*.[0123456789]*)
+                    _codex_as_channel=
+                    if [ -f "$_codex_as_root/../../channel" ]; then
+                        IFS= read -r _codex_as_channel 2>/dev/null <"$_codex_as_root/../../channel" || :
+                    fi
+                    case $_codex_as_channel in
+                        *[!0123456789.]* | *.*.* | .* | *.) _codex_as_channel= ;;
+                        *.*) ;;
+                        *) _codex_as_channel= ;;
+                    esac
+                    printf 'managed %s%s' "$_codex_as_tag" "${_codex_as_channel:+, channel $_codex_as_channel}"
+                    return 0
+                    ;;
+            esac
+            ;;
+    esac
+    if [ -e "$_codex_as_root/.git" ]; then
+        printf 'checkout %s' "$_codex_as_root"
+    else
+        printf 'files %s' "$_codex_as_root"
+    fi
+}
 if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
     # Help is plain shell: a lone copy without the kit still answers it.
     _codex_as_docs=https://github.com/FridrichMethod/coding-agent-kit/blob/main/docs/account-launchers.md
@@ -75,19 +114,25 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'Own options, only as the first argument (codex options go after NAME):' \
         '  -l, --list: the account names; --labels: NAME<TAB>email lines for completion;' \
         '  -i, --info NAME: last-seen email, plan and usage of a run of NAME (offline, no credential read);' \
-        '  -h, --help: this help.' \
+        '  -h, --help: this help; -V, -v, --version: the kit version (NAME --version prints the Codex version).' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_codex_as_docs"
     [ "$#" -gt 0 ] && exit 0
     exit 2
 fi
+if [ "$#" -eq 1 ] && { [ "$1" = --version ] || [ "$1" = -V ] || [ "$1" = -v ]; }; then
+    # Plain shell like the help: no python3, git or native CLI, nothing written.
+    printf 'coding-agent-kit %s (%s)\n' "$_codex_as_version" "$(_codex_as_form)"
+    exit 0
+fi
 _codex_as_locate || exit 1
 
 # The launcher's own metadata queries: --list (-l, --list-accounts), --labels
 # (--account-labels) and --show-config alone, and --info (-i, --account-info)
-# NAME. They count only as the first argument, by exact match; no account
-# name starts with -, so a kit option never meets a native one, which goes
-# after NAME. Any other plain dash word there gets that hint.
+# NAME. Like --help and --version they count only as the first argument, by
+# exact match; no account name starts with -, so a kit option never meets a
+# native one, which goes after NAME. Any other plain dash word there gets
+# that hint.
 _codex_as_name=${1-}
 case $_codex_as_name in
     --list | -l | --list-accounts | --labels | --account-labels | --show-config)
@@ -96,6 +141,7 @@ case $_codex_as_name in
     --info | -i | --account-info)
         [ "$#" -ne 2 ] || _codex_as_name=$2
         ;;
+    --version | -V | -v) ;; # alone above; with arguments an invalid name
     -*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_=.,:/@+-]*) ;;
     -*)
         _codex_as_message 31 2 "codex-as: $1 is not a codex-as option; native options go after NAME (codex-as NAME $1 ...)"

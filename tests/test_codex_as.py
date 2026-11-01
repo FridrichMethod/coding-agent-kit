@@ -1423,7 +1423,12 @@ class CodexAs(unittest.TestCase):
 
     def test_help_update_and_completion_run_as_plain_codex(self):
         # They need no account: the root home, no added flags, no environment refusal.
-        for args in (["--help"], ["help", "logout"], ["update"], ["completion", "zsh"], ["-V"]):
+        # After NAME the version and help flags are Codex's, not the kit's.
+        for account in ("A", "missing"):
+            with self.subTest(args=["--version"], account=account):
+                result = self.run_as(SHELLS[0], [account, "--version"], {"OPENAI_API_KEY": "fixture-value"})
+                self.assertEqual((result.returncode, result.stdout), (0, "codex-cli 0.163.0\n"), result.stderr)
+        for args in (["--help"], ["-h"], ["help", "logout"], ["update"], ["completion", "zsh"], ["-V"]):
             for account in ("A", "missing"):
                 with self.subTest(args=args, account=account):
                     self.record.unlink(missing_ok=True)

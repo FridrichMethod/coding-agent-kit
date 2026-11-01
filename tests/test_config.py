@@ -35,6 +35,16 @@ INVALID = "{tool}: invalid account name (ASCII letters, digits, _ or -; no leadi
 NOT_OPTION = "{tool}: {word} is not a {tool} option; native options go after NAME ({tool} NAME {word} ...)\n"
 # Dash words the native CLIs use; in argument 1 none is a kit option.
 NATIVE_DASH_WORDS = ("-c", "-p", "-m", "-r", "-n", "-s", "-C", "-x", "-")
+VERSION_FLAGS = ("--version", "-V", "-v")
+
+
+def release():
+    """The kit release: the first heading of CHANGELOG.md, which must be ## X.Y.Z."""
+    heading = next(line for line in (ROOT / "CHANGELOG.md").read_text().splitlines() if line.startswith("## "))
+    match = re.fullmatch(r"## (\d+\.\d+\.\d+)", heading)
+    if not match:
+        raise AssertionError(f"the first CHANGELOG.md heading is not ## X.Y.Z: {heading!r}")
+    return match.group(1)
 TOOLS = ("codex-as", "claude-as")
 CLAUDE_TOKEN = "sk-ant-oat01-" + "fabricated-config-claude-" * 3
 DEFAULTS_FILE = 'codex = "codex"\nclaude = "claude"\ncodex_home = "~/.codex"\nsecrets_dir = "~/.secrets"\n'
@@ -796,6 +806,12 @@ class Launchers(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual(result.stdout.splitlines()[-1],
                                      f"Details and manual repair: {self.kit}/docs/account-launchers.md")
+            # The kit version is plain shell too: no python3, no git, no native CLI.
+            for flag in VERSION_FLAGS:
+                with self.subTest(tool=tool, flag=flag):
+                    result = self.run_tool([self.kit / "bin" / tool, flag], {"PATH": str(tools)})
+                    self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                     (0, f"coding-agent-kit {release()} (files {self.kit})\n", ""))
         # The launchers resolve their root with dirname and readlink first, then need python3.
         before = snapshot(self.home)
         required = "codex-as: Python 3.11+ is required for local JSON and file checks.\n"
@@ -1009,6 +1025,77 @@ class Launchers(unittest.TestCase):
                          (1, "", NOT_OPTION.format(tool="codex-as", word="-c")))
         self.assertEqual(snapshot(self.home), before, "a refused dash word wrote to HOME")
         self.assertEqual(self.records(), [], "a refused dash word started a native CLI")
+
+    def test_version_names_the_release_and_how_the_kit_is_installed(self):
+        version = release()
+        checkout = install(self.base / "checkout")
+        (checkout / ".git").mkdir()
+        submodule = install(self.base / "submodule")
+        write(submodule / ".git", "gitdir: ../.git/modules/kit\n")
+        lone = self.base / "lone"
+        managed = self.base / "managed root"
+        tree = install(managed / "releases/v0.7.3")
+        write(managed / "channel", "0.7\n")
+        (managed / "current").symlink_to("releases/v0.7.3")
+        linked = self.base / "linked bin"
+        linked.mkdir()
+        old_root = self.base / "old root"
+        install(old_root / "releases/v0.6.9")  # no channel file
+        odd = self.base / "odd root"
+        for name in ("v0.7", "v0.7.3.1", "0.7.3", "v0.7.x", ".tmp.v0.7.3.12"):
+            install(odd / "releases" / name, ("bin",))
+        write(odd / "channel", "0.7\n")
+        bad_channel = self.base / "bad channel"
+        install(bad_channel / "releases/v0.7.3", ("bin",))
+        write(bad_channel / "channel", "0.7.3\n")
+        before = snapshot(self.base)
+        for tool in TOOLS:
+            write(lone / "bin" / tool, (ROOT / "bin" / tool).read_text(), 0o700)
+            (linked / tool).symlink_to(managed / "current/bin" / tool)
+            cases = [
+                ("copied files", self.kit / "bin" / tool, f"files {self.kit}"),
+                ("checkout", checkout / "bin" / tool, f"checkout {checkout}"),
+                ("submodule checkout", submodule / "bin" / tool, f"checkout {submodule}"),
+                ("lone copy", lone / "bin" / tool, f"files {lone}"),
+                ("managed release", tree / "bin" / tool, "managed v0.7.3, channel 0.7"),
+                ("managed link", linked / tool, "managed v0.7.3, channel 0.7"),
+                ("no channel file", old_root / "releases/v0.6.9/bin" / tool, "managed v0.6.9"),
+                ("malformed channel", bad_channel / "releases/v0.7.3/bin" / tool, "managed v0.7.3"),
+                *((f"not a release: {name}", odd / "releases" / name / "bin" / tool, f"files {odd}/releases/{name}")
+                  for name in ("v0.7", "v0.7.3.1", "0.7.3", "v0.7.x", ".tmp.v0.7.3.12")),
+            ]
+            for label, command, form in cases:
+                for flag in VERSION_FLAGS:
+                    with self.subTest(tool=tool, case=label, flag=flag):
+                        # Plain output, never styled, whatever the colour settings say.
+                        result = self.run_tool([command, flag], {"CODING_AGENT_KIT_COLOR": "always"})
+                        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                         (0, f"coding-agent-kit {version} ({form})\n", ""))
+            with self.subTest(tool=tool, case="symlink loop"):
+                loop = self.base / f"{tool} loop"
+                loop.symlink_to(loop)
+                shell = "bash" if tool == "codex-as" else "sh"
+                result = self.run_tool([shell, "-c", (ROOT / "bin" / tool).read_text(), loop, "--version"])
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (0, f"coding-agent-kit {version} (unknown)\n", ""))
+            # Only alone: with arguments a version flag is an invalid account name.
+            for flag in VERSION_FLAGS:
+                for args in ([flag, "x"], [flag, "--version"]):
+                    with self.subTest(tool=tool, args=args):
+                        result = self.run_tool([self.kit / "bin" / tool, *args])
+                        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                         (2 if tool == "codex-as" else 1, "", INVALID.format(tool=tool)))
+        for tool in TOOLS:
+            (linked / tool).unlink()
+            (lone / "bin" / tool).unlink()
+            (self.base / f"{tool} loop").unlink()
+        (lone / "bin").rmdir()
+        lone.rmdir()
+        self.assertEqual(snapshot(self.base), before, "--version wrote a file")
+        self.assertEqual(self.records(), [], "--version started a native CLI")
+        self.assertIn("NAME --version prints the Codex version", self.run_tool([self.kit / "bin/codex-as", "-h"]).stdout)
+        self.assertIn("NAME --version prints the Claude Code version",
+                      self.run_tool([self.kit / "bin/claude-as", "-h"]).stdout)
 
     def completion(self, shell, tool, home, env=None):
         env = (env or {}) | {"HOME": str(home), "PATH": os.pathsep.join((str(home / ".local/bin"), self.env["PATH"]))}
@@ -1292,6 +1379,18 @@ class Launchers(unittest.TestCase):
         for path in (*ROOT.glob("bin/*"), *ROOT.glob("completions/*/*")):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertEqual(re.findall(r"\$\{?(?:XDG_STATE_)?HOME\b", path.read_text()), [])
+
+
+class ReleaseVersion(unittest.TestCase):
+    """Each launcher carries the release it belongs to; the CHANGELOG names it."""
+
+    def test_launcher_versions_equal_the_first_changelog_heading(self):
+        version = release()
+        for tool in TOOLS:
+            with self.subTest(tool=tool):
+                variable = "_" + tool.replace("-", "_") + "_version"
+                found = re.findall(rf"^{variable}=(.*)$", (ROOT / "bin" / tool).read_text(), re.M)
+                self.assertEqual(found, [version], f"bin/{tool} must set {variable}={version} once")
 
 
 if __name__ == "__main__":

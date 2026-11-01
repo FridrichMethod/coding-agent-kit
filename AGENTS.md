@@ -31,8 +31,9 @@ tests/                           suites, fixtures, runners, COVERAGE.md
   sibling modules by path from `os.path.realpath(__file__)`: `python3 -I` puts
   no script directory on `sys.path`.
 - Track no symlinks, so a checkout works where links are unsupported.
-- `--help` (`-h`) and a run without arguments are pure shell and work without
-  `python3`. Every other Python entry checks the Python version first, then
+- `--help` (`-h`), `--version` (`-V`, `-v`) and a run without arguments are
+  pure shell and work without `python3`; `--version` also needs no `git` and
+  starts no native CLI. Every other Python entry checks the Python version first, then
   loads its modules inside the error handling, so a missing file prints
   `incomplete install at ROOT`, never a traceback.
 - `lib/coding-agent-kit/config.py` is the only launcher or completion code
@@ -68,10 +69,12 @@ pre-commit hook:
 The command-line surface is public too, guarded by the suites rather than
 `contract.sh`: the help text; the own options, only as the first argument
 and by exact match, in every spelling, the older ones kept for good:
-`-h`/`--help`, `-l`/`--list`/`--list-accounts`, `--labels`/`--account-labels`,
+`-h`/`--help`, `-V`/`-v`/`--version`, `-l`/`--list`/`--list-accounts`, `--labels`/`--account-labels`,
 `-i`/`--info`/`--account-info NAME`, `claude-as --label`/`--set-label` and
-`--show-config`, with their outputs and exit codes; the hint and exit code
-for any other dash word there; the `main` each helper exports, the
+`--show-config`, with their outputs and exit codes (`--version` prints
+`coding-agent-kit X.Y.Z (FORM)`, FORM being `managed vX.Y.Z, channel X.Y`,
+`checkout ROOT`, `files ROOT` or `unknown`); the hint and exit code for any
+other dash word there; the `main` each helper exports, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
 fields, `install.sh` with its options and exit codes,
@@ -163,6 +166,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
 ## Releases and tags
 
 - Versions are `vMAJOR.MINOR.PATCH` tags on `main`, with semantic versioning in the 0.x range: a minor release may break the public contract, a patch release must not. Every release gets a CHANGELOG section, and a breaking one lists its breaking changes and moved paths.
+- `_codex_as_version` in `bin/codex-as` and `_claude_as_version` in `bin/claude-as` name the release that `--version` prints. Both must equal the first `## X.Y.Z` heading of `CHANGELOG.md`, which is the next or current release (there is no `Unreleased` heading); the `release-version` hook checks it, so bump all three together before tagging.
 - Tags are immutable: never move or delete one. A bad release is fixed by a new patch tag.
 - `main` is never force-pushed or rewritten, because a consumer's gitlink may point at any commit on it, and a host that cannot fetch that commit stops updating.
 - Consumers may track patch tags automatically, through the managed install's `--update` or, for example, with a scheduled job that moves a submodule to the newest tag of a pinned minor line, so a patch reaches them without review. Tag a patch only from a green `main`, run `tests/contract.sh` and the full suite first, and never let a patch change a public interface; that takes a minor release.

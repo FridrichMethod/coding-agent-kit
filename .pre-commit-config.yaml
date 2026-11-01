@@ -89,6 +89,13 @@ repos:
         language: script
         pass_filenames: false
         files: ^(bin/.*|lib/.*|completions/.*|docs/account-launchers\.md|tests/(config\.sh|test_config\.py|test_codex_as\.py))$
+      # The launchers' version literals equal the first CHANGELOG.md heading.
+      - id: release-version
+        name: launcher versions match the CHANGELOG
+        entry: tests/config.sh -k ReleaseVersion
+        language: script
+        pass_filenames: false
+        files: ^(CHANGELOG\.md|bin/(codex|claude)-as|tests/(config\.sh|test_config\.py))$
       - id: account-info
         name: account metadata, Codex usage scan and queries (isolated HOME and fakes)
         entry: tests/account-info.sh

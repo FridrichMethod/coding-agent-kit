@@ -269,6 +269,17 @@ for tool in codex-as claude-as; do
     [[ "$(tail -n 1 "$OUT/help-$tool.out")" == "Details and manual repair: $KIT/docs/account-launchers.md" ]] ||
         die "$tool --help does not name the kit's documentation"
 done
+# --version names the release (the first CHANGELOG heading) and the install
+# form: copied files here, a checkout once the tree has .git.
+VERSION="$(sed -n 's/^## \([0-9][0-9.]*\)$/\1/p' "$ROOT/CHANGELOG.md" | sed -n 1p)"
+for tool in codex-as claude-as; do
+    run "version-$tool" "$tool" --version
+    expect "version-$tool" 0 "coding-agent-kit $VERSION (files $KIT)"
+done
+mkdir "$KIT/.git"
+run version-checkout claude-as -V
+expect version-checkout 0 "coding-agent-kit $VERSION (checkout $KIT)"
+rmdir "$KIT/.git"
 run show-codex codex-as --show-config
 expect show-codex 0 "config = $H/.config/coding-agent-kit/config.toml (not found; defaults)
 codex = codex ($FAKES/codex)

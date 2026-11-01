@@ -56,12 +56,17 @@ fixture_git() {
 }
 
 # release TAG [-a]: commit the kit under test as release TAG of the fixture
-# repository and push it, with one line added to its install.sh that logs
-# which release's code ran, with its arguments.
+# repository and push it, with the launchers' version set to TAG and one
+# line added to its install.sh that logs which release's code ran, with its
+# arguments.
 release() {
-    local line
+    local line tool
     rm -rf "${SOURCE:?}"/*
     cp -R "$ROOT/bin" "$ROOT/lib" "$ROOT/completions" "$ROOT/helpers" "$ROOT/docs" "$SOURCE/"
+    for tool in codex claude; do
+        sed "s/^_${tool}_as_version=.*/_${tool}_as_version=${1#v}/" "$ROOT/bin/$tool-as" >"$SOURCE/bin/$tool-as"
+        grep -Fxq "_${tool}_as_version=${1#v}" "$SOURCE/bin/$tool-as" || die "the release fixture has no $tool-as version"
+    done
     while IFS= read -r line; do
         printf '%s\n' "$line"
         if [[ "$line" == 'set -eu' ]]; then
@@ -283,6 +288,10 @@ for tool in codex-as claude-as; do
 done
 run list-codex codex-as --list-accounts
 expect list-codex 0 A
+for tool in codex-as claude-as; do
+    run "version-$tool" "$tool" --version
+    expect "version-$tool" 0 'coding-agent-kit 0.6.1 (managed v0.6.1, channel 0.6)'
+done
 helpers_work helpers
 
 printf '==> a second run, the bootstrap again and --update write nothing and say so in one line\n'
@@ -362,6 +371,11 @@ rm -f "$GATE" "$GATE.started"
 run help-patch codex-as --help
 [[ "$(tail -n 1 "$OUT/help-patch.out")" == "Details and manual repair: $MP/releases/v0.6.2/docs/account-launchers.md" ]] ||
     die 'a new launch does not run the new release'
+run version-patch codex-as -V
+expect version-patch 0 'coding-agent-kit 0.6.2 (managed v0.6.2, channel 0.6)'
+# A session started before the switch runs the previous release's launcher.
+run version-previous "$M/releases/v0.6.1/bin/claude-as" -v
+expect version-previous 0 'coding-agent-kit 0.6.1 (managed v0.6.1, channel 0.6)'
 run update-patch-again "$M/current/install.sh" --update
 expect update-patch-again 0 "$(already v0.6.2 0.6)"
 logged 'v0.6.2 --update'

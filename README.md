@@ -270,6 +270,7 @@ codex-as -i work                      # last-seen email, plan and usage, offline
 claude-as --label personal "me@example.com"
 claude-as --show-config               # configuration in effect
 codex-as -h                           # help (--help)
+codex-as -V                           # the kit's version and install form (--version, -v)
 ```
 
 `<codex_home>` and `<secrets_dir>` below are configurable and default to
@@ -292,12 +293,16 @@ codex-as -h                           # help (--help)
   `<secrets_dir>/claude-NAME` and otherwise inherits the existing
   configuration.
 - The launchers' own options count only as the first argument, by exact
-  match: `-h` (`--help`), `-l` (`--list`), `--labels` and `--show-config`,
-  each accepted only alone, `-i NAME` (`--info NAME`) and
+  match: `-h` (`--help`), `-V` or `-v` (`--version`), `-l` (`--list`),
+  `--labels` and `--show-config`, each accepted only alone, `-i NAME`
+  (`--info NAME`) and
   `claude-as --label NAME [LABEL]`. The older spellings `--list-accounts`,
   `--account-labels`, `--account-info` and `--set-label` still work.
   Native options go after `NAME`; any other dash word before it is refused
-  with that hint and starts nothing.
+  with that hint and starts nothing. `--version` prints the kit's release and
+  how it is installed, such as
+  `coding-agent-kit 0.7.0 (managed v0.7.0, channel 0.7)`, while
+  `NAME --version` prints the native CLI's version.
 - Each launcher keeps a small metadata cache per account in
   `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/`: the Codex
   email and plan from the account's token and the last rate limits a run saw

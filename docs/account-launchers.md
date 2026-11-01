@@ -31,6 +31,7 @@ Each launcher has a few options of its own. They count only as the first argumen
 | Option | Older spelling | Output |
 | --- | --- | --- |
 | `-h`, `--help` | | the help, also for a run without arguments (which exits 2); later arguments are ignored |
+| `-V`, `-v`, `--version` | | the kit's release and install form; `NAME --version` is the native CLI's |
 | `-l`, `--list` | `--list-accounts` | the account names, one per line |
 | `--labels` | `--account-labels` | `NAME<TAB>LABEL` lines, the descriptions of the zsh completions |
 | `-i NAME`, `--info NAME` | `--account-info NAME` | the last-seen details of one account ([account metadata](#account-metadata)) |
@@ -42,6 +43,22 @@ The older spellings stay accepted; the help lists only the new ones. An own opti
 ```text
 $ codex-as -c model=o3
 codex-as: -c is not a codex-as option; native options go after NAME (codex-as NAME -c ...)
+```
+
+`--version` is plain shell, like the help: it needs no `python3` or `git`, starts no native CLI, writes nothing and is never styled. It prints `coding-agent-kit X.Y.Z (FORM)` on stdout, where `X.Y.Z` is the release written into the launcher and `FORM` comes from the directory the launcher resolves to after its links:
+
+| FORM | When |
+| --- | --- |
+| `managed vX.Y.Z, channel X.Y` | the directory is `vX.Y.Z` in a `releases` directory, as in a managed install; the channel comes from the managed root's `channel` file and is left out when that is missing or malformed |
+| `checkout ROOT` | `ROOT/.git` exists: a clone, a worktree or a submodule |
+| `files ROOT` | anything else, such as copied files |
+| `unknown` | the launcher cannot resolve its own location |
+
+A session started before a managed update keeps its release, and that release's launchers keep printing it. A checkout between tags prints the last release in its CHANGELOG.
+
+```text
+$ codex-as --version
+coding-agent-kit 0.7.0 (managed v0.7.0, channel 0.7)
 ```
 
 ## Codex account layout

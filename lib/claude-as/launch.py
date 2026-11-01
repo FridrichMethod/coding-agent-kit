@@ -42,7 +42,7 @@ SECTION = re.compile(r"Your OAuth token \(valid for [^\r\n)]{1,80}\):\s*(.*?)\s*
 # the first argument and by exact match; the older spellings stay accepted.
 QUERIES = {"--list": "--list-accounts", "-l": "--list-accounts", "--labels": "--account-labels",
            "--info": "--account-info", "-i": "--account-info", "--label": "--set-label"}
-OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h"}
+OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h", "--version", "-V", "-v"}
 # A dash word that is safe to echo back in the hint.
 PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
 

@@ -360,6 +360,27 @@ os.execv(sys.argv[2], sys.argv[2:])
         self.assertNotEqual(code, 0)
         self.assertIn('Account work-2 does not exist.', tty)
 
+    def test_claude_version_and_help_after_a_name_are_claude_codes_own(self):
+        # Before NAME, -v and --version print the kit's version; after it, native Claude
+        # answers, without a token and without enrolment, even for a missing account.
+        target = self.secret / 'claude-work'
+        target.write_text(CLAUDE_TOKEN + '\n'); target.chmod(0o600)
+        for account in ('work', 'missing'):
+            with self.subTest(account=account):
+                code, out, err, tty = self.terminal([account, '--version'], [], tool='claude-as')
+                self.assertEqual((code, out, err, tty), (0, '2.1.296 (Claude Code)\n', '', ''))
+                self.record.unlink(missing_ok=True)
+                code, out, err, tty = self.terminal([account, '-v'], [], tool='claude-as')
+                self.assertEqual((code, tty), (0, ''), err)
+                record = json.loads(self.record.read_text())
+                self.assertEqual(record['args'], ['-v'])
+                self.assertFalse(record['selected'])
+                self.assertIsNone(record['usage_file'])
+        self.assertFalse((self.secret / 'claude-missing').exists())
+        code, out, err, _ = self.terminal(['-v'], [], tool='claude-as')
+        self.assertEqual((code, err), (0, ''))
+        self.assertTrue(out.startswith('coding-agent-kit '), out)
+
     def test_claude_wrapped_capture_policy_and_manual_fallback(self):
         code, _, err, tty = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, '')],
                                          {'CLAUDE_VARIANT': 'wrapped'}, tool='claude-as')

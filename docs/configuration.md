@@ -8,9 +8,9 @@ names executables; it adds no behavior.
 `lib/coding-agent-kit/config.py` is the only code that reads it, and the only
 launcher or completion code that reads `HOME`. Each run loads it once, after
 the Python version check: every launch, `--list`, `--show-config` and
-therefore every completion. `--help` and a run without arguments are plain
-shell and never read it, nor does a `codex-as` account name that fails the
-name check.
+therefore every completion. `--help`, `--version` and a run without
+arguments are plain shell and never read it, nor does a `codex-as` account
+name that fails the name check.
 
 ## Location
 

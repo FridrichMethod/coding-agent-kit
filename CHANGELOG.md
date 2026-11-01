@@ -2,7 +2,7 @@
 
 ## 0.7.0
 
-Shorter launcher options, and the kit becomes Unix-only. A minor release:
+Shorter launcher options and a version, and the kit becomes Unix-only. A minor release:
 it adds options and changes the help text and a hint, which are public, and
 it removes `install.ps1`, which breaks native Windows only. Every 0.6
 spelling still works.
@@ -30,6 +30,18 @@ Added:
   spellings stay accepted for good. No short form can collide with a native
   option: an account name never starts with `-`, and everything after
   `NAME` goes to the native CLI as before.
+- `--version`, also `-V` and `-v`, as the only argument prints the kit's
+  release and how it is installed on stdout, never styled:
+  `coding-agent-kit X.Y.Z (FORM)`, where FORM is
+  `managed vX.Y.Z, channel X.Y` for a release of a managed root, judged
+  from the directory the launcher resolves to and its root's `channel` file,
+  `checkout ROOT` when `ROOT/.git` exists, `files ROOT` otherwise, or
+  `unknown`. It is plain shell like `--help`: no `python3`, no `git`, no
+  native CLI and no write. `NAME --version` still prints the native
+  version. The release is a literal in each launcher, `_codex_as_version`
+  and `_claude_as_version`; a test, run by the new `release-version` hook
+  when `CHANGELOG.md` or a launcher changes, keeps both equal to the first
+  heading of this file.
 - A dash word in the first argument that is not an own option is refused
   with a hint,
   `codex-as: -c is not a codex-as option; native options go after NAME (codex-as NAME -c ...)`,
@@ -41,7 +53,7 @@ Added:
 Changed:
 
 - The help lists the new names, under `Own options, only as the first
-  argument`. The `--info` line of a Claude account without a label reads
+  argument`, and says that `NAME --version` prints the native version. The `--info` line of a Claude account without a label reads
   `not set (claude-as --label NAME LABEL)`, and the enrolment messages about
   a label point at `claude-as --label`.
 
