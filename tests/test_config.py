@@ -39,13 +39,27 @@ NATIVE_DASH_WORDS = ("-c", "-p", "-m", "-r", "-n", "-s", "-C", "-x", "-")
 VERSION_FLAGS = ("--version", "-V", "-v")
 
 
-def release():
+def release(root=ROOT):
     """The kit release: the first heading of CHANGELOG.md, which must be ## X.Y.Z."""
-    heading = next(line for line in (ROOT / "CHANGELOG.md").read_text().splitlines() if line.startswith("## "))
+    heading = next(line for line in (root / "CHANGELOG.md").read_text().splitlines() if line.startswith("## "))
     match = re.fullmatch(r"## (\d+\.\d+\.\d+)", heading)
     if not match:
         raise AssertionError(f"the first CHANGELOG.md heading is not ## X.Y.Z: {heading!r}")
     return match.group(1)
+
+
+def release_tags(root, wanted=None):
+    """The tags that must name ROOT's release: WANTED, a tag about to be
+    created, then each vX.Y.Z tag on HEAD when ROOT is a Git work tree of its
+    own (not a directory inside another repository)."""
+    tags = [] if wanted is None else [wanted]
+    if (root / ".git").exists():
+        # A pre-commit hook inherits GIT_INDEX_FILE and friends from the outer commit.
+        env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+        listed = subprocess.run(["git", "-C", str(root), "tag", "--points-at", "HEAD"], env=env,
+                                capture_output=True, text=True, check=True).stdout.split()
+        tags += [tag for tag in listed if re.fullmatch(r"v\d+\.\d+\.\d+", tag)]
+    return tags
 TOOLS = ("codex-as", "claude-as")
 CLAUDE_TOKEN = "sk-ant-oat01-" + "fabricated-config-claude-" * 3
 DEFAULTS_FILE = 'codex = "codex"\nclaude = "claude"\ncodex_home = "~/.codex"\nsecrets_dir = "~/.secrets"\n'
@@ -1459,6 +1473,41 @@ class ReleaseVersion(unittest.TestCase):
                 variable = "_" + tool.replace("-", "_") + "_version"
                 found = re.findall(rf"^{variable}=(.*)$", (ROOT / "bin" / tool).read_text(), re.M)
                 self.assertEqual(found, [version], f"bin/{tool} must set {variable}={version} once")
+
+    def test_release_tags_name_the_release(self):
+        """The tag about to be created and each release tag on HEAD name the release.
+
+        A tag is immutable and a managed install of it prints the launchers'
+        literal, so KIT_RELEASE_TAG=vX.Y.Z, set before tagging, and every
+        vX.Y.Z tag on HEAD, as CI checks out a pushed tag, must be v plus
+        the release."""
+        version = release()
+        tags = release_tags(ROOT, os.environ.get("KIT_RELEASE_TAG"))
+        if not tags:
+            self.skipTest("no release tag to check; before tagging, run with KIT_RELEASE_TAG=vX.Y.Z")
+        for tag in tags:
+            with self.subTest(tag=tag):
+                self.assertEqual(tag, "v" + version,
+                                 f"{tag} would install launchers whose --version names {version}; "
+                                 f"bump CHANGELOG.md and both literals first")
+
+    def test_release_tags_are_the_wanted_tag_and_the_release_tags_on_head(self):
+        with tempfile.TemporaryDirectory() as base:
+            root = Path(base, "kit")
+            write(root / "CHANGELOG.md", "# Changelog\n\n## 0.7.0\n\nText.\n\n## 0.6.0\n")
+            self.assertEqual(release(root), "0.7.0")
+            self.assertEqual(release_tags(root), [], "a tree without .git has no tags")
+            self.assertEqual(release_tags(root, "v0.7.1"), ["v0.7.1"])
+            git = ["git", "-C", str(root), "-c", "init.defaultBranch=main", "-c", "user.name=fixture",
+                   "-c", "user.email=fixture@example.invalid"]
+            env = {"PATH": os.environ["PATH"], "HOME": base, "GIT_CONFIG_NOSYSTEM": "1"}
+            for args in (["init", "-q"], ["add", "CHANGELOG.md"], ["commit", "-q", "-m", "release"], ["tag", "v0.6.9"],
+                         ["commit", "-q", "--allow-empty", "-m", "next"], ["tag", "v0.7.1"],
+                         ["tag", "-a", "-m", "annotated", "v0.7.2"], ["tag", "v0.7.3-rc1"], ["tag", "latest"]):
+                subprocess.run(git + args, env=env, check=True)
+            self.assertEqual(sorted(release_tags(root)), ["v0.7.1", "v0.7.2"],
+                             "lightweight and annotated vX.Y.Z tags on HEAD only")
+            self.assertEqual(sorted(release_tags(root, "v0.8.0")), ["v0.7.1", "v0.7.2", "v0.8.0"])
 
 
 if __name__ == "__main__":

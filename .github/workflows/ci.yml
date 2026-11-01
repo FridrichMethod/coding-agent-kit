@@ -3,9 +3,12 @@ name: ci
 on:
   pull_request:
   # main, and ci/** branches: there a change runs on both systems before
-  # main is fast-forwarded to it, with no pull request.
+  # main is fast-forwarded to it, with no pull request. Release tags too: on
+  # the checked-out tag the ReleaseVersion test fails unless each vX.Y.Z tag
+  # on the commit names the launchers' release.
   push:
     branches: [main, "ci/**"]
+    tags: ["v*"]
 
 permissions:
   contents: read

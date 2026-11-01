@@ -42,7 +42,11 @@ Added:
   still prints the native version. The release is a literal in each
   launcher, `_codex_as_version` and `_claude_as_version`; a test, run by
   the new `release-version` hook whenever `CHANGELOG.md` or a launcher
-  changes, keeps both equal to the first heading of this file.
+  changes, keeps both equal to the first heading of this file. The same
+  test keeps a release tag equal to them:
+  `KIT_RELEASE_TAG=vX.Y.Z tests/config.sh -k ReleaseVersion` checks a tag
+  before it is created, and CI, which now also runs on pushed `v*` tags,
+  checks each `vX.Y.Z` tag on the commit.
 - Completion of the own options: a first argument that starts with `-`
   offers `--help`, `--version`, `--list`, `--info`, `--labels`,
   `--show-config` and, for `claude-as`, `--label`. After `-i`, `--info` or

@@ -386,7 +386,9 @@ pre-commit run --all-files
   every pre-commit hook on Linux. The Linux job installs GNU Stow and fails
   if the folded Stow cases did not run; macOS skips them. It runs on pull
   requests, on pushes to `main` and on pushes to `ci/**` branches, so a
-  change can be checked on both before `main` is fast-forwarded to it.
+  change can be checked on both before `main` is fast-forwarded to it, and
+  on pushed `v*` tags, where it fails unless each `vX.Y.Z` tag on the
+  commit names the launchers' release.
   [tests/COVERAGE.md](tests/COVERAGE.md) maps each source file to its tests.
 
 ## Versioning
