@@ -19,7 +19,7 @@ your own with `install.sh`, or link or copy its files.
 - Linux or macOS; WSL counts as Linux. Native Windows is not supported.
   v0.6.x was the last line with `install.ps1`, the managed install of the
   helpers there: its installs keep working, frozen at their release, and
-  `pwsh -NoProfile -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
   removes one. Its bootstrap URL on `main` is gone, for every channel: a
   new or repaired 0.6 install downloads `install.ps1` from the `v0.6.0`
   tag,
@@ -299,9 +299,10 @@ codex-as -V                           # the kit's version and install form (--ve
   `<secrets_dir>/claude-NAME` and otherwise inherits the existing
   configuration.
 - The launchers' own options count only as the first argument, by exact
-  match: `-h` (`--help`), `-V` or `-v` (`--version`), `-l` (`--list`),
-  `--labels` and `--show-config`, each accepted only alone, `-i NAME`
-  (`--info NAME`) and `claude-as --label NAME [LABEL]`. The older spellings
+  match: `-h` (`--help`), which ignores any later arguments; `-V` or `-v`
+  (`--version`), `-l` (`--list`), `--labels` and `--show-config`, each
+  accepted only alone; `-i NAME` (`--info NAME`) and
+  `claude-as --label NAME [LABEL]`. The older spellings
   `--list-accounts`, `--account-labels`, `--account-info` and `--set-label`
   still work. Native options go after `NAME`; any other dash word before it
   is refused with that hint and starts nothing. `--version` prints the

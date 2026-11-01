@@ -16,7 +16,7 @@ Breaking changes:
   kit installed only the three Claude Code helpers, with no account
   switching. v0.6.x is the last line with `install.ps1`: its installs keep
   working, frozen at their release, and
-  `pwsh -NoProfile -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
   removes one. Its `-Update -Channel 0.7` fails, since no 0.7 release has
   an `install.ps1`. Linux and macOS, WSL included, keep `install.sh`, its
   managed root and its commands unchanged.
