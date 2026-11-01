@@ -295,12 +295,11 @@ codex-as -V                           # the kit's version and install form (--ve
 - The launchers' own options count only as the first argument, by exact
   match: `-h` (`--help`), `-V` or `-v` (`--version`), `-l` (`--list`),
   `--labels` and `--show-config`, each accepted only alone, `-i NAME`
-  (`--info NAME`) and
-  `claude-as --label NAME [LABEL]`. The older spellings `--list-accounts`,
-  `--account-labels`, `--account-info` and `--set-label` still work.
-  Native options go after `NAME`; any other dash word before it is refused
-  with that hint and starts nothing. `--version` prints the kit's release and
-  how it is installed, such as
+  (`--info NAME`) and `claude-as --label NAME [LABEL]`. The older spellings
+  `--list-accounts`, `--account-labels`, `--account-info` and `--set-label`
+  still work. Native options go after `NAME`; any other dash word before it
+  is refused with that hint and starts nothing. `--version` prints the
+  kit's release and how it is installed, such as
   `coding-agent-kit 0.7.0 (managed v0.7.0, channel 0.7)`, while
   `NAME --version` prints the native CLI's version.
 - Each launcher keeps a small metadata cache per account in

@@ -38,7 +38,7 @@ Each launcher has a few options of its own. They count only as the first argumen
 | `--show-config` | | the configuration in effect ([configuration](configuration.md)) |
 | `claude-as --label NAME [LABEL]` | `claude-as --set-label NAME [LABEL]` | sets a Claude label, asks for it, or clears it with an empty one |
 
-The older spellings stay accepted; the help lists only the new ones. An own option with other arguments is an invalid account name. Any other dash word in the first argument is refused with a hint and the exit status of an invalid account name (2 for `codex-as`, 1 for `claude-as`), and nothing starts or is written; a word with characters other than ASCII letters, digits and `_=.,:/@+-` gets the plain invalid-name message instead, so it is never echoed:
+The older spellings stay accepted; the help lists only the new ones. An own option other than `-h` with other arguments is an invalid account name. Any other dash word in the first argument is refused with a hint and the exit status of an invalid account name (2 for `codex-as`, 1 for `claude-as`), and nothing starts or is written; a word with characters other than ASCII letters, digits and `_=.,:/@+-` gets the plain invalid-name message instead, so it is never echoed:
 
 ```text
 $ codex-as -c model=o3
@@ -54,7 +54,7 @@ codex-as: -c is not a codex-as option; native options go after NAME (codex-as NA
 | `files ROOT` | anything else, such as copied files |
 | `unknown` | the launcher cannot resolve its own location |
 
-A session started before a managed update keeps its release, and that release's launchers keep printing it. A checkout between tags prints the last release in its CHANGELOG.
+A session started before a managed update keeps its release, and that release's launchers keep printing it. A checkout between tags prints the release its launchers name, the first heading of its CHANGELOG, and no commit.
 
 ```text
 $ codex-as --version
