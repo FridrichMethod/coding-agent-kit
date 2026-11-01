@@ -2,10 +2,11 @@
 
 ## 0.7.0
 
-Shorter launcher options and a version, and the kit becomes Unix-only. A minor release:
-it adds options and changes the help text and a hint, which are public, and
-it removes `install.ps1`, which breaks native Windows only. Every 0.6
-spelling still works.
+Shorter launcher options and a version, and the kit becomes Unix-only. A
+minor release: it adds options and changes the help text and a hint, which
+are public, and it removes `install.ps1`, which breaks native Windows only.
+Every 0.6 spelling still works. A managed install takes it as a channel
+switch: `"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update --channel 0.7`.
 
 Breaking changes:
 
@@ -16,8 +17,8 @@ Breaking changes:
   switching. v0.6.x is the last line with `install.ps1`: its installs keep
   working, frozen at their release, and
   `pwsh -NoProfile -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
-  removes one. Its `-Update -Channel 0.7` fails, since no 0.7 release has an
-  `install.ps1`. Linux and macOS, WSL included, keep `install.sh`, its
+  removes one. Its `-Update -Channel 0.7` fails, since no 0.7 release has
+  an `install.ps1`. Linux and macOS, WSL included, keep `install.sh`, its
   managed root and its commands unchanged.
 
 Added:
@@ -25,33 +26,31 @@ Added:
 - Shorter names and short forms of the launchers' own options, still only
   as the first argument, by exact match and with the same arguments: `-h`
   for `--help`, `-l` and `--list` for `--list-accounts`, `--labels` for
-  `--account-labels`, `-i NAME` and `--info NAME` for `--account-info NAME`,
-  and `claude-as --label NAME [LABEL]` for `--set-label`. The older
-  spellings stay accepted for good. No short form can collide with a native
-  option: an account name never starts with `-`, and everything after
-  `NAME` goes to the native CLI as before.
+  `--account-labels`, `-i NAME` and `--info NAME` for
+  `--account-info NAME`, and `claude-as --label NAME [LABEL]` for
+  `--set-label`. The older spellings stay accepted for good. No short form
+  can collide with a native option: an account name never starts with
+  `-`, and everything after `NAME` goes to the native CLI as before.
 - `--version`, also `-V` and `-v`, as the only argument prints the kit's
   release and how it is installed on stdout, never styled:
-  `coding-agent-kit X.Y.Z (FORM)`, where FORM is
-  `managed vX.Y.Z, channel X.Y` for a release of a managed root, judged
-  from the directory the launcher resolves to and its root's `channel` file,
-  `checkout ROOT` when `ROOT/.git` exists, `files ROOT` otherwise, or
-  `unknown`. It is plain shell like `--help`: no `python3`, no `git`, no
-  native CLI and no write. `NAME --version` still prints the native
-  version. The release is a literal in each launcher, `_codex_as_version`
-  and `_claude_as_version`; a test, run by the new `release-version` hook
-  when `CHANGELOG.md` or a launcher changes, keeps both equal to the first
-  heading of this file.
+  `coding-agent-kit X.Y.Z (FORM)`. FORM is `managed vX.Y.Z, channel X.Y`
+  for a release of a managed root, judged from the directory the launcher
+  resolves to and the root's `channel` file (the channel is left out when
+  that is missing or malformed), `checkout ROOT` when `ROOT/.git` exists,
+  `files ROOT` otherwise, or `unknown`. It is plain shell like `--help`:
+  no `python3`, no `git`, no native CLI and no write. `NAME --version`
+  still prints the native version. The release is a literal in each
+  launcher, `_codex_as_version` and `_claude_as_version`; a test, run by
+  the new `release-version` hook whenever `CHANGELOG.md` or a launcher
+  changes, keeps both equal to the first heading of this file.
 - Completion of the own options: a first argument that starts with `-`
   offers `--help`, `--version`, `--list`, `--info`, `--labels`,
   `--show-config` and, for `claude-as`, `--label`. After `-i`, `--info` or
   `--account-info`, and `claude-as --label` or `--set-label`, the next
-  argument completes account names, in zsh in the group `Codex accounts` or
-  `Claude accounts`, so a preview keyed on those groups applies; after an
-  own option and its arguments nothing is offered, where the native
-  arguments were offered before. The completions keep calling
-  `--list-accounts` and `--account-labels`, so they work against an older
-  launcher too.
+  argument completes account names, in zsh in the group `Codex accounts`
+  or `Claude accounts`, so a preview keyed on those groups applies. The
+  completions keep calling `--list-accounts` and `--account-labels`, so
+  they also work against an older launcher.
 - A dash word in the first argument that is not an own option is refused
   with a hint,
   `codex-as: -c is not a codex-as option; native options go after NAME (codex-as NAME -c ...)`,
@@ -63,9 +62,16 @@ Added:
 Changed:
 
 - The help lists the new names, under `Own options, only as the first
-  argument`, and says that `NAME --version` prints the native version. The `--info` line of a Claude account without a label reads
-  `not set (claude-as --label NAME LABEL)`, and the enrolment messages about
-  a label point at `claude-as --label`.
+  argument`, and says that `NAME --version` prints the native version.
+- `-h`, `--version`, `-V` and `-v` as the first argument were invalid
+  account names; now they print the help or the kit's version. With more
+  arguments a version flag is still an invalid account name, while `-h`,
+  like `--help`, ignores them.
+- The `--info` line of a Claude account without a label reads
+  `not set (claude-as --label NAME LABEL)`, and the enrolment messages
+  about a label point at `claude-as --label`.
+- After an own option and its arguments the completions offer nothing,
+  where they offered the native arguments before.
 
 ## 0.6.0
 

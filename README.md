@@ -35,12 +35,12 @@ your own with `install.sh`, or link or copy its files.
 
 ### Managed install
 
-A managed install follows one channel, a `MAJOR.MINOR` line such as `0.6`:
+A managed install follows one channel, a `MAJOR.MINOR` line such as `0.7`:
 it installs the highest `vMAJOR.MINOR.PATCH` release of it and later moves
 to newer patches only. Install, update and remove it with:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.sh | sh -s -- --channel 0.6
+curl -fsSL https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.sh | sh -s -- --channel 0.7
 "${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update
 "${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --uninstall   # --purge: also the managed root
 ```
