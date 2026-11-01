@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import pwd
 import re
+import shlex
 import shutil
 import stat
 import subprocess
@@ -1163,6 +1164,73 @@ class Launchers(unittest.TestCase):
                         result = self.completion(shell, tool, linked)
                         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, name + "\n", ""), shell)
         self.assertEqual(self.records(), [])
+
+    def complete(self, shell, tool, home, words):
+        """What SHELL's completion of TOOL offers for WORDS, the last one the word being completed;
+        zsh prints the group of each _describe call in brackets before its entries."""
+        env = {"HOME": str(home), "PATH": os.pathsep.join((str(home / ".local/bin"), self.env["PATH"]))}
+        line = " ".join(shlex.quote(word) for word in (tool, *words))
+        if shell == "bash":
+            function = "_" + tool.replace("-", "_")
+            script = (f'source "$HOME/.local/share/bash-completion/completions/{tool}"; COMP_WORDS=({line}); '
+                      f'COMP_CWORD={len(words)}; {function}; '
+                      '[ "${#COMPREPLY[@]}" -eq 0 ] || printf "%s\\n" "${COMPREPLY[@]}"')
+            return self.run_tool(["bash", "--noprofile", "--norc", "-c", script], env)
+        script = ('_describe() { [[ $1 == -t ]] || return 0; print -r -- "[$3]"; print -rl -- "${(@P)4}"; }; '
+                  f'CURRENT={len(words) + 1}; words=({line}); source "$HOME/.oh-my-zsh/custom/completions/_{tool}"')
+        return self.run_tool(["zsh", "-f", "-c", script], env)
+
+    def test_completions_offer_the_kit_options_and_accounts_after_info(self):
+        linked = self.base / "linked home"
+        self.linked_home(linked)
+        state = linked / ".local/state/coding-agent-kit/accounts"
+        state.mkdir(parents=True, mode=0o700)
+        write(state / "codex-A.json", json.dumps({"email": "alice@example.com"}))
+        write(state / "claude-work.json", json.dumps({"label": "Work: billing"}))
+        before = snapshot(linked)
+        codex_options = ["--help", "--version", "--list", "--info", "--labels", "--show-config"]
+        claude_options = ["--help", "--version", "--list", "--info", "--labels", "--label", "--show-config"]
+        bash = [
+            ("codex-as", ["-"], codex_options), ("codex-as", ["--l"], ["--list", "--labels"]),
+            ("claude-as", ["-"], claude_options), ("claude-as", ["--la"], ["--labels", "--label"]),
+            ("codex-as", [""], ["A"]), ("claude-as", [""], ["work"]),
+            *(("codex-as", [option, ""], ["A"]) for option in ("--info", "-i", "--account-info")),
+            *(("claude-as", [option, ""], ["work"]) for option in ("--info", "-i", "--account-info", "--label", "--set-label")),
+            # After an own option and its arguments nothing is native: nothing to offer.
+            ("codex-as", ["--info", "A", ""], []), ("codex-as", ["--list", ""], []), ("codex-as", ["-x", ""], []),
+            ("codex-as", ["--label", ""], []), ("claude-as", ["--label", "work", ""], []),
+            ("claude-as", ["--list", "--"], []),
+            # After NAME the native arguments, as before.
+            ("codex-as", ["A", "--v"], ["--version"]), ("claude-as", ["work", "--p"], ["--print"]),
+        ]
+        for tool, words, expected in bash:
+            with self.subTest(shell="bash", tool=tool, words=words):
+                result = self.complete("bash", tool, linked, words)
+                self.assertEqual((result.returncode, result.stdout.splitlines(), result.stderr), (0, expected, ""))
+        if shutil.which("zsh"):
+            codex = ["[codex-as options]", "--help:show this help", "--version:show the kit version",
+                     "--list:list the account names", "--info:show the last-seen details of an account",
+                     "--labels:list the accounts with their emails", "--show-config:show the configuration in effect"]
+            claude = ["[claude-as options]", "--help:show this help", "--version:show the kit version",
+                      "--list:list the account names", "--info:show the last-seen details of an account",
+                      "--labels:list the accounts with their labels", "--label:set or clear the label of an account",
+                      "--show-config:show the configuration in effect"]
+            zsh = [
+                ("codex-as", ["-"], 0, codex), ("claude-as", ["--"], 0, claude),
+                ("codex-as", [""], 0, ["[Codex accounts]", "A:alice@example.com"]),
+                *(("codex-as", [option, ""], 0, ["[Codex accounts]", "A:alice@example.com"])
+                  for option in ("--info", "-i", "--account-info")),
+                *(("claude-as", [option, ""], 0, ["[Claude accounts]", "work:Work: billing"])
+                  for option in ("--info", "-i", "--account-info", "--label", "--set-label")),
+                ("codex-as", ["--info", "A", ""], 1, []), ("codex-as", ["--labels", ""], 1, []),
+                ("claude-as", ["--label", "work", ""], 1, []), ("codex-as", ["-x", ""], 1, []),
+            ]
+            for tool, words, code, expected in zsh:
+                with self.subTest(shell="zsh", tool=tool, words=words):
+                    result = self.complete("zsh", tool, linked, words)
+                    self.assertEqual((result.returncode, result.stdout.splitlines(), result.stderr), (code, expected, ""))
+        self.assertEqual(snapshot(linked), before, "completion wrote to HOME")
+        self.assertEqual(self.records(), [], "completion started a native CLI")
 
     @unittest.skipUnless(shutil.which("zsh"), "zsh not installed")
     def test_zsh_completion_describes_accounts_by_their_email_or_label(self):

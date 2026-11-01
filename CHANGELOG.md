@@ -42,6 +42,16 @@ Added:
   and `_claude_as_version`; a test, run by the new `release-version` hook
   when `CHANGELOG.md` or a launcher changes, keeps both equal to the first
   heading of this file.
+- Completion of the own options: a first argument that starts with `-`
+  offers `--help`, `--version`, `--list`, `--info`, `--labels`,
+  `--show-config` and, for `claude-as`, `--label`. After `-i`, `--info` or
+  `--account-info`, and `claude-as --label` or `--set-label`, the next
+  argument completes account names, in zsh in the group `Codex accounts` or
+  `Claude accounts`, so a preview keyed on those groups applies; after an
+  own option and its arguments nothing is offered, where the native
+  arguments were offered before. The completions keep calling
+  `--list-accounts` and `--account-labels`, so they work against an older
+  launcher too.
 - A dash word in the first argument that is not an own option is refused
   with a hint,
   `codex-as: -c is not a codex-as option; native options go after NAME (codex-as NAME -c ...)`,

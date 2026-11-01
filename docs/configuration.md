@@ -289,9 +289,10 @@ secrets_dir = /home/u/.secrets
 
 `TOOL --list` prints one account name per line, sorted, from
 `secrets_dir`: the `codex-NAME.json` or `claude-NAME` files that are regular,
-owned by you, mode 0600 and not hard-linked. The Bash and zsh completions run
-`command TOOL --list-accounts 2>/dev/null` and offer nothing else for the
-account argument. An invalid configuration or an unsafe `secrets_dir` prints
+owned by you, mode 0600 and not hard-linked. The Bash completions run
+`command TOOL --list-accounts 2>/dev/null` for an account argument and offer
+nothing else there; a first argument that starts with `-` completes the own
+options instead. An invalid configuration or an unsafe `secrets_dir` prints
 nothing on stdout and an error on stderr, and exits 1, so completion offers
 no names.
 

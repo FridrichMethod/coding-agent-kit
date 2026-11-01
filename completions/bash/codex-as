@@ -1,25 +1,37 @@
 # shellcheck shell=bash
 # bash-completion autoloads this file. Account names are metadata only:
-# codex-as --list-accounts never starts native Codex.
+# codex-as --list-accounts never starts native Codex. It keeps that 0.6
+# spelling, which every release accepts, so a shell opened before an update
+# or a rollback still completes. The own options count only as the first
+# argument; after them and their arguments nothing is native.
 _codex_as() {
-    local names name
+    local words name word=${COMP_WORDS[COMP_CWORD]}
+    COMPREPLY=()
     if [ "$COMP_CWORD" -eq 1 ]; then
-        names=$(command codex-as --list-accounts 2>/dev/null) || return
-        COMPREPLY=()
-        while IFS= read -r name; do
-            [ -n "$name" ] && COMPREPLY+=("$name")
-        done < <(compgen -W "$names" -- "${COMP_WORDS[COMP_CWORD]}")
+        case $word in
+            -*) words='--help --version --list --info --labels --show-config' ;;
+            *) words=$(command codex-as --list-accounts 2>/dev/null) || return ;;
+        esac
     elif [ "$COMP_CWORD" -eq 2 ]; then
-        COMPREPLY=()
-        while IFS= read -r name; do
-            COMPREPLY+=("$name")
-        done < <(compgen -W 'exec resume fork --help --version' -- "${COMP_WORDS[COMP_CWORD]}")
+        case ${COMP_WORDS[1]} in
+            --info | -i | --account-info) words=$(command codex-as --list-accounts 2>/dev/null) || return ;;
+            -*) return ;;
+            *) words='exec resume fork --help --version' ;;
+        esac
+    elif [[ ${COMP_WORDS[1]} == -* ]]; then
+        return
     elif declare -F _codex >/dev/null; then
         local COMP_WORDS=(codex "${COMP_WORDS[@]:2}") COMP_CWORD=$((COMP_CWORD - 1))
         local COMP_LINE COMP_POINT
         printf -v COMP_LINE '%q ' "${COMP_WORDS[@]}"
         COMP_POINT=${#COMP_LINE}
         _codex
+        return
+    else
+        return
     fi
+    while IFS= read -r name; do
+        [ -n "$name" ] && COMPREPLY+=("$name")
+    done < <(compgen -W "$words" -- "$word")
 }
 complete -F _codex_as codex-as

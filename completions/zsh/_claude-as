@@ -1,15 +1,32 @@
 #compdef claude-as
 
 local -a names suggestions
-if ((CURRENT == 2)); then
+if ((CURRENT == 2)) && [[ $words[CURRENT] == -* ]]; then
+    # The own options count only here, as the first argument.
+    suggestions=(
+        '--help:show this help'
+        '--version:show the kit version'
+        '--list:list the account names'
+        '--info:show the last-seen details of an account'
+        '--labels:list the accounts with their labels'
+        '--label:set or clear the label of an account'
+        '--show-config:show the configuration in effect'
+    )
+    _describe -t options 'claude-as options' suggestions
+    return
+fi
+if ((CURRENT == 2)) || { ((CURRENT == 3)) && [[ $words[2] == (--info|-i|--account-info|--label|--set-label) ]]; }; then
     # Metadata only: claude-as --account-labels never starts native Claude or reads
-    # a credential. NAME<TAB>LABEL lines become NAME:LABEL descriptions.
+    # a credential. NAME<TAB>LABEL lines become NAME:LABEL descriptions. The
+    # 0.6 spelling keeps a rollback completing.
     names=("${(@f)$(command claude-as --account-labels 2>/dev/null)}")
     names=("${(@)names:#}")
     names=("${(@)names/$'\t'/:}")
     ((${#names})) && _describe -t accounts 'Claude accounts' names
     return
 fi
+# After an own option and its arguments nothing is native.
+[[ $words[2] == -* ]] && return 1
 if ((CURRENT == 3)); then
     suggestions=('--help:show CLI help' '--version:show CLI version' '--print:print a response' '--continue:continue last session' '--resume:resume a session')
     _describe 'Claude arguments' suggestions

@@ -17,7 +17,7 @@ lib/codex-as/*.py                codex-as modules: launch, check, layout, handof
 lib/claude-as/launch.py          claude-as module
 lib/coding-agent-kit/config.py   the configuration loader both launchers share
 lib/coding-agent-kit/accounts.py the account metadata cache both launchers share
-completions/{bash,zsh}/          account-name completion for both launchers
+completions/{bash,zsh}/          account-name and own-option completion for both launchers
 helpers/*.cjs                    Claude Code helpers (Node)
 install.sh                       links a checkout's bin/ and completions/ into a prefix; the managed install
 docs/                            account-launchers.md, codex-as.md, configuration.md
