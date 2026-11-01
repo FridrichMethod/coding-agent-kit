@@ -20,7 +20,13 @@ your own with `install.sh`, or link or copy its files.
   v0.6.x was the last line with `install.ps1`, the managed install of the
   helpers there: its installs keep working, frozen at their release, and
   `pwsh -NoProfile -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
-  removes one.
+  removes one. Its bootstrap URL on `main` is gone, for every channel: a
+  new or repaired 0.6 install downloads `install.ps1` from the `v0.6.0`
+  tag,
+  `https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/v0.6.0/install.ps1`,
+  and runs it with `-Channel 0.6` as the
+  [v0.6.0 README](https://github.com/FridrichMethod/coding-agent-kit/blob/v0.6.0/README.md)
+  describes.
 - Python 3.11 or newer, standard library only (run as `python3 -I -B`).
 - Bash for `codex-as` (3.2 is enough), POSIX `sh` for `claude-as` and
   `install.sh`, and ordinary POSIX utilities. The managed install also needs

@@ -20,6 +20,18 @@ Breaking changes:
   removes one. Its `-Update -Channel 0.7` fails, since no 0.7 release has
   an `install.ps1`. Linux and macOS, WSL included, keep `install.sh`, its
   managed root and its commands unchanged.
+- The bootstrap URL of `install.ps1` on `main`,
+  `https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.ps1`,
+  is gone for every channel, 0.6 included, from the commit on `main` that
+  removed the file, before any 0.7 tag: a new 0.6 install, or a
+  `-Reinstall` repair from a fresh download, as the 0.6 README shows them,
+  fails with HTTP 404. Download the file from the `v0.6.0` tag instead,
+  `https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/v0.6.0/install.ps1`,
+  and run it as before with `-Channel 0.6`; it installs the newest 0.6
+  patch. The channel is needed once a 0.7 tag exists, because the default
+  is the newest release's line, which has no `install.ps1`. A script that downloads `install.ps1`
+  from `main` fails as soon as `main` has this change, so point it at that
+  tag or drop the Windows install first.
 
 Added:
 
