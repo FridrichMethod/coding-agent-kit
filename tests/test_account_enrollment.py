@@ -559,6 +559,26 @@ os.execv(sys.argv[2], sys.argv[2:])
         for path in self.state.iterdir():
             self.assertNotIn(CLAUDE_TOKEN, path.read_text())
 
+    def test_claude_label_problems_point_at_claude_as_label_and_keep_the_token(self):
+        # Three refused labels: none is saved, and the enrolment goes on.
+        code, _, err, tty = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, CLAUDE_TOKEN),
+                                                     ('refused', 'x' * 101), ('refused', CLAUDE_TOKEN)],
+                                          tool='claude-as')
+        self.assertEqual(code, 0, err)
+        self.assertIn('No label saved; set one later with claude-as --label.\n', tty.replace('\r\n', '\n'))
+        self.assertLess(tty.index('No label saved'), tty.index('Credentials saved'))
+        self.assertFalse((self.state / 'claude-work.json').exists())
+        self.assertEqual((self.secret / 'claude-work').read_text(), CLAUDE_TOKEN + '\n')
+        # A label the state directory cannot take: the token stays saved and Claude starts.
+        self.state.mkdir(parents=True, mode=0o700, exist_ok=True)  # the first launch may have made it
+        self.state.chmod(0o755)
+        code, _, err, _ = self.terminal(['other'], [('[y/N]', 'y'), (LABEL_PROMPT, 'other label')], tool='claude-as')
+        self.assertEqual(code, 0, err)
+        self.assertIn('claude-as: the label was not saved; set it with claude-as --label.\n', err)
+        self.assertFalse((self.state / 'claude-other.json').exists())
+        self.assertEqual((self.secret / 'claude-other').read_text(), CLAUDE_TOKEN + '\n')
+        self.assertTrue(json.loads(self.record.read_text())['selected'], 'Claude did not start with the token')
+
     def test_claude_without_a_label_saves_none_and_a_declined_login_saves_nothing(self):
         code, _, err, _ = self.terminal(['work'], [('[y/N]', 'y'), (LABEL_PROMPT, '')], tool='claude-as')
         self.assertEqual(code, 0, err)

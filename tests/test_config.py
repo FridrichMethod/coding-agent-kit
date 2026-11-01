@@ -1240,20 +1240,57 @@ class Launchers(unittest.TestCase):
                         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, name + "\n", ""), shell)
         self.assertEqual(self.records(), [])
 
-    def complete(self, shell, tool, home, words):
+    def complete(self, shell, tool, home, words, prelude=""):
         """What SHELL's completion of TOOL offers for WORDS, the last one the word being completed;
-        zsh prints the group of each _describe call in brackets before its entries."""
+        zsh prints the group of each _describe call in brackets before its entries. PRELUDE runs
+        first, for example to define a native completion function."""
         env = {"HOME": str(home), "PATH": os.pathsep.join((str(home / ".local/bin"), self.env["PATH"]))}
         line = " ".join(shlex.quote(word) for word in (tool, *words))
         if shell == "bash":
             function = "_" + tool.replace("-", "_")
-            script = (f'source "$HOME/.local/share/bash-completion/completions/{tool}"; COMP_WORDS=({line}); '
+            script = (f'{prelude}source "$HOME/.local/share/bash-completion/completions/{tool}"; COMP_WORDS=({line}); '
                       f'COMP_CWORD={len(words)}; {function}; '
                       '[ "${#COMPREPLY[@]}" -eq 0 ] || printf "%s\\n" "${COMPREPLY[@]}"')
             return self.run_tool(["bash", "--noprofile", "--norc", "-c", script], env)
-        script = ('_describe() { [[ $1 == -t ]] || return 0; print -r -- "[$3]"; print -rl -- "${(@P)4}"; }; '
+        script = (f'{prelude}_describe() {{ [[ $1 == -t ]] || return 0; print -r -- "[$3]"; print -rl -- "${{(@P)4}}"; }}; '
                   f'CURRENT={len(words) + 1}; words=({line}); source "$HOME/.oh-my-zsh/custom/completions/_{tool}"')
         return self.run_tool(["zsh", "-f", "-c", script], env)
+
+    def test_completions_query_the_launchers_with_their_0_6_spellings(self):
+        # A shell opened before an update or a rollback keeps its completion functions, and a newer
+        # one may meet an older launcher: only the 0.6 spellings work with every release.
+        for tool in TOOLS:
+            for path, spelling in ((ROOT / "completions/bash" / tool, "--list-accounts"),
+                                   (ROOT / f"completions/zsh/_{tool}", "--account-labels")):
+                with self.subTest(path=str(path.relative_to(ROOT))):
+                    calls = re.findall(rf"\bcommand {tool} (\S+)", path.read_text())
+                    self.assertTrue(calls, f"{path.name} never queries {tool}")
+                    self.assertEqual(set(calls), {spelling})
+
+    def test_completions_hand_only_the_arguments_after_name_to_the_native_completion(self):
+        # A native completion function that offers a word whenever it is called: after NAME it
+        # is called with the native words, after an own option and its arguments it never is.
+        linked = self.base / "linked home"
+        self.linked_home(linked)
+        native = {"bash": '{0}() {{ COMPREPLY=("native:${{COMP_WORDS[*]}}:$COMP_CWORD"); }}; ',
+                  "zsh": '{0}() {{ print -r -- "native:${{words[*]}}:$CURRENT"; }}; '}
+        cases = (("codex-as", ["A", "exec", ""], "codex exec "), ("claude-as", ["work", "--print", ""], "claude --print "),
+                 ("codex-as", ["--info", "A", ""], None), ("codex-as", ["-i", "A", "x", ""], None),
+                 ("codex-as", ["-x", "A", ""], None), ("claude-as", ["--info", "work", ""], None),
+                 ("claude-as", ["--label", "work", ""], None), ("claude-as", ["--label", "work", "x", ""], None))
+        for shell in [shell for shell in ("bash", "zsh") if shutil.which(shell)]:
+            for tool, words, delegated in cases:
+                with self.subTest(shell=shell, tool=tool, words=words):
+                    prelude = native[shell].format("_" + tool.removesuffix("-as"))
+                    result = self.complete(shell, tool, linked, words, prelude)
+                    if delegated is None:
+                        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                         (0 if shell == "bash" else 1, "", ""))
+                    else:
+                        cword = len(words) - 1 if shell == "bash" else len(words)
+                        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                         (0, f"native:{delegated}:{cword}\n", ""))
+        self.assertEqual(self.records(), [], "completion started a native CLI")
 
     def test_completions_offer_the_kit_options_and_accounts_after_info(self):
         linked = self.base / "linked home"
