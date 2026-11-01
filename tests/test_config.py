@@ -53,29 +53,50 @@ def changelog_release(text):
     return match.group(1)
 
 
+def launcher_versions(text, tool):
+    """Every value a launcher's text gives its release literal, _codex_as_version or _claude_as_version."""
+    return re.findall(rf"^_{tool.replace('-', '_')}_version=(.*)$", text, re.M)
+
+
 def release_tag_checks(root, wanted=None):
-    """(tag, release) pairs whose tag must be v plus the release: WANTED, a tag
-    about to be created, with ROOT's CHANGELOG.md as written (the bump that
-    tag needs may not be committed yet), then, when ROOT is a Git work tree of
-    its own (not a directory inside another repository), each vX.Y.Z tag on
-    HEAD with the CHANGELOG.md committed in HEAD, which is what the tag
-    installs. So the first bump on top of a release, written or staged while
-    HEAD is still the tagged commit, does not fail the tags on HEAD. Each
-    commit's launcher literals equal its CHANGELOG.md, as the release-version
-    hook checks before the commit."""
-    checks = [] if wanted is None else [(wanted, release(root))]
-    if (root / ".git").exists():
-        # A pre-commit hook inherits GIT_DIR, GIT_INDEX_FILE and friends from the outer commit.
-        env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    """(tag, source, release) triples whose tag must be v plus the release.
 
-        def git(*args):
-            return subprocess.run(["git", "-C", str(root), *args], env=env,
-                                  capture_output=True, text=True, check=True).stdout
+    Every tag is read against HEAD, never the work tree. Each vX.Y.Z tag on
+    HEAD, as CI checks out a pushed tag, is paired with the release of the
+    CHANGELOG.md committed in HEAD, which is what the tag installs, so the
+    first bump on top of a release, written or staged while HEAD is still the
+    tagged commit, does not fail the tags on HEAD. (In CI's clean checkout
+    the literal test holds the launchers to that CHANGELOG.md, and a tag
+    before 0.7 has no literals.) WANTED, a tag about to be created, goes on
+    HEAD too, as git tag puts it there: it is paired with HEAD's CHANGELOG.md
+    and with the literal of each launcher committed in HEAD, which its
+    --version prints, so a bump written or staged but not committed fails
+    it. Only ROOT's own Git work tree (not a directory inside another
+    repository) has a HEAD to tag."""
+    if not (root / ".git").exists():
+        if wanted is not None:
+            raise AssertionError(f"{wanted} would go on a commit, but {root} is not a Git work tree of its own")
+        return []
+    # A pre-commit hook inherits GIT_DIR, GIT_INDEX_FILE and friends from the outer commit.
+    env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
 
-        tags = [tag for tag in git("tag", "--points-at", "HEAD").split() if re.fullmatch(r"v\d+\.\d+\.\d+", tag)]
-        if tags:
-            committed = changelog_release(git("show", "HEAD:CHANGELOG.md"))
-            checks += [(tag, committed) for tag in tags]
+    def git(*args):
+        return subprocess.run(["git", "-C", str(root), *args], env=env,
+                              capture_output=True, text=True, check=True).stdout
+
+    tags = [tag for tag in git("tag", "--points-at", "HEAD").split() if re.fullmatch(r"v\d+\.\d+\.\d+", tag)]
+    if wanted is None and not tags:
+        return []
+    committed = changelog_release(git("show", "HEAD:CHANGELOG.md"))
+    checks = [(tag, "HEAD:CHANGELOG.md", committed) for tag in tags]
+    if wanted is not None:
+        checks.append((wanted, "HEAD:CHANGELOG.md", committed))
+        for tool in TOOLS:
+            found = launcher_versions(git("show", f"HEAD:bin/{tool}"), tool)
+            if len(found) != 1:
+                variable = "_" + tool.replace("-", "_") + "_version"
+                raise AssertionError(f"HEAD:bin/{tool} must set {variable} once, so {wanted} has a release to name")
+            checks.append((wanted, f"HEAD:bin/{tool}", found[0]))
     return checks
 
 
@@ -1490,59 +1511,94 @@ class ReleaseVersion(unittest.TestCase):
         for tool in TOOLS:
             with self.subTest(tool=tool):
                 variable = "_" + tool.replace("-", "_") + "_version"
-                found = re.findall(rf"^{variable}=(.*)$", (ROOT / "bin" / tool).read_text(), re.M)
+                found = launcher_versions((ROOT / "bin" / tool).read_text(), tool)
                 self.assertEqual(found, [version], f"bin/{tool} must set {variable}={version} once")
 
     def test_release_tags_name_the_release(self):
         """The tag about to be created and each release tag on HEAD name the release.
 
         A tag is immutable and a managed install of it prints the launchers'
-        literal, so KIT_RELEASE_TAG=vX.Y.Z, set before tagging, must be v plus
-        the release in the work tree, and every vX.Y.Z tag on HEAD, as CI
-        checks out a pushed tag, v plus the release committed in HEAD."""
+        literal. KIT_RELEASE_TAG=vX.Y.Z, set before git tag vX.Y.Z tags HEAD,
+        must be v plus the release that HEAD's committed CHANGELOG.md and both
+        committed launchers name, whatever the work tree holds, and every
+        vX.Y.Z tag on HEAD, as CI checks out a pushed tag, v plus the release
+        committed in HEAD's CHANGELOG.md."""
         checks = release_tag_checks(ROOT, os.environ.get("KIT_RELEASE_TAG"))
         if not checks:
             self.skipTest("no release tag to check; before tagging, run with KIT_RELEASE_TAG=vX.Y.Z")
-        for tag, version in checks:
-            with self.subTest(tag=tag):
+        for tag, source, version in checks:
+            with self.subTest(tag=tag, source=source):
                 self.assertEqual(tag, "v" + version,
-                                 f"{tag} would install launchers whose --version names {version}; "
-                                 f"bump CHANGELOG.md and both literals first")
+                                 f"{tag} is or would be a tag of HEAD, whose {source} names {version}; "
+                                 f"commit the bump of CHANGELOG.md and both launchers, then check and tag "
+                                 f"that commit (the work tree does not count)")
 
-    def test_release_tag_checks_pair_each_tag_with_the_release_of_its_commit(self):
+    def test_release_tag_checks_compare_each_tag_with_what_head_commits(self):
+        def bump(*versions):
+            """Write a release into the work tree: CHANGELOG.md and both launcher literals."""
+            write(root / "CHANGELOG.md", "# Changelog\n" + "".join(f"\n## {version}\n\nText.\n" for version in versions))
+            for tool in TOOLS:
+                write(root / "bin" / tool, f"#!/bin/sh\n_{tool.replace('-', '_')}_version={versions[0]}\n", 0o755)
+
+        def wanted(tag, version, launchers=None):
+            """The checks of a tag about to be created on HEAD: CHANGELOG.md and each launcher."""
+            launchers = launchers or {tool: version for tool in TOOLS}
+            return [(tag, "HEAD:CHANGELOG.md", version),
+                    *((tag, f"HEAD:bin/{tool}", launchers[tool]) for tool in TOOLS)]
+
         with tempfile.TemporaryDirectory() as base:
             root = Path(base, "kit")
-            write(root / "CHANGELOG.md", "# Changelog\n\n## 0.7.0\n\nText.\n\n## 0.6.0\n")
+            bump("0.7.0", "0.6.0")
             self.assertEqual(release(root), "0.7.0")
             self.assertEqual(release_tag_checks(root), [], "a tree without .git has no tags")
-            self.assertEqual(release_tag_checks(root, "v0.7.1"), [("v0.7.1", "0.7.0")])
+            with self.assertRaisesRegex(AssertionError, "v0.7.0 would go on a commit, but .* is not a Git work tree"):
+                release_tag_checks(root, "v0.7.0")
             git = ["git", "-C", str(root), "-c", "init.defaultBranch=main", "-c", "user.name=fixture",
                    "-c", "user.email=fixture@example.invalid"]
             env = {"PATH": os.environ["PATH"], "HOME": base, "GIT_CONFIG_NOSYSTEM": "1"}
-            for args in (["init", "-q"], ["add", "CHANGELOG.md"], ["commit", "-q", "-m", "release"], ["tag", "v0.6.9"],
-                         ["commit", "-q", "--allow-empty", "-m", "next"], ["tag", "v0.7.0"],
+
+            def run(*args):
+                subprocess.run(git + list(args), env=env, check=True)
+
+            for args in (["init", "-q"], ["add", "CHANGELOG.md", "bin"], ["commit", "-q", "-m", "release"],
+                         ["tag", "v0.6.9"], ["commit", "-q", "--allow-empty", "-m", "next"], ["tag", "v0.7.0"],
                          ["tag", "-a", "-m", "annotated", "v0.7.2"], ["tag", "v0.7.3-rc1"], ["tag", "latest"]):
-                subprocess.run(git + args, env=env, check=True)
-            on_head = [("v0.7.0", "0.7.0"), ("v0.7.2", "0.7.0")]
+                run(*args)
+            on_head = [("v0.7.0", "HEAD:CHANGELOG.md", "0.7.0"), ("v0.7.2", "HEAD:CHANGELOG.md", "0.7.0")]
             self.assertEqual(sorted(release_tag_checks(root)), on_head,
                              "lightweight and annotated vX.Y.Z tags on HEAD only")
-            self.assertEqual(sorted(release_tag_checks(root, "v0.8.0")), [*on_head, ("v0.8.0", "0.7.0")])
-            # The first bump after a release, written and staged on the tagged HEAD:
-            # the tags on HEAD keep HEAD's release, the tag about to be created gets the new one.
-            write(root / "CHANGELOG.md", "# Changelog\n\n## 0.7.1\n\nFix.\n\n## 0.7.0\n\nText.\n\n## 0.6.0\n")
-            subprocess.run(git + ["add", "CHANGELOG.md"], env=env, check=True)
+            self.assertEqual(sorted(release_tag_checks(root, "v0.8.0")), sorted([*on_head, *wanted("v0.8.0", "0.7.0")]))
+            # The first bump after a release, written and staged on the tagged HEAD but not committed:
+            # neither the tags on HEAD nor the tag about to be created, which git tag puts on HEAD, see it.
+            bump("0.7.1", "0.7.0", "0.6.0")
+            run("add", "CHANGELOG.md", "bin")
             self.assertEqual(release(root), "0.7.1")
             self.assertEqual(sorted(release_tag_checks(root)), on_head)
-            self.assertEqual(sorted(release_tag_checks(root, "v0.7.1")), sorted([*on_head, ("v0.7.1", "0.7.1")]))
+            self.assertEqual(sorted(release_tag_checks(root, "v0.7.1")), sorted([*on_head, *wanted("v0.7.1", "0.7.0")]))
             # A pre-commit hook inherits GIT_DIR, GIT_INDEX_FILE and friends from the outer commit.
             outer = {"GIT_DIR": str(Path(base, "outer.git")), "GIT_INDEX_FILE": str(Path(base, "outer.index")),
                      "GIT_WORK_TREE": base}
             with patch.dict(os.environ, outer):
-                self.assertEqual(sorted(release_tag_checks(root)), on_head)
-            # Once committed, HEAD is no longer the tagged commit.
-            subprocess.run(git + ["commit", "-q", "-m", "bump"], env=env, check=True)
+                self.assertEqual(sorted(release_tag_checks(root, "v0.7.1")),
+                                 sorted([*on_head, *wanted("v0.7.1", "0.7.0")]))
+            # Once committed, HEAD is no longer the tagged commit, and it names the new release.
+            run("commit", "-q", "-m", "bump")
             self.assertEqual(release_tag_checks(root), [])
-
+            self.assertEqual(release_tag_checks(root, "v0.7.1"), wanted("v0.7.1", "0.7.1"))
+            # Work-tree edits after that commit do not count either.
+            bump("0.7.2", "0.7.1", "0.7.0", "0.6.0")
+            self.assertEqual(release_tag_checks(root, "v0.7.1"), wanted("v0.7.1", "0.7.1"))
+            # Each committed launcher counts on its own, as when a commit skipped the release-version hook.
+            write(root / "bin/claude-as", "#!/bin/sh\n_claude_as_version=0.7.0\n", 0o755)
+            run("commit", "-q", "-m", "stale literal", "bin/claude-as")
+            self.assertEqual(release_tag_checks(root, "v0.7.1"),
+                             wanted("v0.7.1", "0.7.1", {"codex-as": "0.7.1", "claude-as": "0.7.0"}))
+            # A committed launcher with no literal, or two, names no release.
+            for text in ("#!/bin/sh\n", "#!/bin/sh\n_codex_as_version=0.7.1\n_codex_as_version=0.7.1\n"):
+                write(root / "bin/codex-as", text, 0o755)
+                run("commit", "-q", "-m", "no single literal", "bin/codex-as")
+                with self.assertRaisesRegex(AssertionError, "HEAD:bin/codex-as must set _codex_as_version once"):
+                    release_tag_checks(root, "v0.7.1")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
