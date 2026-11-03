@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { after, test } = require('node:test');
+const { stripVTControlCharacters } = require('node:util');
 
 // Git exports repository overrides while running commit hooks. Isolate this
 // test process before calling the in-process gitBranch helper as well as any
@@ -37,9 +38,10 @@ const { notification } = require(path.join(scripts, 'notify.cjs'));
 const { bypassReason } = require(path.join(scripts, 'check-git-hooks.cjs'));
 const settings = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/claude-settings.json'), 'utf8'));
 
-function run(script, input) {
+function run(script, input, env = {}) {
   return spawnSync(process.execPath, [path.join(scripts, script)], {
     input: typeof input === 'string' ? input : JSON.stringify(input),
+    env: { ...process.env, ...env },
     encoding: 'utf8',
     timeout: 5000,
   });
@@ -87,6 +89,71 @@ test('status line omits absent and invalid weekly usage', () => {
     ...[undefined, 0, -1, 17.5, 253402300800, '1767873600'].map(resets => ({ ...window, resets_at: resets }))]) {
     assert.equal(formatStatus({ rate_limits: { five_hour: window, seven_day: seven } }),
       'Claude | ctx ? | ~$?');
+  }
+});
+
+test('status line ANSI colors preserve every plain field and keep separators plain', () => {
+  const input = {
+    model: { display_name: 'Opus' }, effort: { level: 'xhigh' },
+    workspace: { current_dir: '/work/project' },
+    context_window: { used_percentage: 38 }, cost: { total_cost_usd: 1.23 },
+    rate_limits: { seven_day: { used_percentage: 75, resets_at: 1767873600 } },
+  };
+  const styled = formatStatus(input, 'main', true);
+  assert.equal(styled, '\x1b[36mOpus\x1b[0m | \x1b[35mxhigh\x1b[0m | \x1b[34mproject (main)\x1b[0m'
+    + ' | \x1b[32mctx 38%\x1b[0m | \x1b[33m~$1.23\x1b[0m | \x1b[33mweek 75%\x1b[0m');
+  assert.equal(stripVTControlCharacters(styled), formatStatus(input, 'main'));
+  assert.equal(formatStatus(input, 'main', false), formatStatus(input, 'main'));
+});
+
+test('status line usage colors follow exact thresholds and preserve zero and unknown values', () => {
+  for (const [used, color] of [[0, 32], [69.9, 32], [70, 33], [89.9, 33], [90, 31], [100, 31]]) {
+    const input = {
+      context_window: { used_percentage: used },
+      rate_limits: { seven_day: { used_percentage: used, resets_at: 1767873600 } },
+    };
+    const styled = formatStatus(input, '', true);
+    for (const label of ['ctx', 'week']) {
+      assert.ok(styled.includes(`\x1b[${color}m${label} ${Math.round(used)}%\x1b[0m`));
+    }
+    assert.equal(stripVTControlCharacters(styled), formatStatus(input));
+  }
+  for (const used of [undefined, null, -1, Number.NaN, Number.POSITIVE_INFINITY, '0']) {
+    const input = { context_window: { used_percentage: used } };
+    const styled = formatStatus(input, '', true);
+    assert.ok(styled.includes(' | ctx ? | '));
+    assert.equal(stripVTControlCharacters(styled), formatStatus(input));
+  }
+});
+
+test('status line main honors color overrides with captured stdout', () => {
+  const input = { context_window: { used_percentage: 0 }, cost: { total_cost_usd: 0 } };
+  for (const [mode, noColor, term, styled] of [
+    ['', '', 'xterm', false], ['auto', '', 'xterm', false], ['invalid', '', 'xterm', false],
+    ['always', '', 'xterm', true], ['never', '', 'xterm', false],
+    ['always', '1', 'xterm', false], ['always', '0', 'xterm', false], ['always', '', 'dumb', false],
+  ]) {
+    const result = run('statusline.cjs', input, {
+      CODING_AGENT_KIT_COLOR: mode, NO_COLOR: noColor, TERM: term,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `${formatStatus(input, '', styled)}\n`);
+  }
+  assert.equal(run('statusline.cjs', input).stdout, `${formatStatus(input)}\n`);
+});
+
+test('status line auto colors use stdout TTY state and still honor opt-outs', () => {
+  for (const [mode, noColor, term, styled] of [
+    ['auto', '', 'xterm', true], ['invalid', '', 'xterm', true], ['never', '', 'xterm', false],
+    ['auto', '1', 'xterm', false], ['auto', '', 'dumb', false],
+  ]) {
+    const result = spawnSync(process.execPath, ['-e',
+      'process.stdout.isTTY = true; require(process.argv[1]).main()', path.join(scripts, 'statusline.cjs')], {
+      input: '{}', encoding: 'utf8', timeout: 5000,
+      env: { ...process.env, CODING_AGENT_KIT_COLOR: mode, NO_COLOR: noColor, TERM: term },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `${formatStatus({}, '', styled)}\n`);
   }
 });
 

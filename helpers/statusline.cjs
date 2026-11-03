@@ -24,7 +24,12 @@ function gitBranch(cwd) {
   return head.status === 0 ? `detached:${text(head.stdout)}` : '';
 }
 
-function formatStatus(input, branch = '') {
+function usageColor(percentage) {
+  if (!Number.isFinite(percentage) || percentage < 0) return 0;
+  return percentage >= 90 ? 31 : percentage >= 70 ? 33 : 32;
+}
+
+function formatStatus(input, branch = '', colors = false) {
   const data = input && typeof input === 'object' ? input : {};
   const cwd = data.workspace?.current_dir || data.cwd;
   const directory = typeof cwd === 'string' ? text(path.basename(cwd.replace(/\\/g, '/'))) : '';
@@ -37,7 +42,10 @@ function formatStatus(input, branch = '') {
   const weekly = usageWindow(data.rate_limits?.seven_day);
   const week = weekly ? `week ${Math.round(weekly.used_percentage)}%` : '';
   const location = [directory, branch ? `(${text(branch)})` : ''].filter(Boolean).join(' ');
-  return [model, effort, location, `ctx ${percentage}`, dollars, week].filter(Boolean).join(' | ');
+  const paint = (value, color) => colors && value && color ? `\x1b[${color}m${value}\x1b[0m` : value;
+  return [paint(model, 36), paint(effort, 35), paint(location, 34),
+    paint(`ctx ${percentage}`, usageColor(used)), paint(dollars, 33),
+    paint(week, usageColor(weekly?.used_percentage))].filter(Boolean).join(' | ');
 }
 
 const USAGE_FILE = /^claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json$/;
@@ -149,7 +157,10 @@ function main() {
   } catch {
     // Recording is a side note; the footer never depends on it.
   }
-  process.stdout.write(`${formatStatus(data, gitBranch(data?.workspace?.current_dir || data?.cwd))}\n`);
+  const colors = !process.env.NO_COLOR && process.env.TERM !== 'dumb'
+    && (process.env.CODING_AGENT_KIT_COLOR === 'always'
+      || (process.env.CODING_AGENT_KIT_COLOR !== 'never' && Boolean(process.stdout.isTTY)));
+  process.stdout.write(`${formatStatus(data, gitBranch(data?.workspace?.current_dir || data?.cwd), colors)}\n`);
 }
 
 module.exports = { formatStatus, gitBranch, main, recordUsage };

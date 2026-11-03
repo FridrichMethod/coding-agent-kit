@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.2
+
+- Add optional semantic ANSI colours to the Claude status line using the existing
+  `CODING_AGENT_KIT_COLOR=auto|always|never` policy. Captured output stays plain in
+  `auto`; a non-empty `NO_COLOR` or `TERM=dumb` disables colours even in `always`.
+  Context and weekly usage turn yellow at 70% and red at 90%. Displayed text and
+  the default plain formatter output are unchanged.
+
 ## 0.7.1
 
 - Show Claude Code's native seven-day rate-limit usage as `week N%` in the

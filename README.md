@@ -362,6 +362,15 @@ completion lists and the output of `--list`, `--labels`, `--info` and
   `always` and `never` force it.
 - A non-empty `NO_COLOR` or `TERM=dumb` turns colour off, even with `always`.
 
+The status line follows the same colour policy: model cyan, effort magenta,
+location blue, and estimated cost yellow. Context and weekly usage are green
+below 70%, yellow at 70% or above, and red at 90% or above, using the reported
+percentage before rounding. Unknown context usage stays uncoloured.
+Claude captures status-line stdout, so `auto` stays plain there. Set
+`CODING_AGENT_KIT_COLOR=always` in the status-line command to enable colours in
+Claude; `NO_COLOR` and `TERM=dumb` still take precedence. Direct `formatStatus`
+calls remain plain unless styling is explicitly requested.
+
 ## Tests
 
 ```sh
