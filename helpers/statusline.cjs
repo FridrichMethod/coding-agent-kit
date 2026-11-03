@@ -34,8 +34,10 @@ function formatStatus(input, branch = '') {
   const cost = data.cost?.total_cost_usd;
   const percentage = Number.isFinite(used) && used >= 0 ? `${Math.round(used)}%` : '?';
   const dollars = Number.isFinite(cost) && cost >= 0 ? `~$${cost.toFixed(2)}` : '~$?';
+  const weekly = usageWindow(data.rate_limits?.seven_day);
+  const week = weekly ? `week ${Math.round(weekly.used_percentage)}%` : '';
   const location = [directory, branch ? `(${text(branch)})` : ''].filter(Boolean).join(' ');
-  return [model, effort, location, `ctx ${percentage}`, dollars].filter(Boolean).join(' | ');
+  return [model, effort, location, `ctx ${percentage}`, dollars, week].filter(Boolean).join(' | ');
 }
 
 const USAGE_FILE = /^claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json$/;

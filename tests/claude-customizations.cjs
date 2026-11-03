@@ -66,6 +66,30 @@ test('status line handles real values, absent data and zero without inventing us
   assert.equal(run('statusline.cjs', '{invalid').status, 0);
 });
 
+test('status line shows native weekly usage, including zero and the full limit', () => {
+  for (const [used, displayed] of [[0, 0], [41.6, 42], [100, 100]]) {
+    const input = { rate_limits: { seven_day: { used_percentage: used, resets_at: 1767873600 } } };
+    assert.equal(formatStatus(input), `Claude | ctx ? | ~$? | week ${displayed}%`);
+  }
+  const result = run('statusline.cjs', {
+    model: { display_name: 'Opus' }, effort: { level: 'xhigh' },
+    context_window: { used_percentage: 37.6 }, cost: { total_cost_usd: 1.234 },
+    rate_limits: { seven_day: { used_percentage: 41.6, resets_at: 1767873600 } },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, 'Opus | xhigh | ctx 38% | ~$1.23 | week 42%\n');
+});
+
+test('status line omits absent and invalid weekly usage', () => {
+  const window = { used_percentage: 41, resets_at: 1767873600 };
+  for (const seven of [undefined, null, {},
+    ...[-1, 101, Number.NaN, Number.POSITIVE_INFINITY, '41', null].map(used => ({ ...window, used_percentage: used })),
+    ...[undefined, 0, -1, 17.5, 253402300800, '1767873600'].map(resets => ({ ...window, resets_at: resets }))]) {
+    assert.equal(formatStatus({ rate_limits: { five_hour: window, seven_day: seven } }),
+      'Claude | ctx ? | ~$?');
+  }
+});
+
 test('status line reads branches, unborn branches and detached HEAD in a temporary repository', () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-status-'));
   try {

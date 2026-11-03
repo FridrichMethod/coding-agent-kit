@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1
+
+- Show Claude Code's native seven-day rate-limit usage as `week N%` in the
+  status line, alongside the existing context usage and estimated session cost.
+  Missing or invalid weekly windows are omitted; valid zero usage is displayed.
+  The helper reuses its existing window validation and makes no network calls.
+
 ## 0.7.0
 
 Shorter launcher options and a version, and the kit becomes Unix-only. A
