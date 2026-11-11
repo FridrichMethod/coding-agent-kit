@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.4
+
+- Show the tokens the session has used in the Claude status line, counted as
+  Codex's `used-tokens` counts its thread: `13.7M used` is the input not read
+  from the prompt cache plus the output of every response in the session's
+  transcript and its subagents' transcripts. Claude Code reports no such
+  total, so the helper reads the transcripts itself, incrementally, and keeps
+  offsets and sums in one private cache file per session under
+  `${XDG_CACHE_HOME:-~/.cache}/coding-agent-kit/statusline/`. A long session
+  seen for the first time catches up 16 MiB per refresh and shows
+  `13.7M+ used` meanwhile; any failure omits the segment.
+- Show the 5-hour limit left beside the weekly one, and label both as Codex
+  does: `5h 88% left | weekly 58% left` (0.7.3 printed `week 58% left`).
+- Drop the context token counts that 0.7.3 added: the context segment is
+  `ctx 38%` again. Token counts use Codex's compact form (`1.23K`, `13.7M`).
+
 ## 0.7.3
 
 - Show the weekly rate limit left in the Claude status line, as Codex does:
