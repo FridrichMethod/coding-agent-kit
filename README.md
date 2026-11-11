@@ -346,7 +346,7 @@ enrolment, and after moving `codex_home` export `CODEX_HOME` for plain
 
 ## Claude Code helpers
 
-- **Status line:** shows the active model, reported effort, project and Git branch (or detached commit), context usage, estimated session cost, and weekly rate-limit usage. For example: `Opus | xhigh | coding-agent-kit (main) | ctx 38% | ~$1.23 | week 42%`. The weekly segment uses Claude's native `rate_limits.seven_day` data, rounds the consumed percentage, and is omitted when that window is absent or invalid; valid zero usage shows `week 0%`. Missing context/cost data shows `?`; cost is Claude's estimate, not an invoice. It performs only bounded Git ref reads, without scanning the worktree or contacting the network. See the [status-line reference](https://code.claude.com/docs/en/statusline).
+- **Status line:** shows the active model, reported effort, project and Git branch (or detached commit), context usage, estimated session cost, and the weekly rate limit left. For example: `Opus | xhigh | coding-agent-kit (main) | ctx 75k/200k 38% | ~$1.23 | week 58% left`. The context segment shows the tokens now in the context window and the window size from Claude's `context_window` data, beside the rounded share used; it shows the share alone when either count is missing or invalid. These are the tokens of the current context, not a running session total: Claude Code reports none, and they shrink after a compaction. The weekly segment uses Claude's native `rate_limits.seven_day` data and shows 100 minus the rounded consumed percentage, as Codex shows its weekly limit; it is omitted when that window is absent or invalid, and a valid full limit shows `week 0% left`. Missing context/cost data shows `?`; cost is Claude's estimate, not an invoice. It performs only bounded Git ref reads, without scanning the worktree or contacting the network. See the [status-line reference](https://code.claude.com/docs/en/statusline).
 - **Notifications:** `permission_prompt` and `idle_prompt` events emit [Claude's `terminalSequence`](https://code.claude.com/docs/en/hooks#emit-terminal-notifications), using OSC 99 for Kitty, OSC 777 for Ghostty/Warp/rxvt, or OSC 9 for iTerm2/WezTerm/Windows Terminal. The terminal handles desktop delivery, including remote sessions when terminal identification is available. Enable notifications for the terminal in OS settings; unsupported terminals and non-interactive sessions may ignore them. The notice contains only the project name and a fixed status, never prompt or command contents. Other events and notification types produce nothing.
 - **Git hook checks:** a local `PreToolUse` helper replaces per-Bash `npx block-no-verify@1.1.2` execution. It blocks common `--no-verify`, commit `-n`, and `-c core.hooksPath=...` forms without npm startup or downloads. This is a conservative text check, not a shell parser; quoted text can trigger it, and indirect bypasses are outside its scope. Successful checks do not grant permission or skip the classifier.
 
@@ -364,8 +364,10 @@ completion lists and the output of `--list`, `--labels`, `--info` and
 
 The status line follows the same colour policy: model cyan, effort magenta,
 location blue, and estimated cost yellow. Context and weekly usage are green
-below 70%, yellow at 70% or above, and red at 90% or above, using the reported
-percentage before rounding. Unknown context usage stays uncoloured.
+below 70% used, yellow at 70% used or above, and red at 90% used or above,
+using the reported percentage before rounding, so the weekly segment turns
+yellow at 30% left or below and red at 10% left or below. Unknown context usage
+stays uncoloured.
 Claude captures status-line stdout, so `auto` stays plain there. Set
 `CODING_AGENT_KIT_COLOR=always` in the status-line command to enable colours in
 Claude; `NO_COLOR` and `TERM=dumb` still take precedence. Direct `formatStatus`

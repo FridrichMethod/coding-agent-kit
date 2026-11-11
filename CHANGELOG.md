@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.3
+
+- Show the weekly rate limit left in the Claude status line, as Codex does:
+  `week N% left` is 100 minus the rounded `rate_limits.seven_day` usage, so
+  `week 42%` becomes `week 58% left`. Its colour still follows the share used
+  (yellow at 70%, red at 90%), and absent or invalid windows are still omitted.
+- Show the tokens in the context window and its size beside the context share:
+  `ctx 75k/200k 38%`, from Claude Code's `context_window.total_input_tokens`
+  and `context_window_size`. The share alone is shown when either count is
+  missing or invalid, and `ctx ?` before the first response as before. Claude
+  Code reports no running session total, so none is shown.
+
 ## 0.7.2
 
 - Add optional semantic ANSI colours to the Claude status line using the existing

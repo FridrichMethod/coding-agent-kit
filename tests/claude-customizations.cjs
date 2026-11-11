@@ -68,18 +68,40 @@ test('status line handles real values, absent data and zero without inventing us
   assert.equal(run('statusline.cjs', '{invalid').status, 0);
 });
 
-test('status line shows native weekly usage, including zero and the full limit', () => {
-  for (const [used, displayed] of [[0, 0], [41.6, 42], [100, 100]]) {
+test('status line shows the context tokens and window size beside the share used', () => {
+  const ctx = (window) => formatStatus({ context_window: window }).split(' | ')[1];
+  for (const [tokens, size, shown] of [
+    [0, 200000, '0/200k'], [950, 200000, '950/200k'], [999.6, 200000, '1k/200k'],
+    [1234, 200000, '1.2k/200k'], [9960, 200000, '10k/200k'], [75200, 200000, '75k/200k'],
+    [999499, 1000000, '999k/1M'], [999500, 1000000, '1M/1M'], [1530000, 2000000, '1.5M/2M'],
+  ]) {
+    assert.equal(ctx({ used_percentage: 37.6, total_input_tokens: tokens, context_window_size: size }),
+      `ctx ${shown} 38%`);
+  }
+  for (const [tokens, size] of [[undefined, 200000], [75200, undefined], [null, 200000], ['75200', 200000],
+    [-1, 200000], [Number.NaN, 200000], [Number.POSITIVE_INFINITY, 200000], [75200, 0], [75200, -1],
+    [75200, '200000'], [75200, Number.POSITIVE_INFINITY]]) {
+    assert.equal(ctx({ used_percentage: 37.6, total_input_tokens: tokens, context_window_size: size }), 'ctx 38%');
+  }
+  // Counts without a share used, before the first response, stay unknown.
+  for (const used of [undefined, null, -1, Number.NaN]) {
+    assert.equal(ctx({ used_percentage: used, total_input_tokens: 0, context_window_size: 200000 }), 'ctx ?');
+  }
+});
+
+test('status line shows the native weekly limit left, including zero and the full limit', () => {
+  for (const [used, left] of [[0, 100], [41.6, 58], [99.6, 0], [100, 0]]) {
     const input = { rate_limits: { seven_day: { used_percentage: used, resets_at: 1767873600 } } };
-    assert.equal(formatStatus(input), `Claude | ctx ? | ~$? | week ${displayed}%`);
+    assert.equal(formatStatus(input), `Claude | ctx ? | ~$? | week ${left}% left`);
   }
   const result = run('statusline.cjs', {
     model: { display_name: 'Opus' }, effort: { level: 'xhigh' },
-    context_window: { used_percentage: 37.6 }, cost: { total_cost_usd: 1.234 },
+    context_window: { used_percentage: 37.6, total_input_tokens: 75200, context_window_size: 200000 },
+    cost: { total_cost_usd: 1.234 },
     rate_limits: { seven_day: { used_percentage: 41.6, resets_at: 1767873600 } },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout, 'Opus | xhigh | ctx 38% | ~$1.23 | week 42%\n');
+  assert.equal(result.stdout, 'Opus | xhigh | ctx 75k/200k 38% | ~$1.23 | week 58% left\n');
 });
 
 test('status line omits absent and invalid weekly usage', () => {
@@ -101,7 +123,7 @@ test('status line ANSI colors preserve every plain field and keep separators pla
   };
   const styled = formatStatus(input, 'main', true);
   assert.equal(styled, '\x1b[36mOpus\x1b[0m | \x1b[35mxhigh\x1b[0m | \x1b[34mproject (main)\x1b[0m'
-    + ' | \x1b[32mctx 38%\x1b[0m | \x1b[33m~$1.23\x1b[0m | \x1b[33mweek 75%\x1b[0m');
+    + ' | \x1b[32mctx 38%\x1b[0m | \x1b[33m~$1.23\x1b[0m | \x1b[33mweek 25% left\x1b[0m');
   assert.equal(stripVTControlCharacters(styled), formatStatus(input, 'main'));
   assert.equal(formatStatus(input, 'main', false), formatStatus(input, 'main'));
 });
@@ -113,11 +135,14 @@ test('status line usage colors follow exact thresholds and preserve zero and unk
       rate_limits: { seven_day: { used_percentage: used, resets_at: 1767873600 } },
     };
     const styled = formatStatus(input, '', true);
-    for (const label of ['ctx', 'week']) {
-      assert.ok(styled.includes(`\x1b[${color}m${label} ${Math.round(used)}%\x1b[0m`));
-    }
+    assert.ok(styled.includes(`\x1b[${color}mctx ${Math.round(used)}%\x1b[0m`));
+    assert.ok(styled.includes(`\x1b[${color}mweek ${100 - Math.round(used)}% left\x1b[0m`));
     assert.equal(stripVTControlCharacters(styled), formatStatus(input));
   }
+  const counted = formatStatus({
+    context_window: { used_percentage: 92, total_input_tokens: 184000, context_window_size: 200000 },
+  }, '', true);
+  assert.ok(counted.includes('\x1b[31mctx 184k/200k 92%\x1b[0m'));
   for (const used of [undefined, null, -1, Number.NaN, Number.POSITIVE_INFINITY, '0']) {
     const input = { context_window: { used_percentage: used } };
     const styled = formatStatus(input, '', true);

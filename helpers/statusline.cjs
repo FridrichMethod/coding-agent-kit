@@ -29,6 +29,27 @@ function usageColor(percentage) {
   return percentage >= 90 ? 31 : percentage >= 70 ? 33 : 32;
 }
 
+// A token count in at most four characters: 950, 1.2k, 75k, 1M, 1.5M.
+function tokenCount(value) {
+  const count = Math.round(value);
+  if (count < 1000) return String(count);
+  const [scale, unit] = count < 999500 ? [1e3, 'k'] : [1e6, 'M'];
+  const scaled = count / scale;
+  return `${scaled < 10 ? Number(scaled.toFixed(1)) : Math.round(scaled)}${unit}`;
+}
+
+// "ctx 75k/200k 38%": the tokens in the context window, its size and the share
+// used; the counts only when Claude Code reports both, the share alone otherwise.
+function contextUsage(window) {
+  const used = window?.used_percentage;
+  if (!Number.isFinite(used) || used < 0) return 'ctx ?';
+  const tokens = window.total_input_tokens;
+  const size = window.context_window_size;
+  const counts = Number.isFinite(tokens) && tokens >= 0 && Number.isFinite(size) && size > 0
+    ? `${tokenCount(tokens)}/${tokenCount(size)} ` : '';
+  return `ctx ${counts}${Math.round(used)}%`;
+}
+
 function formatStatus(input, branch = '', colors = false) {
   const data = input && typeof input === 'object' ? input : {};
   const cwd = data.workspace?.current_dir || data.cwd;
@@ -37,14 +58,14 @@ function formatStatus(input, branch = '', colors = false) {
   const effort = text(data.effort?.level);
   const used = data.context_window?.used_percentage;
   const cost = data.cost?.total_cost_usd;
-  const percentage = Number.isFinite(used) && used >= 0 ? `${Math.round(used)}%` : '?';
   const dollars = Number.isFinite(cost) && cost >= 0 ? `~$${cost.toFixed(2)}` : '~$?';
   const weekly = usageWindow(data.rate_limits?.seven_day);
-  const week = weekly ? `week ${Math.round(weekly.used_percentage)}%` : '';
+  // The share of the weekly limit left, as Codex shows it; the colour follows the share used.
+  const week = weekly ? `week ${100 - Math.round(weekly.used_percentage)}% left` : '';
   const location = [directory, branch ? `(${text(branch)})` : ''].filter(Boolean).join(' ');
   const paint = (value, color) => colors && value && color ? `\x1b[${color}m${value}\x1b[0m` : value;
   return [paint(model, 36), paint(effort, 35), paint(location, 34),
-    paint(`ctx ${percentage}`, usageColor(used)), paint(dollars, 33),
+    paint(contextUsage(data.context_window), usageColor(used)), paint(dollars, 33),
     paint(week, usageColor(weekly?.used_percentage))].filter(Boolean).join(' | ');
 }
 
