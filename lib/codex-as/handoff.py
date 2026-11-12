@@ -27,6 +27,8 @@ class Pending(ValueError):
 
 # Client construction and replies can fail in these ways; none is a credential problem.
 FAILURES = (OSError, ValueError, KeyError, TypeError, AttributeError, UnicodeError, RecursionError, RuntimeError)
+# Restoring archive visibility takes at most one pass per level of spawned agents.
+RESTORE_PASSES = 32
 
 
 class Client:
@@ -226,7 +228,17 @@ def root_archived(client, root, thread):
     raise ValueError("session archive path is outside shared storage; recovery is required.")
 
 
+def loaded_below(client, item):
+    """Whether the root daemon has ITEM or one of its visible spawned agents loaded."""
+    loaded = set(client.request("thread/loaded/list", {})["data"])
+    return bool(loaded & ({item} | descendants(client, item, False)))
+
+
 def restore(client, root, thread, original_archived):
+    """Bring the subtree's archive visibility back to ORIGINAL_ARCHIVED.
+
+    Returns the spawned agents left visible because the root daemon has them, or one of
+    their agents, loaded: a stale journal must never end work by archiving them."""
     # Unlike thread/list/read, native unarchive takes the lifecycle permit
     # shared with archive. Restore root first, waiting behind an older archive.
     try:
@@ -236,11 +248,33 @@ def restore(client, root, thread, original_archived):
         # never interpret a timeout/disconnect as an already-unarchived reply.
         if root_archived(client, root, thread):
             raise
-    current = descendants(client, thread, True)
-    for item in sorted(current - original_archived, key=lambda item: (item != thread, item)):
-        client.request("thread/unarchive", {"threadId": item}, timeout=30)
-    if root_archived(client, root, thread) or descendants(client, thread, True) != original_archived:
+    # Before 0.166 unarchive restores only the named thread; since then it also restores
+    # every archived spawned descendant, even one archived on its own, as archive covers
+    # the subtree. Correct each agent whose state differs, re-reading before every
+    # request because an earlier one may have moved it. A pass leaves every agent whose
+    # ancestors were already right correct for good, so the spawn depth bounds the passes.
+    kept = set()
+    for _ in range(RESTORE_PASSES):
+        if (descendants(client, thread, True) ^ original_archived) <= kept:
+            break
+        for item in sorted((descendants(client, thread, True) ^ original_archived) - kept):
+            if (item in descendants(client, thread, True)) == (item in original_archived):
+                continue
+            if item not in original_archived:
+                client.request("thread/unarchive", {"threadId": item}, timeout=30)
+            elif loaded_below(client, item):
+                kept.add(item)
+            else:
+                client.request("thread/archive", {"threadId": item}, timeout=30)
+    if root_archived(client, root, thread) or not (descendants(client, thread, True) ^ original_archived) <= kept:
         raise ValueError("saved archive visibility was not fully restored.")
+    return kept
+
+
+def report_kept(guard, kept):
+    for item in sorted(kept):
+        guard.warn(f"left spawned agent {item} visible: the root daemon has it or one of its agents "
+                   "loaded, so takeover recovery did not archive it again.")
 
 
 def sync_directory(path):
@@ -345,10 +379,11 @@ def finish(guard, root, client, thread, journal):
             or not isinstance(value.get("archived"), list)):
         raise ValueError("unrecognized takeover recovery record; preserve it.")
     try:
-        restore(client, root, thread, {str(uuid.UUID(item)) for item in value["archived"]})
+        kept = restore(client, root, thread, {str(uuid.UUID(item)) for item in value["archived"]})
     except FAILURES as error:
         raise Pending(f"takeover recovery failed; preserve {journal} and retry the same command.") from error
     journal.unlink()
+    report_kept(guard, kept)
 
 
 def take_over(guard, root, client, account, thread, ask):
@@ -391,10 +426,11 @@ def take_over(guard, root, client, account, thread, ask):
         finally:
             if completed:
                 try:
-                    restore(client, root, thread, original_archived)
+                    kept = restore(client, root, thread, original_archived)
                 except FAILURES as error:
                     raise Pending(f"takeover restore failed; preserve {journal} and retry the same command.") from error
                 journal.unlink()
+                report_kept(guard, kept)
         deadline = time.monotonic() + 5
         while locked(root, thread):
             if time.monotonic() > deadline:

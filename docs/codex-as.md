@@ -186,7 +186,13 @@ pin:
 After `codex update`, run `tests/codex-as.sh`; it uses the `codex` on PATH, or
 `CODEX_NATIVE_BINARY`. Checked 2026-10-17: releases 0.161.0, 0.162.1 and 0.163.0
 pass it, and takeover also passes with a 0.161.0 or 0.162.1 daemon and a 0.163.0
-client, and with a 0.163.0 daemon and a 0.161.0 client.
+client, and with a 0.163.0 daemon and a 0.161.0 client. Checked 2026-11-11:
+releases 0.163.0, 0.166.0 and 0.167.0 pass it, and takeover also passes with a
+0.163.0 daemon and a 0.167.0 client, and with a 0.167.0 daemon and a 0.163.0
+client. Before kit 0.7.5 the suite failed from 0.166.0 on. The takeover failure
+was real: a daemon 0.166.0 or newer could leave a takeover pending, with a spawned
+agent that had been archived on its own made visible again. The refresh failures
+came from stricter-than-needed checks of how a release writes the secret.
 
 ## Remaining differences from native Codex
 
@@ -223,7 +229,8 @@ The source audit below used `codex-cli 0.162.1`, official tag `rust-v0.162.1` an
 
 - [storage.rs](https://github.com/openai/codex/blob/092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/login/src/auth/storage.rs#L214) opens auth.json with OpenOptions write/truncate/create, then writes and flushes. This path uses neither rename/atomic replacement nor O_NOFOLLOW, so it follows symlinks to update the target.
 - AuthManager saves refreshes through this storage.save. Imports and backups preserve all original bytes; Codex manages the actual refresh format. The wrapper does not implement OAuth refresh.
-- Each account's link stays fixed in its own home, and the root `auth.json` is never read or changed. Account repair leases cannot serialize native cross-process OAuth refresh: the native refresh semaphore is in-process, and file saves use truncate/write. Native multiple-client behavior and its limitations remain.
+- From 0.167.0 ([#58251](https://github.com/openai/codex/commit/582a8812e0)) the save is atomic instead. It resolves the link chain to the target, writes a private (0600) `.auth-*` temporary file in the target's directory and renames it over the target. The link is kept and the secret's inode changes. It stays an owned 0600 regular file with one link, which is all the launcher checks. A file that is read-only or hard-linked is refused rather than split. Since 0.166.0 a commit holds `auth.lock` in the account home. Since 0.167.0 it also holds `codex-NAME.json.lock`, a lock file that stays beside the secret, and it saves a refresh only while the stored credentials are unchanged. Neither lock name matches `codex-NAME.json`, so neither is listed as an account.
+- Each account's link stays fixed in its own home, and the root `auth.json` is never read or changed. Account repair leases do not serialize native cross-process OAuth refresh. Before 0.167.0 the native refresh semaphore is in-process only and file saves use truncate/write; newer releases serialize their own commits through the locks above. Native multiple-client behavior and its limitations remain.
 - Native `thread-writer-locks` take cross-process exclusive locks by UUID. This directory and `.tmp/rollout-maintenance.lock` are shared. Compaction scheduling markers using create-new/unlink remain separate for each account; the shared lock still serializes maintenance.
 - New threads are paginated by default, with actual history in `thread_history_1.sqlite`; the complete SQLite home must therefore be shared. Sharing only sessions JSONL is insufficient. The wrapper fixes the explicit database directory override while preserving an existing absolute `sqlite_home`.
 - Native configuration editing resolves the symlink writeback path, so config/value/write preserves the shared config link. Relative paths read from configuration instead resolve against the account home, so the wrapper rejects relative path fields in shared user configuration.
@@ -233,11 +240,19 @@ The source audit below used `codex-cli 0.162.1`, official tag `rust-v0.162.1` an
 - Native subcommands can still appear after the root command's prompt; the wrapper also rejects login and logout in those positions. Prompts, option values and words after a known subcommand are preserved.
 - Complete credentials are checked against the native JSON format before switching: NaN/Infinity, invalid non-null tokens, and any supplied but invalid last_refresh are rejected.
 
-Static verification is combined with real offline app-server tests of each tested release. Fictitious fixtures verify legacy/paginated history resume across homes, SQLite list order, concurrent different UUIDs within/across accounts, rejection/release of writes to the same UUID, and shared config editing. There are no login or turn/start requests, and no HTTP requests besides the local token endpoint of the refresh test. `thread/list` checks discovery and ordering without directly operating the terminal picker/`--last`. A native refresh test sends `getAuthStatus` with `refreshToken` to a local token endpoint (`CODEX_REFRESH_TOKEN_URL_OVERRIDE`) and checks that the rotated tokens land in the same secrets inode with the account link intact. Fake Codex atomic replacement tests prove only wrapper logic; real-account authorization, quotas and server-side token lifetimes remain unverified.
+Static verification is combined with real offline app-server tests of each tested release. Fictitious fixtures verify legacy/paginated history resume across homes, SQLite list order, concurrent different UUIDs within/across accounts, rejection/release of writes to the same UUID, and shared config editing. There are no login or turn/start requests, and no HTTP requests besides the local token endpoint of the refresh test. `thread/list` checks discovery and ordering without directly operating the terminal picker/`--last`. A native refresh test sends `getAuthStatus` with `refreshToken` to a local token endpoint (`CODEX_REFRESH_TOKEN_URL_OVERRIDE`) and checks four things: the rotated tokens land in the linked secret (in place before 0.167.0, by atomic replacement since), the account link is intact, the secret is still an owned 0600 file with one link, and no credential copy is left beside either one, apart from the native lock files. Fake Codex atomic replacement tests prove only wrapper logic; real-account authorization, quotas and server-side token lifetimes remain unverified.
 
 Takeover also relies on these native protocol semantics: `thread/unsubscribe` only removes
 the requesting client's subscription; `thread/archive` ends the selected runtime
-and spawned subtree; `thread/unarchive` restores one saved thread. A fresh helper
+and spawned subtree; `thread/unarchive` restores one saved thread before 0.166.0.
+Since 0.166.0 ([#57635](https://github.com/openai/codex/commit/6ba3a84680)) it also
+restores the thread's archived spawned descendants, even one archived on its own.
+Restore therefore works the same under either behavior. After unarchiving the
+session, it re-reads the subtree before each request and archives or unarchives each
+spawned agent whose state differs from the journal. It repeats until the subtree
+matches; the spawn depth bounds the passes. It never archives an agent that the
+root daemon has loaded, together with any of its agents. A stale record must not
+end running work, so that agent stays visible and the launcher warns. A fresh helper
 cannot force unsubscribe another client. The takeover's Unix WebSocket management
 client uses the native management identity and does not modify daemon login.
 `thread/read` reports each loaded thread's `status` (`idle`, `active`, `notLoaded`,

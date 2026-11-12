@@ -577,16 +577,23 @@ class NativeSharingTests(unittest.TestCase):
         server.close()
         # A release may refresh again on its own; the forced refresh comes first.
         self.assertEqual(refreshes[0].get("refresh_token"), "fixture-refresh-1")
-        # Writeback must truncate the linked secret in place, never replace the link.
+        # Writeback must reach the linked secret and never replace the link. Releases before
+        # 0.167 truncate the secret in place; 0.167 and newer replace it atomically in its own
+        # directory, so its inode may change but it stays an owned 0600 file with one link.
         self.assertTrue(link.is_symlink())
         self.assertEqual(Path(os.readlink(link)), target)
-        after = target.stat()
-        self.assertEqual((after.st_ino, after.st_mode), (before.st_ino, before.st_mode))
+        after = target.lstat()
+        self.assertEqual((after.st_mode, after.st_uid, after.st_nlink), (before.st_mode, before.st_uid, 1))
         refreshed = json.loads(guard.credential(target))
         self.assertEqual(refreshed["tokens"]["refresh_token"], "fixture-refresh-2")
         self.assertEqual(refreshed["tokens"]["access_token"], tokens(2)["access_token"])
         self.assertNotEqual(refreshed["last_refresh"], saved["last_refresh"])
-        self.assertEqual(sorted(path.name for path in self.accounts["a"].glob("auth*")), ["auth.json"])
+        # No credential copy is left beside the link or the secret. Newer releases keep their
+        # commit lock files there (auth.lock in the home, codex-a.json.lock beside the secret).
+        self.assertEqual(sorted(path.name for path in self.accounts["a"].iterdir()
+                                if "auth" in path.name and path.name != "auth.lock"), ["auth.json"])
+        self.assertEqual(sorted(path.name for path in secrets.iterdir()
+                                if path.name != "codex-a.json.lock"), ["codex-a.json"])
 
     def test_same_account_concurrent_different_threads(self):
         first = self.server("a")

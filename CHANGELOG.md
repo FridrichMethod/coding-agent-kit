@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.5
+
+- Fix `codex-as` session takeover with a root daemon from Codex 0.166.0 or
+  newer. There, `thread/unarchive` also restores the session's archived spawned
+  agents, even one archived on its own. Taking over a session with such an agent
+  left that agent visible and the takeover pending. Every retry failed again, and
+  only removing the recovery record let the session launch. Restore now archives
+  or unarchives each spawned agent until the subtree matches what its record
+  saved, under both the old and the new native behavior. Re-running the same
+  command completes a takeover that an earlier release left pending. Recovery
+  never archives an agent that the root daemon has loaded, together with any of
+  its agents, because that would end its work. Such an agent stays visible with a
+  warning.
+- The real-Codex test suite accepts Codex 0.167.0's atomic `auth.json`
+  replacement. Tokens still land in the linked secret, which may get a new inode
+  but stays an owned 0600 file with one link; the native lock files
+  (`auth.lock`, `codex-NAME.json.lock`) are allowed. Releases 0.163.0, 0.166.0
+  and 0.167.0 pass, including takeover between a 0.163.0 and a 0.167.0 daemon or
+  client.
+
 ## 0.7.4
 
 - Show the tokens the session has used in the Claude status line, counted as

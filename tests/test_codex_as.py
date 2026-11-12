@@ -110,6 +110,9 @@ class HandoffDaemon:
         self.mutations = []
         self.fail_restore = False
         self.fail_archive = False
+        # Native 0.166 and newer also unarchive archived spawned descendants, even
+        # those archived on their own; older releases restore only the named thread.
+        self.unarchive_subtree = False
         # Loaded sessions are idle unless set; None omits the field like an unknown backend.
         self.statuses = {}
         # Sessions start in the launcher's directory unless set.
@@ -129,11 +132,9 @@ class HandoffDaemon:
             directory = root / ('archived_sessions' if name in self.archived else 'sessions')
             directory.mkdir(exist_ok=True)
             (directory / (name + '.jsonl')).write_text('saved fixture history\n')
-            lock = root / 'thread-writer-locks' / (name + '.lock')
-            lock.parent.mkdir(mode=0o700, exist_ok=True)
-            stream = lock.open('wb')
-            fcntl.flock(stream, fcntl.LOCK_EX)
-            self.writers[name] = stream
+            (root / 'thread-writer-locks').mkdir(mode=0o700, exist_ok=True)
+            if name not in self.archived:  # Native archive ends a session's runtime.
+                self.load(name)
         logical = root / 'app-server-control/app-server-control.sock'
         logical.parent.mkdir(mode=0o700, exist_ok=True)
         directory = Path('/tmp').resolve() / f'codex-daemon-{os.geteuid()}'
@@ -244,6 +245,8 @@ class HandoffDaemon:
                                'source': {'subAgent': {'thread_spawn': {'parent_thread_id': self.parents[name]}}}
                                if self.parents[name] else self.source(name)}}
         if method == 'thread/archive':
+            if name in self.archived:
+                raise ValueError('already archived')  # Native refuses an archived target.
             names = self.subtree(name)
             for item in names:
                 if item in self.archived:
@@ -260,13 +263,31 @@ class HandoffDaemon:
         if method == 'thread/unarchive':
             if self.fail_restore or name not in self.archived:
                 raise ValueError('restore failed')
-            (self.root / 'archived_sessions' / (name + '.jsonl')).rename(self.root / 'sessions' / (name + '.jsonl'))
-            self.archived.remove(name)
-            # Like native touch_modified_time: an unarchived session becomes the newest.
-            self.updated[name] = max(self.updated.values()) + 1
-            self.mutations.append((method, name))
+            for item in self.subtree(name) if self.unarchive_subtree else [name]:
+                if item not in self.archived:
+                    continue
+                (self.root / 'archived_sessions' / (item + '.jsonl')).rename(self.root / 'sessions' / (item + '.jsonl'))
+                self.archived.remove(item)
+                # Like native touch_modified_time: an unarchived session becomes the newest.
+                self.updated[item] = max(self.updated.values()) + 1
+                self.mutations.append((method, item))
             return {'thread': {'id': name}}
         raise ValueError('unsupported method')
+
+    def load(self, name):
+        """The root daemon opens NAME: it holds the native writer lock."""
+        stream = (self.root / 'thread-writer-locks' / (name + '.lock')).open('wb')
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        self.writers[name] = stream
+
+    def add_agent(self, name, parent, archived=False):
+        """Another saved, unloaded spawned agent under PARENT."""
+        self.parents[name] = parent
+        self.updated[name] = 0
+        if archived:
+            self.archived.add(name)
+        directory = self.root / ('archived_sessions' if archived else 'sessions')
+        (directory / (name + '.jsonl')).write_text('saved fixture history\n')
 
     def source(self, name):
         return 'subAgent' if self.parents[name] else self.sources.get(name, 'cli')
@@ -925,18 +946,104 @@ class CodexAs(unittest.TestCase):
         self.assertEqual(attempts, [])
 
     def test_failed_restore_keeps_recovery_record_and_retry_recovers(self):
-        daemon, ids, attempts, run = self.handoff_fixture()
+        for subtree in (False, True):
+            with self.subTest(unarchive_subtree=subtree):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                try:
+                    daemon.unarchive_subtree = subtree
+                    daemon.fail_restore = True
+                    with self.assertRaisesRegex(ValueError, 'recover|restore'):
+                        run()
+                    journals = list((self.codex / 'accounts/.locks').glob('*.handoff.json'))
+                    self.assertEqual(len(journals), 1)
+                    self.assertEqual(stat.S_IMODE(journals[0].stat().st_mode), 0o600)
+                    self.assertEqual(attempts, [])
+                    daemon.fail_restore = False
+                    self.assertEqual(run(), 0)
+                    self.assertEqual(daemon.archived, {ids[2]})
+                    self.assertFalse(journals[0].exists())
+                finally:
+                    daemon.close()
+
+    def test_restore_keeps_agents_archived_on_their_own_with_either_unarchive(self):
+        # Native 0.166 made thread/unarchive restore archived spawned descendants too,
+        # including one archived on its own; takeover must still restore saved visibility.
+        grandchild = '12345678-1234-4234-8234-123456789a0f'
+        for subtree in (False, True):
+            for nested in (False, True):
+                with self.subTest(unarchive_subtree=subtree, visible_under_archived=nested):
+                    daemon, ids, attempts, run = self.handoff_fixture()
+                    try:
+                        daemon.unarchive_subtree = subtree
+                        if nested:
+                            daemon.add_agent(grandchild, ids[2])
+                        stderr = io.StringIO()
+                        with contextlib.redirect_stderr(stderr):
+                            self.assertEqual(run(), 0, stderr.getvalue())
+                        self.assertEqual(daemon.archived, {ids[2]}, 'saved visibility is restored')
+                        for name in daemon.parents:
+                            place = 'archived_sessions' if name in daemon.archived else 'sessions'
+                            self.assertTrue((self.codex / place / (name + '.jsonl')).exists(), name)
+                        self.assertEqual(list((self.codex / 'accounts/.locks').glob('*.handoff.json')), [])
+                        self.assertEqual(len(attempts), 1)
+                    finally:
+                        # A later fixture takes the same writer locks.
+                        daemon.close()
+                        for journal in (self.codex / 'accounts/.locks').glob('*.handoff.json'):
+                            journal.unlink()
+
+    def stuck_journal(self, daemon, ids, run):
+        """What kit 0.7.4 left with a 0.166 daemon: the journal saved ids[2] as archived,
+        but the cascading unarchive made it and the whole session visible again."""
+        daemon.unarchive_subtree = True
         daemon.fail_restore = True
-        with self.assertRaisesRegex(ValueError, 'recover|restore'):
+        with self.assertRaises(ValueError):
             run()
-        journals = list((self.codex / 'accounts/.locks').glob('*.handoff.json'))
-        self.assertEqual(len(journals), 1)
-        self.assertEqual(stat.S_IMODE(journals[0].stat().st_mode), 0o600)
-        self.assertEqual(attempts, [])
         daemon.fail_restore = False
-        self.assertEqual(run(), 0)
-        self.assertEqual(daemon.archived, {ids[2]})
-        self.assertFalse(journals[0].exists())
+        daemon.dispatch('thread/unarchive', {'threadId': ids[0]})
+        self.assertEqual(daemon.archived, set())
+        journal = self.codex / 'accounts/.locks' / (ids[0] + '.handoff.json')
+        self.assertTrue(journal.exists())
+        return journal
+
+    def test_retry_recovers_a_takeover_an_earlier_release_left_pending(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        journal = self.stuck_journal(daemon, ids, run)
+        self.assertNotIn(ids[2], daemon.writers, 'nothing has the agent open')
+        daemon.fail_archive = True
+        with self.assertRaisesRegex(ValueError, 'recover'):
+            run()
+        self.assertTrue(journal.exists(), 'a failed archive keeps the recovery record')
+        daemon.fail_archive = False
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(), 0, stderr.getvalue())
+        self.assertFalse(journal.exists())
+        self.assertEqual(daemon.archived, {ids[2]}, 'saved visibility is restored')
+        self.assertNotIn('left spawned agent', stderr.getvalue())
+        self.assertEqual(len(attempts), 1)
+
+    def test_recovery_never_archives_an_agent_the_root_daemon_has_loaded(self):
+        for args in (None, ['fork', '{id}']):
+            with self.subTest(args=args):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                try:
+                    journal = self.stuck_journal(daemon, ids, run)
+                    daemon.load(ids[2])  # Visible again, the agent was opened in the root daemon.
+                    stderr = io.StringIO()
+                    with contextlib.redirect_stderr(stderr):
+                        result = run(None if args is None else [arg.format(id=ids[0]) for arg in args])
+                    self.assertEqual(result, 0, stderr.getvalue())
+                    self.assertFalse(journal.exists())
+                    self.assertNotIn(('thread/archive', ids[2]), daemon.mutations)
+                    self.assertNotIn(ids[2], daemon.archived)
+                    self.assertIn(ids[2], daemon.writers, 'recovery did not end the loaded agent')
+                    self.assertIn('left spawned agent ' + ids[2] + ' visible', stderr.getvalue())
+                    self.assertEqual(len(attempts), 1)
+                finally:
+                    daemon.close()
+                    for path in (self.codex / 'accounts/.locks').glob('*.handoff.json'):
+                        path.unlink()
 
     def test_handoff_refuses_unknown_daemon_identity_before_mutation(self):
         for bad_home, bad_version in ((True, False), (False, True)):
