@@ -202,6 +202,9 @@ class GateTests(unittest.TestCase):
         record = gate.summary()['exchanges'][0]
         self.assertEqual((record['outcome'], record['phase'], record['status']), ('tls_verification_failed', 'tls', None))
         self.assertEqual(self.server.count(), 0)  # no HTTP request reached the server, TLS or plain
+        deadline = time.monotonic() + 3  # the server thread may record the failed handshake later
+        while self.server.handshake_failures < 1 and time.monotonic() < deadline:
+            time.sleep(0.02)
         self.assertGreaterEqual(self.server.handshake_failures, 1)
         self.assertEqual(gate.forwards, 1)  # the failed attempt counts toward the cap
         gate.arm()

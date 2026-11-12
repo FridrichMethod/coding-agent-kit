@@ -138,6 +138,14 @@ def overrides(gate_url, sqlite):
     ]
 
 
+def trust_store_loaded():
+    """The production context's system store holds CA certificates (else every forward fails)."""
+    try:
+        return gates.production_context().cert_store_stats().get('x509_ca', 0) > 0
+    except (ssl.SSLError, OSError, RuntimeError):
+        return False
+
+
 def check_environment(environ):
     present = [name for name in REFUSED_ENV if name in environ]
     if present:
@@ -448,7 +456,8 @@ def rpc_error(error):
     """A fixed classification; native's messages can quote the response body."""
     message = error.get('message') if isinstance(error.get('message'), str) else ''
     code = error.get('code')
-    status = re.search(r'status ([1-5][0-9][0-9])\b', message)
+    # native 0.167.2: 'GET <url> failed: 502 Bad Gateway; content-type=...; body=...' (backend-client)
+    status = re.search(r'(?:failed: |status )([1-5][0-9][0-9])\b', message)
     kind = ('fetch-failed' if message.startswith('failed to fetch codex rate limits')
             else 'auth-required' if 'authentication required' in message else 'other')
     return {'code': code if isinstance(code, int) and not isinstance(code, bool) else None, 'kind': kind,
@@ -841,6 +850,8 @@ def main(argv=None):
             raise Refused('expect-version-malformed')
         if sys.platform != 'linux' or platform.machine() != 'x86_64':
             raise Refused('platform-unsupported')  # the network guard is Linux x86_64 only
+        if not trust_store_loaded():
+            raise Refused('system-trust-store-empty')
         config = settings.load()
     except Refused as error:
         say(sys.stderr, 'refused before spawn: ' + error.reason)

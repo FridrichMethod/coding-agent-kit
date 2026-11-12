@@ -1,0 +1,221 @@
+{
+ "account": "lxfixture",
+ "credential": {
+  "changed_during_run": false,
+  "link_intact_after": true,
+  "link_intact_before": true,
+  "still_private_regular_file": true
+ },
+ "elapsed_s": 0.9,
+ "finished_utc": "2026-11-12T20:39:44Z",
+ "fixture": {
+  "sink_dialed": [
+   "auth.openai.com:443",
+   "auth.openai.com:443",
+   "auth.openai.com:443"
+  ],
+  "upstream_requests": 1
+ },
+ "freshness": {
+  "comparable": false
+ },
+ "gate": {
+  "connect": {
+   "allowlist": [
+    "auth.openai.com:443"
+   ],
+   "bytes_down": 0,
+   "bytes_up": 4638,
+   "failed": 0,
+   "refused": {
+    "auth.openai.com:443": 4
+   },
+   "tunnelled": 3
+  },
+  "exchanges": [
+   {
+    "bearer_same_as_first_forward": true,
+    "body_json": true,
+    "content_type_is_json": true,
+    "elapsed_ms": 2,
+    "forwarded_header_names": [
+     "accept",
+     "authorization",
+     "chatgpt-account-id",
+     "user-agent"
+    ],
+    "identity": {
+     "bearer_account_equals_codex_as_account": true,
+     "bearer_claims_decoded": true,
+     "bearer_exp_in_future": true,
+     "bearer_exp_within_300s": true,
+     "bearer_has_account_claim": true,
+     "bearer_has_chatgpt_user_id_claim": true,
+     "bearer_user_equals_codex_as_user": true,
+     "request_account_header_equals_bearer_account": true,
+     "request_account_header_equals_codex_as_account": true,
+     "request_account_header_present": true,
+     "response_account_id_equals_bearer_account": true,
+     "response_account_id_equals_codex_as_account": true,
+     "response_account_id_equals_request_header": true,
+     "response_account_id_present": true,
+     "response_user_id_equals_bearer_user": true,
+     "response_user_id_equals_codex_as_user": true,
+     "response_user_id_present": true
+    },
+    "index": 1,
+    "outcome": "relayed",
+    "phase": "done",
+    "qx_lease_verdict": "observation:five_hour+weekly",
+    "received_ms": 403,
+    "received_wall": 1794515984,
+    "request_header_names": [
+     "accept",
+     "authorization",
+     "chatgpt-account-id",
+     "host",
+     "user-agent"
+    ],
+    "response_header_names": [
+     "content-length",
+     "content-type",
+     "date",
+     "server"
+    ],
+    "status": 200,
+    "tls_version": "TLSv1.3",
+    "usage": {
+     "object": true,
+     "plan_type": "pro",
+     "present": {
+      "account_id": true,
+      "additional_rate_limits": false,
+      "credits": false,
+      "rate_limit_reset_credits": false,
+      "rate_limit_upsell": false,
+      "spend_control": false,
+      "user_id": true
+     },
+     "rate_limit": {
+      "allowed": true,
+      "limit_reached": false,
+      "primary_window": {
+       "limit_window_seconds": 18000,
+       "minutes": 300,
+       "reset_after_seconds": 9000,
+       "reset_at": 1794524984,
+       "used_percent": 25,
+       "used_percent_is_integer": true
+      },
+      "secondary_window": {
+       "limit_window_seconds": 604800,
+       "minutes": 10080,
+       "reset_after_seconds": 302400,
+       "reset_at": 1794818384,
+       "used_percent": 60,
+       "used_percent_is_integer": true
+      }
+     }
+    }
+   }
+  ],
+  "forwarded": 1,
+  "max_forwards": 2,
+  "refused_by_category": {
+   "GET accounts-check": 2,
+   "GET models": 1
+  },
+  "refused_by_reason": {
+   "unlisted-path": 3
+  }
+ },
+ "lease": {
+  "exclusive_at_start": true,
+  "inherited_by_native": true,
+  "shared_during_run": true
+ },
+ "native": {
+  "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
+  "guard": {
+   "denied_syscalls": {
+    "41": 1
+   },
+   "root_exit": 0
+  },
+  "guarded": true,
+  "reap": {
+   "exit_code": 0,
+   "exited_before_stdin_close": false,
+   "graceful_exit": true,
+   "process_group_empty": true,
+   "signals": []
+  },
+  "stderr_lines": 7,
+  "user_agent_version": "0.167.2",
+  "version": "0.167.2"
+ },
+ "outcome": "completed",
+ "platform": {
+  "machine": "x86_64",
+  "openssl": "OpenSSL 4.1.0 23 Oct 2026",
+  "python": "3.15.2",
+  "system": "linux"
+ },
+ "probe": "lx-live-codex",
+ "rpc": {
+  "delay_seconds": 1.0,
+  "initialize": "ok",
+  "methods_sent": [
+   "initialize",
+   "initialized",
+   "account/rateLimits/read"
+  ],
+  "notifications": {
+   "remoteControl/status/changed": 1
+  },
+  "output_overflow": false,
+  "reads": [
+   {
+    "elapsed_ms": 34,
+    "forwards_during_read": 1,
+    "index": 1,
+    "native": {
+     "account_id_equals_codex_as_account": true,
+     "account_id_present": true,
+     "by_limit_id_count": 1,
+     "by_limit_id_has_codex": true,
+     "ordinary_usage_allowed": true,
+     "other_families": [],
+     "rate_limits": {
+      "credits_present": false,
+      "individual_limit_present": false,
+      "limit_id_is_codex": true,
+      "limit_name_present": false,
+      "normal_model_slug_present": false,
+      "plan_type": "pro",
+      "primary": {
+       "resetsAt": 1794524984,
+       "usedPercent": 25,
+       "windowDurationMins": 300
+      },
+      "rate_limit_reached_type": null,
+      "secondary": {
+       "resetsAt": 1794818384,
+       "usedPercent": 60,
+       "windowDurationMins": 10080
+      },
+      "spend_control_reached": null
+     },
+     "reset_credits_present": false,
+     "upsell_present": false
+    },
+    "state": "ok"
+   }
+  ],
+  "second_read": "skipped:single-read",
+  "server_requests": {},
+  "unparsed_lines": 0
+ },
+ "schema": 1,
+ "started_utc": "2026-11-12T20:39:43Z"
+}

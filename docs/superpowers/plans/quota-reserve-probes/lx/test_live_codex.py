@@ -375,6 +375,9 @@ class Sanitizer(unittest.TestCase):
         error = live.rpc_error({'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for '
                                 'http://127.0.0.1:1/x: unexpected status 403; body=secret'})
         self.assertEqual(error, {'code': -32603, 'kind': 'fetch-failed', 'http_status': 403, 'decode_error': True})
+        native = live.rpc_error({'code': -32603, 'message': 'failed to fetch codex rate limits: GET http://127.0.0.1:1/'
+                                 'backend-api/wham/usage failed: 502 Bad Gateway; content-type=application/json; body={}'})
+        self.assertEqual(native['http_status'], 502)
 
 
 class MainWiring(unittest.TestCase):
@@ -395,6 +398,7 @@ class MainWiring(unittest.TestCase):
             captured.update(kwargs, alias=alias, out=out)
             return 0
         config = object()
+        self.assertTrue(live.trust_store_loaded())
         with mock.patch.object(live.settings, 'load', return_value=config), \
                 mock.patch.object(live, 'run_probe', side_effect=fake_run), \
                 mock.patch.object(live.platform, 'machine', return_value='x86_64'), \
@@ -409,6 +413,15 @@ class MainWiring(unittest.TestCase):
         self.assertIs(captured['config'], config)
         context = upstream.context_factory()
         self.assertEqual((context.verify_mode, context.check_hostname), (ssl.CERT_REQUIRED, True))
+
+    def test_an_empty_system_trust_store_refuses_before_configuration(self):
+        with mock.patch.object(live, 'trust_store_loaded', return_value=False), \
+                mock.patch.object(live.platform, 'machine', return_value='x86_64'), \
+                mock.patch.object(live.sys, 'platform', 'linux'), \
+                mock.patch.object(live.settings, 'load', side_effect=AssertionError('read')), \
+                mock.patch('sys.stderr', io.StringIO()) as err:
+            self.assertEqual(live.main(['--account', 'stanford', '--out', '/tmp/quota-lx-live']), 2)
+        self.assertIn('system-trust-store-empty', err.getvalue())
 
     def test_probe_overrides_route_both_endpoints_to_the_gate(self):
         pairs = live.overrides('http://127.0.0.1:1234', Path('/shared'))
