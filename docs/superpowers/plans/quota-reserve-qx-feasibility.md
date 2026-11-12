@@ -107,10 +107,25 @@ Mechanism: the invocation's gate is the HTTP endpoint for both
 true`, `supports_websockets = false`). Native talks plain HTTP to loopback, and
 the gate originates the upstream TLS itself, so there is **no TLS
 interception**. For every forwarded usage exchange the gate records (bearer
-digest, request account, upstream response). Every model request is admitted
+digest, request account, upstream response), stamped when the gate received
+the request. A `POST /backend-api/codex/responses` model request is admitted
 under the admission lock only if its (bearer digest, account) equals the
 binding of a fresh, passing observation. This is done before any upstream byte
 (`gate.py`, `binding.py`).
+
+Admission scope of the prototype: it admission-checks only `POST
+/backend-api/codex/responses`. It forwards five non-model GETs without
+admission, even while paused or for a foreign account: `/wham/usage`,
+`/wham/rate-limit-reset-credits`, `/codex/models`, `/wham/settings/user` and
+`/wham/accounts/check`. The usage read must flow while paused, or recovery and
+identity changes could not be observed. In the `identity` stage, `TB` GETs to
+usage, models, settings/user and accounts/check reached the fake upstream
+while the lease was paused `identity-changed` (N). That forwarding is a
+research shortcut, and the claim that these reads are model-free is I. Every
+other path and method is refused before upstream (503 `unlisted-path`, or 501
+for an unknown method). This includes the quota-capable POSTs below
+(`test_unlisted_paths_are_refused_before_upstream`). No native stage requested
+a path outside this table (checker).
 
 Native results (all N):
 
@@ -148,9 +163,10 @@ Which paths reach the gate, and which do not (N for the observed rows):
 | `/backend-api/codex/responses`, `/backend-api/codex/models?client_version=...` | yes, provider `base_url` | N |
 | `/backend-api/wham/usage`, `/wham/rate-limit-reset-credits` | yes, `chatgpt_base_url` | N |
 | `/backend-api/wham/accounts/check` (startup, new thread), `/wham/settings/user` (each turn) | yes, `chatgpt_base_url` | N. The fixture answered 503 and the app-server tolerated it; PC2 showed the TUI needs a real `accounts/check` |
-| config bundle, workspace messages, plugins, connectors, compaction, memories, realtime | provider or `chatgpt_base_url` for some; realtime has its own URLs | S/PR. Not exercised here; a census is still needed (U) |
+| `POST .../memories/trace_summarize`, `POST .../alpha/search`, `POST .../images/generations`, `POST .../images/edits` | yes, provider `base_url` (same `codex-api` provider session as `/responses`; S: `codex-api/src/endpoint/{memories,search,images}.rs`) | S only. Plausibly model work that uses quota (U). The probes disabled memories and web search, so native never sent them. The prototype refuses them |
+| config bundle, workspace messages, plugins, connectors, compaction, realtime | provider or `chatgpt_base_url` for some; realtime has its own URLs | S/PR. Not exercised here; a census is still needed (U) |
 | Token refresh `https://auth.openai.com/oauth/token` | **no** (documented config). Only the internal env `CODEX_REFRESH_TOKEN_URL_OVERRIDE` (codex-as refuses it today) or the login record's `oauth_provenance.issuer` (written by native login; the wrapper must not rewrite it) | S, N (CONNECT via proxy) |
-| Revoke on logout `https://auth.openai.com/oauth/revoke` | no (derived from the refresh endpoint) | S |
+| Revoke on logout `https://auth.openai.com/oauth/revoke` | no (documented config). `login/src/auth/revoke.rs` first honors the internal `CODEX_REVOKE_TOKEN_URL_OVERRIDE`, then derives `/oauth/revoke` from `CODEX_REFRESH_TOKEN_URL_OVERRIDE`, then uses the default. codex-as refuses both variables today (`check.py`) | S |
 
 **Alternatives considered:**
 
@@ -177,19 +193,20 @@ Which paths reach the gate, and which do not (N for the observed rows):
 
 ## 3. Rotation sequences (deterministic offline tests)
 
-`test_binding.py` (22 tests; 5 code mutations each fail at least one test),
-`test_gate.py` (10 HTTP tests through the real gate and fake upstream) and the
-native stages:
+`test_binding.py` (29 tests; 12 code mutations of the lease, including each
+continuation rule, each fail at least one test), `test_gate.py` (12 HTTP tests
+through the real gate and fake upstream) and the native stages:
 
 | Required sequence | Offline test | Native stage |
 | --- | --- | --- |
 | Native refresh to a new bearer, same account | `test_native_refresh_same_account_rebinds_without_pause`, `test_rotated_bearer_needs_its_own_usage_read`, `test_hold_and_rebind_*` | `rotation`, `hold`, `proactive` |
 | A -> B with stale A data | `test_account_change_with_stale_a_data_pauses_and_needs_continuation`, `test_server_reported_other_account_or_user_is_an_identity_change` | `identity`: after `account/login/start chatgptAuthTokens` B, both the existing and a new thread sent `TB` with account B; refused before upstream |
-| A/B/A | same test plus `test_a_b_a_continuation_while_native_still_on_b_stays_paused` | `identity`: back on the same `TA`, still refused; a fresh A read alone stays paused; a deliberate continuation plus a newer read resumes; the turn completes |
+| A/B/A | same test plus `test_a_b_a_continuation_while_native_still_on_b_stays_paused` (a continuation requested while native is on B is used up; an A poll one hour later stays paused) | `identity`: back on the same `TA`, still refused; a fresh A read alone stays paused; a deliberate continuation plus a newer read resumes; the turn completes |
 | Two codex-as sessions sharing account and lease | `test_two_sessions_share_an_account_with_their_own_leases`, `test_second_launch_shares_the_account_lease_with_its_own_binding` | `concurrent`: one forced refresh (count 1); session two adopted `T2` from disk without its own refresh, then each gate refused `T2` until its own read |
 | Unchanged-but-fresh extends; repeated failures do not | `test_unchanged_but_fresh_data_extends_age`, `test_repeated_failures_do_not_extend_age`, `test_rotation_does_not_restart_the_recovery_deadline` | each native read is one upstream GET |
-| Unsupported family or plan refused | `test_unsupported_family_and_plan`, normalization tests | `shape` |
-| Expired freshness pauses; no auto-resume | `test_expired_freshness_pauses_and_never_auto_resumes`, `test_independent_reset_while_paused_only_allows_continuation` | `identity` continuation gate |
+| Unsupported plan refused | `test_unsupported_family_and_plan`, normalization tests | `shape`: native passes unknown and usage-based plans through as success; the lease verdict is offline |
+| Unsupported family refused | `test_unsupported_family_and_plan` (offline only, with fixture-chosen names) | `shape` shows only that native passes an additional row through (`rateLimitsByLimitId`); it does not show which models draw from which row. The model-to-family mapping is I/U |
+| Expired freshness pauses; no auto-resume | `test_expired_freshness_pauses_and_never_auto_resumes`, `test_independent_reset_while_paused_only_allows_continuation`, `test_failed_continuation_check_is_used_up`, `test_stale_then_failed_checks_then_success_stays_paused`, `test_continuation_is_answered_only_by_a_read_received_after_it`, `test_continuation_expires_without_a_prompt_check`, `test_same_account_rotation_clears_the_continuation`, `test_failed_continuation_check_through_the_gate_stays_paused` | `identity`: a continuation whose check got 503 was used up; the next passing read stayed paused (`blocking` null, nothing armed); a second continuation plus a passing read resumed |
 
 Lease rules (I, implemented in `binding.py`):
 
@@ -200,12 +217,37 @@ Lease rules (I, implemented in `binding.py`):
 - Same-account rotation refuses (or holds) without pausing and without closing
   already admitted streams.
 - An account or user change, an unsupported plan or family, staleness, a
-  missing enabled window, `limit_reached` or a threshold latches a pause, closes
-  registered streams and requires `request_continuation(trusted=True)` followed
-  by a strictly newer passing read.
+  missing enabled window, `limit_reached` or a threshold latches a pause and
+  closes registered streams. `paused` keeps the cause that latched it.
+  `blocking` holds the latest blocking condition and drives the refusal
+  message. It becomes null once a fresh read passes, and the message then says
+  `awaiting-continuation`. Staleness replaces a data-derived reason, never an
+  identity or plan reason.
+- Only a continuation reopens a pause. `request_continuation(trusted=True)`
+  arms exactly one check. The check is the first usage read the gate
+  *receives* after the request, within 30 s. A read received earlier but
+  answered later neither answers nor uses it. That check resumes only if it
+  passes. A failure, unavailable data, an identity change or a failing verdict
+  uses it up, and the lease stays paused. Any epoch change clears it,
+  including a same-account bearer rotation. A first read received later than
+  30 s only expires it. A reset, a passing controller poll or the native TUI's own poll
+  never resumes on its own.
+- Freshness is stamped when the gate received the request, not when the
+  response arrived. A late answer to an older read than the current
+  observation is `superseded` and ignored.
 - Equality pauses. Zero is enabled, and 100 always pauses.
 - Model-response headers can renew freshness only for the bound credential, and
   never at startup.
+- Family refusal fails closed against what the lease can see. A model equal to
+  any `limit_name`, `normal_model_slug` or `metered_feature` of a non-codex row
+  is refused. An optional reviewed allowlist (`models`) refuses every
+  unlisted slug. The real slug-to-family mapping is unproved (U).
+
+Limit on the account-switch evidence: the native A->B and A/B/A switches used
+App Server external-token login (`account/login/start chatgptAuthTokens`). That
+is not the file-store browser login a TUI user performs. The file-store switch
+(link removed, regular file written) is covered only offline, by
+`test_lease_coexistence.py`.
 
 ## 4. Coexistence with codex-as leases and post-run repair
 
@@ -256,9 +298,10 @@ What X must preserve, and the minimal changes (I):
 | `gov.chatgpt.com`, FedRAMP header | FedRAMP default | not supported in protected mode (refuse) | n/a |
 
 K must therefore deny direct `chatgpt.com` from the whole invocation. The gate
-alone reaches it, with a reviewed path allowlist (accounts/check is needed for
-TUI bootstrap; PC2). K must allow `CONNECT auth.openai.com:443` or accept that
-refresh fails and the session pauses at expiry (I). Without that permission the
+alone reaches it, through a reviewed default-deny route table (section 6;
+accounts/check is needed for TUI bootstrap, PC2). K must allow `CONNECT
+auth.openai.com:443` or accept that refresh fails and the session pauses at
+expiry (I). Without that permission the
 startup proactive refresh fails and native keeps the old token (N). A later
 401 cannot recover, so the result is a stale pause, never a bypass.
 
@@ -270,16 +313,20 @@ startup proactive refresh fails and native keeps the old token (N). A later
 | `account/rateLimits/read` with `excludeResetCreditDetails` | documented App Server method; the parameter is in the schema (S) |
 | `/wham/usage` JSON fields, `x-codex-*` response headers | undocumented backend contract: best effort, fail closed |
 | `getAuthStatus includeToken` | protocol v1, internal |
-| `CODEX_REFRESH_TOKEN_URL_OVERRIDE`, `oauth_provenance` | internal; test hook only, not for product |
+| `CODEX_REFRESH_TOKEN_URL_OVERRIDE`, `CODEX_REVOKE_TOKEN_URL_OVERRIDE`, `oauth_provenance` | internal; test hook only, not for product (codex-as refuses both variables) |
 
 ## 6. Result, permissions, G0 options and the contract K and X need
 
 **Proved (N, Linux, 0.167.2, fakes only):** model-free usage reads and their
 exact request identity; native's lack of validation; per-request bearer
 rotation visible at the gate on 401, proactive and adopted-from-disk refresh;
-refusal before upstream of every unbound, foreign or paused credential;
-hold-and-rebind continuity; independent per-session bindings over one shared
-secret; refresh host and its proxy CONNECT.
+refusal before upstream of every `POST /backend-api/codex/responses` model
+request that carries an unbound, foreign or paused credential (other paths are
+not proved: the listed non-model GETs are forwarded, and the quota-capable
+POSTs in section 2 were never sent natively); a continuation whose check fails
+is used up and a later passing read does not resume; hold-and-rebind
+continuity; independent per-session bindings over one shared secret; refresh
+host and its proxy CONNECT.
 
 **Inferred (I):** the lease rules and API; K's destination split; that real
 servers answer usage for the bearer's own account/user and include both
@@ -288,19 +335,34 @@ business` is a research default only).
 
 **Unproved (U):** real-server semantics for any of the above (permission,
 whether `account_id`/`user_id` are present and match the claims, integer
-percentages, durations, additional rows, rate limits on usage, caching in
-front of the server). Also unproved: real refresh cadence and access-token
-lifetime; macOS 0.166.0; WebSocket and realtime routes; a complete census of
-`chatgpt_base_url` paths; the TUI composition with a forwarding gate; the
-denied socket family.
+percentages, durations, additional rows, the model-to-family mapping, rate
+limits on usage, caching in front of the server). Also unproved: real refresh
+cadence and access-token lifetime; macOS 0.166.0; WebSocket and realtime
+routes; a complete census of `chatgpt_base_url` and provider paths, including
+whether memories, search and images use quota; the TUI composition with a
+forwarding gate; a native file-store account switch (only external-token login
+was exercised); the denied socket family.
+
+**Risks to state before a live check:**
+
+- Identity fields may be absent. In 0.167.2,
+  `app-server/src/request_processors/account_processor.rs` says normal rate
+  limits stay available "when older backends omit identity" (S). The binding
+  needs both `account_id` and `user_id`. A live backend that omits either
+  leaves protection permanently refused (`account-mismatch`). The live check
+  must record presence as a boolean.
+- Each app-server made one `socket()` call of another family, which the test
+  guard denied. Its family is unknown (U). K must confirm without the test
+  guard that no native socket bypasses the gate.
 
 **Live check, only after separate human approval:** one named account
 (`<NAME>`, its existing codex-as home, no login). One owned app-server with this
 gate forwarding over TLS to the production backend. One or two
 `account/rateLimits/read` calls; no thread, no model request, no retry beyond
 the approved count. Retain only: status codes, header names, window durations
-and percentages, reset times, plan, and booleans saying `account_id`/`user_id`
-equal the credential claims. Never retain tokens, ids or raw bodies.
+and percentages, reset times, plan, and booleans saying whether
+`account_id`/`user_id` are present and equal the credential claims. Never
+retain tokens, ids or raw bodies.
 Disclose that native may refresh at startup (contacting `auth.openai.com` and
 rewriting the secret through the link) if the token is within five minutes
 of expiry.
@@ -309,9 +371,11 @@ of expiry.
 
 1. *Gate-observed correlation with hold-and-rebind* (recommended). Costs: an
    HTTP/SSE forwarding relay for chatgpt.com (WebSockets off) with a maintained
-   path allowlist; dependence on best-effort `chatgpt_base_url` routing and the
-   usage JSON; controller polls within max-age (the native TUI also polls every
-   60 s, or 5-30 s near exhaustion (S), and those reads renew too); a bounded
+   default-deny route table and admission on every quota-capable endpoint;
+   dependence on best-effort `chatgpt_base_url` routing and the usage JSON;
+   controller polls within max-age (the native TUI also polls every 60 s, or
+   5-30 s near exhaustion (S); those reads renew freshness but never resume a
+   pause on their own); a reviewed codex-family model allowlist; a bounded
    hold on every token rotation; X must inject and keep refusing routing keys.
    No credential read, export or refresh by the kit.
 2. Option 1 without the hold. Simpler, but every native rotation fails the
@@ -326,18 +390,45 @@ of expiry.
 **Contract for K and X** (I; names may change):
 
 ```text
-Lease(expected_account, expected_user, policy{five_hour, weekly, max_age}, plans, clock, wall)
-  observe_usage(bearer, account_header, status, body) -> outcome   # forwarded native read only
+Lease(expected_account, expected_user, policy{five_hour, weekly, max_age}, plans, models,
+      continuation_window, clock, wall)
+  observe_usage(bearer, account_header, status, body, started) -> outcome  # forwarded native read only
   observe_headers(bearer, account_header, headers)    -> outcome   # optional, running state only
   admit(bearer, account_header, model) -> (admitted, reason)       # under the admission lock, before bytes
-  tick() -> paused reason or None                                  # monitor
+  tick() -> paused reason or None                                  # monitor, on a timer in K
+  reason() -> latest blocking condition or awaiting-continuation   # refusal message
   ready() -> bool                                                  # startup preflight verdict
-  request_continuation(trusted) -> bool                            # trusted control (PC5) only
+  request_continuation(trusted) -> bool                            # trusted control (PC5) only; single use
   on_close(reason)                                                 # gate closes registered streams
 Gate(lease, upstream, rebind=controller_read_trigger, hold=seconds)
 Controller: app-server -> account/rateLimits/read before the TUI starts; poll within max_age;
             on rebind trigger, read on a separate connection; continuation -> read.
 ```
+
+Requirements on K and X that the prototype does not meet, or meets only in
+part (I):
+
+- Route table, default deny. The gate refuses every path and method not on a
+  reviewed table before any upstream byte. It applies `admit()` to every
+  request that can use quota (`/responses` today, and memories, search or
+  images if they are enabled), or refuses that endpoint in protected mode.
+  Whether foreign-account or paused non-model reads may pass is a K decision.
+  The prototype forwards them.
+- Lock to first byte. K re-checks the pause under the admission lock right
+  before the first upstream request byte, registers the upstream connection
+  under the lock, and aborts it on close. The prototype releases the lock
+  before `forward()`. A pause in that window closes only the downstream
+  socket, which stays within the spec's in-flight tolerance.
+- Monitor. K drives `tick()` on a timer and composes it with PC4's loss
+  detection, so a long admitted stream closes when the observation goes stale
+  or the controller dies. In the prototype `tick()` runs only inside
+  `admit()` and `ready()`.
+- Continuation. `observe_usage` takes the request-receipt time (`started`).
+  A continuation is single use and bound to the first read received after it,
+  as in section 3. A controller-issued read id would be stricter, but the gate
+  cannot tell which App Server connection caused a read.
+- Families. Protected mode admits only a reviewed allowlist of codex-family
+  model slugs (`models`), so an unproved mapping fails closed.
 
 A gate restart starts a new `Lease`, and nothing persists. The expected
 identity comes from the credential claims captured at launch.
@@ -359,5 +450,7 @@ recorded and is never evidence. It writes sanitized `evidence/*.json` and the
 manifest, appends each temporary `quota-qx-*` root to `.cache/qx/temp-roots.txt`,
 archives it under `.cache/qx/roots/` and removes exactly those roots. Without a
 native binary it prints SKIP after the offline suites, and that proves nothing.
-The final run passed all ten steps, and the checker passed. A tampered copy of
-the evidence fails the checker.
+Probe roots use a short `/tmp` base, whatever `TMPDIR` is, so `backend.sock`
+fits the `AF_UNIX` path limit. The runner removes each inventoried root
+wherever it is. After the review fixes, the final run passed all ten steps and
+the checker passed. A tampered copy of the evidence fails the checker.
