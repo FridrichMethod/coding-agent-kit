@@ -131,6 +131,8 @@ def summarize(rows, gate_port, alt_port, udp_port, exclude=()):
             item = {'exe': who, 'call': row['call'], 'target': target, 'result': row['result']}
             if target == 'non_loopback':
                 item.update(address=row['address'], port=row['port'])
+            elif target == 'other_loopback':
+                item.update(address=row['address'], port=row['port'])
             if item not in out['inet_connect']:
                 out['inet_connect'].append(item)
         elif row['family'] == 'AF_UNIX' and row.get('unix'):
@@ -412,12 +414,15 @@ trust_level = "trusted"
                     os.write(master, b'\x1b[?1;2c')
         threading.Thread(target=terminal, daemon=True).start()
         tool = root / 'tool.jsonl'
-        result['tool_started'] = wait_for(lambda: state['tool_sent'], 45)
-        result['tool_finished'] = wait_for(lambda: tool.exists() and 'signal_outside' in tool.read_text(), 60)
-        result['tool_result_returned'] = wait_for(lambda: state['tool_result'] is not None, 30)
+        gone = lambda: process.poll() is not None  # a refusing native ends the waits early
+        result['tool_started'] = wait_for(lambda: state['tool_sent'] or gone(), 45) and state['tool_sent']
+        result['tool_finished'] = wait_for(lambda: (tool.exists() and 'signal_outside' in tool.read_text())
+                                           or gone(), 60) and tool.exists() and 'signal_outside' in tool.read_text()
+        result['tool_result_returned'] = wait_for(lambda: state['tool_result'] is not None or gone(), 30) \
+            and state['tool_result'] is not None
         (root / 'tool.done').write_text('done')
         detached = root / ('detached-%s.jsonl' % base['run'])
-        result['detached_finished'] = wait_for(
+        result['detached_finished'] = result['tool_finished'] and wait_for(
             lambda: detached.exists() and 'detached_done' in detached.read_text(), 20)
         result['native_alive_after_turn'] = process.poll() is None
         time.sleep(1)

@@ -1,0 +1,455 @@
+{
+  "boundary_applied": [
+    "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 41145}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 38}"
+  ],
+  "codex_daemon": "no-daemon",
+  "detached_finished": true,
+  "detached_rows": [
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4912715,
+      "attempt": "detached_identity",
+      "first_ppid": 1,
+      "pid": 1126263,
+      "ppid": 1,
+      "result": "ok",
+      "root_done_seen": true,
+      "run": "CODEX-inet",
+      "sid": 1126262
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4915652,
+      "attempt": "tcp4_alt",
+      "pid": 1126263,
+      "result": "EACCES",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4917004,
+      "attempt": "tcp6_alt",
+      "pid": 1126263,
+      "result": "EACCES",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4918082,
+      "attempt": "mapped_alt",
+      "pid": 1126263,
+      "result": "EACCES",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4924896,
+      "attempt": "tcp4_gate",
+      "pid": 1126263,
+      "reply": "HTTP/1.1 400 Bad request syntax ('CODEX-inet:codex_detached:tcp4",
+      "result": "ok",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.492692,
+      "attempt": "tcp6_gate",
+      "pid": 1126263,
+      "result": "ECONNREFUSED",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4928489,
+      "attempt": "gate_port_other_host",
+      "pid": 1126263,
+      "result": "ECONNREFUSED",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4929187,
+      "attempt": "mptcp_alt",
+      "pid": 1126263,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4930615,
+      "attempt": "tfo_alt",
+      "pid": 1126263,
+      "result": "ENOTSUP",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4931219,
+      "attempt": "udp4_alt",
+      "pid": 1126263,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4931793,
+      "attempt": "udp6_alt",
+      "pid": 1126263,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4932308,
+      "attempt": "udp4_connected_alt",
+      "pid": 1126263,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4932919,
+      "attempt": "unix_daemon_relay",
+      "pid": 1126263,
+      "result": "EAFNOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4933465,
+      "attempt": "unix_abstract",
+      "pid": 1126263,
+      "result": "EAFNOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4934163,
+      "attempt": "dbus_session_auth",
+      "pid": 1126263,
+      "result": "EAFNOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4934688,
+      "attempt": "signal_outside",
+      "pid": 1126263,
+      "result": "EPERM",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_detached",
+      "at": 1794501925.4935012,
+      "attempt": "detached_done",
+      "pid": 1126263,
+      "result": "ok",
+      "run": "CODEX-inet"
+    }
+  ],
+  "events": [
+    {
+      "at": 0.6727,
+      "event": "gate_get",
+      "path": "/backend-api/codex/models"
+    },
+    {
+      "at": 0.673,
+      "event": "gate_get",
+      "path": "/api/codex/accounts/check"
+    },
+    {
+      "at": 0.7172,
+      "event": "gate_get",
+      "path": "/api/codex/usage"
+    },
+    {
+      "at": 0.7173,
+      "event": "gate_get",
+      "path": "/api/codex/rate-limit-reset-credits"
+    },
+    {
+      "at": 0.7226,
+      "event": "gate_get",
+      "path": "/api/codex/usage"
+    },
+    {
+      "at": 1.791,
+      "event": "gate_get",
+      "path": "/api/codex/settings/user"
+    },
+    {
+      "at": 1.8144,
+      "event": "model_request",
+      "fabricated_auth": true,
+      "path": "/backend-api/codex/responses",
+      "prompt": true,
+      "tool_call": true
+    },
+    {
+      "at": 1.853,
+      "event": "gate_get",
+      "path": "/api/codex/settings/user"
+    },
+    {
+      "at": 1.8661,
+      "event": "model_request",
+      "fabricated_auth": true,
+      "path": "/backend-api/codex/responses",
+      "prompt": true,
+      "tool_result": false
+    },
+    {
+      "at": 2.0028,
+      "event": "model_request",
+      "fabricated_auth": true,
+      "path": "/backend-api/codex/responses",
+      "prompt": true,
+      "tool_result": true
+    }
+  ],
+  "fixture_events": [],
+  "gate_port_label": "GATE_PORT",
+  "layer": "inet",
+  "lingering_after_kill": 0,
+  "lingering_killed": 0,
+  "native": "codex",
+  "native_alive_after_turn": true,
+  "native_exit": 0,
+  "native_exited_by_keys": true,
+  "native_only_syscalls": {
+    "inet_connect": [
+      {
+        "call": "connect",
+        "exe": "codex",
+        "result": "EINPROGRESS",
+        "target": "gate"
+      },
+      {
+        "address": "127.0.0.1",
+        "call": "connect",
+        "exe": "codex",
+        "port": 42137,
+        "result": "EACCES",
+        "target": "other_loopback"
+      }
+    ],
+    "socket_allowed": {
+      "codex AF_INET/SOCK_STREAM/IPPROTO_IP": 1,
+      "codex AF_INET/SOCK_STREAM/IPPROTO_TCP": 13
+    },
+    "socket_denied": {
+      "codex AF_INET/SOCK_DGRAM/IPPROTO_IP": 2,
+      "codex AF_UNIX/SOCK_STREAM/0": 2,
+      "zsh AF_UNIX/SOCK_STREAM/0": 2
+    },
+    "unix_connect": {}
+  },
+  "observer": "strace",
+  "syscalls": {
+    "inet_connect": [
+      {
+        "call": "connect",
+        "exe": "codex",
+        "result": "EINPROGRESS",
+        "target": "gate"
+      },
+      {
+        "address": "127.0.0.1",
+        "call": "connect",
+        "exe": "codex",
+        "port": 42137,
+        "result": "EACCES",
+        "target": "other_loopback"
+      },
+      {
+        "call": "connect",
+        "exe": "python3.15",
+        "result": "EACCES",
+        "target": "alt"
+      },
+      {
+        "call": "connect",
+        "exe": "python3.15",
+        "result": "EINPROGRESS",
+        "target": "gate"
+      },
+      {
+        "address": "127.0.0.2",
+        "call": "connect",
+        "exe": "python3.15",
+        "port": 41145,
+        "result": "EINPROGRESS",
+        "target": "other_loopback"
+      },
+      {
+        "call": "sendto",
+        "exe": "python3.15",
+        "result": "EOPNOTSUPP",
+        "target": "alt"
+      }
+    ],
+    "socket_allowed": {
+      "codex AF_INET/SOCK_STREAM/IPPROTO_IP": 1,
+      "codex AF_INET/SOCK_STREAM/IPPROTO_TCP": 13,
+      "python3.15 AF_INET/SOCK_STREAM/IPPROTO_IP": 8,
+      "python3.15 AF_INET6/SOCK_STREAM/IPPROTO_IP": 6
+    },
+    "socket_denied": {
+      "codex AF_INET/SOCK_DGRAM/IPPROTO_IP": 2,
+      "codex AF_UNIX/SOCK_STREAM/0": 2,
+      "python3.15 AF_INET/SOCK_DGRAM/IPPROTO_IP": 4,
+      "python3.15 AF_INET/SOCK_STREAM/IPPROTO_MPTCP": 2,
+      "python3.15 AF_INET6/SOCK_DGRAM/IPPROTO_IP": 2,
+      "python3.15 AF_UNIX/SOCK_STREAM/0": 6,
+      "zsh AF_UNIX/SOCK_STREAM/0": 2
+    },
+    "unix_connect": {}
+  },
+  "terminal_markers": {
+    "boundary_refusal_visible": false,
+    "fixture_reply_visible": true,
+    "tool_output_visible": true
+  },
+  "terminal_tail": "x (v0.167.2)     <PATH>  permissions: YOLO mode  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents\u001b[0 q \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\r\n\r\n  >_ OpenAI Codex (v0.167.2)\r\n     <PATH>\r\n  permissions: YOLO mode\r\n\r\n  Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost.\r\n\r\n\r\n\u203a NL boundary fixture prompt\r\n  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents\u001b[0 q \u26a01 warning\u00b7f2toview \u2022 Booting MCP server: codex_tui (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents                     \u26a0 1 warning \u00b7 f2 to view\u001b[0 q \u25e61\u2022Wrk (1s\u2022 esc to interrpt) \u00b71backgroud terminal running \u00b7 <PATH> to view \u00b7 <PATH> to close\u26a0 2 warnings\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\r\n\r\n\u2022 Ran <PATH> -I -B <PATH>\r\n  \u2502 <PATH> --spec <PATH>\r\n  \u2502 <PATH> --actor codex_tool --mode matrix > <PATH>\r\n  \u2502 \u2026 +4 lines\r\n  \u2514 NL tool finished\u001b[0 q \u001bM\u001bM\r\n\r\n\u2022 NL fixture done  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents                    \u26a0 2 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\r\n\r\n  Worked for 1s \u2022 08:45\u001b[0 q   \u203a Shutting down... \u001b[0 q\u001b[0 qTo continue this session, run:\r\n  codex resume 01a1d0a6-550b-7153-a496-5041dd16e7c3\r\n",
+  "termios_restored": true,
+  "tool_finished": true,
+  "tool_result_excerpt": "\"Chunk ID: 4d8d94\\nWall time: 0.0000 seconds\\nProcess exited with code 0\\nOriginal token count: 5\\nOutput:\\nNL tool finished\\n\"",
+  "tool_result_returned": true,
+  "tool_rows": [
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3639638,
+      "attempt": "tcp4_alt",
+      "pid": 1126187,
+      "result": "EACCES",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.364046,
+      "attempt": "tcp6_alt",
+      "pid": 1126187,
+      "result": "EACCES",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3640978,
+      "attempt": "mapped_alt",
+      "pid": 1126187,
+      "result": "EACCES",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3646336,
+      "attempt": "tcp4_gate",
+      "pid": 1126187,
+      "reply": "HTTP/1.1 400 Bad request syntax ('CODEX-inet:codex_tool:tcp4_gat",
+      "result": "ok",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.364793,
+      "attempt": "tcp6_gate",
+      "pid": 1126187,
+      "result": "ECONNREFUSED",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3649244,
+      "attempt": "gate_port_other_host",
+      "pid": 1126187,
+      "result": "ECONNREFUSED",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.364978,
+      "attempt": "mptcp_alt",
+      "pid": 1126187,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3650832,
+      "attempt": "tfo_alt",
+      "pid": 1126187,
+      "result": "ENOTSUP",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.365128,
+      "attempt": "udp4_alt",
+      "pid": 1126187,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3651707,
+      "attempt": "udp6_alt",
+      "pid": 1126187,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3652115,
+      "attempt": "udp4_connected_alt",
+      "pid": 1126187,
+      "result": "EPROTONOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3652549,
+      "attempt": "unix_daemon_relay",
+      "pid": 1126187,
+      "result": "EAFNOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3652973,
+      "attempt": "unix_abstract",
+      "pid": 1126187,
+      "result": "EAFNOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3653507,
+      "attempt": "dbus_session_auth",
+      "pid": 1126187,
+      "result": "EAFNOSUPPORT",
+      "run": "CODEX-inet"
+    },
+    {
+      "actor": "codex_tool",
+      "at": 1794501925.3653924,
+      "attempt": "signal_outside",
+      "pid": 1126187,
+      "result": "EPERM",
+      "run": "CODEX-inet"
+    }
+  ],
+  "tool_started": true,
+  "traced_executables": [
+    "codex",
+    "cut",
+    "getconf",
+    "getopt",
+    "lsb_release",
+    "python3.15",
+    "setsid",
+    "tr",
+    "zsh"
+  ],
+  "traced_processes": 105
+}

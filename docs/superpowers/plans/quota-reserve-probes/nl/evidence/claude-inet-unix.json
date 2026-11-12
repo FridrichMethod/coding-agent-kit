@@ -1,0 +1,513 @@
+{
+  "boundary_applied": [
+    "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 38739}], \"scoped\": 3, \"seccomp\": \"inet+unix\", \"seccomp_instructions\": 38}"
+  ],
+  "codex_daemon": null,
+  "detached_finished": true,
+  "detached_rows": [
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.405093,
+      "attempt": "detached_identity",
+      "first_ppid": 1,
+      "pid": 1125098,
+      "ppid": 1,
+      "result": "ok",
+      "root_done_seen": true,
+      "run": "CLAUDE-inet+unix",
+      "sid": 1125097
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4053617,
+      "attempt": "tcp4_alt",
+      "pid": 1125098,
+      "result": "EACCES",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.405468,
+      "attempt": "tcp6_alt",
+      "pid": 1125098,
+      "result": "EACCES",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4055464,
+      "attempt": "mapped_alt",
+      "pid": 1125098,
+      "result": "EACCES",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.406107,
+      "attempt": "tcp4_gate",
+      "pid": 1125098,
+      "reply": "HTTP/1.1 400 Bad request syntax ('CLAUDE-inet+unix:claude_detach",
+      "result": "ok",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4062853,
+      "attempt": "tcp6_gate",
+      "pid": 1125098,
+      "result": "ECONNREFUSED",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.406405,
+      "attempt": "gate_port_other_host",
+      "pid": 1125098,
+      "result": "ECONNREFUSED",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4064593,
+      "attempt": "mptcp_alt",
+      "pid": 1125098,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4065661,
+      "attempt": "tfo_alt",
+      "pid": 1125098,
+      "result": "ENOTSUP",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4066138,
+      "attempt": "udp4_alt",
+      "pid": 1125098,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4066525,
+      "attempt": "udp6_alt",
+      "pid": 1125098,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4066887,
+      "attempt": "udp4_connected_alt",
+      "pid": 1125098,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4072165,
+      "attempt": "unix_daemon_relay",
+      "pid": 1125098,
+      "reply": "RELAYED",
+      "result": "ok",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.407301,
+      "attempt": "unix_abstract",
+      "pid": 1125098,
+      "result": "EPERM",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4075963,
+      "attempt": "dbus_session_auth",
+      "pid": 1125098,
+      "reply": "",
+      "result": "unexpected",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.40764,
+      "attempt": "signal_outside",
+      "pid": 1125098,
+      "result": "EPERM",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_detached",
+      "at": 1794501917.4076664,
+      "attempt": "detached_done",
+      "pid": 1125098,
+      "result": "ok",
+      "run": "CLAUDE-inet+unix"
+    }
+  ],
+  "events": [
+    {
+      "at": 0.1909,
+      "event": "gate_head",
+      "path": "/api/hello"
+    },
+    {
+      "at": 0.377,
+      "event": "model_request",
+      "fabricated_auth": true,
+      "path": "/v1/messages",
+      "prompt": false,
+      "tool_result": false
+    },
+    {
+      "at": 0.4077,
+      "event": "model_request",
+      "fabricated_auth": true,
+      "path": "/v1/messages",
+      "prompt": true,
+      "tool_result": false
+    },
+    {
+      "at": 0.4609,
+      "event": "model_request",
+      "fabricated_auth": true,
+      "path": "/v1/messages",
+      "prompt": true,
+      "tool_call": true
+    },
+    {
+      "at": 0.6905,
+      "event": "model_request",
+      "fabricated_auth": true,
+      "path": "/v1/messages",
+      "prompt": true,
+      "tool_result": true
+    }
+  ],
+  "fixture_events": [
+    {
+      "at": 0.4442,
+      "event": "fake_bus_contact",
+      "first_bytes": 1
+    },
+    {
+      "at": 0.6629,
+      "event": "daemon_request",
+      "marker": "CLAUDE-inet+unix:claude_tool:unix_daemon_relay"
+    },
+    {
+      "at": 0.6631,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        48293
+      ],
+      "marker": "relay:CLAUDE-inet+unix:claude_tool:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.6635,
+      "event": "fake_bus_contact",
+      "first_bytes": 23
+    },
+    {
+      "at": 0.7792,
+      "event": "daemon_request",
+      "marker": "CLAUDE-inet+unix:claude_detached:unix_daemon_relay"
+    },
+    {
+      "at": 0.7794,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        48293
+      ],
+      "marker": "relay:CLAUDE-inet+unix:claude_detached:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.7799,
+      "event": "fake_bus_contact",
+      "first_bytes": 23
+    }
+  ],
+  "gate_port_label": "GATE_PORT",
+  "layer": "inet+unix",
+  "lingering_after_kill": 0,
+  "lingering_killed": 0,
+  "native": "claude",
+  "native_alive_after_turn": true,
+  "native_exit": 0,
+  "native_exited_by_keys": true,
+  "native_only_syscalls": {
+    "inet_connect": [
+      {
+        "call": "connect",
+        "exe": "2.1.322",
+        "result": "EINPROGRESS",
+        "target": "gate"
+      }
+    ],
+    "socket_allowed": {
+      "2.1.322 AF_INET/SOCK_STREAM/IPPROTO_IP": 1,
+      "2.1.322 AF_NETLINK/SOCK_RAW/NETLINK_ROUTE": 10,
+      "2.1.322 AF_UNIX/SOCK_STREAM/0": 3,
+      "env AF_UNIX/SOCK_STREAM/0": 2,
+      "gh AF_UNIX/SOCK_STREAM/0": 1,
+      "git-remote-https AF_UNIX/SOCK_STREAM/0": 2,
+      "ps AF_UNIX/SOCK_STREAM/0": 2,
+      "ssh AF_UNIX/SOCK_STREAM/0": 12,
+      "zsh AF_UNIX/SOCK_STREAM/0": 4
+    },
+    "socket_denied": {
+      "2.1.322 AF_INET/SOCK_DGRAM/IPPROTO_IP": 20,
+      "git-remote-https AF_INET/SOCK_DGRAM/IPPROTO_IP": 2,
+      "git-remote-https AF_INET6/SOCK_DGRAM/IPPROTO_IP": 1,
+      "ssh AF_INET/SOCK_DGRAM/IPPROTO_IP": 4
+    },
+    "unix_connect": {
+      "2.1.322 connect path socket ENOENT": 2,
+      "env connect path socket ENOENT": 2,
+      "gh connect path bus ok": 1,
+      "git-remote-https connect path socket ENOENT": 2,
+      "ps connect path socket ENOENT": 2,
+      "ssh connect path socket ENOENT": 12,
+      "zsh connect path socket ENOENT": 4
+    }
+  },
+  "observer": "strace",
+  "syscalls": {
+    "inet_connect": [
+      {
+        "call": "connect",
+        "exe": "2.1.322",
+        "result": "EINPROGRESS",
+        "target": "gate"
+      },
+      {
+        "call": "connect",
+        "exe": "python3.15",
+        "result": "EACCES",
+        "target": "alt"
+      },
+      {
+        "call": "connect",
+        "exe": "python3.15",
+        "result": "EINPROGRESS",
+        "target": "gate"
+      },
+      {
+        "address": "127.0.0.2",
+        "call": "connect",
+        "exe": "python3.15",
+        "port": 38739,
+        "result": "EINPROGRESS",
+        "target": "other_loopback"
+      },
+      {
+        "call": "sendto",
+        "exe": "python3.15",
+        "result": "EOPNOTSUPP",
+        "target": "alt"
+      }
+    ],
+    "socket_allowed": {
+      "2.1.322 AF_INET/SOCK_STREAM/IPPROTO_IP": 1,
+      "2.1.322 AF_NETLINK/SOCK_RAW/NETLINK_ROUTE": 10,
+      "2.1.322 AF_UNIX/SOCK_STREAM/0": 3,
+      "env AF_UNIX/SOCK_STREAM/0": 2,
+      "gh AF_UNIX/SOCK_STREAM/0": 1,
+      "git-remote-https AF_UNIX/SOCK_STREAM/0": 2,
+      "ps AF_UNIX/SOCK_STREAM/0": 2,
+      "python3.15 AF_INET/SOCK_STREAM/IPPROTO_IP": 8,
+      "python3.15 AF_INET6/SOCK_STREAM/IPPROTO_IP": 6,
+      "python3.15 AF_UNIX/SOCK_STREAM/0": 6,
+      "ssh AF_UNIX/SOCK_STREAM/0": 12,
+      "zsh AF_UNIX/SOCK_STREAM/0": 4
+    },
+    "socket_denied": {
+      "2.1.322 AF_INET/SOCK_DGRAM/IPPROTO_IP": 20,
+      "git-remote-https AF_INET/SOCK_DGRAM/IPPROTO_IP": 2,
+      "git-remote-https AF_INET6/SOCK_DGRAM/IPPROTO_IP": 1,
+      "python3.15 AF_INET/SOCK_DGRAM/IPPROTO_IP": 4,
+      "python3.15 AF_INET/SOCK_STREAM/IPPROTO_MPTCP": 2,
+      "python3.15 AF_INET6/SOCK_DGRAM/IPPROTO_IP": 2,
+      "ssh AF_INET/SOCK_DGRAM/IPPROTO_IP": 4
+    },
+    "unix_connect": {
+      "2.1.322 connect path socket ENOENT": 2,
+      "env connect path socket ENOENT": 2,
+      "gh connect path bus ok": 1,
+      "git-remote-https connect path socket ENOENT": 2,
+      "ps connect path socket ENOENT": 2,
+      "python3.15 connect abstract quota-nl-1124879-637642 EPERM": 2,
+      "python3.15 connect path bus ok": 2,
+      "python3.15 connect path daemon.sock ok": 2,
+      "ssh connect path socket ENOENT": 12,
+      "zsh connect path socket ENOENT": 4
+    }
+  },
+  "terminal_markers": {
+    "boundary_refusal_visible": false,
+    "fixture_reply_visible": true,
+    "tool_output_visible": true
+  },
+  "terminal_tail": "deMax\r\r\n <PATH>\r\r\n\r\r\n\r\r\n\u276f NL boundary fixture prompt                                                                                            \r\r\n\r\r\n\u00b7Skedaddling\u2026\r\r\n\r\r\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\r\n\u276f\u00a0 \r\r\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\r\n<PATH>\r\r\n\r\u276f\u00a0\resc to interrupt \u00b7 \u2190 for agents\r\r\n\r<PATH>\r<PATH>\r  \u23bf \u00a0Running\u2026\r\r\u00b7 Gallivanting\u2026 \r\r\r\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\r\n\u276f\u00a0 \r\r\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\r\n<PATH>\r\r\n\r\u2722Gallivanting\u2026(0s \u00b7 \u219325 tokens)\r\r\n\r\n\r\n\r\n\r\n\r\n\r50\r\r\n\r\n\r\n\r\n\r\n\r\n\r\u25cf\rNL tool finished\r\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\u25cfNL fixture done\r\u273b Worked for 0s \u00b7 done 8:45 AM\r\r\u276f\u00a0 \r\r\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\r\n<PATH>\r\r\n\rPress Ctrl-C againto exit                       \r\r\n\u000f\r\nResume this session with:\r\nclaude --resume c9d1e869-7b5d-43ca-87d3-b7494b68f85c\r\n",
+  "termios_restored": true,
+  "tool_finished": true,
+  "tool_result_excerpt": "\"NL tool finished\\n\\n<system-reminder>\\n<total_tokens>14999985 tokens left</total_tokens>\\n</system-reminder>\"",
+  "tool_result_returned": true,
+  "tool_rows": [
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2887826,
+      "attempt": "tcp4_alt",
+      "pid": 1125050,
+      "result": "EACCES",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2888918,
+      "attempt": "tcp6_alt",
+      "pid": 1125050,
+      "result": "EACCES",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2889638,
+      "attempt": "mapped_alt",
+      "pid": 1125050,
+      "result": "EACCES",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2897243,
+      "attempt": "tcp4_gate",
+      "pid": 1125050,
+      "reply": "HTTP/1.1 400 Bad request syntax ('CLAUDE-inet+unix:claude_tool:t",
+      "result": "ok",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2899175,
+      "attempt": "tcp6_gate",
+      "pid": 1125050,
+      "result": "ECONNREFUSED",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2900453,
+      "attempt": "gate_port_other_host",
+      "pid": 1125050,
+      "result": "ECONNREFUSED",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2900908,
+      "attempt": "mptcp_alt",
+      "pid": 1125050,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2901874,
+      "attempt": "tfo_alt",
+      "pid": 1125050,
+      "result": "ENOTSUP",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2902308,
+      "attempt": "udp4_alt",
+      "pid": 1125050,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2902696,
+      "attempt": "udp6_alt",
+      "pid": 1125050,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2903066,
+      "attempt": "udp4_connected_alt",
+      "pid": 1125050,
+      "result": "EPROTONOSUPPORT",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.290983,
+      "attempt": "unix_daemon_relay",
+      "pid": 1125050,
+      "reply": "RELAYED",
+      "result": "ok",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.291065,
+      "attempt": "unix_abstract",
+      "pid": 1125050,
+      "result": "EPERM",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.291196,
+      "attempt": "dbus_session_auth",
+      "pid": 1125050,
+      "reply": "",
+      "result": "unexpected",
+      "run": "CLAUDE-inet+unix"
+    },
+    {
+      "actor": "claude_tool",
+      "at": 1794501917.2912393,
+      "attempt": "signal_outside",
+      "pid": 1125050,
+      "result": "EPERM",
+      "run": "CLAUDE-inet+unix"
+    }
+  ],
+  "tool_started": true,
+  "traced_executables": [
+    "2.1.322",
+    "awk",
+    "cat",
+    "cut",
+    "dpkg-query",
+    "env",
+    "gh",
+    "git",
+    "git-remote-https",
+    "grep",
+    "mv",
+    "ps",
+    "python3.15",
+    "setsid",
+    "sh",
+    "ssh",
+    "touch",
+    "uname",
+    "xdg-mime",
+    "zsh"
+  ],
+  "traced_processes": 119
+}
