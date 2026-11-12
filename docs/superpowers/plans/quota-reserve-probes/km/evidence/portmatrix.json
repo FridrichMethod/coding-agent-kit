@@ -81,7 +81,7 @@
  },
  "completed": true,
  "deadline_seconds": 180,
- "finished": "2026-11-12T20:05:29Z",
+ "finished": "2026-11-12T20:18:34Z",
  "host": {
   "arch": "arm64",
   "macos": "27.2"
@@ -89,5 +89,5 @@
  "leftover_processes_after": [],
  "leftover_processes_killed": [],
  "stage": "portmatrix",
- "started": "2026-11-12T20:05:25Z"
+ "started": "2026-11-12T20:18:30Z"
 }
