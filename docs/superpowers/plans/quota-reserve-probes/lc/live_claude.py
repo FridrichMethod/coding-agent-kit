@@ -13,8 +13,8 @@ loopback fixtures.
 Usage (python3 -I -B, stdlib only, Linux):
     live_claude.py pending --alias NAME --out DIR
     live_claude.py ready   --alias NAME --out DIR [--confirm]
-    live_claude.py n1      --alias NAME --out DIR --binary PATH [--no-tunnel]
-    live_claude.py bearer  --alias NAME --out DIR
+    live_claude.py n1      --alias NAME --out DIR --binary PATH (--tunnel | --no-tunnel)
+    live_claude.py bearer  --alias NAME --out DIR [--accept-incomplete-n1]
 
 pending  Resolves secrets_dir exactly as the launchers do (load() of the kit
          config: CODING_AGENT_KIT_CONFIG, else XDG_CONFIG_HOME, else HOME), runs
@@ -28,46 +28,69 @@ ready    Reads the two UUIDs from the account-local metadata and reports only
          nothing.
 n1       One-shot. Local refusals first (registration ready, caller
          environment, every policy source, binary SHA-256 equal to the
-         reviewed native 2.1.322, local identity, private XDG_RUNTIME_DIR);
-         then DIR/n1.attempt is created exclusively and run_n1 runs with the
-         reviewed bounds (120 s total, 45 s per operation, at most two
-         get_usage with one 65 s cache-shortcut wait) on the resolved binary.
-         The accounting tunnel (api.anthropic.com:443 and
-         platform.claude.com:443 only) is on unless --no-tunnel.
-bearer   One-shot, only after an n1 result in DIR whose native run completed
-         (fresh_windows, inconclusive or unavailable) with zero model events,
-         zero session cost in every reply, an empty process group, the
-         identity unchanged and no server-managed policy. DIR/bearer.attempt
-         is created before the credential read; then one memory-only access
-         bearer read, exactly one usage GET and one profile GET (5 s socket,
-         10 s total, 64 KiB, no retry, redirect or refresh). The bearer is
-         dropped before the result is written.
+         reviewed native 2.1.322, local identity, private XDG_RUNTIME_DIR,
+         no earlier attempt for this alias or DIR); then the attempt markers
+         are created exclusively and run_n1 runs with the reviewed bounds
+         (120 s total, 45 s per operation, at most two get_usage with one 65 s
+         cache-shortcut wait) on the resolved binary. The accounting tunnel
+         (api.anthropic.com:443 and platform.claude.com:443 only) must be
+         chosen explicitly: --tunnel or --no-tunnel.
+bearer   One-shot, only after an n1 result in DIR for the same alias and
+         enrollment, at most an hour old, whose native run ended fresh_windows
+         (with --accept-incomplete-n1 also inconclusive or unavailable) with
+         zero model events, zero session cost in every reply, an empty process
+         group, the identity unchanged, no cache stamp for another account
+         and no server-managed policy. The attempt markers are created before
+         the credential read; then one memory-only access bearer read,
+         exactly one usage GET and one profile GET (5 s socket, 10 s total,
+         64 KiB, no retry, redirect or refresh). The bearer is dropped before
+         the result is written. "verified" is a probe outcome (general windows
+         valid, both profile UUIDs equal to the registration), not an
+         admission decision.
+
+Attempt markers: <step>.attempt in DIR and lc-<step>.attempt beside the
+registration (<secrets_dir>/native-claude-accounts/NAME/), both 0600 and
+created exclusively, the alias marker first. Either one refuses a later run,
+so a second or replacement DIR cannot repeat a step on the same alias.
 
 DIR must be an existing directory owned by this user with no group or other
 permission bits, not a symlink, outside any Git worktree and outside the
 secrets directory. Results are DIR/<step>.result.json (0600, created
-exclusively). n1 and bearer write theirs only after their attempt file
-exists, and their preflight refusals write no file (they consume nothing). A
-pending or ready rerun never replaces the first record; it writes
-DIR/<step>.rerun.json instead.
+exclusively). n1 and bearer write theirs only once an attempt marker exists;
+their preflight refusals write no file (they consume nothing). A pending or
+ready rerun never replaces an earlier record; it writes the next free
+DIR/<step>.rerun-N.json. The registration file, not these records, is the
+authority on registration state.
+
+Signals: SIGINT, SIGTERM and SIGHUP during n1 or bearer only set a flag; they
+never raise. A step checks the flag before its attempt markers (refused,
+nothing consumed), after them, and between bearer requests. run_n1 gets a
+clock whose deadlines all pass once the flag is set and whose waits end
+there, so its own cleanup (stdin close, group reaping, tunnel exit, workspace
+removal) always runs to its end. SIGKILL cannot be handled.
 
 Output: one JSON document on stdout (sorted keys, ASCII), the same document
 as the result file except that pending adds user_commands and user_notes.
 Retained fields are allowlisted: reason codes, booleans, counts, normalized
-windows, allowlisted row names and error types. Never a token, UUID, e-mail,
-raw record or raw body. stderr stays empty except for argument errors.
+windows, allowlisted row names and error types, the alias name. Never a
+token, account or organization UUID, e-mail, raw record or raw body. stderr
+stays empty except for argument errors.
 
 Exit codes:
     0  the step completed and its outcome is the success outcome
     1  the step ran (attempt consumed for n1/bearer) but the outcome is not
        success, or it was interrupted
     2  usage error (argument parsing)
-    3  refused before any effect; nothing created or consumed
-    4  refused: the step's attempt or result file already exists
+    3  refused before any account effect: no attempt consumed, no
+       registration change, nothing spawned or sent; pending and ready still
+       record the refusal in their result or rerun file
+    4  refused: the step's attempt or result file already exists (in DIR or
+       beside the registration)
     5  internal error
 """
 
 import argparse
+import calendar
 import hashlib
 import importlib.util
 import json
@@ -80,18 +103,21 @@ import socket
 import stat
 import sys
 import time
-import uuid
 
 _HERE = Path(os.path.realpath(__file__)).parent
 _QC = _HERE.parent / "qc"
 _KIT_ROOT = _HERE.parents[4]  # lc -> probes -> plans -> superpowers -> docs -> root
 
-SCHEMA = "lc-live-claude-1"
+SCHEMA = "lc-live-claude-2"
 # Native Claude Code 2.1.322, the version the QC policy-key review covers.
 EXPECTED_NATIVE_SHA256 = "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478"
 EXIT_OK, EXIT_NOT_OK, EXIT_USAGE, EXIT_REFUSED, EXIT_ATTEMPTED, EXIT_INTERNAL = 0, 1, 2, 3, 4, 5
 # n1 outcomes after which native has run to completion on the account.
 N1_COMPLETED = ("fresh_windows", "inconclusive", "unavailable")
+N1_MAX_AGE_S = 3600
+N1_CLOCK_SKEW_S = 300
+ALIAS_MARKER = "lc-%s.attempt"
+RERUN_LIMIT = 99
 ERROR_TYPES = ("authentication_error", "permission_error", "rate_limit_error", "not_found_error",
                "invalid_request_error", "api_error", "overloaded_error")
 UUID_RE = re.compile(r"[A-Za-z0-9-]{1,64}")
@@ -110,10 +136,6 @@ class Refused(Exception):
     def __init__(self, reason, code=EXIT_REFUSED, **extra):
         super().__init__(reason)
         self.reason, self.code, self.extra = reason, code, extra
-
-
-class _Interrupted(BaseException):
-    pass
 
 
 def _load(path, name):
@@ -163,12 +185,68 @@ class Wiring:
     resolver = staticmethod(socket.getaddrinfo)
 
 
+# --- signals -----------------------------------------------------------------
+
+class _Signals:
+    received = False
+
+
+def _on_signal(signum, frame):
+    """Record the request and return: raising here could cut run_n1's cleanup short."""
+    _Signals.received = True
+
+
+SIGNALS = ("SIGINT", "SIGTERM", "SIGHUP")
+
+
+class _Clock:
+    """run_n1's injectable monotonic and sleep: real time until a signal arrives.
+
+    After it, every deadline run_n1 computes has passed (the next bound check
+    ends the operation) and a wait raises the harness's own refusal, which
+    run_n1 handles in its try block. Bounds only ever get shorter.
+    """
+
+    JUMP = 1.0e6
+
+    def __init__(self, refused):
+        self.refused, self.jumped = refused, False
+
+    def monotonic(self):
+        if _Signals.received:
+            self.jumped = True
+            return time.monotonic() + self.JUMP
+        return time.monotonic()
+
+    def sleep(self, seconds):
+        end = time.monotonic() + seconds
+        while True:
+            if _Signals.received:
+                raise self.refused("interrupted")
+            left = end - time.monotonic()
+            if left <= 0:
+                return
+            time.sleep(min(left, 0.05))
+
+
 def _utc():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _parse_utc(value):
+    try:
+        return calendar.timegm(time.strptime(value, "%Y-%m-%dT%H:%M:%SZ"))
+    except (TypeError, ValueError):
+        return None
+
+
 def _dump(document):
     return json.dumps(document, sort_keys=True, ensure_ascii=True, indent=2) + "\n"
+
+
+def _enrollment_tag(registration):
+    """Binds an n1 result to its registration without retaining the enrollment id itself."""
+    return hashlib.sha256(("lc-enrollment:" + registration["enrollment_id"]).encode()).hexdigest()[:16]
 
 
 # --- configuration and paths -------------------------------------------------
@@ -242,35 +320,35 @@ def open_out_dir(path, secrets_dir, uid):
 
 # --- result files ------------------------------------------------------------
 
-def _write(directory, name, document, exclusive=True):
-    """0600 JSON by descriptor; exclusive create, or staged atomic replace."""
-    target = name if exclusive else ".%s.%s" % (name, uuid.uuid4().hex)
-    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600,
+def _write(directory, name, document):
+    """0600 JSON by descriptor, created exclusively (FileExistsError if present)."""
+    fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600,
                  dir_fd=directory)
-    try:
-        with os.fdopen(fd, "w", encoding="ascii") as handle:
-            handle.write(_dump(document))
-            handle.flush()
-            os.fsync(handle.fileno())
-        if not exclusive:
-            os.rename(target, name, src_dir_fd=directory, dst_dir_fd=directory)
-        os.fsync(directory)
-    except BaseException:
-        if not exclusive:
-            try:
-                os.unlink(target, dir_fd=directory)
-            except OSError:
-                pass
-        raise
+    with os.fdopen(fd, "w", encoding="ascii") as handle:
+        handle.write(_dump(document))
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.fsync(directory)
 
 
-def _exists(directory, name):
+def _write_rerun(directory, step, document):
+    """The next free <step>.rerun-N.json: every rerun record is kept."""
+    for number in range(1, RERUN_LIMIT + 1):
+        try:
+            _write(directory, "%s.rerun-%d.json" % (step, number), document)
+            return
+        except FileExistsError:
+            continue
+    raise Refused("rerun_records_full")
+
+
+def _exists(directory, name, reason="out_dir_unusable"):
     try:
         os.stat(name, dir_fd=directory, follow_symlinks=False)
     except FileNotFoundError:
         return False
     except OSError:
-        raise Refused("out_dir_unusable") from None
+        raise Refused(reason) from None
     return True
 
 
@@ -294,18 +372,45 @@ def _read_result(directory, name, uid):
 
 
 class Run:
-    """Per-invocation state: whether this run created its step's attempt file."""
+    """Per-invocation state: which attempt markers this run created."""
 
     def __init__(self, out):
-        self.out, self.attempt_created = out, False
+        self.out, self.attempt_created, self.alias_attempt_created = out, False, False
 
-    def create_attempt(self, step):
-        """Exclusive 0600 marker created before any spawn, credential read or network."""
+    def check_unused(self, modules, paths, step):
+        """Exit-4 refusals before anything is created: DIR's result and marker, then the alias marker."""
+        if _exists(self.out, step + ".result.json"):
+            raise Refused("result_exists", EXIT_ATTEMPTED)
+        if _exists(self.out, step + ".attempt"):
+            raise Refused("attempt_exists", EXIT_ATTEMPTED)
+        account = modules.n1._open_dir(paths.account, os.getuid(), 2)
         try:
-            _write(self.out, step + ".attempt", {"schema": SCHEMA, "step": step, "created_utc": _utc()})
+            if _exists(account, ALIAS_MARKER % step, "account_directory_unusable"):
+                raise Refused("alias_attempt_exists", EXIT_ATTEMPTED)
+        finally:
+            os.close(account)
+
+    def create_attempt(self, modules, paths, step):
+        """Exclusive 0600 markers before any spawn, credential read or network.
+
+        The alias marker comes first: it holds for every DIR, so a second or
+        replacement DIR cannot repeat the step on this registration.
+        """
+        marker = {"schema": SCHEMA, "step": step, "created_utc": _utc()}
+        account = modules.n1._open_dir(paths.account, os.getuid(), 2)
+        try:
+            _write(account, ALIAS_MARKER % step, marker)
+        except FileExistsError:
+            raise Refused("alias_attempt_exists", EXIT_ATTEMPTED) from None
+        finally:
+            os.close(account)
+        self.alias_attempt_created = True
+        try:
+            _write(self.out, step + ".attempt", marker)
         except FileExistsError:
             raise Refused("attempt_exists", EXIT_ATTEMPTED) from None
         self.attempt_created = True
+        return marker["created_utc"]
 
 
 # --- steps -------------------------------------------------------------------
@@ -409,42 +514,63 @@ def step_n1(modules, config, paths, run, args, wiring):
     if parent is None:
         raise Refused("xdg_runtime_dir_not_private")
     n1.check_workspace_ancestors(os.path.join(parent, "quota-qc-n1-preflight"))
-    if _exists(run.out, "n1.result.json"):
-        raise Refused("result_exists", EXIT_ATTEMPTED)
-    run.create_attempt("n1")
-    document = {"attempt_consumed": True, "tunnel": not args.no_tunnel, "requery_allowed": True,
-                "bounds": _bounds_n1(modules, wiring)}
-    try:
-        result = n1.run_n1(resolved, paths, caller_env, managed_dirs=managed_dirs, platform=platform,
-                           allow_requery=True,
-                           tunnel_connector=None if args.no_tunnel else wiring.tunnel_connector,
-                           workspace_parent=parent, **options)
-    except _Interrupted:
-        document.update(native_sha256_matches=None, harness=None)
-        return EXIT_NOT_OK, "interrupted", document, {}
+    run.check_unused(modules, paths, "n1")
+    if _Signals.received:
+        raise Refused("interrupted")
+    created = run.create_attempt(modules, paths, "n1")
+    document = {"attempt_consumed": True, "alias": paths.name, "enrollment_tag": _enrollment_tag(registration),
+                "attempt_created_utc": created, "tunnel": args.tunnel, "requery_allowed": True,
+                "bounds": _bounds_n1(modules, wiring), "native_sha256_matches": None, "harness": None}
+    if _Signals.received:
+        return EXIT_NOT_OK, "interrupted", document, {}  # native never spawned
+    clock = _Clock(n1.HarnessRefused)
+    started = time.monotonic()
+    result = n1.run_n1(resolved, paths, caller_env, managed_dirs=managed_dirs, platform=platform,
+                       allow_requery=True, tunnel_connector=wiring.tunnel_connector if args.tunnel else None,
+                       workspace_parent=parent, monotonic=clock.monotonic, sleep=clock.sleep, **options)
+    if clock.jumped:  # run_n1 measured elapsed_s on the jumped clock
+        result["elapsed_s"] = round(time.monotonic() - started, 3)
     document["native_sha256_matches"] = result.get("native_sha256") == wiring.expected_native_sha256
     document["harness"] = result
     document["reason"] = result.get("reason")
+    if _Signals.received:
+        return EXIT_NOT_OK, "interrupted", document, {}
     ok = result.get("classification") == "fresh_windows" and document["native_sha256_matches"]
     return (EXIT_OK if ok else EXIT_NOT_OK), result.get("classification"), document, {}
 
 
-def _n1_completed(document):
-    """Native ran to completion on the account, and nothing in its result argues against a bearer read.
+def _n1_gate(document, alias, enrollment_tag, accept_incomplete, now):
+    """None when the bearer step may follow this n1 result, else the refusal reason.
 
+    By default only fresh_windows is accepted; accept_incomplete also accepts
+    inconclusive and unavailable (native ran to completion on the account).
     run_n1 classifies inconclusive before it checks session cost, so cost,
-    model events and reaping are checked here for every accepted outcome.
+    model events, reaping and the cache account are checked here for every
+    accepted outcome.
     """
     harness = document.get("harness") if isinstance(document, dict) else None
-    if not (isinstance(harness, dict) and document.get("schema") == SCHEMA and document.get("step") == "n1"
-            and document.get("status") in N1_COMPLETED and document.get("native_sha256_matches") is True):
-        return False
-    replies, native = harness.get("replies"), harness.get("native")
-    return (harness.get("classification") in N1_COMPLETED and harness.get("identity_matches_before") is True
+    if not (isinstance(harness, dict) and document.get("schema") == SCHEMA and document.get("step") == "n1"):
+        return "n1_not_completed"
+    if document.get("alias") != alias:
+        return "n1_alias_mismatch"
+    if document.get("enrollment_tag") != enrollment_tag:
+        return "n1_enrollment_mismatch"
+    created = _parse_utc(document.get("attempt_created_utc"))
+    if created is None or not -N1_CLOCK_SKEW_S <= now - created <= N1_MAX_AGE_S:
+        return "n1_result_stale"
+    replies, native, cache = harness.get("replies"), harness.get("native"), harness.get("cache")
+    if not (document.get("status") in N1_COMPLETED and harness.get("classification") == document.get("status")
+            and document.get("native_sha256_matches") is True and harness.get("identity_matches_before") is True
             and harness.get("identity_matches_after") is True and harness.get("server_policy_written") is False
             and harness.get("model_events") == 0 and isinstance(replies, list) and len(replies) > 0
             and all(isinstance(r, dict) and r.get("cost_zero") is True for r in replies)
-            and isinstance(native, dict) and native.get("group_empty") is True)
+            and isinstance(native, dict) and native.get("group_empty") is True and isinstance(cache, dict)):
+        return "n1_not_completed"
+    if cache.get("advanced") is True and cache.get("account_matches") is not True:
+        return "n1_cache_account_mismatch"  # a fresh stamp for another account: identity anomaly
+    if not accept_incomplete and document["status"] != "fresh_windows":
+        return "n1_incomplete"
+    return None
 
 
 def _names(names, allowed):
@@ -485,9 +611,12 @@ def step_bearer(modules, config, paths, run, args, wiring):
     except bearer_mod.BearerRefused as error:
         raise Refused(error.reason) from None
     previous = _read_result(run.out, "n1.result.json", uid)
-    if not _n1_completed(previous):
-        raise Refused("n1_not_completed")
+    now = time.time()
+    refusal = _n1_gate(previous, paths.name, _enrollment_tag(registration), args.accept_incomplete_n1, now)
+    if refusal is not None:
+        raise Refused(refusal)
     n1_classification = previous["harness"]["classification"]
+    n1_age = int(now - _parse_utc(previous["attempt_created_utc"]))
     previous = None
     if n1.server_managed_present(paths.config):
         raise Refused("policy_server_managed_present")
@@ -497,10 +626,13 @@ def step_bearer(modules, config, paths, run, args, wiring):
     local = None
     if not matches:
         raise Refused("identity_mismatch_before")
-    if _exists(run.out, "bearer.result.json"):
-        raise Refused("result_exists", EXIT_ATTEMPTED)
-    run.create_attempt("bearer")
-    document = {"attempt_consumed": True, "n1_classification": n1_classification, "identity_matches_local": True,
+    run.check_unused(modules, paths, "bearer")
+    if _Signals.received:
+        raise Refused("interrupted")
+    run.create_attempt(modules, paths, "bearer")
+    document = {"attempt_consumed": True, "n1_classification": n1_classification, "n1_age_s": n1_age,
+                "n1_gate": "completed" if args.accept_incomplete_n1 else "fresh_windows",
+                "identity_matches_local": True,
                 "bounds": {"socket_timeout_s": wiring.socket_timeout, "total_deadline_s": wiring.total_deadline,
                            "body_limit_bytes": usage.BODY_LIMIT, "usage_requests_max": 1,
                            "profile_requests_max": 1, "retries": 0, "redirects": 0, "refresh": False},
@@ -509,24 +641,28 @@ def step_bearer(modules, config, paths, run, args, wiring):
     usage_endpoint = wiring.usage_endpoint or usage.PRODUCTION
     profile_endpoint = wiring.profile_endpoint or usage.PRODUCTION_PROFILE
     try:
+        if _Signals.received:
+            return EXIT_NOT_OK, "interrupted", document, {}
         try:
             held = bearer_mod.read_linux_bearer(paths.config, read_env, uid=uid)
         except bearer_mod.BearerRefused as error:
             document["credential"]["reason"] = error.reason
             return EXIT_NOT_OK, "credential_refused", document, {}
         document["credential"]["read"] = True
+        if _Signals.received:
+            return EXIT_NOT_OK, "interrupted", document, {}
         common = dict(context=wiring.tls_context, socket_timeout=wiring.socket_timeout,
                       total_deadline=wiring.total_deadline, resolver=wiring.resolver)
         observation = usage.fetch(held, usage_endpoint, **common)
+        document["usage"] = _usage_summary(modules, observation)
+        if _Signals.received:
+            return EXIT_NOT_OK, "interrupted", document, {}
         identity = usage.fetch_profile_identity(held, profile_endpoint, **common)
         held = None
-        document["usage"] = _usage_summary(modules, observation)
         document["profile"] = {
             "available": identity is not None,
             "account_uuid_matches": None if identity is None else identity[0] == expected["account_uuid"],
             "organization_uuid_matches": None if identity is None else identity[1] == expected["organization_uuid"]}
-    except _Interrupted:
-        return EXIT_NOT_OK, "interrupted", document, {}
     finally:
         held = observation = identity = None
     profile = document["profile"]
@@ -550,17 +686,12 @@ def _parser():
             item.add_argument("--confirm", action="store_true")
         if name == "n1":
             item.add_argument("--binary", required=True)
-            item.add_argument("--no-tunnel", action="store_true")
+            tunnel = item.add_mutually_exclusive_group(required=True)
+            tunnel.add_argument("--tunnel", dest="tunnel", action="store_true")
+            tunnel.add_argument("--no-tunnel", dest="tunnel", action="store_false")
+        if name == "bearer":
+            item.add_argument("--accept-incomplete-n1", action="store_true")
     return parser
-
-
-def _on_signal(signum, frame):
-    for name in SIGNALS:
-        signal.signal(getattr(signal, name), signal.SIG_IGN)  # cleanup runs uninterrupted
-    raise _Interrupted()
-
-
-SIGNALS = ("SIGINT", "SIGTERM", "SIGHUP")
 
 
 def main(argv=None, wiring=None):
@@ -570,6 +701,7 @@ def main(argv=None, wiring=None):
     document = {"schema": SCHEMA, "step": args.step, "status": "refused", "reason": None,
                 "attempt_consumed": False}
     printed, run, modules, code = {}, None, None, EXIT_REFUSED
+    _Signals.received = False
     saved = {name: signal.getsignal(getattr(signal, name)) for name in SIGNALS} if live else {}
     try:
         try:
@@ -585,14 +717,14 @@ def main(argv=None, wiring=None):
                 "found", "not found; defaults", "from CODING_AGENT_KIT_CONFIG") else "other"
             document["config_warnings"] = len(config.warnings)
             run = Run(open_out_dir(args.out, paths.secrets_dir, os.getuid()))
-            for name in saved:
+            for name in saved:  # the handler only records; it never raises
                 signal.signal(getattr(signal, name), _on_signal)
             code, status, extra, printed = STEPS[args.step](modules, config, paths, run, args, wiring)
             document.update(extra, status=status)
         except Refused as refusal:
             code = refusal.code
             document.update(refusal.extra, reason=refusal.reason)
-        except (_Interrupted, KeyboardInterrupt):
+        except KeyboardInterrupt:  # pending and ready keep the default SIGINT behavior
             code = EXIT_NOT_OK
             document.update(status="interrupted")
         except Exception as error:  # noqa: BLE001 - reason code or class name only, never a value
@@ -603,30 +735,33 @@ def main(argv=None, wiring=None):
             else:
                 code = EXIT_INTERNAL
                 document.update(status="internal_error", reason="internal:" + type(error).__name__)
-        for name in saved:
-            signal.signal(getattr(signal, name), signal.SIG_IGN)  # the result write is not interrupted
-        consumed = run is not None and run.attempt_created
+        consumed = run is not None and (run.attempt_created or run.alias_attempt_created)
         if consumed and code == EXIT_REFUSED:
             code = EXIT_NOT_OK  # refusals after the attempt still consume it
         document["attempt_consumed"] = consumed
         document["exit_code"] = code
+        if live:
+            document["signal_received"] = _Signals.received
         if run is not None and (consumed or not live):
             name = args.step + ".result.json"
             try:
                 if live or not _exists(run.out, name):
                     _write(run.out, name, document)
-                else:  # a pending/ready rerun never replaces the first record
-                    _write(run.out, args.step + ".rerun.json", document, exclusive=False)
+                else:  # a pending/ready rerun never replaces an earlier record
+                    _write_rerun(run.out, args.step, document)
             except (OSError, Refused):
                 document["result_file_error"] = True
+        if run is not None:
+            os.close(run.out)
+            run = None
+        document.update(printed)
+        sys.stdout.write(_dump(document))
+        sys.stdout.flush()
     finally:
         if run is not None:
             os.close(run.out)
         for name, handler in saved.items():
             signal.signal(getattr(signal, name), handler)
-    document.update(printed)
-    sys.stdout.write(_dump(document))
-    sys.stdout.flush()
     return code
 
 
