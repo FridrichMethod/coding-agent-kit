@@ -1,0 +1,69 @@
+{
+ "cases": [
+  {
+   "case": "baseline",
+   "exit": 0,
+   "leak_findings": [],
+   "outcome": "completed"
+  },
+  {
+   "case": "identity-absent",
+   "exit": 0,
+   "leak_findings": [],
+   "outcome": "completed"
+  },
+  {
+   "case": "identity-mismatch",
+   "exit": 0,
+   "leak_findings": [],
+   "outcome": "completed"
+  },
+  {
+   "case": "tls-failure",
+   "exit": 0,
+   "leak_findings": [],
+   "outcome": "completed"
+  },
+  {
+   "case": "expiring",
+   "exit": 0,
+   "leak_findings": [],
+   "outcome": "completed"
+  }
+ ],
+ "native": {
+  "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
+  "guard": "pc/network_guard.py",
+  "version": "0.167.2"
+ },
+ "suites": [
+  {
+   "exit": 0,
+   "name": "test_gate",
+   "skip_reasons": [],
+   "summary": [
+    "Ran 21 tests in 15.635s",
+    "OK"
+   ]
+  },
+  {
+   "exit": 0,
+   "name": "test_live_codex",
+   "skip_reasons": [],
+   "summary": [
+    "Ran 25 tests in 30.208s",
+    "OK"
+   ]
+  },
+  {
+   "exit": 0,
+   "name": "test_native",
+   "skip_reasons": [],
+   "summary": [
+    "Ran 5 tests in 15.762s",
+    "OK"
+   ]
+  }
+ ],
+ "temp_roots_left": 0
+}
