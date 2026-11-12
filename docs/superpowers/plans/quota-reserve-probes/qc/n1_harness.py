@@ -89,7 +89,7 @@ REFUSED_ENV = tuple(bearer_mod.STORE_SELECTORS) + (
     "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy", "NODE_EXTRA_CA_CERTS",
     "NODE_TLS_REJECT_UNAUTHORIZED", "SSL_CERT_FILE", "SSL_CERT_DIR", "CLAUDE_CODE_PROCESS_WRAPPER",
     "CLAUDE_CODE_HTTP_PROXY", "CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_UNIX_SOCKET")
-# Settings keys of native 2.1.322 (S, schema near offset 283926780). Present in
+# Settings keys of native 2.1.322 (S, schema from offset 283926804). Present in
 # any inspected document means refuse, whatever the value:
 # - the credential helpers and auth pins that native's managedSourcesBehavior
 #   description names, plus processWrapper and the XAA IdP login config;
@@ -97,11 +97,11 @@ SETTINGS_REFUSED = ("apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "gc
                     "otelHeadersHelper", "proxyAuthHelper", "processWrapper", "forceLoginGatewayUrl",
                     "gatewayInternalNetworks", "xaaIdp")
 # - executables or payloads that compute managed settings nobody inspected
-#   (native reads policyHelper from admin sources, offset about 284577561).
+#   (native reads policyHelper from admin sources, offset about 284577548).
 POLICY_HELPERS = ("policyHelper", "policyHelpers")
 # Keys that run a command or start a connection, upload, service or background
 # work. Refused unless null, false or empty. Native keeps managed hooks in safe
-# mode (S, offset about 287982373); the rest are refused rather than traced.
+# mode (S, offset about 287982339); the rest are refused rather than traced.
 SETTINGS_ACTIVE = ("hooks", "statusLine", "subagentStatusLine", "fileSuggestion", "sshConfigs", "sshHostCommands",
                    "managedMcpServers", "extraKnownMarketplaces", "additionalMarketplaces", "remoteControlAtStartup",
                    "autoUploadSessions", "daemonColdStart", "autoDreamEnabled", "forceRemoteSettingsRefresh")

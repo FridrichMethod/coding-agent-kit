@@ -113,8 +113,8 @@ and harness refuse any other spelling.
 ## 2. Same-bearer quota
 
 [usage.py](quota-reserve-probes/qc/usage.py) and the loopback
-[fake](quota-reserve-probes/qc/fake_usage.py), 21 tests (one loopback TLS
-case needs `/usr/bin/openssl` and skips without it):
+[fake](quota-reserve-probes/qc/fake_usage.py), 21 tests (two loopback TLS
+tests need `/usr/bin/openssl` and skip without it):
 
 - Production target `https://api.anthropic.com/api/oauth/usage`, verifying
   default TLS context, `Authorization: Bearer`, `anthropic-beta:
@@ -236,9 +236,12 @@ stdout, and no CONNECT outside the two fixture hosts.
 Completeness: the request lists below are the complete requests. Five cases
 (all but nonessential-off) also had exactly one incomplete request, recorded
 under `unrecorded_connections`: a second `POST /api/event_logging/v2/batch`
-to api.anthropic.com after `get_usage`, whose body exceeded the fixture's
-64 KiB body limit (ValueError while reading the body), so its response and
-bearer class were not recorded. It is telemetry, not a preconnect.
+to api.anthropic.com after `get_usage`. The fixture recorded only
+`stage=request_body` and `error=ValueError`, so its response and bearer
+class were not recorded. That the body exceeded the fixture's 64 KiB body
+budget is an inference (I): the fixture's body reader raises ValueError both
+for that budget and for an unparsable Content-Length or chunk-size line, and
+it did not keep the message. It is telemetry, not a preconnect.
 
 | Case | Requests observed (host api unless noted) |
 | --- | --- |
@@ -271,7 +274,7 @@ lock held up to the usage-GET bound during a rotation check.
 ## 5. N1 harness and human permissions
 
 [n1_harness.py](quota-reserve-probes/qc/n1_harness.py) with a fake native
-([fake_claude.py](quota-reserve-probes/qc/fake_claude.py)), 22 tests:
+([fake_claude.py](quota-reserve-probes/qc/fake_claude.py)), 25 tests:
 alias-to-path resolution without enumeration; `create_pending` (exclusive
 mkdir, 0700, `account.json` 0600, state pending, identity null, random
 enrollment id, exact `config_directory`; existing or pending refuses);
@@ -288,9 +291,10 @@ is inconclusive unless the approved procedure names one bounded 65 s wait (at
 most two queries). An optional loopback CONNECT tunnel counts host:port and
 bytes and refuses unlisted hosts. It was never run live.
 
-Policy sources (S, 2.1.322; review finding I1). Native composes several
-managed sources, so the harness inspects every file source it reads and
-refuses every source it cannot evaluate:
+Policy sources (S, 2.1.322; review findings I1 and I2). Native composes
+several managed sources, so the harness inspects every file policy source it
+reads, refuses every policy source it cannot evaluate, and refuses the
+reviewed settings keys listed after the table wherever they appear:
 
 | Source (native anchor) | Harness |
 | --- | --- |
@@ -301,20 +305,79 @@ refuses every source it cannot evaluate:
 | macOS managed preferences plist (reader absent from the Linux build: `plistStdouts` is always null there) | refused (not inspectable) |
 | Signed server-managed `<config>/remote-settings.json` and `policy-limits.json` caches (284089179, 283866174) | present refuses |
 | Server-managed fetch during the run: `api.anthropic.com/api/claude_code/settings` and `/policy_limits` (301264218) | detected afterwards by the cache file; voids the result |
-| `policyHelpers` in any document (commands that emit policy) | refused |
+| `policyHelper` in any document, whatever its value: the documented admin key, "Executable that computes managed settings at startup" (283927935); native reads it from admin, non-remote sources (`P=E?void 0:e?.policyHelper`, 284577548) | refused (`policy_helper_unevaluable`) |
+| `policyHelpers` in any document: its `@internal` per-OS variant (283928159) | refused (`policy_helper_unevaluable`) |
+| `<managed>/managed-mcp.json` (297393297); it can name programs, and its handling in safe mode was not traced | present refuses |
 
 Each document is refused on: an `env` key in the caller refusal list or in
 the families `ANTHROPIC_*`, `CLAUDE_*`, `AWS_*`, `GOOGLE_*`, `VERTEX_*`,
 `CLOUD_ML_*`, `NODE_*`, `SSL_*`, `BUN_*`, `NPM_CONFIG_*` or any name
-containing `PROXY`, `CERT` or `_CA_`; `apiKeyHelper`, `awsAuthRefresh`,
-`awsCredentialExport`, `gcpAuthRefresh`, `proxyAuthHelper` or
-`processWrapper`; a non-claude.ai `forceLoginMethod`; a `forceLoginOrgUUID`
-without the registered organization. The checks are per document and a
-refused key is refused wherever it appears, so whatever native's merge order
-and composition mode (first-wins or merge), the effective policy holds only
-accepted values (I). Project and local settings are out of scope
-because the child runs in a new empty temporary directory; native's git-root
-lookup from there was not traced (I).
+containing `PROXY`, `CERT` or `_CA_`; a non-claude.ai `forceLoginMethod`;
+a `forceLoginOrgUUID` without the registered organization; and the keys
+below. The checks are per document and a refused key is refused wherever it
+appears, so whatever native's merge order and composition mode (first-wins
+or merge), the effective policy holds only accepted values (I).
+
+Settings keys reviewed (S: every top-level key of the 2.1.322 settings
+schema, from offset 283926804, classified by its own description;
+the N1 consequence is I unless marked):
+
+- Refused whatever the value (`policy_conflicting_auth`): the credential
+  helpers that native's `managedSourcesBehavior` description names
+  (`apiKeyHelper`, `awsAuthRefresh`, `awsCredentialExport`, `gcpAuthRefresh`,
+  `otelHeadersHelper`, `proxyAuthHelper`; safe mode still honors a managed
+  `otelHeadersHelper`, 286957995), `processWrapper`, the gateway auth pins
+  `forceLoginGatewayUrl` and `gatewayInternalNetworks`, and the XAA login
+  config `xaaIdp`.
+- Refused unless null, false or empty (`policy_command_unevaluable`): keys
+  that run a command or start a connection, upload, service or background
+  work. `hooks` is traced: safe mode keeps the managed hooks
+  (287982339). `forceRemoteSettingsRefresh` blocks startup until a
+  server-managed fetch completes and exits if it fails (283975225). The
+  others are refused rather than traced under print and safe mode:
+  `statusLine`, `subagentStatusLine`, `fileSuggestion`, `sshConfigs`,
+  `sshHostCommands`, `managedMcpServers`, `extraKnownMarketplaces`,
+  `additionalMarketplaces`, `remoteControlAtStartup`, `autoUploadSessions`,
+  `daemonColdStart` and `autoDreamEnabled`.
+- Accepted, because they cannot change N1's auth, transport or traffic:
+  - `allowedProviders` only narrows: native says it "cannot be widened" (S).
+    Under a list, a first-party destination is honored only when the same
+    managed source pins it in `env`, which N1 refuses. A list without
+    `anthropic` makes native refuse at startup, and N1 then fails.
+  - `requiredMinimumVersion` and `requiredMaximumVersion` make native exit,
+    and N1 then fails.
+  - `enabledPlugins`, `prependPlugins`, `appendPlugins` and user MCP
+    servers: safe mode disables installed plugins and MCP servers (S,
+    287985081 and the `--safe-mode` help at 304556349).
+  - `syncClaudeAiSkills`, `syncClaudeAiPlugins` and the `disable*` and
+    `allowManaged*` keys only turn features off or restrict them (S).
+  - Model-selection, permission, sandbox, attribution, memory, teammate and
+    other tool-scope keys apply only to model requests or tool use, and N1
+    makes neither.
+  - `autoUpdatesChannel` and `minimumVersion` only select the update
+    channel; the fixture runs made no update request (N, section 4).
+  - Notification keys (`inputNeededNotifEnabled`, `agentPushNotifEnabled`)
+    fire only on prompts, questions or agent messages, which N1 never
+    produces. Local-retention keys (`cleanupPeriodDays`) touch only local
+    transcripts.
+  - `parentSettingsBehavior` and `managedSourcesBehavior` only change
+    composition, which per-document refusal makes irrelevant.
+    `wslInheritsWindowsSettings` applies only on WSL, which is refused.
+  - Display, terminal-UI and Desktop-only keys.
+
+The key review is a denylist for 2.1.322. A key that a later native version
+adds is not refused until it is reviewed, so the N1 permission names that
+version, and the result records the binary's SHA-256.
+
+Project and local settings: the child runs in a new empty 0700 workspace.
+By default the workspace is under `XDG_RUNTIME_DIR` when that is a private
+directory of the user, otherwise under the system temporary directory.
+run_n1 refuses before spawning native (`workspace_ancestor_project`) if
+any ancestor of the workspace holds `.git` or `.claude`. Native's upward
+project-root lookup was not traced (I), and the check covers it either way.
+Residual: under the system-temporary fallback, another local user could
+create such an entry in the shared ancestor after the check (a race, U).
+The N1 draft therefore names a private `XDG_RUNTIME_DIR`.
 
 Limits, stated in the N1 draft below:
 
@@ -330,6 +393,13 @@ Limits, stated in the N1 draft below:
   `HTTPS_PROXY`. Direct egress is neither counted nor blocked live; the
   fixture guard showed none for 2.1.322 (section 4), which is not a live
   guarantee.
+- Server-side feature defaults for a real account, for example whether
+  background memory consolidation (auto-dream) runs, were not observed. The
+  fixture runs saw zero model attempts under the fixture's
+  feature-evaluation replies (N), which does not prove the same for a real
+  account (U). A model event on stdout fails the run, but background
+  traffic is visible only to the tunnel, as above.
+- The settings-key review applies to 2.1.322 only (see above).
 
 Draft for the coordinator to present (placeholders, not authorization):
 
@@ -356,11 +426,23 @@ HLogin permission (one named alias)
     if it does, N1 refuses for this alias until that policy can be evaluated.
 
 N1 permission (same alias, no login)
-  Pre-run refusals: run_n1 refuses before spawning native on Linux only; it refuses
-    on macOS and WSL (OS policy sources not inspectable), when a server-managed
-    policy cache exists, and when any inspected policy document (user settings,
-    managed-settings.json, managed-settings.d/*.json) carries a refused env family,
-    auth or proxy helper, policyHelpers, or an incompatible forceLogin selector.
+  Native version: 2.1.322 only (the policy key review is version-specific); the
+    result records the binary's SHA-256.
+  Pre-run refusals: run_n1 runs on Linux only and refuses before spawning native:
+    on macOS and WSL (OS policy sources not inspectable); when a server-managed
+    policy cache or a managed-mcp.json exists; when any inspected policy document
+    (user settings, managed-settings.json, managed-settings.d/*.json) carries a
+    refused env family, a credential helper (apiKeyHelper, awsAuthRefresh,
+    awsCredentialExport, gcpAuthRefresh, otelHeadersHelper, proxyAuthHelper),
+    processWrapper, a gateway or XAA login pin, policyHelper or policyHelpers (any
+    value), a non-empty key that runs a command or starts a connection, upload,
+    service or background work (hooks, statusLine, managedMcpServers,
+    forceRemoteSettingsRefresh and the others listed in section 5), or an
+    incompatible forceLogin selector; and when an ancestor of the native workspace
+    holds .git or .claude.
+  Workspace: a fresh 0700 directory under the user's private XDG_RUNTIME_DIR,
+    removed afterwards. Precondition: XDG_RUNTIME_DIR is set and private; otherwise
+    run_n1 falls back to the shared system temporary directory (section 5).
   N1-native: run_n1 on the registered directory; claude -p --input-format stream-json
     --output-format stream-json --verbose --safe-mode --no-session-persistence;
     initialize, then get_usage(skip_behaviors=true); no user message. 120 s total,
@@ -375,7 +457,12 @@ N1 permission (same alias, no login)
     Possible auth/network effect: for a Team/Enterprise organization native may fetch
     server-managed policy (api.anthropic.com /api/claude_code/settings, /policy_limits)
     and apply it during the run; the harness detects its cache only afterwards and then
-    reports server_policy_fetched with no quota result.
+    reports server_policy_fetched and keeps no replies, windows or cache fields. A
+    managed forceRemoteSettingsRefresh, which would force that fetch and block
+    startup on it (native exits if the fetch fails), is refused before the run.
+    Unobserved: server-side feature defaults for a real account (for example
+    background memory consolidation) may start traffic the fixture runs did not show;
+    a model event on stdout fails the run, other traffic is seen only by the tunnel.
     Retained: sanitized result JSON (classification, booleans, normalized windows,
     cache advance, byte and connection counts). No token, raw record or raw body.
   N1-bearer (only if G0 selects option 2 or 3; credential read NOT yet approved):
@@ -396,14 +483,18 @@ N1 permission (same alias, no login)
   traffic in all cases.
 - **S:** store path/selector rules, record schema, write pattern and locks,
   Keychain service/account naming and read call, usage row names, profile
-  endpoint use at login/refresh.
+  endpoint use at login/refresh; the 2.1.322 settings-key classification and
+  the `policyHelper`, managed-hooks and `otelHeadersHelper` read sites.
 - **Fixture-proved:** reader refusal matrix and minimization; exact-bearer
   usage client bounds (including resolution and pre-send deadline) and
   normalization; every required admission sequence and the unproved-row
   refusal; harness registration, selector refusal, policy-source coverage
-  (drop-in order, server-managed caches, uninspectable OS sources), bounds,
-  fd closing, group reaping, protocol shape refusal, sanitization and traffic
-  accounting.
+  (drop-in order, server-managed caches, managed-mcp.json, uninspectable OS
+  sources), refusal of every reviewed 2.1.322 helper, auth, transport and
+  active settings key in any document (`policyHelper` and
+  `otelHeadersHelper` included), the workspace ancestor check, no quota data
+  in a voided result, bounds, fd closing, group reaping, protocol shape
+  refusal, sanitization and traffic accounting.
 - **I:** same-bearer usage is fresh and credential-attributable; `/usr/bin/
   security` avoids an ACL prompt; retaining same-identity streams is safe.
 - **U:** live usage/profile availability for a full-login bearer; server
@@ -411,6 +502,8 @@ N1 permission (same alias, no login)
   model scoping and the semantics of every other unproved row; macOS
   Keychain behavior, ACL and fallback; macOS managed preferences and the WSL
   registry as policy sources; server-managed policy eligibility and content;
+  settings keys of other native versions; native's project-root lookup;
+  server-side feature defaults for background work on a real account;
   real refresh cadence and concurrent native refresh; proxy-required
   networks; measured poll/age/budget values.
 
@@ -423,7 +516,9 @@ Remaining gates (not closed by this node):
 - K: independent stream-closing timer at lease deadline and on monitor
   loss; refresh egress to platform.claude.com; lock-held fetch bound.
 - N1/HLogin: Linux only; accounts with server-managed policy refused until
-  signed server-managed policy can be evaluated; setsid escape and
+  signed server-managed policy can be evaluated; the settings-key denylist
+  re-reviewed for any native version other than 2.1.322; a private
+  `XDG_RUNTIME_DIR` for the workspace; setsid escape and
   proxy-only tunnel accounting accepted as stated limits or closed by an
   outer boundary.
 
@@ -454,7 +549,7 @@ cd "$Q" && python3 -I -B ../pc/network_guard.py python3 -I -B native_observe.py 
 pre-commit run --all-files
 ```
 
-Recorded results: 18, 21, 23, 22 and 2 tests OK; the checker passes; the
+Recorded results: 18, 21, 23, 25 and 2 tests OK; the checker passes; the
 retained native run (run-5) exited 0 under the guard, which again denied
 only its four self-check syscalls. Earlier runs also exited 0: run-1 lacked
 the base-URL case, run-2 the key redaction, run-3 measured exit and model
@@ -474,3 +569,13 @@ archive before removing the worktree.
 | M3 monitor costs | Documented as G0/K inputs (section 3, K paragraph, remaining gates) |
 | M4 evidence fields | Code and rerun: measured `exit_status`, counted `model_events`, `unrecorded_connections` disclosed (section 4) |
 | M5 harness limits | `protocol_malformed` for non-object replies (tests); setsid and tunnel limits stated in section 5 and the N1 draft |
+
+## Review round 2 changes
+
+| Finding | Resolution |
+| --- | --- |
+| I2 `policyHelper`, `otelHeadersHelper` | Code and tests: `policyHelper` (any value, `{"path": null}` included) refuses with `policyHelpers` as `policy_helper_unevaluable`; `otelHeadersHelper`, the gateway auth pins and `xaaIdp` refuse as `policy_conflicting_auth`; the whole 2.1.322 settings schema was reviewed, keys that run a command or start a connection, upload, service or background work refuse (`forceRemoteSettingsRefresh` included), and a managed-mcp.json refuses. The reviewer's reproduction is a test. Section 5 table and key review, N1 draft and section 6 corrected |
+| M6 voided result | Code and test: a `server_policy_fetched` result keeps no `replies` or `cache` field and no window data |
+| M7 inference label | Section 4 labels the body-size cause I; section 2 says two TLS tests |
+| M8 workspace | Code and tests: default parent is a private `XDG_RUNTIME_DIR`; any workspace ancestor with `.git` or `.claude` refuses before spawn; fallback race and `forceRemoteSettingsRefresh` (now refused) in section 5 and the N1 draft |
+| M9 carried limits | Kept in sections 3 to 6 and in the K and N1 remaining gates |
