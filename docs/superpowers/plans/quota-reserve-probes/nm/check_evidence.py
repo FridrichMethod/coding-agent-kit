@@ -1,0 +1,436 @@
+"""Check the sanitized NM evidence files; raises AssertionError on a mismatch.
+
+python3 -I -B check_evidence.py [--dir DIR] [STAGE...]   (default: every stage)
+A missing stage file is reported as missing and fails, never as a pass.
+--dir checks a repeat run (run.py --rerun) instead of the committed files.
+"""
+import json
+from pathlib import Path
+import re
+import sys
+
+HERE = Path(__file__).resolve().parent
+DENIED = 'error:PermissionError:1'
+PY_CASES = ('root_python', 'shell_child_python', 'env_i_absolute_python', 'detached_setsid_python')
+SENSITIVE = ('/Users/', '/home/')
+# Host interface addresses must be redacted (<host-ipv4>); loopback is fine.
+HOST_ADDRESS = re.compile(r'(?<![0-9.])(?:10|192\.168|172\.(?:1[6-9]|2[0-9]|3[01])|169\.254|100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7]))'
+                          r'(?:\.[0-9]{1,3}){2}(?![0-9.])')
+
+
+def _common(data):
+    assert data.get('completed') is True, 'stage did not complete: %s' % data.get('error')
+    assert data.get('leftover_processes_after') == [], 'leftover processes after cleanup'
+    text = json.dumps(data)
+    for needle in SENSITIVE:
+        assert needle not in text, 'unsanitized path prefix %s' % needle
+    assert not re.search(r'quota-nm-[A-Za-z0-9]{6}(?![A-Za-z0-9])', text), 'unsanitized remote root name'
+    assert not HOST_ADDRESS.search(text), 'unredacted host interface address'
+
+
+def _denies(log, operation, target=None, process=None):
+    return any(r['action'] == 'deny' and r['operation'] == operation
+               and (target is None or r['target'] == target)
+               and (process is None or r['process'] == process) for r in log['summary'])
+
+
+def _boundary_block(kind, block, private_allowed=True):
+    cases = block['sandboxed']
+    for name in PY_CASES:
+        result = cases[name]['detached_result'] if name.startswith('detached') else cases[name]['parsed']
+        assert result, '%s/%s produced no result' % (kind, name)
+        got = result['results']
+        for key in ('gate_tcp4', 'gate_tcp6', 'gate_mapped6'):
+            assert got[key] == 'connected', (kind, name, key, got[key])
+        assert got['private_unix_self'] == ('connected' if private_allowed else DENIED), (kind, name, got)
+        for key in ('alt_tcp4', 'alt_tcp6', 'alt_mapped6', 'alt_udp4', 'alt_udp6', 'outside_unix'):
+            assert got[key] == DENIED, (kind, name, key, got[key])
+    detached = cases['detached_setsid_python']['detached_result']
+    assert detached['reparented_to_launchd'] and detached['sid'] != cases['root_python']['parsed']['sid']
+    node = cases['env_i_absolute_node']['parsed']['results']
+    assert node['gate_tcp4'] == node['gate_tcp6'] == 'connected' and node['gate_fetch'] == 'status:200'
+    assert all(node[k] == 'error:EPERM' for k in ('alt_tcp4', 'alt_tcp6', 'alt_udp4', 'alt_fetch')), node
+    assert cases['curl_alt4']['code'] == cases['curl_alt6']['code'] == 7
+    assert cases['nc_alt4']['code'] != 0 and cases['nc_gate4']['code'] == 0
+    assert block['listener_hits_from_sandboxed'] == {'alt': 0, 'udp': 0, 'unix': 0}, kind
+    control = block['outside_control']['parsed']['results']
+    assert all(v in ('connected', 'sent') for v in control.values()), control
+    assert all(n > 0 for n in block['listener_hits_from_control'].values())
+    assert _denies(block['log'], 'network-outbound'), 'no tagged network denial logged'
+
+
+def check_boundary(data):
+    _common(data)
+    assert set(data['cases']) == {'census', 'enforced'}
+    for kind, block in data['cases'].items():
+        _boundary_block(kind, block)
+
+
+def check_ipc(data):
+    _common(data)
+    cases, log = data['cases'], data['log']
+    inside = cases['mach_lookup_sandboxed']['parsed']['results']
+    outside = cases['mach_lookup_control']['parsed']['results']
+    assert all(v == 'found' for v in outside.values()), outside
+    for name, value in inside.items():
+        expect = 'found' if name == 'com.apple.system.opendirectoryd.libinfo' else 'kern_return:1100'
+        assert value == expect, (name, value)
+    assert _denies(log, 'job-creation', process='launchctl')
+    assert cases['launchctl_submit_sandboxed']['code'] != 0
+    cleanup = cases['launchctl_cleanup']
+    assert cleanup['label_listed_code'] != 0 and not cleanup['marker_written']
+    assert cases['open_url_sandboxed']['code'] != 0
+    assert '-10814' in cases['open_url_control']['stderr'], 'control did not reach LaunchServices'
+    assert _denies(log, 'mach-lookup', 'com.apple.lsd.mapdb', 'open') or \
+        _denies(log, 'mach-lookup', 'com.apple.coreservices.launchservicesd', 'open')
+    assert cases['anchor_write_sandboxed']['code'] != 0 and not cases['anchor_write_sandboxed']['file_exists']
+    assert cases['workspace_write_sandboxed']['file_exists']
+    dns = cases['dns_sandboxed']['parsed']['results']
+    assert dns['localhost'].startswith('resolved') and dns['invalid_name'].startswith('error')
+    assert _denies(log, 'network-outbound', '/private/var/run/mDNSResponder')
+    nested = cases['nested_sandbox_exec']
+    assert nested['code'] == 71 and 'sandbox_apply: Operation not permitted' in nested['stderr']
+    assert cases['setuid_ps_sandboxed']['code'] == 71 and 'Operation not permitted' in cases['setuid_ps_sandboxed']['stderr']
+    assert 'rc=126' in cases['setuid_ps_shell_child']['stdout'] and cases['setuid_ps_control']['code'] == 0
+    assert all(int(mode, 8) & 0o4000 for mode in cases['setuid_modes'].values())
+    assert cases['signal0_outside_sandboxed']['code'] == 0, 'default profile no longer allows outside signals'
+    assert cases['signal0_outside_hardened']['code'] != 0
+    assert 'rc=143' in cases['signal_same_sandbox_hardened']['stdout']
+    unix = cases['outside_daemon_unix']['parsed']['results']
+    assert unix['outside_unix'] == DENIED and unix['outside_unix_self'] == DENIED
+    assert unix['private_unix_self'] == 'connected' and cases['outside_daemon_hits'] == 0
+
+
+def check_fds(data):
+    _common(data)
+    cases = data['cases']
+    assert set(cases['inherited']['parsed']['results'].values()) == {'written'}
+    assert set(cases['closed_before_confinement']['parsed']['results'].values()) == {'error:OSError:9'}
+    hits = cases['listener_hits']
+    for key in ('alt_connections', 'udp_datagrams', 'unix_connections'):
+        assert 'NM-INHERITED-WRITE\n' in hits[key], key
+
+
+def check_keychain(data):
+    _common(data)
+    cases = data['cases']
+    found = 'The specified item could not be found in the keychain.'
+    invalid = 'One or more parameters passed to a function were not valid.'
+    for name in ('control_outside', 'store_allowed', 'store_denied'):
+        assert cases[name]['code'] == 44, name
+    assert found in cases['store_allowed']['stderr'] and invalid not in cases['store_allowed']['stderr']
+    assert invalid in cases['store_denied']['stderr']
+    assert not _denies(data['log_store_allowed'], 'mach-lookup', 'com.apple.SecurityServer')
+    assert _denies(data['log_store_denied'], 'mach-lookup', 'com.apple.SecurityServer', 'security')
+    names = data['claude_names_for_probe_config']
+    assert names['device_keys_fixed'] == 'Claude Code-device-keys'
+    assert names['credentials'].startswith('Claude Code-credentials-') and len(names['credentials']) == 32
+
+
+def _tool_confined(case):
+    outputs = case['tool_outputs']
+    for name in ('tool.json', 'envi.json', 'detached.json'):
+        got = outputs[name]['results']
+        assert got['gate_tcp4'] == 'connected', (name, got)
+        for key in ('alt_tcp4', 'alt_tcp6', 'alt_udp4', 'outside_unix'):
+            assert got[key] == DENIED, (name, key, got[key])
+        assert got['launchservices'] == 'kern_return:1100', (name, got)
+    assert outputs['detached.json']['reparented_to_launchd'] is True
+    assert outputs['curl.txt'].strip().endswith('000')
+    assert case['outside_listener_hits'] == {'alt_tcp': 0, 'alt_udp': 0, 'unix': 0}
+
+
+def _native_ok(case, native):
+    assert not case.get('error'), case.get('error')
+    for key in ('tool_call_sent', 'tool_done', 'tool_result_returned', 'second_turn_reached_gate',
+                'termios_changed_while_running', 'native_alive_before_exit', 'termios_restored',
+                'terminal_has_reply'):
+        assert case[key] is True, (native, key, case[key])
+    assert case['exit_code'] == 0 and case['transcript_files_with_marker']
+    model = [e for e in case['gate_events'] if e['event'] == native + '_model']
+    assert model and all(e['bearer_matches'] for e in model), 'model request without the fixture bearer'
+    _tool_confined(case)
+
+
+def check_natives(data):
+    _common(data)
+    cases = data['cases']
+    for name in ('claude', 'codex'):
+        assert len(data['binaries'][name]['sha256']) == 64
+    for key in ('claude-census-oauth-file', 'claude-enforced-oauth-file'):
+        _native_ok(cases[key], 'claude')
+        names = {a[-1] for a in cases[key]['security_shim_argv']
+                 if a[:5] == ['find-generic-password', '-a', 'nmfixture', '-w', '-s']}
+        assert any(re.match(r'^Claude Code-credentials-[0-9a-f]{8}$', n) for n in names), names
+    for key in ('codex-census-plain', 'codex-enforced-plain'):
+        _native_ok(cases[key], 'codex')
+    daemon = cases['codex-enforced-daemon']
+    assert 'failed to invoke ps for pid-managed app server: Operation not permitted' in daemon['terminal_tail']
+    assert not any(e['event'] == 'codex_model' for e in daemon['gate_events'])
+    census = {r['target'] for k in ('claude-census-oauth-file', 'codex-census-plain')
+              for r in cases[k]['log']['summary'] if r['action'] == 'allow'}
+    assert census and not census & {'com.apple.SecurityServer', 'com.apple.coreservices.launchservicesd'}
+
+
+def check_natives_extra(data):
+    _common(data)
+    cases = data['cases']
+    _native_ok(cases['claude-enforced-setup-token'], 'claude')
+    real = cases['claude-enforced-real-security']
+    _native_ok(real, 'claude')
+    assert 'security_shim_argv' not in real
+    assert _denies(real['log'], 'mach-lookup', 'com.apple.SecurityServer', 'security')
+
+
+def check_compat(data):
+    _common(data)
+    cases = data['cases']
+    assert cases['git_clone_local_path']['code'] == 0
+    assert cases['git_clone_http_fixture']['code'] == 128 and 'Failed to connect' in cases['git_clone_http_fixture']['stderr']
+    assert cases['ssh_fixture_port']['code'] == 255 and 'Operation not permitted' in cases['ssh_fixture_port']['stderr']
+    for key in ('curl_fixture', 'localhost_name_curl'):
+        assert cases[key]['code'] == 7, key
+    assert cases['pip_download_fixture']['code'] != 0
+    assert cases['npm_view_fixture'].get('skipped') or cases['npm_view_fixture']['code'] != 0
+    assert cases['alt_hits_from_sandboxed'] == 0
+    assert cases['control_curl_outside']['code'] == 0 and cases['alt_hits_total'] == 1
+
+
+def _outputs(case):
+    return [e.get('tool_output') or '' for e in case['gate_events']]
+
+
+def check_nested(data):
+    _common(data)
+    claude, codex = data['cases']['claude-enforced-native-sandbox'], data['cases']['codex-enforced-native-sandbox']
+    for case, native in ((claude, 'claude'), (codex, 'codex')):
+        assert not case.get('error') and case['exit_code'] == 0 and case['termios_restored'] is True
+        assert case['tool_call_sent'] and case['tool_result_returned'] and not case['tool_done'], native
+        assert case['second_turn_reached_gate'] and case['outside_listener_hits'] == {'alt_tcp': 0, 'alt_udp': 0, 'unix': 0}
+    assert any('Sandbox is enabled but failed to initialize: EPERM' in o and 'Sandboxing is disabled for the rest'
+               in o for o in _outputs(claude)), 'Claude nested sandbox outcome changed'
+    assert _denies(claude['log'], 'network-bind', process='2.1.322')
+    assert any('sandbox-exec: sandbox_apply: Operation not permitted' in o and 'exited with code 71' in o
+               for o in _outputs(codex)), 'Codex nested seatbelt outcome changed'
+
+
+def check_refresh(data):
+    _common(data)
+    cases = data['cases']
+    for case in cases.values():
+        assert not case.get('error') and case['exit_code'] == 0 and case['termios_restored'] is True
+        assert case['outside_listener_hits'] == {'alt_tcp': 0, 'alt_udp': 0, 'unix': 0}
+    direct = cases['claude-enforced-refresh-direct']
+    assert not any(e['event'] == 'connect_refused' for e in direct['gate_events'])
+    assert _denies(direct['log'], 'network-outbound', '/private/var/run/mDNSResponder', '2.1.322')
+    proxy = {e['path'] for e in cases['claude-enforced-refresh-proxy']['gate_events'] if e['event'] == 'connect_refused'}
+    assert {'platform.claude.com:443', 'api.anthropic.com:443'} <= proxy, proxy
+    codex = cases['codex-enforced-refresh-override']['gate_events']
+    assert sum(e['event'] == 'post_refused' and e['path'] == '/oauth/token' for e in codex) >= 1
+    assert any(e['event'] == 'codex_model' and e['bearer_matches'] for e in codex), 'expired bearer still used'
+
+
+def check_tty(data):
+    _common(data)
+    cases = data['cases']
+    for name in ('control', 'enforced'):  # the unconfined session leader reads the injected line
+        case = cases[name]
+        assert case['child']['tiocsti_sent'] == 9 and case['child']['tcsetattr'] == 'ok', name
+        assert case['shell']['read_after_child'] == 'NMINJECT\n', name
+    for name in ('enforced_deny_tiocsti_symbolic', 'enforced_deny_tiocsti_numeric'):
+        case = cases[name]
+        assert case['child']['tiocsti_error'] == DENIED and case['child']['tiocsti_sent'] == 0, name
+        assert case['child']['tcsetattr'] == 'ok' and case['shell']['read_after_child'] == '', name
+    assert _denies(data['log'], 'file-ioctl', process='Python')
+
+
+def check_hardened(data):
+    _common(data)
+    cases = data['cases']
+    for native in ('claude', 'codex'):
+        for kind, signal_rc in (('enforced', 'rc=0'), ('hardened', 'rc=1')):
+            case = cases['%s-%s-tty-probe' % (native, kind)]
+            _native_ok(case, native)
+            outputs = case['tool_outputs']
+            assert outputs['tty.json'] == {'tiocsti': 'error:OSError:6'}, (native, kind, outputs['tty.json'])
+            assert outputs['signal.txt'].strip() == signal_rc, (native, kind, outputs['signal.txt'])
+            assert not any(e.get('injected') for e in case['gate_events'])
+            assert case['outside_sleeper_alive_after'] is True
+    hardened = [text for key, text in data['profiles'].items() if key.startswith('hardened:')]
+    assert len(hardened) == 2 and all('(allow signal (target same-sandbox))' in text
+                                      and '(deny file-ioctl (ioctl-command TIOCSTI)' in text for text in hardened)
+
+
+def check_dgram(data):
+    _common(data)
+    cases = data['cases']
+    for name, udp in (('enforced_remote_ip', 'sent'), ('enforced_remote_tcp', DENIED)):
+        got, hits = cases[name]['parsed']['results'], cases[name]['hits']
+        assert got['gate_tcp4'] == got['gate_tcp6'] == 'connected' and hits['gate_tcp'] == 2, name
+        assert got['gate_port_udp4'] == got['gate_port_udp6'] == udp, (name, got)
+        assert hits['gate_port_udp'] == (2 if udp == 'sent' else 0), (name, hits)
+        assert got['outside_unix_dgram'] == DENIED and hits['outside_unix_dgram'] == 0, name
+        assert got['private_unix_dgram_self'] == 'received', name
+    control = cases['outside_control']
+    assert control['parsed']['results']['outside_unix_dgram'] == 'sent' and control['hits']['outside_unix_dgram'] == 1
+    assert _denies(cases['enforced_remote_tcp']['log'], 'network-outbound')
+
+
+def check_recommended(data):
+    _common(data)
+    for native in ('claude', 'codex'):
+        case = data['cases'][native + '-recommended-tty-probe']
+        _native_ok(case, native)
+        assert case['tool_outputs']['signal.txt'].strip() == 'rc=1'
+        assert case['tool_outputs']['tty.json'] == {'tiocsti': 'error:OSError:6'}
+    profiles = list(data['profiles'].values())
+    assert len(profiles) == 2
+    for text in profiles:
+        assert '(remote tcp "localhost:' in text and '(remote ip ' not in text
+        assert 'trustd' not in text and '(ioctl-command TIOCSTI)' in text and '(target same-sandbox)' in text
+
+
+REFUSED = 'error:ConnectionRefusedError:61'
+
+
+def _m1_profile(text):
+    """The exact M1 shape: TCP-only gate rule, no Unix-socket allowance, no trustd."""
+    assert '(allow network-outbound (remote tcp "localhost:' in text and '(remote ip ' not in text
+    assert 'unix-socket' not in text and 'trustd' not in text
+    assert '(ioctl-command TIOCSTI)' in text and '(allow signal (target same-sandbox))' in text
+
+
+def check_m1(data):
+    _common(data)
+    assert set(data['cases']) == {'m1', 'review'}
+    _boundary_block('m1', data['cases']['m1'], private_allowed=False)
+    m1 = [text for key, text in data['profiles'].items() if key.startswith('m1:')]
+    assert len(m1) == 2, 'expected the boundary and review M1 profiles'
+    for text in m1:
+        _m1_profile(text)
+    review = data['cases']['review']
+    ext, ctl = review['extent_m1']['parsed']['results'], review['extent_control']['parsed']['results']
+    # The localhost filter admits loopback and wildcard destinations on the gate port only.
+    for key in ('gate_loopback4', 'gate_loopback6', 'gate_any4', 'gate_any6'):
+        assert ext[key] == 'connected' and ctl[key] == 'connected', (key, ext[key])
+    assert review['extent_m1']['hits']['gate'] == 4 and review['extent_m1']['hits']['alt'] == 0
+    assert ext['gate_loopback4_other'] == DENIED and ext['gate_udp4'] == DENIED and ctl['gate_udp4'] == 'sent'
+    # Admitted versus denied shows in the errno: refused by the stack, or EPERM by the profile.
+    assert ext['alt_linklocal_lo0'] == DENIED and ext['gate_linklocal_lo0'] not in (DENIED, 'connected')
+    if data['host_ipv4_found']:
+        assert ext['gate_host_ipv4'] == REFUSED and ext['alt_host_ipv4'] == DENIED, ext
+        assert ctl['gate_host_ipv4'] == ctl['alt_host_ipv4'] == REFUSED, ctl
+    for name in ('alias_recommended', 'alias_m1'):
+        got = review[name]['parsed']['results']
+        assert not any(v == 'connected' for v in got.values()) and review[name]['hits']['unix'] == 0, (name, got)
+        assert got['symlink_in_private'] == DENIED and got['direct_outside'] == DENIED, (name, got)
+    assert review['alias_control']['hits']['unix'] == 3
+    assert set(review['alias_control']['parsed']['results'].values()) == {'connected'}
+    assert set(review['icmp_m1']['parsed']['results'].values()) == {DENIED}
+    assert set(review['icmp_control']['parsed']['results'].values()) == {'reply'}
+    launchd = review['launchd_m1']
+    for verb in ('bootstrap', 'load'):
+        case = launchd[verb]
+        assert case['label_printed_code'] != 0 and case['label_printed_after_cleanup_code'] != 0, verb
+        assert not case['marker_written'] and 'failed: 5' in case['stderr'], verb
+    assert launchd['bootstrap']['code'] != 0
+    assert _denies(data['log_m1_review'], 'job-creation', process='launchctl')
+    assert launchd['kickstart_absent_sandboxed']['code'] == launchd['kickstart_absent_control']['code'] == 113
+    asuser = launchd['asuser_sandboxed']
+    assert asuser['code'] != 0 and 'Operation not permitted' in asuser['stderr'] and asuser['parsed'] is None
+    # Root loading as rustls-native-certs does it: the system roots disappear under M1.
+    trust_m1, trust_ctl = review['trust_m1']['parsed']['results'], review['trust_control']['parsed']['results']
+    assert trust_ctl['trust_system'].startswith('status:0:count:') and int(trust_ctl['trust_system'].split(':')[-1]) > 50
+    assert trust_m1['trust_system'].endswith(':count:0') and not trust_m1['trust_system'].startswith('status:0:')
+    assert _denies(data['log_m1_review'], 'mach-lookup', 'com.apple.trustd.agent', 'Python')
+    for name in ('job_control_m1', 'job_control_control'):
+        case = review[name]
+        assert case['shell'] == {'stopped_by_tty': True, 'stop_signal': 18, 'exited': True, 'exit_code': 0}, name
+        child = case['child']
+        assert child['inner'] == {'stop': 'ok', 'stopped': True, 'cont': 'ok', 'term': 'ok'}, name
+        assert child['inner_returncode'] == -15 and child['own_group_cont'] == 'ok', name
+
+
+def check_m1_natives(data):
+    _common(data)
+    assert set(data['cases']) == {'claude-m1-tty-probe', 'codex-m1-tty-probe'}
+    for native in ('claude', 'codex'):
+        case = data['cases'][native + '-m1-tty-probe']
+        _native_ok(case, native)
+        assert case['tool_outputs']['signal.txt'].strip() == 'rc=1'
+        assert case['tool_outputs']['tty.json'] == {'tiocsti': 'error:OSError:6'}
+        assert not any(e.get('injected') for e in case['gate_events'])
+        assert case['outside_sleeper_alive_after'] is True
+    profiles = list(data['profiles'].values())
+    assert len(profiles) == 2
+    for text in profiles:
+        _m1_profile(text)
+
+
+TRUST = ('com.apple.trustd', 'com.apple.trustd.agent')
+
+
+def _lookups(case, process, action=None):
+    return {r['target'] for r in case['log']['summary'] if r['operation'] == 'mach-lookup'
+            and r['process'] == process and (action is None or r['action'] == action)}
+
+
+def check_tls(data):
+    _common(data)
+    assert data['tls_fixture']['host'] == 'nm-tls.test'
+    assert data['tls_fixture']['leaf'] == ['subject= /CN=nm-tls.test', 'issuer= /CN=NM Fabricated Test CA']
+    cases = data['cases']
+    for native in ('claude', 'codex'):
+        for kind in ('census', 'm1'):
+            case = cases['%s-%s-tls-tunnel' % (native, kind)]
+            _native_ok(case, native)  # model requests reach the TLS fixture with the fixture bearer
+            assert case['tls_handshake_errors'] == [], (native, kind)
+            events = case['exit_gate_events']
+            tunneled = [e['path'] for e in events if e['event'] == 'connect_tunneled']
+            assert tunneled and set(tunneled) == {'nm-tls.test:443'}, (native, kind, tunneled)
+            assert not any(e['event'].endswith('_model') for e in events), 'plaintext model request at the exit'
+            assert {e['event'] for e in events} <= {'connect_tunneled', 'connect_refused'}
+    claude, codex = 'claude-%s-tls-tunnel', 'codex-%s-tls-tunnel'
+    # Claude's TLS never looked up trustd (bundled roots plus NODE_EXTRA_CA_CERTS).
+    for kind in ('census', 'm1'):
+        assert not _lookups(cases[claude % kind], '2.1.322') & set(TRUST), kind
+    # Codex looked trustd up (admitted in the census, denied under M1) and still verified the fixture CA.
+    assert 'com.apple.trustd.agent' in _lookups(cases[codex % 'census'], 'codex', 'allow')
+    assert 'com.apple.trustd.agent' in _lookups(cases[codex % 'm1'], 'codex', 'deny')
+    m1 = [text for key, text in data['profiles'].items() if key.startswith('m1:')]
+    assert len(m1) == 2
+    for text in m1:
+        _m1_profile(text)
+
+
+CHECKS = {'boundary': check_boundary, 'ipc': check_ipc, 'fds': check_fds, 'keychain': check_keychain,
+          'natives': check_natives, 'natives-extra': check_natives_extra, 'compat': check_compat,
+          'nested': check_nested, 'refresh': check_refresh, 'tty': check_tty, 'hardened': check_hardened,
+          'dgram': check_dgram, 'recommended': check_recommended, 'm1': check_m1,
+          'm1-natives': check_m1_natives, 'tls': check_tls}
+
+
+def check_stage(stage, data):
+    CHECKS[stage](data)
+
+
+def main(args):
+    directory = HERE / 'evidence'
+    if args[:1] == ['--dir']:
+        directory, args = Path(args[1]), args[2:]
+    missing = []
+    for stage in args or sorted(CHECKS):
+        path = directory / (stage + '.json')
+        if not path.exists():
+            missing.append(stage)
+            continue
+        check_stage(stage, json.loads(path.read_text()))
+        print('ok', stage)
+    if missing:
+        print('missing (not a pass):', ' '.join(missing))
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

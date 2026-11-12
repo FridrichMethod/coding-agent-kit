@@ -1,0 +1,106 @@
+{
+  "cases": {
+    "alt_hits_from_sandboxed": 0,
+    "alt_hits_total": 1,
+    "control_curl_outside": {
+      "code": 0,
+      "seconds": 0.01,
+      "stderr": "",
+      "stdout": "ok",
+      "timed_out": false
+    },
+    "curl_fixture": {
+      "code": 7,
+      "seconds": 0.01,
+      "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 54323 after 0 ms: Couldn't connect to server\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "git_clone_http_fixture": {
+      "code": 128,
+      "seconds": 0.03,
+      "stderr": "fatal: unable to access 'http://127.0.0.1:54323/repo.git/': Failed to connect to 127.0.0.1 port 54323 after 0 ms: Couldn't connect to server\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "git_clone_local_path": {
+      "code": 0,
+      "seconds": 0.03,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false
+    },
+    "localhost_name_curl": {
+      "code": 7,
+      "seconds": 0.01,
+      "stderr": "curl: (7) Failed to connect to localhost port 54323 after 0 ms: Couldn't connect to server\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "npm_view_fixture": {
+      "code": 1,
+      "seconds": 0.34,
+      "stderr": "npm error code EPERM\nnpm error syscall connect\nnpm error errno EPERM\nnpm error FetchError: request to http://127.0.0.1:54323/nmfixture failed, reason: connect EPERM 127.0.0.1:54323 - Local (0.0.0.0:0)\nnpm error     at ClientRequest.<anonymous> (<home>/.nvm/versions/node/v24.11.1/lib/node_modules/npm/node_modules/minipass-fetch/lib/index.js:130:14)\nnpm error     at ClientRequest.emit (node:events:508:28)\nnpm error     at emitErrorEvent (node:_http_client:108:11)\nnpm error     at _destroy (node:_http_client:962:9)\nnpm error     at onSocketNT (node:_http_client:982:5)\nnpm error     at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {\nnpm error   code: 'EPERM',\nnpm error   errno: 'EPERM',\nnpm error   syscall: 'connect',\nnpm error   address: '127.0.0.1',\nnpm error   port: 54323,\nnpm error   type: 'system'\nnpm error }\nnpm error\nnpm error The operation was rejected by your operating system.\nnpm error It is likely you do not have the permissions to access this file as the current user\nnpm error\nnpm error If you believe this might be a permissions issue, please double-check the permissions of the file and its containing directories, or try running the command again as root/Administrator.\nnpm error A complete log of this run can be found in: <root>/cache/npm/_logs/2026-11-12T17_05_25_662Z-debug-0.log\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "pip_download_fixture": {
+      "code": 1,
+      "seconds": 0.76,
+      "stderr": "ERROR: Could not find a version that satisfies the requirement nmfixture (from versions: none)\nERROR: No matching distribution found for nmfixture\n",
+      "stdout": "Looking in indexes: http://127.0.0.1:54323/simple/\n",
+      "timed_out": false
+    },
+    "ssh_fixture_port": {
+      "code": 255,
+      "seconds": 0.01,
+      "stderr": "ssh: connect to host 127.0.0.1 port 54323: Operation not permitted\r\n",
+      "stdout": "",
+      "timed_out": false
+    }
+  },
+  "completed": true,
+  "finished": "2026-11-12T17:05:29Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "log": {
+    "log_exit": 0,
+    "processes": [
+      "curl",
+      "git-remote-http",
+      "ssh"
+    ],
+    "summary": [
+      {
+        "action": "deny",
+        "count": 2,
+        "operation": "network-outbound",
+        "process": "curl",
+        "target": "remote:*:54323"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "network-outbound",
+        "process": "git-remote-http",
+        "target": "remote:*:54323"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "network-outbound",
+        "process": "ssh",
+        "target": "remote:*:54323"
+      }
+    ]
+  },
+  "profiles": {
+    "enforced:qnm-9bcc1235f429": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-9bcc1235f429\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-9bcc1235f429\"))\n(deny lsopen (with message \"qnm-9bcc1235f429\"))\n(deny appleevent-send (with message \"qnm-9bcc1235f429\"))\n(deny mach-lookup (with message \"qnm-9bcc1235f429\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-9bcc1235f429\"))\n"
+  },
+  "stage": "compat",
+  "started": "2026-11-12T17:05:24Z"
+}

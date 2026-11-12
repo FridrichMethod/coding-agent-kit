@@ -1,0 +1,318 @@
+{
+  "cases": {
+    "anchor_write_sandboxed": {
+      "code": 1,
+      "file_exists": false,
+      "seconds": 0.01,
+      "stderr": "touch: <root>/anchors/LaunchAgents/quota-nm.plist: Operation not permitted\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "dns_sandboxed": {
+      "code": 0,
+      "parsed": {
+        "pid": 81703,
+        "ppid": 81690,
+        "results": {
+          "invalid_name": "error:gaierror:8",
+          "localhost": "resolved:2",
+          "numeric": "resolved:1"
+        },
+        "sid": 81703
+      },
+      "seconds": 0.03,
+      "stderr": "",
+      "stdout": "{\"pid\": 81703, \"ppid\": 81690, \"sid\": 81703, \"results\": {\"localhost\": \"resolved:2\", \"numeric\": \"resolved:1\", \"invalid_name\": \"error:gaierror:8\"}}\n",
+      "timed_out": false
+    },
+    "launchctl_cleanup": {
+      "label": "quota-nm-b83aa816bdc5",
+      "label_listed_code": 113,
+      "marker_written": false,
+      "remove_code": 3
+    },
+    "launchctl_list_sandboxed": {
+      "code": 1,
+      "seconds": 0.02,
+      "stderr": "",
+      "stdout": "<omitted: 0 lines>",
+      "timed_out": false
+    },
+    "launchctl_submit_sandboxed": {
+      "code": 1,
+      "seconds": 0.01,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false
+    },
+    "mach_lookup_control": {
+      "code": 0,
+      "parsed": {
+        "pid": 81693,
+        "ppid": 81690,
+        "results": {
+          "com.apple.SecurityServer": "found",
+          "com.apple.coreservices.appleevents": "found",
+          "com.apple.coreservices.launchservicesd": "found",
+          "com.apple.dnssd.service": "found",
+          "com.apple.lsd.mapdb": "found",
+          "com.apple.lsd.modifydb": "found",
+          "com.apple.nsurlsessiond": "found",
+          "com.apple.system.opendirectoryd.libinfo": "found"
+        },
+        "sid": 81693
+      },
+      "seconds": 0.02,
+      "stderr": "",
+      "stdout": "{\"pid\": 81693, \"ppid\": 81690, \"sid\": 81693, \"results\": {\"com.apple.coreservices.launchservicesd\": \"found\", \"com.apple.coreservices.appleevents\": \"found\", \"com.apple.nsurlsessiond\": \"found\", \"com.apple.dnssd.service\": \"found\", \"com.apple.lsd.mapdb\": \"found\", \"com.apple.lsd.modifydb\": \"found\", \"com.apple.SecurityServer\": \"found\", \"com.apple.system.opendirectoryd.libinfo\": \"found\"}}\n",
+      "timed_out": false
+    },
+    "mach_lookup_sandboxed": {
+      "code": 0,
+      "parsed": {
+        "pid": 81692,
+        "ppid": 81690,
+        "results": {
+          "com.apple.SecurityServer": "kern_return:1100",
+          "com.apple.coreservices.appleevents": "kern_return:1100",
+          "com.apple.coreservices.launchservicesd": "kern_return:1100",
+          "com.apple.dnssd.service": "kern_return:1100",
+          "com.apple.lsd.mapdb": "kern_return:1100",
+          "com.apple.lsd.modifydb": "kern_return:1100",
+          "com.apple.nsurlsessiond": "kern_return:1100",
+          "com.apple.system.opendirectoryd.libinfo": "found"
+        },
+        "sid": 81692
+      },
+      "seconds": 0.03,
+      "stderr": "",
+      "stdout": "{\"pid\": 81692, \"ppid\": 81690, \"sid\": 81692, \"results\": {\"com.apple.coreservices.launchservicesd\": \"kern_return:1100\", \"com.apple.coreservices.appleevents\": \"kern_return:1100\", \"com.apple.nsurlsessiond\": \"kern_return:1100\", \"com.apple.dnssd.service\": \"kern_return:1100\", \"com.apple.lsd.mapdb\": \"kern_return:1100\", \"com.apple.lsd.modifydb\": \"kern_return:1100\", \"com.apple.SecurityServer\": \"kern_return:1100\", \"com.apple.system.opendirectoryd.libinfo\": \"found\"}}\n",
+      "timed_out": false
+    },
+    "nested_sandbox_exec": {
+      "code": 71,
+      "parsed": null,
+      "seconds": 0.01,
+      "stderr": "sandbox-exec: sandbox_apply: Operation not permitted\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "open_url_control": {
+      "code": 1,
+      "seconds": 0.01,
+      "stderr": "No application knows how to open URL qnm-nonexistent-9e98269c://probe (Error Domain=NSOSStatusErrorDomain Code=-10814 \"kLSApplicationNotFoundErr: E.g. no application claims the file\" UserInfo={_LSLine=1998, _LSFunction=runEvaluator, _LSFile=LSBindingEvaluator.mm, _LSErrorMessage=kLSApplicationNotFoundErr}).\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "open_url_sandboxed": {
+      "code": 1,
+      "seconds": 0.09,
+      "stderr": "No application knows how to open URL qnm-nonexistent-9e98269c://probe (Error Domain=NSOSStatusErrorDomain Code=-10661 \"kLSExecutableIncorrectFormat: No compatible executable was found\" UserInfo={_LSLine=1995, _LSFunction=runEvaluator, _LSFile=LSBindingEvaluator.mm, _LSErrorMessage=kLSExecutableIncorrectFormat}).\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "outside_daemon_hits": 0,
+    "outside_daemon_unix": {
+      "code": 0,
+      "parsed": {
+        "pid": 81700,
+        "ppid": 81690,
+        "results": {
+          "outside_unix": "error:PermissionError:1",
+          "outside_unix_self": "error:PermissionError:1",
+          "private_unix_self": "connected"
+        },
+        "sid": 81700
+      },
+      "seconds": 0.04,
+      "stderr": "",
+      "stdout": "{\"pid\": 81700, \"ppid\": 81690, \"sid\": 81700, \"results\": {\"outside_unix\": \"error:PermissionError:1\", \"private_unix_self\": \"connected\", \"outside_unix_self\": \"error:PermissionError:1\"}}\n",
+      "timed_out": false
+    },
+    "setuid_modes": {
+      "/bin/ps": "0o4755",
+      "/usr/bin/at": "0o4555",
+      "/usr/bin/batch": "0o4555",
+      "/usr/bin/crontab": "0o4755",
+      "/usr/bin/sudo": "0o4511"
+    },
+    "setuid_ps_control": {
+      "code": 0,
+      "seconds": 0.0,
+      "stderr": "",
+      "stdout": "    1\n",
+      "timed_out": false
+    },
+    "setuid_ps_sandboxed": {
+      "code": 71,
+      "seconds": 0.01,
+      "stderr": "sandbox-exec: execvp() of '/bin/ps' failed: Operation not permitted\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "setuid_ps_shell_child": {
+      "code": 0,
+      "seconds": 0.01,
+      "stderr": "/bin/sh: /bin/ps: Operation not permitted\n",
+      "stdout": "rc=126\n",
+      "timed_out": false
+    },
+    "signal0_outside_hardened": {
+      "code": 1,
+      "seconds": 0.01,
+      "stderr": "kill: 81708: Operation not permitted\n",
+      "stdout": "",
+      "timed_out": false
+    },
+    "signal0_outside_sandboxed": {
+      "code": 0,
+      "seconds": 0.01,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false
+    },
+    "signal_same_sandbox_hardened": {
+      "code": 0,
+      "seconds": 0.01,
+      "stderr": "/bin/sh: line 1: 81712 Terminated: 15          /bin/sleep 30\n",
+      "stdout": "rc=143\n",
+      "timed_out": false
+    },
+    "workspace_write_sandboxed": {
+      "code": 0,
+      "file_exists": true,
+      "seconds": 0.01,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false
+    }
+  },
+  "completed": true,
+  "finished": "2026-11-12T17:05:41Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "log": {
+    "log_exit": 0,
+    "processes": [
+      "Python",
+      "launchctl",
+      "open",
+      "touch"
+    ],
+    "summary": [
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "file-write-create",
+        "process": "touch",
+        "target": "<root>/anchors/LaunchAgents/quota-nm.plist"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "job-creation",
+        "process": "launchctl",
+        "target": ""
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "open",
+        "target": "com.apple.CoreServices.coreservicesd"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "open",
+        "target": "com.apple.DiskArbitration.diskarbitrationd"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "Python",
+        "target": "com.apple.SecurityServer"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "Python",
+        "target": "com.apple.dnssd.service"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "Python",
+        "target": "com.apple.lsd.mapdb"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "open",
+        "target": "com.apple.lsd.mapdb"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "Python",
+        "target": "com.apple.lsd.modifydb"
+      },
+      {
+        "action": "deny",
+        "count": 96,
+        "operation": "mach-lookup",
+        "process": "open",
+        "target": "com.apple.lsd.modifydb"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "network-bind",
+        "process": "Python",
+        "target": "<root>/outside/self-81700.sock"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": ""
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": "<root>/outside/ipc-daemon.sock"
+      },
+      {
+        "action": "deny",
+        "count": 2,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": "/private/var/run/mDNSResponder"
+      }
+    ]
+  },
+  "log_hardened": {
+    "log_exit": 0,
+    "processes": [],
+    "summary": []
+  },
+  "profiles": {
+    "enforced:qnm-56adad415348": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-56adad415348\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-56adad415348\"))\n(deny lsopen (with message \"qnm-56adad415348\"))\n(deny appleevent-send (with message \"qnm-56adad415348\"))\n(deny mach-lookup (with message \"qnm-56adad415348\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny signal (with message \"qnm-56adad415348\"))\n(allow signal (target same-sandbox))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-56adad415348\"))\n",
+    "enforced:qnm-7056fc9222ce": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-7056fc9222ce\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-7056fc9222ce\"))\n(deny lsopen (with message \"qnm-7056fc9222ce\"))\n(deny appleevent-send (with message \"qnm-7056fc9222ce\"))\n(deny mach-lookup (with message \"qnm-7056fc9222ce\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-7056fc9222ce\"))\n"
+  },
+  "stage": "ipc",
+  "started": "2026-11-12T17:05:32Z"
+}

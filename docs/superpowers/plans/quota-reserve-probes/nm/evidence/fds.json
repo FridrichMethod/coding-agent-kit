@@ -1,0 +1,67 @@
+{
+  "cases": {
+    "closed_before_confinement": {
+      "code": 0,
+      "parsed": {
+        "pid": 78982,
+        "ppid": 78979,
+        "results": {
+          "inherited_tcp": "error:OSError:9",
+          "inherited_udp": "error:OSError:9",
+          "inherited_unix": "error:OSError:9"
+        },
+        "sid": 78982
+      },
+      "seconds": 0.03,
+      "stderr": "",
+      "stdout": "{\"pid\": 78982, \"ppid\": 78979, \"sid\": 78982, \"results\": {\"inherited_tcp\": \"error:OSError:9\", \"inherited_udp\": \"error:OSError:9\", \"inherited_unix\": \"error:OSError:9\"}}\n",
+      "timed_out": false
+    },
+    "inherited": {
+      "code": 0,
+      "parsed": {
+        "pid": 78981,
+        "ppid": 78979,
+        "results": {
+          "inherited_tcp": "written",
+          "inherited_udp": "written",
+          "inherited_unix": "written"
+        },
+        "sid": 78981
+      },
+      "seconds": 0.08,
+      "stderr": "",
+      "stdout": "{\"pid\": 78981, \"ppid\": 78979, \"sid\": 78981, \"results\": {\"inherited_tcp\": \"written\", \"inherited_udp\": \"written\", \"inherited_unix\": \"written\"}}\n",
+      "timed_out": false
+    },
+    "listener_hits": {
+      "alt_connections": [
+        "NM-INHERITED-WRITE\n"
+      ],
+      "udp_datagrams": [
+        "NM-INHERITED-WRITE\n"
+      ],
+      "unix_connections": [
+        "NM-INHERITED-WRITE\n"
+      ]
+    }
+  },
+  "completed": true,
+  "finished": "2026-11-12T16:27:50Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "log": {
+    "log_exit": 0,
+    "processes": [],
+    "summary": []
+  },
+  "profiles": {
+    "enforced:qnm-9182f7022899": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-9182f7022899\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-9182f7022899\"))\n(deny lsopen (with message \"qnm-9182f7022899\"))\n(deny appleevent-send (with message \"qnm-9182f7022899\"))\n(deny mach-lookup (with message \"qnm-9182f7022899\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-9182f7022899\"))\n"
+  },
+  "stage": "fds",
+  "started": "2026-11-12T16:27:44Z"
+}

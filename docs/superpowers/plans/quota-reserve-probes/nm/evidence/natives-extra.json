@@ -1,0 +1,466 @@
+{
+  "binaries": {
+    "claude": {
+      "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+      "version": "2.1.322 (Claude Code)"
+    },
+    "codex": {
+      "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+      "version": "codex-cli 0.166.0"
+    }
+  },
+  "cases": {
+    "claude-enforced-real-security": {
+      "case": "claude-enforced-real-security",
+      "exit_code": 0,
+      "gate_events": [
+        {
+          "at": 0.274,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": true,
+          "tool_result": false,
+          "tools": [
+            "Bash"
+          ]
+        },
+        {
+          "at": 0.432,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": false,
+          "tool_result": true,
+          "tools": [
+            "Bash"
+          ]
+        },
+        {
+          "at": 3.104,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": true,
+          "tool_call": false,
+          "tool_result": false,
+          "tools": [
+            "Bash"
+          ]
+        }
+      ],
+      "gate_port_is_only_exit": true,
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "2.1.322",
+          "Python",
+          "curl",
+          "git-remote-http",
+          "security",
+          "ssh"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "2.1.322",
+            "target": "com.apple.SecurityServer"
+          },
+          {
+            "action": "deny",
+            "count": 4,
+            "operation": "mach-lookup",
+            "process": "security",
+            "target": "com.apple.SecurityServer"
+          },
+          {
+            "action": "deny",
+            "count": 4,
+            "operation": "mach-lookup",
+            "process": "security",
+            "target": "com.apple.analyticsd"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "mach-lookup",
+            "process": "Python",
+            "target": "com.apple.coreservices.launchservicesd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.dnssd.service"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "2.1.322",
+            "target": "com.apple.securityd.xpc"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.usymptomsd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "2.1.322",
+            "target": "/private/tmp/cc-socks/80917.sock"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/claude-enforced-real-security.sock"
+          },
+          {
+            "action": "deny",
+            "count": 4,
+            "operation": "network-outbound",
+            "process": "2.1.322",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "git-remote-http",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "ssh",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:54049"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "curl",
+            "target": "remote:*:54049"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:63153"
+          }
+        ]
+      },
+      "native_alive_before_exit": true,
+      "outside_listener_hits": {
+        "alt_tcp": 0,
+        "alt_udp": 0,
+        "unix": 0
+      },
+      "second_turn_reached_gate": true,
+      "terminal_has_reply": true,
+      "terminal_tail": "27.0.0.1\",\r\u001b[5C\u001b[1B\"port\": 54050}, {\"name\u2026\r\u001b[2C\u001b[22B\u001b[38;5;180mRuminating\u2026\u001b[38;5;174m \u001b[38;5;246m(0s \u00b7 \u2193\u001b[23G744 tokens)\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[3G\u001b[38;5;216mRuminating\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u001b[49m\u2584\r\u001b[1B\u001b[48;5;16m\u2588\u001b[49m\u2588\u2598\r\u001b[1B\u259d\u259d \r\u001b[5B\u001b[39m \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;231m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture reply after tool\u001b[K\r\u001b[5C\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;246m\u273b\u001b[3GWorked for\u001b[14G0s \u00b7 done 8:59 AM\r\u001b[22B\u001b[39m\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B \r\u001b[2C\u001b[1B\u001b[38;5;174m\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B  \r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u001b[49m\u2588\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u2588\u2588\u259b\u2588\u001b[49m\u2584\r\u001b[1B\u001b[48;5;16m\u2588\u001b[3G\u2588\u2588\u001b[49m\u2588\u2598\r\u001b[1B   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[5C\u001b[1B \r\u001b[5C\u001b[1B\u001b[38;5;174m\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B     \r\u001b[3C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u2588\u2588\u2588\u001b[49m\u2588\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m\u2597\u259f\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\u001b[49m\u2584\r\u001b[1B \u259c\u001b[4G\u001b[48;5;16m\u2588\u001b[6G\u2588\u2588\u001b[49m\u2588\u2598\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B         \r\u001b[1C\u001b[1B\u001b[38;5;174m\u2590\u001b[48;5;16m\u259b\u001b[7G\u259b\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[38;5;246m\u00b7\u001b[38;5;174m\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u001b[38;5;246m\u00b7\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3B\u001b[38;5;246m~\u001b[9G~\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[48;5;16m\u2588\u001b[7G\u2588\u001b[49m\u2588\u2580\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[37BNM_SECOND_TURN\u001b[18Gclaude-enforced-real-security\u001b[7m \r\u001b[18C\u001b[2B\u001b[27m\u001b[K\u001b[40;1H\u001b[38;47H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[14B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231mNM_SECOND_TURN claude-enforced-real-security\u001b[39m                                                                          \r\u001b[19B\u001b[49m\u001b[38;5;174m\u273d\u001b[3GThin\u001b[38;5;216mkin\u001b[38;5;174mg\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits\r\u001b[3B\u276f\u00a0\u001b[39m\u001b[7m \u001b[27m\u001b[K\r\u001b[18C\u001b[2B\u001b[38;5;246m \u00b7 esc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[16B\u001b[38;5;231m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture\u001b[14Greply\r\u001b[2B\u001b[38;5;246m\u273b\u001b[3GChurned for 0s \u00b7 done 8:59 AM\r\u001b[15B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[20B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231m/exit\u001b[39m                                                                                                                 \r\u001b[13B\u001b[49m\u001b[38;5;174m\u273d\u001b[3GWhirlpoo\u001b[38;5;216mlin\u001b[38;5;174mg\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable.\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume b140299f-cd1e-41e2-b15d-98075b89fbc7\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h",
+      "termios_changed_while_running": true,
+      "termios_restored": true,
+      "tool_call_sent": true,
+      "tool_done": true,
+      "tool_outputs": {
+        "curl.txt": "curl: (7) Failed to connect to 127.0.0.1 port 54049 after 0 ms: Couldn't connect to server\n000",
+        "detached.json": {
+          "pid": 80953,
+          "ppid": 1,
+          "reparented_to_launchd": true,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 80952
+        },
+        "envi.json": {
+          "pid": 80946,
+          "ppid": 80940,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 80940
+        },
+        "tool.json": {
+          "pid": 80942,
+          "ppid": 80940,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 80940
+        }
+      },
+      "tool_result_returned": true,
+      "transcript_files_with_marker": [
+        "history.jsonl",
+        "projects/-<root-slug>-workspace/b140299f-cd1e-41e2-b15d-98075b89fbc7.jsonl"
+      ]
+    },
+    "claude-enforced-setup-token": {
+      "case": "claude-enforced-setup-token",
+      "exit_code": 0,
+      "gate_events": [
+        {
+          "at": 70.352,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": true,
+          "tool_result": false,
+          "tools": [
+            "Bash"
+          ]
+        },
+        {
+          "at": 70.512,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": false,
+          "tool_result": true,
+          "tools": [
+            "Bash"
+          ]
+        },
+        {
+          "at": 73.131,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": true,
+          "tool_call": false,
+          "tool_result": false,
+          "tools": [
+            "Bash"
+          ]
+        }
+      ],
+      "gate_port_is_only_exit": true,
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "Python",
+          "curl",
+          "git-remote-http",
+          "ssh"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "mach-lookup",
+            "process": "Python",
+            "target": "com.apple.coreservices.launchservicesd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.dnssd.service"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.usymptomsd"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/claude-enforced-setup-token.sock"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "git-remote-http",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "ssh",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:52796"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:54018"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "curl",
+            "target": "remote:*:54018"
+          }
+        ]
+      },
+      "native_alive_before_exit": true,
+      "outside_listener_hits": {
+        "alt_tcp": 0,
+        "alt_udp": 0,
+        "unix": 0
+      },
+      "second_turn_reached_gate": true,
+      "security_shim_argv": [
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ]
+      ],
+      "terminal_has_reply": true,
+      "terminal_tail": "[>0q\u001b[?u\u001b]7501;?\u0007\u001b[c\u001b[H\r\u001b[8B\u001b[38;5;246m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture\u001b[14Gegress\u001b[21Gprobe\r\u001b[1B\u001b[38;5;246m  \u23bf  $ mkdir -p <root>/workspace/nm-out; \r\u001b[5C\u001b[1B/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15 -I -B \r\u001b[5C\u001b[1B<root>/nm/client.py '{\"attempts\": [{\"name\": \"gate_tcp4\", \"kind\": \"tcp4\", \"host\": \"127.0.0.1\",\r\u001b[5C\u001b[1B\"port\": 54019}, {\"name\u2026\r\u001b[2C\u001b[22B\u001b[38;5;180mFrolicking\u2026\u001b[38;5;174m \u001b[38;5;246m(0s \u00b7 \u2193\u001b[23G740 tokens)\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B        \r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;174m\u001b[38;5;16m\u2582\u001b[7G\u2582\u001b[48;5;16m\u001b[38;5;174m\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[38;5;246m\u00b7\u001b[38;5;174m\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u001b[38;5;246m\u00b7\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3B\u001b[38;5;246m~\u001b[9G~\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[3G\u001b[38;5;216mFrolicking\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;231m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture reply after tool\u001b[K\r\u001b[5C\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;246m\u273b\u001b[3GBaked for 0s \u00b7 done 8:58 AM\r\u001b[22B\u001b[39m\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;16m\u259f\u2588\u2588\u2588\u259f\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[48;5;16m\u2588\u001b[7G\u2588\u001b[49m\u2588\u2580\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[7G\u259b\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;174m\u001b[38;5;16m\u2582\u001b[7G\u2582\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[7G\u259b\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[37BNM_SECOND_TURN\u001b[18Gclaude-enforced-setup-token\u001b[7m \r\u001b[18C\u001b[2B\u001b[27m\u001b[K\u001b[40;1H\u001b[38;45H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[14B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231mNM_SECOND_TURN claude-enforced-setup-token\u001b[39m                                                                            \r\u001b[19B\u001b[49m\u001b[38;5;174m\u273d\u001b[3GDetermi\u001b[38;5;216mnin\u001b[38;5;174mg\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits\r\u001b[3B\u276f\u00a0\u001b[39m\u001b[7m \u001b[27m\u001b[K\r\u001b[18C\u001b[2B\u001b[38;5;246m \u00b7 esc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[16B\u001b[38;5;231m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture\u001b[14Greply\r\u001b[2B\u001b[38;5;246m\u273b\u001b[3GCooked for 0s \u00b7 done 8:58 AM\r\u001b[15B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[20B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231m/exit\u001b[39m                                                                                                                 \r\u001b[13B\u001b[49m\u001b[38;5;174m\u273d\u001b[3GLollygag\u001b[38;5;216mgin\u001b[38;5;174mg\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable.\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume b7b8f953-120a-4b27-afb7-f87876949a8f\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h",
+      "termios_changed_while_running": true,
+      "termios_restored": true,
+      "tool_call_sent": true,
+      "tool_done": true,
+      "tool_outputs": {
+        "curl.txt": "curl: (7) Failed to connect to 127.0.0.1 port 54018 after 0 ms: Couldn't connect to server\n000",
+        "detached.json": {
+          "pid": 80914,
+          "ppid": 1,
+          "reparented_to_launchd": true,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 80913
+        },
+        "envi.json": {
+          "pid": 80907,
+          "ppid": 80901,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 80901
+        },
+        "tool.json": {
+          "pid": 80903,
+          "ppid": 80901,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 80901
+        }
+      },
+      "tool_result_returned": true,
+      "transcript_files_with_marker": [
+        "history.jsonl",
+        "projects/-<root-slug>-workspace/b7b8f953-120a-4b27-afb7-f87876949a8f.jsonl"
+      ]
+    }
+  },
+  "completed": true,
+  "finished": "2026-11-12T16:59:11Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "profiles": {
+    "enforced:qnm-a06f7dbeb96c": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-a06f7dbeb96c\"))\n(allow network-outbound (remote ip \"localhost:54019\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-a06f7dbeb96c\"))\n(deny lsopen (with message \"qnm-a06f7dbeb96c\"))\n(deny appleevent-send (with message \"qnm-a06f7dbeb96c\"))\n(deny mach-lookup (with message \"qnm-a06f7dbeb96c\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-a06f7dbeb96c\"))\n",
+    "enforced:qnm-fde9653d70ab": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-fde9653d70ab\"))\n(allow network-outbound (remote ip \"localhost:54050\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-fde9653d70ab\"))\n(deny lsopen (with message \"qnm-fde9653d70ab\"))\n(deny appleevent-send (with message \"qnm-fde9653d70ab\"))\n(deny mach-lookup (with message \"qnm-fde9653d70ab\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-fde9653d70ab\"))\n"
+  },
+  "stage": "natives-extra",
+  "started": "2026-11-12T16:57:45Z"
+}

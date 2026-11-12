@@ -1,0 +1,676 @@
+{
+  "cases": {
+    "m1": {
+      "listener_hits_from_control": {
+        "alt": 3,
+        "udp": 2,
+        "unix": 1
+      },
+      "listener_hits_from_sandboxed": {
+        "alt": 0,
+        "udp": 0,
+        "unix": 0
+      },
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "Python",
+          "curl",
+          "nc",
+          "node"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "Python",
+            "target": "<root>/private/self-86626.sock"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "Python",
+            "target": "<root>/private/self-86627.sock"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "Python",
+            "target": "<root>/private/self-86628.sock"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "Python",
+            "target": "<root>/private/self-86632.sock"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "node",
+            "target": "local:*:0"
+          },
+          {
+            "action": "deny",
+            "count": 4,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/daemon.sock"
+          },
+          {
+            "action": "deny",
+            "count": 12,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:57165"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "curl",
+            "target": "remote:*:57165"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "nc",
+            "target": "remote:*:57165"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "node",
+            "target": "remote:*:57165"
+          },
+          {
+            "action": "deny",
+            "count": 4,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:59818"
+          }
+        ]
+      },
+      "outside_control": {
+        "code": 0,
+        "parsed": {
+          "pid": 86637,
+          "ppid": 86624,
+          "results": {
+            "alt_mapped6": "connected",
+            "alt_tcp4": "connected",
+            "alt_tcp6": "connected",
+            "alt_udp4": "sent",
+            "alt_udp6": "sent",
+            "gate_mapped6": "connected",
+            "gate_tcp4": "connected",
+            "gate_tcp6": "connected",
+            "outside_unix": "connected",
+            "private_unix_self": "connected"
+          },
+          "sid": 86637
+        },
+        "seconds": 0.03,
+        "stderr": "",
+        "stdout": "{\"pid\": 86637, \"ppid\": 86624, \"sid\": 86637, \"results\": {\"gate_tcp4\": \"connected\", \"gate_tcp6\": \"connected\", \"gate_mapped6\": \"connected\", \"alt_tcp4\": \"connected\", \"alt_tcp6\": \"connected\", \"alt_mapped6\": \"connected\", \"alt_udp4\": \"sent\", \"alt_udp6\": \"sent\", \"outside_unix\": \"connected\", \"private_unix_self\": \"connected\"}}\n",
+        "timed_out": false
+      },
+      "sandboxed": {
+        "curl_alt4": {
+          "code": 7,
+          "parsed": null,
+          "seconds": 0.02,
+          "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 57165 after 0 ms: Couldn't connect to server\n",
+          "stdout": "000",
+          "timed_out": false
+        },
+        "curl_alt6": {
+          "code": 7,
+          "parsed": null,
+          "seconds": 0.02,
+          "stderr": "curl: (7) Failed to connect to ::1 port 57165 after 0 ms: Couldn't connect to server\n",
+          "stdout": "000",
+          "timed_out": false
+        },
+        "detached_setsid_python": {
+          "code": 0,
+          "detached_result": {
+            "pid": 85960,
+            "ppid": 1,
+            "reparented_to_launchd": true,
+            "results": {
+              "alt_mapped6": "error:PermissionError:1",
+              "alt_tcp4": "error:PermissionError:1",
+              "alt_tcp6": "error:PermissionError:1",
+              "alt_udp4": "error:PermissionError:1",
+              "alt_udp6": "error:PermissionError:1",
+              "gate_mapped6": "connected",
+              "gate_tcp4": "connected",
+              "gate_tcp6": "connected",
+              "outside_unix": "error:PermissionError:1",
+              "private_unix_self": "error:PermissionError:1"
+            },
+            "sid": 85959
+          },
+          "parsed": null,
+          "seconds": 0.03,
+          "stderr": "",
+          "stdout": "",
+          "timed_out": false
+        },
+        "env_i_absolute_node": {
+          "code": 0,
+          "parsed": {
+            "pid": 86629,
+            "results": {
+              "alt_fetch": "error:EPERM",
+              "alt_tcp4": "error:EPERM",
+              "alt_tcp6": "error:EPERM",
+              "alt_udp4": "error:EPERM",
+              "gate_fetch": "status:200",
+              "gate_tcp4": "connected",
+              "gate_tcp6": "connected"
+            }
+          },
+          "seconds": 0.07,
+          "stderr": "",
+          "stdout": "{\"pid\":86629,\"results\":{\"gate_tcp4\":\"connected\",\"gate_tcp6\":\"connected\",\"alt_tcp4\":\"error:EPERM\",\"alt_tcp6\":\"error:EPERM\",\"alt_udp4\":\"error:EPERM\",\"alt_fetch\":\"error:EPERM\",\"gate_fetch\":\"status:200\"}}\n",
+          "timed_out": false
+        },
+        "env_i_absolute_python": {
+          "code": 0,
+          "parsed": {
+            "pid": 86628,
+            "ppid": 86624,
+            "results": {
+              "alt_mapped6": "error:PermissionError:1",
+              "alt_tcp4": "error:PermissionError:1",
+              "alt_tcp6": "error:PermissionError:1",
+              "alt_udp4": "error:PermissionError:1",
+              "alt_udp6": "error:PermissionError:1",
+              "gate_mapped6": "connected",
+              "gate_tcp4": "connected",
+              "gate_tcp6": "connected",
+              "outside_unix": "error:PermissionError:1",
+              "private_unix_self": "error:PermissionError:1"
+            },
+            "sid": 86628
+          },
+          "seconds": 0.04,
+          "stderr": "",
+          "stdout": "{\"pid\": 86628, \"ppid\": 86624, \"sid\": 86628, \"results\": {\"gate_tcp4\": \"connected\", \"gate_tcp6\": \"connected\", \"gate_mapped6\": \"connected\", \"alt_tcp4\": \"error:PermissionError:1\", \"alt_tcp6\": \"error:PermissionError:1\", \"alt_mapped6\": \"error:PermissionError:1\", \"alt_udp4\": \"error:PermissionError:1\", \"alt_udp6\": \"error:PermissionError:1\", \"outside_unix\": \"error:PermissionError:1\", \"private_unix_self\": \"error:PermissionError:1\"}}\n",
+          "timed_out": false
+        },
+        "nc_alt4": {
+          "code": 1,
+          "parsed": null,
+          "seconds": 0.01,
+          "stderr": "",
+          "stdout": "",
+          "timed_out": false
+        },
+        "nc_gate4": {
+          "code": 0,
+          "parsed": null,
+          "seconds": 0.01,
+          "stderr": "Connection to 127.0.0.1 port 57164 [tcp/*] succeeded!\n",
+          "stdout": "",
+          "timed_out": false
+        },
+        "root_python": {
+          "code": 0,
+          "parsed": {
+            "pid": 86626,
+            "ppid": 86624,
+            "results": {
+              "alt_mapped6": "error:PermissionError:1",
+              "alt_tcp4": "error:PermissionError:1",
+              "alt_tcp6": "error:PermissionError:1",
+              "alt_udp4": "error:PermissionError:1",
+              "alt_udp6": "error:PermissionError:1",
+              "gate_mapped6": "connected",
+              "gate_tcp4": "connected",
+              "gate_tcp6": "connected",
+              "outside_unix": "error:PermissionError:1",
+              "private_unix_self": "error:PermissionError:1"
+            },
+            "sid": 86626
+          },
+          "seconds": 0.05,
+          "stderr": "",
+          "stdout": "{\"pid\": 86626, \"ppid\": 86624, \"sid\": 86626, \"results\": {\"gate_tcp4\": \"connected\", \"gate_tcp6\": \"connected\", \"gate_mapped6\": \"connected\", \"alt_tcp4\": \"error:PermissionError:1\", \"alt_tcp6\": \"error:PermissionError:1\", \"alt_mapped6\": \"error:PermissionError:1\", \"alt_udp4\": \"error:PermissionError:1\", \"alt_udp6\": \"error:PermissionError:1\", \"outside_unix\": \"error:PermissionError:1\", \"private_unix_self\": \"error:PermissionError:1\"}}\n",
+          "timed_out": false
+        },
+        "shell_child_python": {
+          "code": 0,
+          "parsed": {
+            "pid": 86627,
+            "ppid": 86624,
+            "results": {
+              "alt_mapped6": "error:PermissionError:1",
+              "alt_tcp4": "error:PermissionError:1",
+              "alt_tcp6": "error:PermissionError:1",
+              "alt_udp4": "error:PermissionError:1",
+              "alt_udp6": "error:PermissionError:1",
+              "gate_mapped6": "connected",
+              "gate_tcp4": "connected",
+              "gate_tcp6": "connected",
+              "outside_unix": "error:PermissionError:1",
+              "private_unix_self": "error:PermissionError:1"
+            },
+            "sid": 86627
+          },
+          "seconds": 0.04,
+          "stderr": "",
+          "stdout": "{\"pid\": 86627, \"ppid\": 86624, \"sid\": 86627, \"results\": {\"gate_tcp4\": \"connected\", \"gate_tcp6\": \"connected\", \"gate_mapped6\": \"connected\", \"alt_tcp4\": \"error:PermissionError:1\", \"alt_tcp6\": \"error:PermissionError:1\", \"alt_mapped6\": \"error:PermissionError:1\", \"alt_udp4\": \"error:PermissionError:1\", \"alt_udp6\": \"error:PermissionError:1\", \"outside_unix\": \"error:PermissionError:1\", \"private_unix_self\": \"error:PermissionError:1\"}}\n",
+          "timed_out": false
+        }
+      }
+    },
+    "review": {
+      "alias_control": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 0,
+          "unix": 3
+        },
+        "parsed": {
+          "pid": 86644,
+          "ppid": 86624,
+          "results": {
+            "direct_outside": "connected",
+            "hardlink_in_private": "connected",
+            "symlink_in_private": "connected"
+          },
+          "sid": 86644
+        },
+        "seconds": 0.07,
+        "stderr": "",
+        "stdout": "{\"pid\": 86644, \"ppid\": 86624, \"sid\": 86644, \"results\": {\"symlink_in_private\": \"connected\", \"hardlink_in_private\": \"connected\", \"direct_outside\": \"connected\"}}\n",
+        "timed_out": false
+      },
+      "alias_m1": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 0,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86643,
+          "ppid": 86624,
+          "results": {
+            "direct_outside": "error:PermissionError:1",
+            "hardlink_in_private": "error:PermissionError:1",
+            "symlink_in_private": "error:PermissionError:1"
+          },
+          "sid": 86643
+        },
+        "seconds": 0.08,
+        "stderr": "",
+        "stdout": "{\"pid\": 86643, \"ppid\": 86624, \"sid\": 86643, \"results\": {\"symlink_in_private\": \"error:PermissionError:1\", \"hardlink_in_private\": \"error:PermissionError:1\", \"direct_outside\": \"error:PermissionError:1\"}}\n",
+        "timed_out": false
+      },
+      "alias_recommended": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 0,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86642,
+          "ppid": 86624,
+          "results": {
+            "direct_outside": "error:PermissionError:1",
+            "hardlink_in_private": "link_error:PermissionError:1",
+            "symlink_in_private": "error:PermissionError:1"
+          },
+          "sid": 86642
+        },
+        "seconds": 0.08,
+        "stderr": "",
+        "stdout": "{\"pid\": 86642, \"ppid\": 86624, \"sid\": 86642, \"results\": {\"symlink_in_private\": \"error:PermissionError:1\", \"hardlink_in_private\": \"link_error:PermissionError:1\", \"direct_outside\": \"error:PermissionError:1\"}}\n",
+        "timed_out": false
+      },
+      "extent_control": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 4,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86641,
+          "ppid": 86624,
+          "results": {
+            "alt_host_ipv4": "error:ConnectionRefusedError:61",
+            "alt_linklocal_lo0": "error:OSError:65",
+            "gate_any4": "connected",
+            "gate_any6": "connected",
+            "gate_host_ipv4": "error:ConnectionRefusedError:61",
+            "gate_linklocal_lo0": "error:OSError:65",
+            "gate_loopback4": "connected",
+            "gate_loopback4_other": "error:TimeoutError:None",
+            "gate_loopback6": "connected",
+            "gate_udp4": "sent"
+          },
+          "sid": 86641
+        },
+        "seconds": 3.08,
+        "stderr": "",
+        "stdout": "{\"pid\": 86641, \"ppid\": 86624, \"sid\": 86641, \"results\": {\"gate_loopback4\": \"connected\", \"gate_loopback6\": \"connected\", \"gate_any4\": \"connected\", \"gate_any6\": \"connected\", \"gate_loopback4_other\": \"error:TimeoutError:None\", \"gate_linklocal_lo0\": \"error:OSError:65\", \"alt_linklocal_lo0\": \"error:OSError:65\", \"gate_udp4\": \"sent\", \"gate_host_ipv4\": \"error:ConnectionRefusedError:61\", \"alt_host_ipv4\": \"error:ConnectionRefusedError:61\"}}\n",
+        "timed_out": false
+      },
+      "extent_m1": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 4,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86640,
+          "ppid": 86624,
+          "results": {
+            "alt_host_ipv4": "error:PermissionError:1",
+            "alt_linklocal_lo0": "error:PermissionError:1",
+            "gate_any4": "connected",
+            "gate_any6": "connected",
+            "gate_host_ipv4": "error:ConnectionRefusedError:61",
+            "gate_linklocal_lo0": "error:OSError:65",
+            "gate_loopback4": "connected",
+            "gate_loopback4_other": "error:PermissionError:1",
+            "gate_loopback6": "connected",
+            "gate_udp4": "error:PermissionError:1"
+          },
+          "sid": 86640
+        },
+        "seconds": 0.04,
+        "stderr": "",
+        "stdout": "{\"pid\": 86640, \"ppid\": 86624, \"sid\": 86640, \"results\": {\"gate_loopback4\": \"connected\", \"gate_loopback6\": \"connected\", \"gate_any4\": \"connected\", \"gate_any6\": \"connected\", \"gate_loopback4_other\": \"error:PermissionError:1\", \"gate_linklocal_lo0\": \"error:OSError:65\", \"alt_linklocal_lo0\": \"error:PermissionError:1\", \"gate_udp4\": \"error:PermissionError:1\", \"gate_host_ipv4\": \"error:ConnectionRefusedError:61\", \"alt_host_ipv4\": \"error:PermissionError:1\"}}\n",
+        "timed_out": false
+      },
+      "icmp_control": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 0,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86646,
+          "ppid": 86624,
+          "results": {
+            "icmp4_loopback": "reply",
+            "icmp6_loopback": "reply"
+          },
+          "sid": 86646
+        },
+        "seconds": 0.06,
+        "stderr": "",
+        "stdout": "{\"pid\": 86646, \"ppid\": 86624, \"sid\": 86646, \"results\": {\"icmp4_loopback\": \"reply\", \"icmp6_loopback\": \"reply\"}}\n",
+        "timed_out": false
+      },
+      "icmp_m1": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 0,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86645,
+          "ppid": 86624,
+          "results": {
+            "icmp4_loopback": "error:PermissionError:1",
+            "icmp6_loopback": "error:PermissionError:1"
+          },
+          "sid": 86645
+        },
+        "seconds": 0.08,
+        "stderr": "",
+        "stdout": "{\"pid\": 86645, \"ppid\": 86624, \"sid\": 86645, \"results\": {\"icmp4_loopback\": \"error:PermissionError:1\", \"icmp6_loopback\": \"error:PermissionError:1\"}}\n",
+        "timed_out": false
+      },
+      "job_control_control": {
+        "child": {
+          "inner": {
+            "cont": "ok",
+            "stop": "ok",
+            "stopped": true,
+            "term": "ok"
+          },
+          "inner_returncode": -15,
+          "own_group_cont": "ok",
+          "slept_seconds": 4.0
+        },
+        "child_ready": true,
+        "exit_code": 0,
+        "shell": {
+          "exit_code": 0,
+          "exited": true,
+          "stop_signal": 18,
+          "stopped_by_tty": true
+        }
+      },
+      "job_control_m1": {
+        "child": {
+          "inner": {
+            "cont": "ok",
+            "stop": "ok",
+            "stopped": true,
+            "term": "ok"
+          },
+          "inner_returncode": -15,
+          "own_group_cont": "ok",
+          "slept_seconds": 4.0
+        },
+        "child_ready": true,
+        "exit_code": 0,
+        "shell": {
+          "exit_code": 0,
+          "exited": true,
+          "stop_signal": 18,
+          "stopped_by_tty": true
+        }
+      },
+      "launchd_m1": {
+        "asuser_sandboxed": {
+          "code": 1,
+          "parsed": null,
+          "seconds": 0.02,
+          "stderr": "Could not switch to audit session 0x186b4: 1: Operation not permitted\n",
+          "stdout": "",
+          "timed_out": false
+        },
+        "bootstrap": {
+          "bootout_code": 3,
+          "code": 5,
+          "label_printed_after_cleanup_code": 113,
+          "label_printed_code": 113,
+          "marker_written": false,
+          "remove_code": 3,
+          "seconds": 0.04,
+          "stderr": "Bootstrap failed: 5: Input/output error\nTry re-running the command as root for richer errors.\n",
+          "stdout": "",
+          "timed_out": false
+        },
+        "kickstart_absent_control": {
+          "code": 113,
+          "seconds": 0.01,
+          "stderr": "Could not find service \"qnm-absent-c600c90564e7\" in domain for user gui: 501\n",
+          "stdout": "",
+          "timed_out": false
+        },
+        "kickstart_absent_sandboxed": {
+          "code": 113,
+          "seconds": 0.02,
+          "stderr": "Could not find service \"qnm-absent-c600c90564e7\" in domain for user gui: 501\n",
+          "stdout": "",
+          "timed_out": false
+        },
+        "load": {
+          "bootout_code": 3,
+          "code": 0,
+          "label_printed_after_cleanup_code": 113,
+          "label_printed_code": 113,
+          "marker_written": false,
+          "remove_code": 3,
+          "seconds": 0.02,
+          "stderr": "Load failed: 5: Input/output error\nTry running `launchctl bootstrap` as root for richer errors.\n",
+          "stdout": "",
+          "timed_out": false
+        }
+      },
+      "trust_control": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 0,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86648,
+          "ppid": 86624,
+          "results": {
+            "trust_admin": "status:-25263:count:0",
+            "trust_system": "status:0:count:150"
+          },
+          "sid": 86648
+        },
+        "seconds": 0.13,
+        "stderr": "",
+        "stdout": "{\"pid\": 86648, \"ppid\": 86624, \"sid\": 86648, \"results\": {\"trust_system\": \"status:0:count:150\", \"trust_admin\": \"status:-25263:count:0\"}}\n",
+        "timed_out": false
+      },
+      "trust_m1": {
+        "code": 0,
+        "hits": {
+          "alt": 0,
+          "gate": 0,
+          "unix": 0
+        },
+        "parsed": {
+          "pid": 86647,
+          "ppid": 86624,
+          "results": {
+            "trust_admin": "status:-25291:count:0",
+            "trust_system": "status:-25263:count:0"
+          },
+          "sid": 86647
+        },
+        "seconds": 0.09,
+        "stderr": "",
+        "stdout": "{\"pid\": 86647, \"ppid\": 86624, \"sid\": 86647, \"results\": {\"trust_system\": \"status:-25263:count:0\", \"trust_admin\": \"status:-25291:count:0\"}}\n",
+        "timed_out": false
+      }
+    }
+  },
+  "completed": true,
+  "deadline_seconds": 300,
+  "finished": "2026-11-12T18:28:21Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "host_ipv4_found": true,
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "log_m1_review": {
+    "log_exit": 0,
+    "processes": [
+      "Python",
+      "launchctl"
+    ],
+    "summary": [
+      {
+        "action": "deny",
+        "count": 2,
+        "operation": "job-creation",
+        "process": "launchctl",
+        "target": ""
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "Python",
+        "target": "com.apple.SecurityServer"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "Python",
+        "target": "com.apple.trustd.agent"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": ""
+      },
+      {
+        "action": "deny",
+        "count": 3,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": "<root>/outside/alias-daemon.sock"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": "remote:*:0"
+      },
+      {
+        "action": "deny",
+        "count": 2,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": "remote:*:57189"
+      },
+      {
+        "action": "deny",
+        "count": 2,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": "remote:*:57190"
+      }
+    ]
+  },
+  "log_recommended_alias": {
+    "log_exit": 0,
+    "processes": [
+      "Python"
+    ],
+    "summary": [
+      {
+        "action": "deny",
+        "count": 2,
+        "operation": "network-outbound",
+        "process": "Python",
+        "target": "<root>/outside/alias-daemon.sock"
+      }
+    ]
+  },
+  "profiles": {
+    "m1:qnm-85397f419af0": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-85397f419af0\"))\n(allow network-outbound (remote tcp \"localhost:57164\"))\n(deny job-creation (with message \"qnm-85397f419af0\"))\n(deny lsopen (with message \"qnm-85397f419af0\"))\n(deny appleevent-send (with message \"qnm-85397f419af0\"))\n(deny mach-lookup (with message \"qnm-85397f419af0\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(deny signal (with message \"qnm-85397f419af0\"))\n(allow signal (target same-sandbox))\n(deny file-ioctl (ioctl-command TIOCSTI) (with message \"qnm-85397f419af0\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-85397f419af0\"))\n",
+    "m1:qnm-d74ba8bf6733": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-d74ba8bf6733\"))\n(allow network-outbound (remote tcp \"localhost:57189\"))\n(deny job-creation (with message \"qnm-d74ba8bf6733\"))\n(deny lsopen (with message \"qnm-d74ba8bf6733\"))\n(deny appleevent-send (with message \"qnm-d74ba8bf6733\"))\n(deny mach-lookup (with message \"qnm-d74ba8bf6733\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(deny signal (with message \"qnm-d74ba8bf6733\"))\n(allow signal (target same-sandbox))\n(deny file-ioctl (ioctl-command TIOCSTI) (with message \"qnm-d74ba8bf6733\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-d74ba8bf6733\"))\n",
+    "recommended:qnm-8669bc53bf0e": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-8669bc53bf0e\"))\n(allow network-outbound (remote tcp \"localhost:57189\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-8669bc53bf0e\"))\n(deny lsopen (with message \"qnm-8669bc53bf0e\"))\n(deny appleevent-send (with message \"qnm-8669bc53bf0e\"))\n(deny mach-lookup (with message \"qnm-8669bc53bf0e\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(deny signal (with message \"qnm-8669bc53bf0e\"))\n(allow signal (target same-sandbox))\n(deny file-ioctl (ioctl-command TIOCSTI) (with message \"qnm-8669bc53bf0e\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-8669bc53bf0e\"))\n"
+  },
+  "stage": "m1",
+  "started": "2026-11-12T18:27:51Z"
+}

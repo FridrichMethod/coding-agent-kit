@@ -1,0 +1,129 @@
+{
+  "cases": {
+    "enforced_remote_ip": {
+      "code": 0,
+      "hits": {
+        "gate_port_udp": 2,
+        "gate_tcp": 2,
+        "outside_unix_dgram": 0
+      },
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "Python"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/dgram-daemon.sock"
+          }
+        ]
+      },
+      "parsed": {
+        "pid": 84653,
+        "ppid": 84651,
+        "results": {
+          "gate_port_udp4": "sent",
+          "gate_port_udp6": "sent",
+          "gate_tcp4": "connected",
+          "gate_tcp6": "connected",
+          "outside_unix_dgram": "error:PermissionError:1",
+          "private_unix_dgram_self": "received"
+        },
+        "sid": 84653
+      },
+      "seconds": 0.05,
+      "stderr": "",
+      "stdout": "{\"pid\": 84653, \"ppid\": 84651, \"sid\": 84653, \"results\": {\"gate_tcp4\": \"connected\", \"gate_tcp6\": \"connected\", \"gate_port_udp4\": \"sent\", \"gate_port_udp6\": \"sent\", \"outside_unix_dgram\": \"error:PermissionError:1\", \"private_unix_dgram_self\": \"received\"}}\n",
+      "timed_out": false
+    },
+    "enforced_remote_tcp": {
+      "code": 0,
+      "hits": {
+        "gate_port_udp": 0,
+        "gate_tcp": 2,
+        "outside_unix_dgram": 0
+      },
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "Python"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/dgram-daemon.sock"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:55756"
+          }
+        ]
+      },
+      "parsed": {
+        "pid": 84655,
+        "ppid": 84651,
+        "results": {
+          "gate_port_udp4": "error:PermissionError:1",
+          "gate_port_udp6": "error:PermissionError:1",
+          "gate_tcp4": "connected",
+          "gate_tcp6": "connected",
+          "outside_unix_dgram": "error:PermissionError:1",
+          "private_unix_dgram_self": "received"
+        },
+        "sid": 84655
+      },
+      "seconds": 0.04,
+      "stderr": "",
+      "stdout": "{\"pid\": 84655, \"ppid\": 84651, \"sid\": 84655, \"results\": {\"gate_tcp4\": \"connected\", \"gate_tcp6\": \"connected\", \"gate_port_udp4\": \"error:PermissionError:1\", \"gate_port_udp6\": \"error:PermissionError:1\", \"outside_unix_dgram\": \"error:PermissionError:1\", \"private_unix_dgram_self\": \"received\"}}\n",
+      "timed_out": false
+    },
+    "outside_control": {
+      "code": 0,
+      "hits": {
+        "gate_port_udp": 2,
+        "outside_unix_dgram": 1
+      },
+      "parsed": {
+        "pid": 84657,
+        "ppid": 84651,
+        "results": {
+          "gate_port_udp4": "sent",
+          "gate_port_udp6": "sent",
+          "gate_tcp4": "connected",
+          "gate_tcp6": "connected",
+          "outside_unix_dgram": "sent",
+          "private_unix_dgram_self": "received"
+        },
+        "sid": 84657
+      },
+      "seconds": 0.04,
+      "stderr": "",
+      "stdout": "{\"pid\": 84657, \"ppid\": 84651, \"sid\": 84657, \"results\": {\"gate_tcp4\": \"connected\", \"gate_tcp6\": \"connected\", \"gate_port_udp4\": \"sent\", \"gate_port_udp6\": \"sent\", \"outside_unix_dgram\": \"sent\", \"private_unix_dgram_self\": \"received\"}}\n",
+      "timed_out": false
+    }
+  },
+  "completed": true,
+  "finished": "2026-11-12T17:46:43Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "profiles": {
+    "enforced:qnm-033839c55ca8": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-033839c55ca8\"))\n(allow network-outbound (remote tcp \"localhost:55756\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-033839c55ca8\"))\n(deny lsopen (with message \"qnm-033839c55ca8\"))\n(deny appleevent-send (with message \"qnm-033839c55ca8\"))\n(deny mach-lookup (with message \"qnm-033839c55ca8\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-033839c55ca8\"))\n",
+    "enforced:qnm-786ebe4bbae2": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-786ebe4bbae2\"))\n(allow network-outbound (remote ip \"localhost:55756\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-786ebe4bbae2\"))\n(deny lsopen (with message \"qnm-786ebe4bbae2\"))\n(deny appleevent-send (with message \"qnm-786ebe4bbae2\"))\n(deny mach-lookup (with message \"qnm-786ebe4bbae2\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-786ebe4bbae2\"))\n"
+  },
+  "stage": "dgram",
+  "started": "2026-11-12T17:46:34Z"
+}
