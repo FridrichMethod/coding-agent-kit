@@ -1,0 +1,912 @@
+{
+  "mode": "routing",
+  "events": [
+    {
+      "at": 0.267,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.273,
+      "event": "get",
+      "service": "gate",
+      "path": "/backend-api/codex/models?client_version=0.167.2",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.273,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.279,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.28,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.281,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.281,
+      "event": "preflight",
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      },
+      "model_requests": 0
+    },
+    {
+      "at": 0.289,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-5060-7e10-85b1-9af58c736798",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469875,
+          "updatedAt": 1794469875,
+          "recencyAt": 1794469875,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-15-01a1cebd-5060-7e10-85b1-9af58c736798.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 0.292,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture initial prompt"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cebd-5068-74c2-9c9b-e71a1655a8b0",
+          "rootTurnId": "01a1cebd-5068-74c2-9c9b-e71a1655a8b0",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 0.331,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.347,
+      "event": "admit",
+      "service": "gate",
+      "path": "/backend-api/codex/responses",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true,
+      "model": "gpt-5.4",
+      "input_summary": [
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n"
+        },
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Ge"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture initial prompt"
+        }
+      ],
+      "header_names": [
+        "accept",
+        "authorization",
+        "chatgpt-account-id",
+        "content-length",
+        "content-type",
+        "host",
+        "originator",
+        "session-id",
+        "thread-id",
+        "user-agent",
+        "x-client-request-id",
+        "x-codex-beta-features",
+        "x-codex-turn-metadata",
+        "x-codex-window-id"
+      ]
+    },
+    {
+      "at": 0.393,
+      "event": "subscription_route",
+      "admitted": 1
+    },
+    {
+      "at": 0.401,
+      "event": "rpc",
+      "method": "thread/goal/set",
+      "params": {
+        "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+        "objective": "Fixture goal",
+        "status": "active",
+        "origin": "user"
+      },
+      "result": {
+        "goal": {
+          "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+          "objective": "Fixture goal",
+          "status": "active",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1794469875,
+          "updatedAt": 1794469875
+        }
+      }
+    },
+    {
+      "at": 0.402,
+      "event": "rpc",
+      "method": "thread/queue/add",
+      "params": {
+        "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+        "clientUserMessageId": "pc2-old",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture old queued prompt"
+          }
+        ]
+      },
+      "result": {
+        "queuedSubmission": {
+          "id": "01a1cebd-50d7-7cd1-b13d-bcf80bf8aebc",
+          "input": [
+            {
+              "type": "text",
+              "text": "Fixture old queued prompt",
+              "text_elements": []
+            }
+          ],
+          "clientUserMessageId": "pc2-old"
+        }
+      }
+    },
+    {
+      "at": 0.402,
+      "event": "gate_closed",
+      "admitted": 1
+    },
+    {
+      "at": 0.405,
+      "event": "rpc",
+      "method": "turn/interrupt",
+      "params": {
+        "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+        "turnId": "01a1cebd-5068-74c2-9c9b-e71a1655a8b0"
+      },
+      "result": {}
+    },
+    {
+      "at": 0.405,
+      "event": "controller_lost"
+    },
+    {
+      "at": 0.406,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.409,
+      "event": "rpc",
+      "method": "thread/queue/start",
+      "params": {
+        "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798"
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cebd-50dd-7ad1-801c-87ddccb246d8",
+          "rootTurnId": "01a1cebd-50dd-7ad1-801c-87ddccb246d8",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 0.411,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.416,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.426,
+      "event": "reject",
+      "service": "gate",
+      "path": "/backend-api/codex/responses",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true,
+      "model": "gpt-5.4",
+      "input_summary": [
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n"
+        },
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Ge"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture initial prompt"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<codex_internal_context source=\"user_goal\">\nUser set the goal: \"Fixture goal\"\nUser set goal status: \"active\".\n</codex_internal_context>"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<turn_aborted>\nThe user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.\n</turn_aborted>"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture old queued prompt"
+        }
+      ],
+      "header_names": [
+        "accept",
+        "authorization",
+        "chatgpt-account-id",
+        "content-length",
+        "content-type",
+        "host",
+        "originator",
+        "session-id",
+        "thread-id",
+        "user-agent",
+        "x-client-request-id",
+        "x-codex-beta-features",
+        "x-codex-turn-metadata",
+        "x-codex-window-id"
+      ]
+    },
+    {
+      "at": 0.459,
+      "event": "queue_blocked",
+      "admitted": 1,
+      "rejected": 1
+    },
+    {
+      "at": 0.548,
+      "event": "stream_disconnected",
+      "service": "gate",
+      "request_id": 1
+    },
+    {
+      "at": 0.966,
+      "event": "rpc",
+      "method": "thread/resume",
+      "params": {
+        "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+        "modelProvider": "bypass"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-5060-7e10-85b1-9af58c736798",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469875,
+          "updatedAt": 1794469875,
+          "recencyAt": 1794469875,
+          "status": {
+            "type": "systemError"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-15-01a1cebd-5060-7e10-85b1-9af58c736798.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-5068-74c2-9c9b-e71a1655a8b0",
+              "rootTurnId": "01a1cebd-5068-74c2-9c9b-e71a1655a8b0",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-5095-7873-8d41-b767de2760e4",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469875862,
+                  "completedAtMs": 1794469875862
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469875,
+              "completedAt": 1794469875,
+              "durationMs": 112
+            },
+            {
+              "id": "01a1cebd-50dd-7ad1-801c-87ddccb246d8",
+              "rootTurnId": "01a1cebd-50dd-7ad1-801c-87ddccb246d8",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-50e7-7c61-9f68-a4a9a9066666",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469875944,
+                  "completedAtMs": 1794469875944
+                }
+              ],
+              "itemsView": "full",
+              "status": "failed",
+              "error": {
+                "message": "unexpected status 503 Service Unavailable: <!DOCTYPE HTML>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"utf-8\">\n        <style type=\"text/css\">\n            :root {\n                color-scheme: light dark;\n            }\n        </style>\n        <title>Error response</title>\n    </head>\n    <body>\n        <h1>Error response</h1>\n        <p>Error code: 503</p>\n        <p>Message: Service Unavailable.</p>\n        <p>Error code explanation: 503 - The server cannot process the request due to a high load.</p>\n    </body>\n</html>, url: <GATE_URL>/backend-api/codex/responses",
+                "codexErrorInfo": {
+                  "httpConnectionFailed": {
+                    "httpStatusCode": 503
+                  }
+                },
+                "additionalDetails": null,
+                "misalignment": null
+              },
+              "startedAt": 1794469875,
+              "completedAt": 1794469875,
+              "durationMs": 19
+            }
+          ]
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "collaborationMode": {
+          "mode": "default",
+          "settings": {
+            "model": "gpt-5.4",
+            "reasoning_effort": null,
+            "developer_instructions": null
+          }
+        },
+        "multiAgentMode": "explicitRequestOnly",
+        "initialTurnsPage": null,
+        "turnsBackwardsCursor": "{\"requestedThreadId\":\"01a1cebd-5060-7e10-85b1-9af58c736798\",\"rolloutOrdinal\":15,\"includeAnchor\":true,\"scope\":{\"kind\":\"turns\"}}",
+        "itemsBackwardsCursor": "{\"requestedThreadId\":\"01a1cebd-5060-7e10-85b1-9af58c736798\",\"rolloutOrdinal\":18,\"includeAnchor\":true,\"scope\":{\"kind\":\"itemsByCreatedAtOrdinal\"}}"
+      }
+    },
+    {
+      "at": 0.969,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cebd-5060-7e10-85b1-9af58c736798",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture provider change while gate remains closed"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cebd-530d-79d0-a756-52a652c10c4b",
+          "rootTurnId": "01a1cebd-530d-79d0-a756-52a652c10c4b",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 0.976,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.986,
+      "event": "reject",
+      "service": "gate",
+      "path": "/backend-api/codex/responses",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true,
+      "model": "gpt-5.4",
+      "input_summary": [
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n"
+        },
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Ge"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture initial prompt"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<codex_internal_context source=\"user_goal\">\nUser set the goal: \"Fixture goal\"\nUser set goal status: \"active\".\n</codex_internal_context>"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<turn_aborted>\nThe user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.\n</turn_aborted>"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture old queued prompt"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture provider change while gate remains closed"
+        }
+      ],
+      "header_names": [
+        "accept",
+        "authorization",
+        "chatgpt-account-id",
+        "content-length",
+        "content-type",
+        "host",
+        "originator",
+        "session-id",
+        "thread-id",
+        "user-agent",
+        "x-client-request-id",
+        "x-codex-beta-features",
+        "x-codex-turn-metadata",
+        "x-codex-window-id"
+      ]
+    },
+    {
+      "at": 6.988,
+      "event": "provider_change",
+      "bypass_observed": false,
+      "gate_admitted": 1,
+      "bypass_admitted": 0
+    },
+    {
+      "at": 6.995,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/workspace",
+        "modelProvider": "bypass"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-6a95-7e41-9e51-e0a1d67e106a",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-6a95-7e41-9e51-e0a1d67e106a",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "bypass",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469882,
+          "updatedAt": 1794469882,
+          "recencyAt": 1794469882,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-22-01a1cebd-6a95-7e41-9e51-e0a1d67e106a.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "bypass",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 6.998,
+      "event": "rpc_error_wire",
+      "message": {
+        "error": {
+          "code": -32600,
+          "data": {
+            "type": "modelProviderMismatch",
+            "modelProvider": "bypass",
+            "currentModelProvider": "gate"
+          },
+          "message": "This chat uses bypass, but your current provider is gate. Switch to bypass to continue."
+        },
+        "id": 6
+      }
+    },
+    {
+      "at": 6.998,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cebd-6a95-7e41-9e51-e0a1d67e106a",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture new thread alternate provider"
+          }
+        ]
+      },
+      "error": "daemon turn/start refused (-32600)."
+    },
+    {
+      "at": 13.018,
+      "event": "new_thread_provider_bypass",
+      "observed": false,
+      "gate_admitted": 1,
+      "bypass_admitted": 0
+    }
+  ],
+  "terminal": "",
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+}
