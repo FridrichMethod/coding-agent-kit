@@ -444,6 +444,50 @@ class NativeSharingTests(unittest.TestCase):
             time.sleep(0.01)
         self.fail("native thread history did not persist within five seconds")
 
+    def test_deleted_sessions_leave_no_rollout_for_takeover_recovery(self):
+        # Takeover recovery drops a record only when the daemon refuses to read its session
+        # and no rollout of it is left in shared storage; native delete must remove them.
+        handoff = load_helper("handoff")
+
+        class Daemon:
+            def __init__(self, server):
+                self.server = server
+
+            def request(self, method, params, timeout=20):
+                try:
+                    return self.server.request(method, params, timeout)
+                except RpcError as error:
+                    raise handoff.RpcError(str(error)) from None
+
+        server = self.server("a")
+        client = Daemon(server)
+        threads = []
+        for mode in ("legacy", "paginated"):
+            thread = self.start_thread(server, mode)
+            server.request("thread/inject_items", {"threadId": thread["id"], "items": [{
+                "type": "message", "role": "user",
+                "content": [{"type": "input_text", "text": "fictional deletion context " + mode}],
+            }]})
+            self.wait_for_persisted_rollout(thread)
+            threads.append(thread["id"])
+        server.request("thread/archive", {"threadId": threads[1]})
+
+        class Refusing:
+            def request(self, method, params, timeout=20):
+                raise handoff.RpcError("daemon thread/read refused (-32600).")
+
+        for thread in threads:
+            self.assertFalse(handoff.deleted(client, self.root, thread), "a saved session is kept")
+            # Even when the read is refused, the search finds its real rollout name.
+            self.assertFalse(handoff.deleted(Refusing(), self.root, thread), "its rollout is found")
+        for thread in threads:
+            server.request("thread/delete", {"threadId": thread})
+            with self.assertRaises(handoff.RpcError):
+                client.request("thread/read", {"threadId": thread, "includeTurns": False})
+            self.assertEqual([path for place in ("sessions", "archived_sessions")
+                              for path in (self.root / place).rglob("*" + thread + "*")], [])
+            self.assertTrue(handoff.deleted(client, self.root, thread))
+
     def test_paginated_uuid_resume_and_shared_discovery(self):
         first = self.server("a")
         thread = self.start_thread(first)

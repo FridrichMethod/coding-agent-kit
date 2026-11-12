@@ -252,7 +252,17 @@ session, it re-reads the subtree before each request and archives or unarchives 
 spawned agent whose state differs from the journal. It repeats until the subtree
 matches; the spawn depth bounds the passes. It never archives an agent that the
 root daemon has loaded, together with any of its agents. A stale record must not
-end running work, so that agent stays visible and the launcher warns. A fresh helper
+end running work, so that agent stays visible and the launcher warns. Native delete
+removes a thread together with its spawned subtree. A saved agent that has left the
+session's subtree and passes the deletion test below has nothing to restore, so
+recovery skips it. One merely missing from the listing keeps the record. A record
+whose session was deleted is removed with a warning. That happens only when the daemon
+refuses to read the session and no rollout of it is left under `sessions/` or
+`archived_sessions/`, which native delete removes before it succeeds. Its refusals
+all share one error code, so a refusal alone keeps the record, and so does a
+folder that cannot be searched. The search covers `sessions/` both before and after
+`archived_sessions/`, so a rollout that a concurrent unarchive moves is still found.
+A fresh helper
 cannot force unsubscribe another client. The takeover's Unix WebSocket management
 client uses the native management identity and does not modify daemon login.
 `thread/read` reports each loaded thread's `status` (`idle`, `active`, `notLoaded`,

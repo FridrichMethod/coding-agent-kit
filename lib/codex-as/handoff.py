@@ -228,6 +228,30 @@ def root_archived(client, root, thread):
     raise ValueError("session archive path is outside shared storage; recovery is required.")
 
 
+def deleted(client, root, thread):
+    """Whether THREAD was deleted. The daemon refuses to read it, and no rollout of it is left in
+    shared storage: native delete removes them before it succeeds. Its refusals all use one
+    error code, so a refusal alone, a timeout or an unreadable folder never counts."""
+    try:
+        client.request("thread/read", {"threadId": thread, "includeTurns": False})
+        return False
+    except RpcError:
+        pass
+    def fail(error):
+        raise error  # pathlib's glob would skip an unreadable folder silently.
+
+    # Archive and unarchive move a rollout by one rename; searching sessions again after
+    # archived_sessions also finds one that a concurrent unarchive moved back meanwhile.
+    for place in ("sessions", "archived_sessions", "sessions"):
+        folder = root / place
+        if not os.path.lexists(folder):
+            continue
+        for _, _, names in os.walk(folder, onerror=fail):
+            if any(thread in name for name in names):
+                return False
+    return True
+
+
 def loaded_below(client, item):
     """Whether the root daemon has ITEM or one of its visible spawned agents loaded."""
     loaded = set(client.request("thread/loaded/list", {})["data"])
@@ -248,6 +272,10 @@ def restore(client, root, thread, original_archived):
         # never interpret a timeout/disconnect as an already-unarchived reply.
         if root_archived(client, root, thread):
             raise
+    # A saved agent deleted since (native delete takes its spawned subtree along) has no
+    # visibility left to restore. One merely missing from the listing still counts.
+    members = descendants(client, thread, True) | descendants(client, thread, False)
+    original_archived = {item for item in original_archived if item in members or not deleted(client, root, item)}
     # Before 0.166 unarchive restores only the named thread; since then it also restores
     # every archived spawned descendant, even one archived on its own, as archive covers
     # the subtree. Correct each agent whose state differs, re-reading before every
@@ -379,10 +407,13 @@ def finish(guard, root, client, thread, journal):
             or not isinstance(value.get("archived"), list)):
         raise ValueError("unrecognized takeover recovery record; preserve it.")
     try:
-        kept = restore(client, root, thread, {str(uuid.UUID(item)) for item in value["archived"]})
+        gone = deleted(client, root, thread)
+        kept = set() if gone else restore(client, root, thread, {str(uuid.UUID(item)) for item in value["archived"]})
     except FAILURES as error:
         raise Pending(f"takeover recovery failed; preserve {journal} and retry the same command.") from error
     journal.unlink()
+    if gone:
+        guard.warn(f"session {thread} no longer exists; removed its takeover recovery record.")
     report_kept(guard, kept)
 
 

@@ -113,6 +113,8 @@ class HandoffDaemon:
         # Native 0.166 and newer also unarchive archived spawned descendants, even
         # those archived on their own; older releases restore only the named thread.
         self.unarchive_subtree = False
+        # Sessions whose thread/read is refused although they still exist.
+        self.unreadable = set()
         # Loaded sessions are idle unless set; None omits the field like an unknown backend.
         self.statuses = {}
         # Sessions start in the launcher's directory unless set.
@@ -236,6 +238,8 @@ class HandoffDaemon:
             return {'data': [self.listing(name) for name in ids][:params['limit']], 'nextCursor': None}
         name = params['threadId']
         if method == 'thread/read':
+            if name in self.unreadable:
+                raise ValueError('read refused')
             status = self.statuses.get(name, {'type': 'idle'}) if name in self.writers else {'type': 'notLoaded'}
             return {'thread': {**self.listing(name), **({'status': status} if status is not None else {}),
                                # Native thread/read marks spawned agents in source, not parentThreadId.
@@ -245,8 +249,8 @@ class HandoffDaemon:
                                'source': {'subAgent': {'thread_spawn': {'parent_thread_id': self.parents[name]}}}
                                if self.parents[name] else self.source(name)}}
         if method == 'thread/archive':
-            if name in self.archived:
-                raise ValueError('already archived')  # Native refuses an archived target.
+            if name not in self.parents or name in self.archived:
+                raise ValueError('refused')  # Native: thread not found, or already archived.
             names = self.subtree(name)
             for item in names:
                 if item in self.archived:
@@ -279,6 +283,17 @@ class HandoffDaemon:
         stream = (self.root / 'thread-writer-locks' / (name + '.lock')).open('wb')
         fcntl.flock(stream, fcntl.LOCK_EX)
         self.writers[name] = stream
+
+    def delete(self, name):
+        """Native thread/delete: NAME and its spawned subtree, rollouts included."""
+        for item in self.subtree(name):
+            writer = self.writers.pop(item, None)
+            if writer is not None:
+                writer.close()
+            place = 'archived_sessions' if item in self.archived else 'sessions'
+            (self.root / place / (item + '.jsonl')).unlink()
+            self.archived.discard(item)
+            del self.parents[item], self.updated[item]
 
     def add_agent(self, name, parent, archived=False):
         """Another saved, unloaded spawned agent under PARENT."""
@@ -1044,6 +1059,123 @@ class CodexAs(unittest.TestCase):
                     daemon.close()
                     for path in (self.codex / 'accounts/.locks').glob('*.handoff.json'):
                         path.unlink()
+
+    def interrupted(self, daemon, run):
+        """A takeover whose restore failed: the session and its agents stay archived."""
+        daemon.fail_restore = True
+        with self.assertRaises(ValueError):
+            run()
+        daemon.fail_restore = False
+        journal = next((self.codex / 'accounts/.locks').glob('*.handoff.json'))
+        return journal
+
+    def test_recovery_skips_a_saved_agent_deleted_since(self):
+        # Native thread/delete removed the agent saved as archived; the session remains.
+        for subtree in (False, True):
+            with self.subTest(unarchive_subtree=subtree):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                try:
+                    daemon.unarchive_subtree = subtree
+                    journal = self.interrupted(daemon, run)
+                    daemon.delete(ids[2])
+                    stderr = io.StringIO()
+                    with contextlib.redirect_stderr(stderr):
+                        self.assertEqual(run(), 0, stderr.getvalue())
+                    self.assertFalse(journal.exists())
+                    self.assertEqual(daemon.archived, set(), 'the session and its remaining agent are visible')
+                    self.assertEqual(len(attempts), 1)
+                finally:
+                    daemon.close()
+                    for path in (self.codex / 'accounts/.locks').glob('*.handoff.json'):
+                        path.unlink()
+
+    def test_recovery_drops_the_record_of_a_deleted_session(self):
+        for args in (['resume'], ['resume', '--last'], ['fork', '{id}']):
+            with self.subTest(args=args):
+                daemon, ids, attempts, run = self.handoff_fixture()
+                try:
+                    journal = self.interrupted(daemon, run)
+                    daemon.delete(ids[0])  # With its spawned agents, as native does.
+                    stderr = io.StringIO()
+                    with contextlib.redirect_stderr(stderr):
+                        self.assertEqual(run([arg.format(id=ids[0]) for arg in args]), 0, stderr.getvalue())
+                    self.assertFalse(journal.exists())
+                    self.assertIn(f'session {ids[0]} no longer exists', stderr.getvalue())
+                    self.assertNotIn('could not take over', stderr.getvalue())
+                    self.assertEqual(len(attempts), 1)
+                finally:
+                    daemon.close()
+                    for path in (self.codex / 'accounts/.locks').glob('*.handoff.json'):
+                        path.unlink()
+
+    def test_only_a_refused_read_with_no_rollout_left_counts_as_deleted(self):
+        handoff = self.handoff_fixture()[3].launcher.handoff
+        thread = '12345678-1234-4234-8234-1234567890ab'
+
+        def client(error):
+            def request(method, params, timeout=None):
+                raise error
+            return SimpleNamespace(request=request)
+
+        refused = client(handoff.RpcError('daemon thread/read refused (-32600).'))
+        for error in (TimeoutError('timed out'), OSError('daemon disconnected')):
+            with self.assertRaises(OSError):
+                handoff.deleted(client(error), self.codex, thread)
+        self.assertTrue(handoff.deleted(refused, self.codex, thread))
+        for place in ('sessions/2026/11/11', 'archived_sessions'):
+            with self.subTest(place=place):
+                (self.codex / place).mkdir(parents=True, exist_ok=True)
+                rollout = self.codex / place / f'rollout-2026-11-11T00-00-00-{thread}.jsonl.zst'
+                rollout.write_bytes(b'')
+                self.assertFalse(handoff.deleted(refused, self.codex, thread))
+                rollout.unlink()
+
+    def test_recovery_keeps_an_agent_missing_from_the_listing_but_not_deleted(self):
+        # A spawn relation that is briefly missing must not drop the saved state.
+        daemon, ids, attempts, run = self.handoff_fixture()
+        journal = self.interrupted(daemon, run)
+        daemon.parents[ids[2]] = None  # Still saved, no longer listed under the session.
+        with self.assertRaisesRegex(ValueError, 'recover'):
+            run()
+        self.assertTrue(journal.exists())
+        daemon.parents[ids[2]] = ids[1]
+        self.assertEqual(run(), 0)
+        self.assertFalse(journal.exists())
+        self.assertEqual(daemon.archived, {ids[2]})
+
+    @unittest.skipIf(os.geteuid() == 0, "root reads any folder")
+    def test_recovery_keeps_the_record_when_shared_storage_cannot_be_searched(self):
+        daemon, ids, attempts, run = self.handoff_fixture()
+        journal = self.interrupted(daemon, run)
+        daemon.delete(ids[0])
+        hidden = self.codex / 'sessions/2026'
+        hidden.mkdir(mode=0)
+        self.addCleanup(hidden.chmod, 0o700)
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(['resume']), 0, stderr.getvalue())
+        self.assertTrue(journal.exists(), 'a folder it cannot read may hold the session')
+        self.assertNotIn('no longer exists', stderr.getvalue())
+        hidden.chmod(0o700)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(run(['resume']), 0)
+        self.assertFalse(journal.exists())
+
+    def test_recovery_keeps_the_record_when_a_saved_session_is_only_unreadable(self):
+        # A refused read alone proves nothing: its rollout is still in shared storage.
+        daemon, ids, attempts, run = self.handoff_fixture()
+        journal = self.interrupted(daemon, run)
+        daemon.unreadable.add(ids[0])
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(run(['resume']), 0, stderr.getvalue())
+        self.assertTrue(journal.exists())
+        self.assertIn('could not take over ' + ids[0], stderr.getvalue())
+        self.assertNotIn('no longer exists', stderr.getvalue())
+        daemon.unreadable.clear()
+        self.assertEqual(run(), 0)
+        self.assertFalse(journal.exists())
+        self.assertEqual(daemon.archived, {ids[2]})
 
     def test_handoff_refuses_unknown_daemon_identity_before_mutation(self):
         for bad_home, bad_version in ((True, False), (False, True)):

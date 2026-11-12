@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.6
+
+- `codex-as` takeover recovery no longer stays pending after a deletion. A saved
+  agent deleted since the takeover was interrupted made recovery archive a thread
+  that no longer exists. The daemon refused, so that session could not be resumed
+  and the picker warned on every launch. Native delete removes a thread with its
+  spawned subtree. Recovery now skips a saved agent that is gone from the
+  session's subtree and passes the same deletion test as a session, below. An
+  agent merely missing from the listing still keeps the record.
+- A recovery record whose session was deleted is removed with a warning
+  (`session UUID no longer exists`). This requires both that the root daemon
+  refuses to read the session and that no rollout of it is left in shared
+  storage, which native delete removes before it succeeds. A refused read alone,
+  or a folder that cannot be searched, keeps the record.
+
 ## 0.7.5
 
 - Fix `codex-as` session takeover with a root daemon from Codex 0.166.0 or

@@ -4,7 +4,7 @@
 
 # The kit release of this launcher; tests/test_config.py checks it against
 # the first heading of CHANGELOG.md.
-_codex_as_version=0.7.5
+_codex_as_version=0.7.6
 
 # Native Codex gets the caller's umask, variables, cwd and options; the Python
 # launcher writes its own files under umask 077.

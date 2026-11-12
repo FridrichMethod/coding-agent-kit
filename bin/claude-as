@@ -5,7 +5,7 @@ set -eu
 umask 077
 # The kit release of this launcher; tests/test_config.py checks it against
 # the first heading of CHANGELOG.md.
-_claude_as_version=0.7.5
+_claude_as_version=0.7.6
 # Only style this command's heading, never the native Claude streams.
 _claude_as_message() {
     if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ] &&
