@@ -1,9 +1,8 @@
 # Configuration
 
 `codex-as` and `claude-as` read one optional TOML file. Without it they use
-the defaults below, which give the same arguments, environment, files and
-links as 0.1.0, which had no configuration. The file only moves paths and
-names executables; it adds no behavior.
+the defaults below. The file only moves paths and names executables; it adds
+no behavior.
 
 `lib/coding-agent-kit/config.py` is the only code that reads it, and the only
 launcher or completion code that reads `HOME`. Each run loads it once, after
@@ -78,7 +77,7 @@ Rules for every key:
 `codex` and `claude`:
 
 - A bare name made only of `A-Z a-z 0-9 . _ + -` is looked up on `PATH` when
-  the launcher runs, as before.
+  the launcher runs.
 - Anything else must be an absolute path or start with `~/`. The path names
   one executable file; it is not a command line and takes no arguments.
 
@@ -100,9 +99,9 @@ Rules for every key:
   never read or write that directory when it is `secrets_dir` through a link.
 - The parent of each must be a directory you own that neither group nor others
   can write: `codex-as` checks both parents, `claude-as` the parent of
-  `secrets_dir`. With the defaults both parents are `$HOME`, checked as
-  before. A parent that does not exist, also one below a regular file, is
-  named in the error; the launchers never create it.
+  `secrets_dir`. With the defaults both parents are `$HOME`. A parent that
+  does not exist, also one below a regular file, is named in the error; the
+  launchers never create it.
 - The directories themselves follow the rules in
   [account launchers](account-launchers.md): `codex_home` owned and not
   group/other writable, `secrets_dir` owned with mode 0700.
@@ -243,13 +242,18 @@ claude-as: PARENT must be an owned, real directory without group/other write acc
 claude-as: SECRETS_DIR must be an owned, real directory with permissions 0700.
 ```
 
-With the defaults the texts are unchanged (`Codex is not installed on PATH.`,
-`real Claude executable not found on PATH.`, `HOME must be an owned, real
-user directory without group/other write access.` and `.secrets must be an
-owned, real directory with permissions 0700.`). The directory errors of
-`codex-as` already name the full path. A parent that a launcher checks
-(above) and that does not exist, `$HOME` included, or that lies below a
-regular file, stops it with:
+With the defaults the same errors read:
+
+```
+codex-as: Codex is not installed on PATH.
+claude-as: real Claude executable not found on PATH.
+claude-as: HOME must be an owned, real user directory without group/other write access.
+claude-as: .secrets must be an owned, real directory with permissions 0700.
+```
+
+The directory errors of `codex-as` already name the full path. A parent that
+a launcher checks (above) and that does not exist, `$HOME` included, or that
+lies below a regular file, stops it with:
 
 ```
 TOOL: PARENT does not exist; create it, owned by you and not group or other writable.
@@ -259,8 +263,8 @@ TOOL: PARENT does not exist; create it, owned by you and not group or other writ
 
 These are the launcher's own queries: `--show-config`, `--list` (`-l`) and
 `--labels` accepted only as the single argument, `--info NAME` (`-i NAME`)
-only with one account name. The older spellings `--list-accounts`,
-`--account-labels` and `--account-info NAME` still work; the account
+only with one account name. The aliases `--list-accounts`,
+`--account-labels` and `--account-info NAME` are accepted too; the account
 launchers documentation lists every own option. They read metadata only: no
 environment or argument checks, no directory is created, no native CLI
 starts, no credential is opened and nothing touches the network.

@@ -8,9 +8,9 @@ codex-as work resume --last
 codex-as ayting exec --json "Check the tests"
 ```
 
-Existing accounts launch directly. Missing accounts require confirmation, followed by native device login in an empty temporary `CODEX_HOME`; after saving complete JSON credentials, the original command continues. No sourcing or old /tmp initialization examples are needed.
+Existing accounts launch directly. Missing accounts require confirmation, followed by native device login in an empty temporary `CODEX_HOME`; after saving complete JSON credentials, the original command continues. No sourcing or separate initialization step is needed.
 
-Apart from `-h` (`--help`), the launcher has its own queries, none starting Codex or opening a credential: `codex-as -l` (`--list`) prints the account names (what Bash completion offers), `codex-as --labels` prints them with their last-seen emails (the zsh descriptions), `codex-as -i NAME` (`--info NAME`) prints the last-seen email, plan and usage of one account, and `codex-as --show-config` prints the configuration file in use, the `codex` executable, `<codex_home>` and `<secrets_dir>`. Each but `-i NAME` is accepted only as the single argument; the older spellings `--list-accounts`, `--account-labels` and `--account-info NAME` still work, and any other dash word before `NAME` is refused with a hint that Codex options go after it (see [own options](account-launchers.md#own-options)).
+Apart from `-h` (`--help`), the launcher has its own queries, none starting Codex or opening a credential: `codex-as -l` (`--list`) prints the account names (what Bash completion offers), `codex-as --labels` prints them with their last-seen emails (the zsh descriptions), `codex-as -i NAME` (`--info NAME`) prints the last-seen email, plan and usage of one account, and `codex-as --show-config` prints the configuration file in use, the `codex` executable, `<codex_home>` and `<secrets_dir>`. Each but `-i NAME` is accepted only as the single argument; the aliases `--list-accounts`, `--account-labels` and `--account-info NAME` are accepted too, and any other dash word before `NAME` is refused with a hint that Codex options go after it (see [own options](account-launchers.md#own-options)).
 
 ## Daemon takeover
 
@@ -114,10 +114,10 @@ and launches.
 There is no version allowlist. The launcher accepts `codex-cli 0.161.0` or newer,
 including prereleases of later versions (a prerelease precedes its release, so
 `0.161.0-alpha.1` is refused), and refuses version output it cannot parse.
-0.161.0 is the oldest local release that passes the native suite below: 0.160.1
-and 0.158.0 fail the daemon takeover fixture, and 0.155.1 also fails the refresh
-writeback test and lacks `--no-daemon`. Runtime checks replace the former exact
-pin:
+0.161.0 is the oldest release with a recorded pass of the native suite below. In
+the recorded runs of older releases, 0.160.1 and 0.158.0 fail its daemon
+takeover fixture, and 0.155.1 also fails the refresh writeback test and lacks
+`--no-daemon`. The launcher relies on these runtime rules instead:
 
 - Arguments are forwarded unchanged after the launcher's own
   `-c cli_auth_credentials_store="file"` and `-c sqlite_home=...`; every command
@@ -184,15 +184,18 @@ pin:
   kept until a later run recovers.
 
 After `codex update`, run `tests/codex-as.sh`; it uses the `codex` on PATH, or
-`CODEX_NATIVE_BINARY`. Checked 2026-10-17: releases 0.161.0, 0.162.1 and 0.163.0
-pass it, and takeover also passes with a 0.161.0 or 0.162.1 daemon and a 0.163.0
-client, and with a 0.163.0 daemon and a 0.161.0 client. Checked 2026-11-11:
-releases 0.163.0, 0.166.0 and 0.167.0 pass it, and takeover also passes with a
-0.163.0 daemon and a 0.167.0 client, and with a 0.167.0 daemon and a 0.163.0
-client. Before kit 0.7.5 the suite failed from 0.166.0 on. The takeover failure
-was real: a daemon 0.166.0 or newer could leave a takeover pending, with a spawned
-agent that had been archived on its own made visible again. The refresh failures
-came from stricter-than-needed checks of how a release writes the secret.
+`CODEX_NATIVE_BINARY`. Recorded passing runs, by the kit release whose code and
+suite ran:
+
+| Kit | Codex releases | Takeover daemon / client |
+| --- | --- | --- |
+| 0.7.7 | 0.167.2 | not run |
+| 0.7.5 | 0.163.0, 0.166.0, 0.167.0 | 0.163.0 / 0.167.0, 0.167.0 / 0.163.0 |
+| 0.1.0 | 0.161.0, 0.162.1, 0.163.0 | 0.161.0 / 0.163.0, 0.162.1 / 0.163.0, 0.163.0 / 0.161.0 |
+
+A root daemon at 0.166.0 or newer needs kit 0.7.5 or newer. A takeover that an
+older kit left pending completes when the same command runs again with the
+current kit.
 
 ## Remaining differences from native Codex
 
@@ -225,7 +228,7 @@ running `codex ARGS...`. What still differs:
 
 ## Symlink writeback verification
 
-The source audit below used `codex-cli 0.162.1`, official tag `rust-v0.162.1` and commit `092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`. In `rust-v0.163.0`, `login/src/auth/manager.rs` is unchanged and `login/src/auth/storage.rs` is untouched; the native refresh test checks the behavior for every release it runs against.
+The source audit below starts from `codex-cli 0.162.1`, official tag `rust-v0.162.1` and commit `092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`; the bullets name the later releases that change it. In `rust-v0.163.0`, `login/src/auth/manager.rs` and `login/src/auth/storage.rs` are unchanged; the native refresh test checks the behavior for every release it runs against.
 
 - [storage.rs](https://github.com/openai/codex/blob/092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/login/src/auth/storage.rs#L214) opens auth.json with OpenOptions write/truncate/create, then writes and flushes. This path uses neither rename/atomic replacement nor O_NOFOLLOW, so it follows symlinks to update the target.
 - AuthManager saves refreshes through this storage.save. Imports and backups preserve all original bytes; Codex manages the actual refresh format. The wrapper does not implement OAuth refresh.

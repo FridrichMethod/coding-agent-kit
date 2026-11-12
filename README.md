@@ -17,12 +17,11 @@ your own with `install.sh`, or link or copy its files.
 ## Requirements
 
 - Linux or macOS; WSL counts as Linux. Native Windows is not supported.
-  v0.6.x was the last line with `install.ps1`, the managed install of the
-  helpers there: its installs keep working, frozen at their release, and
+  The 0.6 line is the only one with `install.ps1`, the managed install of
+  the helpers there: its installs keep working, frozen at their release, and
   `pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\coding-agent-kit\install.ps1" -Uninstall -Purge`
-  removes one. Its bootstrap URL on `main` is gone, for every channel: a
-  new or repaired 0.6 install downloads `install.ps1` from the `v0.6.0`
-  tag,
+  removes one. `main` has no `install.ps1`, so a new or repaired 0.6
+  install downloads it from the `v0.6.0` tag,
   `https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/v0.6.0/install.ps1`,
   and runs it with `-Channel 0.6` as the
   [v0.6.0 README](https://github.com/FridrichMethod/coding-agent-kit/blob/v0.6.0/README.md)
@@ -302,9 +301,9 @@ codex-as -V                           # the kit's version and install form (--ve
   match: `-h` (`--help`), which ignores any later arguments; `-V` or `-v`
   (`--version`), `-l` (`--list`), `--labels` and `--show-config`, each
   accepted only alone; `-i NAME` (`--info NAME`) and
-  `claude-as --label NAME [LABEL]`. The older spellings
-  `--list-accounts`, `--account-labels`, `--account-info` and `--set-label`
-  still work. Native options go after `NAME`; any other dash word before it
+  `claude-as --label NAME [LABEL]`. The aliases `--list-accounts`,
+  `--account-labels`, `--account-info` and `--set-label` are accepted too.
+  Native options go after `NAME`; any other dash word before it
   is refused with that hint and starts nothing. `--version` prints the
   kit's release and how it is installed, such as
   `coding-agent-kit 0.7.0 (managed v0.7.0, channel 0.7)`, while
@@ -349,7 +348,7 @@ enrolment, and after moving `codex_home` export `CODEX_HOME` for plain
 - **Status line:** shows the active model, reported effort, project and Git branch (or detached commit), context usage, the tokens the session has used, estimated session cost, and the 5-hour and weekly rate limits left. For example: `Opus | xhigh | coding-agent-kit (main) | ctx 38% | 13.7M used | ~$1.23 | 5h 88% left | weekly 58% left`. The limit segments use Claude's native `rate_limits.five_hour` and `rate_limits.seven_day` data and show 100 minus the rounded consumed percentage, as Codex shows its limits; each is omitted when its window is absent or invalid, and a valid full limit shows `0% left`. Missing context/cost data shows `?`; cost is Claude's estimate, not an invoice. It performs only bounded Git ref reads, without scanning the worktree or contacting the network. See the [status-line reference](https://code.claude.com/docs/en/statusline).
 - **Session tokens:** the `used` segment counts as Codex's `used-tokens` does: input not read from the prompt cache (`input_tokens` plus `cache_creation_input_tokens`) and output, summed over every response in the session's transcript (`transcript_path`) and its subagents' transcripts under `SESSION/subagents/`, workflow agents included; cache reads never count. Claude Code reports no such total, and reading a long session's transcripts in full can take over a second, so the helper keeps how far it has read each transcript, and the sums so far, in one private cache file per session under `${XDG_CACHE_HOME:-~/.cache}/coding-agent-kit/statusline/` (folder 0700, files 0600, holding the transcript path, the subagent transcript names, read offsets, a fingerprint of each transcript's first 64 bytes, the last message id and the counts, never what was said). Each run reads only what was appended since, at most 16 MiB, so a long session seen for the first time catches up over a few refreshes and shows `13.7M+ used` meanwhile; `+` also marks a total that leaves out a transcript it cannot read now, or subagent transcripts past the first 1000. A transcript that is shorter, replaced, or starts otherwise than when it was read is counted again from the start. A cache unchanged for 30 days is removed when another session starts one. The transcript format is Claude Code's internal one: the segment is omitted when the transcript or the cache folder cannot be used, and responses the transcripts do not record are not counted, so the count can trail the cost estimate.
 - **Notifications:** `permission_prompt` and `idle_prompt` events emit [Claude's `terminalSequence`](https://code.claude.com/docs/en/hooks#emit-terminal-notifications), using OSC 99 for Kitty, OSC 777 for Ghostty/Warp/rxvt, or OSC 9 for iTerm2/WezTerm/Windows Terminal. The terminal handles desktop delivery, including remote sessions when terminal identification is available. Enable notifications for the terminal in OS settings; unsupported terminals and non-interactive sessions may ignore them. The notice contains only the project name and a fixed status, never prompt or command contents. Other events and notification types produce nothing.
-- **Git hook checks:** a local `PreToolUse` helper replaces per-Bash `npx block-no-verify@1.1.2` execution. It blocks common `--no-verify`, commit `-n`, and `-c core.hooksPath=...` forms without npm startup or downloads. This is a conservative text check, not a shell parser; quoted text can trigger it, and indirect bypasses are outside its scope. Successful checks do not grant permission or skip the classifier.
+- **Git hook checks:** a local `PreToolUse` helper does the common bypass checks of `block-no-verify@1.1.2` in process, without npm startup or downloads: it blocks the usual `--no-verify`, commit `-n`, and `-c core.hooksPath=...` forms. This is a conservative text check, not a shell parser; quoted text can trigger it, and indirect bypasses are outside its scope. Successful checks do not grant permission or skip the classifier.
 
 ## Colour
 
