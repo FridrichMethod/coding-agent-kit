@@ -195,6 +195,17 @@ class FetchTests(unittest.TestCase):
         context = usage.production_context()
         self.assertTrue(context.check_hostname)
 
+    def test_profile_identity_option_retains_two_uuids(self):
+        profile = usage.Endpoint("http", "127.0.0.1", self.server.port, usage.PROFILE_PATH)
+        self.assertEqual(usage.fetch_profile_identity(held(ACCESS_A), profile), ("acct-a", "org-a"))
+        self.assertEqual(usage.fetch_profile_identity(held(ACCESS_B), profile), ("acct-b", "org-b"))
+        self.assertIsNone(usage.fetch_profile_identity(held("QC-FABRICATED-UNKNOWN-NOT-A-CREDENTIAL"), profile))
+        self.assertEqual(self.server.labels(usage.PROFILE_PATH), ["A", "B", "unknown"])
+        with self.assertRaises(ValueError):
+            usage.fetch(held(ACCESS_A), profile)
+        with self.assertRaises(ValueError):
+            usage.fetch_profile_identity(held(ACCESS_A), self.endpoint)
+
     def test_closed_port_is_transport_error(self):
         dead = usage.Endpoint("http", "127.0.0.1", 9)
         result = usage.fetch(held(ACCESS_A), dead, socket_timeout=0.5, total_deadline=1)

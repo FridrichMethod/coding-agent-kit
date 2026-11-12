@@ -22,6 +22,7 @@ import time
 
 PRODUCTION_HOST = "api.anthropic.com"
 USAGE_PATH = "/api/oauth/usage"
+PROFILE_PATH = "/api/oauth/profile"
 OAUTH_BETA = "oauth-2025-04-20"
 SOCKET_TIMEOUT = 5.0
 TOTAL_DEADLINE = 10.0
@@ -45,12 +46,13 @@ class Endpoint:
     def __init__(self, scheme, host, port, path=USAGE_PATH):
         if scheme == "http" and host not in _LOOPBACK:
             raise ValueError("plain HTTP is allowed only for loopback fixtures")
-        if scheme not in ("http", "https") or path != USAGE_PATH:
+        if scheme not in ("http", "https") or path not in (USAGE_PATH, PROFILE_PATH):
             raise ValueError("unsupported endpoint")
         self.scheme, self.host, self.port, self.path = scheme, host, port, path
 
 
 PRODUCTION = Endpoint("https", PRODUCTION_HOST, 443)
+PRODUCTION_PROFILE = Endpoint("https", PRODUCTION_HOST, 443, PROFILE_PATH)
 
 
 def production_context():
@@ -222,16 +224,13 @@ def _server_date(value):
         return None
 
 
-def fetch(bearer, endpoint=PRODUCTION, *, context=None, socket_timeout=SOCKET_TIMEOUT,
-          total_deadline=TOTAL_DEADLINE, user_agent="coding-agent-kit-quota-research",
-          monotonic=time.monotonic, wall_ms=lambda: int(time.time() * 1000)):
-    """One bounded GET. No retry, no redirect, no proxy discovery, no refresh.
+def _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user_agent, monotonic, wall_ms):
+    """One bounded GET; returns ("ok", status, content_type, body, date) or ("fail", outcome, status).
 
     Each socket operation is bounded by socket_timeout; a watchdog shuts the
     socket down at total_deadline so a slow-drip peer cannot extend it.
     """
     start = monotonic()
-    started_wall = wall_ms()
     connection = watchdog = None
     expired = threading.Event()
 
@@ -240,10 +239,6 @@ def fetch(bearer, endpoint=PRODUCTION, *, context=None, socket_timeout=SOCKET_TI
         if left <= 0 or expired.is_set():
             raise TimeoutError("total deadline")
         return min(socket_timeout, left)
-
-    def fail(outcome, status=None):
-        return Observation(outcome, http_status=status, started_wall_ms=started_wall,
-                           received_wall_ms=wall_ms(), received_monotonic=monotonic())
 
     status = None
     try:
@@ -274,10 +269,10 @@ def fetch(bearer, endpoint=PRODUCTION, *, context=None, socket_timeout=SOCKET_TI
         response = connection.getresponse()
         status = response.status
         if 300 <= status < 400:
-            return fail("redirect_refused", status)
+            return ("fail", "redirect_refused", status)
         declared = response.getheader("Content-Length")
         if declared is not None and (not declared.isdigit() or int(declared) > BODY_LIMIT):
-            return fail("response_too_large", status)
+            return ("fail", "response_too_large", status)
         chunks, size = [], 0
         while not response.isclosed():
             sock.settimeout(remaining())
@@ -287,18 +282,66 @@ def fetch(bearer, endpoint=PRODUCTION, *, context=None, socket_timeout=SOCKET_TI
             chunks.append(chunk)
             size += len(chunk)
             if size > BODY_LIMIT:
-                return fail("response_too_large", status)
+                return ("fail", "response_too_large", status)
         remaining()
-        return normalize(status, response.getheader("Content-Type"), b"".join(chunks),
-                         started_wall_ms=started_wall, received_wall_ms=wall_ms(),
-                         received_monotonic=monotonic(),
-                         server_date_ms=_server_date(response.getheader("Date")))
+        return ("ok", status, response.getheader("Content-Type"), b"".join(chunks), response.getheader("Date"))
     except TimeoutError:
-        return fail("deadline_exceeded", status)
+        return ("fail", "deadline_exceeded", status)
     except (OSError, http.client.HTTPException, ValueError):
-        return fail("deadline_exceeded" if expired.is_set() else "transport_error", status)
+        return ("fail", "deadline_exceeded" if expired.is_set() else "transport_error", status)
     finally:
         if watchdog is not None:
             watchdog.cancel()
         if connection is not None:
             connection.close()
+
+
+def fetch(bearer, endpoint=PRODUCTION, *, context=None, socket_timeout=SOCKET_TIMEOUT,
+          total_deadline=TOTAL_DEADLINE, user_agent="coding-agent-kit-quota-research",
+          monotonic=time.monotonic, wall_ms=lambda: int(time.time() * 1000)):
+    """One bounded usage GET. No retry, no redirect, no proxy discovery, no refresh."""
+    if endpoint.path != USAGE_PATH:
+        raise ValueError("not the usage endpoint")
+    started_wall = wall_ms()
+    result = _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user_agent,
+                          monotonic, wall_ms)
+    if result[0] == "fail":
+        return Observation(result[1], http_status=result[2], started_wall_ms=started_wall,
+                           received_wall_ms=wall_ms(), received_monotonic=monotonic())
+    _, status, content_type, body, date = result
+    return normalize(status, content_type, body, started_wall_ms=started_wall, received_wall_ms=wall_ms(),
+                     received_monotonic=monotonic(), server_date_ms=_server_date(date))
+
+
+_IDENT = re.compile(r"[A-Za-z0-9-]{1,64}")
+
+
+def fetch_profile_identity(bearer, endpoint=PRODUCTION_PROFILE, *, context=None,
+                           socket_timeout=SOCKET_TIMEOUT, total_deadline=TOTAL_DEADLINE,
+                           user_agent="coding-agent-kit-quota-research", monotonic=time.monotonic,
+                           wall_ms=lambda: int(time.time() * 1000)):
+    """G0 option only: server-asserted (account_uuid, organization_uuid) for this bearer.
+
+    Native uses this endpoint at login/refresh to bind a token to its account.
+    Only the two UUIDs survive; email, names and plan fields are dropped.
+    Returns None on any failure or anomaly.
+    """
+    if endpoint.path != PROFILE_PATH:
+        raise ValueError("not the profile endpoint")
+    result = _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user_agent,
+                          monotonic, wall_ms)
+    if result[0] != "ok" or result[1] != 200:
+        return None
+    if not (result[2] or "").split(";")[0].strip().lower() == "application/json":
+        return None
+    try:
+        data = json.loads(result[3].decode("utf-8"), object_pairs_hook=_unique, parse_constant=_reject_constant)
+        account = data["account"]["uuid"]
+        organization = data["organization"]["uuid"]
+    except (UnicodeDecodeError, ValueError, RecursionError, KeyError, TypeError):
+        return None
+    finally:
+        data = None
+    if not all(isinstance(v, str) and _IDENT.fullmatch(v) for v in (account, organization)):
+        return None
+    return (account, organization)

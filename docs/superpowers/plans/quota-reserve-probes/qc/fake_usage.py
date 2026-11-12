@@ -36,6 +36,10 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         return
 
+    def date_time_string(self, timestamp=None):
+        # send_response() adds Date itself; serve the fixture's clock there.
+        return time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(self.server.fake.server_time()))
+
     def _send(self, status, payload, content_type="application/json", extra_headers=()):
         body = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
         self.send_response(status)
@@ -92,8 +96,7 @@ class _Handler(BaseHTTPRequestHandler):
             except OSError:
                 pass
             return
-        date = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(fake.server_time()))
-        return self._send(200, account.body, extra_headers=(("Date", date),))
+        return self._send(200, account.body)
 
 
 class FakeUsageServer:
