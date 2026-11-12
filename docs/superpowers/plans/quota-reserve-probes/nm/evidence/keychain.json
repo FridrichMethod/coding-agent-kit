@@ -1,0 +1,82 @@
+{
+  "cases": {
+    "control_outside": {
+      "code": 44,
+      "seconds": 0.01,
+      "stderr": "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.\n",
+      "stdout": "<omitted>",
+      "timed_out": false
+    },
+    "store_allowed": {
+      "code": 44,
+      "seconds": 0.02,
+      "stderr": "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.\n",
+      "stdout": "<omitted>",
+      "timed_out": false
+    },
+    "store_denied": {
+      "code": 44,
+      "seconds": 0.01,
+      "stderr": "security: SecKeychainSearchCreateFromAttributes: One or more parameters passed to a function were not valid.\nsecurity: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.\n",
+      "stdout": "<omitted>",
+      "timed_out": false
+    }
+  },
+  "claude_names_for_probe_config": {
+    "credentials": "Claude Code-credentials-f447152a",
+    "device_keys_fixed": "Claude Code-device-keys",
+    "legacy_api_key": "Claude Code-f447152a"
+  },
+  "completed": true,
+  "finished": "2026-11-12T16:28:00Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "log_store_allowed": {
+    "log_exit": 0,
+    "processes": [
+      "security"
+    ],
+    "summary": [
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "security",
+        "target": "com.apple.analyticsd"
+      }
+    ]
+  },
+  "log_store_denied": {
+    "log_exit": 0,
+    "processes": [
+      "security"
+    ],
+    "summary": [
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "security",
+        "target": "com.apple.SecurityServer"
+      },
+      {
+        "action": "deny",
+        "count": 1,
+        "operation": "mach-lookup",
+        "process": "security",
+        "target": "com.apple.analyticsd"
+      }
+    ]
+  },
+  "profiles": {
+    "enforced+store:qnm-ae9e045aa5ac": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-ae9e045aa5ac\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-ae9e045aa5ac\"))\n(deny lsopen (with message \"qnm-ae9e045aa5ac\"))\n(deny appleevent-send (with message \"qnm-ae9e045aa5ac\"))\n(deny mach-lookup (with message \"qnm-ae9e045aa5ac\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SecurityServer\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-ae9e045aa5ac\"))\n",
+    "enforced:qnm-55544235179d": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-55544235179d\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-55544235179d\"))\n(deny lsopen (with message \"qnm-55544235179d\"))\n(deny appleevent-send (with message \"qnm-55544235179d\"))\n(deny mach-lookup (with message \"qnm-55544235179d\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-55544235179d\"))\n"
+  },
+  "service_name_shape": "quota-nm-nonexistent-<16 hex>",
+  "stage": "keychain",
+  "started": "2026-11-12T16:27:54Z"
+}
