@@ -149,6 +149,12 @@ offline fixture callers and is unchanged, because the KLC evidence manifest
 binds its digest; any other live caller of `usage.py` must pass a neutral
 value the same way (I).
 
+That property covers the two bearer requests only. N1-native traffic is
+native's own: it goes through the opaque tunnel (`--tunnel`) or directly
+(`--no-tunnel`), and native runs with the allowlisted `HOME`, `USER` and
+`LOGNAME` in its environment. Its request content was never observed, so
+whether it carries a project, user or host name is unproved (U).
+
 `verified` (bearer exit 0) is a probe outcome: valid general windows and both
 profile UUIDs equal to the registration. It is not an admission decision;
 unproved rows, model-family association and A/B/A rotation are outside it.
@@ -441,7 +447,8 @@ pre-commit run --all-files
 - **N (fixtures):** config resolution identical to the launcher in three
   cases; every refusal above happens before any attempt marker, spawn,
   credential read or request; the bearer requests carry only the neutral
-  User-Agent and no project, user, host or home identifier; attempt markers precede spawn and network; the
+  User-Agent and no project, user, host or home identifier (the bearer
+  requests only; native's N1 traffic is U below); attempt markers precede spawn and network; the
   one-shot guard holds per DIR and, through the alias markers, across DIRs;
   bounds propagate; outputs are allowlisted and free of the fabricated
   secrets; a signal before the markers consumes nothing, and a signal after
@@ -456,7 +463,8 @@ pre-commit run --all-files
   the hash-to-spawn gap is negligible; the broader bearer gate is safe given
   its extra checks.
 - **U:** everything live: login behavior, server-managed policy for the
-  account, native traffic and refresh on a real account, live usage and
+  account, native traffic and refresh on a real account (including whether
+  native's N1 requests name a project, user or host), live usage and
   profile responses for a full-login bearer, real timing, and how the
   coordinator's tool delivers a timeout (signal and grace period) and whether
   it runs the steps outside any network or filesystem sandbox. The QC

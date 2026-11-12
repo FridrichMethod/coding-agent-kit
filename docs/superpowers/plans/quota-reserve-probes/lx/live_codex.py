@@ -10,21 +10,23 @@ context and the refresh tunnel.
 Sequence:
 1. Refusals before anything is spawned or written (exit 2): the approved account
    name, platform, TLS-relevant environment, the workspace parent (the caller's
-   private XDG_RUNTIME_DIR, never the shared temporary directory) and no .codex in
-   any ancestor of the workspace up to /, the private out directory (absolute,
-   0700, empty, outside every Git work tree and the account state), the codex-as
-   preflight and layout through lib/codex-as (validated read-only, never repaired),
-   the owner auth.json's account claim, the account lease (exclusive and
-   non-blocking, so a running codex-as client of the account refuses), the PC
-   network guard self-check, the Codex version (exactly 0.167.2, no prerelease)
-   and the binary's SHA-256 (the reviewed 0.167.2 file).
+   private XDG_RUNTIME_DIR, never the shared temporary directory), no .codex in
+   any ancestor of the workspace up to / and every ancestor closed to other users'
+   writes, the private out directory (absolute, 0700, empty, outside every Git
+   work tree and the account state), the binary's SHA-256 (the reviewed 0.167.2
+   file, compared before anything executes it), the codex-as preflight and layout
+   through lib/codex-as (validated read-only, never repaired), the account lease
+   (exclusive and non-blocking, so a running codex-as client of the account
+   refuses), the owner auth.json's account claim, the PC network guard
+   self-check and the Codex version (exactly 0.167.2, no prerelease).
 2. One-shot attempt file (0600, O_EXCL) in the out directory, written before spawn.
 3. One owned `codex app-server` (stdio) under the network guard, with the account's
    CODEX_HOME and shared SQLite home exactly as codex-as passes them, the account
    lease fd inherited (shared, as codex-as's run_native does), and configuration
    overrides on the command line only: chatgpt_base_url and a forced custom model
-   provider both point at the LX gate, which refuses every model request and every
-   bearer whose account claim is not the codex-as owner's account.
+   provider both point at the LX gate, which refuses every model request, every
+   duplicated forwarded header and every bearer whose account claim is not the
+   codex-as owner's account.
 4. JSON-RPC: initialize (client name "usage-probe": no project, user or host name),
    then account/rateLimits/read once; a second read only after a fixed delay and
    only if the first succeeded. No thread, turn, login or model request; no retry.
@@ -181,7 +183,8 @@ def check_workspace_ancestors(workspace, uid=None):
     """Refuse when any ancestor of the workspace, lexical or resolved, up to /, holds a .codex entry:
     native and codex-as's checks treat <ancestor>/.codex/config.toml as a project configuration layer.
     Returns whether every ancestor is closed to other users' writes (owned by this user or root, no
-    group or other write bit); an open one could gain a .codex after this check."""
+    group or other write bit); an open one could gain a .codex after this check, so the live path
+    refuses it (run_probe, workspace-ancestor-open)."""
     uid = os.getuid() if uid is None else uid
     closed = True
     for start in (workspace.parent, Path(os.path.realpath(workspace.parent))):
@@ -680,12 +683,14 @@ def say(stream, text):
 
 
 def run_probe(alias, out, *, config, upstream, tunnel, guard_command, delay=DEFAULT_DELAY, second=True,
-              expect_sha256=EXPECTED_SHA256, environ=None, stdout=None, stderr=None, read_timeout=READ_TIMEOUT):
+              expect_sha256=EXPECTED_SHA256, require_closed_ancestors=True, environ=None, stdout=None, stderr=None,
+              read_timeout=READ_TIMEOUT):
     """Returns 0 when the planned reads ran and the result was written, 2 when refused before
     spawn (nothing written), 3 when the attempt was used but did not complete.
 
-    expect_sha256 exists for the offline tests' fake codex only; main() never passes it, so the
-    live path always requires the reviewed binary."""
+    expect_sha256 and require_closed_ancestors exist for the offline tests only (a fake codex; temporary
+    roots under the shared temporary directory, whose ancestors are open); main() never passes them, so
+    the live path always requires the reviewed binary and a workspace no other user can add a .codex above."""
     environ = os.environ if environ is None else environ
     stdout, stderr = stdout or sys.stdout, stderr or sys.stderr
     account = None
@@ -693,20 +698,22 @@ def run_probe(alias, out, *, config, upstream, tunnel, guard_command, delay=DEFA
         check_environment(environ)
         workspace = workspace_parent(environ) / (WORKSPACE_PREFIX + os.urandom(6).hex())
         closed = check_workspace_ancestors(workspace)
+        if require_closed_ancestors and not closed:
+            raise Refused('workspace-ancestor-open')
         out = prepare_out(Path(out), config)
         binary = config.which('codex')
         if binary is None:
             raise Refused('codex-not-found')
-        binary = os.path.realpath(binary)  # version-check, hash and spawn the same file
+        binary = os.path.realpath(binary)  # hash, version-check and spawn this path
+        binary_sha = sha256(binary)  # before anything executes it: an unreviewed file is never run
+        if binary_sha != expect_sha256:
+            raise Refused('binary-unreviewed', 'SHA-256 %s..., reviewed %s...' % (binary_sha[:8], expect_sha256[:8]))
         account = open_account(alias, config, workspace)
         if guard_command and not guard_self_check(guard_command):
             raise Refused('guard-self-check-failed')
         version = native_version(guard_command or (), binary, environ)
         if version != EXPECTED_VERSION:
             raise Refused('version-mismatch', 'found %s, reviewed %s' % (version, EXPECTED_VERSION))
-        binary_sha = sha256(binary)
-        if binary_sha != expect_sha256:
-            raise Refused('binary-unreviewed', 'SHA-256 %s..., reviewed %s...' % (binary_sha[:8], expect_sha256[:8]))
     except Refused as error:
         if account is not None:
             account.close()

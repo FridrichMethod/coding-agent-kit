@@ -208,6 +208,7 @@ def app_server(argv):
 
 def main(argv):
     if '--version' in argv:
+        report('version')  # lets a test prove an unreviewed binary is never executed
         print('codex-cli ' + os.environ.get('FAKE_CODEX_VERSION', '0.167.2'))
         return 0
     if 'app-server' in argv:

@@ -123,7 +123,7 @@ def run_case(case, binary, certs, root):
         with home.environment(XDG_RUNTIME_DIR=str(runtime)) as env:
             code = live.run_probe(home.alias, root / 'out', config=home.config, upstream=upstream, tunnel=tunnel,
                                   guard_command=live.GUARD_COMMAND, delay=delay, second=second, environ=env,
-                                  stdout=out, stderr=err)
+                                  stdout=out, stderr=err, require_closed_ancestors=False)  # root may be in /tmp
         path = root / 'out' / live.RESULT
         result = json.loads(path.read_text()) if path.exists() else None
         if result is not None:

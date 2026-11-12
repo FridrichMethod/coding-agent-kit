@@ -7,7 +7,7 @@
   "still_private_regular_file": true
  },
  "elapsed_s": 0.8,
- "finished_utc": "2026-11-12T22:01:22Z",
+ "finished_utc": "2026-11-12T22:37:18Z",
  "fixture": {
   "runtime_dir_left": [],
   "sink_dialed": [],
@@ -30,7 +30,7 @@
   "exchanges": [
    {
     "bearer_same_as_first_forward": true,
-    "elapsed_ms": 10,
+    "elapsed_ms": 14,
     "forwarded_header_names": [
      "accept",
      "authorization",
@@ -40,8 +40,8 @@
     "index": 1,
     "outcome": "tls_verification_failed",
     "phase": "tls",
-    "received_ms": 272,
-    "received_wall": 1794520882,
+    "received_ms": 265,
+    "received_wall": 1794523038,
     "request_header_names": [
      "accept",
      "authorization",
@@ -111,7 +111,7 @@
   "output_overflow": false,
   "reads": [
    {
-    "elapsed_ms": 25,
+    "elapsed_ms": 27,
     "error": {
      "code": -32603,
      "decode_error": false,
@@ -128,7 +128,7 @@
   "unparsed_lines": 0
  },
  "schema": 1,
- "started_utc": "2026-11-12T22:01:22Z",
+ "started_utc": "2026-11-12T22:37:17Z",
  "workspace": {
   "ancestor_codex_found": false,
   "ancestors_closed_to_other_writers": false,

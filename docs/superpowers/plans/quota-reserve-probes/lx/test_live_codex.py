@@ -66,6 +66,7 @@ class ProbeTests(unittest.TestCase):
     def run_probe(self, upstream=None, tunnel=None, guard_command=None, delay=0.2, second=True, environ=None, **kw):
         out, err = io.StringIO(), io.StringIO()
         kw.setdefault('expect_sha256', self.fake_sha)  # the fake is not the reviewed binary
+        kw.setdefault('require_closed_ancestors', False)  # temporary roots may sit under an open /tmp
         environ = dict({'XDG_RUNTIME_DIR': str(self.runtime)}, **(environ or {}))
         with self.home.environment(**{key: value for key, value in environ.items() if value is not None}) as env:
             code = live.run_probe(self.home.alias, self.out, config=self.home.config,
@@ -93,9 +94,11 @@ class ProbeTests(unittest.TestCase):
     def assert_untouched(self):
         self.assertEqual(self.home.secret.read_bytes(), self.home.raw.encode())
 
-    def assert_refused_before_spawn(self, reason):
+    def assert_refused_before_spawn(self, reason, ran_version=False):
         self.assertIn('refused before spawn: ' + reason, self.stderr)
-        self.assertEqual(self.events(), [])  # nothing spawned
+        self.assertEqual([row for row in self.events() if row['event'] != 'version'], [])  # no app-server
+        if not ran_version:  # refusals before the version check never execute the binary at all
+            self.assertEqual(self.events('version'), [])
         self.assertEqual(self.server.count(), 0)
         self.assertFalse(self.out.exists() and os.listdir(self.out))
 
@@ -387,13 +390,32 @@ class ProbeTests(unittest.TestCase):
             with self.subTest(version):
                 self.set_fake(version=version)
                 self.assertEqual(self.run_probe(), 2)
-                self.assert_refused_before_spawn('version-prerelease')
+                self.assert_refused_before_spawn('version-prerelease', ran_version=True)
                 self.assertFalse(self.events('start'))
 
-    def test_binary_other_than_the_reviewed_file_refuses(self):
+    def test_binary_other_than_the_reviewed_file_refuses_without_executing_it(self):
         self.make_home()
         self.assertEqual(self.run_probe(expect_sha256=live.EXPECTED_SHA256), 2)  # the live pin; the fake differs
-        self.assert_refused_before_spawn('binary-unreviewed')
+        self.assert_refused_before_spawn('binary-unreviewed')  # not even `--version` ran
+        self.assertEqual(os.listdir(self.out), [])
+        self.assert_untouched()
+
+    def test_workspace_ancestor_open_to_other_writers_refuses_on_the_live_path(self):
+        self.make_home()
+        shared = self.root / 'shared'
+        shared.mkdir()
+        os.chmod(shared, 0o777)  # the caller owns it, but group and others may write: a .codex could appear
+        runtime = shared / 'run'
+        runtime.mkdir(mode=0o700)
+        environ = {'XDG_RUNTIME_DIR': str(runtime)}
+        self.assertEqual(self.run_probe(environ=environ, require_closed_ancestors=True), 2)
+        self.assert_refused_before_spawn('workspace-ancestor-open')
+        self.assertFalse(self.out.exists())  # refused before the out directory is made
+        self.assertEqual(os.listdir(runtime), [])
+        self.assert_untouched()
+        with mock.patch.object(live, 'check_workspace_ancestors', return_value=True):  # a closed layout proceeds
+            self.assertEqual(self.run_probe(environ=environ, require_closed_ancestors=True), 0, self.stderr)
+        self.assertTrue(self.result()['workspace']['ancestors_closed_to_other_writers'])
 
     def test_workspace_needs_a_private_runtime_directory(self):
         self.make_home()
@@ -522,8 +544,10 @@ class MainWiring(unittest.TestCase):
                     live.main(['--account', 'stanford', '--out', '/x', *extra])
                 self.assertEqual(caught.exception.code, 2)
                 self.assertIn('unrecognized arguments', err.getvalue())
-        self.assertEqual(inspect.signature(live.run_probe).parameters['expect_sha256'].default,
+        parameters = inspect.signature(live.run_probe).parameters
+        self.assertEqual(parameters['expect_sha256'].default,
                          'a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b')
+        self.assertIs(parameters['require_closed_ancestors'].default, True)
         self.assertEqual(live.EXPECTED_VERSION, '0.167.2')
 
     def test_client_name_names_no_project_user_or_host(self):
@@ -550,6 +574,7 @@ class MainWiring(unittest.TestCase):
         self.assertEqual(captured['guard_command'], live.GUARD_COMMAND)
         self.assertEqual((captured['delay'], captured['second']), (30.0, True))
         self.assertNotIn('expect_sha256', captured)  # the live path keeps the reviewed pin
+        self.assertNotIn('require_closed_ancestors', captured)  # and refuses an open workspace ancestor
         self.assertIs(captured['config'], config)
         context = upstream.context_factory()
         self.assertEqual((context.verify_mode, context.check_hostname), (ssl.CERT_REQUIRED, True))
