@@ -98,6 +98,9 @@ class Ctx:
             base.update(deny_mach=True, mach_allow=list(ENFORCED_MACH))
         elif kind == 'enforced+store':
             base.update(deny_mach=True, mach_allow=list(ENFORCED_MACH) + [STORE])
+        elif kind == 'hardened':
+            base.update(deny_mach=True, mach_allow=list(ENFORCED_MACH), deny_signal_others=True,
+                        deny_tiocsti=True)
         elif kind == 'network-only':
             base.update(deny_mach=False, deny_launch=False, deny_write=[])
         else:
@@ -487,7 +490,22 @@ def write_security_shim(ctx):
     return log
 
 
-def tool_command(ctx, case, gate_port, alt_port, udp_port, unix_path):
+# Tool-side terminal and signal probe. The marker is split in the source, so
+# only a successful injection puts the joined word into a model request.
+TOOL_TTY = '''import fcntl, json, sys, termios
+res = {}
+try:
+    fd = open('/dev/tty', 'rb+', buffering=0)
+    for ch in ('NMTOOL' + 'INJECT' + chr(13)).encode():
+        fcntl.ioctl(fd, termios.TIOCSTI, bytes([ch]))
+    res['tiocsti'] = 'injected'
+except OSError as error:
+    res['tiocsti'] = 'error:%s:%s' % (type(error).__name__, error.errno)
+open(sys.argv[1], 'w').write(json.dumps(res))
+'''
+
+
+def tool_command(ctx, case, gate_port, alt_port, udp_port, unix_path, sleeper_pid=None):
     outdir = ctx.root / 'workspace' / 'nm-out'
     attempts = [
         {'name': 'gate_tcp4', 'kind': 'tcp4', 'host': '127.0.0.1', 'port': gate_port},
@@ -507,8 +525,11 @@ def tool_command(ctx, case, gate_port, alt_port, udp_port, unix_path):
         '%s %s' % (' '.join(map(q, py)), q(json.dumps({'attempts': attempts,
                                                         'detach': str(outdir / (case + '-detached.json'))}))),
         '/usr/bin/curl -sS -m 3 -o /dev/null -w %%{http_code} http://127.0.0.1:%d/ > %s 2>&1' % (
-            alt_port, q(str(outdir / (case + '-curl.txt')))),
-        'echo done > %s' % q(str(outdir / (case + '-done')))]
+            alt_port, q(str(outdir / (case + '-curl.txt'))))]
+    if sleeper_pid is not None:
+        parts += ['%s -I -B -c %s %s' % (q(ctx.python), q(TOOL_TTY), q(str(outdir / (case + '-tty.json')))),
+                  '/bin/kill -0 %d 2>/dev/null; echo "rc=$?" > %s' % (sleeper_pid, q(str(outdir / (case + '-signal.txt'))))]
+    parts.append('echo done > %s' % q(str(outdir / (case + '-done'))))
     return '; '.join(parts), outdir
 
 
@@ -662,7 +683,12 @@ def native_case(ctx, native, kind, variant):
     alt, udp = Listener('tcp'), Listener('udp')
     unix = Listener('unix', str(ctx.root / 'outside' / (case + '.sock')))
     gate = GATE.FakeGate('true', 'unset')
-    command, outdir = tool_command(ctx, case, gate.port, alt.port, udp.port, unix.path)
+    sleeper = None
+    if variant == 'tty-probe':  # an unrelated same-UID process outside the profile
+        sleeper = subprocess.Popen(['/bin/sleep', '300'], start_new_session=True)
+        ctx.groups.append(sleeper.pid)
+    command, outdir = tool_command(ctx, case, gate.port, alt.port, udp.port, unix.path,
+                                   sleeper.pid if sleeper else None)
     gate.command = command
     gate_url = 'http://127.0.0.1:%d' % gate.port
     tag = ctx.tag()
@@ -750,8 +776,12 @@ def native_case(ctx, native, kind, variant):
         gate.close()
         for listener in (alt, udp, unix):
             listener.close()
+        if sleeper is not None:
+            result['outside_sleeper_alive_after'] = sleeper.poll() is None
+            sleeper.kill()
+            sleeper.wait()
     outputs = {}
-    for name in ('tool.json', 'envi.json', 'detached.json', 'curl.txt'):
+    for name in ('tool.json', 'envi.json', 'detached.json', 'curl.txt', 'tty.json', 'signal.txt'):
         path = outdir / (case + '-' + name)
         text = path.read_text(errors='replace') if path.exists() else None
         outputs[name] = parse_json(text) if text and name.endswith('.json') else text
@@ -822,6 +852,79 @@ def stage_compat(ctx):
     ctx.data['log'] = ctx.logs(since, tag)
 
 
+# ---- terminal injection through the inherited TTY ------------------------
+
+# Unconfined "shell" stand-in: owns the session and controlling terminal of a
+# private PTY, runs the child in its own foreground group (as a login shell
+# runs a native), then reads what is left in the terminal input queue.
+TTY_SHELL = '''import json, os, select, subprocess, sys, fcntl, termios
+os.setsid()
+fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+try:
+    rc = subprocess.run(sys.argv[2:], timeout=20).returncode
+except subprocess.TimeoutExpired:
+    rc = 'timeout'
+ready = select.select([0], [], [], 1.5)[0]
+data = os.read(0, 4096) if ready else b''
+open(sys.argv[1], 'w').write(json.dumps({'child_rc': rc, 'read_after_child': data.decode(errors='replace')}))
+'''
+
+# Child: keep using the terminal (tcsetattr), then try TIOCSTI injection.
+TTY_CHILD = '''import fcntl, json, sys, termios
+res = {}
+try:
+    termios.tcsetattr(0, termios.TCSANOW, termios.tcgetattr(0))
+    res['tcsetattr'] = 'ok'
+except Exception as error:
+    res['tcsetattr'] = 'error:%s:%s' % (type(error).__name__, getattr(error, 'errno', error))
+sent, failure = 0, None
+for ch in b'NMINJECT\\n':
+    try:
+        fcntl.ioctl(0, termios.TIOCSTI, bytes([ch]))
+        sent += 1
+    except OSError as error:
+        failure = 'error:%s:%s' % (type(error).__name__, error.errno)
+        break
+res.update(tiocsti_sent=sent, tiocsti_error=failure, tiocsti=termios.TIOCSTI)
+open(sys.argv[1], 'w').write(json.dumps(res))
+'''
+
+
+def stage_tty(ctx):
+    import termios as _termios
+    tag = ctx.tag()
+    since = now_for_log()
+    base = ctx.policy('enforced', None, tag)
+    deny = '(deny file-ioctl (ioctl-command %s) (with message "' + tag + '"))\n'
+    variants = {'control': None, 'enforced': base,
+                'enforced_deny_tiocsti_symbolic': base + deny % 'TIOCSTI',
+                'enforced_deny_tiocsti_numeric': base + deny % _termios.TIOCSTI}
+    for name, profile in variants.items():
+        if profile is not None:
+            ctx.data['profiles']['tty:' + name] = profile
+        shell_out = ctx.out / ('tty-%s-shell.json' % name)
+        child_out = ctx.out / ('tty-%s-child.json' % name)
+        child = [ctx.python, '-I', '-B', '-c', TTY_CHILD, str(child_out)]
+        if profile is not None:
+            child = [SANDBOX_EXEC, '-p', profile] + child
+        term = Pty()
+        proc = subprocess.Popen([ctx.python, '-I', '-B', '-c', TTY_SHELL, str(shell_out)] + child,
+                                env=ctx.env(), cwd=str(ctx.root / 'workspace'), stdin=term.slave,
+                                stdout=term.slave, stderr=term.slave, close_fds=True)
+        ctx.groups.append(proc.pid)
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            ctx.kill(proc.pid)
+        time.sleep(.3)
+        term.close()
+        case = {'exit_code': proc.poll(), 'terminal_tail': SBPL.strip_ansi(term.text())[-600:]}
+        for key, path in (('shell', shell_out), ('child', child_out)):
+            case[key] = json.loads(path.read_text()) if path.exists() else None
+        ctx.data['cases'][name] = case
+    ctx.data['log'] = ctx.logs(since, tag)
+
+
 NATIVE_SETS = {
     'natives': [('claude', 'census', 'oauth-file'), ('claude', 'enforced', 'oauth-file'),
                 ('codex', 'census', 'plain'), ('codex', 'enforced', 'plain'), ('codex', 'enforced', 'daemon')],
@@ -829,6 +932,8 @@ NATIVE_SETS = {
     'nested': [('claude', 'enforced', 'native-sandbox'), ('codex', 'enforced', 'native-sandbox')],
     'refresh': [('claude', 'enforced', 'refresh-direct'), ('claude', 'enforced', 'refresh-proxy'),
                 ('codex', 'enforced', 'refresh-override')],
+    'hardened': [('claude', 'enforced', 'tty-probe'), ('codex', 'enforced', 'tty-probe'),
+                 ('claude', 'hardened', 'tty-probe'), ('codex', 'hardened', 'tty-probe')],
 }
 
 
@@ -847,7 +952,7 @@ def main():
             stage_natives(ctx, NATIVE_SETS[stage])
         else:
             {'boundary': stage_boundary, 'ipc': stage_ipc, 'fds': stage_fds, 'keychain': stage_keychain,
-             'compat': stage_compat}[stage](ctx)
+             'compat': stage_compat, 'tty': stage_tty}[stage](ctx)
         ctx.data['completed'] = True
     except Exception as error:
         ctx.data['completed'] = False

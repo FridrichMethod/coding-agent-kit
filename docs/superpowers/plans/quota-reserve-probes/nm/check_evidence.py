@@ -220,9 +220,40 @@ def check_refresh(data):
     assert any(e['event'] == 'codex_model' and e['bearer_matches'] for e in codex), 'expired bearer still used'
 
 
+def check_tty(data):
+    _common(data)
+    cases = data['cases']
+    for name in ('control', 'enforced'):  # the unconfined session leader reads the injected line
+        case = cases[name]
+        assert case['child']['tiocsti_sent'] == 9 and case['child']['tcsetattr'] == 'ok', name
+        assert case['shell']['read_after_child'] == 'NMINJECT\n', name
+    for name in ('enforced_deny_tiocsti_symbolic', 'enforced_deny_tiocsti_numeric'):
+        case = cases[name]
+        assert case['child']['tiocsti_error'] == DENIED and case['child']['tiocsti_sent'] == 0, name
+        assert case['child']['tcsetattr'] == 'ok' and case['shell']['read_after_child'] == '', name
+    assert _denies(data['log'], 'file-ioctl', process='Python')
+
+
+def check_hardened(data):
+    _common(data)
+    cases = data['cases']
+    for native in ('claude', 'codex'):
+        for kind, signal_rc in (('enforced', 'rc=0'), ('hardened', 'rc=1')):
+            case = cases['%s-%s-tty-probe' % (native, kind)]
+            _native_ok(case, native)
+            outputs = case['tool_outputs']
+            assert outputs['tty.json'] == {'tiocsti': 'error:OSError:6'}, (native, kind, outputs['tty.json'])
+            assert outputs['signal.txt'].strip() == signal_rc, (native, kind, outputs['signal.txt'])
+            assert not any(e.get('injected') for e in case['gate_events'])
+            assert case['outside_sleeper_alive_after'] is True
+    hardened = [text for key, text in data['profiles'].items() if key.startswith('hardened:')]
+    assert len(hardened) == 2 and all('(allow signal (target same-sandbox))' in text
+                                      and '(deny file-ioctl (ioctl-command TIOCSTI)' in text for text in hardened)
+
+
 CHECKS = {'boundary': check_boundary, 'ipc': check_ipc, 'fds': check_fds, 'keychain': check_keychain,
           'natives': check_natives, 'natives-extra': check_natives_extra, 'compat': check_compat,
-          'nested': check_nested, 'refresh': check_refresh}
+          'nested': check_nested, 'refresh': check_refresh, 'tty': check_tty, 'hardened': check_hardened}
 
 
 def check_stage(stage, data):

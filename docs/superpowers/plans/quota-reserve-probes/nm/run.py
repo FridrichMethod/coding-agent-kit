@@ -25,7 +25,7 @@ HOST = os.environ.get('NM_MAC_HOST', 'mac')
 SSH = ['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=15']
 FILES = ('sbpl.py', 'client.py', 'client.mjs', 'gate.py', 'mac_probe.py')
 STAGES = {'boundary': 240, 'ipc': 180, 'fds': 120, 'keychain': 150, 'natives': 600,
-          'natives-extra': 400, 'nested': 400, 'refresh': 300, 'compat': 240}
+          'natives-extra': 400, 'nested': 400, 'refresh': 300, 'compat': 240, 'tty': 180, 'hardened': 600}
 ROOT_PATTERN = re.compile(r'^/tmp/quota-nm-[A-Za-z0-9]{6}$')
 
 

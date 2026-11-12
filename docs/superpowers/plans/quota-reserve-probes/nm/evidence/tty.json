@@ -1,0 +1,91 @@
+{
+  "cases": {
+    "control": {
+      "child": {
+        "tcsetattr": "ok",
+        "tiocsti": 2147578994,
+        "tiocsti_error": null,
+        "tiocsti_sent": 9
+      },
+      "exit_code": 0,
+      "shell": {
+        "child_rc": 0,
+        "read_after_child": "NMINJECT\n"
+      },
+      "terminal_tail": "NMINJECT "
+    },
+    "enforced": {
+      "child": {
+        "tcsetattr": "ok",
+        "tiocsti": 2147578994,
+        "tiocsti_error": null,
+        "tiocsti_sent": 9
+      },
+      "exit_code": 0,
+      "shell": {
+        "child_rc": 0,
+        "read_after_child": "NMINJECT\n"
+      },
+      "terminal_tail": "NMINJECT "
+    },
+    "enforced_deny_tiocsti_numeric": {
+      "child": {
+        "tcsetattr": "ok",
+        "tiocsti": 2147578994,
+        "tiocsti_error": "error:PermissionError:1",
+        "tiocsti_sent": 0
+      },
+      "exit_code": 0,
+      "shell": {
+        "child_rc": 0,
+        "read_after_child": ""
+      },
+      "terminal_tail": ""
+    },
+    "enforced_deny_tiocsti_symbolic": {
+      "child": {
+        "tcsetattr": "ok",
+        "tiocsti": 2147578994,
+        "tiocsti_error": "error:PermissionError:1",
+        "tiocsti_sent": 0
+      },
+      "exit_code": 0,
+      "shell": {
+        "child_rc": 0,
+        "read_after_child": ""
+      },
+      "terminal_tail": ""
+    }
+  },
+  "completed": true,
+  "finished": "2026-11-12T17:35:58Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "log": {
+    "log_exit": 0,
+    "processes": [
+      "Python"
+    ],
+    "summary": [
+      {
+        "action": "deny",
+        "count": 2,
+        "operation": "file-ioctl",
+        "process": "Python",
+        "target": "path:/dev/ttys001 ioctl-command:(_IO \"t\" 114)"
+      }
+    ]
+  },
+  "profiles": {
+    "enforced:qnm-4b7ffcd11d4b": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-4b7ffcd11d4b\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-4b7ffcd11d4b\"))\n(deny lsopen (with message \"qnm-4b7ffcd11d4b\"))\n(deny appleevent-send (with message \"qnm-4b7ffcd11d4b\"))\n(deny mach-lookup (with message \"qnm-4b7ffcd11d4b\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-4b7ffcd11d4b\"))\n",
+    "tty:enforced": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-4b7ffcd11d4b\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-4b7ffcd11d4b\"))\n(deny lsopen (with message \"qnm-4b7ffcd11d4b\"))\n(deny appleevent-send (with message \"qnm-4b7ffcd11d4b\"))\n(deny mach-lookup (with message \"qnm-4b7ffcd11d4b\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-4b7ffcd11d4b\"))\n",
+    "tty:enforced_deny_tiocsti_numeric": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-4b7ffcd11d4b\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-4b7ffcd11d4b\"))\n(deny lsopen (with message \"qnm-4b7ffcd11d4b\"))\n(deny appleevent-send (with message \"qnm-4b7ffcd11d4b\"))\n(deny mach-lookup (with message \"qnm-4b7ffcd11d4b\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-4b7ffcd11d4b\"))\n(deny file-ioctl (ioctl-command 2147578994) (with message \"qnm-4b7ffcd11d4b\"))\n",
+    "tty:enforced_deny_tiocsti_symbolic": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-4b7ffcd11d4b\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-4b7ffcd11d4b\"))\n(deny lsopen (with message \"qnm-4b7ffcd11d4b\"))\n(deny appleevent-send (with message \"qnm-4b7ffcd11d4b\"))\n(deny mach-lookup (with message \"qnm-4b7ffcd11d4b\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-4b7ffcd11d4b\"))\n(deny file-ioctl (ioctl-command TIOCSTI) (with message \"qnm-4b7ffcd11d4b\"))\n"
+  },
+  "stage": "tty",
+  "started": "2026-11-12T17:35:49Z"
+}

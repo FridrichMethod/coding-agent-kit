@@ -66,12 +66,12 @@ def render(policy):
 
     Keys: tag (required), gate_ports, gate_sockets, private_socket_dirs,
     deny_network, deny_launch, deny_mach, mach_allow, mach_deny,
-    report_mach, deny_write, deny_signal_others. Later SBPL rules override earlier ones, so the
-    explicit mach_deny list is emitted after any allow.
+    report_mach, deny_write, deny_signal_others, deny_tiocsti. Later SBPL rules override
+    earlier ones, so the explicit mach_deny list is emitted after any allow.
     """
     known = {'tag', 'gate_ports', 'gate_sockets', 'private_socket_dirs', 'deny_network',
              'deny_launch', 'deny_mach', 'mach_allow', 'mach_deny', 'report_mach', 'deny_write',
-             'deny_signal_others'}
+             'deny_signal_others', 'deny_tiocsti'}
     unknown = set(policy) - known
     if unknown:
         raise ProfileError('unknown policy keys: %s' % sorted(unknown))
@@ -121,6 +121,9 @@ def render(policy):
     if policy.get('deny_signal_others'):
         lines.append('(deny signal %s)' % msg)
         lines.append('(allow signal (target same-sandbox))')
+    if policy.get('deny_tiocsti'):
+        # Terminal input injection reaches the unconfined shell that owns the TTY.
+        lines.append('(deny file-ioctl (ioctl-command TIOCSTI) %s)' % msg)
     denied = sorted(set(policy.get('deny_write', ())))
     if denied:
         lines.append('(deny file-write* %s %s)' % (' '.join('(subpath %s)' % _path(p) for p in denied), msg))

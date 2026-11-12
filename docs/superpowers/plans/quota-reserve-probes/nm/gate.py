@@ -184,7 +184,8 @@ class FakeGate:
                     if send:
                         gate.tool_sent.add('claude')
                 self._record('claude_model', tool_call=send, tool_result=has_result,
-                             second_turn='NM_SECOND_TURN' in text, tool_output=last_tool_output(body),
+                             second_turn='NM_SECOND_TURN' in text, injected='NMTOOLINJECT' in text,
+                             tool_output=last_tool_output(body),
                              tools=sorted(t.get('name', '') for t in body.get('tools', []))[:40])
                 rows = claude_bash(body.get('model'), gate.command) if send else claude_text(
                     body.get('model'), 'NM fixture reply after tool' if has_result else 'NM fixture reply')
@@ -206,7 +207,8 @@ class FakeGate:
                         if rows:
                             gate.tool_sent.add('codex')
                 self._record('codex_model', tool_call=rows is not None, tool_result=has_output,
-                             second_turn='NM_SECOND_TURN' in text, tool_output=last_tool_output(body),
+                             second_turn='NM_SECOND_TURN' in text, injected='NMTOOLINJECT' in text,
+                             tool_output=last_tool_output(body),
                              tools=sorted(t.get('name', '') or t.get('type', '') for t in body.get('tools', []))[:40])
                 if rows is None:
                     rows = codex_text(ident, 'NM fixture reply after tool' if has_output else 'NM fixture reply')

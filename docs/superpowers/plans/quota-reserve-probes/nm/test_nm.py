@@ -66,6 +66,11 @@ class Render(unittest.TestCase):
         self.assertEqual(lines[deny + 1], '(allow signal (target same-sandbox))')
         self.assertNotIn('(deny signal (with message "qnm-abc123"))', SBPL.render(self.base()))
 
+    def test_tiocsti_rule(self):
+        rule = '(deny file-ioctl (ioctl-command TIOCSTI) (with message "qnm-abc123"))'
+        self.assertIn(rule, SBPL.render(self.base(deny_tiocsti=True)).splitlines())
+        self.assertNotIn('file-ioctl', SBPL.render(self.base()))
+
     def test_refusals(self):
         bad = [
             {'tag': 'x'},
@@ -280,6 +285,28 @@ class Evidence(unittest.TestCase):
         for mutate in (direct_proxy, no_override):
             with self.subTest(mutate=mutate.__name__):
                 self.reject('refresh', mutate)
+
+    def test_tty_mutations(self):
+        def not_injected(d):
+            d['cases']['enforced']['shell']['read_after_child'] = ''
+        def rule_ineffective(d):
+            d['cases']['enforced_deny_tiocsti_numeric']['shell']['read_after_child'] = 'NMINJECT\n'
+        def tty_broken(d):
+            d['cases']['enforced_deny_tiocsti_symbolic']['child']['tcsetattr'] = 'error:error:1'
+        for mutate in (not_injected, rule_ineffective, tty_broken):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('tty', mutate)
+
+    def test_hardened_mutations(self):
+        def signal_allowed(d):
+            d['cases']['codex-hardened-tty-probe']['tool_outputs']['signal.txt'] = 'rc=0\n'
+        def injected(d):
+            d['cases']['claude-enforced-tty-probe']['gate_events'][-1]['injected'] = True
+        def broken(d):
+            d['cases']['claude-hardened-tty-probe']['second_turn_reached_gate'] = False
+        for mutate in (signal_allowed, injected, broken):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('hardened', mutate)
 
     def test_fds_and_keychain_mutations(self):
         def closed(d):
