@@ -35,8 +35,9 @@ def main():
     manifest = load('manifest')
     check(manifest.get('version') == 'codex-cli 0.167.2', 'native version', failures)
     check(all(run['exit'] == 0 for run in manifest['runs']), 'a run failed', failures)
-    check([run['label'] for run in manifest['runs']][2:] ==
-          ['guard-self-check', 'shape', 'rotation', 'proactive', 'identity', 'concurrent'], 'stage list', failures)
+    check([run['label'] for run in manifest['runs']] ==
+          ['test_binding', 'test_gate', 'test_lease_coexistence', 'guard-self-check', 'shape', 'rotation',
+           'proactive', 'identity', 'concurrent'], 'run list', failures)
 
     shape = load('shape')
     usage = [e for e in gate_events(shape, kind='get') if e['path'] == '/backend-api/wham/usage']

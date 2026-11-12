@@ -8,7 +8,12 @@
   {
    "label": "test_gate",
    "exit": 0,
-   "tail": "........\n----------------------------------------------------------------------\nRan 8 tests in 6.562s\n\nOK\n"
+   "tail": "........\n----------------------------------------------------------------------\nRan 8 tests in 6.556s\n\nOK\n"
+  },
+  {
+   "label": "test_lease_coexistence",
+   "exit": 0,
+   "tail": "....\n----------------------------------------------------------------------\nRan 4 tests in 0.104s\n\nOK\n"
   },
   {
    "label": "guard-self-check",
@@ -19,76 +24,76 @@
   {
    "label": "shape",
    "exit": 0,
-   "seconds": 1.9,
+   "seconds": 1.2,
    "guard": {
     "guard_denied_syscalls": {
      "41": 1
     },
     "root_exit": 0
    },
-   "stdout_tail": "s\": 0}\nrate_limits_read {\"label\": \"identity-absent\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509652}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803052}, \"planType\": \"pro\", \"rateLimitReached\ncase {\"name\": \"identity-absent\", \"native_ok\": true, \"lease_outcome\": \"account-mismatch\", \"refresh_connects\": 0}\nrate_limits_read {\"label\": \"http-401\", \"result\": {\"rpc_error\": \"failed to fetch codex rate limits: GET http://127.0.0.1:<PORT>/backend-api/wham/usage failed: 401 Unauthorized; content-type=application/json; body={\\\"error\\\": {\\\"code\\\": \\\"token_expired\\\"}}\"}}\ncase {\"name\": \"http-401\", \"native_ok\": false, \"lease_outcome\": \"failure\", \"refresh_connects\": 0}\nrate_limits_read {\"label\": \"http-503\", \"result\": {\"rpc_error\": \"failed to fetch codex rate limits: GET http://127.0.0.1:<PORT>/backend-api/wham/usage failed: 503 Service Unavailable; content-type=application/json; body={\\\"error\\\": \\\"fixture outage\\\"}\"}}\ncase {\"name\": \"http-503\", \"native_ok\": false, \"lease_outcome\": \"failure\", \"refresh_connects\": 0}\nrate_limits_read {\"label\": \"non-json\", \"result\": {\"rpc_error\": \"failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: expected ident at line 1 column 2; content-type=application/json; body=fixture is not json\"}}\ncase {\"name\": \"non-json\", \"native_ok\": false, \"lease_outcome\": \"malformed\", \"refresh_connects\": 0}\n",
+   "stdout_tail": "s\": 0}\nrate_limits_read {\"label\": \"identity-absent\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509844}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803244}, \"planType\": \"pro\", \"rateLimitReached\ncase {\"name\": \"identity-absent\", \"native_ok\": true, \"lease_outcome\": \"account-mismatch\", \"refresh_connects\": 0}\nrate_limits_read {\"label\": \"http-401\", \"result\": {\"rpc_error\": \"failed to fetch codex rate limits: GET http://127.0.0.1:<PORT>/backend-api/wham/usage failed: 401 Unauthorized; content-type=application/json; body={\\\"error\\\": {\\\"code\\\": \\\"token_expired\\\"}}\"}}\ncase {\"name\": \"http-401\", \"native_ok\": false, \"lease_outcome\": \"failure\", \"refresh_connects\": 0}\nrate_limits_read {\"label\": \"http-503\", \"result\": {\"rpc_error\": \"failed to fetch codex rate limits: GET http://127.0.0.1:<PORT>/backend-api/wham/usage failed: 503 Service Unavailable; content-type=application/json; body={\\\"error\\\": \\\"fixture outage\\\"}\"}}\ncase {\"name\": \"http-503\", \"native_ok\": false, \"lease_outcome\": \"failure\", \"refresh_connects\": 0}\nrate_limits_read {\"label\": \"non-json\", \"result\": {\"rpc_error\": \"failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: expected ident at line 1 column 2; content-type=application/json; body=fixture is not json\"}}\ncase {\"name\": \"non-json\", \"native_ok\": false, \"lease_outcome\": \"malformed\", \"refresh_connects\": 0}\n",
    "stderr_tail": "{\"guard_denied_syscalls\": {\"41\": 1}, \"root_exit\": 0}\n"
   },
   {
    "label": "rotation",
    "exit": 0,
-   "seconds": 2.1,
+   "seconds": 1.2,
    "guard": {
     "guard_denied_syscalls": {
      "41": 1
     },
     "root_exit": 0
    },
-   "stdout_tail": "urn {\"text\": \"Fixture turn one\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nturn {\"text\": \"Fixture turn after server revocation\", \"status\": \"failed\", \"error\": \"unexpected status 503 Service Unavailable: quota reserve gate refused: rebind-required, url: http://127.0.0.1:<PORT>/backend-api/codex/responses\", \"error_notifications\": [\"unexpected status 503 Service Unavailable: quota r\nafter_native_refresh {\"refreshes\": 1, \"stored\": {\"T1\": false, \"T2\": true}, \"model_upstream_by_credential\": [\"T1\", \"T1\", \"T1\"]}\nget_auth_status_include_token {\"exported\": true, \"matches\": {\"T1\": false, \"T2\": true}, \"auth_method\": \"chatgpt\", \"rpc_error\": null}\nrate_limits_read {\"label\": \"rebind\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509654}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803054}, \"planType\": \"pro\", \"rateLimitReachedType\": nu\nrebound {\"ready\": true, \"epoch\": 2}\nturn {\"text\": \"Fixture turn after rebind\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nrate_limits_read {\"label\": \"stale-old-bearer-check\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509654}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803054}, \"planType\": \"pro\", \"rateLimit\n",
+   "stdout_tail": "urn {\"text\": \"Fixture turn one\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nturn {\"text\": \"Fixture turn after server revocation\", \"status\": \"failed\", \"error\": \"unexpected status 503 Service Unavailable: quota reserve gate refused: rebind-required, url: http://127.0.0.1:<PORT>/backend-api/codex/responses\", \"error_notifications\": [\"unexpected status 503 Service Unavailable: quota r\nafter_native_refresh {\"refreshes\": 1, \"stored\": {\"T1\": false, \"T2\": true}, \"model_upstream_by_credential\": [\"T1\", \"T1\", \"T1\"]}\nget_auth_status_include_token {\"exported\": true, \"matches\": {\"T1\": false, \"T2\": true}, \"auth_method\": \"chatgpt\", \"rpc_error\": null}\nrate_limits_read {\"label\": \"rebind\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509846}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803246}, \"planType\": \"pro\", \"rateLimitReachedType\": nu\nrebound {\"ready\": true, \"epoch\": 2}\nturn {\"text\": \"Fixture turn after rebind\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nrate_limits_read {\"label\": \"stale-old-bearer-check\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509846}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803246}, \"planType\": \"pro\", \"rateLimit\n",
    "stderr_tail": "{\"guard_denied_syscalls\": {\"41\": 1}, \"root_exit\": 0}\n"
   },
   {
    "label": "proactive",
    "exit": 0,
-   "seconds": 3.4,
+   "seconds": 1.9,
    "guard": {
     "guard_denied_syscalls": {
      "41": 2
     },
     "root_exit": 0
    },
-   "stdout_tail": "scratch <PROBE_ROOT>\nrate_limits_read {\"label\": \"hooked\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509656}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803056}, \"planType\": \"pro\", \"rateLimitReachedType\": nu\nproactive {\"variant\": \"hooked\", \"upstream_order\": [\"refresh\", \"models\", \"other_get\", \"usage\"], \"connects\": [], \"usage_credentials\": [\"T2\"]}\nrate_limits_read {\"label\": \"production-host\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509657}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803057}, \"planType\": \"pro\", \"rateLimitReached\nproactive {\"variant\": \"production-host\", \"upstream_order\": [\"other_get\", \"other_get\", \"models\", \"other_get\", \"usage\"], \"connects\": [\"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\"], \"usage_credentia\n",
+   "stdout_tail": "scratch <PROBE_ROOT>\nrate_limits_read {\"label\": \"hooked\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509847}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803247}, \"planType\": \"pro\", \"rateLimitReachedType\": nu\nproactive {\"variant\": \"hooked\", \"upstream_order\": [\"refresh\", \"models\", \"other_get\", \"other_get\", \"usage\"], \"connects\": [], \"usage_credentials\": [\"T2\"]}\nrate_limits_read {\"label\": \"production-host\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509847}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803247}, \"planType\": \"pro\", \"rateLimitReached\nproactive {\"variant\": \"production-host\", \"upstream_order\": [\"other_get\", \"models\", \"other_get\", \"usage\"], \"connects\": [\"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\", \"auth.openai.com:443\"], \"usage_credentials\": [\"T1\"]}\n",
    "stderr_tail": "{\"guard_denied_syscalls\": {\"41\": 2}, \"root_exit\": 0}\n"
   },
   {
    "label": "identity",
    "exit": 0,
-   "seconds": 2.4,
+   "seconds": 1.4,
    "guard": {
     "guard_denied_syscalls": {
      "41": 1
     },
     "root_exit": 0
    },
-   "stdout_tail": "sedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509660}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803060}, \"planType\": \"pro\", \"rateLimitReachedType\":\nlogin_a_again {\"result\": {\"type\": \"chatgptAuthTokens\"}}\nturn {\"text\": \"Fixture new thread back on A before continuation\", \"status\": \"failed\", \"error\": \"unexpected status 503 Service Unavailable: quota reserve gate refused: paused:identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses\", \"error_notifications\": [\"unexpected status 503 Service \nrate_limits_read {\"label\": \"fresh-a-without-continuation\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509660}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803060}, \"planType\": \"pro\", \"rat\nlease_after_fresh_a {\"paused\": \"identity-changed\", \"epoch\": 5}\ncontinuation {\"accepted\": true}\nrate_limits_read {\"label\": \"fresh-a-after-continuation\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509660}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803060}, \"planType\": \"pro\", \"rateL\nlease_after_continuation {\"paused\": null, \"epoch\": 5}\nturn {\"text\": \"Fixture turn after deliberate continuation\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\n",
+   "stdout_tail": "sedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509849}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803249}, \"planType\": \"pro\", \"rateLimitReachedType\":\nlogin_a_again {\"result\": {\"type\": \"chatgptAuthTokens\"}}\nturn {\"text\": \"Fixture new thread back on A before continuation\", \"status\": \"failed\", \"error\": \"unexpected status 503 Service Unavailable: quota reserve gate refused: paused:identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses\", \"error_notifications\": [\"unexpected status 503 Service \nrate_limits_read {\"label\": \"fresh-a-without-continuation\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509849}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803249}, \"planType\": \"pro\", \"rat\nlease_after_fresh_a {\"paused\": \"identity-changed\", \"epoch\": 5}\ncontinuation {\"accepted\": true}\nrate_limits_read {\"label\": \"fresh-a-after-continuation\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509849}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803249}, \"planType\": \"pro\", \"rateL\nlease_after_continuation {\"paused\": null, \"epoch\": 5}\nturn {\"text\": \"Fixture turn after deliberate continuation\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\n",
    "stderr_tail": "{\"guard_denied_syscalls\": {\"41\": 1}, \"root_exit\": 0}\n"
   },
   {
    "label": "concurrent",
    "exit": 0,
-   "seconds": 4.0,
+   "seconds": 2.1,
    "guard": {
     "guard_denied_syscalls": {
      "41": 2
     },
     "root_exit": 0
    },
-   "stdout_tail": "le: quot\nsession2_after_adoption {\"refreshes\": 1, \"lease2\": null, \"epoch2\": 2}\nget_auth_status_include_token {\"exported\": true, \"matches\": {\"T1\": false, \"T2\": true}, \"auth_method\": \"chatgpt\", \"rpc_error\": null}\nrate_limits_read {\"label\": \"session2-rebind\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509663}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803063}, \"planType\": \"pro\", \"rateLimitReached\nturn {\"text\": \"Fixture session two after rebind\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nturn {\"text\": \"Fixture session one before its own rebind\", \"status\": \"failed\", \"error\": \"unexpected status 503 Service Unavailable: quota reserve gate refused: rebind-required, url: http://127.0.0.1:<PORT>/backend-api/codex/responses\", \"error_notifications\": [\"unexpected status 503 Service Unavailable: qu\nrate_limits_read {\"label\": \"session1-rebind\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509663}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803063}, \"planType\": \"pro\", \"rateLimitReached\nturn {\"text\": \"Fixture session one after rebind\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nfinal {\"refreshes\": 1, \"secret\": {\"T1\": false, \"T2\": true}}\n",
+   "stdout_tail": "le: quot\nsession2_after_adoption {\"refreshes\": 1, \"lease2\": null, \"epoch2\": 2}\nget_auth_status_include_token {\"exported\": true, \"matches\": {\"T1\": false, \"T2\": true}, \"auth_method\": \"chatgpt\", \"rpc_error\": null}\nrate_limits_read {\"label\": \"session2-rebind\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509851}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803251}, \"planType\": \"pro\", \"rateLimitReached\nturn {\"text\": \"Fixture session two after rebind\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nturn {\"text\": \"Fixture session one before its own rebind\", \"status\": \"failed\", \"error\": \"unexpected status 503 Service Unavailable: quota reserve gate refused: rebind-required, url: http://127.0.0.1:<PORT>/backend-api/codex/responses\", \"error_notifications\": [\"unexpected status 503 Service Unavailable: qu\nrate_limits_read {\"label\": \"session1-rebind\", \"result\": {\"rateLimits\": {\"limitId\": \"codex\", \"limitName\": null, \"primary\": {\"usedPercent\": 25, \"windowDurationMins\": 300, \"resetsAt\": 1794509851}, \"secondary\": {\"usedPercent\": 60, \"windowDurationMins\": 10080, \"resetsAt\": 1794803251}, \"planType\": \"pro\", \"rateLimitReached\nturn {\"text\": \"Fixture session one after rebind\", \"status\": \"completed\", \"error\": \"\", \"error_notifications\": [], \"upstream_model_requests\": 1}\nfinal {\"refreshes\": 1, \"secret\": {\"T1\": false, \"T2\": true}}\n",
    "stderr_tail": "{\"guard_denied_syscalls\": {\"41\": 2}, \"root_exit\": 0}\n"
   }
  ],
  "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
  "version": "codex-cli 0.167.2",
  "archived_roots": [
-  ".cache/qx/roots/quota-qx-shape-k7wsebob.tar.gz",
-  ".cache/qx/roots/quota-qx-rotation-t2q8pmxh.tar.gz",
-  ".cache/qx/roots/quota-qx-proactive-1ru4v5y3.tar.gz",
-  ".cache/qx/roots/quota-qx-identity-wkklf7qr.tar.gz",
-  ".cache/qx/roots/quota-qx-concurrent-jj_3ugdu.tar.gz"
+  ".cache/qx/roots/quota-qx-shape-hjftbukt.tar.gz",
+  ".cache/qx/roots/quota-qx-rotation-8w6jz33y.tar.gz",
+  ".cache/qx/roots/quota-qx-proactive-l1hsjwcs.tar.gz",
+  ".cache/qx/roots/quota-qx-identity-4yp69jvd.tar.gz",
+  ".cache/qx/roots/quota-qx-concurrent-rjdajats.tar.gz"
  ]
 }

@@ -3,7 +3,7 @@
  "ok": true,
  "timeline": [
   {
-   "at": 1.079,
+   "at": 0.273,
    "event": "rate_limits_read",
    "label": "preflight-a",
    "result": {
@@ -13,12 +13,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509659
+      "resetsAt": 1794509849
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803059
+      "resetsAt": 1794803249
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -32,12 +32,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509659
+       "resetsAt": 1794509849
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803059
+       "resetsAt": 1794803249
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -46,7 +46,7 @@
    }
   },
   {
-   "at": 1.345,
+   "at": 0.355,
    "event": "turn",
    "text": "Fixture turn as A",
    "status": "completed",
@@ -55,14 +55,14 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 1.35,
+   "at": 0.36,
    "event": "login_b",
    "result": {
     "type": "chatgptAuthTokens"
    }
   },
   {
-   "at": 1.39,
+   "at": 0.398,
    "event": "turn",
    "text": "Fixture existing thread after switch to B",
    "status": "failed",
@@ -73,7 +73,7 @@
    "upstream_model_requests": 0
   },
   {
-   "at": 1.42,
+   "at": 0.428,
    "event": "turn",
    "text": "Fixture new thread after switch to B",
    "status": "failed",
@@ -84,7 +84,7 @@
    "upstream_model_requests": 0
   },
   {
-   "at": 1.426,
+   "at": 0.436,
    "event": "rate_limits_read",
    "label": "read-as-b",
    "result": {
@@ -94,12 +94,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509660
+      "resetsAt": 1794509849
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803060
+      "resetsAt": 1794803249
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -113,12 +113,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509660
+       "resetsAt": 1794509849
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803060
+       "resetsAt": 1794803249
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -127,14 +127,14 @@
    }
   },
   {
-   "at": 1.431,
+   "at": 0.443,
    "event": "login_a_again",
    "result": {
     "type": "chatgptAuthTokens"
    }
   },
   {
-   "at": 1.467,
+   "at": 0.48,
    "event": "turn",
    "text": "Fixture new thread back on A before continuation",
    "status": "failed",
@@ -145,7 +145,7 @@
    "upstream_model_requests": 0
   },
   {
-   "at": 1.475,
+   "at": 0.486,
    "event": "rate_limits_read",
    "label": "fresh-a-without-continuation",
    "result": {
@@ -155,12 +155,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509660
+      "resetsAt": 1794509849
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803060
+      "resetsAt": 1794803249
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -174,12 +174,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509660
+       "resetsAt": 1794509849
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803060
+       "resetsAt": 1794803249
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -188,18 +188,18 @@
    }
   },
   {
-   "at": 1.475,
+   "at": 0.486,
    "event": "lease_after_fresh_a",
    "paused": "identity-changed",
    "epoch": 5
   },
   {
-   "at": 1.475,
+   "at": 0.486,
    "event": "continuation",
    "accepted": true
   },
   {
-   "at": 1.532,
+   "at": 0.543,
    "event": "rate_limits_read",
    "label": "fresh-a-after-continuation",
    "result": {
@@ -209,12 +209,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509660
+      "resetsAt": 1794509849
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803060
+      "resetsAt": 1794803249
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -228,12 +228,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509660
+       "resetsAt": 1794509849
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803060
+       "resetsAt": 1794803249
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -242,13 +242,13 @@
    }
   },
   {
-   "at": 1.532,
+   "at": 0.543,
    "event": "lease_after_continuation",
    "paused": null,
    "epoch": 5
   },
   {
-   "at": 1.566,
+   "at": 0.57,
    "event": "turn",
    "text": "Fixture turn after deliberate continuation",
    "status": "completed",
@@ -313,30 +313,6 @@
     {
      "event": "get",
      "method": "GET",
-     "path": "/backend-api/wham/accounts/check",
-     "query": false,
-     "credential": "TA",
-     "authorization_scheme": "Bearer",
-     "user_agent_product": "qx-native-research/0.167.2",
-     "headers": [
-      "accept",
-      "authorization",
-      "chatgpt-account-id",
-      "host",
-      "user-agent"
-     ],
-     "shown": {
-      "chatgpt-account-id": "fixture-account-a",
-      "accept": "*/*"
-     },
-     "status": 503,
-     "lease": null,
-     "epoch": 0,
-     "paused": null
-    },
-    {
-     "event": "get",
-     "method": "GET",
      "path": "/backend-api/wham/usage",
      "query": false,
      "credential": "TA",
@@ -355,6 +331,30 @@
      },
      "status": 200,
      "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
      "epoch": 1,
      "paused": null
     },
@@ -919,13 +919,13 @@
    "path": "/backend-api/wham/accounts/check"
   },
   {
-   "kind": "other_get",
-   "path": "/backend-api/wham/accounts/check"
-  },
-  {
    "kind": "usage",
    "path": "/backend-api/wham/usage",
    "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
   },
   {
    "kind": "other_get",

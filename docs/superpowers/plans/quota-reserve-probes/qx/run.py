@@ -62,7 +62,7 @@ def main():
     roots, summary = [], {'runs': []}
     python = [sys.executable, '-I', '-B']
     try:
-        for name in ('test_binding', 'test_gate'):
+        for name in ('test_binding', 'test_gate', 'test_lease_coexistence'):
             code, out, err = execute([*python, str(HERE / (name + '.py'))], 120)
             summary['runs'].append({'label': name, 'exit': code, 'tail': (out + err)[-400:]})
             print(name, 'exit', code, flush=True)
