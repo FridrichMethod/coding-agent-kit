@@ -237,6 +237,9 @@ class Invocation:
             self._note(source, {'event': 'stderr', 'text': line.strip()[-200:], 't': time.monotonic()})
 
     def start_monitor(self):
+        if self.monitor is not None and self.monitor.poll() is None:
+            self.monitor.kill()  # a restarted gate gets a fresh monitor channel
+            self.monitor.wait(5)
         end = self.monitor_end
         self.monitor = subprocess.Popen([sys.executable, '-I', '-B', str(HERE / 'monitor.py'), '--fd', str(end.fileno()),
                                          '--interval', str(self.interval)], pass_fds=(end.fileno(),),
@@ -341,10 +344,17 @@ class Invocation:
     def native_alive(self):
         return self.native is not None and self.native.poll() is None
 
-    def exit_native(self, keys=(b'\x18\x0b', b'\x18\x0b', b'\x03', b'\x03', b'\x04')):
+    def exit_native(self, keys=(b'\x18\x0b', b'\x18\x0b', b'\x03', b'\x03', b'\x04', b'\x03', b'\x03')):
+        """Stop native agents, then exit; confirm native's 'Exit and stop tasks' dialog if shown."""
+        dialog = False
         for key in keys:
             if self.native.poll() is not None:
                 break
+            if 'Exitandstoptasks' in re.sub(r'\s', '', self.visible()[-900:]):
+                dialog = True
+                self.write(b'\r')
+                time.sleep(0.8)
+                continue
             self.write(key)
             time.sleep(0.5)
         end = time.monotonic() + 6
@@ -354,7 +364,8 @@ class Invocation:
             restored = termios.tcgetattr(self.slave) == self.termios_before
         except termios.error:
             restored = None
-        return {'exited': self.native.poll() is not None, 'termios_restored': restored}
+        return {'exited': self.native.poll() is not None, 'termios_restored': restored,
+                'stop_tasks_dialog': dialog}
 
     # cleanup ------------------------------------------------------------------------------------
     def close(self, natives_module, since):
@@ -367,7 +378,7 @@ class Invocation:
                 os.kill(item['pid'], signal.SIGKILL)
             except ProcessLookupError:
                 pass
-        for process in (self.native, self.monitor, self.gate):
+        for process in (self.native, self.gate, self.monitor):  # gate before monitor: no cleanup latch
             if process is not None and process.poll() is None:
                 try:
                     os.killpg(process.pid, signal.SIGKILL)

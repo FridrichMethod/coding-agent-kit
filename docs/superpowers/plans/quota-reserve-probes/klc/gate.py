@@ -241,9 +241,9 @@ class Handler(BaseHTTPRequestHandler):
                         'Content-Length: %d' % len(body)]
                 head += ['%s: %s' % (k, v) for k, v in self.headers.items() if k.lower() not in HOP]
                 upstream.sendall(('\r\n'.join(head) + '\r\n\r\n').encode('latin-1') + body)
-                epoch = controller.lease.epoch
-            gate.emit('forwarded', stream=decision.stream_id, epoch=epoch,
-                      gate_ms=round((time.monotonic() - began) * 1000, 3))
+                # Emitted inside the lock: every forwarded event precedes any later latch event.
+                gate.emit('forwarded', stream=decision.stream_id, epoch=controller.lease.epoch,
+                          gate_ms=round((time.monotonic() - began) * 1000, 3))
             upstream.settimeout(None)
             while True:
                 chunk = upstream.recv(65536)

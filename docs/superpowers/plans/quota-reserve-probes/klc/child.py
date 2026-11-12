@@ -142,6 +142,9 @@ def connects(spec, out):
 def bind(spec, out):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            # A deliberate impostor: both reuse options (TIME_WAIT is no protection).
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             sock.bind(('127.0.0.1', spec['gate_port']))
             sock.listen(4)
             out('bind_gate_port', result='bound')
@@ -173,13 +176,18 @@ def workflows(spec, out, phase):
     except OSError as error:
         reason = getattr(error, 'reason', error)
         out('index_download', phase=phase, result=code(reason) if isinstance(reason, OSError) else type(error).__name__)
-    proxied = subprocess.run(['curl', '-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5',
-                              'https://pypi.fixture.invalid/simple/'], capture_output=True, text=True, timeout=15,
-                             stdin=subprocess.DEVNULL)
-    out('https_via_proxy', phase=phase, exit=proxied.returncode, stderr=proxied.stderr.strip()[-120:])
+    try:
+        proxied = subprocess.run(['curl', '-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5',
+                                  'https://pypi.fixture.invalid/simple/'], capture_output=True, text=True,
+                                 timeout=15, stdin=subprocess.DEVNULL)
+        out('https_via_proxy', phase=phase, exit=proxied.returncode, stderr=proxied.stderr.strip()[-120:],
+            proxy_set='HTTPS_PROXY' in os.environ)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        out('https_via_proxy', phase=phase, exit=None, stderr=type(error).__name__)
 
 
 def ttywrite(spec, out):
+    time.sleep(spec.get('tty_delay', 0))
     try:
         fd = os.open('/dev/tty', os.O_WRONLY | os.O_NOCTTY)
     except OSError as error:

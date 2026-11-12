@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import socketserver
 import ssl
@@ -36,17 +37,20 @@ def classify(body):
     every = ' '.join(t for m in users for t in _texts(m))
     results = [c for m in users if isinstance(m.get('content'), list) for c in m['content']
                if isinstance(c, dict) and c.get('type') == 'tool_result']
-    kind = next((name for marker, name in MARKERS if first.startswith(marker)), None)
+    blocks = [t.strip() for t in _texts(users[0])] if users else []
+    kind = next((name for marker, name in MARKERS if any(b.startswith(marker) for b in blocks)), None)
     if kind is None:
-        if 'KLC root' in every:
-            kind = 'root'
-        elif not body.get('tools'):
+        if not body.get('tools'):
             kind = 'probe' if body.get('max_tokens') == 1 else 'aux'
+        elif 'KLC root' in every:
+            kind = 'root'
         else:
             kind = 'other'
-    return {'kind': kind, 'tool_results': len(results), 'later': 'KLC later' in every,
+    tag = re.search(r'KLC root (\w+)', every)
+    return {'kind': kind, 'tag': tag.group(1) if tag else None, 'tool_results': len(results),
+            'later': 'KLC later' in every,
             'continued': 'KLC continued' in every, 'tools': sorted(t.get('name') for t in body.get('tools') or []),
-            'first': first[:48], 'result_text': json.dumps(results[-1].get('content'))[:400] if results else None}
+            'first': first[:48], 'result_text': json.dumps(results[-1].get('content'))[:300] if results else None}
 
 
 def frames(model, ident, action):
@@ -121,7 +125,7 @@ class Upstream:
         info.update(id=ident, label=self.label(request.headers.get('Authorization', '')),
                     model=body.get('model'), stream=body.get('stream') is True, max_tokens=body.get('max_tokens'),
                     path=request.path.split('?')[0])
-        self.record('upstream_request', **{k: v for k, v in info.items() if k not in ('result_text', 'first')})
+        self.record('upstream_request', **info)
         if not info['stream']:
             data = json.dumps({'id': 'msg_klc_%d' % ident, 'type': 'message', 'role': 'assistant',
                                'model': body.get('model'), 'content': [{'type': 'text', 'text': 'ok'}],
