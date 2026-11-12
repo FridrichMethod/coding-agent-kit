@@ -22,6 +22,7 @@ def load(name):
 SBPL = load('sbpl')
 RUN = load('run')
 CHECK = load('check_evidence')
+CLIENT = load('client')
 
 
 class Render(unittest.TestCase):
@@ -71,6 +72,15 @@ class Render(unittest.TestCase):
         self.assertIn('(allow network-outbound (remote tcp "localhost:4242"))', lines)
         self.assertFalse(any('(remote ip ' in line for line in lines))
 
+    def test_m1_shape_has_no_unix_socket_allowance(self):
+        text = SBPL.render(self.base(private_socket_dirs=[], gate_tcp_only=True, deny_signal_others=True,
+                                     deny_tiocsti=True))
+        self.assertNotIn('unix-socket', text)
+        CHECK._m1_profile(text)
+        with self.assertRaises(AssertionError):
+            CHECK._m1_profile(SBPL.render(self.base(gate_tcp_only=True, deny_signal_others=True,
+                                                    deny_tiocsti=True)))
+
     def test_tiocsti_rule(self):
         rule = '(deny file-ioctl (ioctl-command TIOCSTI) (with message "qnm-abc123"))'
         self.assertIn(rule, SBPL.render(self.base(deny_tiocsti=True)).splitlines())
@@ -114,6 +124,25 @@ class KeychainNames(unittest.TestCase):
     def test_nfc_normalization(self):
         decomposed, composed = '/x/café', '/x/café'
         self.assertEqual(SBPL.claude_keychain_service(decomposed), SBPL.claude_keychain_service(composed))
+
+
+class ClientAndDriver(unittest.TestCase):
+    def test_icmp_echo_checksum(self):
+        packet = CLIENT.icmp_echo(False, 0x1234)
+        self.assertEqual(packet[:2], bytes([8, 0]))
+        self.assertEqual(CLIENT.icmp_checksum(packet), 0, 'a valid ICMPv4 message sums to zero')
+        self.assertEqual(CLIENT.icmp_echo(True, 7)[:4], bytes([128, 0, 0, 0]), 'the kernel fills ICMPv6 sums')
+        self.assertEqual(CLIENT.icmp_checksum(b'\x01'), CLIENT.icmp_checksum(b'\x01\x00'))
+
+    def test_trust_domains_never_include_user(self):
+        self.assertEqual(sorted(CLIENT.TRUST_DOMAINS), ['admin', 'system'])
+
+    def test_parse_discovery_refuses_incomplete_output(self):
+        good = 'claude=/x/claude\ncodex=/x/codex\nnode=/x/node\nnpm=\nhome=/h\nuser=u\nnoise'
+        self.assertEqual(RUN.parse_discovery(good)['home'], '/h')
+        for drop in ('home=/h', 'user=u', 'claude=/x/claude'):
+            with self.subTest(drop=drop), self.assertRaises(SystemExit):
+                RUN.parse_discovery(good.replace(drop, ''))
 
 
 class Reports(unittest.TestCase):
@@ -174,14 +203,22 @@ class Evidence(unittest.TestCase):
     def load(self, stage):
         path = HERE / 'evidence' / (stage + '.json')
         if not path.exists():
-            self.skipTest('evidence %s not captured' % stage)
+            self.fail('evidence %s is missing; a missing stage is never a pass' % stage)
         return json.loads(path.read_text())
 
     def reject(self, stage, mutate):
         data = copy.deepcopy(self.load(stage))
         mutate(data)
-        with self.assertRaises((AssertionError, KeyError, TypeError)):
+        with self.assertRaises(AssertionError):
             CHECK.check_stage(stage, data)
+
+    def test_every_check_has_evidence(self):
+        self.assertEqual(sorted(p.stem for p in (HERE / 'evidence').glob('*.json')), sorted(CHECK.CHECKS))
+
+    def test_host_address_rejected(self):
+        def leak(d):
+            d['note'] = 'remote:192.168.1.20:4242'
+        self.reject('m1', leak)
 
     def test_committed_evidence(self):
         for stage in CHECK.CHECKS:
@@ -330,6 +367,62 @@ class Evidence(unittest.TestCase):
         for mutate in (ip_rule, no_turn):
             with self.subTest(mutate=mutate.__name__):
                 self.reject('recommended', mutate)
+
+    def test_m1_mutations(self):
+        def review(d):
+            return d['cases']['review']
+        def private_allowed(d):
+            d['cases']['m1']['sandboxed']['root_python']['parsed']['results']['private_unix_self'] = 'connected'
+        def other_loopback(d):
+            review(d)['extent_m1']['parsed']['results']['gate_loopback4_other'] = 'connected'
+        def host_denied(d):
+            review(d)['extent_m1']['parsed']['results']['gate_host_ipv4'] = CHECK.DENIED
+        def hardlink(d):
+            review(d)['alias_recommended']['parsed']['results']['hardlink_in_private'] = 'connected'
+        def icmp(d):
+            review(d)['icmp_m1']['parsed']['results']['icmp4_loopback'] = 'reply'
+        def launchd(d):
+            review(d)['launchd_m1']['load']['marker_written'] = True
+        def roots(d):
+            review(d)['trust_m1']['parsed']['results']['trust_system'] = 'status:0:count:150'
+        def suspend(d):
+            review(d)['job_control_m1']['shell']['stopped_by_tty'] = False
+        def profile(d):
+            key = sorted(k for k in d['profiles'] if k.startswith('m1:'))[0]
+            d['profiles'][key] += '(allow network-outbound (remote unix-socket (subpath "/x")))\n'
+        for mutate in (private_allowed, other_loopback, host_denied, hardlink, icmp, launchd, roots, suspend,
+                       profile):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('m1', mutate)
+
+    def test_m1_natives_and_tls_mutations(self):
+        def signal_allowed(d):
+            d['cases']['claude-m1-tty-probe']['tool_outputs']['signal.txt'] = 'rc=0\n'
+        def ip_rule(d):
+            key = sorted(d['profiles'])[0]
+            d['profiles'][key] = d['profiles'][key].replace('(remote tcp ', '(remote ip ')
+        for mutate in (signal_allowed, ip_rule):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('m1-natives', mutate)
+
+        def handshake(d):
+            d['cases']['codex-m1-tls-tunnel']['tls_handshake_errors'] = ['SSLError: unknown ca']
+        def other_tunnel(d):
+            d['cases']['claude-m1-tls-tunnel']['exit_gate_events'].append(
+                {'event': 'connect_tunneled', 'path': 'platform.claude.com:443'})
+        def plaintext(d):
+            d['cases']['claude-census-tls-tunnel']['exit_gate_events'].append({'event': 'claude_model', 'path': '/'})
+        def claude_trustd(d):
+            d['cases']['claude-m1-tls-tunnel']['log']['summary'].append(
+                {'action': 'deny', 'operation': 'mach-lookup', 'target': 'com.apple.trustd.agent',
+                 'process': '2.1.322', 'count': 1})
+        def codex_trustd_allowed(d):
+            for row in d['cases']['codex-m1-tls-tunnel']['log']['summary']:
+                if row['target'] == 'com.apple.trustd.agent':
+                    row['action'] = 'allow'
+        for mutate in (handshake, other_tunnel, plaintext, claude_trustd, codex_trustd_allowed):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('tls', mutate)
 
     def test_fds_and_keychain_mutations(self):
         def closed(d):

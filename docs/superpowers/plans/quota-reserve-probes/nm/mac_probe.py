@@ -1,12 +1,14 @@
 """NM macOS Seatbelt outer-boundary probes; run on the Mac only via run.py.
 
-python3 -I -B mac_probe.py ROOT STAGE TOOLS_JSON
+python3 -I -B mac_probe.py ROOT STAGE TOOLS_JSON [DEADLINE_SECONDS]
 
 ROOT is a fresh private temp root (created by run.py with mktemp). Every
 native and client gets HOME, CLAUDE_CONFIG_DIR, CODEX_HOME, XDG_* and TMPDIR
 inside ROOT, fabricated credentials, and loopback fixtures only. Results go to
 ROOT/out/STAGE.json; run.py copies and sanitizes them. Every child is bounded
 and its process group is killed; detached fixtures are reaped by ROOT path.
+DEADLINE_SECONDS, when given, bounds the whole stage: SIGALRM then aborts it,
+records it as incomplete and still runs the cleanup.
 """
 import fcntl
 import hashlib
@@ -14,6 +16,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import plistlib
 import pty
 import pwd
 import secrets
@@ -68,6 +71,24 @@ STORE = 'com.apple.SecurityServer'
 MINIMAL_MACH = tuple(s for s in ENFORCED_MACH if s not in (
     'com.apple.trustd', 'com.apple.trustd.agent', 'com.apple.diagnosticd', 'com.apple.system.logger',
     'com.apple.bsd.dirhelper'))
+# Fabricated TLS fixture name; reserved TLD, reached only through the gate's CONNECT tunnel.
+TLS_HOST = 'nm-tls.test'
+TLS_CONFIG = """[req]
+distinguished_name = dn
+prompt = no
+[dn]
+CN = NM Fabricated Test CA
+[ca]
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+[leaf]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = DNS:%s
+authorityKeyIdentifier = keyid
+""" % TLS_HOST
 
 
 class Ctx:
@@ -83,6 +104,7 @@ class Ctx:
                               capture_output=True, text=True).stdout.strip(),
                               'arch': os.uname().machine}, 'cases': {}, 'profiles': {}}
         self.real_home = pwd.getpwuid(os.getuid()).pw_dir
+        self.redact = {}  # host-specific strings (the host address) replaced before saving
         for name in ('out', 'home', 'cfg', 'codex', 'workspace', 'tmp', 'xdg', 'cache', 'state',
                      'data', 'outside', 'private', 'anchors/LaunchAgents', 'shim'):
             (self.root / name).mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -109,6 +131,9 @@ class Ctx:
         elif kind == 'recommended':
             base.update(deny_mach=True, mach_allow=list(MINIMAL_MACH), deny_signal_others=True,
                         deny_tiocsti=True, gate_tcp_only=True)
+        elif kind == 'm1':  # recommended without the unused private Unix-socket allowance
+            base.update(deny_mach=True, mach_allow=list(MINIMAL_MACH), deny_signal_others=True,
+                        deny_tiocsti=True, gate_tcp_only=True, private_socket_dirs=[])
         elif kind == 'network-only':
             base.update(deny_mach=False, deny_launch=False, deny_write=[])
         else:
@@ -189,7 +214,8 @@ class Ctx:
     def save(self):
         self.data['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         path = self.out / (self.stage + '.json')
-        path.write_text(json.dumps(self.data, indent=2, sort_keys=True) + '\n')
+        data = SBPL.sanitize(self.data, self.redact) if self.redact else self.data
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
 
 
 def now_for_log():
@@ -307,7 +333,7 @@ def parse_json(text):
     return None
 
 
-def stage_boundary(ctx):
+def stage_boundary(ctx, kinds=('census', 'enforced')):
     gate, alt, udp = Listener('tcp'), Listener('tcp'), Listener('udp')
     unix = Listener('unix', str(ctx.root / 'outside' / 'daemon.sock'))
     attempts = standard_attempts(gate.port, alt.port, udp.port, unix.path, str(ctx.root / 'private'))
@@ -322,7 +348,7 @@ def stage_boundary(ctx):
         {'name': 'alt_fetch', 'kind': 'fetch', 'url': 'http://127.0.0.1:%d/' % alt.port},
         {'name': 'gate_fetch', 'kind': 'fetch', 'url': 'http://127.0.0.1:%d/' % gate.port}]}
     try:
-        for kind in ('census', 'enforced'):
+        for kind in kinds:
             tag = ctx.tag()
             since = now_for_log()
             profile = ctx.policy(kind, gate.port, tag)
@@ -689,23 +715,63 @@ trust_level = "trusted"
     return token
 
 
+def make_tls(ctx):
+    """Fabricated CA and leaf for TLS_HOST in ROOT/tls (never added to any keychain)."""
+    d = ctx.root / 'tls'
+    paths = {'ca': str(d / 'ca.pem'), 'leaf': str(d / 'leaf.pem'), 'key': str(d / 'leaf.key')}
+    openssl = '/usr/bin/openssl'
+    if 'tls_fixture' in ctx.data:
+        return paths
+    if d.exists():  # a fixture from an earlier stage in this root: make a fresh one
+        for child in d.iterdir():
+            child.unlink()
+    d.mkdir(mode=0o700, exist_ok=True)
+    (d / 'ext.cnf').write_text(TLS_CONFIG)
+    for argv in ([openssl, 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'ca.key', '-out', 'ca.pem',
+                  '-days', '2', '-config', 'ext.cnf', '-extensions', 'ca'],
+                 [openssl, 'req', '-new', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'leaf.key', '-out', 'leaf.csr',
+                  '-subj', '/CN=' + TLS_HOST],
+                 [openssl, 'x509', '-req', '-in', 'leaf.csr', '-CA', 'ca.pem', '-CAkey', 'ca.key', '-set_serial', '2',
+                  '-out', 'leaf.pem', '-days', '2', '-extfile', 'ext.cnf', '-extensions', 'leaf']):
+        subprocess.run(argv, cwd=str(d), check=True, capture_output=True, timeout=30)
+    ctx.data['tls_fixture'] = {
+        'host': TLS_HOST, 'openssl': subprocess.run([openssl, 'version'], capture_output=True, text=True,
+                                                    timeout=10).stdout.strip(),
+        'leaf': subprocess.run([openssl, 'x509', '-in', 'leaf.pem', '-noout', '-subject', '-issuer'], cwd=str(d),
+                               capture_output=True, text=True, timeout=10).stdout.strip().splitlines()}
+    return paths
+
+
 def native_case(ctx, native, kind, variant):
-    """One bounded TUI run of a real native under the given profile kind."""
+    """One bounded TUI run of a real native under the given profile kind.
+
+    `gate` receives the model requests; `exit_gate` holds the only admitted
+    port. They are one fixture, except for the tls-tunnel variant, where the
+    native reaches a TLS fixture for TLS_HOST through the exit gate's CONNECT.
+    """
     case = native + '-' + kind + '-' + variant
     alt, udp = Listener('tcp'), Listener('udp')
     unix = Listener('unix', str(ctx.root / 'outside' / (case + '.sock')))
-    gate = GATE.FakeGate('true', 'unset')
+    exit_gate = gate = GATE.FakeGate('true', 'unset')
+    tls = None
+    if variant == 'tls-tunnel':
+        tls = make_tls(ctx)
+        gate = GATE.FakeGate('true', 'unset', tls=(tls['leaf'], tls['key']))
+        exit_gate.tunnels[TLS_HOST + ':443'] = gate.port
     sleeper = None
     if variant == 'tty-probe':  # an unrelated same-UID process outside the profile
         sleeper = subprocess.Popen(['/bin/sleep', '300'], start_new_session=True)
         ctx.groups.append(sleeper.pid)
-    command, outdir = tool_command(ctx, case, gate.port, alt.port, udp.port, unix.path,
+    command, outdir = tool_command(ctx, case, exit_gate.port, alt.port, udp.port, unix.path,
                                    sleeper.pid if sleeper else None)
     gate.command = command
-    gate_url = 'http://127.0.0.1:%d' % gate.port
+    proxy_url = 'http://127.0.0.1:%d' % exit_gate.port
+    gate_url = 'https://' + TLS_HOST if tls else proxy_url
+    proxy_env = {k: proxy_url for k in ('HTTPS_PROXY', 'https_proxy')}
+    proxy_env.update({k: '127.0.0.1,localhost,::1' for k in ('NO_PROXY', 'no_proxy')})
     tag = ctx.tag()
     since = now_for_log()
-    profile = ctx.policy(kind, gate.port, tag)
+    profile = ctx.policy(kind, exit_gate.port, tag)
     result = {'case': case, 'gate_port_is_only_exit': True}
     term = Pty()
     proc = None
@@ -714,9 +780,10 @@ def native_case(ctx, native, kind, variant):
         if native == 'claude':
             auth = 'setup-token' if variant == 'setup-token' else 'oauth-file'
             extra, gate.bearer = claude_setup(ctx, gate_url, auth, expired=variant.startswith('refresh'))
-            if variant == 'refresh-proxy':
-                extra.update({k: gate_url for k in ('HTTPS_PROXY', 'https_proxy')})
-                extra.update({k: '127.0.0.1,localhost,::1' for k in ('NO_PROXY', 'no_proxy')})
+            if variant in ('refresh-proxy', 'tls-tunnel'):
+                extra.update(proxy_env)
+            if tls:
+                extra['NODE_EXTRA_CA_CERTS'] = tls['ca']
             path = '/usr/bin:/bin:/usr/sbin:/sbin'
             if variant != 'real-security':
                 shim_log = write_security_shim(ctx)
@@ -734,6 +801,8 @@ def native_case(ctx, native, kind, variant):
             env = ctx.env(CODEX_SQLITE_HOME=str(ctx.root / 'codex'))
             if variant == 'refresh-override':
                 env['CODEX_REFRESH_TOKEN_URL_OVERRIDE'] = gate_url + '/oauth/token'
+            if tls:
+                env.update(proxy_env, CODEX_CA_CERTIFICATE=tls['ca'])
             daemon = [] if variant == 'daemon' else ['--no-daemon']
             argv = [ctx.tools['codex'], '--no-alt-screen', *daemon, '-C', str(ctx.root / 'workspace'),
                     'NM_TOOL_TURN codex ' + case]
@@ -750,10 +819,13 @@ def native_case(ctx, native, kind, variant):
         else:
             result['tool_call_sent'] = wait_for(
                 lambda: any(e['event'] == model_key and e.get('tool_call') for e in gate.events), 40)
-            result['tool_done'] = wait_for(lambda: (outdir / (case + '-done')).exists(), 45)
-            result['tool_result_returned'] = wait_for(
+            # Without a tool call nothing can run, so do not spend the tool waits.
+            sent = result['tool_call_sent']
+            result['tool_done'] = sent and wait_for(lambda: (outdir / (case + '-done')).exists(), 45)
+            result['tool_result_returned'] = sent and wait_for(
                 lambda: any(e['event'] == model_key and e.get('tool_result') for e in gate.events), 30)
-            wait_for(lambda: (outdir / (case + '-detached.json')).exists(), 15)
+            if sent:
+                wait_for(lambda: (outdir / (case + '-detached.json')).exists(), 15)
             time.sleep(1)
             # Codex treats a fast character burst as a paste, so Enter is sent separately.
             term.write(b'NM_SECOND_TURN ' + case.encode())
@@ -786,6 +858,8 @@ def native_case(ctx, native, kind, variant):
             ctx.kill(proc.pid)
         term.close()
         gate.close()
+        if exit_gate is not gate:
+            exit_gate.close()
         for listener in (alt, udp, unix):
             listener.close()
         if sleeper is not None:
@@ -800,6 +874,9 @@ def native_case(ctx, native, kind, variant):
     result['tool_outputs'] = outputs
     result['outside_listener_hits'] = {'alt_tcp': alt.count(), 'alt_udp': udp.count(), 'unix': unix.count()}
     result['gate_events'] = gate.events
+    if tls:
+        result['exit_gate_events'] = exit_gate.events
+        result['tls_handshake_errors'] = gate.tls_errors
     result['terminal_tail'] = term.text()[-3000:]
     result['terminal_has_reply'] = 'NM fixture reply' in SBPL.strip_ansi(term.text())
     if shim_log is not None and shim_log.exists():
@@ -975,6 +1052,201 @@ def stage_dgram(ctx):
             listener.close()
 
 
+def host_ipv4():
+    """The host's own interface address (read locally; redacted before saving)."""
+    for iface in ('en0', 'en1'):
+        result = subprocess.run(['/usr/sbin/ipconfig', 'getifaddr', iface], capture_output=True, text=True,
+                                timeout=10)
+        address = result.stdout.strip()
+        if result.returncode == 0 and address and not address.startswith('127.'):
+            return address
+    return None
+
+
+# Unconfined job-control "shell": session leader of a private PTY that runs
+# the child as its foreground job, reports the Ctrl-Z stop, then resumes it
+# from outside the profile the way `fg` does.
+JOB_SHELL = '''import fcntl, json, os, signal, sys, termios, time
+os.setsid()
+fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+res = {}
+pid = os.fork()
+if pid == 0:
+    os.setpgid(0, 0)
+    os.tcsetpgrp(0, os.getpid())
+    signal.signal(signal.SIGTTOU, signal.SIG_DFL)
+    os.execv(sys.argv[2], sys.argv[2:])
+try:
+    os.setpgid(pid, pid)
+except OSError:
+    pass
+os.tcsetpgrp(0, pid)
+signal.alarm(25)
+_, status = os.waitpid(pid, os.WUNTRACED)
+res['stopped_by_tty'] = os.WIFSTOPPED(status)
+res['stop_signal'] = os.WSTOPSIG(status) if os.WIFSTOPPED(status) else None
+if os.WIFSTOPPED(status):
+    os.tcsetpgrp(0, os.getpgrp())
+    time.sleep(.3)
+    os.tcsetpgrp(0, pid)
+    os.killpg(pid, signal.SIGCONT)
+    _, status = os.waitpid(pid, 0)
+res['exited'] = os.WIFEXITED(status)
+res['exit_code'] = os.WEXITSTATUS(status) if os.WIFEXITED(status) else None
+os.tcsetpgrp(0, os.getpgrp())
+open(sys.argv[1], 'w').write(json.dumps(res))
+'''
+
+# Confined job: waits for the Ctrl-Z stop and resume, then does in-profile job
+# control on its own child (stop, continue, terminate) and signals its group.
+JOB_CHILD = '''import json, os, signal, subprocess, sys, time
+res = {}
+open(sys.argv[2], 'w').write('ready')
+began = time.monotonic()
+time.sleep(4)
+res['slept_seconds'] = round(time.monotonic() - began, 2)
+child = subprocess.Popen(['/bin/sleep', '30'])
+inner = {}
+for name, sig in (('stop', signal.SIGSTOP), ('cont', signal.SIGCONT), ('term', signal.SIGTERM)):
+    try:
+        os.kill(child.pid, sig)
+        inner[name] = 'ok'
+    except OSError as error:
+        inner[name] = 'error:%s' % error.errno
+    if name == 'stop' and inner[name] == 'ok':
+        inner['stopped'] = os.WIFSTOPPED(os.waitpid(child.pid, os.WUNTRACED)[1])
+res['inner'] = inner
+res['inner_returncode'] = child.wait(timeout=10)
+try:
+    os.kill(0, signal.SIGCONT)
+    res['own_group_cont'] = 'ok'
+except OSError as error:
+    res['own_group_cont'] = 'error:%s' % error.errno
+open(sys.argv[1], 'w').write(json.dumps(res))
+'''
+
+
+def job_control_case(ctx, name, profile):
+    shell_out, child_out = ctx.out / ('job-%s-shell.json' % name), ctx.out / ('job-%s-child.json' % name)
+    ready = ctx.out / ('job-%s-ready' % name)
+    child = [ctx.python, '-I', '-B', '-c', JOB_CHILD, str(child_out), str(ready)]
+    if profile is not None:
+        child = [SANDBOX_EXEC, '-p', profile] + child
+    term = Pty()
+    proc = subprocess.Popen([ctx.python, '-I', '-B', '-c', JOB_SHELL, str(shell_out)] + child, env=ctx.env(),
+                            cwd=str(ctx.root / 'workspace'), stdin=term.slave, stdout=term.slave,
+                            stderr=term.slave, close_fds=True)
+    ctx.groups.append(proc.pid)
+    case = {'child_ready': wait_for(ready.exists, 15)}
+    time.sleep(.5)
+    term.write(b'\x1a')  # Ctrl-Z through the line discipline: the kernel sends SIGTSTP
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        ctx.kill(proc.pid)
+    time.sleep(.3)
+    term.close()
+    case['exit_code'] = proc.poll()
+    for key, path in (('shell', shell_out), ('child', child_out)):
+        case[key] = json.loads(path.read_text()) if path.exists() else None
+    return case
+
+
+def launchd_cases(ctx, profile):
+    """Other launchd entry points from inside; every created label is removed."""
+    uid, cases = os.getuid(), {}
+    for verb in ('bootstrap', 'load'):
+        label = 'quota-nm-' + secrets.token_hex(6)
+        plist, marker = ctx.root / 'outside' / (label + '.plist'), ctx.root / 'outside' / (label + '.marker')
+        with plist.open('wb') as handle:
+            plistlib.dump({'Label': label, 'RunAtLoad': True, 'ProgramArguments': [
+                '/bin/sh', '-c', '/bin/echo ran > ' + shlex.quote(str(marker))]}, handle)
+        argv = (['/bin/launchctl', 'bootstrap', 'gui/%d' % uid, str(plist)] if verb == 'bootstrap'
+                else ['/bin/launchctl', 'load', str(plist)])
+        case = ctx.run(argv, profile, timeout=15)
+        time.sleep(2)
+        target = 'gui/%d/%s' % (uid, label)
+        printed = subprocess.run(['/bin/launchctl', 'print', target], capture_output=True, text=True, timeout=15)
+        bootout = subprocess.run(['/bin/launchctl', 'bootout', target], capture_output=True, text=True, timeout=15)
+        removed = subprocess.run(['/bin/launchctl', 'remove', label], capture_output=True, text=True, timeout=15)
+        after = subprocess.run(['/bin/launchctl', 'print', target], capture_output=True, text=True, timeout=15)
+        case.update(label_printed_code=printed.returncode, bootout_code=bootout.returncode,
+                    remove_code=removed.returncode, label_printed_after_cleanup_code=after.returncode,
+                    marker_written=marker.exists())
+        cases[verb] = case
+    missing = 'gui/%d/qnm-absent-%s' % (uid, secrets.token_hex(6))
+    cases['kickstart_absent_sandboxed'] = ctx.run(['/bin/launchctl', 'kickstart', missing], profile, timeout=15)
+    cases['kickstart_absent_control'] = ctx.run(['/bin/launchctl', 'kickstart', missing], timeout=15)
+    probe = client_cmd(ctx, {'attempts': [
+        {'name': 'launchservices', 'kind': 'mach', 'service': 'com.apple.coreservices.launchservicesd'},
+        {'name': 'nsurlsessiond', 'kind': 'mach', 'service': 'com.apple.nsurlsessiond'}]})
+    cases['asuser_sandboxed'] = ctx.run(['/bin/launchctl', 'asuser', str(uid)] + probe, profile, timeout=20)
+    cases['asuser_sandboxed']['parsed'] = parse_json(cases['asuser_sandboxed']['stdout'])
+    return cases
+
+
+def stage_m1(ctx):
+    """The boundary matrix under the exact M1 shape, plus the review-1 gaps."""
+    stage_boundary(ctx, kinds=('m1',))
+    gate, alt = Listener('tcp'), Listener('tcp')
+    unix = Listener('unix', str(ctx.root / 'outside' / 'alias-daemon.sock'))
+    private = ctx.root / 'private'
+    address = host_ipv4()
+    ctx.data['host_ipv4_found'] = bool(address)
+    if address:
+        ctx.redact[address] = '<host-ipv4>'
+    extent = [
+        {'name': 'gate_loopback4', 'kind': 'tcp4', 'host': '127.0.0.1', 'port': gate.port},
+        {'name': 'gate_loopback6', 'kind': 'tcp6', 'host': '::1', 'port': gate.port},
+        {'name': 'gate_any4', 'kind': 'tcp4', 'host': '0.0.0.0', 'port': gate.port},
+        {'name': 'gate_any6', 'kind': 'tcp6', 'host': '::', 'port': gate.port},
+        {'name': 'gate_loopback4_other', 'kind': 'tcp4', 'host': '127.0.0.2', 'port': gate.port},
+        {'name': 'gate_linklocal_lo0', 'kind': 'tcp6', 'host': 'fe80::1%lo0', 'port': gate.port},
+        {'name': 'alt_linklocal_lo0', 'kind': 'tcp6', 'host': 'fe80::1%lo0', 'port': alt.port},
+        {'name': 'gate_udp4', 'kind': 'udp4', 'host': '127.0.0.1', 'port': gate.port}]
+    if address:
+        extent += [{'name': 'gate_host_ipv4', 'kind': 'tcp4', 'host': address, 'port': gate.port},
+                   {'name': 'alt_host_ipv4', 'kind': 'tcp4', 'host': address, 'port': alt.port}]
+    alias = [
+        {'name': 'symlink_in_private', 'kind': 'unix_alias', 'link': 'sym', 'path': str(private / 'alias-sym.sock'),
+         'target': unix.path},
+        {'name': 'hardlink_in_private', 'kind': 'unix_alias', 'link': 'hard',
+         'path': str(private / 'alias-hard.sock'), 'target': unix.path},
+        {'name': 'direct_outside', 'kind': 'unix', 'path': unix.path}]
+    icmp = [{'name': 'icmp4_loopback', 'kind': 'icmp4', 'host': '127.0.0.1'},
+            {'name': 'icmp6_loopback', 'kind': 'icmp6', 'host': '::1'}]
+    trust = [{'name': 'trust_' + d, 'kind': 'trust_settings', 'domain': d} for d in ('system', 'admin')]
+    try:
+        tag = ctx.tag()
+        since = now_for_log()
+        m1 = ctx.policy('m1', gate.port, tag)
+        tag_rec = ctx.tag()
+        recommended = ctx.policy('recommended', gate.port, tag_rec)
+        cases = {}
+        for name, spec, profile in (('extent_m1', extent, m1), ('extent_control', extent, None),
+                                    ('alias_recommended', alias, recommended), ('alias_m1', alias, m1),
+                                    ('alias_control', alias, None),
+                                    ('icmp_m1', icmp, m1), ('icmp_control', icmp, None),
+                                    ('trust_m1', trust, m1), ('trust_control', trust, None)):
+            before = {'gate': gate.count(), 'alt': alt.count(), 'unix': unix.count()}
+            case = ctx.run(client_cmd(ctx, {'attempts': spec}), profile, timeout=40)
+            time.sleep(.3)
+            case['parsed'] = parse_json(case['stdout'])
+            case['hits'] = {k: (gate.count(), alt.count(), unix.count())[i] - before[k]
+                            for i, k in enumerate(('gate', 'alt', 'unix'))}
+            cases[name] = case
+        cases['launchd_m1'] = launchd_cases(ctx, m1)
+        cases['job_control_m1'] = job_control_case(ctx, 'm1', m1)
+        cases['job_control_control'] = job_control_case(ctx, 'control', None)
+        ctx.data['cases']['review'] = cases
+        ctx.data['log_m1_review'] = ctx.logs(since, tag)
+        ctx.data['log_recommended_alias'] = ctx.logs(since, tag_rec)
+    finally:
+        for listener in (gate, alt, unix):
+            listener.close()
+
+
 NATIVE_SETS = {
     'natives': [('claude', 'census', 'oauth-file'), ('claude', 'enforced', 'oauth-file'),
                 ('codex', 'census', 'plain'), ('codex', 'enforced', 'plain'), ('codex', 'enforced', 'daemon')],
@@ -985,13 +1257,28 @@ NATIVE_SETS = {
     'hardened': [('claude', 'enforced', 'tty-probe'), ('codex', 'enforced', 'tty-probe'),
                  ('claude', 'hardened', 'tty-probe'), ('codex', 'hardened', 'tty-probe')],
     'recommended': [('claude', 'recommended', 'tty-probe'), ('codex', 'recommended', 'tty-probe')],
+    'm1-natives': [('claude', 'm1', 'tty-probe'), ('codex', 'm1', 'tty-probe')],
+    'tls': [('claude', 'census', 'tls-tunnel'), ('claude', 'm1', 'tls-tunnel'),
+            ('codex', 'census', 'tls-tunnel'), ('codex', 'm1', 'tls-tunnel')],
 }
+
+
+class StageDeadline(BaseException):
+    """Not an Exception, so per-case handlers cannot swallow the stage deadline."""
+
+
+def _deadline(signum, frame):
+    raise StageDeadline('remote stage deadline reached')
 
 
 def main():
     root, stage, tools = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])
     os.umask(0o077)
     ctx = Ctx(root, stage, tools)
+    if len(sys.argv) > 4:
+        signal.signal(signal.SIGALRM, _deadline)
+        signal.alarm(int(sys.argv[4]))
+        ctx.data['deadline_seconds'] = int(sys.argv[4])
     try:
         if stage in NATIVE_SETS:
             for name in ('claude', 'codex'):
@@ -1003,12 +1290,13 @@ def main():
             stage_natives(ctx, NATIVE_SETS[stage])
         else:
             {'boundary': stage_boundary, 'ipc': stage_ipc, 'fds': stage_fds, 'keychain': stage_keychain,
-             'compat': stage_compat, 'tty': stage_tty, 'dgram': stage_dgram}[stage](ctx)
+             'compat': stage_compat, 'tty': stage_tty, 'dgram': stage_dgram, 'm1': stage_m1}[stage](ctx)
         ctx.data['completed'] = True
-    except Exception as error:
+    except (Exception, StageDeadline) as error:
         ctx.data['completed'] = False
         ctx.data['error'] = '%s: %s' % (type(error).__name__, error)
     finally:
+        signal.alarm(0)
         ctx.cleanup()
         ctx.save()
     print(json.dumps({'stage': stage, 'completed': ctx.data.get('completed')}))

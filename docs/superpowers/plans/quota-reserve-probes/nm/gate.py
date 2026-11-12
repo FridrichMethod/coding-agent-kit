@@ -5,16 +5,68 @@ discovery/usage/models/responses paths, because the profile under test admits
 exactly one gate port. It is a fixture, not a quota gate or relay: nothing is
 forwarded anywhere. The first model turn that carries the NM_TOOL_TURN marker
 receives one native shell tool call running the configured egress command.
+
+With `tls=(certfile, keyfile)` the same handlers are served over TLS with a
+fabricated certificate (the TLS fixture). With `tunnels={'host:port': port}`
+a CONNECT for exactly that authority is spliced to that loopback port; every
+other CONNECT is refused. Tunnels only ever name loopback fixture ports.
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import select
 import socket
+import ssl
 import threading
 import time
 
 
-class _V6Server(ThreadingHTTPServer):
+class _TLSMixin:
+    """Handshake in the worker thread, so a stalled client cannot block accept."""
+    tls_context = None
+    tls_errors = None
+
+    def finish_request(self, request, client_address):
+        if self.tls_context is None:
+            super().finish_request(request, client_address)
+            return
+        try:
+            request.settimeout(10)
+            wrapped = self.tls_context.wrap_socket(request, server_side=True)
+            wrapped.settimeout(None)
+        except (OSError, ssl.SSLError) as error:
+            self.tls_errors.append('%s: %s' % (type(error).__name__, error))
+            return
+        try:
+            super().finish_request(wrapped, client_address)
+        finally:
+            wrapped.close()
+
+
+class _V4Server(_TLSMixin, ThreadingHTTPServer):
+    pass
+
+
+class _V6Server(_TLSMixin, ThreadingHTTPServer):
     address_family = socket.AF_INET6
+
+
+def _splice(left, right, seconds=120):
+    """Copy bytes both ways until either side closes (bounded)."""
+    deadline = time.monotonic() + seconds
+    moved = 0
+    socks = [left, right]
+    while time.monotonic() < deadline:
+        ready = select.select(socks, [], [], 1)[0]
+        for sock in ready:
+            try:
+                data = sock.recv(65536)
+            except OSError:
+                data = b''
+            if not data:
+                return moved
+            (right if sock is left else left).sendall(data)
+            moved += len(data)
+    return moved
 
 
 def _sse(handler, rows, named):
@@ -102,15 +154,21 @@ def last_tool_output(body):
 
 
 class FakeGate:
-    def __init__(self, command, bearer):
+    def __init__(self, command, bearer, tls=None, tunnels=None):
         self.events = []
         self.command = command
         self.bearer = bearer
+        self.tunnels = dict(tunnels or {})
+        self.tls_errors = []
         self.tool_sent = set()
         self.lock = threading.Lock()
         self.began = time.monotonic()
         self.servers = []
         gate = self
+        context = None
+        if tls:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(*tls)
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_):
@@ -123,8 +181,28 @@ class FakeGate:
                             **data)
 
             def do_CONNECT(self):
-                self._record('connect_refused')
-                self.send_error(403)
+                port = gate.tunnels.get(self.path)
+                if port is None:
+                    self._record('connect_refused')
+                    self.send_error(403)
+                    return
+                try:
+                    upstream = socket.create_connection(('127.0.0.1', port), timeout=5)
+                except OSError as error:
+                    self._record('connect_failed', error=str(error))
+                    self.send_error(502)
+                    return
+                self._record('connect_tunneled')
+                self.send_response(200, 'Connection Established')
+                self.end_headers()
+                self.wfile.flush()
+                upstream.settimeout(None)
+                self.connection.settimeout(None)
+                try:
+                    _splice(self.connection, upstream)
+                finally:
+                    upstream.close()
+                    self.close_connection = True
 
             def do_GET(self):
                 path = self.path.split('?')[0]
@@ -218,7 +296,7 @@ class FakeGate:
                     pass
 
         for _ in range(50):
-            v4 = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+            v4 = _V4Server(('127.0.0.1', 0), Handler)
             try:
                 v6 = _V6Server(('::1', v4.server_port), Handler)
                 break
@@ -228,6 +306,8 @@ class FakeGate:
             raise OSError('no common IPv4/IPv6 loopback port for the gate')
         self.port = v4.server_port
         self.servers.extend((v4, v6))
+        for server in self.servers:
+            server.tls_context, server.tls_errors = context, self.tls_errors
         for server in self.servers:
             threading.Thread(target=server.serve_forever, daemon=True).start()
 

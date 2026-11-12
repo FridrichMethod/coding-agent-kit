@@ -2,9 +2,15 @@
 
 Usage: python3 -I -B client.py SPEC_JSON
 SPEC: {"attempts": [...], "detach": OUT_PATH|null, "inherit_fds": [..]}
-Each attempt: {"name", "kind": tcp4|tcp6|udp4|udp6|unix|unix_dgram|dns|fdwrite|mach,
-"host", "port", "path", "fd", "service"}; unix_self and unix_dgram_self bind
-and use their own socket inside "path". Results are JSON on stdout, or in
+Each attempt: {"name", "kind": tcp4|tcp6|udp4|udp6|unix|unix_dgram|dns|fdwrite|mach|
+icmp4|icmp6|unix_alias|trust_settings, "host", "port", "path", "fd", "service", "link",
+"target", "domain"};
+unix_self and unix_dgram_self bind and use their own socket inside "path";
+unix_alias creates a symbolic ("link": "sym") or hard ("hard") link at "path"
+naming the socket "target" and connects through it. icmp4/icmp6 send one
+unprivileged datagram-socket echo request. trust_settings counts the
+certificates SecTrustSettingsCopyCertificates returns for one trust-settings
+domain ("admin" or "system"; the user domain is never queried). Results are JSON on stdout, or in
 OUT_PATH written by a double-forked, setsid grandchild when "detach" is set.
 Only loopback/fixture endpoints are ever named by mac_probe.py.
 """
@@ -12,6 +18,7 @@ import ctypes
 import json
 import os
 import socket
+import struct
 import sys
 import time
 
@@ -29,9 +36,86 @@ def mach_lookup(service):
     return 'found' if code == 0 else 'kern_return:%d' % code
 
 
+def icmp_checksum(data):
+    """RFC 1071 ones-complement checksum of an ICMPv4 message."""
+    if len(data) % 2:
+        data += b'\0'
+    total = sum(struct.unpack('!%dH' % (len(data) // 2), data))
+    while total >> 16:
+        total = (total & 0xffff) + (total >> 16)
+    return ~total & 0xffff
+
+
+def icmp_echo(v6, ident, payload=b'NM-ICMP-PROBE'):
+    """One echo request; the kernel fills the ICMPv6 checksum itself."""
+    kind = 128 if v6 else 8
+    header = struct.pack('!BBHHH', kind, 0, 0, ident & 0xffff, 1)
+    checksum = 0 if v6 else icmp_checksum(header + payload)
+    return struct.pack('!BBHHH', kind, 0, checksum, ident & 0xffff, 1) + payload
+
+
+TRUST_DOMAINS = {'admin': 1, 'system': 2}  # kSecTrustSettingsDomainAdmin/System
+
+
+def trust_settings(domain):
+    """Root loading as rustls-native-certs does it on macOS; counts only."""
+    sec = ctypes.CDLL('/System/Library/Frameworks/Security.framework/Security')
+    cf = ctypes.CDLL('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
+    sec.SecTrustSettingsCopyCertificates.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_void_p)]
+    sec.SecTrustSettingsCopyCertificates.restype = ctypes.c_int32
+    cf.CFArrayGetCount.argtypes = [ctypes.c_void_p]
+    cf.CFArrayGetCount.restype = ctypes.c_long
+    cf.CFRelease.argtypes = [ctypes.c_void_p]
+    array = ctypes.c_void_p()
+    status = sec.SecTrustSettingsCopyCertificates(TRUST_DOMAINS[domain], ctypes.byref(array))
+    count = cf.CFArrayGetCount(array) if status == 0 and array.value else 0
+    if array.value:
+        cf.CFRelease(array)
+    return 'status:%d:count:%d' % (status, count)
+
+
+def unix_alias(item):
+    link, target = item['path'], item['target']
+    try:
+        os.unlink(link)
+    except FileNotFoundError:
+        pass
+    try:
+        (os.symlink if item['link'] == 'sym' else os.link)(target, link)
+    except OSError as error:
+        return 'link_error:%s:%s' % (type(error).__name__, error.errno)
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(3)
+    try:
+        sock.connect(link)
+        sock.sendall(b'NM-ALIAS-PROBE\n')
+        return 'connected'
+    finally:
+        sock.close()
+        os.unlink(link)
+
+
 def attempt(item):
     kind = item['kind']
     try:
+        if kind == 'unix_alias':
+            return unix_alias(item)
+        if kind == 'trust_settings':
+            return trust_settings(item['domain'])
+        if kind in ('icmp4', 'icmp6'):
+            v6 = kind == 'icmp6'
+            sock = socket.socket(socket.AF_INET6 if v6 else socket.AF_INET, socket.SOCK_DGRAM,
+                                 socket.IPPROTO_ICMPV6 if v6 else socket.IPPROTO_ICMP)
+            sock.settimeout(2)
+            try:
+                sock.sendto(icmp_echo(v6, os.getpid()), (item['host'], 0))
+                try:
+                    sock.recv(512)
+                    return 'reply'
+                except TimeoutError:
+                    return 'sent_no_reply'
+            finally:
+                sock.close()
         if kind == 'mach':
             return mach_lookup(item['service'])
         if kind == 'dns':
