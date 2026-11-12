@@ -24,6 +24,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import sys
 import threading
@@ -42,6 +43,7 @@ CODEX_READS = CODEX_USAGE + ('/backend-api/codex/models', '/backend-api/wham/acc
                              '/api/codex/settings/user', '/api/codex/rate-limit-reset-credits')
 CLAUDE_MODEL = ('/v1/messages',)
 LOSS = ('monitor_eof', 'monitor_stale', 'launcher_eof')
+MARKER = re.compile(r'KM-[A-Za-z0-9_-]+')
 
 
 def _load(name, path):
@@ -538,7 +540,9 @@ class Handler(BaseHTTPRequestHandler):
         auth = self.headers.get('Authorization') or ''
         label = gate.labels(auth[7:] if auth.startswith('Bearer ') else None)
         ok, reason, stream = adapter.admit(list(self.headers.items()), body, close)
+        markers = MARKER.findall(body[-200000:].decode('utf-8', 'replace'))  # evidence only
         gate.emit('decision', ok=ok, reason=reason, stream=stream, label=label, path=path,
+                  marker=markers[-1] if markers else None, child=b'KM sdk child' in body,
                   admit_ms=round((time.monotonic() - began) * 1000, 3))
         if not ok:
             return self._refuse(reason)

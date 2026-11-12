@@ -1,0 +1,1686 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "claude-continuation": {
+   "case_seconds": 23.8,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_t": 209982.997827083,
+   "model_posts_paused": [],
+   "native_started": true,
+   "refused": [],
+   "steps": {
+    "after": {
+     "decisions": [
+      [
+       true,
+       "admitted",
+       "A"
+      ]
+     ],
+     "expect_ok": true,
+     "forwarded": 1
+    },
+    "background_wakeup": {
+     "granted": false,
+     "polls_during_pause": 22,
+     "status": {
+      "last_status": null,
+      "latched": 1,
+      "resumed": 0
+     }
+    },
+    "failing_check": {
+     "challenge_shown": true,
+     "check_ms": 408.4,
+     "expected": false,
+     "granted": false,
+     "messages": [
+      "Type f042f87e then Enter to request a fresh quota check. ",
+      "still paused: threshold_five_hour ",
+      "Still paused; request a new confirmation to retry. "
+     ],
+     "still_paused": true
+    },
+    "failing_status": {
+     "last_status": null,
+     "latched": 1,
+     "resumed": 0
+    },
+    "native_output": {
+     "alive": true,
+     "granted": false,
+     "output_bytes": 877
+    },
+    "passing_check": {
+     "challenge_shown": true,
+     "check_ms": 409.4,
+     "expected": true,
+     "granted": true,
+     "messages": [
+      "Type 06936de3 then Enter to request a fresh quota check. ",
+      "Fresh quota check passed; one healthy lease granted. ",
+      "quota reserve resumed after a fresh check "
+     ],
+     "still_paused": false
+    },
+    "paste": {
+     "challenge": true,
+     "granted": false,
+     "status": {
+      "last_status": null,
+      "latched": 1,
+      "resumed": 0
+     }
+    },
+    "same_invocation": {
+     "gate": true,
+     "native": true
+    },
+    "stale_answer": {
+     "challenge_shown": true,
+     "check_ms": 405.4,
+     "expected": false,
+     "granted": false,
+     "messages": [
+      "Type dd84e4f8 then Enter to request a fresh quota check. ",
+      "Still paused; request a new confirmation to retry. "
+     ],
+     "still_paused": true
+    },
+    "typed_without_f12": {
+     "challenge": false,
+     "granted": false
+    }
+   },
+   "summary": {
+    "fetch_ms": 3.437,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209980.505573791
+     },
+     {
+      "event": "preflight",
+      "ms": 2.627,
+      "reason": "startup_ok",
+      "t": 209980.505587208
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 95288,
+      "port": 63962,
+      "t": 209980.505831333
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209980.8922705
+     },
+     {
+      "admit_ms": 0.269,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-first",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209980.892351416
+     },
+     {
+      "bytes": 43337,
+      "event": "forwarded",
+      "gate_ms": 0.494,
+      "label": "A",
+      "stream": 1,
+      "t": 209980.892574291
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209980.893141458
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 209982.997827083
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 209982.998029166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209984.640933875
+     },
+     {
+      "admit_ms": 0.572,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-first",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209984.641133041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209994.873096041
+     },
+     {
+      "admit_ms": 0.63,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-first",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209994.873321375
+     },
+     {
+      "event": "controller",
+      "kind": "continuation_failed",
+      "reason": "threshold_five_hour",
+      "t": 209998.769779875
+     },
+     {
+      "event": "control",
+      "ok": false,
+      "op": "reply:continue",
+      "reason": "threshold_five_hour",
+      "t": 209998.769916541
+     },
+     {
+      "cause": "manual_continuation",
+      "epoch": 7,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209999.289171208
+     },
+     {
+      "event": "notify",
+      "op": "resumed",
+      "t": 209999.289306333
+     },
+     {
+      "event": "control",
+      "ok": true,
+      "op": "reply:continue",
+      "reason": "resumed",
+      "t": 209999.289453833
+     },
+     {
+      "epoch": 7,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 210000.628924125
+     },
+     {
+      "admit_ms": 0.596,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-resumed",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 210000.629122375
+     },
+     {
+      "bytes": 43907,
+      "event": "forwarded",
+      "gate_ms": 0.946,
+      "label": "A",
+      "stream": 2,
+      "t": 210000.629468041
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 210000.630483666
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 210002.849554
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 210002.849632041
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 210002.849656125
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209980.437351583,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 63962,
+      "reserved": 19,
+      "t": 209980.443899375
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209980.448970333
+     },
+     {
+      "event": "monitor_started",
+      "pid": 95287,
+      "t": 209980.450461458
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 95288,
+      "t": 209980.451940208
+     },
+     {
+      "event": "self_test",
+      "ms": 29.7,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209980.536951208
+     },
+     {
+      "event": "native_started",
+      "pid": 95291,
+      "t": 209980.54209875
+     },
+     {
+      "event": "said",
+      "t": 209982.999144166,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209982.999295125,
+      "text": "quota reserve paused (threshold_five_hour); press F12 to request a fresh check"
+     },
+     {
+      "event": "said",
+      "t": 209986.601434041,
+      "text": "Type b57b16ce then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 209987.211773541,
+      "text": "Type dd84e4f8 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 209987.615209208,
+      "text": "Still paused; request a new confirmation to retry."
+     },
+     {
+      "event": "said",
+      "t": 209987.719777333,
+      "text": "Type 28505af8 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 209998.3487095,
+      "text": "Type f042f87e then Enter to request a fresh quota check."
+     },
+     {
+      "event": "continue_reply",
+      "ms": 13.2,
+      "ok": false,
+      "reason": "threshold_five_hour",
+      "t": 209998.770208833
+     },
+     {
+      "event": "said",
+      "t": 209998.770444625,
+      "text": "still paused: threshold_five_hour"
+     },
+     {
+      "event": "said",
+      "t": 209998.770551083,
+      "text": "Still paused; request a new confirmation to retry."
+     },
+     {
+      "event": "said",
+      "t": 209998.867728375,
+      "text": "Type 06936de3 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "continue_reply",
+      "ms": 12.7,
+      "ok": true,
+      "reason": "resumed",
+      "t": 209999.289638083
+     },
+     {
+      "event": "granted",
+      "t": 209999.289834083
+     },
+     {
+      "event": "said",
+      "t": 209999.290012958,
+      "text": "Fresh quota check passed; one healthy lease granted."
+     },
+     {
+      "event": "said",
+      "t": 209999.29023425,
+      "text": "quota reserve resumed after a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 210002.8485265
+     },
+     {
+      "event": "launcher_exit",
+      "t": 210002.851464541
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209980.468760666
+     }
+    ],
+    "poll_count": 45,
+    "poll_ms": 4.226,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-continuation/workspace \u276f KM-cont-first start \u00b7 Sublimating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Cooked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check deadbeef \u276f deadbeef \u00b7 Razzle -da zzling\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Brewed for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents [coding-agent-kit] Type b57b16ce then Enter to request a fresh quota check. [coding-agent-kit] Type dd84e4f8 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 28505af8 then Enter to request a fresh quota check. ctrl+g to edit in Vim \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f 28505af8 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f 28505af8 /help \u276f 28505af8/help \u00b7 Groovi ng\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Cooked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts [coding-agent-kit] Type f042f87e then Enter to request a fresh quota check. [coding-agent-kit] still paused: threshold_five_hour [coding-agent-kit] Still paused; request a new confirmation to retry",
+    "terminal_tail": "o interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Cooked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check deadbeef \u276f deadbeef \u00b7 Razzle -da zzling\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Brewed for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents [coding-agent-kit] Type b57b16ce then Enter to request a fresh quota check. [coding-agent-kit] Type dd84e4f8 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 28505af8 then Enter to request a fresh quota check. ctrl+g to edit in Vim \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f 28505af8 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f 28505af8 /help \u276f 28505af8/help \u00b7 Groovi ng\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Cooked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts [coding-agent-kit] Type f042f87e then Enter to request a fresh quota check. [coding-agent-kit] still paused: threshold_five_hour [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 06936de3 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-cont-resumed \u276f Turn KM-cont-resumed \u00b7 Drizzling\u2026 \u23bf Tip: Use /memory to view and manage Claude memory \u276f \u00b7 esc to interrupt \u23fa KM fixture reply \u273b Brewed for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume b12bc421-fbfb-46bf-bb4b-4460eecc33e1 "
+   },
+   "upstream": [
+    {
+     "action": "text",
+     "bytes": 43337,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-cont-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209980.892976541
+    },
+    {
+     "action": "text",
+     "bytes": 43907,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-cont-resumed",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210000.630189416
+    }
+   ]
+  },
+  "claude-gate-death": {
+   "after_continue": {
+    "decisions": [
+     [
+      true,
+      "admitted",
+      "A"
+     ]
+    ],
+    "expect_ok": true,
+    "forwarded": 1
+   },
+   "bind_rows": [
+    {
+     "action": "bind_gate_port",
+     "host": "127.0.0.1",
+     "pid": 95276,
+     "result": "errno:1",
+     "t": 209962.3864255
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::1",
+     "pid": 95276,
+     "result": "errno:1",
+     "t": 209962.386574666
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "0.0.0.0",
+     "pid": 95276,
+     "result": "errno:1",
+     "t": 209962.386914916
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::",
+     "pid": 95276,
+     "result": "errno:1",
+     "t": 209962.38697125
+    }
+   ],
+   "case_seconds": 24.8,
+   "confined_bind": {
+    "code": 0,
+    "seconds": 0.07,
+    "stderr": "",
+    "stdout": "",
+    "timed_out": false
+   },
+   "confined_direct": {
+    "code": 0,
+    "seconds": 0.03,
+    "stderr": "",
+    "stdout": "",
+    "timed_out": false
+   },
+   "continuation": {
+    "challenge_shown": true,
+    "check_ms": 407.3,
+    "expected": true,
+    "granted": true,
+    "messages": [
+     "Type c537d437 then Enter to request a fresh quota check. ",
+     "Fresh quota check passed; one healthy lease granted. ",
+     "quota reserve resumed after a fresh check "
+    ],
+    "still_paused": false
+   },
+   "direct_rows": [
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 95277,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 209962.420681541
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 95277,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 209962.420794291
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 95277,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 209962.420845083
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 95277,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 209962.420892416
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 95277,
+     "port_role": "gate_udp",
+     "result": "errno:1",
+     "t": 209962.420937875
+    }
+   ],
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "killed_t": 209958.107346625,
+   "model_posts_after_kill": 0,
+   "model_posts_after_kill_before_continue": 0,
+   "model_posts_between_kill_and_continuation": null,
+   "native_alive": true,
+   "native_started": true,
+   "queued_turn_decisions": [
+    [
+     false,
+     "gate_restart",
+     "KM-gd-queued",
+     10.17
+    ]
+   ],
+   "queued_turn_visible": true,
+   "refused": [],
+   "restart_seen": true,
+   "restart_t": 209968.298475041,
+   "sdk_after_restart": [
+    {
+     "action": "sdk",
+     "ms": 2.3,
+     "n": 1,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209971.438376
+    },
+    {
+     "action": "sdk",
+     "ms": 3.9,
+     "n": 2,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209971.947826208
+    },
+    {
+     "action": "sdk",
+     "ms": 4.1,
+     "n": 3,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209972.457748125
+    },
+    {
+     "action": "sdk",
+     "ms": 3.1,
+     "n": 4,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209972.963185041
+    },
+    {
+     "action": "sdk",
+     "ms": 4.0,
+     "n": 5,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209973.470530625
+    },
+    {
+     "action": "sdk",
+     "ms": 3.8,
+     "n": 6,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209973.9767175
+    },
+    {
+     "action": "sdk",
+     "ms": 4.1,
+     "n": 7,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209974.484739875
+    },
+    {
+     "action": "sdk",
+     "ms": 2.5,
+     "n": 8,
+     "pid": 95282,
+     "role": "direct",
+     "status": 403,
+     "t": 209974.992964375
+    }
+   ],
+   "sdk_exit": 0,
+   "squat_after_restart": {
+    "any4_plain": "errno:48",
+    "any4_reuseaddr": "errno:48",
+    "any6_reuseaddr": "errno:48",
+    "host4_plain": "errno:48",
+    "host4_reuseaddr": "errno:48",
+    "host4_reuseport": "errno:48",
+    "lo4_plain": "errno:48",
+    "lo4_reuseaddr": "errno:48",
+    "lo4_reuseport": "errno:48",
+    "lo6_reuseaddr": "errno:48"
+   },
+   "squat_during_death": {
+    "any4_plain": "errno:48",
+    "any4_reuseaddr": "errno:48",
+    "any6_reuseaddr": "errno:48",
+    "host4_plain": "errno:48",
+    "host4_reuseaddr": "errno:48",
+    "host4_reuseport": "errno:48",
+    "lo4_plain": "errno:48",
+    "lo4_reuseaddr": "errno:48",
+    "lo4_reuseport": "errno:48",
+    "lo6_reuseaddr": "errno:48"
+   },
+   "summary": {
+    "fetch_ms": 2.365,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209955.631318125
+     },
+     {
+      "event": "preflight",
+      "ms": 2.671,
+      "reason": "startup_ok",
+      "t": 209955.631333125
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 95247,
+      "port": 63896,
+      "t": 209955.631557125
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209956.061736666
+     },
+     {
+      "admit_ms": 0.293,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-first",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209956.061829333
+     },
+     {
+      "bytes": 43329,
+      "event": "forwarded",
+      "gate_ms": 0.467,
+      "label": "A",
+      "stream": 1,
+      "t": 209956.062000708
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209956.062584666
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "gate_restart",
+      "state": "paused",
+      "t": 209968.274102791
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "gate_restart",
+      "state": "paused",
+      "t": 209968.274144625
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "restart",
+      "pid": 95281,
+      "port": 63896,
+      "t": 209968.274470166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209968.274794166
+     },
+     {
+      "admit_ms": 0.174,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-queued",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209968.274845333
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209971.438037083
+     },
+     {
+      "admit_ms": 0.083,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209971.438090041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209971.94668
+     },
+     {
+      "admit_ms": 0.354,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209971.946948958
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209972.456370041
+     },
+     {
+      "admit_ms": 0.377,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209972.45665675
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209972.962146166
+     },
+     {
+      "admit_ms": 0.276,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209972.962360041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209973.469228166
+     },
+     {
+      "admit_ms": 0.378,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209973.469515833
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209973.975247791
+     },
+     {
+      "admit_ms": 0.414,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209973.975554083
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209974.483304958
+     },
+     {
+      "admit_ms": 0.393,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209974.48360225
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209974.992057583
+     },
+     {
+      "admit_ms": 0.281,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "gate_restart",
+      "stream": null,
+      "t": 209974.992268791
+     },
+     {
+      "cause": "manual_continuation",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209975.944449125
+     },
+     {
+      "event": "notify",
+      "op": "resumed",
+      "t": 209975.944567833
+     },
+     {
+      "event": "control",
+      "ok": true,
+      "op": "reply:continue",
+      "reason": "resumed",
+      "t": 209975.944685583
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209977.28160325
+     },
+     {
+      "admit_ms": 0.48,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-resumed",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209977.281731416
+     },
+     {
+      "bytes": 43758,
+      "event": "forwarded",
+      "gate_ms": 0.858,
+      "label": "A",
+      "stream": 1,
+      "t": 209977.282106583
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209977.283088041
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 209979.501253833
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 209979.501329083
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 209979.501352708
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209955.557850083,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 63896,
+      "reserved": 19,
+      "t": 209955.564507958
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209955.569620291
+     },
+     {
+      "event": "monitor_started",
+      "pid": 95246,
+      "t": 209955.571181375
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 95247,
+      "t": 209955.572699958
+     },
+     {
+      "event": "self_test",
+      "ms": 37.0,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209955.720052541
+     },
+     {
+      "event": "native_started",
+      "pid": 95250,
+      "t": 209955.725097125
+     },
+     {
+      "code": -9,
+      "event": "gate_exited",
+      "t": 209958.169038208
+     },
+     {
+      "event": "said",
+      "t": 209958.169638208,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209958.1698245,
+      "text": "gate stopped; requests are refused until a restarted gate gets a fresh check"
+     },
+     {
+      "event": "monitor_started",
+      "pid": 95280,
+      "t": 209968.180241791
+     },
+     {
+      "event": "gate_started",
+      "mode": "restart",
+      "pid": 95281,
+      "t": 209968.187336166
+     },
+     {
+      "event": "gate_restarted",
+      "ok": true,
+      "reason": null,
+      "t": 209968.298475041
+     },
+     {
+      "event": "said",
+      "t": 209968.298518083,
+      "text": "gate restarted paused; press F12 to request a fresh check"
+     },
+     {
+      "event": "said",
+      "t": 209975.519541333,
+      "text": "Type c537d437 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "continue_reply",
+      "ms": 15.0,
+      "ok": true,
+      "reason": "resumed",
+      "t": 209975.944906
+     },
+     {
+      "event": "granted",
+      "t": 209975.945077791
+     },
+     {
+      "event": "said",
+      "t": 209975.945196375,
+      "text": "Fresh quota check passed; one healthy lease granted."
+     },
+     {
+      "event": "said",
+      "t": 209975.945388416,
+      "text": "quota reserve resumed after a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209979.500291583
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209979.503262625
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209955.58957525
+     },
+     {
+      "event": "monitor_started",
+      "t": 209968.229956708
+     }
+    ],
+    "poll_count": 28,
+    "poll_ms": 0.022,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-gate-death/workspace \u276f KM-gd-first start \u00b7 Creating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Baked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u276f Queued turn KM-gd-queued \u2736 Percolating\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2733 \u2722 \u00b7 \u2722 \u2733 \u2736 \u273b \u273d \u273b \u2736 \u2733 \u2722 \u00b7 \u2722 \u2733 \u2026 \u2736 g \u273b \u273d n i \u2026 \u273b t g \u2736 a n \u2733 \u2722 l i \u00b7 o t c a \u2722 r l \u2733 e o \u2736 \u273b P c \u273d r e P \u273b \u2736 \u2733 \u2722 \u00b7 \u2722 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (gate_restart); continue only from the trusted terminal after a fresh check \u273b Baked for 6s \u00b7 done 11:48 AM \u276f ? for shortcuts [coding-agent-kit] Type c537d437 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check \u000f Turn KM-gd-resumed \u276f Turn KM-gd-resumed \u273b Wi bbling\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa KM fixture reply \u273b Crunched for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume 868415c1-385e-46a8-8e50-70a5bb6910cc ",
+    "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-gate-death/workspace \u276f KM-gd-first start \u00b7 Creating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Baked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u276f Queued turn KM-gd-queued \u2736 Percolating\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2733 \u2722 \u00b7 \u2722 \u2733 \u2736 \u273b \u273d \u273b \u2736 \u2733 \u2722 \u00b7 \u2722 \u2733 \u2026 \u2736 g \u273b \u273d n i \u2026 \u273b t g \u2736 a n \u2733 \u2722 l i \u00b7 o t c a \u2722 r l \u2733 e o \u2736 \u273b P c \u273d r e P \u273b \u2736 \u2733 \u2722 \u00b7 \u2722 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (gate_restart); continue only from the trusted terminal after a fresh check \u273b Baked for 6s \u00b7 done 11:48 AM \u276f ? for shortcuts [coding-agent-kit] Type c537d437 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check \u000f Turn KM-gd-resumed \u276f Turn KM-gd-resumed \u273b Wi bbling\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa KM fixture reply \u273b Crunched for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume 868415c1-385e-46a8-8e50-70a5bb6910cc "
+   },
+   "upstream": [
+    {
+     "action": "text",
+     "bytes": 43329,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-gd-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209956.062405375
+    },
+    {
+     "action": "text",
+     "bytes": 43758,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-gd-resumed",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209977.282765583
+    }
+   ]
+  },
+  "claude-independent": {
+   "case_seconds": 19.4,
+   "exit": {
+    "first": {
+     "launcher_exit": 0,
+     "native_exit": 0
+    },
+    "second": {
+     "launcher_exit": 0,
+     "native_exit": 0
+    }
+   },
+   "first": {
+    "first_turn_forwarded": true,
+    "native_started": true,
+    "refused": []
+   },
+   "first_latch_t": 210009.852535375,
+   "first_turn": {
+    "decisions": [
+     [
+      false,
+      "threshold_five_hour",
+      "A"
+     ]
+    ],
+    "expect_ok": false,
+    "forwarded": 0
+   },
+   "outside_t": 210017.511819958,
+   "second": {
+    "first_turn_forwarded": true,
+    "native_started": true,
+    "refused": []
+   },
+   "second_after": {
+    "decisions": [
+     [
+      false,
+      "threshold_five_hour",
+      "A"
+     ]
+    ],
+    "expect_ok": false,
+    "forwarded": 0
+   },
+   "second_latch_t": 210017.55399425,
+   "second_latched_at_80": null,
+   "second_turn": {
+    "decisions": [
+     [
+      true,
+      "admitted",
+      "A"
+     ]
+    ],
+    "expect_ok": true,
+    "forwarded": 1
+   },
+   "summary": {
+    "first": {
+     "fetch_ms": 3.213,
+     "gate_rows": [
+      {
+       "cause": "startup",
+       "epoch": 1,
+       "event": "controller",
+       "kind": "lease",
+       "t": 210004.336357791
+      },
+      {
+       "event": "preflight",
+       "ms": 2.705,
+       "reason": "startup_ok",
+       "t": 210004.336372625
+      },
+      {
+       "event": "gate_ready",
+       "listeners": 2,
+       "mode": "startup",
+       "pid": 95322,
+       "port": 64050,
+       "t": 210004.336637375
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 1,
+       "t": 210004.723676208
+      },
+      {
+       "admit_ms": 0.29,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind1-first",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 1,
+       "t": 210004.7237585
+      },
+      {
+       "bytes": 43334,
+       "event": "forwarded",
+       "gate_ms": 0.511,
+       "label": "A",
+       "stream": 1,
+       "t": 210004.723977666
+      },
+      {
+       "event": "stream_closed",
+       "stream": 1,
+       "t": 210004.7245815
+      },
+      {
+       "closed": 0,
+       "event": "controller",
+       "kind": "latched",
+       "reason": "threshold_five_hour",
+       "state": "paused",
+       "t": 210009.852535375
+      },
+      {
+       "event": "notify",
+       "op": "latched",
+       "reason": "threshold_five_hour",
+       "state": "paused",
+       "t": 210009.852677416
+      },
+      {
+       "event": "controller",
+       "kind": "refused",
+       "reason": "paused",
+       "t": 210015.940133666
+      },
+      {
+       "admit_ms": 0.679,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind1-refused",
+       "ok": false,
+       "path": "/v1/messages",
+       "reason": "threshold_five_hour",
+       "stream": null,
+       "t": 210015.940362458
+      },
+      {
+       "event": "lost",
+       "reason": "monitor_eof",
+       "t": 210021.094318041
+      }
+     ],
+     "gate_stderr_tail": "",
+     "launcher_rows": [
+      {
+       "event": "native_version",
+       "t": 210004.268521916,
+       "text": "2.1.322 (Claude Code)"
+      },
+      {
+       "event": "holder",
+       "failed": [],
+       "mode": "all",
+       "port": 64050,
+       "reserved": 19,
+       "t": 210004.2750455
+      },
+      {
+       "event": "profile",
+       "fs_rules": false,
+       "lines": 23,
+       "t": 210004.280057583
+      },
+      {
+       "event": "monitor_started",
+       "pid": 95321,
+       "t": 210004.281538583
+      },
+      {
+       "event": "gate_started",
+       "mode": "startup",
+       "pid": 95322,
+       "t": 210004.282877375
+      },
+      {
+       "event": "self_test",
+       "ms": 29.7,
+       "ok": true,
+       "result": {
+        "bind": "errno:1",
+        "gate": "connected",
+        "other": "errno:1",
+        "tiocsti": "errno:1"
+       },
+       "t": 210004.367867416
+      },
+      {
+       "event": "native_started",
+       "pid": 95325,
+       "t": 210004.372539833
+      },
+      {
+       "event": "said",
+       "t": 210009.853806416,
+       "text": "Paused. Research F12 control requires a new typed confirmation."
+      },
+      {
+       "event": "said",
+       "t": 210009.853936041,
+       "text": "quota reserve paused (threshold_five_hour); press F12 to request a fresh check"
+      },
+      {
+       "code": 0,
+       "event": "native_exit",
+       "t": 210021.093235708
+      },
+      {
+       "event": "launcher_exit",
+       "t": 210021.096324375
+      }
+     ],
+     "monitor_rows": [
+      {
+       "event": "monitor_started",
+       "t": 210004.299677583
+      }
+     ],
+     "poll_count": 34,
+     "poll_ms": 4.367,
+     "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-independent/workspace \u276f KM-ind1-first start \u00b7 Hatching\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Crunched for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2597\u259f \u2582 \u2582 \u2584 \u2598 \u2590 \u2582 \u2582 \u2588 ~ \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 ~ \u2590 \u2582 \u2588\u2588\u2588 \u2582 \u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d \u259b \u259b \u2582 \u2582 \u259b \u259b [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check \u000f Turn KM-ind1-refused \u276f Turn KM-ind1-refused \u273b Frosting\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Baked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume 5d3dfcda-6e75-40db-a985-de23e144f5db ",
+     "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-independent/workspace \u276f KM-ind1-first start \u00b7 Hatching\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Crunched for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2597\u259f \u2582 \u2582 \u2584 \u2598 \u2590 \u2582 \u2582 \u2588 ~ \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 ~ \u2590 \u2582 \u2588\u2588\u2588 \u2582 \u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d \u259b \u259b \u2582 \u2582 \u259b \u259b [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check \u000f Turn KM-ind1-refused \u276f Turn KM-ind1-refused \u273b Frosting\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Baked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume 5d3dfcda-6e75-40db-a985-de23e144f5db "
+    },
+    "second": {
+     "fetch_ms": 2.931,
+     "gate_rows": [
+      {
+       "cause": "startup",
+       "epoch": 1,
+       "event": "controller",
+       "kind": "lease",
+       "t": 210006.9975415
+      },
+      {
+       "event": "preflight",
+       "ms": 2.463,
+       "reason": "startup_ok",
+       "t": 210006.997556958
+      },
+      {
+       "event": "gate_ready",
+       "listeners": 2,
+       "mode": "startup",
+       "pid": 95356,
+       "port": 64072,
+       "t": 210006.997818875
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 1,
+       "t": 210007.291579791
+      },
+      {
+       "admit_ms": 0.265,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-first",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 1,
+       "t": 210007.291667
+      },
+      {
+       "bytes": 43334,
+       "event": "forwarded",
+       "gate_ms": 0.474,
+       "label": "A",
+       "stream": 1,
+       "t": 210007.291874666
+      },
+      {
+       "event": "stream_closed",
+       "stream": 1,
+       "t": 210007.292456
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 2,
+       "t": 210013.1380055
+      },
+      {
+       "admit_ms": 0.473,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-works",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 2,
+       "t": 210013.138147833
+      },
+      {
+       "bytes": 43597,
+       "event": "forwarded",
+       "gate_ms": 0.768,
+       "label": "A",
+       "stream": 2,
+       "t": 210013.138440291
+      },
+      {
+       "event": "stream_closed",
+       "stream": 2,
+       "t": 210013.139184083
+      },
+      {
+       "closed": 0,
+       "event": "controller",
+       "kind": "latched",
+       "reason": "threshold_five_hour",
+       "state": "paused",
+       "t": 210017.55399425
+      },
+      {
+       "event": "notify",
+       "op": "latched",
+       "reason": "threshold_five_hour",
+       "state": "paused",
+       "t": 210017.554151208
+      },
+      {
+       "event": "controller",
+       "kind": "refused",
+       "reason": "paused",
+       "t": 210018.859604208
+      },
+      {
+       "admit_ms": 0.584,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-refused",
+       "ok": false,
+       "path": "/v1/messages",
+       "reason": "threshold_five_hour",
+       "stream": null,
+       "t": 210018.859793708
+      },
+      {
+       "event": "lost",
+       "reason": "monitor_eof",
+       "t": 210022.281733375
+      }
+     ],
+     "gate_stderr_tail": "",
+     "launcher_rows": [
+      {
+       "event": "native_version",
+       "t": 210006.928234416,
+       "text": "2.1.322 (Claude Code)"
+      },
+      {
+       "event": "holder",
+       "failed": [],
+       "mode": "all",
+       "port": 64072,
+       "reserved": 19,
+       "t": 210006.934906208
+      },
+      {
+       "event": "profile",
+       "fs_rules": false,
+       "lines": 23,
+       "t": 210006.939933416
+      },
+      {
+       "event": "monitor_started",
+       "pid": 95355,
+       "t": 210006.941438083
+      },
+      {
+       "event": "gate_started",
+       "mode": "startup",
+       "pid": 95356,
+       "t": 210006.942962208
+      },
+      {
+       "event": "self_test",
+       "ms": 30.4,
+       "ok": true,
+       "result": {
+        "bind": "errno:1",
+        "gate": "connected",
+        "other": "errno:1",
+        "tiocsti": "errno:1"
+       },
+       "t": 210007.028820625
+      },
+      {
+       "event": "native_started",
+       "pid": 95359,
+       "t": 210007.033831041
+      },
+      {
+       "event": "said",
+       "t": 210017.555199125,
+       "text": "Paused. Research F12 control requires a new typed confirmation."
+      },
+      {
+       "event": "said",
+       "t": 210017.555358,
+       "text": "quota reserve paused (threshold_five_hour); press F12 to request a fresh check"
+      },
+      {
+       "code": 0,
+       "event": "native_exit",
+       "t": 210022.281099083
+      },
+      {
+       "event": "launcher_exit",
+       "t": 210022.28354625
+      }
+     ],
+     "monitor_rows": [
+      {
+       "event": "monitor_started",
+       "t": 210006.959797541
+      }
+     ],
+     "poll_count": 31,
+     "poll_ms": 8.281,
+     "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-independent/workspace \u276f KM-ind2-first start \u00b7 Zesting\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Saut\u00e9ed for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents Turn KM-ind2-works \u276f Turn KM-ind2-works \u00b7 Hyperspacing\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Cooked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u276f Turn KM-ind2-refused \u2722 P hil osophizing\u2026 \u23bf Tip: Use /memory to view and manage Claude memory \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Brewed for 0s \u00b7 done 11:49 AM \u276f ? for shortcuts \u276f /exit \u273d Imag ini ng\u2026 \u23bf Tip: Try setting environment variable COLORTERM=truecolor for richer colors \u276f esc to interrupt \u000f \u000f Resume this session with: claude --resume 374dfcdf-2ba1-4005-88e6-bd0d580f8700 ",
+     "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-independent/workspace \u276f KM-ind2-first start \u00b7 Zesting\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Saut\u00e9ed for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents Turn KM-ind2-works \u276f Turn KM-ind2-works \u00b7 Hyperspacing\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Cooked for 0s \u00b7 done 11:48 AM \u276f ? for shortcuts \u00b7 \u2190 for agents [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u276f Turn KM-ind2-refused \u2722 P hil osophizing\u2026 \u23bf Tip: Use /memory to view and manage Claude memory \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Brewed for 0s \u00b7 done 11:49 AM \u276f ? for shortcuts \u276f /exit \u273d Imag ini ng\u2026 \u23bf Tip: Try setting environment variable COLORTERM=truecolor for richer colors \u276f esc to interrupt \u000f \u000f Resume this session with: claude --resume 374dfcdf-2ba1-4005-88e6-bd0d580f8700 "
+    }
+   },
+   "upstream": [
+    {
+     "action": "text",
+     "bytes": 43334,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-ind1-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210004.724362333
+    },
+    {
+     "action": "text",
+     "bytes": 43334,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-ind2-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210007.292310375
+    },
+    {
+     "action": "text",
+     "bytes": 43597,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-ind2-works",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210013.138963666
+    }
+   ]
+  }
+ },
+ "completed": true,
+ "deadline_seconds": 700,
+ "finished": "2026-11-12T19:49:08Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [],
+ "stage": "claude-resume",
+ "started": "2026-11-12T19:47:59Z"
+}

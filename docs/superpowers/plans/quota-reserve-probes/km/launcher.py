@@ -487,13 +487,16 @@ class Launcher:
 
     def check(self):
         """TerminalControl's check(): one fresh verified continuation through the gate."""
+        began = time.monotonic()
         reply = self.request('continue', 20)
-        self.emit('continue_reply', **{k: v for k, v in reply.items() if k != 'op'})
+        self.emit('continue_reply', ms=round((time.monotonic() - began) * 1000, 1),
+                  **{k: v for k, v in reply.items() if k != 'op'})
         if self.config['provider'] == 'codex' and reply.get('needs_read'):
             self.reader(self.profile_text)
             status = self.request('status')
             ok = status.get('paused') is None and status.get('ready')
-            self.emit('continue_status', ok=bool(ok), reason=status.get('reason'))
+            self.emit('continue_status', ok=bool(ok), reason=status.get('reason'),
+                      ms=round((time.monotonic() - began) * 1000, 1))
             if not ok:
                 self.say('still paused: %s' % status.get('reason'))
             return bool(ok)
@@ -534,6 +537,7 @@ class Launcher:
                                      lambda: self.emit('granted'))
         self.control_ui = ui
         code = None
+        dead_since = None
         try:
             while True:
                 if native.poll() is not None:
@@ -565,20 +569,22 @@ class Launcher:
                     elif message.get('op') == 'resumed':
                         self.say('quota reserve resumed after a fresh check')
                 self.events = []
-                if self.gate.poll() is not None:
+                if self.gate.poll() is not None and dead_since is None:
+                    # No gate: nothing can be admitted. Keep relaying the terminal meanwhile.
+                    dead_since = time.monotonic()
                     self.emit('gate_exited', code=self.gate.returncode)
-                    if c.get('restart_gate') and self.restarts < 1:
-                        self.restarts += 1
-                        time.sleep(float(c.get('restart_delay_s', 0)))
-                        if self.monitor and self.monitor.poll() is None:
-                            os.killpg(self.monitor.pid, signal.SIGKILL)
-                        ok, reason = self.spawn_gate('restart')
-                        self.emit('gate_restarted', ok=ok, reason=reason)
-                        if not ui.paused:
-                            ui.pause()
-                        self.say('gate restarted paused; press F12 to request a fresh check')
-                    else:
-                        self.gate = _Dead()
+                    if not ui.paused:
+                        ui.pause()
+                    self.say('gate stopped; requests are refused until a restarted gate gets a fresh check')
+                if dead_since is not None and c.get('restart_gate') and self.restarts < 1 and \
+                        time.monotonic() - dead_since >= float(c.get('restart_delay_s', 0)):
+                    self.restarts += 1
+                    if self.monitor and self.monitor.poll() is None:
+                        os.killpg(self.monitor.pid, signal.SIGKILL)
+                    ok, reason = self.spawn_gate('restart')
+                    self.emit('gate_restarted', ok=ok, reason=reason)
+                    dead_since = None if ok else dead_since
+                    self.say('gate restarted paused; press F12 to request a fresh check')
         finally:
             if outer is not None:
                 termios.tcsetattr(0, termios.TCSADRAIN, outer)
@@ -604,13 +610,6 @@ class Launcher:
         for s in getattr(self, 'listeners', []) + getattr(self, 'reserved', []):
             s.close()
         self.emit('launcher_exit')
-
-
-class _Dead:
-    returncode = None
-
-    def poll(self):
-        return None
 
 
 def main(argv):

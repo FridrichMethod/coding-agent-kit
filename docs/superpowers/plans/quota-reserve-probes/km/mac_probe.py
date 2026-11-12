@@ -692,8 +692,11 @@ def case_gate_death(case):
     killed = now()
     os.kill(gate_pid, signal.SIGKILL)
     result['killed_t'] = killed
-    time.sleep(0.5)
+    time.sleep(2)
+    mark = inv.term.mark()
     queued = inv.turn('Queued turn KM-gd-queued')
+    time.sleep(1)
+    result['queued_turn_visible'] = 'KM-gd-queued' in FX_strip(inv.term.text(mark))
     spec = case.child_spec(inv, 'gd', duration=4, interval=0.5)
     result['confined_bind'] = case.run_confined(inv, [case.ctx.python, '-I', '-B', str(HERE / 'child.py'), str(spec),
                                                       'bind', str(case.out / 'gd-bind.jsonl')])
@@ -711,7 +714,8 @@ def case_gate_death(case):
     result['restart_t'] = restart_t
     time.sleep(3)
     result['model_posts_between_kill_and_continuation'] = None
-    result['queued_turn_decisions'] = [(r.get('ok'), r.get('reason')) for r in inv.decisions(killed)]
+    result['queued_turn_decisions'] = [(r.get('ok'), r.get('reason'), r.get('marker'), round(r['t'] - killed, 2))
+                                       for r in inv.decisions(killed) if not r.get('child')]
     sdk = case.run_confined(inv, [case.ctx.python, '-I', '-B', str(HERE / 'child.py'), str(spec), 'sdk',
                                   str(case.out / 'gd-sdk.jsonl')], timeout=20)
     result['sdk_after_restart'] = case.child_rows('gd-sdk')
@@ -792,7 +796,7 @@ def case_continuation(case):
     mark = inv.term.mark()
     inv.term.write(F12)
     old = read_challenge(inv, mark)
-    inv.term.write(b'\x03')  # cancels the pending challenge
+    inv.term.write(b'\x15')  # Ctrl-U cancels the pending challenge (PC5 swallows it; Ctrl-C would reach the native)
     time.sleep(0.5)
     steps['stale_answer'] = continuation(case, inv, expect=False, answer=old or '00000000')
     # bracketed paste carrying the current challenge is never an answer
@@ -803,7 +807,7 @@ def case_continuation(case):
     time.sleep(2)
     steps['paste'] = {'challenge': current is not None, 'granted': bool(inv.launcher('granted')),
                       'status': status_of(inv)}
-    inv.term.write(b'\x03')
+    inv.term.write(b'\x15')
     # background wakeup: the quota recovers and the monitor keeps polling; nothing reopens
     case.set_usage(five=20)
     time.sleep(4)
