@@ -931,15 +931,24 @@ def case_rotation(case):
     result['later'] = later_refused(case, inv, 'KM-rot-later')
     result['sdk_rows'] = case.child_rows('sdk')
     result['refresh_events'] = refresh.events
-    result['usage_labels'] = case.usage.labels() if case.provider == 'claude' else None
-    result['profile_labels'] = case.usage.labels('/api/oauth/profile') if case.provider == 'claude' else None
-    result['security_argv'] = jsonl(case.out / 'security-argv.jsonl')
+    result['usage_labels'] = counts(case.usage.labels()) if case.provider == 'claude' else None
+    result['profile_labels'] = counts(case.usage.labels('/api/oauth/profile')) if case.provider == 'claude' else None
+    result['upstream_usage_labels'] = counts([r['label'] for r in case.upstream.snapshot()
+                                              if r.get('path', '').endswith('/usage')])
+    result['security_argv'] = counts(' '.join(a[:1] + a[-1:]) for a in jsonl(case.out / 'security-argv.jsonl'))
     result['model_posts_after_latch'] = len(case.model_after(latch)) if latch else None
     result['native_alive'] = inv.native_alive()
     result['exit'] = inv.exit()
     result['upstream'] = case.upstream.snapshot()
     result['summary'] = inv.summary()
     return result
+
+
+def counts(items):
+    out = {}
+    for item in items:
+        out[str(item)] = out.get(str(item), 0) + 1
+    return out
 
 
 def case_norefresh(case):
@@ -949,7 +958,7 @@ def case_norefresh(case):
         case.claude_setup(expires_in_ms=life * 1000)
     else:
         case.codex_setup(lifetime=life)
-    inv = case.invocation(case.policy(max_age=6.0), prompt='KM-nr-first start')
+    inv = case.invocation(policy=case.policy(max_age=6.0), prompt='KM-nr-first start')
     result = start(case, inv, 'KM-nr-first')
     if not result['native_started']:
         result['summary'] = inv.summary()
@@ -1077,10 +1086,51 @@ def case_prelaunch(case):
         profile = sbpl.render(LAUNCHER.profile_policy(tag, proxy.port, [str(case.ctx.root / 'anchors')]))
         before = len(refresh.events)
         done = case.ctx.run([SANDBOX_EXEC, '-p', profile] + argv, timeout=40, env=env, cwd=str(case.workspace))
-        runs.append({'variant': variant, 'exit': done['code'], 'timed_out': done['timed_out'],
-                     'seconds': done['seconds'], 'stdout_tail': done['stdout'][-300:],
+        runs.append({'variant': variant, 'command': ' '.join(argv[1:]), 'exit': done['code'],
+                     'timed_out': done['timed_out'], 'seconds': done['seconds'], 'stdout_tail': done['stdout'][-300:],
                      'refresh_requests': refresh.events[before:], 'store_label_after': case.store_label()})
+        if case.provider == 'codex':
+            before = len(refresh.events)
+            rpc = app_server_rpc(case, [SANDBOX_EXEC, '-p', profile, case.ctx.tools['codex'], 'app-server'], env,
+                                 'account/read', {'refreshToken': True})
+            runs.append({'variant': variant, 'command': 'app-server account/read refreshToken=true', **rpc,
+                         'refresh_requests': refresh.events[before:], 'store_label_after': case.store_label()})
     return {'runs': runs, 'tunnel_rows': proxy.rows}
+
+
+def app_server_rpc(case, argv, env, method, params, seconds=15):
+    """One JSON-RPC call to a fresh `codex app-server`; returns a short summary."""
+    began = now()
+    proc = subprocess.Popen(argv, env=env, cwd=str(case.workspace), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, start_new_session=True)
+    case.ctx.groups.append(proc.pid)
+    buffer, answer = b'', None
+    try:
+        proc.stdin.write((json.dumps({'id': 1, 'method': 'initialize', 'params': {
+            'clientInfo': {'name': 'km-prelaunch', 'version': '1'}, 'capabilities': {'experimentalApi': True}}})
+            + '\n' + json.dumps({'method': 'initialized', 'params': {}}) + '\n'
+            + json.dumps({'id': 2, 'method': method, 'params': params}) + '\n').encode())
+        proc.stdin.flush()
+        end = now() + seconds
+        while now() < end and answer is None:
+            if select.select([proc.stdout], [], [], 0.1)[0]:
+                data = os.read(proc.stdout.fileno(), 65536)
+                if not data:
+                    break
+                buffer += data
+                for line in buffer.split(b'\n'):
+                    try:
+                        message = json.loads(line)
+                    except ValueError:
+                        continue
+                    if message.get('id') == 2:
+                        answer = message
+    finally:
+        case.ctx.kill(proc.pid)
+    result = (answer or {}).get('result')
+    return {'exit': proc.poll(), 'seconds': round(now() - began, 2), 'answered': answer is not None,
+            'error': str((answer or {}).get('error'))[:200] if answer and 'error' in answer else None,
+            'result_keys': sorted(result) if isinstance(result, dict) else None}
 
 
 def case_tools(case):

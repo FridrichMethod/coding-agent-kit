@@ -506,7 +506,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._model(path)
         return self._read(path, kind)
 
-    do_GET = do_POST = do_HEAD = do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _dispatch
+    do_GET = do_POST = do_HEAD = do_PUT = do_DELETE = do_PATCH = do_OPTIONS = do_CONNECT = _dispatch
 
     def _body(self):
         if self.headers.get('Transfer-Encoding'):
