@@ -79,6 +79,28 @@ def codex_text(ident, text):
              'usage': {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}}}]
 
 
+def _text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return _text(value.get('text', value.get('content', value.get('output', ''))))
+    if isinstance(value, list):
+        return ' '.join(_text(v) for v in value)
+    return ''
+
+
+def last_tool_output(body):
+    """First 600 characters of the newest tool result in a request, or None."""
+    for message in reversed(body.get('messages', [])[-1:]):
+        for block in message.get('content', []) if isinstance(message.get('content'), list) else []:
+            if isinstance(block, dict) and block.get('type') == 'tool_result':
+                return _text(block.get('content'))[:600]
+    items = body.get('input') or []
+    if items and isinstance(items[-1], dict) and items[-1].get('type') == 'function_call_output':
+        return _text(items[-1].get('output'))[:600]
+    return None
+
+
 class FakeGate:
     def __init__(self, command, bearer):
         self.events = []
@@ -153,13 +175,16 @@ class FakeGate:
                     self.send_error(404)
 
             def _claude(self, body, text):
-                has_result = '"tool_result"' in text
-                wants = 'NM_TOOL_TURN' in text and not has_result
+                last = body.get('messages', [])[-1:]
+                has_result = any(isinstance(m.get('content'), list) and any(
+                    isinstance(c, dict) and c.get('type') == 'tool_result' for c in m['content']) for m in last)
+                wants = 'NM_TOOL_TURN' in text and '"tool_result"' not in text
                 with gate.lock:
                     send = wants and 'claude' not in gate.tool_sent
                     if send:
                         gate.tool_sent.add('claude')
                 self._record('claude_model', tool_call=send, tool_result=has_result,
+                             second_turn='NM_SECOND_TURN' in text, tool_output=last_tool_output(body),
                              tools=sorted(t.get('name', '') for t in body.get('tools', []))[:40])
                 rows = claude_bash(body.get('model'), gate.command) if send else claude_text(
                     body.get('model'), 'NM fixture reply after tool' if has_result else 'NM fixture reply')
@@ -169,8 +194,10 @@ class FakeGate:
                     pass
 
             def _codex(self, body, text):
-                has_output = '"function_call_output"' in text
-                wants = 'NM_TOOL_TURN' in text and not has_output
+                items = body.get('input') or []
+                has_output = bool(items) and isinstance(items[-1], dict) and \
+                    items[-1].get('type') == 'function_call_output'
+                wants = 'NM_TOOL_TURN' in text and '"function_call_output"' not in text
                 ident = str(len(gate.events))
                 rows = None
                 with gate.lock:
@@ -179,6 +206,7 @@ class FakeGate:
                         if rows:
                             gate.tool_sent.add('codex')
                 self._record('codex_model', tool_call=rows is not None, tool_result=has_output,
+                             second_turn='NM_SECOND_TURN' in text, tool_output=last_tool_output(body),
                              tools=sorted(t.get('name', '') or t.get('type', '') for t in body.get('tools', []))[:40])
                 if rows is None:
                     rows = codex_text(ident, 'NM fixture reply after tool' if has_output else 'NM fixture reply')

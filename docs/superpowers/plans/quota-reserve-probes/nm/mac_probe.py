@@ -391,12 +391,29 @@ def stage_ipc(ctx):
         {'name': 'numeric', 'kind': 'dns', 'host': '127.0.0.1'},
         {'name': 'invalid_name', 'kind': 'dns', 'host': 'quota-nm.invalid'}]}), profile)
     cases['dns_sandboxed']['parsed'] = parse_json(cases['dns_sandboxed']['stdout'])
+    cases['setuid_ps_sandboxed'] = ctx.run(['/bin/ps', '-p', '1', '-o', 'pid='], profile)
+    cases['setuid_ps_shell_child'] = ctx.run(['/bin/sh', '-c', '/bin/ps -p 1 -o pid=; echo "rc=$?"'], profile)
+    cases['setuid_ps_control'] = ctx.run(['/bin/ps', '-p', '1', '-o', 'pid='])
+    cases['setuid_modes'] = {p: oct(os.stat(p).st_mode & 0o7777) for p in (
+        '/bin/ps', '/usr/bin/crontab', '/usr/bin/at', '/usr/bin/batch', '/usr/bin/sudo')}
+    sleeper = subprocess.Popen(['/bin/sleep', '60'], start_new_session=True)
+    ctx.groups.append(sleeper.pid)
+    cases['signal0_outside_sandboxed'] = ctx.run(['/bin/kill', '-0', str(sleeper.pid)], profile)
+    tag2 = ctx.tag()
+    hardened = ctx.policy('enforced', None, tag2, deny_signal_others=True)
+    cases['signal0_outside_hardened'] = ctx.run(['/bin/kill', '-0', str(sleeper.pid)], hardened)
+    cases['signal_same_sandbox_hardened'] = ctx.run(['/bin/sh', '-c', '/bin/sleep 30 & p=$!; kill $p; wait $p; echo "rc=$?"'],
+                                                    hardened)
+    sleeper.kill()
+    sleeper.wait()
+    ctx.data['log_hardened'] = None
     cases['nested_sandbox_exec'] = ctx.run([SANDBOX_EXEC, '-p', '(version 1)(allow default)'] + client_cmd(
         ctx, {'attempts': [{'name': 'outside_unix', 'kind': 'unix', 'path': unix.path}]}), profile)
     cases['nested_sandbox_exec']['parsed'] = parse_json(cases['nested_sandbox_exec']['stdout'])
     unix.close()
     ctx.data['cases'] = cases
     ctx.data['log'] = ctx.logs(since, tag)
+    ctx.data['log_hardened'] = ctx.logs(since, tag2)
 
 
 def stage_fds(ctx):
@@ -499,7 +516,7 @@ class Pty:
     def __init__(self):
         self.master, self.slave = pty.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 120, 0, 0))
-        self.before = termios.tcgetattr(self.slave)
+        self.before = self.attrs()
         self.output = bytearray()
         self.stop = threading.Event()
         self.thread = threading.Thread(target=self._read, daemon=True)
@@ -526,8 +543,19 @@ class Pty:
     def text(self):
         return bytes(self.output).decode(errors='replace')
 
+    def attrs(self):
+        # The slave descriptor is revoked when the native session ends on
+        # macOS, so read the line discipline through the master side.
+        for fd in (self.master, self.slave):
+            try:
+                return termios.tcgetattr(fd)
+            except termios.error:
+                continue
+        return None
+
     def restored(self):
-        return termios.tcgetattr(self.slave) == self.before
+        now = self.attrs()
+        return None if now is None or self.before is None else now == self.before
 
     def close(self):
         self.stop.set()
@@ -556,7 +584,7 @@ def find_marker(directory, marker):
     return sorted(hits)
 
 
-def claude_setup(ctx, gate_url, auth):
+def claude_setup(ctx, gate_url, auth, expired=False):
     cfg = ctx.root / 'cfg'
     account = {'hasCompletedOnboarding': True, 'theme': 'dark',
                'projects': {str(ctx.root / 'workspace'): {'hasTrustDialogAccepted': True,
@@ -569,7 +597,8 @@ def claude_setup(ctx, gate_url, auth):
     if auth == 'oauth-file':
         (cfg / '.credentials.json').write_text(json.dumps({'claudeAiOauth': {
             'accessToken': 'NM-FABRICATED-ACCESS', 'refreshToken': 'NM-FABRICATED-REFRESH',
-            'expiresAt': 4102444800000, 'scopes': ['user:profile', 'user:inference'],
+            'expiresAt': int(time.time() * 1000) - 3600000 if expired else 4102444800000,
+            'scopes': ['user:profile', 'user:inference'],
             'subscriptionType': 'max', 'rateLimitTier': 'default_claude_max_5x'}}))
         bearer = 'NM-FABRICATED-ACCESS'
     else:
@@ -578,14 +607,14 @@ def claude_setup(ctx, gate_url, auth):
     return extra, bearer
 
 
-def codex_setup(ctx, gate_url, sandbox_mode):
+def codex_setup(ctx, gate_url, sandbox_mode, expired=False):
     import base64
 
     def enc(value):
         return base64.urlsafe_b64encode(json.dumps(value).encode()).rstrip(b'=').decode()
     now = int(time.time())
-    token = enc({'alg': 'none'}) + '.' + enc({'email': 'nm@example.invalid', 'sub': 'nm-user', 'iat': now,
-        'exp': now + 3600, 'https://api.openai.com/auth': {'chatgpt_account_id': 'nm-account',
+    token = enc({'alg': 'none'}) + '.' + enc({'email': 'nm@example.invalid', 'sub': 'nm-user', 'iat': now - 7200,
+        'exp': now - 60 if expired else now + 3600, 'https://api.openai.com/auth': {'chatgpt_account_id': 'nm-account',
         'chatgpt_plan_type': 'pro', 'chatgpt_user_id': 'nm-user'}}) + '.nm-fixture-signature'
     (ctx.root / 'codex' / 'auth.json').write_text(json.dumps({'auth_mode': 'chatgpt', 'OPENAI_API_KEY': None,
         'tokens': {'id_token': token, 'access_token': token, 'refresh_token': 'nm-fixture-refresh',
@@ -646,7 +675,10 @@ def native_case(ctx, native, kind, variant):
     try:
         if native == 'claude':
             auth = 'setup-token' if variant == 'setup-token' else 'oauth-file'
-            extra, gate.bearer = claude_setup(ctx, gate_url, auth)
+            extra, gate.bearer = claude_setup(ctx, gate_url, auth, expired=variant.startswith('refresh'))
+            if variant == 'refresh-proxy':
+                extra.update({k: gate_url for k in ('HTTPS_PROXY', 'https_proxy')})
+                extra.update({k: '127.0.0.1,localhost,::1' for k in ('NO_PROXY', 'no_proxy')})
             path = '/usr/bin:/bin:/usr/sbin:/sbin'
             if variant != 'real-security':
                 shim_log = write_security_shim(ctx)
@@ -660,9 +692,12 @@ def native_case(ctx, native, kind, variant):
             config_dir = ctx.root / 'cfg'
         else:
             mode = 'workspace-write' if variant == 'native-sandbox' else 'danger-full-access'
-            gate.bearer = codex_setup(ctx, gate_url, mode)
+            gate.bearer = codex_setup(ctx, gate_url, mode, expired=variant.startswith('refresh'))
             env = ctx.env(CODEX_SQLITE_HOME=str(ctx.root / 'codex'))
-            argv = [ctx.tools['codex'], '--no-alt-screen', '-C', str(ctx.root / 'workspace'),
+            if variant == 'refresh-override':
+                env['CODEX_REFRESH_TOKEN_URL_OVERRIDE'] = gate_url + '/oauth/token'
+            daemon = [] if variant == 'daemon' else ['--no-daemon']
+            argv = [ctx.tools['codex'], '--no-alt-screen', *daemon, '-C', str(ctx.root / 'workspace'),
                     'NM_TOOL_TURN codex ' + case]
             config_dir = ctx.root / 'codex'
         helper = ('import os,fcntl,termios,sys; os.setsid(); fcntl.ioctl(0,termios.TIOCSCTTY,0); '
@@ -672,31 +707,42 @@ def native_case(ctx, native, kind, variant):
                                 stderr=term.slave, close_fds=True)
         ctx.groups.append(proc.pid)
         model_key = native + '_model'
-        result['tool_call_sent'] = wait_for(
-            lambda: any(e['event'] == model_key and e.get('tool_call') for e in gate.events), 40)
-        result['tool_done'] = wait_for(lambda: (outdir / (case + '-done')).exists(), 45)
-        result['tool_result_returned'] = wait_for(
-            lambda: any(e['event'] == model_key and e.get('tool_result') for e in gate.events), 30)
-        wait_for(lambda: (outdir / (case + '-detached.json')).exists(), 15)
-        time.sleep(1)
-        term.write(b'NM_SECOND_TURN ' + case.encode() + b'\r')
-        result['second_turn_reached_gate'] = wait_for(
-            lambda: any(e['event'] == model_key and 'NM_SECOND' in json.dumps(e) for e in gate.events)
-            or sum(e['event'] == model_key for e in gate.events) >= 3, 20)
-        result['native_alive_before_exit'] = proc.poll() is None
-        if native == 'claude':
-            term.write(b'/exit\r')
+        if variant.startswith('refresh'):
+            wait_for(lambda: False, 25)  # observe refresh routing only; no tool turn expected
         else:
-            term.write(b'\x03')
+            result['tool_call_sent'] = wait_for(
+                lambda: any(e['event'] == model_key and e.get('tool_call') for e in gate.events), 40)
+            result['tool_done'] = wait_for(lambda: (outdir / (case + '-done')).exists(), 45)
+            result['tool_result_returned'] = wait_for(
+                lambda: any(e['event'] == model_key and e.get('tool_result') for e in gate.events), 30)
+            wait_for(lambda: (outdir / (case + '-detached.json')).exists(), 15)
+            time.sleep(1)
+            # Codex treats a fast character burst as a paste, so Enter is sent separately.
+            term.write(b'NM_SECOND_TURN ' + case.encode())
+            time.sleep(1.5)
+            term.write(b'\r')
+            result['second_turn_reached_gate'] = wait_for(
+                lambda: any(e['event'] == model_key and e.get('second_turn') for e in gate.events), 20)
+        result['termios_changed_while_running'] = term.attrs() != term.before
+        result['native_alive_before_exit'] = proc.poll() is None
+        keys = [b'/exit\r'] if native == 'claude' else [b'\x03', b'\x03']
+        for key in keys:
+            if proc.poll() is not None:
+                break
+            try:
+                term.write(key)
+            except OSError:  # EIO: the native already closed its terminal and exited
+                break
             time.sleep(.3)
-            term.write(b'\x03')
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             pass
         result['exit_code'] = proc.poll()
         result['termios_restored'] = term.restored()
-        result['transcript_files_with_marker'] = find_marker(config_dir, 'NM_TOOL_TURN')
+        result['transcript_files_with_marker'] = find_marker(config_dir, case)
+    except Exception as error:  # keep partial observations; an error is never a pass
+        result['error'] = '%s: %s' % (type(error).__name__, error)
     finally:
         if proc is not None and proc.poll() is None:
             ctx.kill(proc.pid)
@@ -713,7 +759,7 @@ def native_case(ctx, native, kind, variant):
     result['outside_listener_hits'] = {'alt_tcp': alt.count(), 'alt_udp': udp.count(), 'unix': unix.count()}
     result['gate_events'] = gate.events
     result['terminal_tail'] = term.text()[-3000:]
-    result['terminal_has_reply'] = 'NM fixture reply' in term.text()
+    result['terminal_has_reply'] = 'NM fixture reply' in SBPL.strip_ansi(term.text())
     if shim_log is not None and shim_log.exists():
         result['security_shim_argv'] = [json.loads(x) for x in shim_log.read_text().splitlines()]
         shim_log.unlink()
@@ -778,9 +824,11 @@ def stage_compat(ctx):
 
 NATIVE_SETS = {
     'natives': [('claude', 'census', 'oauth-file'), ('claude', 'enforced', 'oauth-file'),
-                ('codex', 'census', 'plain'), ('codex', 'enforced', 'plain')],
+                ('codex', 'census', 'plain'), ('codex', 'enforced', 'plain'), ('codex', 'enforced', 'daemon')],
     'natives-extra': [('claude', 'enforced', 'setup-token'), ('claude', 'enforced', 'real-security')],
     'nested': [('claude', 'enforced', 'native-sandbox'), ('codex', 'enforced', 'native-sandbox')],
+    'refresh': [('claude', 'enforced', 'refresh-direct'), ('claude', 'enforced', 'refresh-proxy'),
+                ('codex', 'enforced', 'refresh-override')],
 }
 
 

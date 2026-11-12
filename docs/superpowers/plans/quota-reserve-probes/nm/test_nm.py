@@ -60,6 +60,12 @@ class Render(unittest.TestCase):
         for name in SBPL.ESCAPE_SERVICES:
             self.assertIn('"%s"' % name, lines[explicit[0]])
 
+    def test_signal_hardening_rule(self):
+        lines = SBPL.render(self.base(deny_signal_others=True)).splitlines()
+        deny = lines.index('(deny signal (with message "qnm-abc123"))')
+        self.assertEqual(lines[deny + 1], '(allow signal (target same-sandbox))')
+        self.assertNotIn('(deny signal (with message "qnm-abc123"))', SBPL.render(self.base()))
+
     def test_refusals(self):
         bad = [
             {'tag': 'x'},
@@ -120,6 +126,13 @@ class Reports(unittest.TestCase):
         self.assertEqual((row['process'], row['target']), ('Google Chrome He', '/x y'))
 
 
+class Terminal(unittest.TestCase):
+    def test_strip_ansi(self):
+        raw = '\x1b[2mNM\x1b[0m fixture\x1b[1C reply\x1b]0;title\x07 x \x1b(B\x1b7done\x1b]10;?\x1b\\ end'
+        self.assertEqual(SBPL.strip_ansi(raw), ' NM fixture reply x done end')
+        self.assertIn('NM fixture reply', SBPL.strip_ansi('NM\x1b[38;5;2m fixture\r\n reply'))
+
+
 class Sanitize(unittest.TestCase):
     def test_longest_first_and_leak_check(self):
         mapping = RUN.replacements('/tmp/quota-nm-AbC123', '/Users/someone', 'someone')
@@ -163,6 +176,14 @@ class Evidence(unittest.TestCase):
             with self.subTest(stage=stage):
                 CHECK.check_stage(stage, self.load(stage))
 
+    def test_observed_keychain_name_matches_source_rule(self):
+        names = self.load('keychain')['claude_names_for_probe_config']
+        argv = self.load('natives')['cases']['claude-enforced-oauth-file']['security_shim_argv']
+        services = {a[-1] for a in argv}
+        self.assertIn(names['credentials'], services)
+        self.assertIn(names['legacy_api_key'], services)
+        self.assertNotIn(names['device_keys_fixed'], services)
+
     def test_boundary_mutations(self):
         def escape(d):
             d['cases']['enforced']['sandboxed']['env_i_absolute_python']['parsed']['results']['alt_tcp6'] = 'connected'
@@ -195,6 +216,43 @@ class Evidence(unittest.TestCase):
         for mutate in (lookup, launchd, nested, anchor):
             with self.subTest(mutate=mutate.__name__):
                 self.reject('ipc', mutate)
+
+    def test_native_mutations(self):
+        def egress(d):
+            d['cases']['codex-enforced-plain']['tool_outputs']['detached.json']['results']['alt_tcp4'] = 'connected'
+        def bearer(d):
+            for e in d['cases']['claude-enforced-oauth-file']['gate_events']:
+                e['bearer_matches'] = False
+        def tty(d):
+            d['cases']['claude-census-oauth-file']['termios_restored'] = False
+        def turn(d):
+            d['cases']['codex-census-plain']['second_turn_reached_gate'] = False
+        def daemon(d):
+            d['cases']['codex-enforced-daemon']['gate_events'].append({'event': 'codex_model'})
+        def store(d):
+            d['cases']['claude-enforced-oauth-file']['security_shim_argv'] = [['find-generic-password', '-s', 'x']]
+        for mutate in (egress, bearer, tty, turn, daemon, store):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('natives', mutate)
+
+    def test_compat_and_extra_mutations(self):
+        def git(d):
+            d['cases']['git_clone_http_fixture']['code'] = 0
+        def hits(d):
+            d['cases']['alt_hits_from_sandboxed'] = 2
+        def control(d):
+            d['cases']['alt_hits_total'] = 0
+        for mutate in (git, hits, control):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('compat', mutate)
+
+        def store(d):
+            d['cases']['claude-enforced-real-security']['log']['summary'] = []
+        self.reject('natives-extra', store)
+
+        def signal(d):
+            d['cases']['signal0_outside_hardened']['code'] = 0
+        self.reject('ipc', signal)
 
     def test_fds_and_keychain_mutations(self):
         def closed(d):

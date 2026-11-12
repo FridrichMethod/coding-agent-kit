@@ -5,6 +5,7 @@ A missing stage file is reported as missing, never as a pass.
 """
 import json
 from pathlib import Path
+import re
 import sys
 
 HERE = Path(__file__).resolve().parent
@@ -78,6 +79,12 @@ def check_ipc(data):
     assert _denies(log, 'network-outbound', '/private/var/run/mDNSResponder')
     nested = cases['nested_sandbox_exec']
     assert nested['code'] == 71 and 'sandbox_apply: Operation not permitted' in nested['stderr']
+    assert cases['setuid_ps_sandboxed']['code'] == 71 and 'Operation not permitted' in cases['setuid_ps_sandboxed']['stderr']
+    assert 'rc=126' in cases['setuid_ps_shell_child']['stdout'] and cases['setuid_ps_control']['code'] == 0
+    assert all(int(mode, 8) & 0o4000 for mode in cases['setuid_modes'].values())
+    assert cases['signal0_outside_sandboxed']['code'] == 0, 'default profile no longer allows outside signals'
+    assert cases['signal0_outside_hardened']['code'] != 0
+    assert 'rc=143' in cases['signal_same_sandbox_hardened']['stdout']
     unix = cases['outside_daemon_unix']['parsed']['results']
     assert unix['outside_unix'] == DENIED and unix['outside_unix_self'] == DENIED
     assert unix['private_unix_self'] == 'connected' and cases['outside_daemon_hits'] == 0
@@ -109,7 +116,77 @@ def check_keychain(data):
     assert names['credentials'].startswith('Claude Code-credentials-') and len(names['credentials']) == 32
 
 
-CHECKS = {'boundary': check_boundary, 'ipc': check_ipc, 'fds': check_fds, 'keychain': check_keychain}
+def _tool_confined(case):
+    outputs = case['tool_outputs']
+    for name in ('tool.json', 'envi.json', 'detached.json'):
+        got = outputs[name]['results']
+        assert got['gate_tcp4'] == 'connected', (name, got)
+        for key in ('alt_tcp4', 'alt_tcp6', 'alt_udp4', 'outside_unix'):
+            assert got[key] == DENIED, (name, key, got[key])
+        assert got['launchservices'] == 'kern_return:1100', (name, got)
+    assert outputs['detached.json']['reparented_to_launchd'] is True
+    assert outputs['curl.txt'].strip().endswith('000')
+    assert case['outside_listener_hits'] == {'alt_tcp': 0, 'alt_udp': 0, 'unix': 0}
+
+
+def _native_ok(case, native):
+    assert not case.get('error'), case.get('error')
+    for key in ('tool_call_sent', 'tool_done', 'tool_result_returned', 'second_turn_reached_gate',
+                'termios_changed_while_running', 'native_alive_before_exit', 'termios_restored',
+                'terminal_has_reply'):
+        assert case[key] is True, (native, key, case[key])
+    assert case['exit_code'] == 0 and case['transcript_files_with_marker']
+    model = [e for e in case['gate_events'] if e['event'] == native + '_model']
+    assert model and all(e['bearer_matches'] for e in model), 'model request without the fixture bearer'
+    _tool_confined(case)
+
+
+def check_natives(data):
+    _common(data)
+    cases = data['cases']
+    for name in ('claude', 'codex'):
+        assert len(data['binaries'][name]['sha256']) == 64
+    for key in ('claude-census-oauth-file', 'claude-enforced-oauth-file'):
+        _native_ok(cases[key], 'claude')
+        names = {a[-1] for a in cases[key]['security_shim_argv']
+                 if a[:5] == ['find-generic-password', '-a', 'nmfixture', '-w', '-s']}
+        assert any(re.match(r'^Claude Code-credentials-[0-9a-f]{8}$', n) for n in names), names
+    for key in ('codex-census-plain', 'codex-enforced-plain'):
+        _native_ok(cases[key], 'codex')
+    daemon = cases['codex-enforced-daemon']
+    assert 'failed to invoke ps for pid-managed app server: Operation not permitted' in daemon['terminal_tail']
+    assert not any(e['event'] == 'codex_model' for e in daemon['gate_events'])
+    census = {r['target'] for k in ('claude-census-oauth-file', 'codex-census-plain')
+              for r in cases[k]['log']['summary'] if r['action'] == 'allow'}
+    assert census and not census & {'com.apple.SecurityServer', 'com.apple.coreservices.launchservicesd'}
+
+
+def check_natives_extra(data):
+    _common(data)
+    cases = data['cases']
+    _native_ok(cases['claude-enforced-setup-token'], 'claude')
+    real = cases['claude-enforced-real-security']
+    _native_ok(real, 'claude')
+    assert 'security_shim_argv' not in real
+    assert _denies(real['log'], 'mach-lookup', 'com.apple.SecurityServer', 'security')
+
+
+def check_compat(data):
+    _common(data)
+    cases = data['cases']
+    assert cases['git_clone_local_path']['code'] == 0
+    assert cases['git_clone_http_fixture']['code'] == 128 and 'Failed to connect' in cases['git_clone_http_fixture']['stderr']
+    assert cases['ssh_fixture_port']['code'] == 255 and 'Operation not permitted' in cases['ssh_fixture_port']['stderr']
+    for key in ('curl_fixture', 'localhost_name_curl'):
+        assert cases[key]['code'] == 7, key
+    assert cases['pip_download_fixture']['code'] != 0
+    assert cases['npm_view_fixture'].get('skipped') or cases['npm_view_fixture']['code'] != 0
+    assert cases['alt_hits_from_sandboxed'] == 0
+    assert cases['control_curl_outside']['code'] == 0 and cases['alt_hits_total'] == 1
+
+
+CHECKS = {'boundary': check_boundary, 'ipc': check_ipc, 'fds': check_fds, 'keychain': check_keychain,
+          'natives': check_natives, 'natives-extra': check_natives_extra, 'compat': check_compat}
 
 
 def check_stage(stage, data):

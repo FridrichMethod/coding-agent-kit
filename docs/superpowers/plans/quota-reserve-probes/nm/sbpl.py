@@ -66,11 +66,12 @@ def render(policy):
 
     Keys: tag (required), gate_ports, gate_sockets, private_socket_dirs,
     deny_network, deny_launch, deny_mach, mach_allow, mach_deny,
-    report_mach, deny_write. Later SBPL rules override earlier ones, so the
+    report_mach, deny_write, deny_signal_others. Later SBPL rules override earlier ones, so the
     explicit mach_deny list is emitted after any allow.
     """
     known = {'tag', 'gate_ports', 'gate_sockets', 'private_socket_dirs', 'deny_network',
-             'deny_launch', 'deny_mach', 'mach_allow', 'mach_deny', 'report_mach', 'deny_write'}
+             'deny_launch', 'deny_mach', 'mach_allow', 'mach_deny', 'report_mach', 'deny_write',
+             'deny_signal_others'}
     unknown = set(policy) - known
     if unknown:
         raise ProfileError('unknown policy keys: %s' % sorted(unknown))
@@ -117,6 +118,9 @@ def render(policy):
     if explicit:
         names = ' '.join('(global-name %s)' % quote(n) for n in sorted(set(explicit)))
         lines.append('(deny mach-lookup %s %s)' % (names, msg))
+    if policy.get('deny_signal_others'):
+        lines.append('(deny signal %s)' % msg)
+        lines.append('(allow signal (target same-sandbox))')
     denied = sorted(set(policy.get('deny_write', ())))
     if denied:
         lines.append('(deny file-write* %s %s)' % (' '.join('(subpath %s)' % _path(p) for p in denied), msg))
@@ -186,6 +190,14 @@ def summarize_reports(rows):
         totals[key] = totals.get(key, 0) + row['repeat']
     return [{'action': a, 'operation': o, 'target': t, 'process': p, 'count': n}
             for (a, o, t, p), n in sorted(totals.items())]
+
+
+_ANSI = re.compile(r'\x1b\[[0-9;?<>=]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][0-9A-Za-z]|\x1b[78=>]')
+
+
+def strip_ansi(text):
+    """Drop terminal control sequences and collapse whitespace for matching."""
+    return re.sub(r'\s+', ' ', _ANSI.sub(' ', text))
 
 
 def sanitize(value, replacements):
