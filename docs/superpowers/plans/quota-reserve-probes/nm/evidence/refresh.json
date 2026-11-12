@@ -1,0 +1,1221 @@
+{
+  "binaries": {
+    "claude": {
+      "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+      "version": "2.1.322 (Claude Code)"
+    },
+    "codex": {
+      "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+      "version": "codex-cli 0.166.0"
+    }
+  },
+  "cases": {
+    "claude-enforced-refresh-direct": {
+      "case": "claude-enforced-refresh-direct",
+      "exit_code": 0,
+      "gate_events": [
+        {
+          "at": 70.473,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": true,
+          "tool_output": null,
+          "tool_result": false,
+          "tools": [
+            "Bash"
+          ]
+        },
+        {
+          "at": 70.682,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": false,
+          "tool_output": "(Bash completed with no output)\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>",
+          "tool_result": true,
+          "tools": [
+            "Bash"
+          ]
+        }
+      ],
+      "gate_port_is_only_exit": true,
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "2.1.322",
+          "Python",
+          "curl",
+          "git-remote-http",
+          "ssh"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "mach-lookup",
+            "process": "Python",
+            "target": "com.apple.coreservices.launchservicesd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.dnssd.service"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.usymptomsd"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/claude-enforced-refresh-direct.sock"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "2.1.322",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "git-remote-http",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "ssh",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:54651"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "curl",
+            "target": "remote:*:54651"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:57100"
+          }
+        ]
+      },
+      "native_alive_before_exit": true,
+      "outside_listener_hits": {
+        "alt_tcp": 0,
+        "alt_udp": 0,
+        "unix": 0
+      },
+      "security_shim_argv": [
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ]
+      ],
+      "terminal_has_reply": true,
+      "terminal_tail": "[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[37B\u001b[38;5;246m\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[>0q\u001b[?u\u001b]7501;?\u0007\u001b[c\u001b[H\r\u001b[8B\u001b[38;5;246m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture\u001b[14Gegress\u001b[21Gprobe\r\u001b[1B\u001b[38;5;246m  \u23bf  $ mkdir -p <root>/workspace/nm-out; \r\u001b[5C\u001b[1B/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15 -I -B \r\u001b[5C\u001b[1B<root>/nm/client.py '{\"attempts\": [{\"name\": \"gate_tcp4\", \"kind\": \"tcp4\", \"host\": \"127.0.0.1\",\r\u001b[5C\u001b[1B\"port\": 54652}, {\"name\u2026\r\u001b[2C\u001b[22B\u001b[38;5;180mProcessing\u2026\u001b[38;5;174m \u001b[38;5;246m(0s \u00b7 \u2193\u001b[23G746 tokens)\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[3G\u001b[38;5;216mProcessing\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u001b[49m\u2584\r\u001b[1B\u001b[48;5;16m\u2588\u001b[49m\u2588\u2598\r\u001b[1B\u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;231m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture reply after tool\u001b[K\r\u001b[5C\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;246m\u273b\u001b[3GSaut\u00e9ed for 0s \u00b7 done 9:15 AM\r\u001b[22B\u001b[39m\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B \r\u001b[2C\u001b[1B\u001b[38;5;174m\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B  \r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u001b[49m\u2588\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u2588\u2588\u259b\u2588\u001b[49m\u2584\r\u001b[1B\u001b[48;5;16m\u2588\u001b[3G\u2588\u2588\u001b[49m\u2588\u2598\r\u001b[1B   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[5C\u001b[1B \r\u001b[5C\u001b[1B\u001b[38;5;174m\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B     \r\u001b[3C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u2588\u2588\u2588\u001b[49m\u2588\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m\u2597\u259f\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\u001b[49m\u2584\r\u001b[1B \u259c\u001b[4G\u001b[48;5;16m\u2588\u001b[6G\u2588\u2588\u001b[49m\u2588\u2598\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B         \r\u001b[1C\u001b[1B\u001b[38;5;174m\u2590\u001b[48;5;16m\u259b\u001b[7G\u259b\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[38;5;246m\u00b7\u001b[38;5;174m\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u001b[38;5;246m\u00b7\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3B\u001b[38;5;246m~\u001b[9G~\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[48;5;16m\u2588\u001b[7G\u2588\u001b[49m\u2588\u2580\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[102C\u001b[35B\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[36C\u001b[39B\u001b[K\u001b[40;1H\u001b[38;3H\u001b(B\u000f\u001b[?2004h\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[14B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231m/exit\u001b[39m                                                                                                                 \r\u001b[19B\u001b[49m\u001b[38;5;174m\u273b\u001b[3GPolishing\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume b8f5fc77-3092-4cbc-bc58-61a3de6d560f\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h",
+      "termios_changed_while_running": true,
+      "termios_restored": true,
+      "tool_outputs": {
+        "curl.txt": "curl: (7) Failed to connect to 127.0.0.1 port 54651 after 0 ms: Couldn't connect to server\n000",
+        "detached.json": {
+          "pid": 82463,
+          "ppid": 1,
+          "reparented_to_launchd": true,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82462
+        },
+        "envi.json": {
+          "pid": 82457,
+          "ppid": 82451,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82451
+        },
+        "tool.json": {
+          "pid": 82453,
+          "ppid": 82451,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82451
+        }
+      },
+      "transcript_files_with_marker": [
+        "history.jsonl",
+        "projects/-private-tmp-quota-nm-Raq7wP-workspace/aca42f8b-8720-4a7e-9dde-b5c450672b78.jsonl",
+        "projects/-private-tmp-quota-nm-Raq7wP-workspace/b8f5fc77-3092-4cbc-bc58-61a3de6d560f.jsonl"
+      ]
+    },
+    "claude-enforced-refresh-proxy": {
+      "case": "claude-enforced-refresh-proxy",
+      "exit_code": 0,
+      "gate_events": [
+        {
+          "at": 0.319,
+          "bearer_matches": false,
+          "event": "connect_refused",
+          "family": "ipv4",
+          "method": "CONNECT",
+          "path": "downloads.claude.ai:443"
+        },
+        {
+          "at": 0.325,
+          "bearer_matches": false,
+          "event": "connect_refused",
+          "family": "ipv4",
+          "method": "CONNECT",
+          "path": "platform.claude.com:443"
+        },
+        {
+          "at": 0.366,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": true,
+          "tool_output": null,
+          "tool_result": false,
+          "tools": [
+            "Bash"
+          ]
+        },
+        {
+          "at": 0.381,
+          "bearer_matches": false,
+          "event": "connect_refused",
+          "family": "ipv4",
+          "method": "CONNECT",
+          "path": "github.com:443"
+        },
+        {
+          "at": 0.412,
+          "bearer_matches": false,
+          "event": "connect_refused",
+          "family": "ipv4",
+          "method": "CONNECT",
+          "path": "api.anthropic.com:443"
+        },
+        {
+          "at": 0.556,
+          "bearer_matches": false,
+          "event": "connect_refused",
+          "family": "ipv4",
+          "method": "CONNECT",
+          "path": "platform.claude.com:443"
+        },
+        {
+          "at": 0.577,
+          "bearer_matches": true,
+          "event": "claude_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/v1/messages?beta=true",
+          "second_turn": false,
+          "tool_call": false,
+          "tool_output": "(Bash completed with no output)\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>",
+          "tool_result": true,
+          "tools": [
+            "Bash"
+          ]
+        }
+      ],
+      "gate_port_is_only_exit": true,
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "2.1.322",
+          "Python",
+          "curl",
+          "ssh"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "2.1.322",
+            "target": "com.apple.SecurityServer"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "mach-lookup",
+            "process": "Python",
+            "target": "com.apple.coreservices.launchservicesd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.dnssd.service"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "2.1.322",
+            "target": "com.apple.securityd.xpc"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "ssh",
+            "target": "com.apple.usymptomsd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "2.1.322",
+            "target": "/private/tmp/cc-socks/82477.sock"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/claude-enforced-refresh-proxy.sock"
+          },
+          {
+            "action": "deny",
+            "count": 2,
+            "operation": "network-outbound",
+            "process": "ssh",
+            "target": "/private/var/run/mDNSResponder"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:49613"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:54692"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "curl",
+            "target": "remote:*:54692"
+          }
+        ]
+      },
+      "native_alive_before_exit": true,
+      "outside_listener_hits": {
+        "alt_tcp": 0,
+        "alt_udp": 0,
+        "unix": 0
+      },
+      "security_shim_argv": [
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ],
+        [
+          "find-generic-password",
+          "-a",
+          "nmfixture",
+          "-w",
+          "-s",
+          "Claude Code-credentials-f447152a"
+        ]
+      ],
+      "terminal_has_reply": true,
+      "terminal_tail": "\u001b[38;5;174m \u001b[38;5;246m(0s \u00b7 \u2193\u001b[24G744 tokens)\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u259c\u001b[9G\u001b[49m \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[3G\u001b[38;5;216mDeciphering\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m \u001b[4G\u001b[48;5;16m\u259b\u001b[8G\u001b[49m\u258c\r\u001b[1B \u259d\u001b[8G\u259b \r\u001b[1C\u001b[1B \u2598\u2598\u001b[7G\u2598\u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[48;5;16m\u2588\u259b\u001b[7G\u259c\u001b[49m \r\u001b[1C\u001b[1B \u2590\u001b[8G \r\u001b[2C\u001b[1B\u259d\u259d\u001b[6G\u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;231m\u23fa\u001b[3G\u001b[39mNM\u001b[6Gfixture reply after tool\u001b[K\r\u001b[5C\u001b[1B\u001b[K\r\u001b[1B\u001b[38;5;246m\u273b\u001b[3GWorked for\u001b[14G0s \u00b7 done 9:15 AM\r\u001b[22B\u001b[39m\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m \u001b[5G\u001b[48;5;16m\u2588\u259b\u001b[49m\u258c\r\u001b[2C\u001b[1B \u001b[7G\u258c\r\u001b[2C\u001b[1B \u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[38;5;174m\u2590\u001b[6G\u001b[48;5;16m\u2588\u001b[49m \r\u001b[3C\u001b[1B\u2590\u001b[7G \r\u001b[3C\u001b[1B\u259d\u001b[6G\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u001b[48;5;16m\u2588\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[7G\u001b[48;5;16m\u2588\r\u001b[2C\u001b[1B\u001b[49m\u2590\u001b[7G\u001b[48;5;16m\u2588\r\u001b[2C\u001b[1B\u001b[49m\u259d\u259d\u001b[6G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u001b[8G\u001b[49m\u258c\r\u001b[1C\u001b[1B\u259d\u001b[48;5;16m\u2588\u001b[8G\u001b[49m\u259b\r\u001b[2C\u001b[1B\u2598\u2598\u001b[6G \u2598\u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m\u2590\u001b[8G\u001b[48;5;16m\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[8G\u2588\u2580\r\u001b[1C\u001b[1B\u259d\u259d \u001b[7G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m \u001b[8G\u258c\r\u001b[1B \u259d\u001b[8G\u259b \r\u001b[1C\u001b[1B \u2598\u2598\u001b[7G\u2598\u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[8G \r\u001b[1C\u001b[1B \u2590\u001b[8G \r\u001b[2C\u001b[1B\u259d\u259d\u001b[6G\u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m \u001b[7G\u258c\r\u001b[2C\u001b[1B \u001b[7G\u258c\r\u001b[2C\u001b[1B \u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[38;5;174m\u2590\u001b[7G \r\u001b[3C\u001b[1B\u2590\u001b[7G \r\u001b[3C\u001b[1B\u259d\u001b[6G\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u001b[48;5;16m\u2588\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[48;5;16m\u259c\u259b\u001b[7G\u2588\r\u001b[2C\u001b[1B\u001b[49m\u2590\u001b[7G\u001b[48;5;16m\u2588\r\u001b[2C\u001b[1B\u001b[49m\u259d\u259d\u001b[6G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u2588\u259b\u001b[8G\u001b[49m\u258c\r\u001b[1C\u001b[1B\u259d\u001b[48;5;16m\u2588\u001b[8G\u001b[49m\u259b\r\u001b[2C\u001b[1B\u2598\u2598\u001b[6G \u2598\u2598\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m\u2590\u001b[6G\u001b[48;5;16m\u2588\u259c\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[8G\u2588\u2580\r\u001b[1C\u001b[1B\u259d\u259d \u001b[7G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[6C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[9G\u001b[39m\u001b[49m \u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[102C\u001b[35B\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[36C\u001b[39B\u001b[K\u001b[40;1H\u001b[38;3H\u001b(B\u000f\u001b[?2004h\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[14B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231m/exit\u001b[39m                                                                                                                 \r\u001b[19B\u001b[49m\u001b[38;5;174m\u273d\u001b[3GWandering\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume 89821ea9-bd05-4e68-aad9-2554af68ac56\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h",
+      "termios_changed_while_running": true,
+      "termios_restored": true,
+      "tool_outputs": {
+        "curl.txt": "curl: (7) Failed to connect to 127.0.0.1 port 54692 after 0 ms: Couldn't connect to server\n000",
+        "detached.json": {
+          "pid": 82519,
+          "ppid": 1,
+          "reparented_to_launchd": true,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82518
+        },
+        "envi.json": {
+          "pid": 82516,
+          "ppid": 82509,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82509
+        },
+        "tool.json": {
+          "pid": 82511,
+          "ppid": 82509,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82509
+        }
+      },
+      "transcript_files_with_marker": [
+        "history.jsonl",
+        "projects/-private-tmp-quota-nm-Raq7wP-workspace/89821ea9-bd05-4e68-aad9-2554af68ac56.jsonl",
+        "projects/-private-tmp-quota-nm-Raq7wP-workspace/ec323625-f863-414a-bc37-31bfff2c57a2.jsonl"
+      ]
+    },
+    "codex-enforced-refresh-override": {
+      "case": "codex-enforced-refresh-override",
+      "exit_code": 0,
+      "gate_events": [
+        {
+          "at": 0.409,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.431,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.475,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.477,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.498,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.5,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.501,
+          "bearer_matches": true,
+          "event": "get_served",
+          "family": "ipv4",
+          "method": "GET",
+          "path": "/backend-api/codex/models?client_version=0.166.0"
+        },
+        {
+          "at": 0.505,
+          "bearer_matches": true,
+          "event": "get_served",
+          "family": "ipv4",
+          "method": "GET",
+          "path": "/api/codex/accounts/check"
+        },
+        {
+          "at": 0.519,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.54,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.54,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.541,
+          "bearer_matches": true,
+          "event": "get_refused",
+          "family": "ipv4",
+          "method": "GET",
+          "path": "/api/codex/rate-limit-reset-credits"
+        },
+        {
+          "at": 0.541,
+          "bearer_matches": true,
+          "event": "get_served",
+          "family": "ipv4",
+          "method": "GET",
+          "path": "/api/codex/usage"
+        },
+        {
+          "at": 0.543,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.543,
+          "bearer_matches": true,
+          "event": "get_served",
+          "family": "ipv4",
+          "method": "GET",
+          "path": "/api/codex/usage"
+        },
+        {
+          "at": 0.543,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.544,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.547,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.584,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.589,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.589,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.59,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.59,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.613,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.644,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.644,
+          "bearer_matches": true,
+          "event": "get_refused",
+          "family": "ipv4",
+          "method": "GET",
+          "path": "/api/codex/settings/user"
+        },
+        {
+          "at": 0.66,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.66,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.661,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.661,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.662,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.664,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.666,
+          "bearer_matches": true,
+          "event": "codex_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "second_turn": false,
+          "tool_call": true,
+          "tool_output": null,
+          "tool_result": false,
+          "tools": [
+            "create_goal",
+            "exec_command",
+            "get_goal",
+            "image_gen",
+            "multi_agent_v1",
+            "request_user_input",
+            "update_goal",
+            "view_image",
+            "write_stdin"
+          ]
+        },
+        {
+          "at": 0.697,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.698,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.698,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.699,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.699,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.7,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.701,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.701,
+          "bearer_matches": true,
+          "event": "get_refused",
+          "family": "ipv4",
+          "method": "GET",
+          "path": "/api/codex/settings/user"
+        },
+        {
+          "at": 0.702,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.703,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.703,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.703,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.704,
+          "bearer_matches": true,
+          "event": "codex_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "second_turn": false,
+          "tool_call": false,
+          "tool_output": null,
+          "tool_result": false,
+          "tools": []
+        },
+        {
+          "at": 0.817,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.817,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.818,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.818,
+          "bearer_matches": false,
+          "event": "post_refused",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/oauth/token"
+        },
+        {
+          "at": 0.819,
+          "bearer_matches": true,
+          "event": "codex_model",
+          "family": "ipv4",
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "second_turn": false,
+          "tool_call": false,
+          "tool_output": "Chunk ID: 9c822f\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 0\nOutput:\n",
+          "tool_result": true,
+          "tools": [
+            "create_goal",
+            "exec_command",
+            "get_goal",
+            "image_gen",
+            "multi_agent_v1",
+            "request_user_input",
+            "update_goal",
+            "view_image",
+            "write_stdin"
+          ]
+        }
+      ],
+      "gate_port_is_only_exit": true,
+      "log": {
+        "log_exit": 0,
+        "processes": [
+          "Python",
+          "codex",
+          "curl"
+        ],
+        "summary": [
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "codex",
+            "target": "com.apple.CoreAuthentication.agent"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "codex",
+            "target": "com.apple.CoreAuthentication.agent.libxpc"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "codex",
+            "target": "com.apple.CoreServices.coreservicesd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "mach-lookup",
+            "process": "codex",
+            "target": "com.apple.DiskArbitration.diskarbitrationd"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "mach-lookup",
+            "process": "Python",
+            "target": "com.apple.coreservices.launchservicesd"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-bind",
+            "process": "codex",
+            "target": "local:*:0"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "<root>/outside/codex-enforced-refresh-override.sock"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:54726"
+          },
+          {
+            "action": "deny",
+            "count": 1,
+            "operation": "network-outbound",
+            "process": "curl",
+            "target": "remote:*:54726"
+          },
+          {
+            "action": "deny",
+            "count": 3,
+            "operation": "network-outbound",
+            "process": "Python",
+            "target": "remote:*:57947"
+          }
+        ]
+      },
+      "native_alive_before_exit": true,
+      "outside_listener_hits": {
+        "alt_tcp": 0,
+        "alt_udp": 0,
+        "unix": 0
+      },
+      "terminal_has_reply": true,
+      "terminal_tail": "?25l\u001b[11;2H\u001b[0m\u001b[49m\u001b[K\u001b[12;34H\u001b[0m\u001b[49m\u001b[K\u001b[13;2H\u001b[0m\u001b[49m\u001b[K\u001b[14;2H\u001b[0m\u001b[49m\u001b[K\u001b[15;27H\u001b[0m\u001b[49m\u001b[K\u001b[16;2H\u001b[0m\u001b[49m\u001b[K\u001b[17;120H\u001b[0m\u001b[49m\u001b[K\u001b[11;1H \u001b[12;1H\u2022 \u001b[2mWorking\u001b[22m \u001b[2m(0s \u2022 \u001b[22m\u001b[1mesc\u001b[22m\u001b[2m\u001b[2m to interrupt)\u001b[13;1H\u001b[22m \u001b[14;1H \u001b[15;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[16;1H\u001b[22m \u001b[17;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<root>/workspace\u001b[39;49m                                     \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[11;1H\u001b[0 q\u001b[11;1H \u001b[39m\u001b[49m\u001b[0m\u001b[15;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[15;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[15;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2839 workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[15;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[15;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[15;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[11;40r\u001b[11;1H\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001b[r\u001b[1;16r\u001b[10;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[1m\u001b[38;5;2;49m\u2022\u001b[22m\u001b[39;49m \u001b[1mRan\u001b[22m \u001b[38;2;137;180;250;49mmkdir\u001b[38;2;147;153;178;49m -\u001b[38;2;235;160;172;49mp\u001b[38;2;205;214;244;49m <root>/workspace/nm-out\u001b[38;2;148;226;213;49m;\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  \u2502 \u001b[22m\u001b[38;2;137;180;250;49m/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15\u001b[38;2;147;153;178;49m -\u001b[38;2;235;160;172;49mI\u001b[38;2;147;153;178;49m -\u001b[38;2;235;160;172;49mB\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  \u2502 \u001b[22m\u001b[38;2;205;214;244;49m<root>/nm/client.py \u001b[38;2;166;227;161;49m'{\"attempts\": [{\"name\": \"gate_tcp4\", \"kind\": \"tcp4\", \"host\":\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  \u2502 \u2026 +25 lines\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  \u2514 (no output)\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[15;3H\u001b[39m\u001b[49m\u001b[0m\u001b[?25l\u001b[17;1H\u001b[0 q\u001b[17;1H \u001b[39m\u001b[49m\u001b[0m\u001b[21;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[17;1H\u001b[J\u001b[17;40r\u001b[17;1H\u001bM\u001bM\u001b[r\u001b[1;18r\u001b[16;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m\u2022 \u001b[22mNM fixture reply after tool\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[21;3H\u001b[?25l\u001b[19;2H\u001b[0m\u001b[49m\u001b[K\u001b[20;2H\u001b[0m\u001b[49m\u001b[K\u001b[21;27H\u001b[0m\u001b[49m\u001b[K\u001b[22;2H\u001b[0m\u001b[49m\u001b[K\u001b[23;120H\u001b[0m\u001b[49m\u001b[K\u001b[19;1H \u001b[20;1H \u001b[21;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[22;1H\u001b[22m \u001b[23;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<root>/workspace\u001b[39;49m                                     \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[19;1H\u001b[0 q\u001b[19;1H \u001b[39m\u001b[49m\u001b[0m\u001b[21;3H\u001b[?25h\u001b[?2026l\u001b]0;workspace\u0007\u001b]7501;state=done:app=codex\u001b\\\u001b[?2026h\u001b[19;40r\u001b[19;1H\u001bM\u001bM\u001b[r\u001b[1;20r\u001b[18;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Worked for <1s \u2022 09:16\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[21;3H\u001b[39m\u001b[49m\u001b[0m\u001b[?25l\u001b[21;1H\u001b[0 q\u001b[21;1H \u001b[39m\u001b[49m\u001b[0m\u001b[23;3H\u001b[?25h\u001b[?2026l\u001b]7501;state=idle:app=codex\u001b\\\u001b[?2026h\u001b[21;1H\u001b[J\u001b[?25l\u001b[21;2H\u001b[0m\u001b[49m\u001b[K\u001b[22;2H\u001b[0m\u001b[49m\u001b[K\u001b[23;19H\u001b[0m\u001b[49m\u001b[K\u001b[24;2H\u001b[0m\u001b[49m\u001b[K\u001b[21;1H \u001b[22;1H \u001b[23;1H\u001b[2m\u203a\u001b[22m \u001b[2mShutting down...\u001b[24;1H\u001b[22m \u001b[39m\u001b[49m\u001b[0m\u001b[?2026l\u001b[21;1H\u001b[J\u001b]0;\u0007\u001b[<1u\u001b[<u\u001b[>4;0m\u001b[?2004l\u001b[?1004l\u001b[c\u001b[0 q\u001b[?25h\u001b]7501;state=clear\u001b\\\u001b[0 q\u001b[?25hTo continue this session, run:\r\n  \u001b[36mcodex resume 01a1d0c2-9468-7ea2-a7b3-33feb16df71e\u001b[39m\r\n",
+      "termios_changed_while_running": true,
+      "termios_restored": true,
+      "tool_outputs": {
+        "curl.txt": "curl: (7) Failed to connect to 127.0.0.1 port 54726 after 0 ms: Couldn't connect to server\n000",
+        "detached.json": {
+          "pid": 82536,
+          "ppid": 1,
+          "reparented_to_launchd": true,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82535
+        },
+        "envi.json": {
+          "pid": 82533,
+          "ppid": 82529,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82529
+        },
+        "tool.json": {
+          "pid": 82532,
+          "ppid": 82529,
+          "results": {
+            "alt_tcp4": "error:PermissionError:1",
+            "alt_tcp6": "error:PermissionError:1",
+            "alt_udp4": "error:PermissionError:1",
+            "gate_tcp4": "connected",
+            "launchservices": "kern_return:1100",
+            "outside_unix": "error:PermissionError:1"
+          },
+          "sid": 82529
+        }
+      },
+      "transcript_files_with_marker": [
+        "history.jsonl",
+        "sessions/2026/11/12/rollout-2026-11-12T09-04-51-01a1d0b8-26a9-7851-ae13-21b205727945.jsonl",
+        "sessions/2026/11/12/rollout-2026-11-12T09-16-15-01a1d0c2-9468-7ea2-a7b3-33feb16df71e.jsonl"
+      ]
+    }
+  },
+  "completed": true,
+  "finished": "2026-11-12T17:16:44Z",
+  "host": {
+    "arch": "arm64",
+    "macos": "27.2"
+  },
+  "leftover_processes_after": [],
+  "leftover_processes_killed": [],
+  "profiles": {
+    "enforced:qnm-17f8a8696aa7": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-17f8a8696aa7\"))\n(allow network-outbound (remote ip \"localhost:54727\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-17f8a8696aa7\"))\n(deny lsopen (with message \"qnm-17f8a8696aa7\"))\n(deny appleevent-send (with message \"qnm-17f8a8696aa7\"))\n(deny mach-lookup (with message \"qnm-17f8a8696aa7\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-17f8a8696aa7\"))\n",
+    "enforced:qnm-1a56d7875f80": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-1a56d7875f80\"))\n(allow network-outbound (remote ip \"localhost:54652\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-1a56d7875f80\"))\n(deny lsopen (with message \"qnm-1a56d7875f80\"))\n(deny appleevent-send (with message \"qnm-1a56d7875f80\"))\n(deny mach-lookup (with message \"qnm-1a56d7875f80\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-1a56d7875f80\"))\n",
+    "enforced:qnm-69bc11a07927": "(version 1)\n(allow default)\n(deny network* (with message \"qnm-69bc11a07927\"))\n(allow network-outbound (remote ip \"localhost:54693\"))\n(allow network-bind (local unix-socket (subpath \"<root>/private\")))\n(allow network-outbound (remote unix-socket (subpath \"<root>/private\")))\n(deny job-creation (with message \"qnm-69bc11a07927\"))\n(deny lsopen (with message \"qnm-69bc11a07927\"))\n(deny appleevent-send (with message \"qnm-69bc11a07927\"))\n(deny mach-lookup (with message \"qnm-69bc11a07927\"))\n(allow mach-lookup (global-name \"com.apple.FSEvents\"))\n(allow mach-lookup (global-name \"com.apple.PowerManagement.control\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.DNSConfiguration\"))\n(allow mach-lookup (global-name \"com.apple.SystemConfiguration.configd\"))\n(allow mach-lookup (global-name \"com.apple.bsd.dirhelper\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n(allow mach-lookup (global-name \"com.apple.diagnosticd\"))\n(allow mach-lookup (global-name \"com.apple.logd\"))\n(allow mach-lookup (global-name \"com.apple.system.logger\"))\n(allow mach-lookup (global-name \"com.apple.system.notification_center\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.libinfo\"))\n(allow mach-lookup (global-name \"com.apple.system.opendirectoryd.membership\"))\n(allow mach-lookup (global-name \"com.apple.trustd\"))\n(allow mach-lookup (global-name \"com.apple.trustd.agent\"))\n(deny file-write* (subpath \"<home>/Library/LaunchAgents\") (subpath \"<root>/anchors\") (subpath \"/private/var/at\") (with message \"qnm-69bc11a07927\"))\n"
+  },
+  "stage": "refresh",
+  "started": "2026-11-12T17:14:05Z"
+}

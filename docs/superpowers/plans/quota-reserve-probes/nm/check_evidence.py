@@ -185,8 +185,43 @@ def check_compat(data):
     assert cases['control_curl_outside']['code'] == 0 and cases['alt_hits_total'] == 1
 
 
+def _outputs(case):
+    return [e.get('tool_output') or '' for e in case['gate_events']]
+
+
+def check_nested(data):
+    _common(data)
+    claude, codex = data['cases']['claude-enforced-native-sandbox'], data['cases']['codex-enforced-native-sandbox']
+    for case, native in ((claude, 'claude'), (codex, 'codex')):
+        assert not case.get('error') and case['exit_code'] == 0 and case['termios_restored'] is True
+        assert case['tool_call_sent'] and case['tool_result_returned'] and not case['tool_done'], native
+        assert case['second_turn_reached_gate'] and case['outside_listener_hits'] == {'alt_tcp': 0, 'alt_udp': 0, 'unix': 0}
+    assert any('Sandbox is enabled but failed to initialize: EPERM' in o and 'Sandboxing is disabled for the rest'
+               in o for o in _outputs(claude)), 'Claude nested sandbox outcome changed'
+    assert _denies(claude['log'], 'network-bind', process='2.1.322')
+    assert any('sandbox-exec: sandbox_apply: Operation not permitted' in o and 'exited with code 71' in o
+               for o in _outputs(codex)), 'Codex nested seatbelt outcome changed'
+
+
+def check_refresh(data):
+    _common(data)
+    cases = data['cases']
+    for case in cases.values():
+        assert not case.get('error') and case['exit_code'] == 0 and case['termios_restored'] is True
+        assert case['outside_listener_hits'] == {'alt_tcp': 0, 'alt_udp': 0, 'unix': 0}
+    direct = cases['claude-enforced-refresh-direct']
+    assert not any(e['event'] == 'connect_refused' for e in direct['gate_events'])
+    assert _denies(direct['log'], 'network-outbound', '/private/var/run/mDNSResponder', '2.1.322')
+    proxy = {e['path'] for e in cases['claude-enforced-refresh-proxy']['gate_events'] if e['event'] == 'connect_refused'}
+    assert {'platform.claude.com:443', 'api.anthropic.com:443'} <= proxy, proxy
+    codex = cases['codex-enforced-refresh-override']['gate_events']
+    assert sum(e['event'] == 'post_refused' and e['path'] == '/oauth/token' for e in codex) >= 1
+    assert any(e['event'] == 'codex_model' and e['bearer_matches'] for e in codex), 'expired bearer still used'
+
+
 CHECKS = {'boundary': check_boundary, 'ipc': check_ipc, 'fds': check_fds, 'keychain': check_keychain,
-          'natives': check_natives, 'natives-extra': check_natives_extra, 'compat': check_compat}
+          'natives': check_natives, 'natives-extra': check_natives_extra, 'compat': check_compat,
+          'nested': check_nested, 'refresh': check_refresh}
 
 
 def check_stage(stage, data):

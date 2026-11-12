@@ -254,6 +254,26 @@ class Evidence(unittest.TestCase):
             d['cases']['signal0_outside_hardened']['code'] = 0
         self.reject('ipc', signal)
 
+    def test_nested_and_refresh_mutations(self):
+        def ran(d):
+            d['cases']['codex-enforced-native-sandbox']['tool_done'] = True
+        def outcome(d):
+            for e in d['cases']['claude-enforced-native-sandbox']['gate_events']:
+                e['tool_output'] = None
+        for mutate in (ran, outcome):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('nested', mutate)
+
+        def direct_proxy(d):
+            d['cases']['claude-enforced-refresh-direct']['gate_events'].append(
+                {'event': 'connect_refused', 'path': 'platform.claude.com:443'})
+        def no_override(d):
+            d['cases']['codex-enforced-refresh-override']['gate_events'] = [
+                e for e in d['cases']['codex-enforced-refresh-override']['gate_events'] if e['event'] != 'post_refused']
+        for mutate in (direct_proxy, no_override):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('refresh', mutate)
+
     def test_fds_and_keychain_mutations(self):
         def closed(d):
             d['cases']['closed_before_confinement']['parsed']['results']['inherited_tcp'] = 'written'
