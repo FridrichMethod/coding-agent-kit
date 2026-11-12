@@ -5,7 +5,14 @@ GET https://api.anthropic.com/api/oauth/usage (the native BASE_API_URL path,
 not ANTHROPIC_BASE_URL), no body, standard TLS verification, no redirects, no
 retries, no refresh, bounded headers/body/time. The response is normalized by
 window name and duration; model-specific, overage and unknown rows are counted
-but never substitute for the general five-hour and seven-day windows.
+but never substitute for the general five-hour and seven-day windows. Rows
+whose admission semantics are unproved are reported separately so a gate can
+fail closed while they are present.
+
+Time bound: one watchdog armed before name resolution covers resolution,
+connect, TLS handshake, request and response. Resolution runs in a daemon
+thread joined with the remaining time; each connect attempt uses the remaining
+time as its timeout; no header byte is sent once the deadline is spent.
 """
 
 from datetime import datetime
@@ -35,6 +42,13 @@ POLICY_WINDOWS = {"five_hour": "five_hour", "weekly": "seven_day"}
 OTHER_FAMILY = ("seven_day_oauth_apps", "seven_day_opus", "seven_day_sonnet", "cinder_cove",
                 "wattle_ember", "extra_usage", "limits")
 NON_ROWS = ("error", "type")
+# Rows with a known scope (native labels them "Opus limit" and "Current week
+# (Sonnet only)"): they restrict only models of that family. The mapping from
+# an API model id to the family is itself unproved (a G0 input).
+MODEL_ROWS = ("seven_day_opus", "seven_day_sonnet")
+# Overage credit pool: billing after the windows, not a model or surface scope (I).
+NON_SCOPING = ("extra_usage",)
+MAX_ADDRESSES = 2
 _RFC3339 = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?"
                       r"(?:Z|[+-][0-9]{2}:[0-9]{2})")
 _LOOPBACK = ("127.0.0.1", "::1")
@@ -79,8 +93,8 @@ class Observation:
     """Normalized result of one fetch attempt. Holds no token and no raw body."""
 
     __slots__ = ("outcome", "http_status", "fresh", "windows", "window_states", "other_families",
-                 "unknown_rows", "started_wall_ms", "received_wall_ms", "received_monotonic",
-                 "server_date_ms", "error_type", "source")
+                 "unknown_rows", "unproved_rows", "started_wall_ms", "received_wall_ms",
+                 "received_monotonic", "server_date_ms", "error_type", "source")
 
     def __init__(self, outcome, **fields):
         self.outcome = outcome
@@ -90,6 +104,7 @@ class Observation:
         self.window_states = fields.get("window_states", {})
         self.other_families = fields.get("other_families", ())
         self.unknown_rows = fields.get("unknown_rows", 0)
+        self.unproved_rows = fields.get("unproved_rows", ())
         self.started_wall_ms = fields.get("started_wall_ms")
         self.received_wall_ms = fields.get("received_wall_ms")
         self.received_monotonic = fields.get("received_monotonic")
@@ -108,7 +123,7 @@ class Observation:
                 "windows": {k: v.as_dict() for k, v in sorted(self.windows.items())},
                 "window_states": dict(sorted(self.window_states.items())),
                 "other_families": list(self.other_families), "unknown_rows": self.unknown_rows,
-                "error_type": self.error_type, "source": self.source}
+                "unproved_rows": list(self.unproved_rows), "error_type": self.error_type, "source": self.source}
 
 
 def _unique(pairs):
@@ -188,8 +203,15 @@ def normalize(status, content_type, body, *, started_wall_ms, received_wall_ms,
     others += tuple(sorted(name for name in data if name.startswith(("five_hour_", "seven_day_"))
                            and name not in OTHER_FAMILY))
     unknown = sum(1 for name in data if name not in GENERAL and name not in others and name not in NON_ROWS)
+    # Present (non-null, non-empty) rows that may scope a model or surface with
+    # semantics this research has not proved: seven_day_oauth_apps, the credit
+    # pools, any limits[] entry (native: per-model buckets by display name),
+    # unknown five_hour_*/seven_day_* rows and unknown rows.
+    unproved = tuple(sorted(name for name, value in data.items()
+                            if name not in GENERAL and name not in NON_ROWS and name not in MODEL_ROWS
+                            and name not in NON_SCOPING and value is not None and value != {} and value != []))
     return Observation("response", fresh=source == "direct", windows=windows, window_states=states,
-                       other_families=others, unknown_rows=unknown, **base)
+                       other_families=others, unknown_rows=unknown, unproved_rows=unproved, **base)
 
 
 class _Budget:
@@ -224,15 +246,41 @@ def _server_date(value):
         return None
 
 
-def _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user_agent, monotonic, wall_ms):
+def _resolve(host, port, timeout, resolver):
+    """Name resolution bounded by timeout. getaddrinfo ignores socket timeouts,
+    so it runs in a daemon thread; a hung resolver thread may outlive the call
+    (it holds no token) but never delays the caller past the deadline."""
+    box = {}
+
+    def work():
+        try:
+            box["infos"] = list(resolver(host, port, 0, socket.SOCK_STREAM, socket.IPPROTO_TCP))
+        except (OSError, UnicodeError, ValueError) as error:
+            box["error"] = error
+
+    worker = threading.Thread(target=work, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        raise TimeoutError("resolution deadline")
+    if "error" in box:
+        raise OSError("resolution failed") from None
+    return box["infos"][:MAX_ADDRESSES]
+
+
+def _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user_agent, monotonic, resolver):
     """One bounded GET; returns ("ok", status, content_type, body, date) or ("fail", outcome, status).
 
-    Each socket operation is bounded by socket_timeout; a watchdog shuts the
-    socket down at total_deadline so a slow-drip peer cannot extend it.
+    The watchdog is armed before resolution and shuts down every tracked socket
+    at total_deadline, so a slow-drip peer cannot extend it. Every blocking
+    step takes min(socket_timeout, time left) as its timeout, and the deadline
+    is checked again immediately before the request (the first header byte).
     """
     start = monotonic()
-    connection = watchdog = None
+    connection = None
     expired = threading.Event()
+    guard = threading.Lock()
+    tracked = []
 
     def remaining():
         left = total_deadline - (monotonic() - start)
@@ -240,27 +288,56 @@ def _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user
             raise TimeoutError("total deadline")
         return min(socket_timeout, left)
 
-    status = None
-    try:
-        if endpoint.scheme == "https":
-            connection = http.client.HTTPSConnection(endpoint.host, endpoint.port, timeout=remaining(),
-                                                     context=context or production_context())
-        else:
-            connection = http.client.HTTPConnection(endpoint.host, endpoint.port, timeout=remaining())
-        connection.response_class = _BoundedResponse
-        connection.connect()
-        sock = connection.sock  # the response keeps reading from this socket after close()
-
-        def expire():
+    def expire():
+        with guard:
             expired.set()
+            sockets = list(tracked)
+        for item in sockets:
             try:
-                sock.shutdown(socket.SHUT_RDWR)
+                item.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
 
-        watchdog = threading.Timer(max(0.0, total_deadline - (monotonic() - start)), expire)
-        watchdog.daemon = True
-        watchdog.start()
+    def track(item):
+        with guard:
+            if expired.is_set():
+                item.close()
+                raise TimeoutError("total deadline")
+            tracked.append(item)
+        return item
+
+    watchdog = threading.Timer(max(0.0, total_deadline), expire)
+    watchdog.daemon = True
+    watchdog.start()
+    status = None
+    try:
+        sock, last = None, None
+        for family, kind, proto, _name, address in _resolve(endpoint.host, endpoint.port, remaining(), resolver):
+            timeout = remaining()
+            candidate = track(socket.socket(family, kind, proto))
+            try:
+                candidate.settimeout(timeout)
+                candidate.connect(address)
+            except OSError as error:
+                candidate.close()
+                last = error
+                continue
+            sock = candidate
+            break
+        if sock is None:
+            raise last if last is not None else OSError("no address")
+        if endpoint.scheme == "https":
+            sock = track((context or production_context()).wrap_socket(
+                sock, server_hostname=endpoint.host, do_handshake_on_connect=False))
+            sock.settimeout(remaining())
+            sock.do_handshake()
+            connection = http.client.HTTPSConnection(endpoint.host, endpoint.port, timeout=socket_timeout,
+                                                     context=context or production_context())
+        else:
+            connection = http.client.HTTPConnection(endpoint.host, endpoint.port, timeout=socket_timeout)
+        connection.sock = sock  # connect() is never called: no second resolution or connect
+        connection.response_class = _BoundedResponse
+        sock.settimeout(remaining())  # raises before any header byte once the deadline is spent
         connection.request("GET", endpoint.path, None, {
             "Authorization": bearer.authorization_value(), "Accept": "application/json",
             "anthropic-beta": OAUTH_BETA, "Cache-Control": "no-cache", "Connection": "close",
@@ -290,21 +367,24 @@ def _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user
     except (OSError, http.client.HTTPException, ValueError):
         return ("fail", "deadline_exceeded" if expired.is_set() else "transport_error", status)
     finally:
-        if watchdog is not None:
-            watchdog.cancel()
+        watchdog.cancel()
         if connection is not None:
             connection.close()
+        with guard:
+            sockets = list(tracked)
+        for item in sockets:
+            item.close()
 
 
 def fetch(bearer, endpoint=PRODUCTION, *, context=None, socket_timeout=SOCKET_TIMEOUT,
           total_deadline=TOTAL_DEADLINE, user_agent="coding-agent-kit-quota-research",
-          monotonic=time.monotonic, wall_ms=lambda: int(time.time() * 1000)):
+          monotonic=time.monotonic, wall_ms=lambda: int(time.time() * 1000), resolver=socket.getaddrinfo):
     """One bounded usage GET. No retry, no redirect, no proxy discovery, no refresh."""
     if endpoint.path != USAGE_PATH:
         raise ValueError("not the usage endpoint")
     started_wall = wall_ms()
     result = _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user_agent,
-                          monotonic, wall_ms)
+                          monotonic, resolver)
     if result[0] == "fail":
         return Observation(result[1], http_status=result[2], started_wall_ms=started_wall,
                            received_wall_ms=wall_ms(), received_monotonic=monotonic())
@@ -319,7 +399,7 @@ _IDENT = re.compile(r"[A-Za-z0-9-]{1,64}")
 def fetch_profile_identity(bearer, endpoint=PRODUCTION_PROFILE, *, context=None,
                            socket_timeout=SOCKET_TIMEOUT, total_deadline=TOTAL_DEADLINE,
                            user_agent="coding-agent-kit-quota-research", monotonic=time.monotonic,
-                           wall_ms=lambda: int(time.time() * 1000)):
+                           wall_ms=lambda: int(time.time() * 1000), resolver=socket.getaddrinfo):
     """G0 option only: server-asserted (account_uuid, organization_uuid) for this bearer.
 
     Native uses this endpoint at login/refresh to bind a token to its account.
@@ -329,7 +409,7 @@ def fetch_profile_identity(bearer, endpoint=PRODUCTION_PROFILE, *, context=None,
     if endpoint.path != PROFILE_PATH:
         raise ValueError("not the profile endpoint")
     result = _bounded_get(bearer, endpoint, context, socket_timeout, total_deadline, user_agent,
-                          monotonic, wall_ms)
+                          monotonic, resolver)
     if result[0] != "ok" or result[1] != 200:
         return None
     if not (result[2] or "").split(";")[0].strip().lower() == "application/json":

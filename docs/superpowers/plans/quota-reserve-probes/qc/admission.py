@@ -44,6 +44,8 @@ METADATA_FILE = ".claude.json"
 METADATA_LIMIT = 16 * 1024 * 1024
 _UUID = re.compile(r"[A-Za-z0-9-]{1,64}")
 # Model-specific rows that make the general windows insufficient for a model.
+# The substring mapping from a model id to a family is a research heuristic;
+# the real allowed_models list and its family mapping are a G0 input.
 MODEL_SPECIFIC = {"seven_day_opus": "opus", "seven_day_sonnet": "sonnet"}
 
 
@@ -195,7 +197,7 @@ class BearerProfileIdentity:
 
 class Lease:
     __slots__ = ("bearer", "identity", "family", "observed_wall_ms", "base_monotonic", "deadline",
-                 "clock_offset_ms", "windows", "other_families", "epoch")
+                 "clock_offset_ms", "windows", "other_families", "unproved_rows", "epoch")
 
     def __init__(self, **fields):
         for key, value in fields.items():
@@ -309,15 +311,24 @@ class AdmissionController:
                       observed_wall_ms=observation.received_wall_ms, base_monotonic=base_monotonic,
                       deadline=base_monotonic + self.policy.max_age_s, clock_offset_ms=offset,
                       windows={k: v.remaining() for k, v in observation.windows.items()},
-                      other_families=observation.other_families, epoch=next(self._epochs))
+                      other_families=observation.other_families, unproved_rows=observation.unproved_rows,
+                      epoch=next(self._epochs))
         return lease, None
 
-    def _model_ok(self, model):
+    def _model_refusal(self, model):
+        """None if the lease's windows are proved to govern this model, else a reason.
+
+        Fails closed while the lease holds any row of unproved semantics
+        (model-scoped limits[] entries, credit pools, OAuth-apps or unknown rows).
+        """
         if not isinstance(model, str) or model not in self.policy.allowed_models:
-            return False
+            return "model_family_unproved"
         lowered = model.lower()
-        return not any(row in self.lease.other_families and marker in lowered
-                       for row, marker in MODEL_SPECIFIC.items())
+        if any(row in self.lease.other_families and marker in lowered for row, marker in MODEL_SPECIFIC.items()):
+            return "model_family_unproved"
+        if self.lease.unproved_rows:
+            return "quota_row_unproved"
+        return None
 
     def _register(self, close):
         stream_id = next(self._ids)
@@ -362,9 +373,10 @@ class AdmissionController:
                 decision = self._rotate(token)
                 if not decision.ok:
                     return decision
-            if not self._model_ok(model):
-                self._event("refused", reason="model_family_unproved")
-                return Decision(False, "model_family_unproved")
+            refusal = self._model_refusal(model)
+            if refusal is not None:
+                self._event("refused", reason=refusal)
+                return Decision(False, refusal)
             stream_id = self._register(close)
             self._event("admitted", epoch=self.lease.epoch, stream=stream_id)
             return Decision(True, "admitted", stream_id)

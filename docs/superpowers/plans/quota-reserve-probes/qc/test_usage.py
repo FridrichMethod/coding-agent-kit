@@ -3,6 +3,12 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
+import socket
+import ssl
+import subprocess
+import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -65,6 +71,21 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(set(result.other_families), {"seven_day_opus", "seven_day_sonnet", "seven_day_oauth_apps",
                                                       "extra_usage", "limits", "five_hour_fixture_model"})
         self.assertEqual(result.unknown_rows, 1)
+        # Present rows of unproved admission semantics; known model rows, the
+        # overage pool and empty rows are not in this set.
+        self.assertEqual(result.unproved_rows, ("five_hour_fixture_model", "limits", "seven_day_oauth_apps"))
+
+    def test_unproved_rows_ignore_null_and_empty(self):
+        data = self.full(seven_day_oauth_apps=None, cinder_cove=None, wattle_ember=None, limits=[],
+                         seven_day_opus={"utilization": 1, "resets_at": None}, extra_usage={"is_enabled": True},
+                         brand_new_row=None)
+        self.assertEqual(self.norm(data).unproved_rows, ())
+        for row, value in (("cinder_cove", {"utilization": 1}), ("wattle_ember", {"label": "x"}),
+                           ("limits", [{"kind": "k"}]), ("limits", {}), ("limits", "x"), ("brand_new_row", 0),
+                           ("seven_day_fixture", {"utilization": 1})):
+            with self.subTest(row=row, value=value):
+                expected = () if value == {} else (row,)
+                self.assertEqual(self.norm(self.full(**{row: value})).unproved_rows, expected)
 
     def test_window_anomalies_are_unavailable_not_zero(self):
         week = self.full()["seven_day"]
@@ -206,11 +227,117 @@ class FetchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             usage.fetch_profile_identity(held(ACCESS_A), self.endpoint)
 
+    def test_hung_resolver_is_bounded_and_sends_nothing(self):
+        release = threading.Event()
+        self.addCleanup(release.set)
+
+        def hung(*args):
+            release.wait(10)
+            return socket.getaddrinfo(*args)
+
+        start = time.monotonic()
+        result = self.get(ACCESS_A, socket_timeout=5, total_deadline=0.5, resolver=hung)
+        self.assertEqual(result.outcome, "deadline_exceeded")
+        self.assertLess(time.monotonic() - start, 1.5)
+        self.assertEqual(self.server.requests, [])
+
+    def test_deadline_spent_before_connect_opens_nothing(self):
+        now = [0.0]
+
+        def slow_resolution(*args):
+            infos = socket.getaddrinfo(*args)
+            now[0] = 50.0  # resolution consumed the whole budget
+            return infos
+
+        result = self.get(ACCESS_A, total_deadline=10, monotonic=lambda: now[0], resolver=slow_resolution)
+        self.assertEqual(result.outcome, "deadline_exceeded")
+        self.assertEqual(self.server.requests, [])
+
+    def test_deadline_spent_after_connect_sends_no_header_byte(self):
+        listener = socket.create_server(("127.0.0.1", 0))
+        self.addCleanup(listener.close)
+        received, done = [], threading.Event()
+
+        def serve():
+            try:
+                conn, _ = listener.accept()
+            except OSError:
+                return
+            with conn:
+                conn.settimeout(1.0)
+                try:
+                    while True:
+                        data = conn.recv(4096)
+                        if not data:
+                            break
+                        received.append(data)
+                except OSError:
+                    pass
+            done.set()
+
+        threading.Thread(target=serve, daemon=True).start()
+        now = [0.0]
+        original = socket.socket
+
+        class JumpAfterConnect(original):
+            def connect(self, address):
+                super().connect(address)
+                now[0] = 50.0  # connect consumed the whole budget
+
+        endpoint = usage.Endpoint("http", "127.0.0.1", listener.getsockname()[1])
+        with mock.patch.object(usage.socket, "socket", JumpAfterConnect):
+            result = usage.fetch(held(ACCESS_A), endpoint, total_deadline=10, monotonic=lambda: now[0])
+        self.assertEqual(result.outcome, "deadline_exceeded")
+        self.assertTrue(done.wait(5))
+        self.assertEqual(b"".join(received), b"")
+
     def test_closed_port_is_transport_error(self):
         dead = usage.Endpoint("http", "127.0.0.1", 9)
         result = usage.fetch(held(ACCESS_A), dead, socket_timeout=0.5, total_deadline=1)
         self.assertIn(result.outcome, ("transport_error", "deadline_exceeded"))
         self.assertFalse(result.fresh)
+
+
+
+@unittest.skipUnless(os.access("/usr/bin/openssl", os.X_OK), "needs /usr/bin/openssl for a loopback certificate")
+class TLSFetchTests(unittest.TestCase):
+    """The HTTPS path: handshake under the same watchdog, verified certificate and host name."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = Path(tempfile.mkdtemp(prefix="quota-qc-tls-"))
+        cls.cert, cls.key = cls.root / "cert.pem", cls.root / "key.pem"
+        subprocess.run(["/usr/bin/openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+                        "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1",
+                        "-keyout", str(cls.key), "-out", str(cls.cert)],
+                       check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=60)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.root, ignore_errors=True)
+
+    def setUp(self):
+        self.server = fake.FakeUsageServer()
+        server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        server_context.load_cert_chain(self.cert, self.key)
+        self.server.httpd.socket = server_context.wrap_socket(self.server.httpd.socket, server_side=True)
+        self.server.__enter__()
+        self.addCleanup(self.server.__exit__, None, None, None)
+        self.server.register(ACCESS_A, fake.FakeAccount("A", "acct-a", "org-a", fake.windows()))
+        self.endpoint = usage.Endpoint("https", "127.0.0.1", self.server.port)
+
+    def test_verified_tls_fetch(self):
+        context = ssl.create_default_context(cafile=str(self.cert))
+        result = usage.fetch(held(ACCESS_A), self.endpoint, context=context)
+        self.assertTrue(result.valid_for({"five_hour", "weekly"}), result.summary())
+        self.assertEqual(self.server.labels(), ["A"])
+
+    def test_untrusted_certificate_sends_nothing(self):
+        result = usage.fetch(held(ACCESS_A), self.endpoint, context=ssl.create_default_context(),
+                             total_deadline=3)
+        self.assertEqual(result.outcome, "transport_error")
+        self.assertEqual(self.server.requests, [])
 
 
 if __name__ == "__main__":

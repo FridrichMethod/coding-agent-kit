@@ -310,6 +310,27 @@ class RotationTests(Base):
         self.assertEqual(self.send(gate, A2, model="claude-fixture-opus").reason, "model_family_unproved")
         self.assertTrue(self.send(gate, A2).ok)
 
+    def test_unproved_rows_refuse_every_model_without_latching(self):
+        now = self.clock.wall_ms()
+        reset = fake.windows(now_ms=now)["seven_day"]["resets_at"]
+        benign = {"seven_day_oauth_apps": None, "cinder_cove": None, "limits": [],
+                  "extra_usage": {"is_enabled": True, "monthly_limit": None, "used_credits": None,
+                                  "utilization": None}}
+        self.acct["A"].body = fake.windows(10, 20, now_ms=now, extra=benign)
+        gate = self.started()
+        self.assertTrue(self.send(gate, A).ok)
+        scoped = [{"kind": "weekly", "group": "g", "percent": 5, "resets_at": reset, "severity": "ok",
+                   "is_active": True, "scope": {"model": {"display_name": "Fixture"}}}]
+        for row, value in (("limits", scoped), ("seven_day_oauth_apps", {"utilization": 1, "resets_at": reset}),
+                           ("wattle_ember", {"label": "credit"}), ("brand_new_row", {"utilization": 1})):
+            with self.subTest(row=row):
+                self.acct["A2"].body = fake.windows(10, 20, now_ms=now, extra={row: value})
+                self.native.native_login(A2, IDENT_A)
+                gate = self.started(log=[])
+                self.assertEqual(self.send(gate, A2).reason, "quota_row_unproved")
+                self.assertEqual(gate.state, "open")  # a refusal, not a latch
+        self.assertEqual(self.upstream, ["A"])
+
     def test_revalidation_budget(self):
         gate = self.started(revalidations_per_minute=2)
         self.assertTrue(self.send(gate, A2).ok)
