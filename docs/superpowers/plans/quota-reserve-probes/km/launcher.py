@@ -134,6 +134,21 @@ def check_host(sandbox_exec, platform=sys.platform):
         raise Refusal('boundary precondition missing: %s is not an executable file' % sandbox_exec)
 
 
+def parse_proxy(url):
+    """The launcher's HTTPS_PROXY, inherited once at startup for wrapper-originated upstream
+    connections (provisional decision): plain http://HOST:PORT only, else Refusal."""
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(url or '')
+        port = parts.port
+    except ValueError:
+        raise Refusal('unsupported HTTPS_PROXY for protected mode') from None
+    if parts.scheme != 'http' or not parts.hostname or not port or parts.username or parts.password \
+            or parts.path not in ('', '/'):
+        raise Refusal('unsupported HTTPS_PROXY for protected mode')
+    return [parts.hostname, port]
+
+
 def parse_ifconfig(text):
     """Local IPv4/IPv6 addresses (scope kept) from `ifconfig -a`; loopback excluded."""
     found = []
@@ -247,6 +262,10 @@ class Launcher:
         check_env(c['provider'], c.get('user_env', {}))
         self.native_args = check_args(c['provider'], c.get('user_args', []))
         check_policy(c['provider'], c['policy'])
+        inherited = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
+        if inherited and 'upstream_proxy' not in c['gate']:
+            c['gate']['upstream_proxy'] = parse_proxy(inherited)
+            self.emit('proxy_inherited', proxy=c['gate']['upstream_proxy'])
 
     def hold(self):
         mode = self.config.get('holder', 'all')

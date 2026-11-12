@@ -16,7 +16,7 @@ import sys
 
 HERE = Path(os.path.realpath(__file__)).parent
 STAGES = ('claude-loss', 'codex-loss', 'claude-resume', 'codex-resume', 'claude-refresh', 'codex-refresh',
-          'claude-tools', 'codex-tools', 'refusals', 'portmatrix')
+          'claude-tools', 'codex-tools', 'refusals', 'portmatrix', 'proxy')
 PROVIDERS = ('claude', 'codex')
 REFUSED = (403, 503)
 
@@ -277,13 +277,36 @@ def check_portmatrix(case, provider):
     need(all(v == 'errno:48' for v in allh['squats'].values()), 'full holder let a squatter bind')
     need(allh['reach']['squatter_accepted'] == [] and allh['reach']['host4_reuseaddr_squatter'] == 'errno:48',
          'full holder squatter reachable')
+    forms = case['sbpl_forms']
+    need('host must be * or localhost' in forms['ip4_literal'].get('stderr', ''), 'literal address form accepted')
+    for name in ('localhost', 'tcp4_localhost', 'star'):
+        need(forms[name]['lo4'] == 'connected', '%s did not admit the gate' % name)
+        need(forms[name]['host4'] != 'errno:1', '%s denied the interface address (filter narrower than seen)' % name)
+    need(forms['tcp4_localhost']['lo6'] == 'errno:1' and forms['tcp6_localhost']['lo4'] == 'errno:1',
+         'tcp4/tcp6 forms did not narrow the family')
+    need(all(forms[name]['bind'] == 'errno:1' for name in forms if name != 'ip4_literal'), 'a form allowed a bind')
+
+
+def check_proxy(case, provider):
+    need(case['launcher_proxy'] == ['127.0.0.1', case['proxy_port']], 'gate did not inherit the launcher proxy')
+    tunnels = [r for r in case['proxy_rows'] if r['ok']]
+    need(tunnels and all(r['target'] == '127.0.0.1:%d' % case['upstream_port'] for r in tunnels),
+         'no tunnel to the upstream through the launcher proxy')
+    first = [r for r in rows(case, 'forwarded') if r['t'] < case['latch_t']]
+    need(first and len(tunnels) >= len(first), 'forwarded requests did not all use the proxy')
+    common_latch(case, ('threshold',))
+    need(all(r['ok'] and r['target'] == '127.0.0.1:%d' % case['upstream_port']
+             for r in case['proxy_rows'] + case['proxy_rows_after']), 'the proxy saw another target')
+    need(case['native_proxy_unused'] is True, 'the native itself used the launcher proxy')
+    need(all(d[0] is False for d in case['later']['decisions_after']) and case['later']['decisions_after'],
+         'a later turn was admitted')
 
 
 CHECKS = {'threshold': check_threshold, 'loss-kill': check_loss('kill'), 'loss-eof': check_loss('eof'),
           'loss-stall': check_loss('stall'), 'gate-death': check_gate_death, 'continuation': check_continuation,
           'independent': check_independent, 'rotation': check_rotation, 'norefresh': check_norefresh,
           'prelaunch': check_prelaunch, 'tools': check_tools, 'sandbox': check_sandbox, 'fsrules': check_fsrules,
-          'refusals': check_refusals, 'portmatrix': check_portmatrix}
+          'refusals': check_refusals, 'portmatrix': check_portmatrix, 'proxy': check_proxy}
 
 
 def check_stage(name, data):
@@ -331,8 +354,14 @@ def measure(directory):
             m['preflight_ms'] = median(r.get('ms') for r in gate if r['event'] == 'preflight')
             rot = refresh['claude-rotation']['summary']['gate_rows']
             holds = [r['t'] for r in rot if r.get('kind') == 'rotation_hold']
-            m['rotation_hold_admit_ms'] = [r['admit_ms'] for r in rot if r['event'] == 'decision' and holds
-                                           and any(0 <= r['t'] - h < 1 for h in holds)][:4]
+            decisions = sorted((r for r in rot if r['event'] == 'decision'), key=lambda r: r['t'])
+            m['rotation_hold_decisions'] = []
+            for hold in holds:
+                after = [r for r in decisions if r['t'] >= hold]
+                if after:
+                    m['rotation_hold_decisions'].append({'ok': after[0]['ok'], 'reason': after[0]['reason'],
+                                                         'label': after[0].get('label'),
+                                                         'admit_ms': after[0]['admit_ms']})
         else:
             m['preflight_reader_s'] = median(r.get('seconds') for r in launch if r['event'] == 'reader')
             rot = refresh['codex-rotation']['summary']['gate_rows']

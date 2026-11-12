@@ -81,6 +81,14 @@ class LauncherChecks(unittest.TestCase):
         with self.assertRaises(LAUNCHER.Refusal):
             LAUNCHER.check_host('/nonexistent/sandbox-exec', platform='darwin')
 
+    def test_proxy(self):
+        self.assertEqual(LAUNCHER.parse_proxy('http://127.0.0.1:3128'), ['127.0.0.1', 3128])
+        self.assertEqual(LAUNCHER.parse_proxy('http://proxy.example.invalid:8080/'), ['proxy.example.invalid', 8080])
+        for bad in ('https://p:1', 'socks5://p:1', 'http://p', 'http://u:pw@p:1', 'http://p:1/x', 'p:1',
+                    'http://p:99999'):
+            with self.assertRaises(LAUNCHER.Refusal):
+                LAUNCHER.parse_proxy(bad)
+
     def test_ifconfig(self):
         text = ('lo0: flags\n\tinet 127.0.0.1 netmask 0xff000000\n\tinet6 ::1 prefixlen 128\n'
                 '\tinet6 fe80::1%lo0 prefixlen 64 scopeid 0x1\nen0: flags\n\tinet 192.0.2.7 netmask 0xffffff00\n'
@@ -356,6 +364,12 @@ class Evidence(unittest.TestCase):
         self.mutate('refusals', lambda c: c['codex-refusals']['variants']['stale_quota'].update(native_started=True))
         self.mutate('refusals', lambda c: c['claude-refusals']['variants']['old_version'].update(model_posts=1))
         self.mutate('portmatrix', lambda c: c['none-portmatrix']['all']['squats'].update(any4_reuseaddr='bound'))
+        self.mutate('portmatrix', lambda c: c['none-portmatrix']['sbpl_forms']['tcp4_localhost'].update(
+            lo6='connected'))
+        self.mutate('proxy', lambda c: c['codex-proxy'].update(native_proxy_unused=False))
+        self.mutate('proxy', lambda c: c['claude-proxy'].update(launcher_proxy=None))
+        self.mutate('proxy', lambda c: c['codex-proxy']['proxy_rows'].append(
+            {'ok': True, 'target': 'api.anthropic.com:443', 't': 1}))
 
     def test_stage_level_failures(self):
         data = copy.deepcopy(self.data['codex-tools'])

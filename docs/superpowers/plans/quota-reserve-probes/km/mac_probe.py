@@ -189,7 +189,8 @@ class Invocation:
         self.proc = subprocess.Popen([self.ctx.python, '-I', '-B', '-c', helper, self.ctx.python, '-I', '-B',
                                       str(HERE / 'launcher.py'), str(path)], cwd=str(self.case.workspace),
                                      stdin=self.term.slave, stdout=self.term.slave, stderr=self.term.slave,
-                                     close_fds=True, env={'PATH': '/usr/bin:/bin', 'LANG': 'en_US.UTF-8'})
+                                     close_fds=True, env=dict({'PATH': '/usr/bin:/bin', 'LANG': 'en_US.UTF-8'},
+                                                              **self.opts.get('launcher_env', {})))
         self.ctx.groups.append(self.proc.pid)
         self.started = now()
         return self
@@ -1016,7 +1017,8 @@ class TunnelProxy:
             parts = head.split(b' ', 2)
             target = parts[1].decode('latin-1') if len(parts) > 1 else ''
             port = self.allow.get(target) if parts[0] == b'CONNECT' else None
-            self.rows.append({'method': parts[0].decode('latin-1'), 'target': target[:80], 'ok': port is not None})
+            self.rows.append({'method': parts[0].decode('latin-1'), 'target': target[:80], 'ok': port is not None,
+                              't': time.monotonic()})
             if port is None:
                 conn.sendall(b'HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n')
                 return
@@ -1426,6 +1428,90 @@ def case_portmatrix(case):
         for s in holder.listeners + holder.reserved:
             s.close()
     out['host_ipv4_found'] = bool(address)
+    out['sbpl_forms'] = sbpl_forms(case, address)
+    return out
+
+
+def case_proxy(case):
+    """Provisional decision: wrapper-originated upstream connections inherit the launcher's
+    HTTPS_PROXY once at startup. A loopback CONNECT proxy fixture stands in for a proxy-required
+    network; the native keeps the gate as its own proxy."""
+    case.setup()
+    target = '127.0.0.1:%d' % case.upstream.port
+    proxy = TunnelProxy({target: case.upstream.port})
+    case.servers.append(proxy)
+    inv = case.invocation(prompt='KM-px-first start', launcher_env={'HTTPS_PROXY': 'http://127.0.0.1:%d' % proxy.port})
+    result = start(case, inv, 'KM-px-first')
+    result.update(proxy_port=proxy.port, upstream_port=case.upstream.port)
+    inherited = inv.launcher('proxy_inherited')
+    result['launcher_proxy'] = inherited[0]['proxy'] if inherited else None
+    if not result['native_started']:
+        result['summary'] = inv.summary()
+        return result
+    crossed = now()
+    case.set_usage(five=80)
+    latch = inv.wait_latch(15, after=crossed)
+    result['latch_t'] = latch
+    time.sleep(1)
+    result['later'] = later_refused(case, inv, 'KM-px-later')
+    result['proxy_rows'] = [r for r in proxy.rows if latch is None or r['t'] < latch]
+    result['proxy_rows_after'] = [r for r in proxy.rows if latch is not None and r['t'] >= latch]
+    result['native_proxy_unused'] = all(r['target'] == target for r in proxy.rows)
+    result['native_alive'] = inv.native_alive()
+    result['exit'] = inv.exit()
+    result['upstream'] = case.upstream.snapshot()
+    result['summary'] = inv.summary()
+    return result
+
+
+SBPL_CLIENT = r'''
+import json, socket, sys
+res = {}
+for name, fam, host, port in json.loads(sys.argv[1]):
+    s = socket.socket(socket.AF_INET6 if fam == 6 else socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(2)
+    try:
+        s.connect((host, port, 0, 0) if fam == 6 else (host, port)); res[name] = 'connected'
+    except OSError as e:
+        res[name] = 'errno:%s' % e.errno
+    s.close()
+s = socket.socket()
+try:
+    s.bind(('127.0.0.1', 0)); res['bind'] = 'bound'
+except OSError as e:
+    res['bind'] = 'errno:%s' % e.errno
+print(json.dumps(res))
+'''
+
+
+def sbpl_forms(case, address):
+    """Which SBPL network-address forms parse, and what each admits on one gate port."""
+    l4 = socket.socket()
+    l4.bind(('127.0.0.1', 0))
+    port = l4.getsockname()[1]
+    l6 = socket.socket(socket.AF_INET6)
+    l6.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+    l6.bind(('::1', port))
+    for s in (l4, l6):
+        s.listen(16)
+    targets = [['lo4', 4, '127.0.0.1', port], ['lo6', 6, '::1', port], ['any4', 4, '0.0.0.0', port],
+               ['ll6', 6, 'fe80::1%lo0', port]] + ([['host4', 4, address, port]] if address else [])
+    forms = {'localhost': '(remote tcp "localhost:%d")', 'ip4_literal': '(remote tcp "127.0.0.1:%d")',
+             'tcp4_localhost': '(remote tcp4 "localhost:%d")', 'tcp6_localhost': '(remote tcp6 "localhost:%d")',
+             'star': '(remote tcp "*:%d")'}
+    out = {}
+    try:
+        for name, rule in forms.items():
+            profile = '(version 1)\n(allow default)\n(deny network*)\n(allow network-outbound %s)\n' % (rule % port)
+            done = case.ctx.run([SANDBOX_EXEC, '-p', profile, case.ctx.python, '-I', '-B', '-c', SBPL_CLIENT,
+                                 json.dumps(targets)], timeout=30)
+            try:
+                out[name] = json.loads(done['stdout'].strip().splitlines()[-1])
+            except (ValueError, IndexError):
+                out[name] = {'exit': done['code'], 'stderr': done['stderr'][:200]}
+    finally:
+        l4.close()
+        l6.close()
     return out
 
 
@@ -1433,7 +1519,8 @@ CASES = {'threshold': case_threshold, 'loss-kill': lambda c: loss_case(c, 'kill'
          'loss-eof': lambda c: loss_case(c, 'eof'), 'loss-stall': lambda c: loss_case(c, 'stall'),
          'gate-death': case_gate_death, 'continuation': case_continuation, 'independent': case_independent,
          'rotation': case_rotation, 'norefresh': case_norefresh, 'prelaunch': case_prelaunch, 'tools': case_tools,
-         'sandbox': case_sandbox, 'fsrules': case_fsrules, 'refusals': case_refusals, 'portmatrix': case_portmatrix}
+         'sandbox': case_sandbox, 'fsrules': case_fsrules, 'refusals': case_refusals, 'portmatrix': case_portmatrix,
+         'proxy': case_proxy}
 STAGES = {
     'claude-loss': [('claude', c) for c in ('threshold', 'loss-kill', 'loss-eof', 'loss-stall')],
     'codex-loss': [('codex', c) for c in ('threshold', 'loss-kill', 'loss-eof', 'loss-stall')],
@@ -1445,6 +1532,7 @@ STAGES = {
     'codex-tools': [('codex', c) for c in ('tools', 'sandbox', 'fsrules')],
     'refusals': [('claude', 'refusals'), ('codex', 'refusals')],
     'portmatrix': [('none', 'portmatrix')],
+    'proxy': [('claude', 'proxy'), ('codex', 'proxy')],
 }
 
 

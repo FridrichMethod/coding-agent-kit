@@ -55,6 +55,44 @@
      "lo6_reuseaddr": "errno:48"
     }
    },
+   "sbpl_forms": {
+    "ip4_literal": {
+     "exit": 65,
+     "stderr": "sandbox-exec: host must be * or localhost in network address\n\nBacktrace: \n<input string>:4:26:\n\t(remote tcp \"127.0.0.1:55349\")\n\n"
+    },
+    "localhost": {
+     "any4": "connected",
+     "bind": "errno:1",
+     "host4": "errno:61",
+     "ll6": "errno:65",
+     "lo4": "connected",
+     "lo6": "connected"
+    },
+    "star": {
+     "any4": "connected",
+     "bind": "errno:1",
+     "host4": "errno:61",
+     "ll6": "errno:65",
+     "lo4": "connected",
+     "lo6": "connected"
+    },
+    "tcp4_localhost": {
+     "any4": "connected",
+     "bind": "errno:1",
+     "host4": "errno:61",
+     "ll6": "errno:1",
+     "lo4": "connected",
+     "lo6": "errno:1"
+    },
+    "tcp6_localhost": {
+     "any4": "errno:1",
+     "bind": "errno:1",
+     "host4": "errno:1",
+     "ll6": "errno:65",
+     "lo4": "errno:1",
+     "lo6": "connected"
+    }
+   },
    "wildcard": {
     "reach": {
      "confined_connects": "{\"lo4\": \"connected\", \"any4\": \"connected\", \"host4\": \"connected\"}",
@@ -81,7 +119,7 @@
  },
  "completed": true,
  "deadline_seconds": 180,
- "finished": "2026-11-12T20:18:34Z",
+ "finished": "2026-11-12T20:20:43Z",
  "host": {
   "arch": "arm64",
   "macos": "27.2"
@@ -89,5 +127,5 @@
  "leftover_processes_after": [],
  "leftover_processes_killed": [],
  "stage": "portmatrix",
- "started": "2026-11-12T20:18:30Z"
+ "started": "2026-11-12T20:20:39Z"
 }

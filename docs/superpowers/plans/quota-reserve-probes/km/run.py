@@ -31,7 +31,7 @@ COPY = {'km': ('fixtures.py', 'gate.py', 'monitor.py', 'launcher.py', 'child.py'
         'qx': ('binding.py', 'fixtures.py', 'gate.py'), 'pc_continue': ('control.py',)}
 STAGES = {'claude-loss': 600, 'codex-loss': 600, 'claude-resume': 700, 'codex-resume': 700,
           'claude-refresh': 600, 'codex-refresh': 600, 'claude-tools': 600, 'codex-tools': 600,
-          'refusals': 900, 'portmatrix': 180}
+          'refusals': 900, 'portmatrix': 180, 'proxy': 300}
 ROOT_PATTERN = re.compile(r'^/tmp/quota-km-[A-Za-z0-9]{6}$')
 
 

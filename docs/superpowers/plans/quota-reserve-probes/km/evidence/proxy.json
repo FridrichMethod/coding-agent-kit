@@ -1,0 +1,924 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "claude-proxy": {
+   "case_seconds": 8.7,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_t": 211895.707210375,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "threshold_five_hour"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "launcher_proxy": [
+    "127.0.0.1",
+    55216
+   ],
+   "native_alive": true,
+   "native_proxy_unused": true,
+   "native_started": true,
+   "proxy_port": 55216,
+   "proxy_rows": [
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211893.279865291,
+     "target": "127.0.0.1:55214"
+    }
+   ],
+   "proxy_rows_after": [],
+   "refused": [],
+   "summary": {
+    "fetch_ms": 1.84,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 211892.718799583
+     },
+     {
+      "event": "preflight",
+      "ms": 2.756,
+      "reason": "startup_ok",
+      "t": 211892.718818083
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 2260,
+      "port": 55217,
+      "t": 211892.719089166
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 211893.0964095,
+      "target": "api.anthropic.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 211893.249543833,
+      "target": "downloads.claude.ai:443"
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 211893.27921025
+     },
+     {
+      "admit_ms": 0.358,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-px-first",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 211893.279325916
+     },
+     {
+      "bytes": 43314,
+      "event": "forwarded",
+      "gate_ms": 1.398,
+      "label": "A",
+      "stream": 1,
+      "t": 211893.280368958
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 211893.281156666
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 211893.340754416,
+      "target": "github.com:443"
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 211895.707210375
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 211895.707299041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 211897.965290916
+     },
+     {
+      "admit_ms": 0.574,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-px-later",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 211897.965494875
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 211900.226567291
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 211892.6378345,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "proxy_inherited",
+      "proxy": [
+       "127.0.0.1",
+       55216
+      ],
+      "t": 211892.639728416
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 55217,
+      "reserved": 19,
+      "t": 211892.647121041
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 211892.652406708
+     },
+     {
+      "event": "monitor_started",
+      "pid": 2259,
+      "t": 211892.654035208
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 2260,
+      "t": 211892.655446833
+     },
+     {
+      "event": "self_test",
+      "ms": 36.9,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 211892.802822625
+     },
+     {
+      "event": "native_started",
+      "pid": 2263,
+      "t": 211892.808497666
+     },
+     {
+      "event": "said",
+      "t": 211895.708001916,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 211895.708074458,
+      "text": "quota reserve paused (threshold_five_hour); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 211900.225300958
+     },
+     {
+      "event": "launcher_exit",
+      "t": 211900.228354625
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 211892.675367625
+     }
+    ],
+    "poll_count": 15,
+    "poll_ms": 3.578,
+    "terminal_head": " Claude Code v2.1.322 Sonnet 4.6 \u00b7 Claude Max <root>/cases/claude-proxy/workspace \u276f KM-px-first start \u00b7 Crystallizing\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Cooked for 0s \u00b7 done 12:20 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259d\u259d \u259d\u259d \u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2597\u259f \u259b \u259b\u2588 \u2584 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d \u2582 \u2582 \u259b \u259b [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check Later turn KM-px-later \u276f Later turn KM-px-later \u273b Drizzling\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Churned for 0s \u00b7 done 12:20 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u273d Ideating\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume b1f54592-4fd6-4fbd-b46d-d7234ff4ca88 ",
+    "terminal_tail": " Claude Code v2.1.322 Sonnet 4.6 \u00b7 Claude Max <root>/cases/claude-proxy/workspace \u276f KM-px-first start \u00b7 Crystallizing\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Cooked for 0s \u00b7 done 12:20 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259d\u259d \u259d\u259d \u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2597\u259f \u259b \u259b\u2588 \u2584 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d \u2582 \u2582 \u259b \u259b [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check Later turn KM-px-later \u276f Later turn KM-px-later \u273b Drizzling\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Churned for 0s \u00b7 done 12:20 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u273d Ideating\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume b1f54592-4fd6-4fbd-b46d-d7234ff4ca88 "
+   },
+   "upstream": [
+    {
+     "action": "text",
+     "bytes": 43314,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-px-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 211893.280836,
+     "tool_output": null
+    }
+   ],
+   "upstream_port": 55214
+  },
+  "codex-proxy": {
+   "case_seconds": 8.0,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_t": 211904.443967625,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "launcher_proxy": [
+    "127.0.0.1",
+    55259
+   ],
+   "native_alive": true,
+   "native_proxy_unused": true,
+   "native_started": true,
+   "proxy_port": 55259,
+   "proxy_rows": [
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211901.597139541,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211901.597332041,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211901.597348333,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211901.915611833,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211901.98164175,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211901.983187791,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.00802375,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.008069875,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.009403208,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.043539375,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.052420708,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.08513325,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.088583416,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.421222,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211902.925471166,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211903.431135583,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211903.936554291,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211904.441392291,
+     "target": "127.0.0.1:55257"
+    }
+   ],
+   "proxy_rows_after": [
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211904.945386416,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211905.448088666,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211905.952280666,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211906.457283875,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211906.958621416,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211907.459653083,
+     "target": "127.0.0.1:55257"
+    },
+    {
+     "method": "CONNECT",
+     "ok": true,
+     "t": 211907.963832083,
+     "target": "127.0.0.1:55257"
+    }
+   ],
+   "refused": [],
+   "summary": {
+    "fetch_ms": 4.063,
+    "gate_rows": [
+     {
+      "event": "preflight",
+      "ms": 0.001,
+      "reason": "awaiting_read",
+      "t": 211901.444947
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 2296,
+      "port": 55260,
+      "t": 211901.445462416
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 211901.60531375
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 211901.976012125,
+      "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 211902.051921833
+     },
+     {
+      "admit_ms": 0.3,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-px-first",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 211902.052002583
+     },
+     {
+      "bytes": 43819,
+      "event": "forwarded",
+      "gate_ms": 1.039,
+      "label": "A",
+      "stream": 1,
+      "t": 211902.052740625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 211902.0534095
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 211902.088247125
+     },
+     {
+      "admit_ms": 0.17,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-px-first",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 211902.088300791
+     },
+     {
+      "bytes": 20410,
+      "event": "forwarded",
+      "gate_ms": 0.708,
+      "label": "A",
+      "stream": 2,
+      "t": 211902.088836958
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 211902.089305916
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "threshold:five_hour",
+      "t": 211904.443967625
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "threshold:five_hour",
+      "t": 211904.444285791
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 211906.736731916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 211906.747698458
+     },
+     {
+      "admit_ms": 0.76,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-px-later",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 211906.747936333
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 211906.787524375
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 211906.789857833
+     },
+     {
+      "admit_ms": 0.219,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-px-later",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 211906.789933791
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 211908.348553958
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 211901.362477958,
+      "text": "codex-cli 0.166.0"
+     },
+     {
+      "event": "proxy_inherited",
+      "proxy": [
+       "127.0.0.1",
+       55259
+      ],
+      "t": 211901.364811583
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 55260,
+      "reserved": 19,
+      "t": 211901.37420425
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 211901.380285541
+     },
+     {
+      "event": "monitor_started",
+      "pid": 2295,
+      "t": 211901.383536916
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 2296,
+      "t": 211901.385533708
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.109,
+      "t": 211901.605128166
+     },
+     {
+      "event": "self_test",
+      "ms": 36.5,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 211901.641903166
+     },
+     {
+      "event": "native_started",
+      "pid": 2300,
+      "t": 211901.648004333
+     },
+     {
+      "event": "said",
+      "t": 211904.445084708,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 211904.445199083,
+      "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 211908.346833375
+     },
+     {
+      "event": "launcher_exit",
+      "t": 211908.353965041
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 211901.40860925
+     }
+    ],
+    "poll_count": 14,
+    "poll_ms": 4.365,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-proxy/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-proxy/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-proxy/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-px-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:20 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Later turn KM-px-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-px-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:55260/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d16b-3316-7ec2-a9a0-2362334f1468 ",
+    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-proxy/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-proxy/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-proxy/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-px-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:20 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Later turn KM-px-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-px-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:55260/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-proxy/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d16b-3316-7ec2-a9a0-2362334f1468 "
+   },
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211901.598150333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 211901.59835825
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 211901.598440791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211901.91715775
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 211901.982598583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 211901.98373625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211902.008615208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 211902.008774666
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211902.009907708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 211902.04396075
+    },
+    {
+     "action": "text",
+     "bytes": 43819,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-px-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 211902.053168208,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 211902.086321625
+    },
+    {
+     "action": "text",
+     "bytes": 20410,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-px-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 211902.089088541,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211902.422918875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211902.92621425
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211903.432888208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211903.9377795
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211904.442986083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211904.946235041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211905.449438125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211905.953960333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211906.458781208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211906.960314958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211907.461101875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 211907.965418916
+    }
+   ],
+   "upstream_port": 55257
+  }
+ },
+ "completed": true,
+ "deadline_seconds": 300,
+ "finished": "2026-11-12T20:20:33Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [],
+ "stage": "proxy",
+ "started": "2026-11-12T20:20:16Z"
+}
