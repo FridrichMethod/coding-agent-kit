@@ -1,0 +1,108 @@
+{
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "stages": [
+    {
+      "mode": "guard",
+      "exit": 0,
+      "stdout": "loopback TCP: allowed\nnon-loopback or unsupported socket: blocked before network 2 1 101\nnon-loopback or unsupported socket: blocked before network 10 1 101\nnon-loopback or unsupported socket: blocked before network 2 2 101\nUnix socket pair: allowed\nexec descendant in new session: blocked\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"42\": 2, \"41\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "mode": "environment",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 13}, \"root_exit\": 0}\n"
+    },
+    {
+      "mode": "pinned",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 13}, \"root_exit\": 0}\n"
+    }
+  ],
+  "sources": [
+    {
+      "file": "routing_audit/run_reload.py",
+      "sha256": "b6be931489b083f05347a793be68a1f96dc9a3f4afe1fbc468846d253bf4aaa0"
+    },
+    {
+      "file": "routing_audit/reload_probe.py",
+      "sha256": "88389639a184fd6fca3342f91d5363f562af250c479c9628c5c4cfa6d2e271c4"
+    },
+    {
+      "file": "pc/network_guard.py",
+      "sha256": "b1ced01775b5b1e23dc845c68f68faf856133356e38c6a75624be035a72ceee4"
+    },
+    {
+      "file": "pc/guard_check.py",
+      "sha256": "0051902fd2d72e14c26d4522c37cdeb2c579a6feb84729663ce16de47944fb72"
+    }
+  ],
+  "exit": 0,
+  "cases": {
+    "environment": [
+      {
+        "at": 0.3319,
+        "event": "model",
+        "route": "gate",
+        "marker": "first",
+        "fixture_bearer": true
+      },
+      {
+        "at": 1.3597,
+        "event": "user_settings_changed"
+      },
+      {
+        "at": 5.3949,
+        "event": "model",
+        "route": "alternate",
+        "marker": "second",
+        "fixture_bearer": true
+      },
+      {
+        "at": 5.4102,
+        "event": "passed",
+        "pinned": false,
+        "native_alive": true
+      },
+      {
+        "at": 5.9601,
+        "event": "native_exit",
+        "code": 0,
+        "termios_restored": true
+      }
+    ],
+    "pinned": [
+      {
+        "at": 0.3219,
+        "event": "model",
+        "route": "gate",
+        "marker": "first",
+        "fixture_bearer": true
+      },
+      {
+        "at": 1.3594,
+        "event": "user_settings_changed"
+      },
+      {
+        "at": 5.3928,
+        "event": "model",
+        "route": "gate",
+        "marker": "second",
+        "fixture_bearer": true
+      },
+      {
+        "at": 5.4097,
+        "event": "passed",
+        "pinned": true,
+        "native_alive": true
+      },
+      {
+        "at": 5.9617,
+        "event": "native_exit",
+        "code": 0,
+        "termios_restored": true
+      }
+    ]
+  }
+}
