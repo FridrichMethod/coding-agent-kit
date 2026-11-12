@@ -11,6 +11,10 @@ CA trusted only by the child (NODE_EXTRA_CA_CERTS); every other CONNECT is
 refused and recorded by host name. Nothing is forwarded. No user message or
 model request is sent; model-path attempts are counted and must be zero.
 Header values are never recorded except equality with literal fake bearers.
+A tunnel that ends without a complete request is recorded by host, stage,
+error class and, once the request line was read, method and path only
+(unrecorded_connections). exit_status and model_events are
+measured from the child's exit.json and stdout written by the PA1F helper.
 """
 
 import atexit
@@ -41,6 +45,7 @@ REFRESH_A2 = "QC-NATIVE-FABRICATED-REFRESH-A2-NOT-A-CREDENTIAL"
 ACCOUNT, ORG = "fixture-account-a", "fixture-org-a"
 FUTURE_MS, PAST_MS = 4102444800000, 946684800000
 LIMIT = 65536
+MODEL_EVENT_TYPES = ("user", "assistant", "stream_event")
 
 
 def load(name, path):
@@ -115,6 +120,7 @@ class Handler(socketserver.BaseRequestHandler):
     def handle(self):
         server = self.server
         self.request.settimeout(5)
+        host, stage, method, path = None, "connect_line", None, None
         try:
             stream = self.request.makefile("rb")
             first, _ = _read_head(stream)
@@ -126,17 +132,26 @@ class Handler(socketserver.BaseRequestHandler):
                 return
             self.request.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
             stream.close()
+            stage = "tls_handshake"
             with server.context.wrap_socket(self.request, server_side=True) as tls:
                 tls.settimeout(5)
                 with tls.makefile("rb") as request:
+                    stage = "request_head"
                     first, headers = _read_head(request)
+                    if not first:
+                        raise ConnectionAbortedError("closed before a request line")
+                    if len(first) == 3:
+                        method, path = first[0], urlsplit(first[1]).path
+                    stage = "request_body"
                     body = _read_body(request, headers)
+                    stage = "response"
                     status, payload = self.respond(host, first, headers, body)
                     data = json.dumps(payload).encode()
                     tls.sendall((f"HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\n"
                                  f"Content-Length: {len(data)}\r\nConnection: close\r\n\r\n").encode() + data)
-        except (OSError, ValueError, UnicodeError, ssl.SSLError):
-            server.log("connection_error")
+        except (OSError, ValueError, UnicodeError, ssl.SSLError) as error:
+            server.log("connection_error", host=host, stage=stage, error=type(error).__name__,
+                       method=method, path=path)
 
     def respond(self, host, first, headers, body):
         server, case = self.server, self.server.case
@@ -308,13 +323,29 @@ def run_case(binary, root, cert, context, spec):
     connects = sorted({e["host"] for e in events if e["kind"] == "connect" and e["host"]})
     refused_hosts = sorted({e["host"] for e in events if e["kind"] == "connect"
                             and e["host"] and e["host"] not in TERMINATED})
+    unrecorded = sorted(({"host": e["host"], "stage": e["stage"], "error": e["error"], "method": e["method"],
+                          "path": e["path"], "phase": "startup" if e["t"] < quota_sent else "after_get_usage"}
+                         for e in events if e["kind"] == "connection_error"),
+                        key=lambda r: (r["phase"], r["host"] or "", r["stage"], r["error"]))
+    exit_status = json.loads((case / "exit.json").read_text())["exit_status"]
+    model_events = unparsed = 0
+    for line in (case / "native.stdout").read_bytes().splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError:
+            unparsed += 1
+            continue
+        model_events += isinstance(event, dict) and event.get("type") in MODEL_EVENT_TYPES
     cache = json.loads((case / "config" / ".claude.json").read_text())
     row = {"case": spec["case"], "nonessential_off": spec["nonessential_off"],
            "base_url_gate": bool(spec.get("base_url_gate")),
            "fixture_refresh": spec["refresh"], "initial_expired": spec["expires"] == PAST_MS,
            "requests": requests, "connect_hosts": connects, "refused_connect_hosts": refused_hosts,
-           "connection_errors": sum(1 for e in events if e["kind"] == "connection_error"),
-           "model_attempts": model_attempts, "model_events": 0, "exit_status": 0,
+           "connection_errors": len(unrecorded), "unrecorded_connections": unrecorded,
+           "model_attempts": model_attempts, "model_events": model_events, "stdout_unparsed_lines": unparsed,
+           "exit_status": exit_status,
            "credential_before": {"mode": before["mode"], "nlink": before["nlink"]},
            "credential_after": None if after is None else {"mode": after["mode"], "nlink": after["nlink"],
                                                            "regular": after["regular"],

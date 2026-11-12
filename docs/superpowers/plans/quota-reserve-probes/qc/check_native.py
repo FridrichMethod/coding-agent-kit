@@ -10,6 +10,7 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 BINARY_SHA256 = "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478"
+TERMINATED = ("api.anthropic.com", "platform.claude.com")
 CASES = ("startup-valid", "startup-valid-nonessential-off", "expired-refresh-success",
          "expired-refresh-invalid-grant", "usage-401-refresh-success", "startup-valid-base-url-gate")
 
@@ -35,6 +36,11 @@ def check(observed, probe_digest=None):
     for name, row in rows.items():
         need(row["model_attempts"] == 0 and row["model_events"] == 0, name + ": model attempt")
         need(row["exit_status"] == 0, name + ": exit")
+        need(row.get("stdout_unparsed_lines") == 0, name + ": unparsed native stdout")
+        unrecorded = row.get("unrecorded_connections")
+        need(isinstance(unrecorded, list) and len(unrecorded) == row["connection_errors"]
+             and all(entry.get("host") in TERMINATED for entry in unrecorded),
+             name + ": unrecorded connection outside the fixture hosts")
         need(all(r["method"] != "POST" or not r["path"].startswith("/v1/messages") for r in row["requests"]),
              name + ": messages path")
         need(not row["refused_connect_hosts"], name + ": unexpected CONNECT host")

@@ -48,6 +48,13 @@ class NativeEvidenceTests(unittest.TestCase):
                      "auth": "bearer-A", "phase": "after_get_usage"}),
             "unexpected host": lambda d: case(d, "startup-valid").update(refused_connect_hosts=["example.com"]),
             "wrong binary": lambda d: d.update(binary_sha256="0" * 64),
+            "nonzero exit": lambda d: case(d, "startup-valid").update(exit_status=1),
+            "model event": lambda d: case(d, "startup-valid").update(model_events=1),
+            "unparsed stdout": lambda d: case(d, "startup-valid").update(stdout_unparsed_lines=2),
+            "unrecorded connection elsewhere": lambda d: case(d, "startup-valid").update(
+                connection_errors=1, unrecorded_connections=[{"host": None, "stage": "connect_line",
+                                                              "error": "TimeoutError", "phase": "startup"}]),
+            "unrecorded count mismatch": lambda d: case(d, "startup-valid").update(connection_errors=7),
             "missing case": lambda d: d["cases"].pop(),
         }
         for name, change in mutations.items():

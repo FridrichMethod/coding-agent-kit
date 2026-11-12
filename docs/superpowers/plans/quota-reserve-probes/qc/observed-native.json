@@ -1,7 +1,7 @@
 {
   "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
   "version": "2.1.322",
-  "probe_sha256": "0a9c504f71ed712f0bb764344fc23c04cbf16fcea34e38135c8db9fb8f65254b",
+  "probe_sha256": "9d6dfc986f486d802c372f7cd5cd16ed42918b790a48dfe3fad877af53e115bb",
   "tls_probe_sha256": "75a924f4a8d14aee77e2ba990a40c2299d01473ff3bbc68946dbc5b38325eabb",
   "guard_sha256": "b1ced01775b5b1e23dc845c68f68faf856133356e38c6a75624be035a72ceee4",
   "runner_sha256": "f4eb8231cd7a4430ec66e476dd5271b1e9de353224066a66d94fcf4db006a5a7",
@@ -119,8 +119,19 @@
       ],
       "refused_connect_hosts": [],
       "connection_errors": 1,
+      "unrecorded_connections": [
+        {
+          "host": "api.anthropic.com",
+          "stage": "request_body",
+          "error": "ValueError",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "phase": "after_get_usage"
+        }
+      ],
       "model_attempts": 0,
       "model_events": 0,
+      "stdout_unparsed_lines": 0,
       "exit_status": 0,
       "credential_before": {
         "mode": "0o600",
@@ -180,11 +191,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:41Z"
+              "resets_at": "2026-11-12T18:12:53Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:41Z"
+              "resets_at": "2026-11-13T17:12:53Z"
             }
           }
         },
@@ -194,11 +205,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:41Z"
+              "resets_at": "2026-11-12T18:12:53Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:41Z"
+              "resets_at": "2026-11-13T17:12:53Z"
             }
           }
         }
@@ -227,8 +238,10 @@
       ],
       "refused_connect_hosts": [],
       "connection_errors": 0,
+      "unrecorded_connections": [],
       "model_attempts": 0,
       "model_events": 0,
+      "stdout_unparsed_lines": 0,
       "exit_status": 0,
       "credential_before": {
         "mode": "0o600",
@@ -434,8 +447,19 @@
       ],
       "refused_connect_hosts": [],
       "connection_errors": 1,
+      "unrecorded_connections": [
+        {
+          "host": "api.anthropic.com",
+          "stage": "request_body",
+          "error": "ValueError",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "phase": "after_get_usage"
+        }
+      ],
       "model_attempts": 0,
       "model_events": 0,
+      "stdout_unparsed_lines": 0,
       "exit_status": 0,
       "credential_before": {
         "mode": "0o600",
@@ -495,11 +519,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:46Z"
+              "resets_at": "2026-11-12T18:12:58Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:46Z"
+              "resets_at": "2026-11-13T17:12:58Z"
             }
           }
         },
@@ -509,11 +533,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:46Z"
+              "resets_at": "2026-11-12T18:12:58Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:46Z"
+              "resets_at": "2026-11-13T17:12:58Z"
             }
           }
         }
@@ -580,7 +604,7 @@
         {
           "host": "api.anthropic.com",
           "method": "GET",
-          "path": "/api/claude_code_penguin_mode",
+          "path": "/api/claude_code_grove",
           "query_keys": [],
           "auth": "bearer-A",
           "x_api_key_present": false,
@@ -590,7 +614,7 @@
         {
           "host": "api.anthropic.com",
           "method": "GET",
-          "path": "/api/claude_code_grove",
+          "path": "/api/claude_code_penguin_mode",
           "query_keys": [],
           "auth": "bearer-A",
           "x_api_key_present": false,
@@ -618,8 +642,19 @@
       ],
       "refused_connect_hosts": [],
       "connection_errors": 1,
+      "unrecorded_connections": [
+        {
+          "host": "api.anthropic.com",
+          "stage": "request_body",
+          "error": "ValueError",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "phase": "after_get_usage"
+        }
+      ],
       "model_attempts": 0,
       "model_events": 0,
+      "stdout_unparsed_lines": 0,
       "exit_status": 0,
       "credential_before": {
         "mode": "0o600",
@@ -694,22 +729,22 @@
       "requests": [
         {
           "host": "api.anthropic.com",
-          "method": "POST",
-          "path": "/api/eval/sdk-<redacted>",
-          "query_keys": [],
-          "auth": "bearer-A",
-          "x_api_key_present": false,
-          "anthropic_beta_present": true,
-          "phase": "startup"
-        },
-        {
-          "host": "api.anthropic.com",
           "method": "GET",
           "path": "/api/oauth/profile",
           "query_keys": [],
           "auth": "bearer-A",
           "x_api_key_present": false,
           "anthropic_beta_present": false,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/eval/sdk-<redacted>",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
           "phase": "startup"
         },
         {
@@ -836,8 +871,19 @@
       ],
       "refused_connect_hosts": [],
       "connection_errors": 1,
+      "unrecorded_connections": [
+        {
+          "host": "api.anthropic.com",
+          "stage": "request_body",
+          "error": "ValueError",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "phase": "after_get_usage"
+        }
+      ],
       "model_attempts": 0,
       "model_events": 0,
+      "stdout_unparsed_lines": 0,
       "exit_status": 0,
       "credential_before": {
         "mode": "0o600",
@@ -897,11 +943,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:51Z"
+              "resets_at": "2026-11-12T18:13:04Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:51Z"
+              "resets_at": "2026-11-13T17:13:04Z"
             }
           }
         },
@@ -911,11 +957,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:51Z"
+              "resets_at": "2026-11-12T18:13:04Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:51Z"
+              "resets_at": "2026-11-13T17:13:04Z"
             }
           }
         }
@@ -1033,8 +1079,19 @@
       ],
       "refused_connect_hosts": [],
       "connection_errors": 1,
+      "unrecorded_connections": [
+        {
+          "host": "api.anthropic.com",
+          "stage": "request_body",
+          "error": "ValueError",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "phase": "after_get_usage"
+        }
+      ],
       "model_attempts": 0,
       "model_events": 0,
+      "stdout_unparsed_lines": 0,
       "exit_status": 0,
       "credential_before": {
         "mode": "0o600",
@@ -1094,11 +1151,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:54Z"
+              "resets_at": "2026-11-12T18:13:06Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:54Z"
+              "resets_at": "2026-11-13T17:13:06Z"
             }
           }
         },
@@ -1108,11 +1165,11 @@
           "rate_limits": {
             "five_hour": {
               "utilization": 12.5,
-              "resets_at": "2026-11-12T17:32:54Z"
+              "resets_at": "2026-11-12T18:13:06Z"
             },
             "seven_day": {
               "utilization": 35.5,
-              "resets_at": "2026-11-13T16:32:54Z"
+              "resets_at": "2026-11-13T17:13:06Z"
             }
           }
         }
