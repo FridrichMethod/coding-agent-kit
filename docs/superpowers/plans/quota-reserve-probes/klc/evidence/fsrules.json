@@ -1,0 +1,1069 @@
+{
+ "case": "fsrules",
+ "child_rows": [],
+ "cleanup": {
+  "main": {
+   "lingering_killed": 0,
+   "native_main_exit": 0,
+   "syscalls": {
+    "inet_connect": [
+     {
+      "call": "connect",
+      "exe": "2.1.322",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
+      "call": "connect",
+      "exe": "git-remote-https",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     }
+    ],
+    "socket_allowed": {
+     "2.1.322 AF_INET/SOCK_STREAM/IPPROTO_IP": 17,
+     "2.1.322 pair AF_UNIX/SOCK_STREAM/0": 50,
+     "git-remote-https AF_INET/SOCK_STREAM/IPPROTO_TCP": 1
+    },
+    "socket_denied": {
+     "2.1.322 AF_UNIX/SOCK_STREAM/0": 1,
+     "env AF_UNIX/SOCK_STREAM/0": 2,
+     "gh AF_UNIX/SOCK_STREAM/0": 3,
+     "ps AF_UNIX/SOCK_STREAM/0": 4,
+     "ssh AF_INET/SOCK_DGRAM/IPPROTO_IP": 4,
+     "ssh AF_UNIX/SOCK_STREAM/0": 12,
+     "zsh AF_UNIX/SOCK_STREAM/0": 4
+    },
+    "unix_connect": {}
+   },
+   "traced_executables": [
+    "2.1.322",
+    "awk",
+    "cut",
+    "dpkg-query",
+    "env",
+    "gh",
+    "git",
+    "git-remote-https",
+    "grep",
+    "mv",
+    "ps",
+    "sh",
+    "ssh",
+    "touch",
+    "uname",
+    "xdg-mime",
+    "zsh"
+   ],
+   "traced_processes": 111
+  }
+ },
+ "exit": {
+  "exited": true,
+  "seconds": 2.4,
+  "stop_tasks_dialog": false,
+  "termios_restored": true
+ },
+ "fsrules_applied": true,
+ "inside_written": true,
+ "launched": true,
+ "lingering_after_cleanup": 0,
+ "native_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+ "outside_written": false,
+ "policy": {
+  "allowed_models": [
+   "claude-sonnet-4-6"
+  ],
+  "max_age_s": 4.0,
+  "reserves": {
+   "five_hour": 20,
+   "weekly": 10
+  },
+  "revalidations_per_minute": 4
+ },
+ "rows": [
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 11.585,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168982.095105649,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168982.095186892
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.799,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168982.096014662,
+   "what": "profile"
+  },
+  {
+   "cause": "startup",
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "lease",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.096189046
+  },
+  {
+   "event": "preflight",
+   "inv": "main",
+   "ms": 12.808,
+   "row": "event",
+   "source": "gate",
+   "t": 168982.096213168
+  },
+  {
+   "event": "gate_ready",
+   "inv": "main",
+   "mode": "startup",
+   "pid": 2969634,
+   "port": 42625,
+   "row": "event",
+   "source": "gate",
+   "t": 168982.09648954
+  },
+  {
+   "event": "gate_started",
+   "inv": "main",
+   "mode": "startup",
+   "row": "event",
+   "source": "launcher",
+   "spawn_to_ready_ms": 205.953,
+   "t": 168982.115123183
+  },
+  {
+   "gate_event": "gate_ready",
+   "inv": "main",
+   "reason": null,
+   "row": "launch",
+   "t": 168982.115142994
+  },
+  {
+   "event": "native_started",
+   "inv": "main",
+   "row": "event",
+   "source": "launcher",
+   "t": 168982.115913066
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.209,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168982.173319059,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168982.173381101
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.674,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168982.174076473,
+   "what": "profile"
+  },
+  {
+   "deadline": 168986.17203673,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.174222449
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 2.211,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.174247363
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.384966734
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.385012552,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.441283622
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.441320724,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.465831873
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.465868623,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 168982.571633311
+  },
+  {
+   "admit_ms": 0.118,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 1,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": false,
+   "stream": 1,
+   "t": 168982.571675318,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.263,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 168982.571817237
+  },
+  {
+   "continued": false,
+   "first": "quota",
+   "id": 1,
+   "kind": "probe",
+   "label": "A",
+   "later": false,
+   "max_tokens": 1,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": false,
+   "t": 168982.572276805,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 168982.572441709
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 168982.582919804
+  },
+  {
+   "admit_ms": 0.151,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 2,
+   "t": 168982.58296387,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.287,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 168982.583096459
+  },
+  {
+   "continued": false,
+   "first": "<session>\nKLC root fsrules\n</session>\n\nWrite the",
+   "id": 2,
+   "kind": "aux",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 168982.583504413,
+   "tag": "fsrules",
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 168982.583704886
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.611773332
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.611812455,
+   "target": "raw.githubusercontent.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.614359438
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.614385604,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.614508229
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.614534172,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.614656207
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.614683286,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.614769875
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.614786313,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.615765173
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.615787486,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.629270985
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.629305632,
+   "target": "downloads.claude.ai:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 168982.655505257
+  },
+  {
+   "admit_ms": 0.528,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 3,
+   "t": 168982.65554301,
+   "tools": 13
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.699,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 168982.65571186
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 3,
+   "kind": "root",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 168982.656561934,
+   "tag": "fsrules",
+   "tool_results": 0,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 168982.656768665
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168982.710023438
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168982.710123465,
+   "target": "github.com:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 168982.710910472
+  },
+  {
+   "admit_ms": 0.553,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 4,
+   "t": 168982.710942546,
+   "tools": 13
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.751,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 168982.711139043
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 4,
+   "kind": "root",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": "\"inside=0\\n(eval):1: permission denied: <PROBE_ROOT>/outside/outside.txt\\noutside=1\\ntmp=0\\n\\n<system-reminder>\\n<total_tokens>14999985 tokens left</total_tokens>\\n</system-reminder>\"",
+   "row": "upstream_request",
+   "stream": true,
+   "t": 168982.71185156,
+   "tag": "fsrules",
+   "tool_results": 1,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 168982.712044295
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.948,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168983.174525012,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168983.174581806
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.646,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168983.175247839,
+   "what": "profile"
+  },
+  {
+   "deadline": 168987.173433923,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168983.175412874
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 2.004,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168983.175436777
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.988,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168984.176423172,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168984.176478483
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.612,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168984.177110855,
+   "what": "profile"
+  },
+  {
+   "deadline": 168988.175283771,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168984.177265457
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 2.001,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168984.177286324
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.895,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168985.177884498,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168985.177936502
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.608,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168985.178564383,
+   "what": "profile"
+  },
+  {
+   "deadline": 168989.176844983,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168985.178719908
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.894,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168985.178741088
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.916,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168986.179667485,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168986.179724084
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.656,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168986.180400201,
+   "what": "profile"
+  },
+  {
+   "deadline": 168990.178607284,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168986.180561292
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.973,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168986.180582356
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168986.524075711
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168986.524110499,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168987.027291525
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168987.027326797,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168987.032027038
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168987.032053036,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "t": 168987.141254237
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "main",
+   "row": "event",
+   "source": "monitor",
+   "t": 168987.142061927
+  }
+ ],
+ "sanitized": true,
+ "summary": {
+  "connects": {
+   "api.anthropic.com:443 refused": 11,
+   "downloads.claude.ai:443 refused": 1,
+   "github.com:443 refused": 1,
+   "raw.githubusercontent.com:443 refused": 1
+  },
+  "decisions_refused": 0,
+  "forwarded": 4,
+  "forwarded_after_latch": 0,
+  "latch": null,
+  "upstream_requests": 4
+ },
+ "terminal": {
+  "main": "<PATH> DeprecationWarning: Due to '_pack_', the 'PathBeneath' Structure will use memory layout compatible with MSVC (Windows). If this is intended, set _layout_ to 'ms'. The implicit default is deprecated and slated to become an error in Python 3.19. class PathBeneath(ctypes.Structure): fsrules-applied abi=8 handled=0x7ff2 dirs=10 files=2 boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 42625}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42} \u2590\u259b\u2588\u2588\u2588\u259b\u2588ClaudeCodev2.1.322 \u259d\u259c\u2588\u2588\u2588\u2588\u2588\u2588\u2580Sonnet4.6\u00b7ClaudeMax <PATH> \u26a0Safemode:allcustomizationsaredisabled(CLAUDE.md,skills,plugins,hooks,MCP,agents,andmore) Restartwithout--safe-modetore-enable \u276f KLC root fsrules \u00b7Determining\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u276f esc to interrupt \u00b7 \u2190 for agents \u25cfBash(echo ok <PATH> <PATH> \u23bf Running\u2026 \u00b7 Polishing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cf inside=0 <PATH> outside=1 tmp=0 \u00b7 Polishing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cfKLC fs done \u273b Churned for 0s \u00b7 done 11:14 AM \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> No backgroundagentsrunning Press Ctrl-C again to exit \u000f Resume this session with: claude --resume 26bbe86b-820f-456f-897f-6f5367453c9b "
+ },
+ "tool_result": [
+  "\"inside=0\\n(eval):1: permission denied: <PROBE_ROOT>/outside/outside.txt\\noutside=1\\ntmp=0\\n\\n<system-reminder>\\n<total_tokens>14999985 tokens left</total_tokens>\\n</system-reminder>\""
+ ],
+ "usage_requests": [
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168982.094629898
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168982.095720821
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168982.172967326
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168982.173835564
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168983.17417447
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168983.175018119
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168984.176083175
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168984.176886167
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168985.177552356
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168985.178336327
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168986.179335437
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168986.180167809
+  }
+ ]
+}

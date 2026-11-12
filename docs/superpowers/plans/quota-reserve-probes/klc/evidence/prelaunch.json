@@ -1,0 +1,114 @@
+{
+ "case": "prelaunch",
+ "child_rows": [],
+ "cleanup": {},
+ "launched": true,
+ "lingering_after_cleanup": 0,
+ "native_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+ "policy": {
+  "allowed_models": [
+   "claude-sonnet-4-6"
+  ],
+  "max_age_s": 4.0,
+  "reserves": {
+   "five_hour": 20,
+   "weekly": 10
+  },
+  "revalidations_per_minute": 4
+ },
+ "rows": [
+  {
+   "ok": true,
+   "row": "prelaunch_connect",
+   "t": 168957.217739169,
+   "target": "platform.claude.com:443"
+  },
+  {
+   "authorization_present": false,
+   "expected_refresh": true,
+   "grant_type": "refresh_token",
+   "method": "POST",
+   "path": "/v1/oauth/token",
+   "row": "refresh_request",
+   "t": 168957.222766865
+  },
+  {
+   "ok": false,
+   "row": "prelaunch_connect",
+   "t": 168957.225907464,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "ok": false,
+   "row": "prelaunch_connect",
+   "t": 168957.233166317,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "ok": true,
+   "row": "prelaunch_connect",
+   "t": 168957.403328078,
+   "target": "platform.claude.com:443"
+  },
+  {
+   "authorization_present": false,
+   "expected_refresh": true,
+   "grant_type": "refresh_token",
+   "method": "POST",
+   "path": "/v1/oauth/token",
+   "row": "refresh_request",
+   "t": 168957.408964728
+  },
+  {
+   "ok": false,
+   "row": "prelaunch_connect",
+   "t": 168957.41194275,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "ok": false,
+   "row": "prelaunch_connect",
+   "t": 168957.419199773,
+   "target": "api.anthropic.com:443"
+  }
+ ],
+ "runs": [
+  {
+   "elapsed_s": 0.23,
+   "exit": 0,
+   "refresh_requests": 1,
+   "status_fields": {
+    "apiProvider": "firstParty",
+    "authMethod": "claude.ai",
+    "loggedIn": true
+   },
+   "store_label_after": "A2",
+   "variant": "near_expiry"
+  },
+  {
+   "elapsed_s": 0.19,
+   "exit": 0,
+   "refresh_requests": 1,
+   "status_fields": {
+    "apiProvider": "firstParty",
+    "authMethod": "claude.ai",
+    "loggedIn": true
+   },
+   "store_label_after": "A2",
+   "variant": "expired"
+  }
+ ],
+ "sanitized": true,
+ "terminal": {},
+ "tunnel_targets": [
+  [
+   "api.anthropic.com:443",
+   false
+  ],
+  [
+   "platform.claude.com:443",
+   true
+  ]
+ ],
+ "usage_requests": []
+}

@@ -1,0 +1,2301 @@
+{
+ "case": "rotation",
+ "child_rows": [
+  {
+   "actor": "sdk",
+   "attempt": "start",
+   "mode": "sdk",
+   "pid": 2875316,
+   "t": 168888.673533621
+  },
+  {
+   "actor": "sdk",
+   "attempt": "direct_upstream",
+   "pid": 2875316,
+   "result": "EACCES",
+   "t": 168888.680166034
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "A2",
+   "pid": 2875316,
+   "sent": 168888.680340887,
+   "seq": 1,
+   "status": 200,
+   "t": 168888.682520134
+  },
+  {
+   "actor": "connects-open",
+   "attempt": "start",
+   "mode": "connects",
+   "pid": 2875346,
+   "t": 168888.955421505
+  },
+  {
+   "actor": "connects-open",
+   "attempt": "connect",
+   "pid": 2875346,
+   "status": 200,
+   "t": 168888.962182228,
+   "target": "platform.claude.com:443"
+  },
+  {
+   "actor": "connects-open",
+   "attempt": "connect",
+   "pid": 2875346,
+   "status": 403,
+   "t": 168888.962645778,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "actor": "connects-open",
+   "attempt": "connect",
+   "pid": 2875346,
+   "status": 403,
+   "t": 168888.963058015,
+   "target": "platform.claude.com:80"
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168889.083341023,
+   "seq": 2,
+   "status": 403,
+   "t": 168889.086200131
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168889.486693376,
+   "seq": 3,
+   "status": 403,
+   "t": 168889.487509702
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168889.888055013,
+   "seq": 4,
+   "status": 403,
+   "t": 168889.888919394
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168890.289288721,
+   "seq": 5,
+   "status": 403,
+   "t": 168890.290135853
+  },
+  {
+   "actor": "sdk",
+   "attempt": "direct_upstream",
+   "pid": 2875316,
+   "result": "EACCES",
+   "t": 168890.291041282
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168890.692155667,
+   "seq": 6,
+   "status": 403,
+   "t": 168890.693545361
+  },
+  {
+   "actor": "connects-paused",
+   "attempt": "start",
+   "mode": "connects",
+   "pid": 2876044,
+   "t": 168890.853634724
+  },
+  {
+   "actor": "connects-paused",
+   "attempt": "connect",
+   "pid": 2876044,
+   "status": 403,
+   "t": 168890.860332078,
+   "target": "platform.claude.com:443"
+  },
+  {
+   "actor": "connects-paused",
+   "attempt": "connect",
+   "pid": 2876044,
+   "status": 403,
+   "t": 168890.86088708,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "actor": "connects-paused",
+   "attempt": "connect",
+   "pid": 2876044,
+   "status": 403,
+   "t": 168890.861442289,
+   "target": "platform.claude.com:80"
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168891.094006513,
+   "seq": 7,
+   "status": 403,
+   "t": 168891.094776538
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168891.495145736,
+   "seq": 8,
+   "status": 403,
+   "t": 168891.49594729
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168891.896609196,
+   "seq": 9,
+   "status": 403,
+   "t": 168891.897480813
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168892.298735796,
+   "seq": 10,
+   "status": 403,
+   "t": 168892.299592653
+  },
+  {
+   "actor": "sdk",
+   "attempt": "direct_upstream",
+   "pid": 2875316,
+   "result": "EACCES",
+   "t": 168892.299794158
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168892.70022142,
+   "seq": 11,
+   "status": 403,
+   "t": 168892.701005302
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168893.101455403,
+   "seq": 12,
+   "status": 403,
+   "t": 168893.102247101
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168893.502739076,
+   "seq": 13,
+   "status": 403,
+   "t": 168893.503673886
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168893.904318576,
+   "seq": 14,
+   "status": 403,
+   "t": 168893.905237278
+  },
+  {
+   "actor": "sdk",
+   "attempt": "model_request",
+   "bearer": "B",
+   "pid": 2875316,
+   "sent": 168894.305667473,
+   "seq": 15,
+   "status": 403,
+   "t": 168894.306463904
+  },
+  {
+   "actor": "sdk",
+   "attempt": "direct_upstream",
+   "pid": 2875316,
+   "result": "EACCES",
+   "t": 168894.306707967
+  }
+ ],
+ "cleanup": {
+  "main": {
+   "lingering_killed": 0,
+   "native_main_exit": 0,
+   "syscalls": {
+    "inet_connect": [
+     {
+      "call": "connect",
+      "exe": "2.1.322",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
+      "address": "127.0.0.1",
+      "call": "connect",
+      "exe": "python3.15",
+      "port": 40767,
+      "result": "EACCES",
+      "target": "other_loopback"
+     },
+     {
+      "call": "connect",
+      "exe": "python3.15",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
+      "call": "connect",
+      "exe": "git-remote-https",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     }
+    ],
+    "socket_allowed": {
+     "2.1.322 AF_INET/SOCK_STREAM/IPPROTO_IP": 25,
+     "2.1.322 pair AF_UNIX/SOCK_STREAM/0": 48,
+     "git-remote-https AF_INET/SOCK_STREAM/IPPROTO_TCP": 1,
+     "python3.15 AF_INET/SOCK_STREAM/IPPROTO_TCP": 19
+    },
+    "socket_denied": {
+     "2.1.322 AF_UNIX/SOCK_STREAM/0": 1,
+     "env AF_UNIX/SOCK_STREAM/0": 2,
+     "gh AF_UNIX/SOCK_STREAM/0": 3,
+     "ps AF_UNIX/SOCK_STREAM/0": 2,
+     "ssh AF_INET/SOCK_DGRAM/IPPROTO_IP": 4,
+     "ssh AF_UNIX/SOCK_STREAM/0": 12,
+     "zsh AF_UNIX/SOCK_STREAM/0": 4
+    },
+    "unix_connect": {}
+   },
+   "traced_executables": [
+    "2.1.322",
+    "awk",
+    "cat",
+    "cut",
+    "dpkg-query",
+    "env",
+    "gh",
+    "git",
+    "git-remote-https",
+    "grep",
+    "mv",
+    "ps",
+    "python3.15",
+    "sh",
+    "ssh",
+    "touch",
+    "uname",
+    "xdg-mime",
+    "zsh"
+   ],
+   "traced_processes": 113
+  }
+ },
+ "connects_while_open": [
+  [
+   "platform.claude.com:443",
+   200
+  ],
+  [
+   "api.anthropic.com:443",
+   403
+  ],
+  [
+   "platform.claude.com:80",
+   403
+  ]
+ ],
+ "connects_while_paused": [
+  [
+   "platform.claude.com:443",
+   403
+  ],
+  [
+   "api.anthropic.com:443",
+   403
+  ],
+  [
+   "platform.claude.com:80",
+   403
+  ]
+ ],
+ "exit": {
+  "exited": true,
+  "seconds": 3.9,
+  "stop_tasks_dialog": true,
+  "termios_restored": true
+ },
+ "later_refused": true,
+ "launched": true,
+ "lingering_after_cleanup": 0,
+ "native_alive": true,
+ "native_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+ "policy": {
+  "allowed_models": [
+   "claude-sonnet-4-6"
+  ],
+  "max_age_s": 4.0,
+  "reserves": {
+   "five_hour": 20,
+   "weekly": 10
+  },
+  "revalidations_per_minute": 4
+ },
+ "refresh_requests": 1,
+ "rotation_holds": [
+  {
+   "admit_ms": 1.801,
+   "ok": true,
+   "reason": "admitted",
+   "t": 168888.347936052
+  },
+  {
+   "admit_ms": 2.001,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "t": 168889.084012519
+  }
+ ],
+ "rows": [
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 8.345,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168887.737930414,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168887.738003707
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.954,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168887.738983168,
+   "what": "profile"
+  },
+  {
+   "cause": "startup",
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "lease",
+   "row": "event",
+   "source": "gate",
+   "t": 168887.739246666
+  },
+  {
+   "event": "preflight",
+   "inv": "main",
+   "ms": 9.793,
+   "row": "event",
+   "source": "gate",
+   "t": 168887.73927045
+  },
+  {
+   "event": "gate_ready",
+   "inv": "main",
+   "mode": "startup",
+   "pid": 2875051,
+   "port": 41773,
+   "row": "event",
+   "source": "gate",
+   "t": 168887.739595009
+  },
+  {
+   "event": "gate_started",
+   "inv": "main",
+   "mode": "startup",
+   "row": "event",
+   "source": "launcher",
+   "spawn_to_ready_ms": 188.629,
+   "t": 168887.75257456
+  },
+  {
+   "gate_event": "gate_ready",
+   "inv": "main",
+   "reason": null,
+   "row": "launch",
+   "t": 168887.752587002
+  },
+  {
+   "event": "native_started",
+   "inv": "main",
+   "row": "event",
+   "source": "launcher",
+   "t": 168887.753446619
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.133,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168887.815821522,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168887.815881405
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.27,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168887.817171996,
+   "what": "profile"
+  },
+  {
+   "deadline": 168891.814562735,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168887.817488316
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 2.952,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168887.817512905
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 168887.939297953
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": true,
+   "reason": "tunnel",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 168887.939331617,
+   "target": "platform.claude.com:443"
+  },
+  {
+   "authorization_present": false,
+   "expected_refresh": true,
+   "grant_type": "refresh_token",
+   "method": "POST",
+   "path": "/v1/oauth/token",
+   "row": "refresh_request",
+   "t": 168887.945733982
+  },
+  {
+   "bytes_down": 3444,
+   "bytes_up": 2109,
+   "event": "tunnel_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 168887.98677904
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168887.989481173
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168887.989505259,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.014847447
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.014869756,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.226186298
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.226219467,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.247858882
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.247884125,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "rotation_hold",
+   "previous_epoch": 1,
+   "row": "event",
+   "source": "gate",
+   "t": 168888.347936052
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.956,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168888.34902096,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168888.349038064
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.487,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168888.349534613,
+   "what": "profile"
+  },
+  {
+   "cause": "rotation",
+   "epoch": 3,
+   "event": "controller",
+   "inv": "main",
+   "kind": "lease",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.349633194
+  },
+  {
+   "epoch": 3,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 168888.349649527
+  },
+  {
+   "admit_ms": 1.801,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 1,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": false,
+   "stream": 2,
+   "t": 168888.349659729,
+   "tools": 0
+  },
+  {
+   "epoch": 3,
+   "event": "forwarded",
+   "gate_ms": 1.863,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 168888.349720314
+  },
+  {
+   "continued": false,
+   "first": "quota",
+   "id": 1,
+   "kind": "probe",
+   "label": "A2",
+   "later": false,
+   "max_tokens": 1,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": false,
+   "t": 168888.350101371,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 168888.350216925
+  },
+  {
+   "epoch": 3,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 168888.358970609
+  },
+  {
+   "admit_ms": 0.135,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 3,
+   "t": 168888.359013311,
+   "tools": 0
+  },
+  {
+   "epoch": 3,
+   "event": "forwarded",
+   "gate_ms": 0.262,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 168888.359138177
+  },
+  {
+   "continued": false,
+   "first": "<session>\nKLC root rotation\n</session>\n\nWrite th",
+   "id": 2,
+   "kind": "aux",
+   "label": "A2",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 168888.359473916,
+   "tag": "rotation",
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 168888.359656957
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.386998125
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.387026009,
+   "target": "raw.githubusercontent.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.388989775
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.389009519,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.389084886
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.389101822,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.389202354
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.389217943,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.389331501
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.389397078,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.389834045
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.389848136,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.396651327
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.396660972,
+   "target": "downloads.claude.ai:443"
+  },
+  {
+   "epoch": 3,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 168888.421096242
+  },
+  {
+   "admit_ms": 0.562,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 4,
+   "t": 168888.421134467,
+   "tools": 13
+  },
+  {
+   "epoch": 3,
+   "event": "forwarded",
+   "gate_ms": 0.744,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 168888.421314899
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 3,
+   "kind": "root",
+   "label": "A2",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 168888.422149165,
+   "tag": "rotation",
+   "tool_results": 0,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 168888.422286665
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.48957327
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.48960902,
+   "target": "github.com:443"
+  },
+  {
+   "epoch": 3,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 168888.506583388
+  },
+  {
+   "admit_ms": 0.42,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 5,
+   "t": 168888.506619883,
+   "tools": 13
+  },
+  {
+   "epoch": 3,
+   "event": "forwarded",
+   "gate_ms": 0.578,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 168888.506775667
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 4,
+   "kind": "root",
+   "label": "A2",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": "\"Command running in background with ID: bsy1l2it1. Output is being written to: <PROBE_ROOT>/native-main/tmp/claude-1001/-tmp-quota-klc-rotation-0-c5jpgi-native-main-workspace/fc5d2a2f-d68a-4e93-bb57-daaadc0f79d3/tasks/bsy1l2it1.output. You will be notified when it completes \\u201",
+   "row": "upstream_request",
+   "stream": true,
+   "t": 168888.50749395,
+   "tag": "rotation",
+   "tool_results": 1,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "id": 4,
+   "kind": "root",
+   "label": "A2",
+   "row": "stream_held",
+   "t": 168888.507609712
+  },
+  {
+   "epoch": 3,
+   "event": "controller",
+   "inv": "main",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 168888.680788935
+  },
+  {
+   "admit_ms": 0.073,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 6,
+   "t": 168888.680819475,
+   "tools": 0
+  },
+  {
+   "epoch": 3,
+   "event": "forwarded",
+   "gate_ms": 0.192,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 168888.680936919
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk 1",
+   "id": 5,
+   "kind": "sdk",
+   "label": "A2",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 168888.681486202,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 168888.681655593
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.911,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168888.817536437,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168888.817590772
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.699,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168888.818309121,
+   "what": "profile"
+  },
+  {
+   "deadline": 168892.816476395,
+   "epoch": 3,
+   "event": "controller",
+   "inv": "main",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.818457495
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 2.005,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.818480229
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 168888.961974687
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": true,
+   "reason": "tunnel",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 168888.962008589,
+   "target": "platform.claude.com:443"
+  },
+  {
+   "error": "SSLEOFError",
+   "row": "refresh_error",
+   "t": 168888.962440966
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.962480539
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.962544221,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "bytes_down": 0,
+   "bytes_up": 0,
+   "event": "tunnel_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 168888.962609622
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168888.962946579
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168888.962968608,
+   "target": "platform.claude.com:80"
+  },
+  {
+   "exit": 0,
+   "mode": "connects",
+   "name": "connects-open",
+   "row": "boundary_actor",
+   "stderr": "",
+   "t": 168888.710476344
+  },
+  {
+   "row": "store_swapped",
+   "t": 168888.970546381,
+   "to": "B"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "rotation_hold",
+   "previous_epoch": 3,
+   "row": "event",
+   "source": "gate",
+   "t": 168889.084012519
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.904,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168889.085085305,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168889.085103092
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.651,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168889.085765173,
+   "what": "profile"
+  },
+  {
+   "closed": 1,
+   "event": "controller",
+   "inv": "main",
+   "kind": "latched",
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "state": "paused",
+   "t": 168889.085910782
+  },
+  {
+   "admit_ms": 2.001,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168889.085957171,
+   "tools": 0
+  },
+  {
+   "event": "stream_closed",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 168889.086054668
+  },
+  {
+   "id": 4,
+   "kind": "root",
+   "row": "stream_disconnected",
+   "t": 168889.208501086
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168889.487288302
+  },
+  {
+   "admit_ms": 0.063,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168889.487326362,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168889.654601006
+  },
+  {
+   "admit_ms": 0.54,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168889.654639056,
+   "tools": 13
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.232,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168889.819770133,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 168889.81980404
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.291,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168889.81982114
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168889.888681457
+  },
+  {
+   "admit_ms": 0.052,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168889.888714731,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168890.289883698
+  },
+  {
+   "admit_ms": 0.064,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168890.289921963,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168890.692667904
+  },
+  {
+   "admit_ms": 0.057,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168890.692701948,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.529,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168890.822455758,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 168890.822620794
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.725,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168890.822644841
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168890.859930431
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168890.859961315,
+   "target": "platform.claude.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168890.860754037
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168890.860781153,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168890.861253613
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168890.861275808,
+   "target": "platform.claude.com:80"
+  },
+  {
+   "exit": 0,
+   "mode": "connects",
+   "name": "connects-paused",
+   "row": "boundary_actor",
+   "stderr": "",
+   "t": 168890.621504961
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.094566704
+  },
+  {
+   "admit_ms": 0.069,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168891.094599864,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.495740075
+  },
+  {
+   "admit_ms": 0.058,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168891.495775095,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.796262424
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168891.796297928,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.798206
+  },
+  {
+   "admit_ms": 0.079,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168891.79823694,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.799066808
+  },
+  {
+   "admit_ms": 0.367,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 32000,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168891.799092594,
+   "tools": 13
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.098,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168891.823826363,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.82388227
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.178,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.823901079
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168891.897267065
+  },
+  {
+   "admit_ms": 0.059,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168891.897302644,
+   "tools": 0
+  },
+  {
+   "history_view_alive": true,
+   "inv": "main",
+   "row": "later_prompt",
+   "t": 168891.768760982
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168892.299361195
+  },
+  {
+   "admit_ms": 0.06,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168892.299398108,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168892.313768216
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168892.313787272,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168892.700776332
+  },
+  {
+   "admit_ms": 0.063,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168892.700813844,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.17,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168892.826125866,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 168892.826183155
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.253,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168892.826203007
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168893.102020397
+  },
+  {
+   "admit_ms": 0.067,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168893.102057706,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168893.325271698
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168893.325304208,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168893.503375304
+  },
+  {
+   "admit_ms": 0.057,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168893.503409794,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168893.827058894
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168893.827208659,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 0.933,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168893.828207966,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 168893.82825167
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.1,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168893.82826949
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168893.904970872
+  },
+  {
+   "admit_ms": 0.056,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168893.905008913,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 168894.306243426
+  },
+  {
+   "admit_ms": 0.063,
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 168894.30628233,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168894.317530279
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168894.317549352,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 168894.669166768
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 168894.669206872,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.67,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168894.832270752,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 168894.832311094
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.736,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168894.8323291
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.509,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168895.835121918,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 168895.835319303
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.725,
+   "ok": false,
+   "reason": "bearer_identity_mismatch",
+   "row": "event",
+   "source": "gate",
+   "t": 168895.835332273
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "t": 168895.988868474
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "main",
+   "row": "event",
+   "source": "monitor",
+   "t": 168895.989110968
+  }
+ ],
+ "sanitized": true,
+ "store_inode_replaced": true,
+ "store_refreshed_to_A2": true,
+ "summary": {
+  "connects": {
+   "api.anthropic.com:443 refused": 17,
+   "downloads.claude.ai:443 refused": 1,
+   "github.com:443 refused": 1,
+   "platform.claude.com:443 ok": 2,
+   "platform.claude.com:443 refused": 1,
+   "platform.claude.com:80 refused": 2,
+   "raw.githubusercontent.com:443 refused": 1
+  },
+  "decisions_refused": 17,
+  "forwarded": 5,
+  "forwarded_after_latch": 0,
+  "latch": {
+   "reason": "bearer_identity_mismatch",
+   "t": 168889.085910782
+  },
+  "upstream_requests": 5
+ },
+ "swap_t": 168888.970546381,
+ "terminal": {
+  "main": "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> <PATH> <PATH> sdk --spec <PATH> \u23bf Running in the background (\u2193 to manage) 11:13 AM<synthetic> \u25cfPlease run <PATH> \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (bearer_identity_mismatch); continue only from the trusted terminal after a fresh check \u273b Brewed for 1s \u00b7 done 11:13 AM \u00b7 1 shell still running \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Showing detailed transcript\u00b7ctl+o to toggle \u00b7 ctrl+e to show all verbose <PATH> \u23bf Running in the background (\u2193 to manage) \u25cfPlease run <PATH> \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (bearer_identity_mismatch); continue only from the trusted terminal after a fresh check \u273bBrewed for 1s \u00b7 done 11:13 AM \u00b7 1 shell still running \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5 don't ask on \u00b7 1 shell \u00b7\u2190fo agents \u00b7 \u2193 to manage \u25cf high \u00b7 <PATH> \u276f KLC later prompt \u2736 Flamb\u00e9ing\u2026 \u23bf Tip: Start with small featuresor bugfixes,tell Claude to propose a plan, and verify its suggested edits \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u25cfPlease run <PATH> \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (bearer_identity_mismatch); continue only from the trusted terminal after a fresh check \u273b Saut\u00e9ed for 0s \u00b7 done 11:13 AM \u00b7 1 shell still running \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> No backgroundagentsrunning Press Ctrl-C again to exit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Background work is running The following will stop when you exit: shell \u00b7KLCsdkchild \u276f1.Exitandstoptasks 2.Movetobackgroundandexit 3.Stay Entertoconfirm\u00b7Esctocancel \u000f Resume this session with: claude --resume fc5d2a2f-d68a-4e93-bb57-daaadc0f79d3 "
+ },
+ "usage_requests": [
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168887.737456363
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168887.738717607
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168887.815370348
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168887.816904073
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168888.34869439
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/profile",
+   "t": 168888.349385213
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168888.817201749
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/profile",
+   "t": 168888.818003906
+  },
+  {
+   "account": "B",
+   "path": "/api/oauth/usage",
+   "t": 168889.084780489
+  },
+  {
+   "account": "B",
+   "path": "/api/oauth/profile",
+   "t": 168889.085545384
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168889.819457341
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168890.822053949
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168891.823498826
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168892.825768542
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168893.82792649
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168894.831844041
+  },
+  {
+   "account": "A2",
+   "path": "/api/oauth/usage",
+   "t": 168895.834704779
+  }
+ ]
+}

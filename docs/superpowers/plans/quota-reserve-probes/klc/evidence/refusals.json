@@ -1,0 +1,701 @@
+{
+ "boundary_socket_stdin": {
+  "exit": 2,
+  "launcher_refusal": "stdio_socket",
+  "stderr": "boundary: refused: stdio descriptor [0] is a socket"
+ },
+ "case": "refusals",
+ "child_rows": [],
+ "cleanup": {
+  "refuse-expired_token": {
+   "lingering_killed": 0
+  },
+  "refuse-malformed": {
+   "lingering_killed": 0
+  },
+  "refuse-no_usage_account": {
+   "lingering_killed": 0
+  },
+  "refuse-rate_limited": {
+   "lingering_killed": 0
+  },
+  "refuse-stale_server_clock": {
+   "lingering_killed": 0
+  },
+  "refuse-threshold": {
+   "lingering_killed": 0
+  },
+  "refuse-unavailable": {
+   "lingering_killed": 0
+  },
+  "refuse-unproved_row": {
+   "lingering_killed": 0
+  },
+  "refuse-window_missing": {
+   "lingering_killed": 0
+  }
+ },
+ "env": {
+  "base_url_env": "caller_env_conflict",
+  "oauth_token_env": "caller_env_conflict"
+ },
+ "host_facts": {
+  "arch": "x86_64",
+  "landlock_abi": 8,
+  "legacy_tiocsti": 0,
+  "platform": "linux",
+  "stdio_sockets": []
+ },
+ "host_refusal": null,
+ "launched": true,
+ "lingering_after_cleanup": 0,
+ "mode": {
+  "bare": "native_mode_unsupported",
+  "interactive": null,
+  "print": "native_mode_unsupported"
+ },
+ "native_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+ "policy": {
+  "allowed_models": [
+   "claude-sonnet-4-6"
+  ],
+  "max_age_s": 4.0,
+  "reserves": {
+   "five_hour": 20,
+   "weekly": 10
+  },
+  "revalidations_per_minute": 4
+ },
+ "quota_startup": {
+  "expired_token": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "expired_native_refresh_required"
+  },
+  "malformed": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "quota_200"
+  },
+  "no_usage_account": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "server_identity_unavailable"
+  },
+  "rate_limited": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "quota_429"
+  },
+  "stale_server_clock": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "clock_anomaly"
+  },
+  "threshold": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "threshold_five_hour"
+  },
+  "unavailable": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "quota_503"
+  },
+  "unproved_row": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "quota_row_unproved"
+  },
+  "window_missing": {
+   "event": "startup_refused",
+   "gate_exit": 3,
+   "native_started": false,
+   "reason": "window_unavailable"
+  }
+ },
+ "rows": [
+  {
+   "event": "fetch",
+   "inv": "refuse-threshold",
+   "ms": 8.835,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168746.249921787,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "refuse-threshold",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168746.249998622
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-threshold",
+   "ms": 0.763,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168746.250795193,
+   "what": "profile"
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-threshold",
+   "kind": "latched",
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168746.250959109
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-threshold",
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 168746.250981603
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-threshold",
+   "row": "event",
+   "source": "gate",
+   "t": 168746.259878643
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-window_missing",
+   "ms": 11.375,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168746.564633714,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "refuse-window_missing",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168746.564678268
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-window_missing",
+   "ms": 0.653,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168746.565355386,
+   "what": "profile"
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-window_missing",
+   "kind": "latched",
+   "reason": "window_unavailable",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168746.565501694
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-window_missing",
+   "reason": "window_unavailable",
+   "row": "event",
+   "source": "gate",
+   "t": 168746.565524258
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-window_missing",
+   "row": "event",
+   "source": "gate",
+   "t": 168746.574801537
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-malformed",
+   "ms": 10.668,
+   "ok": false,
+   "row": "event",
+   "source": "gate",
+   "t": 168746.878153127,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": false,
+   "inv": "refuse-malformed",
+   "kind": "quota_fetch",
+   "outcome": "response_invalid",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168746.87823382
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-malformed",
+   "ms": 0.68,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168746.878940279,
+   "what": "profile"
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-malformed",
+   "kind": "latched",
+   "reason": "quota_200",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168746.879088898
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-malformed",
+   "reason": "quota_200",
+   "row": "event",
+   "source": "gate",
+   "t": 168746.879110402
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-malformed",
+   "row": "event",
+   "source": "gate",
+   "t": 168746.886565041
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-unavailable",
+   "ms": 8.332,
+   "ok": false,
+   "row": "event",
+   "source": "gate",
+   "t": 168747.182055359,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": false,
+   "inv": "refuse-unavailable",
+   "kind": "quota_fetch",
+   "outcome": "http_status",
+   "row": "event",
+   "source": "gate",
+   "status": 503,
+   "t": 168747.182111657
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-unavailable",
+   "ms": 0.481,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168747.18261072,
+   "what": "profile"
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-unavailable",
+   "kind": "latched",
+   "reason": "quota_503",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168747.182700748
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-unavailable",
+   "reason": "quota_503",
+   "row": "event",
+   "source": "gate",
+   "t": 168747.182712575
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-unavailable",
+   "row": "event",
+   "source": "gate",
+   "t": 168747.189835356
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-rate_limited",
+   "ms": 11.38,
+   "ok": false,
+   "row": "event",
+   "source": "gate",
+   "t": 168747.500509029,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": false,
+   "inv": "refuse-rate_limited",
+   "kind": "quota_fetch",
+   "outcome": "http_status",
+   "row": "event",
+   "source": "gate",
+   "status": 429,
+   "t": 168747.500576485
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-rate_limited",
+   "ms": 0.898,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168747.501499822,
+   "what": "profile"
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-rate_limited",
+   "kind": "latched",
+   "reason": "quota_429",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168747.501645513
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-rate_limited",
+   "reason": "quota_429",
+   "row": "event",
+   "source": "gate",
+   "t": 168747.501667697
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-rate_limited",
+   "row": "event",
+   "source": "gate",
+   "t": 168747.509329587
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-unproved_row",
+   "ms": 8.325,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168747.827504669,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "refuse-unproved_row",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168747.827582014
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-unproved_row",
+   "ms": 0.693,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168747.828301331,
+   "what": "profile"
+  },
+  {
+   "cause": "startup",
+   "epoch": 1,
+   "event": "controller",
+   "inv": "refuse-unproved_row",
+   "kind": "lease",
+   "row": "event",
+   "source": "gate",
+   "t": 168747.828472505
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-unproved_row",
+   "kind": "latched",
+   "reason": "quota_row_unproved",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168747.82850253
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-unproved_row",
+   "reason": "quota_row_unproved",
+   "row": "event",
+   "source": "gate",
+   "t": 168747.828521983
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-unproved_row",
+   "row": "event",
+   "source": "gate",
+   "t": 168747.837405078
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-no_usage_account",
+   "ms": 10.776,
+   "ok": false,
+   "row": "event",
+   "source": "gate",
+   "t": 168748.136776724,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": false,
+   "inv": "refuse-no_usage_account",
+   "kind": "quota_fetch",
+   "outcome": "http_status",
+   "row": "event",
+   "source": "gate",
+   "status": 401,
+   "t": 168748.136845826
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-no_usage_account",
+   "ms": 0.689,
+   "ok": false,
+   "row": "event",
+   "source": "gate",
+   "t": 168748.137561299,
+   "what": "profile"
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-no_usage_account",
+   "kind": "latched",
+   "reason": "server_identity_unavailable",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168748.137709715
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-no_usage_account",
+   "reason": "server_identity_unavailable",
+   "row": "event",
+   "source": "gate",
+   "t": 168748.137732223
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-no_usage_account",
+   "row": "event",
+   "source": "gate",
+   "t": 168748.147139787
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-stale_server_clock",
+   "ms": 11.396,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168748.488781228,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "refuse-stale_server_clock",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 168748.488848439
+  },
+  {
+   "event": "fetch",
+   "inv": "refuse-stale_server_clock",
+   "ms": 0.725,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 168748.489600475,
+   "what": "profile"
+  },
+  {
+   "closed": 0,
+   "event": "controller",
+   "inv": "refuse-stale_server_clock",
+   "kind": "latched",
+   "reason": "clock_anomaly",
+   "row": "event",
+   "source": "gate",
+   "state": "refused",
+   "t": 168748.489755136
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-stale_server_clock",
+   "reason": "clock_anomaly",
+   "row": "event",
+   "source": "gate",
+   "t": 168748.489777145
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-stale_server_clock",
+   "row": "event",
+   "source": "gate",
+   "t": 168748.496760784
+  },
+  {
+   "event": "startup_refused",
+   "inv": "refuse-expired_token",
+   "reason": "expired_native_refresh_required",
+   "row": "event",
+   "source": "gate",
+   "t": 168748.784083018
+  },
+  {
+   "code": 3,
+   "event": "process_exit",
+   "inv": "refuse-expired_token",
+   "row": "event",
+   "source": "gate",
+   "t": 168748.789886835
+  }
+ ],
+ "sanitized": true,
+ "terminal": {},
+ "token_window": {
+  "near_no_tunnel": "native_refresh_window",
+  "near_with_tunnel": null
+ },
+ "upstream_requests": 0,
+ "usage_requests": [
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168746.249466442
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168746.250521246
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168746.564213025
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168746.565149192
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168746.877773369
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168746.878684411
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168747.181750217
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168747.182466021
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168747.500067412
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168747.501255956
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 168747.827070316
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 168747.828049567
+  },
+  {
+   "account": "unknown",
+   "path": "/api/oauth/usage",
+   "t": 168748.136359124
+  },
+  {
+   "account": "unknown",
+   "path": "/api/oauth/profile",
+   "t": 168748.137321552
+  }
+ ],
+ "version": {
+  "fake_older": "native_version_unsupported",
+  "real": null,
+  "real_text": "2.1.322 (Claude Code)"
+ }
+}
