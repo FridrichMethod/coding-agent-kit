@@ -1,0 +1,491 @@
+{
+  "mode": "quota",
+  "events": [
+    {
+      "at": 0.315,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.315,
+      "event": "startup",
+      "model_requests": 0
+    },
+    {
+      "at": 0.327,
+      "event": "rpc_error_wire",
+      "message": {
+        "error": {
+          "code": -32603,
+          "message": "workspace routing discovery failed"
+        },
+        "id": 2
+      }
+    },
+    {
+      "at": 0.327,
+      "event": "rpc",
+      "method": "account/read",
+      "params": {
+        "refreshToken": false
+      },
+      "error": "daemon account/read refused (-32603)."
+    },
+    {
+      "at": 0.333,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.333,
+      "event": "quota_case",
+      "label": "first",
+      "requests_added": 1,
+      "model_requests": 0,
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.34,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.34,
+      "event": "quota_case",
+      "label": "unchanged",
+      "requests_added": 1,
+      "model_requests": 0,
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.345,
+      "event": "rpc_error_wire",
+      "message": {
+        "error": {
+          "code": -32603,
+          "message": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:46585/api/codex/usage: invalid type: map, expected i32 at line 1 column 368; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"plan_type\": \"pro\", \"rate_limit\": {\"allowed\": true, \"limit_reached\": false, \"primary_window\": {\"used_percent\": 25.5, \"limit_window_seconds\": 18000, \"reset_at\": 2000000000, \"reset_after_seconds\": 18000}, \"secondary_window\": {\"used_percent\": 60, \"limit_window_seconds\": 604800, \"reset_at\": 2000400000, \"reset_after_seconds\": 604800}}}"
+        },
+        "id": 5
+      }
+    },
+    {
+      "at": 0.345,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "error": "daemon account/rateLimits/read refused (-32603)."
+    },
+    {
+      "at": 0.345,
+      "event": "quota_case",
+      "label": "fractional",
+      "requests_added": 1,
+      "model_requests": 0,
+      "result": {
+        "probe_error": "daemon account/rateLimits/read refused (-32603)."
+      }
+    },
+    {
+      "at": 0.35,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-b",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.35,
+      "event": "quota_case",
+      "label": "wrong_account",
+      "requests_added": 1,
+      "model_requests": 0,
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-b",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.357,
+      "event": "rpc_error_wire",
+      "message": {
+        "error": {
+          "code": -32603,
+          "message": "failed to fetch codex rate limits: GET http://127.0.0.1:46585/api/codex/usage failed: 503 Service Unavailable; content-type=text/html;charset=utf-8; body=<!DOCTYPE HTML>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"utf-8\">\n        <style type=\"text/css\">\n            :root {\n                color-scheme: light dark;\n            }\n        </style>\n        <title>Error response</title>\n    </head>\n    <body>\n        <h1>Error response</h1>\n        <p>Error code: 503</p>\n        <p>Message: Service Unavailable.</p>\n        <p>Error code explanation: 503 - The server cannot process the request due to a high load.</p>\n    </body>\n</html>\n"
+        },
+        "id": 7
+      }
+    },
+    {
+      "at": 0.357,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "error": "daemon account/rateLimits/read refused (-32603)."
+    },
+    {
+      "at": 0.357,
+      "event": "quota_case",
+      "label": "failed",
+      "requests_added": 1,
+      "model_requests": 0,
+      "result": {
+        "probe_error": "daemon account/rateLimits/read refused (-32603)."
+      }
+    }
+  ],
+  "requests": [
+    {
+      "method": "CONNECT",
+      "path": "chatgpt.com:443"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a"
+    }
+  ],
+  "terminal": "",
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+}

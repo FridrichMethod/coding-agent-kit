@@ -1,0 +1,1039 @@
+{
+  "mode": "control",
+  "events": [
+    {
+      "at": 0.316,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.76,
+      "event": "model_request",
+      "count": 1
+    },
+    {
+      "at": 0.768,
+      "event": "rpc",
+      "method": "thread/loaded/list",
+      "params": {},
+      "result": {
+        "data": [
+          "01a1ce9c-31a0-7c22-814f-0d11f87b6018"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "at": 0.771,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Hold this fabricated request.",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "offline_fixture",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794467705,
+          "updatedAt": 1794467705,
+          "recencyAt": 1794467705,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-15-05-01a1ce9c-31a0-7c22-814f-0d11f87b6018.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": "user",
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1ce9c-31af-71a0-a642-ad395975ef6d",
+              "rootTurnId": "01a1ce9c-31af-71a0-a642-ad395975ef6d",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1ce9c-31ea-7d41-943f-d8dfd7308754",
+                  "clientId": "51d01044-dc12-40c0-8033-dc638b604b4a",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Hold this fabricated request.",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794467705322,
+                  "completedAtMs": 1794467705322
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794467705,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1ce9c-31a0-7c22-814f-0d11f87b6018"
+        }
+      }
+    },
+    {
+      "at": 0.779,
+      "event": "rpc",
+      "method": "thread/goal/set",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "objective": "Fabricated held goal",
+        "status": "active",
+        "origin": "user"
+      },
+      "result": {
+        "goal": {
+          "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "objective": "Fabricated held goal",
+          "status": "active",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1794467705,
+          "updatedAt": 1794467705
+        }
+      }
+    },
+    {
+      "at": 0.784,
+      "event": "rpc",
+      "method": "thread/goal/set",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "status": "paused",
+        "origin": "user"
+      },
+      "result": {
+        "goal": {
+          "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "objective": "Fabricated held goal",
+          "status": "paused",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1794467705,
+          "updatedAt": 1794467705
+        }
+      }
+    },
+    {
+      "at": 0.785,
+      "event": "rpc",
+      "method": "thread/queue/add",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "clientUserMessageId": "fixture-queue",
+        "input": [
+          {
+            "type": "text",
+            "text": "Old queued fixture prompt"
+          }
+        ]
+      },
+      "result": {
+        "queuedSubmission": {
+          "id": "01a1ce9c-320f-71d0-96b3-6a1b1369f480",
+          "input": [
+            {
+              "type": "text",
+              "text": "Old queued fixture prompt",
+              "text_elements": []
+            }
+          ],
+          "clientUserMessageId": "fixture-queue"
+        }
+      }
+    },
+    {
+      "at": 0.789,
+      "event": "rpc",
+      "method": "turn/interrupt",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "turnId": "01a1ce9c-31af-71a0-a642-ad395975ef6d"
+      },
+      "result": {}
+    },
+    {
+      "at": 0.801,
+      "event": "model_request",
+      "count": 2
+    },
+    {
+      "at": 0.961,
+      "event": "stream_disconnected"
+    },
+    {
+      "at": 1.29,
+      "event": "paused_goal_after_interrupt",
+      "model_requests": 2,
+      "ui_alive": true,
+      "interruption_banner": true
+    },
+    {
+      "at": 1.29,
+      "event": "rpc",
+      "method": "thread/goal/get",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018"
+      },
+      "result": {
+        "goal": {
+          "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "objective": "Fabricated held goal",
+          "status": "paused",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1794467705,
+          "updatedAt": 1794467705
+        }
+      }
+    },
+    {
+      "at": 1.29,
+      "event": "controller_disconnected",
+      "model_requests": 2
+    },
+    {
+      "at": 2.09,
+      "event": "idle_after_disconnect",
+      "model_requests": 2
+    },
+    {
+      "at": 2.092,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 2.098,
+      "event": "rpc",
+      "method": "thread/queue/start",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018"
+      },
+      "result": {
+        "turn": {
+          "id": "01a1ce9c-372e-70f2-97f1-e3e5adfe1a85",
+          "rootTurnId": "01a1ce9c-372e-70f2-97f1-e3e5adfe1a85",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 2.123,
+      "event": "model_request",
+      "count": 3
+    },
+    {
+      "at": 2.149,
+      "event": "queued_start_while_goal_paused",
+      "dispatched": true,
+      "model_requests": 3
+    },
+    {
+      "at": 2.152,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Hold this fabricated request.",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "offline_fixture",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794467705,
+          "updatedAt": 1794467706,
+          "recencyAt": 1794467706,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-15-05-01a1ce9c-31a0-7c22-814f-0d11f87b6018.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": "user",
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1ce9c-31af-71a0-a642-ad395975ef6d",
+              "rootTurnId": "01a1ce9c-31af-71a0-a642-ad395975ef6d",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1ce9c-31ea-7d41-943f-d8dfd7308754",
+                  "clientId": "51d01044-dc12-40c0-8033-dc638b604b4a",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Hold this fabricated request.",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794467705322,
+                  "completedAtMs": 1794467705322
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794467705,
+              "completedAt": 1794467705,
+              "durationMs": 98
+            },
+            {
+              "id": "01a1ce9c-372e-70f2-97f1-e3e5adfe1a85",
+              "rootTurnId": "01a1ce9c-372e-70f2-97f1-e3e5adfe1a85",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1ce9c-373f-7f31-9e52-af32f57a4ee3",
+                  "clientId": "fixture-queue",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Old queued fixture prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794467706687,
+                  "completedAtMs": 1794467706687
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794467706,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1ce9c-31a0-7c22-814f-0d11f87b6018"
+        }
+      }
+    },
+    {
+      "at": 2.156,
+      "event": "rpc",
+      "method": "turn/interrupt",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "turnId": "01a1ce9c-372e-70f2-97f1-e3e5adfe1a85"
+      },
+      "result": {}
+    },
+    {
+      "at": 2.324,
+      "event": "stream_disconnected"
+    },
+    {
+      "at": 3.556,
+      "event": "status_ui",
+      "ui_alive": true,
+      "output": "\u001b[?2026h\u001b[18;1H\u001b[J\u001b[?25l\u001b[18;2H\u001b[0m\u001b[49m\u001b[K\u001b[20;63H\u001b[0m\u001b[49m\u001b[K\u001b[21;2H\u001b[0m\u001b[49m\u001b[K\u001b[22;10H\u001b[0m\u001b[49m\u001b[K\u001b[23;2H\u001b[0m\u001b[49m\u001b[K\u001b[24;119H\u001b[0m\u001b[49m\u001b[K\u001b[18;1H \u001b[19;1H\u001b[7m\u001b[1m\u203a /status      \u001b[22mshow current session configuration and token usage\u001b[1m                                                       \u001b[20;1H\u001b[27m\u001b[22m  /\u001b[1mstatus\u001b[22mline  \u001b[2mconfigure which items appear in the status line\u001b[21;1H\u001b[22m \u001b[22;1H\u001b[1m\u203a\u001b[22m /status\u001b[23;1H \u001b[24;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m                                       \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39m\u001b[49m\u001b[0m\u001b[18;1H\u001b[0 q\u001b[18;1H \u001b[39m\u001b[49m\u001b[0m\u001b[22;10H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[18;1H\u001b[J\u001b[18;40r\u001b[18;1H\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001b[r\u001b[1;34r\u001b[17;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[38;5;5;49m/status\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K  \u001b[38;5;75;49m>_ \u001b[1m\u001b[39;49mOpenAI Codex\u001b[22m\u001b[2m\u001b[2m (v0.167.2)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Server:              \u001b[22munix://<PROBE_ROOT>/backend.sock\u001b[2m (v0.167.2)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Model:               \u001b[22mgpt-5.4\u001b[2m (reasoning none)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Model provider:      \u001b[22moffline_fixture\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Directory:           \u001b[22m<PROBE_ROOT>/workspace\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Permissions:         \u001b[22mCustom (workspace, never)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Agents.md:           \u001b[22m<none>\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Collaboration mode:  \u001b[22mDefault\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Session:             \u001b[22m01a1ce9c-31a0-7c22-814f-0d11f87b6018\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Token usage:         \u001b[22m0 total \u001b[2m (0 input + 0 output)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Limits:              data not available yet\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[22;10H\u001b[?25l\u001b[35;2H\u001b[0m\u001b[49m\u001b[K\u001b[36;2H\u001b[0m\u001b[49m\u001b[K\u001b[37;27H\u001b[0m\u001b[49m\u001b[K\u001b[38;2H\u001b[0m\u001b[49m\u001b[K\u001b[39;120H\u001b[0m\u001b[49m\u001b[K\u001b[35;1H \u001b[36;1H \u001b[37;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[38;1H\u001b[22m \u001b[39;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for a\u2026 \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39;49m    \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[35;1H\u001b[0 q\u001b[35;1H \u001b[39m\u001b[49m\u001b[0m\u001b[37;3H\u001b[?25h\u001b[?2026l",
+      "model_requests": 3
+    },
+    {
+      "at": 3.563,
+      "event": "rpc",
+      "method": "thread/resume",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Hold this fabricated request.",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "offline_fixture",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794467705,
+          "updatedAt": 1794467706,
+          "recencyAt": 1794467706,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-15-05-01a1ce9c-31a0-7c22-814f-0d11f87b6018.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": "user",
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1ce9c-31af-71a0-a642-ad395975ef6d",
+              "rootTurnId": "01a1ce9c-31af-71a0-a642-ad395975ef6d",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1ce9c-31ea-7d41-943f-d8dfd7308754",
+                  "clientId": "51d01044-dc12-40c0-8033-dc638b604b4a",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Hold this fabricated request.",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794467705322,
+                  "completedAtMs": 1794467705322
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794467705,
+              "completedAt": 1794467705,
+              "durationMs": 98
+            },
+            {
+              "id": "01a1ce9c-372e-70f2-97f1-e3e5adfe1a85",
+              "rootTurnId": "01a1ce9c-372e-70f2-97f1-e3e5adfe1a85",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1ce9c-373f-7f31-9e52-af32f57a4ee3",
+                  "clientId": "fixture-queue",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Old queued fixture prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794467706687,
+                  "completedAtMs": 1794467706687
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794467706,
+              "completedAt": 1794467706,
+              "durationMs": 57
+            }
+          ]
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "offline_fixture",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": null,
+        "reasoningEffort": null,
+        "collaborationMode": {
+          "mode": "default",
+          "settings": {
+            "model": "gpt-5.4",
+            "reasoning_effort": null,
+            "developer_instructions": "# Collaboration Mode: Default\n\nYou are now in Default mode. Any previous instructions for other modes (e.g. Plan mode) are no longer active.\n\nYour active mode changes only when new developer instructions with a different `<collaboration_mode>...</collaboration_mode>` change it; user requests or tool descriptions do not change mode by themselves. Known mode names are Default and Plan.\n\n## request_user_input availability\n\nUse the `request_user_input` tool only when it is listed in the available tools for this turn.\n\nIn Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions.\n\nUse the `request_user_input` tool only for optional questions where the answer would materially improve the quality of the work.\n\nIf `request_user_input` returns no answers, continue with best judgment instead of asking again or treating the turn as blocked.\n\nNever use the `request_user_input` tool for permission requests or permission-related escalations.\n\nIf explicit user input is required for another reason before progress can safely continue, do not use the `request_user_input` tool. Ask the user directly with one concise plain-text question instead. Never write a multiple choice question as a textual assistant message.\n"
+          }
+        },
+        "multiAgentMode": "explicitRequestOnly",
+        "initialTurnsPage": null,
+        "turnsBackwardsCursor": "{\"requestedThreadId\":\"01a1ce9c-31a0-7c22-814f-0d11f87b6018\",\"rolloutOrdinal\":18,\"includeAnchor\":true,\"scope\":{\"kind\":\"turns\"}}",
+        "itemsBackwardsCursor": "{\"requestedThreadId\":\"01a1ce9c-31a0-7c22-814f-0d11f87b6018\",\"rolloutOrdinal\":21,\"includeAnchor\":true,\"scope\":{\"kind\":\"itemsByCreatedAtOrdinal\"}}"
+      }
+    },
+    {
+      "at": 3.563,
+      "event": "rpc",
+      "method": "thread/goal/get",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018"
+      },
+      "result": {
+        "goal": {
+          "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+          "objective": "Fabricated held goal",
+          "status": "paused",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1794467705,
+          "updatedAt": 1794467705
+        }
+      }
+    },
+    {
+      "at": 3.568,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1ce9c-31a0-7c22-814f-0d11f87b6018",
+        "input": [
+          {
+            "type": "text",
+            "text": "Programmatic prompt, not a verified human resume"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1ce9c-3cec-70c2-bf40-bf4115446f49",
+          "rootTurnId": "01a1ce9c-3cec-70c2-bf40-bf4115446f49",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 3.596,
+      "event": "model_request",
+      "count": 4
+    },
+    {
+      "at": 3.618,
+      "event": "programmatic_prompt_after_resume",
+      "dispatched": true,
+      "model_requests": 4
+    },
+    {
+      "at": 3.797,
+      "event": "stream_disconnected"
+    },
+    {
+      "at": 3.809,
+      "event": "stream_disconnected"
+    },
+    {
+      "at": 4.428,
+      "event": "backend_failure",
+      "ui_exit": null,
+      "model_requests": 4
+    },
+    {
+      "at": 4.728,
+      "event": "terminal_after_exit",
+      "ui_exit": 0,
+      "termios_restored": true
+    }
+  ],
+  "requests": [
+    {
+      "method": "CONNECT",
+      "path": "raw.githubusercontent.com:443"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/responses",
+      "input": [
+        {
+          "type": "message",
+          "id": "msg_4a6b9c3f-cd49-533b-9856-d6d69bd4cf96",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n- Emit function calls to run terminal commands and apply patches. Depending on how this specific run is configured, you can request that these function calls be escalated to the user for approval before running. More on this in the \"Sandbox and approvals\" section.\n\nWithin this context, Codex refers to the open-source agentic coding interface (not the old Codex language model built by OpenAI).\n\n# How you work\n\n## Personality\n\nYour default personality and tone is concise, direct, and friendly. You communicate efficiently, always keeping the user clearly informed about ongoing actions without unnecessary detail. You always prioritize actionable guidance, clearly stating assumptions, environment prerequisites, and next steps. Unless explicitly asked, you avoid excessively verbose explanations about your work.\n\n# AGENTS.md spec\n- Repos often contain AGENTS.md files. These files can appear anywhere within the repository.\n- These files are a way for humans to give you (the agent) instructions or tips for working within the container.\n- Some examples might be: coding conventions, info about how code is organized, or instructions for how to run or test code.\n- Instructions in AGENTS.md files:\n    - The scope of an AGENTS.md file is the entire directory tree rooted at the folder that contains it.\n    - For every file you touch in the final patch, you must obey instructions in any AGENTS.md file whose scope includes that file.\n    - Instructions about code style, structure, naming, etc. apply only to code within the AGENTS.md file's scope, unless the file states otherwise.\n    - More-deeply-nested AGENTS.md files take precedence in the case of conflicting instructions.\n    - Direct system/developer/user instructions (as part of a prompt) take precedence over AGENTS.md instructions.\n- The contents of the AGENTS.md file at the root of the repo and any directories from the CWD up to the root are included with the developer message and don't need to be re-read. When working in a subdirectory of CWD, or a directory outside the CWD, check for any AGENTS.md files that may be applicable.\n\n## Responsiveness\n\n### Preamble messages\n\nBefore making tool calls, send a brief preamble to the user explaining what you\u2019re about to do. When sending preamble messages, follow these principles and examples:\n\n- **Logically group related actions**: if you\u2019re about to run several related commands, describe them together in one preamble rather than sending a separate note for each.\n- **Keep it concise**: be no more than 1-2 sentences, focused on immediate, tangible next steps. (8\u201312 words for quick updates).\n- **Build on prior context**: if this is not your first tool call, use the preamble message to connect the dots with what\u2019s been done so far and create a sense of momentum and clarity for the user to understand your next actions.\n- **Keep your tone light, friendly and curious**: add small touches of personality in preambles feel collaborative and engaging.\n- **Exception**: Avoid adding a preamble for every trivial read (e.g., `cat` a single file) unless it\u2019s part of a larger grouped action.\n\n**Examples:**\n\n- \u201cI\u2019ve explored the repo; now checking the API route definitions.\u201d\n- \u201cNext, I\u2019ll patch the config and update the related tests.\u201d\n- \u201cI\u2019m about to scaffold the CLI commands and helper functions.\u201d\n- \u201cOk cool, so I\u2019ve wrapped my head around the repo. Now digging into the API routes.\u201d\n- \u201cConfig\u2019s looking tidy. Next up is patching helpers to keep things in sync.\u201d\n- \u201cFinished poking at the DB gateway. I will now chase down error handling.\u201d\n- \u201cAlright, build pipeline order is interesting. Checking how it reports failures.\u201d\n- \u201cSpotted a clever caching util; now hunting where it gets used.\u201d\n\n## Task execution\n\nYou are a coding agent. Please keep going until the query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. Autonomously resolve the query to the best of your ability, using the tools available to you, before coming back to the user. Do NOT guess or make up an answer.\n\nYou MUST adhere to the following criteria when solving queries:\n\n- Working on the repo(s) in the current environment is allowed, even if they are proprietary.\n- Analyzing code for vulnerabilities is allowed.\n- Showing user code and tool call details is allowed.\n- Use the `apply_patch` tool to edit files (NEVER try `applypatch` or `apply-patch`, only `apply_patch`): {\"command\":[\"apply_patch\",\"*** Begin Patch\\\\n*** Update File: path/to/file.py\\\\n@@ def example():\\\\n- pass\\\\n+ return 123\\\\n*** End Patch\"]}\n\nIf completing the user's task requires writing or modifying files, your code and final answer should follow these coding guidelines, though user instructions (i.e. AGENTS.md) may override these guidelines:\n\n- Fix the problem at the root cause rather than applying surface-level patches, when possible.\n- Avoid unneeded complexity in your solution.\n- Do not attempt to fix unrelated bugs or broken tests. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n- Update documentation as necessary.\n- Keep changes consistent with the style of the existing codebase. Changes should be minimal and focused on the task.\n- Use `git log` and `git blame` to search the history of the codebase if additional context is required.\n- NEVER add copyright or license headers unless specifically requested.\n- Do not waste tokens by re-reading files after calling `apply_patch` on them. The tool call will fail if it didn't work. The same goes for making folders, deleting folders, etc.\n- Do not `git commit` your changes or create new git branches unless explicitly requested.\n- Do not add inline comments within code unless explicitly requested.\n- Do not use one-letter variable names unless explicitly requested.\n- NEVER output inline citations like \"\u3010F:README.md\u2020L5-L14\u3011\" in your outputs. The CLI is not able to render these so they will just be broken in the UI. Instead, if you output valid filepaths, users will be able to click on them to open the files in their editor.\n\n## Validating your work\n\nIf the codebase has tests or the ability to build or run, consider using them to verify that your work is complete. \n\nWhen testing, your philosophy should be to start as specific as possible to the code you changed so that you can catch issues efficiently, then make your way to broader tests as you build confidence. If there's no test for the code you changed, and if the adjacent patterns in the codebases show that there's a logical place for you to add a test, you may do so. However, do not add tests to codebases with no tests.\n\nSimilarly, once you're confident in correctness, you can suggest or use formatting commands to ensure that your code is well formatted. If there are issues you can iterate up to 3 times to get formatting right, but if you still can't manage it's better to save the user time and present them a correct solution where you call out the formatting in your final message. If the codebase does not have a formatter configured, do not add one.\n\nFor all of testing, running, building, and formatting, do not attempt to fix unrelated bugs. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n\nBe mindful of whether to run validation commands proactively. In the absence of behavioral guidance:\n\n- When running in the non-interactive approval mode **never**, proactively run tests, lint and do whatever you need to ensure you've completed the task.\n- When working in interactive approval modes like **untrusted**, or **on-request**, hold off on running tests or lint commands until the user is ready for you to finalize your output, because these commands take time to run and slow down iteration. Instead suggest what you want to do next, and let the user confirm first.\n- When working on test-related tasks, such as adding tests, fixing tests, or reproducing a bug to verify behavior, you may proactively run tests regardless of approval mode. Use your judgement to decide whether this is a test-related task.\n\n## Ambition vs. precision\n\nFor tasks that have no prior context (i.e. the user is starting something brand new), you should feel free to be ambitious and demonstrate creativity with your implementation.\n\nIf you're operating in an existing codebase, you should make sure you do exactly what the user asks with surgical precision. Treat the surrounding codebase with respect, and don't overstep (i.e. changing filenames or variables unnecessarily). You should balance being sufficiently ambitious and proactive when completing tasks of this nature.\n\nYou should use judicious initiative to decide on the right level of detail and complexity to deliver based on the user's needs. This means showing good judgment that you're capable of doing the right extras without gold-plating. This might be demonstrated by high-value, creative touches when scope of the task is vague; while being surgical and targeted when scope is tightly specified.\n\n## Sharing progress updates\n\nFor especially longer tasks that you work on (i.e. requiring many tool calls, or a plan with multiple steps), you should provide progress updates back to the user at reasonable intervals. These updates should be structured as a concise sentence or two (no more than 8-10 words long) recapping progress so far in plain language: this update demonstrates your understanding of what needs to be done, progress so far (i.e. files explores, subtasks complete), and where you're going next.\n\nBefore doing large chunks of work that may incur latency as experienced by the user (i.e. writing a new file), you should send a concise message to the user with an update indicating what you're about to do to ensure they know what you're spending time on. Don't start editing or writing large files before informing the user what you are doing and why.\n\nThe messages you send before tool calls should describe what is immediately about to be done next in very concise language. If there was previous work done, this preamble message should also include a note about the work done so far to bring the user along.\n\n## Presenting your work and final message\n\nYour final message should read naturally, like an update from a concise teammate. For casual conversation, brainstorming tasks, or quick questions from the user, respond in a friendly, conversational tone. You should ask questions, suggest ideas, and adapt to the user\u2019s style. If you've finished a large amount of work, when describing what you've done to the user, you should follow the final answer formatting guidelines to communicate substantive changes. You don't need to add structured formatting for one-word answers, greetings, or purely conversational exchanges.\n\nYou can skip heavy formatting for single, simple actions or confirmations. In these cases, respond in plain sentences with any relevant next step or quick option. Reserve multi-section structured responses for results that need grouping or explanation.\n\nThe user is working on the same computer as you, and has access to your work. As such there's no need to show the full contents of large files you have already written unless the user explicitly asks for them. Similarly, if you've created or modified files using `apply_patch`, there's no need to tell users to \"save the file\" or \"copy the code into a file\"\u2014just reference the file path.\n\nIf there's something that you think you could help with as a logical next step, concisely ask the user if they want you to do so. Good examples of this are running tests, committing changes, or building out the next logical component. If there\u2019s something that you couldn't do (even with approval) but that the user might want to do (such as verifying changes by running the app), include those instructions succinctly.\n\nBrevity is very important as a default. You should be very concise (i.e. no more than 10 lines), but can relax this requirement for tasks where additional detail and comprehensiveness is important for the user's understanding.\n\n### Final answer structure and style guidelines\n\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\n\n**Section Headers**\n\n- Use only when they improve clarity \u2014 they are not mandatory for every answer.\n- Choose descriptive names that fit the content\n- Keep headers short (1\u20133 words) and in `**Title Case**`. Always start headers with `**` and end with `**`\n- Leave no blank line before the first bullet under a header.\n- Section headers should only be used where they genuinely improve scanability; avoid fragmenting the answer.\n\n**Bullets**\n\n- Use `-` followed by a space for every bullet.\n- Merge related points when possible; avoid a bullet for every trivial detail.\n- Keep bullets to one line unless breaking for clarity is unavoidable.\n- Group into short lists (4\u20136 bullets) ordered by importance.\n- Use consistent keyword phrasing and formatting across sections.\n\n**Monospace**\n\n- Wrap all commands, file paths, env vars, and code identifiers in backticks (`` `...` ``).\n- Apply to inline examples and to bullet keywords if the keyword itself is a literal file/command.\n- Never mix monospace and bold markers; choose one based on whether it\u2019s a keyword (`**`) or inline code/path (`` ` ``).\n\n**File References**\nWhen referencing files in your response, make sure to include the relevant start line and always follow the below rules:\n  * Use inline code to make file paths clickable.\n  * Each reference should have a stand alone path. Even if it's the same file.\n  * Accepted: absolute, workspace\u2011relative, a/ or b/ diff prefixes, or bare filename/suffix.\n  * Line/column (1\u2011based, optional): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\n  * Do not use URIs like file://, vscode://, or https://.\n  * Do not provide range of lines\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\repo\\project\\main.rs:12:5\n\n**Structure**\n\n- Place related bullets together; don\u2019t mix unrelated concepts in the same section.\n- Order sections from general \u2192 specific \u2192 supporting info.\n- For subsections (e.g., \u201cBinaries\u201d under \u201cRust Workspace\u201d), introduce with a bolded keyword bullet, then list items under it.\n- Match structure to complexity:\n  - Multi-part or detailed results \u2192 use clear headers and grouped bullets.\n  - Simple results \u2192 minimal headers, possibly just a short list or paragraph.\n\n**Tone**\n\n- Keep the voice collaborative and natural, like a coding partner handing off work.\n- Be concise and factual \u2014 no filler or conversational commentary and avoid unnecessary repetition\n- Use present tense and active voice (e.g., \u201cRuns tests\u201d not \u201cThis will run tests\u201d).\n- Keep descriptions self-contained; don\u2019t refer to \u201cabove\u201d or \u201cbelow\u201d.\n- Use parallel structure in lists for consistency.\n\n**Don\u2019t**\n\n- Don\u2019t use literal words \u201cbold\u201d or \u201cmonospace\u201d in the content.\n- Don\u2019t nest bullets or create deep hierarchies.\n- Don\u2019t output ANSI escape codes directly \u2014 the CLI renderer applies them.\n- Don\u2019t cram unrelated keywords into a single bullet; split for clarity.\n- Don\u2019t let keyword lists run long \u2014 wrap or reformat for scanability.\n\nGenerally, ensure your final answers adapt their shape and depth to the request. For example, answers to code explanations should have a precise, structured explanation with code references that answer the question directly. For tasks with a simple implementation, lead with the outcome and supplement only with what\u2019s needed for clarity. Larger changes can be presented as a logical walkthrough of your approach, grouping related steps, explaining rationale where it adds value, and highlighting next actions to accelerate the user. Your answers should provide the right level of detail while being easily scannable.\n\nFor casual greetings, acknowledgements, or other one-off conversational messages that are not delivering substantive information or structured results, respond naturally without section headers or bullet formatting.\n\n# Tool Guidelines\n\n## Shell commands\n\nWhen using the shell, you must adhere to the following guidelines:\n\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\n- Do not use python scripts to attempt to output larger chunks of a file.\n\n"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31e5-74b0-b121-f18fa61bef2d",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas. (file: r0/imagegen/SKILL.md)\n- openai-docs: Use for Codex models/pricing, scheduled tasks, skills, settings, setup, troubleshooting, customization, automations, and self-knowledge\u2014including 'you,' 'your,' 'this app,' or 'this coding agent' when they refer to Codex\u2014and for OpenAI APIs/products and ChatGPT Work. Also use for model choice/migration, prompting, SDKs, Responses, Realtime, agents, evals, and Chat/Work/Codex comparisons. Do not use for generic app/software tasks that merely mention Codex. (file: r0/openai-docs/SKILL.md)\n- skill-creator: Create or update a Codex skill with appropriately scoped instructions and any needed supporting resources. (file: r0/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: r0/skill-installer/SKILL.md)\n</skills_instructions>"
+            },
+            {
+              "type": "input_text",
+              "text": "<permissions instructions>\nFilesystem sandboxing defines which files can be read or written. `sandbox_mode` is `workspace-write`: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval. Network access is restricted.\nApproval policy is currently never. Do not provide the `sandbox_permissions` for any reason, commands will be rejected.\n The writable roots are `/tmp`, `<PROBE_ROOT>`, `<PROBE_ROOT>/workspace`.\n</permissions instructions>"
+            },
+            {
+              "type": "input_text",
+              "text": "<collaboration_mode># Collaboration Mode: Default\n\nYou are now in Default mode. Any previous instructions for other modes (e.g. Plan mode) are no longer active.\n\nYour active mode changes only when new developer instructions with a different `<collaboration_mode>...</collaboration_mode>` change it; user requests or tool descriptions do not change mode by themselves. Known mode names are Default and Plan.\n\n## request_user_input availability\n\nUse the `request_user_input` tool only when it is listed in the available tools for this turn.\n\nIn Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions.\n\nUse the `request_user_input` tool only for optional questions where the answer would materially improve the quality of the work.\n\nIf `request_user_input` returns no answers, continue with best judgment instead of asking again or treating the turn as blocked.\n\nNever use the `request_user_input` tool for permission requests or permission-related escalations.\n\nIf explicit user input is required for another reason before progress can safely continue, do not use the `request_user_input` tool. Ask the user directly with one concise plain-text question instead. Never write a multiple choice question as a textual assistant message.\n</collaboration_mode>"
+            },
+            {
+              "type": "input_text",
+              "text": "<tools>\nDeferred tool namespaces:\n- codex_tui: Manage Codex tasks available through the connected app server.\n</tools>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31e5-74b0-b121-f19bf9d64714",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access=\"write\"><path><PROBE_ROOT>/workspace</path></entry><entry access=\"write\"><special>:slash_tmp</special></entry><entry access=\"write\"><special>:tmpdir</special></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.git</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.agents</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.codex</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.aws</path></entry></file_system></permission_profile></filesystem>\n</environment_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31ea-7d41-943f-d8cba74da62c",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Hold this fabricated request."
+            }
+          ]
+        }
+      ],
+      "model": "gpt-5.4"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/responses",
+      "input": [
+        {
+          "type": "message",
+          "id": "msg_5bc06c96-e033-501e-aafd-83b3b4860529",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n- Emit function calls to run terminal commands and apply patches. Depending on how this specific run is configured, you can request that these function calls be escalated to the user for approval before running. More on this in the \"Sandbox and approvals\" section.\n\nWithin this context, Codex refers to the open-source agentic coding interface (not the old Codex language model built by OpenAI).\n\n# How you work\n\n## Personality\n\nYour default personality and tone is concise, direct, and friendly. You communicate efficiently, always keeping the user clearly informed about ongoing actions without unnecessary detail. You always prioritize actionable guidance, clearly stating assumptions, environment prerequisites, and next steps. Unless explicitly asked, you avoid excessively verbose explanations about your work.\n\n# AGENTS.md spec\n- Repos often contain AGENTS.md files. These files can appear anywhere within the repository.\n- These files are a way for humans to give you (the agent) instructions or tips for working within the container.\n- Some examples might be: coding conventions, info about how code is organized, or instructions for how to run or test code.\n- Instructions in AGENTS.md files:\n    - The scope of an AGENTS.md file is the entire directory tree rooted at the folder that contains it.\n    - For every file you touch in the final patch, you must obey instructions in any AGENTS.md file whose scope includes that file.\n    - Instructions about code style, structure, naming, etc. apply only to code within the AGENTS.md file's scope, unless the file states otherwise.\n    - More-deeply-nested AGENTS.md files take precedence in the case of conflicting instructions.\n    - Direct system/developer/user instructions (as part of a prompt) take precedence over AGENTS.md instructions.\n- The contents of the AGENTS.md file at the root of the repo and any directories from the CWD up to the root are included with the developer message and don't need to be re-read. When working in a subdirectory of CWD, or a directory outside the CWD, check for any AGENTS.md files that may be applicable.\n\n## Responsiveness\n\n### Preamble messages\n\nBefore making tool calls, send a brief preamble to the user explaining what you\u2019re about to do. When sending preamble messages, follow these principles and examples:\n\n- **Logically group related actions**: if you\u2019re about to run several related commands, describe them together in one preamble rather than sending a separate note for each.\n- **Keep it concise**: be no more than 1-2 sentences, focused on immediate, tangible next steps. (8\u201312 words for quick updates).\n- **Build on prior context**: if this is not your first tool call, use the preamble message to connect the dots with what\u2019s been done so far and create a sense of momentum and clarity for the user to understand your next actions.\n- **Keep your tone light, friendly and curious**: add small touches of personality in preambles feel collaborative and engaging.\n- **Exception**: Avoid adding a preamble for every trivial read (e.g., `cat` a single file) unless it\u2019s part of a larger grouped action.\n\n**Examples:**\n\n- \u201cI\u2019ve explored the repo; now checking the API route definitions.\u201d\n- \u201cNext, I\u2019ll patch the config and update the related tests.\u201d\n- \u201cI\u2019m about to scaffold the CLI commands and helper functions.\u201d\n- \u201cOk cool, so I\u2019ve wrapped my head around the repo. Now digging into the API routes.\u201d\n- \u201cConfig\u2019s looking tidy. Next up is patching helpers to keep things in sync.\u201d\n- \u201cFinished poking at the DB gateway. I will now chase down error handling.\u201d\n- \u201cAlright, build pipeline order is interesting. Checking how it reports failures.\u201d\n- \u201cSpotted a clever caching util; now hunting where it gets used.\u201d\n\n## Task execution\n\nYou are a coding agent. Please keep going until the query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. Autonomously resolve the query to the best of your ability, using the tools available to you, before coming back to the user. Do NOT guess or make up an answer.\n\nYou MUST adhere to the following criteria when solving queries:\n\n- Working on the repo(s) in the current environment is allowed, even if they are proprietary.\n- Analyzing code for vulnerabilities is allowed.\n- Showing user code and tool call details is allowed.\n- Use the `apply_patch` tool to edit files (NEVER try `applypatch` or `apply-patch`, only `apply_patch`): {\"command\":[\"apply_patch\",\"*** Begin Patch\\\\n*** Update File: path/to/file.py\\\\n@@ def example():\\\\n- pass\\\\n+ return 123\\\\n*** End Patch\"]}\n\nIf completing the user's task requires writing or modifying files, your code and final answer should follow these coding guidelines, though user instructions (i.e. AGENTS.md) may override these guidelines:\n\n- Fix the problem at the root cause rather than applying surface-level patches, when possible.\n- Avoid unneeded complexity in your solution.\n- Do not attempt to fix unrelated bugs or broken tests. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n- Update documentation as necessary.\n- Keep changes consistent with the style of the existing codebase. Changes should be minimal and focused on the task.\n- Use `git log` and `git blame` to search the history of the codebase if additional context is required.\n- NEVER add copyright or license headers unless specifically requested.\n- Do not waste tokens by re-reading files after calling `apply_patch` on them. The tool call will fail if it didn't work. The same goes for making folders, deleting folders, etc.\n- Do not `git commit` your changes or create new git branches unless explicitly requested.\n- Do not add inline comments within code unless explicitly requested.\n- Do not use one-letter variable names unless explicitly requested.\n- NEVER output inline citations like \"\u3010F:README.md\u2020L5-L14\u3011\" in your outputs. The CLI is not able to render these so they will just be broken in the UI. Instead, if you output valid filepaths, users will be able to click on them to open the files in their editor.\n\n## Validating your work\n\nIf the codebase has tests or the ability to build or run, consider using them to verify that your work is complete. \n\nWhen testing, your philosophy should be to start as specific as possible to the code you changed so that you can catch issues efficiently, then make your way to broader tests as you build confidence. If there's no test for the code you changed, and if the adjacent patterns in the codebases show that there's a logical place for you to add a test, you may do so. However, do not add tests to codebases with no tests.\n\nSimilarly, once you're confident in correctness, you can suggest or use formatting commands to ensure that your code is well formatted. If there are issues you can iterate up to 3 times to get formatting right, but if you still can't manage it's better to save the user time and present them a correct solution where you call out the formatting in your final message. If the codebase does not have a formatter configured, do not add one.\n\nFor all of testing, running, building, and formatting, do not attempt to fix unrelated bugs. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n\nBe mindful of whether to run validation commands proactively. In the absence of behavioral guidance:\n\n- When running in the non-interactive approval mode **never**, proactively run tests, lint and do whatever you need to ensure you've completed the task.\n- When working in interactive approval modes like **untrusted**, or **on-request**, hold off on running tests or lint commands until the user is ready for you to finalize your output, because these commands take time to run and slow down iteration. Instead suggest what you want to do next, and let the user confirm first.\n- When working on test-related tasks, such as adding tests, fixing tests, or reproducing a bug to verify behavior, you may proactively run tests regardless of approval mode. Use your judgement to decide whether this is a test-related task.\n\n## Ambition vs. precision\n\nFor tasks that have no prior context (i.e. the user is starting something brand new), you should feel free to be ambitious and demonstrate creativity with your implementation.\n\nIf you're operating in an existing codebase, you should make sure you do exactly what the user asks with surgical precision. Treat the surrounding codebase with respect, and don't overstep (i.e. changing filenames or variables unnecessarily). You should balance being sufficiently ambitious and proactive when completing tasks of this nature.\n\nYou should use judicious initiative to decide on the right level of detail and complexity to deliver based on the user's needs. This means showing good judgment that you're capable of doing the right extras without gold-plating. This might be demonstrated by high-value, creative touches when scope of the task is vague; while being surgical and targeted when scope is tightly specified.\n\n## Sharing progress updates\n\nFor especially longer tasks that you work on (i.e. requiring many tool calls, or a plan with multiple steps), you should provide progress updates back to the user at reasonable intervals. These updates should be structured as a concise sentence or two (no more than 8-10 words long) recapping progress so far in plain language: this update demonstrates your understanding of what needs to be done, progress so far (i.e. files explores, subtasks complete), and where you're going next.\n\nBefore doing large chunks of work that may incur latency as experienced by the user (i.e. writing a new file), you should send a concise message to the user with an update indicating what you're about to do to ensure they know what you're spending time on. Don't start editing or writing large files before informing the user what you are doing and why.\n\nThe messages you send before tool calls should describe what is immediately about to be done next in very concise language. If there was previous work done, this preamble message should also include a note about the work done so far to bring the user along.\n\n## Presenting your work and final message\n\nYour final message should read naturally, like an update from a concise teammate. For casual conversation, brainstorming tasks, or quick questions from the user, respond in a friendly, conversational tone. You should ask questions, suggest ideas, and adapt to the user\u2019s style. If you've finished a large amount of work, when describing what you've done to the user, you should follow the final answer formatting guidelines to communicate substantive changes. You don't need to add structured formatting for one-word answers, greetings, or purely conversational exchanges.\n\nYou can skip heavy formatting for single, simple actions or confirmations. In these cases, respond in plain sentences with any relevant next step or quick option. Reserve multi-section structured responses for results that need grouping or explanation.\n\nThe user is working on the same computer as you, and has access to your work. As such there's no need to show the full contents of large files you have already written unless the user explicitly asks for them. Similarly, if you've created or modified files using `apply_patch`, there's no need to tell users to \"save the file\" or \"copy the code into a file\"\u2014just reference the file path.\n\nIf there's something that you think you could help with as a logical next step, concisely ask the user if they want you to do so. Good examples of this are running tests, committing changes, or building out the next logical component. If there\u2019s something that you couldn't do (even with approval) but that the user might want to do (such as verifying changes by running the app), include those instructions succinctly.\n\nBrevity is very important as a default. You should be very concise (i.e. no more than 10 lines), but can relax this requirement for tasks where additional detail and comprehensiveness is important for the user's understanding.\n\n### Final answer structure and style guidelines\n\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\n\n**Section Headers**\n\n- Use only when they improve clarity \u2014 they are not mandatory for every answer.\n- Choose descriptive names that fit the content\n- Keep headers short (1\u20133 words) and in `**Title Case**`. Always start headers with `**` and end with `**`\n- Leave no blank line before the first bullet under a header.\n- Section headers should only be used where they genuinely improve scanability; avoid fragmenting the answer.\n\n**Bullets**\n\n- Use `-` followed by a space for every bullet.\n- Merge related points when possible; avoid a bullet for every trivial detail.\n- Keep bullets to one line unless breaking for clarity is unavoidable.\n- Group into short lists (4\u20136 bullets) ordered by importance.\n- Use consistent keyword phrasing and formatting across sections.\n\n**Monospace**\n\n- Wrap all commands, file paths, env vars, and code identifiers in backticks (`` `...` ``).\n- Apply to inline examples and to bullet keywords if the keyword itself is a literal file/command.\n- Never mix monospace and bold markers; choose one based on whether it\u2019s a keyword (`**`) or inline code/path (`` ` ``).\n\n**File References**\nWhen referencing files in your response, make sure to include the relevant start line and always follow the below rules:\n  * Use inline code to make file paths clickable.\n  * Each reference should have a stand alone path. Even if it's the same file.\n  * Accepted: absolute, workspace\u2011relative, a/ or b/ diff prefixes, or bare filename/suffix.\n  * Line/column (1\u2011based, optional): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\n  * Do not use URIs like file://, vscode://, or https://.\n  * Do not provide range of lines\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\repo\\project\\main.rs:12:5\n\n**Structure**\n\n- Place related bullets together; don\u2019t mix unrelated concepts in the same section.\n- Order sections from general \u2192 specific \u2192 supporting info.\n- For subsections (e.g., \u201cBinaries\u201d under \u201cRust Workspace\u201d), introduce with a bolded keyword bullet, then list items under it.\n- Match structure to complexity:\n  - Multi-part or detailed results \u2192 use clear headers and grouped bullets.\n  - Simple results \u2192 minimal headers, possibly just a short list or paragraph.\n\n**Tone**\n\n- Keep the voice collaborative and natural, like a coding partner handing off work.\n- Be concise and factual \u2014 no filler or conversational commentary and avoid unnecessary repetition\n- Use present tense and active voice (e.g., \u201cRuns tests\u201d not \u201cThis will run tests\u201d).\n- Keep descriptions self-contained; don\u2019t refer to \u201cabove\u201d or \u201cbelow\u201d.\n- Use parallel structure in lists for consistency.\n\n**Don\u2019t**\n\n- Don\u2019t use literal words \u201cbold\u201d or \u201cmonospace\u201d in the content.\n- Don\u2019t nest bullets or create deep hierarchies.\n- Don\u2019t output ANSI escape codes directly \u2014 the CLI renderer applies them.\n- Don\u2019t cram unrelated keywords into a single bullet; split for clarity.\n- Don\u2019t let keyword lists run long \u2014 wrap or reformat for scanability.\n\nGenerally, ensure your final answers adapt their shape and depth to the request. For example, answers to code explanations should have a precise, structured explanation with code references that answer the question directly. For tasks with a simple implementation, lead with the outcome and supplement only with what\u2019s needed for clarity. Larger changes can be presented as a logical walkthrough of your approach, grouping related steps, explaining rationale where it adds value, and highlighting next actions to accelerate the user. Your answers should provide the right level of detail while being easily scannable.\n\nFor casual greetings, acknowledgements, or other one-off conversational messages that are not delivering substantive information or structured results, respond naturally without section headers or bullet formatting.\n\n# Tool Guidelines\n\n## Shell commands\n\nWhen using the shell, you must adhere to the following guidelines:\n\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\n- Do not use python scripts to attempt to output larger chunks of a file.\n\n"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3219-7083-b9df-f50c69370a30",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<permissions instructions>\nFilesystem sandboxing defines which files can be read or written. `sandbox_mode` is `read-only`: The sandbox only permits reading files. Network access is restricted.\nApproval policy is currently never. Do not provide the `sandbox_permissions` for any reason, commands will be rejected.\n</permissions instructions>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3219-7083-b9df-f51c56802676",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<environment_context>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n</environment_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3219-7083-b9df-f533e687969c",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Generate a concise, single-line task title of at most 36 characters and under five words where possible. Start with an imperative verb. Capitalize only the first word unless the user's language, proper nouns, acronyms, or code terms require otherwise. Preserve ticket references exactly. Write in the user's language. Do not use quotes, markdown, or trailing punctuation. Do not answer the request.\n\nUser prompt:\nHold this fabricated request."
+            }
+          ]
+        }
+      ],
+      "model": "gpt-5.4"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/responses",
+      "input": [
+        {
+          "type": "message",
+          "id": "msg_4a6b9c3f-cd49-533b-9856-d6d69bd4cf96",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n- Emit function calls to run terminal commands and apply patches. Depending on how this specific run is configured, you can request that these function calls be escalated to the user for approval before running. More on this in the \"Sandbox and approvals\" section.\n\nWithin this context, Codex refers to the open-source agentic coding interface (not the old Codex language model built by OpenAI).\n\n# How you work\n\n## Personality\n\nYour default personality and tone is concise, direct, and friendly. You communicate efficiently, always keeping the user clearly informed about ongoing actions without unnecessary detail. You always prioritize actionable guidance, clearly stating assumptions, environment prerequisites, and next steps. Unless explicitly asked, you avoid excessively verbose explanations about your work.\n\n# AGENTS.md spec\n- Repos often contain AGENTS.md files. These files can appear anywhere within the repository.\n- These files are a way for humans to give you (the agent) instructions or tips for working within the container.\n- Some examples might be: coding conventions, info about how code is organized, or instructions for how to run or test code.\n- Instructions in AGENTS.md files:\n    - The scope of an AGENTS.md file is the entire directory tree rooted at the folder that contains it.\n    - For every file you touch in the final patch, you must obey instructions in any AGENTS.md file whose scope includes that file.\n    - Instructions about code style, structure, naming, etc. apply only to code within the AGENTS.md file's scope, unless the file states otherwise.\n    - More-deeply-nested AGENTS.md files take precedence in the case of conflicting instructions.\n    - Direct system/developer/user instructions (as part of a prompt) take precedence over AGENTS.md instructions.\n- The contents of the AGENTS.md file at the root of the repo and any directories from the CWD up to the root are included with the developer message and don't need to be re-read. When working in a subdirectory of CWD, or a directory outside the CWD, check for any AGENTS.md files that may be applicable.\n\n## Responsiveness\n\n### Preamble messages\n\nBefore making tool calls, send a brief preamble to the user explaining what you\u2019re about to do. When sending preamble messages, follow these principles and examples:\n\n- **Logically group related actions**: if you\u2019re about to run several related commands, describe them together in one preamble rather than sending a separate note for each.\n- **Keep it concise**: be no more than 1-2 sentences, focused on immediate, tangible next steps. (8\u201312 words for quick updates).\n- **Build on prior context**: if this is not your first tool call, use the preamble message to connect the dots with what\u2019s been done so far and create a sense of momentum and clarity for the user to understand your next actions.\n- **Keep your tone light, friendly and curious**: add small touches of personality in preambles feel collaborative and engaging.\n- **Exception**: Avoid adding a preamble for every trivial read (e.g., `cat` a single file) unless it\u2019s part of a larger grouped action.\n\n**Examples:**\n\n- \u201cI\u2019ve explored the repo; now checking the API route definitions.\u201d\n- \u201cNext, I\u2019ll patch the config and update the related tests.\u201d\n- \u201cI\u2019m about to scaffold the CLI commands and helper functions.\u201d\n- \u201cOk cool, so I\u2019ve wrapped my head around the repo. Now digging into the API routes.\u201d\n- \u201cConfig\u2019s looking tidy. Next up is patching helpers to keep things in sync.\u201d\n- \u201cFinished poking at the DB gateway. I will now chase down error handling.\u201d\n- \u201cAlright, build pipeline order is interesting. Checking how it reports failures.\u201d\n- \u201cSpotted a clever caching util; now hunting where it gets used.\u201d\n\n## Task execution\n\nYou are a coding agent. Please keep going until the query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. Autonomously resolve the query to the best of your ability, using the tools available to you, before coming back to the user. Do NOT guess or make up an answer.\n\nYou MUST adhere to the following criteria when solving queries:\n\n- Working on the repo(s) in the current environment is allowed, even if they are proprietary.\n- Analyzing code for vulnerabilities is allowed.\n- Showing user code and tool call details is allowed.\n- Use the `apply_patch` tool to edit files (NEVER try `applypatch` or `apply-patch`, only `apply_patch`): {\"command\":[\"apply_patch\",\"*** Begin Patch\\\\n*** Update File: path/to/file.py\\\\n@@ def example():\\\\n- pass\\\\n+ return 123\\\\n*** End Patch\"]}\n\nIf completing the user's task requires writing or modifying files, your code and final answer should follow these coding guidelines, though user instructions (i.e. AGENTS.md) may override these guidelines:\n\n- Fix the problem at the root cause rather than applying surface-level patches, when possible.\n- Avoid unneeded complexity in your solution.\n- Do not attempt to fix unrelated bugs or broken tests. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n- Update documentation as necessary.\n- Keep changes consistent with the style of the existing codebase. Changes should be minimal and focused on the task.\n- Use `git log` and `git blame` to search the history of the codebase if additional context is required.\n- NEVER add copyright or license headers unless specifically requested.\n- Do not waste tokens by re-reading files after calling `apply_patch` on them. The tool call will fail if it didn't work. The same goes for making folders, deleting folders, etc.\n- Do not `git commit` your changes or create new git branches unless explicitly requested.\n- Do not add inline comments within code unless explicitly requested.\n- Do not use one-letter variable names unless explicitly requested.\n- NEVER output inline citations like \"\u3010F:README.md\u2020L5-L14\u3011\" in your outputs. The CLI is not able to render these so they will just be broken in the UI. Instead, if you output valid filepaths, users will be able to click on them to open the files in their editor.\n\n## Validating your work\n\nIf the codebase has tests or the ability to build or run, consider using them to verify that your work is complete. \n\nWhen testing, your philosophy should be to start as specific as possible to the code you changed so that you can catch issues efficiently, then make your way to broader tests as you build confidence. If there's no test for the code you changed, and if the adjacent patterns in the codebases show that there's a logical place for you to add a test, you may do so. However, do not add tests to codebases with no tests.\n\nSimilarly, once you're confident in correctness, you can suggest or use formatting commands to ensure that your code is well formatted. If there are issues you can iterate up to 3 times to get formatting right, but if you still can't manage it's better to save the user time and present them a correct solution where you call out the formatting in your final message. If the codebase does not have a formatter configured, do not add one.\n\nFor all of testing, running, building, and formatting, do not attempt to fix unrelated bugs. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n\nBe mindful of whether to run validation commands proactively. In the absence of behavioral guidance:\n\n- When running in the non-interactive approval mode **never**, proactively run tests, lint and do whatever you need to ensure you've completed the task.\n- When working in interactive approval modes like **untrusted**, or **on-request**, hold off on running tests or lint commands until the user is ready for you to finalize your output, because these commands take time to run and slow down iteration. Instead suggest what you want to do next, and let the user confirm first.\n- When working on test-related tasks, such as adding tests, fixing tests, or reproducing a bug to verify behavior, you may proactively run tests regardless of approval mode. Use your judgement to decide whether this is a test-related task.\n\n## Ambition vs. precision\n\nFor tasks that have no prior context (i.e. the user is starting something brand new), you should feel free to be ambitious and demonstrate creativity with your implementation.\n\nIf you're operating in an existing codebase, you should make sure you do exactly what the user asks with surgical precision. Treat the surrounding codebase with respect, and don't overstep (i.e. changing filenames or variables unnecessarily). You should balance being sufficiently ambitious and proactive when completing tasks of this nature.\n\nYou should use judicious initiative to decide on the right level of detail and complexity to deliver based on the user's needs. This means showing good judgment that you're capable of doing the right extras without gold-plating. This might be demonstrated by high-value, creative touches when scope of the task is vague; while being surgical and targeted when scope is tightly specified.\n\n## Sharing progress updates\n\nFor especially longer tasks that you work on (i.e. requiring many tool calls, or a plan with multiple steps), you should provide progress updates back to the user at reasonable intervals. These updates should be structured as a concise sentence or two (no more than 8-10 words long) recapping progress so far in plain language: this update demonstrates your understanding of what needs to be done, progress so far (i.e. files explores, subtasks complete), and where you're going next.\n\nBefore doing large chunks of work that may incur latency as experienced by the user (i.e. writing a new file), you should send a concise message to the user with an update indicating what you're about to do to ensure they know what you're spending time on. Don't start editing or writing large files before informing the user what you are doing and why.\n\nThe messages you send before tool calls should describe what is immediately about to be done next in very concise language. If there was previous work done, this preamble message should also include a note about the work done so far to bring the user along.\n\n## Presenting your work and final message\n\nYour final message should read naturally, like an update from a concise teammate. For casual conversation, brainstorming tasks, or quick questions from the user, respond in a friendly, conversational tone. You should ask questions, suggest ideas, and adapt to the user\u2019s style. If you've finished a large amount of work, when describing what you've done to the user, you should follow the final answer formatting guidelines to communicate substantive changes. You don't need to add structured formatting for one-word answers, greetings, or purely conversational exchanges.\n\nYou can skip heavy formatting for single, simple actions or confirmations. In these cases, respond in plain sentences with any relevant next step or quick option. Reserve multi-section structured responses for results that need grouping or explanation.\n\nThe user is working on the same computer as you, and has access to your work. As such there's no need to show the full contents of large files you have already written unless the user explicitly asks for them. Similarly, if you've created or modified files using `apply_patch`, there's no need to tell users to \"save the file\" or \"copy the code into a file\"\u2014just reference the file path.\n\nIf there's something that you think you could help with as a logical next step, concisely ask the user if they want you to do so. Good examples of this are running tests, committing changes, or building out the next logical component. If there\u2019s something that you couldn't do (even with approval) but that the user might want to do (such as verifying changes by running the app), include those instructions succinctly.\n\nBrevity is very important as a default. You should be very concise (i.e. no more than 10 lines), but can relax this requirement for tasks where additional detail and comprehensiveness is important for the user's understanding.\n\n### Final answer structure and style guidelines\n\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\n\n**Section Headers**\n\n- Use only when they improve clarity \u2014 they are not mandatory for every answer.\n- Choose descriptive names that fit the content\n- Keep headers short (1\u20133 words) and in `**Title Case**`. Always start headers with `**` and end with `**`\n- Leave no blank line before the first bullet under a header.\n- Section headers should only be used where they genuinely improve scanability; avoid fragmenting the answer.\n\n**Bullets**\n\n- Use `-` followed by a space for every bullet.\n- Merge related points when possible; avoid a bullet for every trivial detail.\n- Keep bullets to one line unless breaking for clarity is unavoidable.\n- Group into short lists (4\u20136 bullets) ordered by importance.\n- Use consistent keyword phrasing and formatting across sections.\n\n**Monospace**\n\n- Wrap all commands, file paths, env vars, and code identifiers in backticks (`` `...` ``).\n- Apply to inline examples and to bullet keywords if the keyword itself is a literal file/command.\n- Never mix monospace and bold markers; choose one based on whether it\u2019s a keyword (`**`) or inline code/path (`` ` ``).\n\n**File References**\nWhen referencing files in your response, make sure to include the relevant start line and always follow the below rules:\n  * Use inline code to make file paths clickable.\n  * Each reference should have a stand alone path. Even if it's the same file.\n  * Accepted: absolute, workspace\u2011relative, a/ or b/ diff prefixes, or bare filename/suffix.\n  * Line/column (1\u2011based, optional): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\n  * Do not use URIs like file://, vscode://, or https://.\n  * Do not provide range of lines\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\repo\\project\\main.rs:12:5\n\n**Structure**\n\n- Place related bullets together; don\u2019t mix unrelated concepts in the same section.\n- Order sections from general \u2192 specific \u2192 supporting info.\n- For subsections (e.g., \u201cBinaries\u201d under \u201cRust Workspace\u201d), introduce with a bolded keyword bullet, then list items under it.\n- Match structure to complexity:\n  - Multi-part or detailed results \u2192 use clear headers and grouped bullets.\n  - Simple results \u2192 minimal headers, possibly just a short list or paragraph.\n\n**Tone**\n\n- Keep the voice collaborative and natural, like a coding partner handing off work.\n- Be concise and factual \u2014 no filler or conversational commentary and avoid unnecessary repetition\n- Use present tense and active voice (e.g., \u201cRuns tests\u201d not \u201cThis will run tests\u201d).\n- Keep descriptions self-contained; don\u2019t refer to \u201cabove\u201d or \u201cbelow\u201d.\n- Use parallel structure in lists for consistency.\n\n**Don\u2019t**\n\n- Don\u2019t use literal words \u201cbold\u201d or \u201cmonospace\u201d in the content.\n- Don\u2019t nest bullets or create deep hierarchies.\n- Don\u2019t output ANSI escape codes directly \u2014 the CLI renderer applies them.\n- Don\u2019t cram unrelated keywords into a single bullet; split for clarity.\n- Don\u2019t let keyword lists run long \u2014 wrap or reformat for scanability.\n\nGenerally, ensure your final answers adapt their shape and depth to the request. For example, answers to code explanations should have a precise, structured explanation with code references that answer the question directly. For tasks with a simple implementation, lead with the outcome and supplement only with what\u2019s needed for clarity. Larger changes can be presented as a logical walkthrough of your approach, grouping related steps, explaining rationale where it adds value, and highlighting next actions to accelerate the user. Your answers should provide the right level of detail while being easily scannable.\n\nFor casual greetings, acknowledgements, or other one-off conversational messages that are not delivering substantive information or structured results, respond naturally without section headers or bullet formatting.\n\n# Tool Guidelines\n\n## Shell commands\n\nWhen using the shell, you must adhere to the following guidelines:\n\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\n- Do not use python scripts to attempt to output larger chunks of a file.\n\n"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31e5-74b0-b121-f18fa61bef2d",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas. (file: r0/imagegen/SKILL.md)\n- openai-docs: Use for Codex models/pricing, scheduled tasks, skills, settings, setup, troubleshooting, customization, automations, and self-knowledge\u2014including 'you,' 'your,' 'this app,' or 'this coding agent' when they refer to Codex\u2014and for OpenAI APIs/products and ChatGPT Work. Also use for model choice/migration, prompting, SDKs, Responses, Realtime, agents, evals, and Chat/Work/Codex comparisons. Do not use for generic app/software tasks that merely mention Codex. (file: r0/openai-docs/SKILL.md)\n- skill-creator: Create or update a Codex skill with appropriately scoped instructions and any needed supporting resources. (file: r0/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: r0/skill-installer/SKILL.md)\n</skills_instructions>"
+            },
+            {
+              "type": "input_text",
+              "text": "<permissions instructions>\nFilesystem sandboxing defines which files can be read or written. `sandbox_mode` is `workspace-write`: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval. Network access is restricted.\nApproval policy is currently never. Do not provide the `sandbox_permissions` for any reason, commands will be rejected.\n The writable roots are `/tmp`, `<PROBE_ROOT>`, `<PROBE_ROOT>/workspace`.\n</permissions instructions>"
+            },
+            {
+              "type": "input_text",
+              "text": "<collaboration_mode># Collaboration Mode: Default\n\nYou are now in Default mode. Any previous instructions for other modes (e.g. Plan mode) are no longer active.\n\nYour active mode changes only when new developer instructions with a different `<collaboration_mode>...</collaboration_mode>` change it; user requests or tool descriptions do not change mode by themselves. Known mode names are Default and Plan.\n\n## request_user_input availability\n\nUse the `request_user_input` tool only when it is listed in the available tools for this turn.\n\nIn Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions.\n\nUse the `request_user_input` tool only for optional questions where the answer would materially improve the quality of the work.\n\nIf `request_user_input` returns no answers, continue with best judgment instead of asking again or treating the turn as blocked.\n\nNever use the `request_user_input` tool for permission requests or permission-related escalations.\n\nIf explicit user input is required for another reason before progress can safely continue, do not use the `request_user_input` tool. Ask the user directly with one concise plain-text question instead. Never write a multiple choice question as a textual assistant message.\n</collaboration_mode>"
+            },
+            {
+              "type": "input_text",
+              "text": "<tools>\nDeferred tool namespaces:\n- codex_tui: Manage Codex tasks available through the connected app server.\n</tools>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31e5-74b0-b121-f19bf9d64714",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access=\"write\"><path><PROBE_ROOT>/workspace</path></entry><entry access=\"write\"><special>:slash_tmp</special></entry><entry access=\"write\"><special>:tmpdir</special></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.git</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.agents</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.codex</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.aws</path></entry></file_system></permission_profile></filesystem>\n</environment_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31ea-7d41-943f-d8cba74da62c",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Hold this fabricated request."
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3206-74b2-918f-a49645b432c7",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<codex_internal_context source=\"user_goal\">\nUser set the goal: \"Fabricated held goal\"\nUser set goal status: \"active\".\n</codex_internal_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-320c-7b51-a23c-1ba38faec8f1",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<codex_internal_context source=\"user_goal\">\nUser set goal status: \"paused\".\n</codex_internal_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3211-7f52-b53f-89e9b0c1bd5a",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<turn_aborted>\nThe user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.\n</turn_aborted>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-373f-7f31-9e52-af21f92cdfc6",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Old queued fixture prompt"
+            }
+          ]
+        }
+      ],
+      "model": "gpt-5.4"
+    },
+    {
+      "method": "GET",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/responses",
+      "input": [
+        {
+          "type": "message",
+          "id": "msg_4a6b9c3f-cd49-533b-9856-d6d69bd4cf96",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n- Emit function calls to run terminal commands and apply patches. Depending on how this specific run is configured, you can request that these function calls be escalated to the user for approval before running. More on this in the \"Sandbox and approvals\" section.\n\nWithin this context, Codex refers to the open-source agentic coding interface (not the old Codex language model built by OpenAI).\n\n# How you work\n\n## Personality\n\nYour default personality and tone is concise, direct, and friendly. You communicate efficiently, always keeping the user clearly informed about ongoing actions without unnecessary detail. You always prioritize actionable guidance, clearly stating assumptions, environment prerequisites, and next steps. Unless explicitly asked, you avoid excessively verbose explanations about your work.\n\n# AGENTS.md spec\n- Repos often contain AGENTS.md files. These files can appear anywhere within the repository.\n- These files are a way for humans to give you (the agent) instructions or tips for working within the container.\n- Some examples might be: coding conventions, info about how code is organized, or instructions for how to run or test code.\n- Instructions in AGENTS.md files:\n    - The scope of an AGENTS.md file is the entire directory tree rooted at the folder that contains it.\n    - For every file you touch in the final patch, you must obey instructions in any AGENTS.md file whose scope includes that file.\n    - Instructions about code style, structure, naming, etc. apply only to code within the AGENTS.md file's scope, unless the file states otherwise.\n    - More-deeply-nested AGENTS.md files take precedence in the case of conflicting instructions.\n    - Direct system/developer/user instructions (as part of a prompt) take precedence over AGENTS.md instructions.\n- The contents of the AGENTS.md file at the root of the repo and any directories from the CWD up to the root are included with the developer message and don't need to be re-read. When working in a subdirectory of CWD, or a directory outside the CWD, check for any AGENTS.md files that may be applicable.\n\n## Responsiveness\n\n### Preamble messages\n\nBefore making tool calls, send a brief preamble to the user explaining what you\u2019re about to do. When sending preamble messages, follow these principles and examples:\n\n- **Logically group related actions**: if you\u2019re about to run several related commands, describe them together in one preamble rather than sending a separate note for each.\n- **Keep it concise**: be no more than 1-2 sentences, focused on immediate, tangible next steps. (8\u201312 words for quick updates).\n- **Build on prior context**: if this is not your first tool call, use the preamble message to connect the dots with what\u2019s been done so far and create a sense of momentum and clarity for the user to understand your next actions.\n- **Keep your tone light, friendly and curious**: add small touches of personality in preambles feel collaborative and engaging.\n- **Exception**: Avoid adding a preamble for every trivial read (e.g., `cat` a single file) unless it\u2019s part of a larger grouped action.\n\n**Examples:**\n\n- \u201cI\u2019ve explored the repo; now checking the API route definitions.\u201d\n- \u201cNext, I\u2019ll patch the config and update the related tests.\u201d\n- \u201cI\u2019m about to scaffold the CLI commands and helper functions.\u201d\n- \u201cOk cool, so I\u2019ve wrapped my head around the repo. Now digging into the API routes.\u201d\n- \u201cConfig\u2019s looking tidy. Next up is patching helpers to keep things in sync.\u201d\n- \u201cFinished poking at the DB gateway. I will now chase down error handling.\u201d\n- \u201cAlright, build pipeline order is interesting. Checking how it reports failures.\u201d\n- \u201cSpotted a clever caching util; now hunting where it gets used.\u201d\n\n## Task execution\n\nYou are a coding agent. Please keep going until the query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. Autonomously resolve the query to the best of your ability, using the tools available to you, before coming back to the user. Do NOT guess or make up an answer.\n\nYou MUST adhere to the following criteria when solving queries:\n\n- Working on the repo(s) in the current environment is allowed, even if they are proprietary.\n- Analyzing code for vulnerabilities is allowed.\n- Showing user code and tool call details is allowed.\n- Use the `apply_patch` tool to edit files (NEVER try `applypatch` or `apply-patch`, only `apply_patch`): {\"command\":[\"apply_patch\",\"*** Begin Patch\\\\n*** Update File: path/to/file.py\\\\n@@ def example():\\\\n- pass\\\\n+ return 123\\\\n*** End Patch\"]}\n\nIf completing the user's task requires writing or modifying files, your code and final answer should follow these coding guidelines, though user instructions (i.e. AGENTS.md) may override these guidelines:\n\n- Fix the problem at the root cause rather than applying surface-level patches, when possible.\n- Avoid unneeded complexity in your solution.\n- Do not attempt to fix unrelated bugs or broken tests. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n- Update documentation as necessary.\n- Keep changes consistent with the style of the existing codebase. Changes should be minimal and focused on the task.\n- Use `git log` and `git blame` to search the history of the codebase if additional context is required.\n- NEVER add copyright or license headers unless specifically requested.\n- Do not waste tokens by re-reading files after calling `apply_patch` on them. The tool call will fail if it didn't work. The same goes for making folders, deleting folders, etc.\n- Do not `git commit` your changes or create new git branches unless explicitly requested.\n- Do not add inline comments within code unless explicitly requested.\n- Do not use one-letter variable names unless explicitly requested.\n- NEVER output inline citations like \"\u3010F:README.md\u2020L5-L14\u3011\" in your outputs. The CLI is not able to render these so they will just be broken in the UI. Instead, if you output valid filepaths, users will be able to click on them to open the files in their editor.\n\n## Validating your work\n\nIf the codebase has tests or the ability to build or run, consider using them to verify that your work is complete. \n\nWhen testing, your philosophy should be to start as specific as possible to the code you changed so that you can catch issues efficiently, then make your way to broader tests as you build confidence. If there's no test for the code you changed, and if the adjacent patterns in the codebases show that there's a logical place for you to add a test, you may do so. However, do not add tests to codebases with no tests.\n\nSimilarly, once you're confident in correctness, you can suggest or use formatting commands to ensure that your code is well formatted. If there are issues you can iterate up to 3 times to get formatting right, but if you still can't manage it's better to save the user time and present them a correct solution where you call out the formatting in your final message. If the codebase does not have a formatter configured, do not add one.\n\nFor all of testing, running, building, and formatting, do not attempt to fix unrelated bugs. It is not your responsibility to fix them. (You may mention them to the user in your final message though.)\n\nBe mindful of whether to run validation commands proactively. In the absence of behavioral guidance:\n\n- When running in the non-interactive approval mode **never**, proactively run tests, lint and do whatever you need to ensure you've completed the task.\n- When working in interactive approval modes like **untrusted**, or **on-request**, hold off on running tests or lint commands until the user is ready for you to finalize your output, because these commands take time to run and slow down iteration. Instead suggest what you want to do next, and let the user confirm first.\n- When working on test-related tasks, such as adding tests, fixing tests, or reproducing a bug to verify behavior, you may proactively run tests regardless of approval mode. Use your judgement to decide whether this is a test-related task.\n\n## Ambition vs. precision\n\nFor tasks that have no prior context (i.e. the user is starting something brand new), you should feel free to be ambitious and demonstrate creativity with your implementation.\n\nIf you're operating in an existing codebase, you should make sure you do exactly what the user asks with surgical precision. Treat the surrounding codebase with respect, and don't overstep (i.e. changing filenames or variables unnecessarily). You should balance being sufficiently ambitious and proactive when completing tasks of this nature.\n\nYou should use judicious initiative to decide on the right level of detail and complexity to deliver based on the user's needs. This means showing good judgment that you're capable of doing the right extras without gold-plating. This might be demonstrated by high-value, creative touches when scope of the task is vague; while being surgical and targeted when scope is tightly specified.\n\n## Sharing progress updates\n\nFor especially longer tasks that you work on (i.e. requiring many tool calls, or a plan with multiple steps), you should provide progress updates back to the user at reasonable intervals. These updates should be structured as a concise sentence or two (no more than 8-10 words long) recapping progress so far in plain language: this update demonstrates your understanding of what needs to be done, progress so far (i.e. files explores, subtasks complete), and where you're going next.\n\nBefore doing large chunks of work that may incur latency as experienced by the user (i.e. writing a new file), you should send a concise message to the user with an update indicating what you're about to do to ensure they know what you're spending time on. Don't start editing or writing large files before informing the user what you are doing and why.\n\nThe messages you send before tool calls should describe what is immediately about to be done next in very concise language. If there was previous work done, this preamble message should also include a note about the work done so far to bring the user along.\n\n## Presenting your work and final message\n\nYour final message should read naturally, like an update from a concise teammate. For casual conversation, brainstorming tasks, or quick questions from the user, respond in a friendly, conversational tone. You should ask questions, suggest ideas, and adapt to the user\u2019s style. If you've finished a large amount of work, when describing what you've done to the user, you should follow the final answer formatting guidelines to communicate substantive changes. You don't need to add structured formatting for one-word answers, greetings, or purely conversational exchanges.\n\nYou can skip heavy formatting for single, simple actions or confirmations. In these cases, respond in plain sentences with any relevant next step or quick option. Reserve multi-section structured responses for results that need grouping or explanation.\n\nThe user is working on the same computer as you, and has access to your work. As such there's no need to show the full contents of large files you have already written unless the user explicitly asks for them. Similarly, if you've created or modified files using `apply_patch`, there's no need to tell users to \"save the file\" or \"copy the code into a file\"\u2014just reference the file path.\n\nIf there's something that you think you could help with as a logical next step, concisely ask the user if they want you to do so. Good examples of this are running tests, committing changes, or building out the next logical component. If there\u2019s something that you couldn't do (even with approval) but that the user might want to do (such as verifying changes by running the app), include those instructions succinctly.\n\nBrevity is very important as a default. You should be very concise (i.e. no more than 10 lines), but can relax this requirement for tasks where additional detail and comprehensiveness is important for the user's understanding.\n\n### Final answer structure and style guidelines\n\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\n\n**Section Headers**\n\n- Use only when they improve clarity \u2014 they are not mandatory for every answer.\n- Choose descriptive names that fit the content\n- Keep headers short (1\u20133 words) and in `**Title Case**`. Always start headers with `**` and end with `**`\n- Leave no blank line before the first bullet under a header.\n- Section headers should only be used where they genuinely improve scanability; avoid fragmenting the answer.\n\n**Bullets**\n\n- Use `-` followed by a space for every bullet.\n- Merge related points when possible; avoid a bullet for every trivial detail.\n- Keep bullets to one line unless breaking for clarity is unavoidable.\n- Group into short lists (4\u20136 bullets) ordered by importance.\n- Use consistent keyword phrasing and formatting across sections.\n\n**Monospace**\n\n- Wrap all commands, file paths, env vars, and code identifiers in backticks (`` `...` ``).\n- Apply to inline examples and to bullet keywords if the keyword itself is a literal file/command.\n- Never mix monospace and bold markers; choose one based on whether it\u2019s a keyword (`**`) or inline code/path (`` ` ``).\n\n**File References**\nWhen referencing files in your response, make sure to include the relevant start line and always follow the below rules:\n  * Use inline code to make file paths clickable.\n  * Each reference should have a stand alone path. Even if it's the same file.\n  * Accepted: absolute, workspace\u2011relative, a/ or b/ diff prefixes, or bare filename/suffix.\n  * Line/column (1\u2011based, optional): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\n  * Do not use URIs like file://, vscode://, or https://.\n  * Do not provide range of lines\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\repo\\project\\main.rs:12:5\n\n**Structure**\n\n- Place related bullets together; don\u2019t mix unrelated concepts in the same section.\n- Order sections from general \u2192 specific \u2192 supporting info.\n- For subsections (e.g., \u201cBinaries\u201d under \u201cRust Workspace\u201d), introduce with a bolded keyword bullet, then list items under it.\n- Match structure to complexity:\n  - Multi-part or detailed results \u2192 use clear headers and grouped bullets.\n  - Simple results \u2192 minimal headers, possibly just a short list or paragraph.\n\n**Tone**\n\n- Keep the voice collaborative and natural, like a coding partner handing off work.\n- Be concise and factual \u2014 no filler or conversational commentary and avoid unnecessary repetition\n- Use present tense and active voice (e.g., \u201cRuns tests\u201d not \u201cThis will run tests\u201d).\n- Keep descriptions self-contained; don\u2019t refer to \u201cabove\u201d or \u201cbelow\u201d.\n- Use parallel structure in lists for consistency.\n\n**Don\u2019t**\n\n- Don\u2019t use literal words \u201cbold\u201d or \u201cmonospace\u201d in the content.\n- Don\u2019t nest bullets or create deep hierarchies.\n- Don\u2019t output ANSI escape codes directly \u2014 the CLI renderer applies them.\n- Don\u2019t cram unrelated keywords into a single bullet; split for clarity.\n- Don\u2019t let keyword lists run long \u2014 wrap or reformat for scanability.\n\nGenerally, ensure your final answers adapt their shape and depth to the request. For example, answers to code explanations should have a precise, structured explanation with code references that answer the question directly. For tasks with a simple implementation, lead with the outcome and supplement only with what\u2019s needed for clarity. Larger changes can be presented as a logical walkthrough of your approach, grouping related steps, explaining rationale where it adds value, and highlighting next actions to accelerate the user. Your answers should provide the right level of detail while being easily scannable.\n\nFor casual greetings, acknowledgements, or other one-off conversational messages that are not delivering substantive information or structured results, respond naturally without section headers or bullet formatting.\n\n# Tool Guidelines\n\n## Shell commands\n\nWhen using the shell, you must adhere to the following guidelines:\n\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\n- Do not use python scripts to attempt to output larger chunks of a file.\n\n"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31e5-74b0-b121-f18fa61bef2d",
+          "role": "developer",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas. (file: r0/imagegen/SKILL.md)\n- openai-docs: Use for Codex models/pricing, scheduled tasks, skills, settings, setup, troubleshooting, customization, automations, and self-knowledge\u2014including 'you,' 'your,' 'this app,' or 'this coding agent' when they refer to Codex\u2014and for OpenAI APIs/products and ChatGPT Work. Also use for model choice/migration, prompting, SDKs, Responses, Realtime, agents, evals, and Chat/Work/Codex comparisons. Do not use for generic app/software tasks that merely mention Codex. (file: r0/openai-docs/SKILL.md)\n- skill-creator: Create or update a Codex skill with appropriately scoped instructions and any needed supporting resources. (file: r0/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: r0/skill-installer/SKILL.md)\n</skills_instructions>"
+            },
+            {
+              "type": "input_text",
+              "text": "<permissions instructions>\nFilesystem sandboxing defines which files can be read or written. `sandbox_mode` is `workspace-write`: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval. Network access is restricted.\nApproval policy is currently never. Do not provide the `sandbox_permissions` for any reason, commands will be rejected.\n The writable roots are `/tmp`, `<PROBE_ROOT>`, `<PROBE_ROOT>/workspace`.\n</permissions instructions>"
+            },
+            {
+              "type": "input_text",
+              "text": "<collaboration_mode># Collaboration Mode: Default\n\nYou are now in Default mode. Any previous instructions for other modes (e.g. Plan mode) are no longer active.\n\nYour active mode changes only when new developer instructions with a different `<collaboration_mode>...</collaboration_mode>` change it; user requests or tool descriptions do not change mode by themselves. Known mode names are Default and Plan.\n\n## request_user_input availability\n\nUse the `request_user_input` tool only when it is listed in the available tools for this turn.\n\nIn Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions.\n\nUse the `request_user_input` tool only for optional questions where the answer would materially improve the quality of the work.\n\nIf `request_user_input` returns no answers, continue with best judgment instead of asking again or treating the turn as blocked.\n\nNever use the `request_user_input` tool for permission requests or permission-related escalations.\n\nIf explicit user input is required for another reason before progress can safely continue, do not use the `request_user_input` tool. Ask the user directly with one concise plain-text question instead. Never write a multiple choice question as a textual assistant message.\n</collaboration_mode>"
+            },
+            {
+              "type": "input_text",
+              "text": "<tools>\nDeferred tool namespaces:\n- codex_tui: Manage Codex tasks available through the connected app server.\n</tools>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31e5-74b0-b121-f19bf9d64714",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access=\"write\"><path><PROBE_ROOT>/workspace</path></entry><entry access=\"write\"><special>:slash_tmp</special></entry><entry access=\"write\"><special>:tmpdir</special></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.git</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.agents</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.codex</path></entry><entry access=\"read\"><path><PROBE_ROOT>/workspace/.aws</path></entry></file_system></permission_profile></filesystem>\n</environment_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-31ea-7d41-943f-d8cba74da62c",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Hold this fabricated request."
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3206-74b2-918f-a49645b432c7",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<codex_internal_context source=\"user_goal\">\nUser set the goal: \"Fabricated held goal\"\nUser set goal status: \"active\".\n</codex_internal_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-320c-7b51-a23c-1ba38faec8f1",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<codex_internal_context source=\"user_goal\">\nUser set goal status: \"paused\".\n</codex_internal_context>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3211-7f52-b53f-89e9b0c1bd5a",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<turn_aborted>\nThe user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.\n</turn_aborted>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-373f-7f31-9e52-af21f92cdfc6",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Old queued fixture prompt"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3768-7440-8fd5-69b712f3a478",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "<turn_aborted>\nThe user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.\n</turn_aborted>"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_01a1ce9c-3cfb-7b52-8a89-7f3c3a92788b",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Programmatic prompt, not a verified human resume"
+            }
+          ]
+        }
+      ],
+      "model": "gpt-5.4"
+    }
+  ],
+  "terminal": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\r\n\u001b[?2004h\u001b[>4;0m\u001b[>7u\u001b[?1004h\u001b[?u\u001b[c\u001b[6n\u001b]10;?\u001b\\\u001b]11;?\u001b\\\u001b[?2026h\u001b[?2026h\u001b[1;1H\u001b[J\u001b[?25l\u001b[1;2H\u001b[0m\u001b[49m\u001b[K\u001b[2;29H\u001b[0m\u001b[49m\u001b[K\u001b[3;13H\u001b[0m\u001b[49m\u001b[K\u001b[4;2H\u001b[0m\u001b[49m\u001b[K\u001b[5;2H\u001b[0m\u001b[49m\u001b[K\u001b[6;27H\u001b[0m\u001b[49m\u001b[K\u001b[7;2H\u001b[0m\u001b[49m\u001b[K\u001b[8;2H\u001b[0m\u001b[49m\u001b[K\u001b[1;1H \u001b[2;1H  \u001b[38;5;75;49m>_ \u001b[1m\u001b[39;49mOpenAI Codex\u001b[22m\u001b[2m\u001b[2m (v0.167.2)\u001b[3;1H\u001b[22m     \u001b[2mloading\u001b[4;1H\u001b[22m \u001b[5;1H \u001b[6;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[7;1H\u001b[22m \u001b[8;1H \u001b[39m\u001b[49m\u001b[0m\u001b[1;1H\u001b[0 q\u001b[1;1H \u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[3;6H\u001b[2m<PROBE_ROOT>/workspace\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b]0;workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b]7501;state=idle:app=codex\u001b\\\u001b[?2026h\u001b[?25l\u001b[8;3H\u001b[38;5;223;49mgpt-5.4 default\u001b[8;19H\u001b[39;49m\u00b7\u001b[8;21H\u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[8;55H\u001b[39;49m\u00b7\u001b[8;57H\u001b[1m\u2190\u001b[8;59H\u001b[22mfor\u001b[8;63Hagents\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b]7501;state=working:app=codex\u001b\\\u001b[?2026h\u001b[1;1H\u001b[J\u001b[1;40r\u001b[1;1H\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001b[r\u001b[1;9r\u001b[1;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K  \u001b[38;5;75;49m>_ \u001b[1m\u001b[39;49mOpenAI Codex\u001b[22m\u001b[2m\u001b[2m (v0.167.2)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K     \u001b[2m<PROBE_ROOT>/workspace\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K  \u001b[1m\u001b[38;5;211;49mTip:\u001b[22m\u001b[39;49m Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost.\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[1m\u001b[2m\u001b[39;48;5;8m\u203a \u001b[22m\u001b[22mHold this fabricated request.\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[6;3H\u001b[?25l\u001b[10;2H\u001b[0m\u001b[49m\u001b[K\u001b[11;2H\u001b[0m\u001b[49m\u001b[K\u001b[12;27H\u001b[0m\u001b[49m\u001b[K\u001b[13;2H\u001b[0m\u001b[49m\u001b[K\u001b[14;69H\u001b[0m\u001b[49m\u001b[K\u001b[10;1H \u001b[11;1H \u001b[12;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[13;1H\u001b[22m \u001b[14;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for agents\u001b[39m\u001b[49m\u001b[0m\u001b[10;1H\u001b[0 q\u001b[10;1H \u001b[39m\u001b[49m\u001b[0m\u001b[12;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[12;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[14;96H\u26a0\u001b[14;98H\u001b[38;5;179;49m1 warning\u001b[14;108H\u001b[39;49m\u00b7\u001b[14;110H\u001b[1mf2\u001b[14;113H\u001b[22mto\u001b[14;116Hview\u001b[39m\u001b[49m\u001b[0m\u001b[12;3H\u001b[?25h\u001b[?2026l\u001b]0;\u280b workspace\u0007\u001b[?2026h\u001b[10;1H\u001b[J\u001b[?25l\u001b[10;2H\u001b[0m\u001b[49m\u001b[K\u001b[11;34H\u001b[0m\u001b[49m\u001b[K\u001b[12;2H\u001b[0m\u001b[49m\u001b[K\u001b[13;2H\u001b[0m\u001b[49m\u001b[K\u001b[14;27H\u001b[0m\u001b[49m\u001b[K\u001b[15;2H\u001b[0m\u001b[49m\u001b[K\u001b[16;120H\u001b[0m\u001b[49m\u001b[K\u001b[10;1H \u001b[11;1H\u2022 \u001b[2mWorking\u001b[22m \u001b[2m(0s \u2022 \u001b[22m\u001b[1mesc\u001b[22m\u001b[2m\u001b[2m to interrupt)\u001b[12;1H\u001b[22m \u001b[13;1H \u001b[14;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[15;1H\u001b[22m \u001b[16;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for agents                           \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[10;1H\u001b[0 q\u001b[10;1H \u001b[39m\u001b[49m\u001b[0m\u001b[14;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[14;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2819 workspace\u0007\u001b[?2026h\u001b[?25l\u001b[16;74H\u001b[38;5;5;49mPursuing goal (0s)\u001b[39m\u001b[49m\u001b[0m\u001b[14;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[16;64H\u2026 \u001b[38;5;5;49mGoal paused (/goal resume\u001b[39m\u001b[49m\u001b[0m\u001b[14;3H\u001b[?25h\u001b[?2026l\u001b]0;workspace\u0007\u001b]7501;state=idle:app=codex\u001b\\\u001b[?2026h\u001b[10;1H\u001b[J\u001b[10;40r\u001b[10;1H\u001bM\u001bM\u001b[r\u001b[1;11r\u001b[9;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u25a0 Conversation interrupted - use /feedback if something went wrong\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[14;3H\u001b[?25l\u001b[12;2H\u001b[0m\u001b[49m\u001b[K\u001b[13;2H\u001b[0m\u001b[49m\u001b[K\u001b[14;27H\u001b[0m\u001b[49m\u001b[K\u001b[15;2H\u001b[0m\u001b[49m\u001b[K\u001b[16;120H\u001b[0m\u001b[49m\u001b[K\u001b[12;1H \u001b[13;1H \u001b[14;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[15;1H\u001b[22m \u001b[16;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for a\u2026 \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39;49m    \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[12;1H\u001b[0 q\u001b[12;1H \u001b[39m\u001b[49m\u001b[0m\u001b[14;3H\u001b[?25h\u001b[?2026l\u001b]0;\u283c workspace\u0007\u001b]7501;state=working:app=codex\u001b\\\u001b[?2026h\u001b[12;1H\u001b[J\u001b[?25l\u001b[12;2H\u001b[0m\u001b[49m\u001b[K\u001b[13;34H\u001b[0m\u001b[49m\u001b[K\u001b[14;2H\u001b[0m\u001b[49m\u001b[K\u001b[15;2H\u001b[0m\u001b[49m\u001b[K\u001b[16;27H\u001b[0m\u001b[49m\u001b[K\u001b[17;2H\u001b[0m\u001b[49m\u001b[K\u001b[18;120H\u001b[0m\u001b[49m\u001b[K\u001b[12;1H \u001b[13;1H\u2022 \u001b[2mWorking\u001b[22m \u001b[2m(0s \u2022 \u001b[22m\u001b[1mesc\u001b[22m\u001b[2m\u001b[2m to interrupt)\u001b[14;1H\u001b[22m \u001b[15;1H \u001b[16;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[17;1H\u001b[22m \u001b[18;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for a\u2026 \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39;49m    \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[12;1H\u001b[0 q\u001b[12;1H \u001b[39m\u001b[49m\u001b[0m\u001b[16;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[12;40r\u001b[12;1H\u001bM\u001bM\u001bM\u001bM\u001b[r\u001b[1;15r\u001b[11;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[1m\u001b[2m\u001b[39;48;5;8m\u203a \u001b[22m\u001b[22mOld queued fixture prompt\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[16;3H\u001b[39m\u001b[49m\u001b[0m\u001b[?25l\u001b[16;1H\u001b[0 q\u001b[16;1H \u001b[39m\u001b[49m\u001b[0m\u001b[20;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[20;3H\u001b[?25h\u001b[?2026l\u001b]0;workspace\u0007\u001b]7501;state=idle:app=codex\u001b\\\u001b[?2026h\u001b[16;1H\u001b[J\u001b[16;40r\u001b[16;1H\u001bM\u001bM\u001b[r\u001b[1;17r\u001b[15;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u25a0 Conversation interrupted - use /feedback if something went wrong\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[20;3H\u001b[?25l\u001b[18;2H\u001b[0m\u001b[49m\u001b[K\u001b[19;2H\u001b[0m\u001b[49m\u001b[K\u001b[20;27H\u001b[0m\u001b[49m\u001b[K\u001b[21;2H\u001b[0m\u001b[49m\u001b[K\u001b[22;120H\u001b[0m\u001b[49m\u001b[K\u001b[18;1H \u001b[19;1H \u001b[20;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[21;1H\u001b[22m \u001b[22;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for a\u2026 \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39;49m    \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[18;1H\u001b[0 q\u001b[18;1H \u001b[39m\u001b[49m\u001b[0m\u001b[20;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[18;1H\u001b[J\u001b[?25l\u001b[18;2H\u001b[0m\u001b[49m\u001b[K\u001b[20;63H\u001b[0m\u001b[49m\u001b[K\u001b[21;2H\u001b[0m\u001b[49m\u001b[K\u001b[22;10H\u001b[0m\u001b[49m\u001b[K\u001b[23;2H\u001b[0m\u001b[49m\u001b[K\u001b[24;119H\u001b[0m\u001b[49m\u001b[K\u001b[18;1H \u001b[19;1H\u001b[7m\u001b[1m\u203a /status      \u001b[22mshow current session configuration and token usage\u001b[1m                                                       \u001b[20;1H\u001b[27m\u001b[22m  /\u001b[1mstatus\u001b[22mline  \u001b[2mconfigure which items appear in the status line\u001b[21;1H\u001b[22m \u001b[22;1H\u001b[1m\u203a\u001b[22m /status\u001b[23;1H \u001b[24;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m                                       \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39m\u001b[49m\u001b[0m\u001b[18;1H\u001b[0 q\u001b[18;1H \u001b[39m\u001b[49m\u001b[0m\u001b[22;10H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[18;1H\u001b[J\u001b[18;40r\u001b[18;1H\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001b[r\u001b[1;34r\u001b[17;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[38;5;5;49m/status\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K  \u001b[38;5;75;49m>_ \u001b[1m\u001b[39;49mOpenAI Codex\u001b[22m\u001b[2m\u001b[2m (v0.167.2)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Server:              \u001b[22munix://<PROBE_ROOT>/backend.sock\u001b[2m (v0.167.2)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Model:               \u001b[22mgpt-5.4\u001b[2m (reasoning none)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Model provider:      \u001b[22moffline_fixture\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Directory:           \u001b[22m<PROBE_ROOT>/workspace\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Permissions:         \u001b[22mCustom (workspace, never)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Agents.md:           \u001b[22m<none>\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Collaboration mode:  \u001b[22mDefault\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Session:             \u001b[22m01a1ce9c-31a0-7c22-814f-0d11f87b6018\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Token usage:         \u001b[22m0 total \u001b[2m (0 input + 0 output)\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;49m\u001b[K\u001b[2m  Limits:              data not available yet\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[22;10H\u001b[?25l\u001b[35;2H\u001b[0m\u001b[49m\u001b[K\u001b[36;2H\u001b[0m\u001b[49m\u001b[K\u001b[37;27H\u001b[0m\u001b[49m\u001b[K\u001b[38;2H\u001b[0m\u001b[49m\u001b[K\u001b[39;120H\u001b[0m\u001b[49m\u001b[K\u001b[35;1H \u001b[36;1H \u001b[37;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[38;1H\u001b[22m \u001b[39;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for a\u2026 \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39;49m    \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[35;1H\u001b[0 q\u001b[35;1H \u001b[39m\u001b[49m\u001b[0m\u001b[37;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[37;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2807 workspace\u0007\u001b]0;\u280f workspace\u0007\u001b]7501;state=working:app=codex\u001b\\\u001b[?2026h\u001b[1;34r\u001b[34;1H\r\n\u001b[r\u001b[37;3H\u001b[34;1H\u001b[J\u001b[?25l\u001b[34;2H\u001b[0m\u001b[49m\u001b[K\u001b[35;34H\u001b[0m\u001b[49m\u001b[K\u001b[36;2H\u001b[0m\u001b[49m\u001b[K\u001b[37;2H\u001b[0m\u001b[49m\u001b[K\u001b[38;27H\u001b[0m\u001b[49m\u001b[K\u001b[39;2H\u001b[0m\u001b[49m\u001b[K\u001b[40;120H\u001b[0m\u001b[49m\u001b[K\u001b[34;1H \u001b[35;1H\u2022 \u001b[2mWorking\u001b[22m \u001b[2m(0s \u2022 \u001b[22m\u001b[1mesc\u001b[22m\u001b[2m\u001b[2m to interrupt)\u001b[36;1H\u001b[22m \u001b[37;1H \u001b[38;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[39;1H\u001b[22m \u001b[40;1H  \u001b[38;5;223;49mgpt-5.4 default\u001b[39;49m \u00b7 \u001b[38;5;151;49m<PROBE_ROOT>/workspace\u001b[39;49m \u00b7 \u001b[1m\u2190\u001b[22m for a\u2026 \u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39;49m    \u26a0 \u001b[38;5;179;49m1 warning\u001b[39;49m \u00b7 \u001b[1mf2\u001b[22m to view\u001b[39m\u001b[49m\u001b[0m\u001b[34;1H\u001b[0 q\u001b[34;1H \u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[1;33r\u001b[33;1H\r\n\u001b[39;49m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[1m\u001b[2m\u001b[39;48;5;8m\u203a \u001b[22m\u001b[22mProgrammatic prompt, not a verified human resume\u001b[39m\u001b[49m\u001b[0m\r\n\u001b[39;48;5;8m\u001b[K\u001b[39m\u001b[49m\u001b[0m\u001b[r\u001b[38;3H\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[35;31H\u001b[0m\u001b[49m\u001b[K\u001b[40;119H\u001b[0m\u001b[49m\u001b[K\u001b[35;3H\u001b[2mRecon\u001b[35;9Hecting to server\u2026\u001b[22m \u001b[2m(0s)\u001b[40;3H\u001b[22m\u001b[1m^c\u001b[22m quit        \u001b[40;19H \u001b[40;21H                                 \u001b[40;55H \u001b[40;57H \u001b[40;59H   \u001b[40;63H  \u001b[40;66H                          \u001b[40;93H\u001b[38;5;5;49mGoal paused (/goal resume)\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u280b workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2819 workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2839 workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2838 workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u283c workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2834 workspace\u0007\u001b[?2026h\u001b[?25l\u001b[35;1H\u001b[2m\u25e6\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2826 workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b]0;\u2827 workspace\u0007\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[38;3H\u001b[?25h\u001b[?2026l\u001b[34;1H\u001b[J\u001b]0;\u0007\u001b[<1u\u001b[<u\u001b[>4;0m\u001b[?2004l\u001b[?1004l\u001b[c\u001b[0 q\u001b[?25h\u001b]7501;state=clear\u001b\\\u001b[0 qDisconnected from this task. Any running work continues.\r\nTo reconnect, run:\r\n  \u001b[36mcodex --remote unix://<PROBE_ROOT>/backend.sock resume 01a1ce9c-31a0-7c22-814f-0d11f87b6018\u001b[39m\r\nStop the current turn: run \u001b[36mcodex --remote unix://<PROBE_ROOT>/backend.sock agents\u001b[39m, select this task, and press x.\r\n",
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+}
