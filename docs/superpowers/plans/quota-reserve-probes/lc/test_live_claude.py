@@ -651,7 +651,9 @@ class BearerTests(Base):
     def forge_n1(self, mode=0o600, **changes):
         document = {"schema": live.SCHEMA, "step": "n1", "status": "fresh_windows", "native_sha256_matches": True,
                     "harness": {"classification": "fresh_windows", "identity_matches_before": True,
-                                "identity_matches_after": True, "server_policy_written": False}}
+                                "identity_matches_after": True, "server_policy_written": False,
+                                "model_events": 0, "replies": [{"cost_zero": True}],
+                                "native": {"group_empty": True}}}
         harness = changes.pop("harness", {})
         document.update(changes)
         document["harness"].update(harness)
@@ -669,6 +671,11 @@ class BearerTests(Base):
                  ("n1_not_completed", {"harness": {"identity_matches_after": False}}),
                  ("n1_not_completed", {"native_sha256_matches": False}),
                  ("n1_not_completed", {"schema": "other"}),
+                 ("n1_not_completed", {"harness": {"model_events": 1}}),
+                 ("n1_not_completed", {"status": "inconclusive", "harness": {
+                     "classification": "inconclusive", "replies": [{"cost_zero": True}, {"cost_zero": False}]}}),
+                 ("n1_not_completed", {"harness": {"replies": []}}),
+                 ("n1_not_completed", {"harness": {"native": {"group_empty": False}}}),
                  ("n1_result_not_private", {"mode": 0o644})]
         for reason, changes in cases:
             with self.subTest(reason=reason, changes=changes):

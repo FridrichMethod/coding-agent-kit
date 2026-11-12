@@ -34,8 +34,10 @@ n1       One-shot. Local refusals first (registration ready, caller
          get_usage with one 65 s cache-shortcut wait) on the resolved binary.
          The accounting tunnel (api.anthropic.com:443 and
          platform.claude.com:443 only) is on unless --no-tunnel.
-bearer   One-shot, only after an n1 result whose native run completed with
-         the identity unchanged and no server-managed policy. DIR/bearer.attempt
+bearer   One-shot, only after an n1 result in DIR whose native run completed
+         (fresh_windows, inconclusive or unavailable) with zero model events,
+         zero session cost in every reply, an empty process group, the
+         identity unchanged and no server-managed policy. DIR/bearer.attempt
          is created before the credential read; then one memory-only access
          bearer read, exactly one usage GET and one profile GET (5 s socket,
          10 s total, 64 KiB, no retry, redirect or refresh). The bearer is
@@ -428,11 +430,21 @@ def step_n1(modules, config, paths, run, args, wiring):
 
 
 def _n1_completed(document):
+    """Native ran to completion on the account, and nothing in its result argues against a bearer read.
+
+    run_n1 classifies inconclusive before it checks session cost, so cost,
+    model events and reaping are checked here for every accepted outcome.
+    """
     harness = document.get("harness") if isinstance(document, dict) else None
-    return (isinstance(harness, dict) and document.get("schema") == SCHEMA and document.get("step") == "n1"
-            and document.get("status") in N1_COMPLETED and document.get("native_sha256_matches") is True
-            and harness.get("classification") in N1_COMPLETED and harness.get("identity_matches_before") is True
-            and harness.get("identity_matches_after") is True and harness.get("server_policy_written") is False)
+    if not (isinstance(harness, dict) and document.get("schema") == SCHEMA and document.get("step") == "n1"
+            and document.get("status") in N1_COMPLETED and document.get("native_sha256_matches") is True):
+        return False
+    replies, native = harness.get("replies"), harness.get("native")
+    return (harness.get("classification") in N1_COMPLETED and harness.get("identity_matches_before") is True
+            and harness.get("identity_matches_after") is True and harness.get("server_policy_written") is False
+            and harness.get("model_events") == 0 and isinstance(replies, list) and len(replies) > 0
+            and all(isinstance(r, dict) and r.get("cost_zero") is True for r in replies)
+            and isinstance(native, dict) and native.get("group_empty") is True)
 
 
 def _names(names, allowed):
@@ -580,7 +592,7 @@ def main(argv=None, wiring=None):
         except Refused as refusal:
             code = refusal.code
             document.update(refusal.extra, reason=refusal.reason)
-        except _Interrupted:
+        except (_Interrupted, KeyboardInterrupt):
             code = EXIT_NOT_OK
             document.update(status="interrupted")
         except Exception as error:  # noqa: BLE001 - reason code or class name only, never a value
