@@ -859,6 +859,7 @@ def stage_sessions(h):
     two.start_tui('KLX-S2-START second session')
     assert h.wait(lambda: 'KLX fixture reply KLX-S1-START' in one.screen()
                   and 'KLX fixture reply KLX-S2-START' in two.screen(), 40), 'sessions did not start'
+    time.sleep(1.5)  # let both native title requests finish before the outside burst
 
     def outside(count, consume):
         h.backend.consume = consume

@@ -130,17 +130,20 @@ def main():
         summary['metrics'] = checker.metrics({stage: json.loads((HERE / 'evidence' / (stage + '.json')).read_text())
                                               for stage, _ in STAGES})
         summary['exit'] = 0
-        status = 0
+        write(summary, all_roots)
+        status = checker.main([str(HERE / 'evidence')])
         return status
     finally:
-        summary['leftover_roots'] = [root for root in all_roots if Path(root).exists()]
-        (HERE / 'evidence').mkdir(exist_ok=True)
-        (HERE / 'evidence' / 'manifest.json').write_text(json.dumps(summary, indent=1, sort_keys=True,
-                                                                    ensure_ascii=True) + '\n')
-        if status == 0 and 'evidence' in summary:
-            code = checker.main([str(HERE / 'evidence')])
-            status = code
+        if summary['exit'] != 0:
+            write(summary, all_roots)
         (CACHE / 'run.exit').write_text(str(status) + '\n')
+
+
+def write(summary, roots):
+    summary['leftover_roots'] = [root for root in roots if Path(root).exists()]
+    (HERE / 'evidence').mkdir(exist_ok=True)
+    (HERE / 'evidence' / 'manifest.json').write_text(json.dumps(summary, indent=1, sort_keys=True,
+                                                                ensure_ascii=True) + '\n')
 
 
 if __name__ == '__main__':

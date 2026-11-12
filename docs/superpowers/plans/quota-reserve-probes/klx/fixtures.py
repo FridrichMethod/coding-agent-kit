@@ -101,7 +101,7 @@ class Backend:
         self.on_issue = []  # callbacks(access, label) so a launcher can label credentials at its gate
         self.release = threading.Event()
         self.hold_titles = False  # True: native title requests stay open like a long stream
-        self.consume = 0.0  # percent of the five-hour window each live model request uses
+        self.consume = 0.0  # percent of the five-hour window each KLX-OUTSIDE request uses
         self.refresh_count = 0
         self.counter = 0
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), self._handler())
@@ -265,7 +265,7 @@ class Backend:
                              ident=ident, model=body.get('model'))
                 if not live:
                     return self.send(401, {'error': {'code': 'token_expired', 'message': 'fixture'}})
-                if backend.consume:
+                if backend.consume and marker and marker.startswith('KLX-OUTSIDE'):
                     with backend.lock:
                         state = backend.usage[identity['account']]
                         state['five'] = min(100, state['five'] + backend.consume)
