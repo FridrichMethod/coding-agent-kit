@@ -241,7 +241,13 @@ class Upstream:
                 if path.endswith('/models'):
                     return self.reply(200, {'models': []})
                 if path.endswith('/accounts/check'):
-                    return self.reply(200, {'accounts': []})
+                    token = (self.headers.get('Authorization') or '')[7:]
+                    with up.lock:
+                        ident = up.codex.get(token)
+                    accounts = [{'id': ident['account'], 'name': 'KM Fixture',
+                                 'workspace_backend_origin': 'https://fixture.invalid',
+                                 'account_routing_override': 'NO_CONSTRAINT'}] if ident else []
+                    return self.reply(200, {'accounts': accounts})
                 return self.reply(404, {'error': 'fixture has no such endpoint'})
 
             def do_POST(self):

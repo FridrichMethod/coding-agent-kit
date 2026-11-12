@@ -1,0 +1,4911 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "codex-loss-eof": {
+   "case_seconds": 15.5,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_after_trigger_ms": 0.6,
+   "latch_t": 209532.192732541,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "monitor_eof"
+     ],
+     [
+      false,
+      "monitor_eof"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 2915
+   },
+   "lost": [
+    "monitor_eof"
+   ],
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "refused": [],
+   "stream_close_ms": [
+    0.7
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 2.866,
+    "gate_rows": [
+     {
+      "event": "preflight",
+      "ms": 0.001,
+      "reason": "awaiting_read",
+      "t": 209527.292861958
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93846,
+      "port": 62745,
+      "t": 209527.293261375
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 209527.367719125
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209527.836604291
+     },
+     {
+      "admit_ms": 0.303,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209527.836653
+     },
+     {
+      "bytes": 43830,
+      "event": "forwarded",
+      "gate_ms": 0.498,
+      "label": "A",
+      "stream": 1,
+      "t": 209527.836844083
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209527.837562333
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209527.8737475
+     },
+     {
+      "admit_ms": 0.18,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209527.873792666
+     },
+     {
+      "bytes": 20412,
+      "event": "forwarded",
+      "gate_ms": 0.401,
+      "label": "A",
+      "stream": 2,
+      "t": 209527.874011208
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209527.874404041
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 3,
+      "t": 209531.122267
+     },
+     {
+      "admit_ms": 0.488,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 3,
+      "t": 209531.122339416
+     },
+     {
+      "bytes": 44080,
+      "event": "forwarded",
+      "gate_ms": 0.784,
+      "label": "A",
+      "stream": 3,
+      "t": 209531.122630541
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 4,
+      "t": 209531.1626635
+     },
+     {
+      "admit_ms": 0.245,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 4,
+      "t": 209531.162715041
+     },
+     {
+      "bytes": 20419,
+      "event": "forwarded",
+      "gate_ms": 0.553,
+      "label": "A",
+      "stream": 4,
+      "t": 209531.16301975
+     },
+     {
+      "event": "stream_closed",
+      "stream": 4,
+      "t": 209531.163658333
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 209532.192467625
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "t": 209532.192732541
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "t": 209532.192888791
+     },
+     {
+      "event": "stream_closed",
+      "stream": 3,
+      "t": 209532.1933895
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "paused": true,
+      "t": 209535.215623041
+     },
+     {
+      "event": "read_refused",
+      "kind": "usage",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/usage",
+      "paused": true,
+      "t": 209535.21669075
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209539.943070041
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "monitor_eof",
+      "t": 209539.95504425
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209539.993529916
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "monitor_eof",
+      "t": 209539.996375291
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209527.233180166,
+      "text": "codex-cli 0.166.0"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 62745,
+      "reserved": 19,
+      "t": 209527.239734791
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209527.244779125
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93845,
+      "t": 209527.246320041
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93846,
+      "t": 209527.247793916
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.064,
+      "t": 209527.367595708
+     },
+     {
+      "event": "self_test",
+      "ms": 31.5,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209527.39934175
+     },
+     {
+      "event": "native_started",
+      "pid": 93850,
+      "t": 209527.404319583
+     },
+     {
+      "event": "said",
+      "t": 209532.193869166,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209532.194091833,
+      "text": "quota reserve paused (monitor_eof); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209541.554326708
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209541.560823791
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209527.264618583
+     },
+     {
+      "event": "monitor_eof_sent",
+      "t": 209532.192421583
+     }
+    ],
+    "poll_count": 10,
+    "poll_ms": 3.177,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-loss-eof/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-loss-eof/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-loss-eof/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-loss-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 11:40 Please answer KM-loss-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-loss-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limits and credits Model: gpt-5.4 (reasoning none, summaries auto) Model provider: gate Directory: <root>/cases/codex-loss-eof/workspace Permissions: Full Access Agents.md: <none> Account: km-codex-user-a@example.invalid (Pro 200) ChatGPT workspace: KM Fixture (km-codex-acct-a) Collaboration mode: Default Session: 01a1d146-f8b7-7a63-9917-ae2af8aff76f Context window: 100% left (0 used / 258K) 5h limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591] 80%",
+    "terminal_tail": "4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 11:40 Please answer KM-loss-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-loss-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limits and credits Model: gpt-5.4 (reasoning none, summaries auto) Model provider: gate Directory: <root>/cases/codex-loss-eof/workspace Permissions: Full Access Agents.md: <none> Account: km-codex-user-a@example.invalid (Pro 200) ChatGPT workspace: KM Fixture (km-codex-acct-a) Collaboration mode: Default Session: 01a1d146-f8b7-7a63-9917-ae2af8aff76f Context window: 100% left (0 used / 258K) 5h limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591] 80% left (resets 14:10) Weekly limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591\u2591\u2591] 70% left (resets 23:40 on 15 Nov) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view Later turn KM-loss-later \u203a Later turn KM-loss-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62745/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-eof/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d146-f8b7-7a63-9917-ae2af8aff76f "
+   },
+   "trigger_t": 209532.192149416,
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209527.364171083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209527.364373875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209527.364533541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209527.734585583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209527.736707791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209527.770337333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 209527.784289125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209527.784694083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209527.785958041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209527.829454666
+    },
+    {
+     "action": "text",
+     "bytes": 43830,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209527.83739975
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209527.871581416
+    },
+    {
+     "action": "text",
+     "bytes": 20412,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209527.874274833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209528.277519958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209528.781632625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209529.286395083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209529.791928958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209530.297033791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209530.798123958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209531.10917925
+    },
+    {
+     "action": "hold",
+     "bytes": 44080,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209531.123348625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209531.159725583
+    },
+    {
+     "action": "text",
+     "bytes": 20419,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209531.16343175
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209531.303451416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209531.806255125
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-loss-hold",
+     "outcome": "client_gone",
+     "t": 209532.557228916
+    }
+   ]
+  },
+  "codex-loss-kill": {
+   "case_seconds": 15.5,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_after_trigger_ms": 3.8,
+   "latch_t": 209516.637374666,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "monitor_eof"
+     ],
+     [
+      false,
+      "monitor_eof"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 2956
+   },
+   "lost": [
+    "monitor_eof"
+   ],
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "refused": [],
+   "stream_close_ms": [
+    0.7
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 2.658,
+    "gate_rows": [
+     {
+      "event": "preflight",
+      "ms": 0.001,
+      "reason": "awaiting_read",
+      "t": 209511.743954833
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93836,
+      "port": 62609,
+      "t": 209511.74438325
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 209511.811801416
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209512.21959
+     },
+     {
+      "admit_ms": 0.19,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209512.219607916
+     },
+     {
+      "bytes": 43833,
+      "event": "forwarded",
+      "gate_ms": 0.315,
+      "label": "A",
+      "stream": 1,
+      "t": 209512.219733625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209512.220180625
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209512.252626333
+     },
+     {
+      "admit_ms": 0.134,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209512.252661291
+     },
+     {
+      "bytes": 20412,
+      "event": "forwarded",
+      "gate_ms": 0.324,
+      "label": "A",
+      "stream": 2,
+      "t": 209512.252850083
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209512.253178625
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 3,
+      "t": 209515.564940541
+     },
+     {
+      "admit_ms": 0.498,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 3,
+      "t": 209515.565001166
+     },
+     {
+      "bytes": 44083,
+      "event": "forwarded",
+      "gate_ms": 0.746,
+      "label": "A",
+      "stream": 3,
+      "t": 209515.565245666
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 4,
+      "t": 209515.604499041
+     },
+     {
+      "admit_ms": 0.212,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 4,
+      "t": 209515.604543958
+     },
+     {
+      "bytes": 20419,
+      "event": "forwarded",
+      "gate_ms": 0.448,
+      "label": "A",
+      "stream": 4,
+      "t": 209515.60477675
+     },
+     {
+      "event": "stream_closed",
+      "stream": 4,
+      "t": 209515.60529125
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 209516.637079791
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "t": 209516.637374666
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "t": 209516.637514583
+     },
+     {
+      "event": "stream_closed",
+      "stream": 3,
+      "t": 209516.6380515
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "paused": true,
+      "t": 209519.759817875
+     },
+     {
+      "event": "read_refused",
+      "kind": "usage",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/usage",
+      "paused": true,
+      "t": 209519.760911625
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209524.486997083
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "monitor_eof",
+      "t": 209524.499716416
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_eof",
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209524.537928916
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "monitor_eof",
+      "t": 209524.540637833
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209511.683242458,
+      "text": "codex-cli 0.166.0"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 62609,
+      "reserved": 19,
+      "t": 209511.689685958
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209511.694714583
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93835,
+      "t": 209511.696194083
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93836,
+      "t": 209511.697582666
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.061,
+      "t": 209511.811687166
+     },
+     {
+      "event": "self_test",
+      "ms": 30.3,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209511.842190208
+     },
+     {
+      "event": "native_started",
+      "pid": 93840,
+      "t": 209511.847152166
+     },
+     {
+      "event": "said",
+      "t": 209516.638550875,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209516.638705333,
+      "text": "quota reserve paused (monitor_eof); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209526.099257
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209526.103703541
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209511.71449525
+     }
+    ],
+    "poll_count": 10,
+    "poll_ms": 2.926,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-loss-kill/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-loss-kill/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-loss-kill/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-loss-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 11:40 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view Please answer KM-loss-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-loss-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limits and credits Model: gpt-5.4 (reasoning none, summaries auto) Model provider: gate Directory: <root>/cases/codex-loss-kill/workspace Permissions: Full Access Agents.md: <none> Account: km-codex-user-a@example.invalid (Pro 200) ChatGPT workspace: KM Fixture (km-codex-acct-a) Collaborati",
+    "terminal_tail": "o do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view Please answer KM-loss-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-loss-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limits and credits Model: gpt-5.4 (reasoning none, summaries auto) Model provider: gate Directory: <root>/cases/codex-loss-kill/workspace Permissions: Full Access Agents.md: <none> Account: km-codex-user-a@example.invalid (Pro 200) ChatGPT workspace: KM Fixture (km-codex-acct-a) Collaboration mode: Default Session: 01a1d146-bbdf-72a2-9b49-92a7e4b5ca14 Context window: 100% left (0 used / 258K) 5h limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591] 80% left (resets 14:10) Weekly limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591\u2591\u2591] 70% left (resets 23:40 on 15 Nov) Later turn KM-loss-later \u203a Later turn KM-loss-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62609/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-kill/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d146-bbdf-72a2-9b49-92a7e4b5ca14 "
+   },
+   "trigger_t": 209516.633545125,
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209511.809011791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209511.809174833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209511.809361708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209512.176758375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209512.177609625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 209512.193953875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209512.194190625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209512.19450225
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209512.214668083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209512.21871075
+    },
+    {
+     "action": "text",
+     "bytes": 43833,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209512.220031
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209512.251049708
+    },
+    {
+     "action": "text",
+     "bytes": 20412,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209512.25306425
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209512.725565333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209513.227864125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209513.7327435
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209514.235795166
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209514.740326916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209515.243423208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209515.5545535
+    },
+    {
+     "action": "hold",
+     "bytes": 44083,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209515.565901
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209515.60181425
+    },
+    {
+     "action": "text",
+     "bytes": 20419,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209515.6051325
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209515.747909958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209516.248967958
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-loss-hold",
+     "outcome": "client_gone",
+     "t": 209516.998133375
+    }
+   ]
+  },
+  "codex-loss-stall": {
+   "case_seconds": 18.5,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_after_trigger_ms": 2633.3,
+   "latch_t": 209550.37493375,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "monitor_stale"
+     ],
+     [
+      false,
+      "monitor_stale"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 2958
+   },
+   "lost": [
+    "monitor_stale"
+   ],
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "refused": [],
+   "stream_close_ms": [
+    0.4
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 2.484,
+    "gate_rows": [
+     {
+      "event": "preflight",
+      "ms": 0.001,
+      "reason": "awaiting_read",
+      "t": 209542.849809875
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93856,
+      "port": 62847,
+      "t": 209542.850213416
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 209542.922614833
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209543.356038458
+     },
+     {
+      "admit_ms": 0.241,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209543.356069791
+     },
+     {
+      "bytes": 43836,
+      "event": "forwarded",
+      "gate_ms": 0.373,
+      "label": "A",
+      "stream": 1,
+      "t": 209543.356200833
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209543.356657125
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209543.389806583
+     },
+     {
+      "admit_ms": 0.14,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209543.389838291
+     },
+     {
+      "bytes": 20412,
+      "event": "forwarded",
+      "gate_ms": 0.381,
+      "label": "A",
+      "stream": 2,
+      "t": 209543.390076333
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209543.390406208
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 3,
+      "t": 209546.672487708
+     },
+     {
+      "admit_ms": 0.495,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 3,
+      "t": 209546.672555583
+     },
+     {
+      "bytes": 44086,
+      "event": "forwarded",
+      "gate_ms": 0.79,
+      "label": "A",
+      "stream": 3,
+      "t": 209546.672849458
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 4,
+      "t": 209546.713551
+     },
+     {
+      "admit_ms": 0.28,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 4,
+      "t": 209546.713608375
+     },
+     {
+      "bytes": 20419,
+      "event": "forwarded",
+      "gate_ms": 0.56,
+      "label": "A",
+      "stream": 4,
+      "t": 209546.713885625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 4,
+      "t": 209546.714551708
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_stale",
+      "t": 209550.374719166
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_stale",
+      "t": 209550.37493375
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_stale",
+      "t": 209550.375066791
+     },
+     {
+      "event": "stream_closed",
+      "stream": 3,
+      "t": 209550.375362916
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_stale",
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "paused": true,
+      "t": 209553.487116833
+     },
+     {
+      "event": "read_refused",
+      "kind": "usage",
+      "lost": "monitor_stale",
+      "path": "/backend-api/wham/usage",
+      "paused": true,
+      "t": 209553.488142708
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_stale",
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209558.220981333
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "monitor_stale",
+      "t": 209558.233792083
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": "monitor_stale",
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209558.272221166
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "monitor_stale",
+      "t": 209558.275140625
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209542.787443541,
+      "text": "codex-cli 0.166.0"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 62847,
+      "reserved": 19,
+      "t": 209542.794435333
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209542.799895541
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93855,
+      "t": 209542.801566708
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93856,
+      "t": 209542.803079
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.066,
+      "t": 209542.922497375
+     },
+     {
+      "event": "self_test",
+      "ms": 30.2,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209542.95292375
+     },
+     {
+      "event": "native_started",
+      "pid": 93860,
+      "t": 209542.958073208
+     },
+     {
+      "event": "said",
+      "t": 209550.375891791,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209550.376032041,
+      "text": "quota reserve paused (monitor_stale); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209559.831689875
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209559.838122166
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209542.820078791
+     },
+     {
+      "event": "monitor_stalled",
+      "t": 209547.741793541
+     }
+    ],
+    "poll_count": 10,
+    "poll_ms": 2.706,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-loss-stall/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-loss-stall/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-loss-stall/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-loss-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 11:41 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view Please answer KM-loss-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-loss-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_stale); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limits and credits Model: gpt-5.4 (reasoning none, summaries auto) Model provider: gate Directory: <root>/cases/codex-loss-stall/workspace Permissions: Full Access Agents.md: <none> Account: km-codex-user-a@example.invalid (Pro 200) ChatGP",
+    "terminal_tail": "ult \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view Please answer KM-loss-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-loss-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_stale); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limits and credits Model: gpt-5.4 (reasoning none, summaries auto) Model provider: gate Directory: <root>/cases/codex-loss-stall/workspace Permissions: Full Access Agents.md: <none> Account: km-codex-user-a@example.invalid (Pro 200) ChatGPT workspace: KM Fixture (km-codex-acct-a) Collaboration mode: Default Session: 01a1d147-3571-7333-b72b-79194eb1c466 Context window: 100% left (0 used / 258K) 5h limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591] 80% left (resets 14:11) Weekly limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591\u2591\u2591] 70% left (resets 23:41 on 15 Nov) Later turn KM-loss-later \u203a Later turn KM-loss-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (monitor_stale); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62847/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-loss-stall/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d147-3571-7333-b72b-79194eb1c466 "
+   },
+   "trigger_t": 209547.741595,
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209542.919587583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209542.919790791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209542.919914791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209543.297808083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209543.298454958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 209543.315624458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209543.315744791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209543.318184708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209543.32557675
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209543.350636666
+    },
+    {
+     "action": "text",
+     "bytes": 43836,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209543.356523208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209543.38811275
+    },
+    {
+     "action": "text",
+     "bytes": 20412,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209543.390290875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209543.832763625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209544.335113208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209544.838467833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209545.342276541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209545.843180375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209546.346811
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209546.660977458
+    },
+    {
+     "action": "hold",
+     "bytes": 44086,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209546.673526041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209546.710277625
+    },
+    {
+     "action": "text",
+     "bytes": 20419,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209546.714344125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209546.848456
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209547.352199583
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-loss-hold",
+     "outcome": "client_gone",
+     "t": 209550.752275833
+    }
+   ]
+  },
+  "codex-threshold": {
+   "bind_rows": [
+    {
+     "action": "bind_gate_port",
+     "host": "127.0.0.1",
+     "pid": 93828,
+     "result": "errno:1",
+     "t": 209495.256301708
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::1",
+     "pid": 93828,
+     "result": "errno:1",
+     "t": 209495.256420375
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "0.0.0.0",
+     "pid": 93828,
+     "result": "errno:1",
+     "t": 209495.256473583
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::",
+     "pid": 93828,
+     "result": "errno:1",
+     "t": 209495.256515833
+    }
+   ],
+   "case_seconds": 17.0,
+   "crossed_t": 209498.095375291,
+   "direct_rows": [
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 93827,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 209495.233715166
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 93827,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 209495.233841166
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 93827,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 209495.23389225
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 93827,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 209495.233943041
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 93827,
+     "port_role": "gate_udp",
+     "result": "errno:1",
+     "t": 209495.234034333
+    }
+   ],
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "hold_end": [
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-thr-hold",
+     "outcome": "client_gone",
+     "t": 209498.449376375
+    }
+   ],
+   "latch_after_cross_ms": 54.5,
+   "latch_t": 209498.1498605,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 3117
+   },
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "sdk_rows": [
+    {
+     "action": "detach_parent_exit",
+     "pid": 93829,
+     "t": 209495.27851675
+    },
+    {
+     "action": "sdk",
+     "ms": 4.1,
+     "n": 1,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209495.282957083
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 1,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209495.283388208
+    },
+    {
+     "action": "sdk",
+     "ms": 7.7,
+     "n": 2,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209495.692892583
+    },
+    {
+     "action": "sdk",
+     "ms": 8.5,
+     "n": 2,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209495.693501583
+    },
+    {
+     "action": "sdk",
+     "ms": 8.2,
+     "n": 3,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209496.103036333
+    },
+    {
+     "action": "sdk",
+     "ms": 8.3,
+     "n": 3,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209496.10356025
+    },
+    {
+     "action": "sdk",
+     "ms": 7.1,
+     "n": 4,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209496.511173166
+    },
+    {
+     "action": "sdk",
+     "ms": 6.7,
+     "n": 4,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209496.512171291
+    },
+    {
+     "action": "sdk",
+     "ms": 7.4,
+     "n": 5,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209496.92043
+    },
+    {
+     "action": "sdk",
+     "ms": 8.1,
+     "n": 5,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209496.921079708
+    },
+    {
+     "action": "sdk",
+     "ms": 8.4,
+     "n": 6,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209497.330206833
+    },
+    {
+     "action": "sdk",
+     "ms": 8.4,
+     "n": 6,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209497.330733958
+    },
+    {
+     "action": "sdk",
+     "ms": 6.8,
+     "n": 7,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209497.738814583
+    },
+    {
+     "action": "sdk",
+     "ms": 7.0,
+     "n": 7,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209497.738990333
+    },
+    {
+     "action": "sdk",
+     "ms": 8.9,
+     "n": 8,
+     "pid": 93830,
+     "role": "child",
+     "status": 200,
+     "t": 209498.148717833
+    },
+    {
+     "action": "sdk",
+     "ms": 8.3,
+     "n": 8,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209498.149099291
+    },
+    {
+     "action": "sdk",
+     "ms": 5.1,
+     "n": 9,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209498.5548055
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 9,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209498.555390875
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 10,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209498.961355375
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 10,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209498.961859666
+    },
+    {
+     "action": "sdk",
+     "ms": 3.3,
+     "n": 11,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209499.36649775
+    },
+    {
+     "action": "sdk",
+     "ms": 3.2,
+     "n": 11,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209499.366880875
+    },
+    {
+     "action": "sdk",
+     "ms": 5.4,
+     "n": 12,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209499.773657
+    },
+    {
+     "action": "sdk",
+     "ms": 5.6,
+     "n": 12,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209499.774247875
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 13,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209500.179958583
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 13,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209500.180334958
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 14,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209500.58623075
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 14,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209500.586739791
+    },
+    {
+     "action": "sdk",
+     "ms": 5.3,
+     "n": 15,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209500.99342075
+    },
+    {
+     "action": "sdk",
+     "ms": 6.1,
+     "n": 15,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209500.994160541
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 16,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209501.399355291
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 16,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209501.399883
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 17,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209501.805806791
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 17,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209501.806516791
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 18,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209502.212092541
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 18,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209502.212616625
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 19,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209502.618855375
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 19,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209502.619383958
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 20,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209503.024538208
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 20,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209503.025094208
+    },
+    {
+     "action": "sdk",
+     "ms": 4.5,
+     "n": 21,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209503.430359541
+    },
+    {
+     "action": "sdk",
+     "ms": 4.1,
+     "n": 21,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209503.430979541
+    },
+    {
+     "action": "sdk",
+     "ms": 2.7,
+     "n": 22,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209503.834814458
+    },
+    {
+     "action": "sdk",
+     "ms": 2.3,
+     "n": 22,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209503.835153208
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 23,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209504.241280125
+    },
+    {
+     "action": "sdk",
+     "ms": 5.3,
+     "n": 23,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209504.241871958
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 24,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209504.648287
+    },
+    {
+     "action": "sdk",
+     "ms": 5.6,
+     "n": 24,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209504.648903958
+    },
+    {
+     "action": "sdk",
+     "ms": 3.1,
+     "n": 25,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209505.052526125
+    },
+    {
+     "action": "sdk",
+     "ms": 2.4,
+     "n": 25,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209505.052946583
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 26,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209505.459207708
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 26,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209505.459820333
+    },
+    {
+     "action": "sdk",
+     "ms": 3.4,
+     "n": 27,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209505.864240125
+    },
+    {
+     "action": "sdk",
+     "ms": 3.1,
+     "n": 27,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209505.864311833
+    },
+    {
+     "action": "sdk",
+     "ms": 5.2,
+     "n": 28,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209506.270997291
+    },
+    {
+     "action": "sdk",
+     "ms": 5.6,
+     "n": 28,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209506.27164675
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 29,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209506.677236083
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 29,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209506.677783333
+    },
+    {
+     "action": "sdk",
+     "ms": 2.8,
+     "n": 30,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209507.08119825
+    },
+    {
+     "action": "sdk",
+     "ms": 1.8,
+     "n": 30,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209507.081246083
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 31,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209507.4867545
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 31,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209507.4874315
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 32,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209507.89328475
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 32,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209507.893877333
+    },
+    {
+     "action": "sdk",
+     "ms": 3.8,
+     "n": 33,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209508.29887425
+    },
+    {
+     "action": "sdk",
+     "ms": 3.6,
+     "n": 33,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209508.299258458
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 34,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209508.705134458
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 34,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209508.705360625
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 35,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209509.110711083
+    },
+    {
+     "action": "sdk",
+     "ms": 4.2,
+     "n": 35,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209509.111314375
+    },
+    {
+     "action": "sdk",
+     "ms": 5.0,
+     "n": 36,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209509.517615375
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 36,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209509.51826175
+    },
+    {
+     "action": "sdk",
+     "ms": 5.0,
+     "n": 37,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209509.92357525
+    },
+    {
+     "action": "sdk",
+     "ms": 4.0,
+     "n": 37,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209509.924265083
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 38,
+     "pid": 93831,
+     "role": "grandchild",
+     "status": 503,
+     "t": 209510.330339041
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 38,
+     "pid": 93830,
+     "role": "child",
+     "status": 503,
+     "t": 209510.331054708
+    }
+   ],
+   "stream_close_ms": [
+    0.4
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 2.712,
+    "gate_rows": [
+     {
+      "event": "preflight",
+      "ms": 0.001,
+      "reason": "awaiting_read",
+      "t": 209494.65462875
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93820,
+      "port": 62422,
+      "t": 209494.654998916
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 209494.7443615
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209495.194103458
+     },
+     {
+      "admit_ms": 0.24,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209495.194129458
+     },
+     {
+      "bytes": 43832,
+      "event": "forwarded",
+      "gate_ms": 0.451,
+      "label": "A",
+      "stream": 1,
+      "t": 209495.194338125
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209495.19480425
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209495.22546775
+     },
+     {
+      "admit_ms": 0.141,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209495.225497916
+     },
+     {
+      "bytes": 20411,
+      "event": "forwarded",
+      "gate_ms": 0.367,
+      "label": "A",
+      "stream": 2,
+      "t": 209495.225722458
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209495.226154833
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 3,
+      "t": 209495.28198425
+     },
+     {
+      "admit_ms": 0.179,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 3,
+      "t": 209495.282126583
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 4,
+      "t": 209495.282192125
+     },
+     {
+      "admit_ms": 0.245,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 4,
+      "t": 209495.282423541
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 0.505,
+      "label": "A",
+      "stream": 3,
+      "t": 209495.282451666
+     },
+     {
+      "event": "stream_closed",
+      "stream": 3,
+      "t": 209495.2827705
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 0.606,
+      "label": "A",
+      "stream": 4,
+      "t": 209495.282785166
+     },
+     {
+      "event": "stream_closed",
+      "stream": 4,
+      "t": 209495.282997625
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 5,
+      "t": 209495.366325875
+     },
+     {
+      "admit_ms": 0.258,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 5,
+      "t": 209495.366356875
+     },
+     {
+      "bytes": 45141,
+      "event": "forwarded",
+      "gate_ms": 0.514,
+      "label": "A",
+      "stream": 5,
+      "t": 209495.366611458
+     },
+     {
+      "event": "stream_closed",
+      "stream": 5,
+      "t": 209495.367078625
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 6,
+      "t": 209495.688286333
+     },
+     {
+      "admit_ms": 0.796,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 6,
+      "t": 209495.688873958
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 7,
+      "t": 209495.68941375
+     },
+     {
+      "admit_ms": 0.435,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 7,
+      "t": 209495.689718666
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 2.107,
+      "label": "A",
+      "stream": 6,
+      "t": 209495.690175416
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 1.224,
+      "label": "A",
+      "stream": 7,
+      "t": 209495.690507625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 6,
+      "t": 209495.692127875
+     },
+     {
+      "event": "stream_closed",
+      "stream": 7,
+      "t": 209495.692815708
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 8,
+      "t": 209496.097317416
+     },
+     {
+      "admit_ms": 0.68,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 8,
+      "t": 209496.09779525
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 9,
+      "t": 209496.098574125
+     },
+     {
+      "admit_ms": 0.306,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 9,
+      "t": 209496.09876025
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 1.094,
+      "label": "A",
+      "stream": 9,
+      "t": 209496.099549166
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 2.86,
+      "label": "A",
+      "stream": 8,
+      "t": 209496.099967541
+     },
+     {
+      "event": "stream_closed",
+      "stream": 8,
+      "t": 209496.102070916
+     },
+     {
+      "event": "stream_closed",
+      "stream": 9,
+      "t": 209496.102817791
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 10,
+      "t": 209496.507027791
+     },
+     {
+      "admit_ms": 0.831,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 10,
+      "t": 209496.507672625
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 11,
+      "t": 209496.508124333
+     },
+     {
+      "admit_ms": 0.437,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 11,
+      "t": 209496.508465708
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 2.139,
+      "label": "A",
+      "stream": 10,
+      "t": 209496.508973541
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 1.276,
+      "label": "A",
+      "stream": 11,
+      "t": 209496.509302541
+     },
+     {
+      "event": "stream_closed",
+      "stream": 10,
+      "t": 209496.51043625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 11,
+      "t": 209496.5115525
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 12,
+      "t": 209496.915581083
+     },
+     {
+      "admit_ms": 0.457,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 12,
+      "t": 209496.915850708
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 13,
+      "t": 209496.916854666
+     },
+     {
+      "admit_ms": 0.463,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 13,
+      "t": 209496.917185625
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 1.114,
+      "label": "A",
+      "stream": 13,
+      "t": 209496.917836166
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 2.74,
+      "label": "A",
+      "stream": 12,
+      "t": 209496.918121875
+     },
+     {
+      "event": "stream_closed",
+      "stream": 12,
+      "t": 209496.919728041
+     },
+     {
+      "event": "stream_closed",
+      "stream": 13,
+      "t": 209496.920458708
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 14,
+      "t": 209497.028301333
+     },
+     {
+      "admit_ms": 0.493,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 14,
+      "t": 209497.028361
+     },
+     {
+      "bytes": 45401,
+      "event": "forwarded",
+      "gate_ms": 0.768,
+      "label": "A",
+      "stream": 14,
+      "t": 209497.028633875
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 15,
+      "t": 209497.069312416
+     },
+     {
+      "admit_ms": 0.257,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 15,
+      "t": 209497.069357125
+     },
+     {
+      "bytes": 20418,
+      "event": "forwarded",
+      "gate_ms": 0.524,
+      "label": "A",
+      "stream": 15,
+      "t": 209497.069621833
+     },
+     {
+      "event": "stream_closed",
+      "stream": 15,
+      "t": 209497.070306166
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 16,
+      "t": 209497.324793833
+     },
+     {
+      "admit_ms": 0.874,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 16,
+      "t": 209497.325450166
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 17,
+      "t": 209497.325990958
+     },
+     {
+      "admit_ms": 0.449,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 17,
+      "t": 209497.326318208
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 2.309,
+      "label": "A",
+      "stream": 16,
+      "t": 209497.326879166
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 1.345,
+      "label": "A",
+      "stream": 17,
+      "t": 209497.327209583
+     },
+     {
+      "event": "stream_closed",
+      "stream": 16,
+      "t": 209497.329363125
+     },
+     {
+      "event": "stream_closed",
+      "stream": 17,
+      "t": 209497.329905458
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 18,
+      "t": 209497.734422833
+     },
+     {
+      "admit_ms": 0.502,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 18,
+      "t": 209497.734759458
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 19,
+      "t": 209497.735326875
+     },
+     {
+      "admit_ms": 0.237,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 19,
+      "t": 209497.735476583
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 1.662,
+      "label": "A",
+      "stream": 18,
+      "t": 209497.735912541
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 0.913,
+      "label": "A",
+      "stream": 19,
+      "t": 209497.736151375
+     },
+     {
+      "event": "stream_closed",
+      "stream": 18,
+      "t": 209497.738060875
+     },
+     {
+      "event": "stream_closed",
+      "stream": 19,
+      "t": 209497.738375416
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 20,
+      "t": 209498.142525125
+     },
+     {
+      "admit_ms": 0.458,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 20,
+      "t": 209498.142785416
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 21,
+      "t": 209498.143873875
+     },
+     {
+      "admit_ms": 0.308,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 21,
+      "t": 209498.144044166
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 2.17,
+      "label": "A",
+      "stream": 20,
+      "t": 209498.144485041
+     },
+     {
+      "bytes": 158,
+      "event": "forwarded",
+      "gate_ms": 1.02,
+      "label": "A",
+      "stream": 21,
+      "t": 209498.144755458
+     },
+     {
+      "event": "stream_closed",
+      "stream": 20,
+      "t": 209498.147687708
+     },
+     {
+      "event": "stream_closed",
+      "stream": 21,
+      "t": 209498.148114
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "threshold:five_hour",
+      "t": 209498.1498605
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "threshold:five_hour",
+      "t": 209498.149990791
+     },
+     {
+      "event": "stream_closed",
+      "stream": 14,
+      "t": 209498.15029725
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209498.552404625
+     },
+     {
+      "admit_ms": 0.903,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209498.553108083
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209498.553640958
+     },
+     {
+      "admit_ms": 0.672,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209498.554201041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209498.959185333
+     },
+     {
+      "admit_ms": 1.207,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209498.960229
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209498.960377541
+     },
+     {
+      "admit_ms": 0.771,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209498.960837416
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209499.364971125
+     },
+     {
+      "admit_ms": 0.571,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209499.365395
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209499.36594575
+     },
+     {
+      "admit_ms": 0.231,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209499.366119833
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209499.77126825
+     },
+     {
+      "admit_ms": 1.086,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209499.771940083
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209499.772521875
+     },
+     {
+      "admit_ms": 0.601,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209499.773007125
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209500.177642416
+     },
+     {
+      "admit_ms": 0.596,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209500.178114375
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209500.178990958
+     },
+     {
+      "admit_ms": 0.298,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209500.179189208
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209500.584091458
+     },
+     {
+      "admit_ms": 0.751,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209500.584704458
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209500.585255208
+     },
+     {
+      "admit_ms": 0.59,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209500.585739166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209500.990850958
+     },
+     {
+      "admit_ms": 0.727,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209500.991412458
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209500.992127208
+     },
+     {
+      "admit_ms": 0.734,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209500.992754958
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209501.397368375
+     },
+     {
+      "admit_ms": 0.773,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209501.397934
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209501.398379041
+     },
+     {
+      "admit_ms": 0.495,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209501.398787041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209501.803763666
+     },
+     {
+      "admit_ms": 0.784,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209501.804378875
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209501.80488625
+     },
+     {
+      "admit_ms": 0.554,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209501.805343583
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209502.209962291
+     },
+     {
+      "admit_ms": 0.813,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209502.210608625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209502.211107541
+     },
+     {
+      "admit_ms": 0.576,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209502.211581708
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "paused": true,
+      "t": 209502.217062958
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209502.616725291
+     },
+     {
+      "admit_ms": 0.88,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209502.617437416
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209502.617943708
+     },
+     {
+      "admit_ms": 0.567,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209502.618404625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209503.022464291
+     },
+     {
+      "admit_ms": 0.723,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209503.023019416
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209503.023535541
+     },
+     {
+      "admit_ms": 0.548,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209503.023983041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209503.428298333
+     },
+     {
+      "admit_ms": 1.182,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209503.429313041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209503.429447
+     },
+     {
+      "admit_ms": 0.855,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209503.43001675
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209503.833428333
+     },
+     {
+      "admit_ms": 0.231,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209503.833566958
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209503.834294916
+     },
+     {
+      "admit_ms": 0.174,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209503.834413291
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209504.239024583
+     },
+     {
+      "admit_ms": 0.817,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209504.239668625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209504.240194083
+     },
+     {
+      "admit_ms": 0.626,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209504.240714625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209504.645962541
+     },
+     {
+      "admit_ms": 0.874,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209504.646666875
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209504.647245458
+     },
+     {
+      "admit_ms": 0.6,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209504.647723916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209505.051228958
+     },
+     {
+      "admit_ms": 0.423,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209505.051538708
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209505.052005208
+     },
+     {
+      "admit_ms": 0.205,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209505.052165041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209505.456968125
+     },
+     {
+      "admit_ms": 0.798,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209505.457592166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209505.458113375
+     },
+     {
+      "admit_ms": 0.592,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209505.458597958
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209505.862911416
+     },
+     {
+      "admit_ms": 1.014,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209505.863787625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209505.86392425
+     },
+     {
+      "admit_ms": 0.477,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209505.864103916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209506.268383833
+     },
+     {
+      "admit_ms": 0.915,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209506.269121666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209506.269722208
+     },
+     {
+      "admit_ms": 0.635,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209506.270236916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209506.675381833
+     },
+     {
+      "admit_ms": 0.678,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209506.67592
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209506.676366291
+     },
+     {
+      "admit_ms": 0.47,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209506.676755541
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209506.95365675
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209506.965175833
+     },
+     {
+      "admit_ms": 0.485,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209506.965233375
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 209507.002207666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209507.00479175
+     },
+     {
+      "admit_ms": 0.221,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209507.004834791
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209507.079896
+     },
+     {
+      "admit_ms": 0.242,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209507.080046416
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209507.080680708
+     },
+     {
+      "admit_ms": 0.156,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209507.080787666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209507.4843385
+     },
+     {
+      "admit_ms": 0.904,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209507.485074
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209507.485622458
+     },
+     {
+      "admit_ms": 0.619,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209507.486133041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209507.891152125
+     },
+     {
+      "admit_ms": 0.648,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209507.891628541
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209507.892516583
+     },
+     {
+      "admit_ms": 0.38,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209507.89279575
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209508.297017625
+     },
+     {
+      "admit_ms": 0.335,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209508.297228833
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209508.298091958
+     },
+     {
+      "admit_ms": 0.587,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209508.298552125
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209508.703113041
+     },
+     {
+      "admit_ms": 0.588,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209508.703535666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209508.704403791
+     },
+     {
+      "admit_ms": 0.28,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209508.704579708
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209509.1083925
+     },
+     {
+      "admit_ms": 0.904,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209509.109129
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209509.109613583
+     },
+     {
+      "admit_ms": 0.563,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209509.110087708
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209509.515351791
+     },
+     {
+      "admit_ms": 0.875,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209509.516062583
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209509.51661725
+     },
+     {
+      "admit_ms": 0.607,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209509.517117833
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209509.921274666
+     },
+     {
+      "admit_ms": 0.871,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209509.9219845
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209509.922512958
+     },
+     {
+      "admit_ms": 0.588,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209509.922995
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209510.328132333
+     },
+     {
+      "admit_ms": 0.732,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209510.32869925
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 209510.329228041
+     },
+     {
+      "admit_ms": 0.584,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 209510.3296725
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 209510.473936833
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209494.58849625,
+      "text": "codex-cli 0.166.0"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 62422,
+      "reserved": 19,
+      "t": 209494.595097458
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209494.600236375
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93819,
+      "t": 209494.601539083
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93820,
+      "t": 209494.602900166
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.086,
+      "t": 209494.744227083
+     },
+     {
+      "event": "self_test",
+      "ms": 47.5,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209494.7919535
+     },
+     {
+      "event": "native_started",
+      "pid": 93824,
+      "t": 209494.801776833
+     },
+     {
+      "event": "said",
+      "t": 209498.150956916,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209498.151126375,
+      "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209510.472549625
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209510.475998
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209494.619845833
+     }
+    ],
+    "poll_count": 32,
+    "poll_ms": 2.956,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-threshold/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-threshold/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-threshold/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-thr-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-threshold/child-thr.json' \u2502 direct '<root>/cases/codex-threshold/out/direct.jsonl' ; '/opt/homebrew/Cellar/ \u2502 \u2026 +6 lines \u2514 km-tool-done \u001bM\u001bM \u2022 KM fixture reply after tool \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 11:40 Please answer KM-thr-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-thr-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limi",
+    "terminal_tail": " \u2022 11:40 Please answer KM-thr-hold \u001bM\u001bM\u001bM\u001bM \u203a Please answer KM-thr-hold Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check \u001bM\u001bM \u25a0 stream disconnected before completion: stream closed before response.completed \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 1 warning \u00b7 f2 to view \u203a /status show current session configuration and token usage / status line configure which items appear in the status line \u203a /status gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM /status >_ OpenAI Codex (v0.166.0) Visit https://chatgpt.com/settings/usage for up-to-date information on rate limits and credits Model: gpt-5.4 (reasoning none, summaries auto) Model provider: gate Directory: <root>/cases/codex-threshold/workspace Permissions: Full Access Agents.md: <none> Account: km-codex-user-a@example.invalid (Pro 200) ChatGPT workspace: KM Fixture (km-codex-acct-a) Collaboration mode: Default Session: 01a1d146-7950-7760-9c74-89c757f74dfd Context window: 100% left (0 used / 258K) 5h limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591] 80% left (resets 14:10) Weekly limit: [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591\u2591\u2591\u2591\u2591] 70% left (resets 23:40 on 15 Nov) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 1 warning \u00b7 f2 to view \u26a0 Heads up, you have less than 25% of your 5h limit left. Run /status for a breakdown. \u26a0 2 warnings Later turn KM-thr-later \u203a Later turn KM-thr-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 2 warnings \u00b7 f2 to view \u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62422/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-threshold/workspace \u26a0 2 warnings \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d146-7950-7760-9c74-89c757f74dfd "
+   },
+   "tool_ran": true,
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209494.738880708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209494.739119541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209494.739297541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209495.126126166
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 209495.134614541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 209495.135625916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 209495.156792916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209495.157027416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209495.157261875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209495.1873605
+    },
+    {
+     "action": "tool",
+     "bytes": 43832,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-thr-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209495.19467275
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209495.223836833
+    },
+    {
+     "action": "text",
+     "bytes": 20411,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-thr-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209495.225932666
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209495.282580541
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209495.282902416
+    },
+    {
+     "action": "text",
+     "bytes": 45141,
+     "kind": "tool_result",
+     "label": "A",
+     "main": true,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209495.366955833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209495.632786208
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209495.691000583
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209495.692330666
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209496.100664125
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209496.102199291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209496.136933666
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209496.509850166
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209496.511114541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209496.638564333
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209496.918677041
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209496.919842791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209497.017309958
+    },
+    {
+     "action": "hold",
+     "bytes": 45401,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-thr-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209497.029297125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 209497.066044666
+    },
+    {
+     "action": "text",
+     "bytes": 20418,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-thr-hold",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209497.070041416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209497.142062875
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209497.327778666
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209497.328941583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209497.648022291
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209497.736806875
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209497.737629916
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209498.145511
+    },
+    {
+     "action": "text",
+     "bytes": 158,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 209498.146786833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209498.149122458
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-thr-hold",
+     "outcome": "client_gone",
+     "t": 209498.449376375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209498.654074
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209499.156498916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209499.659168916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209500.161187708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209500.665824208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209501.171334375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209501.676578916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209502.178864208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209502.21950125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209502.67905425
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209503.180490291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209503.685647041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209504.188968083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209504.693892458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209505.198978625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209505.702081125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209506.204532583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209506.708470666
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209507.213510416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209507.716990166
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209508.22191625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209508.725297291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209509.230261666
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209509.732597916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 209510.236661416
+    }
+   ]
+  }
+ },
+ "completed": true,
+ "deadline_seconds": 600,
+ "finished": "2026-11-12T19:41:25Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [],
+ "stage": "codex-loss",
+ "started": "2026-11-12T19:40:18Z"
+}

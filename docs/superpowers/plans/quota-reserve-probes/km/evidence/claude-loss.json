@@ -1,0 +1,3624 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "claude-loss-eof": {
+   "case_seconds": 16.2,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_after_trigger_ms": 0.8,
+   "latch_t": 209457.967972,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "monitor_eof"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 3322
+   },
+   "lost": [
+    "monitor_eof"
+   ],
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "refused": [],
+   "stream_close_ms": [
+    0.5
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 2.517,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209453.186995541
+     },
+     {
+      "event": "preflight",
+      "ms": 3.0,
+      "reason": "startup_ok",
+      "t": 209453.187011083
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93596,
+      "port": 62289,
+      "t": 209453.18729325
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209453.612244208
+     },
+     {
+      "admit_ms": 0.244,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209453.612288375
+     },
+     {
+      "bytes": 43325,
+      "event": "forwarded",
+      "gate_ms": 0.471,
+      "label": "A",
+      "stream": 1,
+      "t": 209453.612513
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209453.61304275
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209456.890484875
+     },
+     {
+      "admit_ms": 0.376,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209456.89054925
+     },
+     {
+      "bytes": 43596,
+      "event": "forwarded",
+      "gate_ms": 0.658,
+      "label": "A",
+      "stream": 2,
+      "t": 209456.890828
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 209457.96772775
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 209457.967972
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 209457.96809375
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209457.968516416
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "monitor_eof",
+      "t": 209457.994760375
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "monitor_eof",
+      "t": 209465.8242485
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209453.118195708,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 62289,
+      "reserved": 19,
+      "t": 209453.124862833
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209453.129856833
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93595,
+      "t": 209453.131350375
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93596,
+      "t": 209453.132848333
+     },
+     {
+      "event": "self_test",
+      "ms": 31.6,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209453.219765916
+     },
+     {
+      "event": "native_started",
+      "pid": 93599,
+      "t": 209453.22462475
+     },
+     {
+      "event": "said",
+      "t": 209457.969116666,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209457.969287458,
+      "text": "quota reserve paused (monitor_eof); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209468.069608916
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209468.072090416
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209453.149513875
+     },
+     {
+      "event": "monitor_eof_sent",
+      "t": 209457.967620166
+     }
+    ],
+    "poll_count": 10,
+    "poll_ms": 8.794,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-loss-eof/workspace \u276f KM-loss-first start \u00b7 Tomfoolering\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Worked for 0s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2588\u259f \u2588\u259f \u259f\u2588 \u259f\u2588 \u259b \u259b Please answer KM-loss-hold \u276f Please answer KM-loss-hold \u273b Cr eat ing\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2736 r t \u2733 \u2722 C a \u00b7 e r \u2722 C [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. Creating\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check \u273b Churned for 1s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to auto-accept edits ctrl + z to suspend @ for file paths ctrl + o for verbose output ctrl + v to paste images /btw for side question ctrl + t to toggle tasks opt + p to switch model backslash (\\) + return (\u23ce) for ctrl + s to stash prompt newline ctrl + g to edit in $EDITOR /keybindings to customize For more help: https://code.claude.com/docs/en/overview Esc to cancel \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "terminal_tail": " \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2736 r t \u2733 \u2722 C a \u00b7 e r \u2722 C [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. Creating\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check \u273b Churned for 1s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to auto-accept edits ctrl + z to suspend @ for file paths ctrl + o for verbose output ctrl + v to paste images /btw for side question ctrl + t to toggle tasks opt + p to switch model backslash (\\) + return (\u23ce) for ctrl + s to stash prompt newline ctrl + g to edit in $EDITOR /keybindings to customize For more help: https://code.claude.com/docs/en/overview Esc to cancel \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts Later turn KM-loss-later \u276f Later turn KM-loss-later \u2722 Concocting\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check \u273b Cogitated for 0s \u00b7 done 11:39 AM \u276f ? for shortcuts \u276f /exit \u2733 Gitifyi ng\u2026 \u23bf Tip: Use /memory to view and manage Claude memory \u276f esc to interrupt \u000f \u000f Resume this session with: claude --resume 50a5c1b7-c1a9-4978-b51f-555c9e62c9e0 "
+   },
+   "trigger_t": 209457.967186333,
+   "upstream": [
+    {
+     "action": "text",
+     "bytes": 43325,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209453.612886666
+    },
+    {
+     "action": "hold",
+     "bytes": 43596,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209456.891293875
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-loss-hold",
+     "outcome": "client_gone",
+     "t": 209458.320429291
+    }
+   ]
+  },
+  "claude-loss-kill": {
+   "case_seconds": 16.2,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_after_trigger_ms": 3.3,
+   "latch_t": 209441.750441375,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "monitor_eof"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 3322
+   },
+   "lost": [
+    "monitor_eof"
+   ],
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "refused": [],
+   "stream_close_ms": [
+    0.6
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 2.809,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209436.964348583
+     },
+     {
+      "event": "preflight",
+      "ms": 2.67,
+      "reason": "startup_ok",
+      "t": 209436.964362208
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93562,
+      "port": 62159,
+      "t": 209436.964626041
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209437.354681708
+     },
+     {
+      "admit_ms": 0.257,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209437.354730458
+     },
+     {
+      "bytes": 43328,
+      "event": "forwarded",
+      "gate_ms": 0.425,
+      "label": "A",
+      "stream": 1,
+      "t": 209437.354896458
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209437.355402166
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209440.676733541
+     },
+     {
+      "admit_ms": 0.561,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209440.676857375
+     },
+     {
+      "bytes": 43599,
+      "event": "forwarded",
+      "gate_ms": 1.018,
+      "label": "A",
+      "stream": 2,
+      "t": 209440.677310333
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 209441.750169875
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 209441.750441375
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 209441.750563333
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209441.751019458
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "monitor_eof",
+      "t": 209441.773013458
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "monitor_eof",
+      "t": 209449.60703975
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209436.895686458,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 62159,
+      "reserved": 19,
+      "t": 209436.902079916
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209436.907139791
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93561,
+      "t": 209436.908761125
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93562,
+      "t": 209436.910168625
+     },
+     {
+      "event": "self_test",
+      "ms": 29.8,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209436.995239416
+     },
+     {
+      "event": "native_started",
+      "pid": 93565,
+      "t": 209437.000195625
+     },
+     {
+      "event": "said",
+      "t": 209441.751468083,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209441.751637666,
+      "text": "quota reserve paused (monitor_eof); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209451.835702916
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209451.839900791
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209436.92706225
+     }
+    ],
+    "poll_count": 10,
+    "poll_ms": 10.371,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-loss-kill/workspace \u276f KM-loss-first start \u00b7 Finagling\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Brewed for 0s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259d \u2580 Please answer KM-loss-hold \u276f Please answer KM-loss-hold \u273b Impro vis ing\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2736 o s \u2733 \u2722 r i \u00b7 p v m o \u2722 I r \u2733 p [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. provising\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check \u273b Worked for 1s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to auto-accept edits ctrl + z to suspend @ for file paths ctrl + o for verbose output ctrl + v to paste images /btw for side question ctrl + t to toggle tasks opt + p to switch model backslash (\\) + return (\u23ce) for ctrl + s to stash prompt newline ctrl + g to edit in $EDITOR /keybindings to customize For more help: https://code.claude.com/docs/en/overview Esc to c",
+    "terminal_tail": "eatures or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2736 o s \u2733 \u2722 r i \u00b7 p v m o \u2722 I r \u2733 p [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_eof); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. provising\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check \u273b Worked for 1s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to auto-accept edits ctrl + z to suspend @ for file paths ctrl + o for verbose output ctrl + v to paste images /btw for side question ctrl + t to toggle tasks opt + p to switch model backslash (\\) + return (\u23ce) for ctrl + s to stash prompt newline ctrl + g to edit in $EDITOR /keybindings to customize For more help: https://code.claude.com/docs/en/overview Esc to cancel \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts Later turn KM-loss-later \u276f Later turn KM-loss-later \u2722 Elucidating\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_eof); continue only from the trusted terminal after a fresh check \u273b Crunched for 0s \u00b7 done 11:39 AM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume 7f0a0303-7d70-41ab-8b7d-24830114a315 "
+   },
+   "trigger_t": 209441.747130333,
+   "upstream": [
+    {
+     "action": "text",
+     "bytes": 43328,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209437.355259583
+    },
+    {
+     "action": "hold",
+     "bytes": 43599,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209440.6780375
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-loss-hold",
+     "outcome": "client_gone",
+     "t": 209442.108708458
+    }
+   ]
+  },
+  "claude-loss-stall": {
+   "case_seconds": 18.7,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_after_trigger_ms": 2717.6,
+   "latch_t": 209476.890004541,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "monitor_stale"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 3272
+   },
+   "lost": [
+    "monitor_stale"
+   ],
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "refused": [],
+   "stream_close_ms": [
+    0.4
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 2.524,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209469.394040958
+     },
+     {
+      "event": "preflight",
+      "ms": 2.707,
+      "reason": "startup_ok",
+      "t": 209469.394056416
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93630,
+      "port": 62370,
+      "t": 209469.394337166
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209469.834271958
+     },
+     {
+      "admit_ms": 0.217,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209469.834314541
+     },
+     {
+      "bytes": 43331,
+      "event": "forwarded",
+      "gate_ms": 0.379,
+      "label": "A",
+      "stream": 1,
+      "t": 209469.834474833
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209469.835049333
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209473.100672666
+     },
+     {
+      "admit_ms": 0.542,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209473.100791791
+     },
+     {
+      "bytes": 43602,
+      "event": "forwarded",
+      "gate_ms": 1.007,
+      "label": "A",
+      "stream": 2,
+      "t": 209473.101251041
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_stale",
+      "t": 209476.889730541
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_stale",
+      "state": "paused",
+      "t": 209476.890004541
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_stale",
+      "state": "paused",
+      "t": 209476.890111375
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209476.890429375
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "monitor_stale",
+      "t": 209476.918062375
+     },
+     {
+      "event": "decision",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "monitor_stale",
+      "t": 209484.658217291
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209469.321972166,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 62370,
+      "reserved": 19,
+      "t": 209469.328808958
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209469.333984833
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93629,
+      "t": 209469.335607791
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93630,
+      "t": 209469.337162708
+     },
+     {
+      "event": "self_test",
+      "ms": 33.2,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209469.480747541
+     },
+     {
+      "event": "native_started",
+      "pid": 93633,
+      "t": 209469.485618875
+     },
+     {
+      "event": "said",
+      "t": 209476.890982958,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209476.891121916,
+      "text": "quota reserve paused (monitor_stale); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209486.903878541
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209486.906323125
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209469.354416166
+     },
+     {
+      "event": "monitor_stalled",
+      "t": 209474.172660833
+     }
+    ],
+    "poll_count": 10,
+    "poll_ms": 9.562,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-loss-stall/workspace \u276f KM-loss-first start \u00b7 Infusing\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Baked for 0s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2582 \u259b Please answer KM-loss-hold \u276f Please answer KM-loss-hold \u273b Scu rry ing\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2736 u y \u2733 \u2722 c r \u00b7 S r u \u2722 c \u2733 S \u2736 \u273b \u273d \u273b \u2736 \u2733 \u2722 \u00b7 \u2722 \u2733 \u2736 \u273b \u273d [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_stale); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. Scurrying\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_stale); continue only from the trusted terminal after a fresh check \u273b Cogitated for 3s \u00b7 done 11:40 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u000f \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to auto-accept edits ctrl + z to suspend @ for file paths ctrl + o for verbose output ctrl + v to paste images /btw for side question ctrl + t to toggle tasks opt + p to switch model backslash (\\) + return (\u23ce) for ctrl + s to stash prompt newline ctrl + g to edit in $EDITOR /keybindings to customize For more help: https://code.claude.com/docs/en/overview Esc to cancel \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "terminal_tail": "for agents \u2736 u y \u2733 \u2722 c r \u00b7 S r u \u2722 c \u2733 S \u2736 \u273b \u273d \u273b \u2736 \u2733 \u2722 \u00b7 \u2722 \u2733 \u2736 \u273b \u273d [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (monitor_stale); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. Scurrying\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_stale); continue only from the trusted terminal after a fresh check \u273b Cogitated for 3s \u00b7 done 11:40 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u000f \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to auto-accept edits ctrl + z to suspend @ for file paths ctrl + o for verbose output ctrl + v to paste images /btw for side question ctrl + t to toggle tasks opt + p to switch model backslash (\\) + return (\u23ce) for ctrl + s to stash prompt newline ctrl + g to edit in $EDITOR /keybindings to customize For more help: https://code.claude.com/docs/en/overview Esc to cancel \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts Later turn KM-loss-later \u276f Later turn KM-loss-later \u273d Photosynthesizing\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (monitor_stale); continue only from the trusted terminal after a fresh check \u273b Cooked for 0s \u00b7 done 11:40 AM \u276f ? for shortcuts \u276f /exit \u273d Orbiting\u2026 \u23bf Tip: Use /memory to view and manage Claude memory \u276f esc to interrupt \u000f \u000f Resume this session with: claude --resume a9c601ed-0cd7-40eb-a493-1279b0136627 "
+   },
+   "trigger_t": 209474.172428416,
+   "upstream": [
+    {
+     "action": "text",
+     "bytes": 43331,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209469.83486875
+    },
+    {
+     "action": "hold",
+     "bytes": 43602,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-loss-hold",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209473.102016708
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-loss-hold",
+     "outcome": "client_gone",
+     "t": 209477.186905125
+    }
+   ]
+  },
+  "claude-threshold": {
+   "bind_rows": [
+    {
+     "action": "bind_gate_port",
+     "host": "127.0.0.1",
+     "pid": 93549,
+     "result": "errno:1",
+     "t": 209419.824164958
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::1",
+     "pid": 93549,
+     "result": "errno:1",
+     "t": 209419.824288458
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "0.0.0.0",
+     "pid": 93549,
+     "result": "errno:1",
+     "t": 209419.824339291
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::",
+     "pid": 93549,
+     "result": "errno:1",
+     "t": 209419.824380791
+    }
+   ],
+   "case_seconds": 17.7,
+   "crossed_t": 209422.614748,
+   "direct_rows": [
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 93545,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 209419.79888075
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 93545,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 209419.798986625
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 93545,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 209419.7990465
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 93545,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 209419.799093416
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 93545,
+     "port_role": "gate_udp",
+     "result": "errno:1",
+     "t": 209419.799147208
+    }
+   ],
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "hold_end": [
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-thr-hold",
+     "outcome": "client_gone",
+     "t": 209422.972037541
+    }
+   ],
+   "latch_after_cross_ms": 76.4,
+   "latch_t": 209422.691159958,
+   "later": {
+    "decisions_after": [
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ],
+     [
+      false,
+      "threshold_five_hour"
+     ]
+    ],
+    "upstream_marker_hits": 0
+   },
+   "local_command": {
+    "alive": true,
+    "output_bytes": 3271
+   },
+   "model_posts_after_latch": 0,
+   "model_posts_after_latch_final": 0,
+   "native_alive": true,
+   "native_started": true,
+   "sdk_rows": [
+    {
+     "action": "detach_parent_exit",
+     "pid": 93552,
+     "t": 209419.849323541
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 1,
+     "pid": 93555,
+     "role": "child",
+     "status": 200,
+     "t": 209419.853959
+    },
+    {
+     "action": "sdk",
+     "ms": 4.2,
+     "n": 1,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209419.85396625
+    },
+    {
+     "action": "sdk",
+     "ms": 8.4,
+     "n": 2,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209420.264059541
+    },
+    {
+     "action": "sdk",
+     "ms": 8.8,
+     "n": 2,
+     "pid": 93555,
+     "role": "child",
+     "status": 200,
+     "t": 209420.264562333
+    },
+    {
+     "action": "sdk",
+     "ms": 10.0,
+     "n": 3,
+     "pid": 93555,
+     "role": "child",
+     "status": 200,
+     "t": 209420.67573325
+    },
+    {
+     "action": "sdk",
+     "ms": 10.2,
+     "n": 3,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209420.676093208
+    },
+    {
+     "action": "sdk",
+     "ms": 8.2,
+     "n": 4,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209421.085997333
+    },
+    {
+     "action": "sdk",
+     "ms": 8.8,
+     "n": 4,
+     "pid": 93555,
+     "role": "child",
+     "status": 200,
+     "t": 209421.086572041
+    },
+    {
+     "action": "sdk",
+     "ms": 8.8,
+     "n": 5,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209421.49659325
+    },
+    {
+     "action": "sdk",
+     "ms": 9.3,
+     "n": 5,
+     "pid": 93555,
+     "role": "child",
+     "status": 200,
+     "t": 209421.497184666
+    },
+    {
+     "action": "sdk",
+     "ms": 6.4,
+     "n": 6,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209421.904790375
+    },
+    {
+     "action": "sdk",
+     "ms": 6.2,
+     "n": 6,
+     "pid": 93555,
+     "role": "child",
+     "status": 200,
+     "t": 209421.905255666
+    },
+    {
+     "action": "sdk",
+     "ms": 7.7,
+     "n": 7,
+     "pid": 93555,
+     "role": "child",
+     "status": 200,
+     "t": 209422.31476125
+    },
+    {
+     "action": "sdk",
+     "ms": 8.6,
+     "n": 7,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 200,
+     "t": 209422.315028958
+    },
+    {
+     "action": "sdk",
+     "ms": 1.2,
+     "n": 8,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209422.717333166
+    },
+    {
+     "action": "sdk",
+     "ms": 1.0,
+     "n": 8,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209422.717467166
+    },
+    {
+     "action": "sdk",
+     "ms": 4.1,
+     "n": 9,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209423.123291625
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 9,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209423.1238025
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 10,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209423.529522291
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 10,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209423.530026125
+    },
+    {
+     "action": "sdk",
+     "ms": 4.8,
+     "n": 11,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209423.936066
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 11,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209423.936252416
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 12,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209424.3415735
+    },
+    {
+     "action": "sdk",
+     "ms": 3.8,
+     "n": 12,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209424.341767041
+    },
+    {
+     "action": "sdk",
+     "ms": 3.6,
+     "n": 13,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209424.74606075
+    },
+    {
+     "action": "sdk",
+     "ms": 3.3,
+     "n": 13,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209424.746603916
+    },
+    {
+     "action": "sdk",
+     "ms": 4.8,
+     "n": 14,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209425.152715958
+    },
+    {
+     "action": "sdk",
+     "ms": 5.3,
+     "n": 14,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209425.153299625
+    },
+    {
+     "action": "sdk",
+     "ms": 3.8,
+     "n": 15,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209425.558001875
+    },
+    {
+     "action": "sdk",
+     "ms": 3.7,
+     "n": 15,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209425.558463375
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 16,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209425.963868
+    },
+    {
+     "action": "sdk",
+     "ms": 3.9,
+     "n": 16,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209425.964333166
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 17,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209426.370280708
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 17,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209426.370852416
+    },
+    {
+     "action": "sdk",
+     "ms": 2.0,
+     "n": 18,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209426.773658875
+    },
+    {
+     "action": "sdk",
+     "ms": 1.4,
+     "n": 18,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209426.773845833
+    },
+    {
+     "action": "sdk",
+     "ms": 4.8,
+     "n": 19,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209427.180037791
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 19,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209427.180314458
+    },
+    {
+     "action": "sdk",
+     "ms": 4.8,
+     "n": 20,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209427.586708375
+    },
+    {
+     "action": "sdk",
+     "ms": 5.4,
+     "n": 20,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209427.587398
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 21,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209427.993345083
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 21,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209427.993967583
+    },
+    {
+     "action": "sdk",
+     "ms": 5.5,
+     "n": 22,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209428.4008805
+    },
+    {
+     "action": "sdk",
+     "ms": 5.4,
+     "n": 22,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209428.401226791
+    },
+    {
+     "action": "sdk",
+     "ms": 3.6,
+     "n": 23,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209428.805393125
+    },
+    {
+     "action": "sdk",
+     "ms": 2.9,
+     "n": 23,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209428.805888333
+    },
+    {
+     "action": "sdk",
+     "ms": 3.6,
+     "n": 24,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209429.210554875
+    },
+    {
+     "action": "sdk",
+     "ms": 3.9,
+     "n": 24,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209429.210793
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 25,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209429.617106
+    },
+    {
+     "action": "sdk",
+     "ms": 5.0,
+     "n": 25,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209429.617736375
+    },
+    {
+     "action": "sdk",
+     "ms": 3.9,
+     "n": 26,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209430.023081416
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 26,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209430.023560625
+    },
+    {
+     "action": "sdk",
+     "ms": 5.1,
+     "n": 27,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209430.429860583
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 27,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209430.430144958
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 28,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209430.835834125
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 28,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209430.836376833
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 29,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209431.242138166
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 29,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209431.242706666
+    },
+    {
+     "action": "sdk",
+     "ms": 3.5,
+     "n": 30,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209431.647565166
+    },
+    {
+     "action": "sdk",
+     "ms": 3.4,
+     "n": 30,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209431.648052041
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 31,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209432.0537685
+    },
+    {
+     "action": "sdk",
+     "ms": 4.6,
+     "n": 31,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209432.05436975
+    },
+    {
+     "action": "sdk",
+     "ms": 4.4,
+     "n": 32,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209432.460103291
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 32,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209432.460667333
+    },
+    {
+     "action": "sdk",
+     "ms": 4.5,
+     "n": 33,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209432.866413291
+    },
+    {
+     "action": "sdk",
+     "ms": 4.2,
+     "n": 33,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209432.866878625
+    },
+    {
+     "action": "sdk",
+     "ms": 3.1,
+     "n": 34,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209433.2711685
+    },
+    {
+     "action": "sdk",
+     "ms": 3.0,
+     "n": 34,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209433.271539416
+    },
+    {
+     "action": "sdk",
+     "ms": 4.2,
+     "n": 35,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209433.676637916
+    },
+    {
+     "action": "sdk",
+     "ms": 4.3,
+     "n": 35,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209433.676813416
+    },
+    {
+     "action": "sdk",
+     "ms": 4.7,
+     "n": 36,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209434.082987208
+    },
+    {
+     "action": "sdk",
+     "ms": 4.9,
+     "n": 36,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209434.083573375
+    },
+    {
+     "action": "sdk",
+     "ms": 1.9,
+     "n": 37,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209434.486525416
+    },
+    {
+     "action": "sdk",
+     "ms": 1.4,
+     "n": 37,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209434.486558875
+    },
+    {
+     "action": "sdk",
+     "ms": 2.9,
+     "n": 38,
+     "pid": 93556,
+     "role": "grandchild",
+     "status": 403,
+     "t": 209434.890990291
+    },
+    {
+     "action": "sdk",
+     "ms": 3.4,
+     "n": 38,
+     "pid": 93555,
+     "role": "child",
+     "status": 403,
+     "t": 209434.891740708
+    }
+   ],
+   "stream_close_ms": [
+    0.4
+   ],
+   "stream_held": true,
+   "summary": {
+    "fetch_ms": 3.511,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 209419.188505916
+     },
+     {
+      "event": "preflight",
+      "ms": 2.603,
+      "reason": "startup_ok",
+      "t": 209419.188521875
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 93517,
+      "port": 61981,
+      "t": 209419.188739958
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 209419.738310166
+     },
+     {
+      "admit_ms": 0.264,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 209419.738354791
+     },
+     {
+      "bytes": 43327,
+      "event": "forwarded",
+      "gate_ms": 0.475,
+      "label": "A",
+      "stream": 1,
+      "t": 209419.738564125
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 209419.739484708
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 209419.852886125
+     },
+     {
+      "admit_ms": 0.114,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 209419.85296425
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 3,
+      "t": 209419.853045458
+     },
+     {
+      "admit_ms": 0.064,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 3,
+      "t": 209419.85309175
+     },
+     {
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 0.427,
+      "label": "A",
+      "stream": 2,
+      "t": 209419.853275875
+     },
+     {
+      "bytes": 131,
+      "event": "forwarded",
+      "gate_ms": 0.307,
+      "label": "A",
+      "stream": 3,
+      "t": 209419.853334916
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 209419.853773791
+     },
+     {
+      "event": "stream_closed",
+      "stream": 3,
+      "t": 209419.853808625
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 4,
+      "t": 209419.867237458
+     },
+     {
+      "admit_ms": 0.216,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 4,
+      "t": 209419.867300375
+     },
+     {
+      "bytes": 44597,
+      "event": "forwarded",
+      "gate_ms": 0.386,
+      "label": "A",
+      "stream": 4,
+      "t": 209419.867469166
+     },
+     {
+      "event": "stream_closed",
+      "stream": 4,
+      "t": 209419.867983041
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 5,
+      "t": 209420.258534875
+     },
+     {
+      "admit_ms": 0.698,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 5,
+      "t": 209420.259073166
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 6,
+      "t": 209420.259797208
+     },
+     {
+      "admit_ms": 0.293,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 6,
+      "t": 209420.259993791
+     },
+     {
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 2.21,
+      "label": "A",
+      "stream": 5,
+      "t": 209420.260581666
+     },
+     {
+      "bytes": 131,
+      "event": "forwarded",
+      "gate_ms": 1.232,
+      "label": "A",
+      "stream": 6,
+      "t": 209420.260929958
+     },
+     {
+      "event": "stream_closed",
+      "stream": 5,
+      "t": 209420.263374666
+     },
+     {
+      "event": "stream_closed",
+      "stream": 6,
+      "t": 209420.263782208
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 7,
+      "t": 209420.668264916
+     },
+     {
+      "admit_ms": 0.506,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 7,
+      "t": 209420.668635458
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 8,
+      "t": 209420.670437791
+     },
+     {
+      "admit_ms": 0.784,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 8,
+      "t": 209420.671154958
+     },
+     {
+      "bytes": 131,
+      "event": "forwarded",
+      "gate_ms": 3.273,
+      "label": "A",
+      "stream": 7,
+      "t": 209420.671392083
+     },
+     {
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 2.219,
+      "label": "A",
+      "stream": 8,
+      "t": 209420.672588416
+     },
+     {
+      "event": "stream_closed",
+      "stream": 7,
+      "t": 209420.674986583
+     },
+     {
+      "event": "stream_closed",
+      "stream": 8,
+      "t": 209420.67515075
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 9,
+      "t": 209421.080220291
+     },
+     {
+      "admit_ms": 0.452,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 9,
+      "t": 209421.080490916
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 10,
+      "t": 209421.081497416
+     },
+     {
+      "admit_ms": 0.341,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 10,
+      "t": 209421.081720791
+     },
+     {
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 2.161,
+      "label": "A",
+      "stream": 9,
+      "t": 209421.082191583
+     },
+     {
+      "bytes": 131,
+      "event": "forwarded",
+      "gate_ms": 1.145,
+      "label": "A",
+      "stream": 10,
+      "t": 209421.082525166
+     },
+     {
+      "event": "stream_closed",
+      "stream": 9,
+      "t": 209421.085196333
+     },
+     {
+      "event": "stream_closed",
+      "stream": 10,
+      "t": 209421.085674625
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 11,
+      "t": 209421.490500416
+     },
+     {
+      "admit_ms": 0.844,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 11,
+      "t": 209421.491194375
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 12,
+      "t": 209421.491725875
+     },
+     {
+      "admit_ms": 0.408,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 12,
+      "t": 209421.492034041
+     },
+     {
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 2.593,
+      "label": "A",
+      "stream": 11,
+      "t": 209421.492934583
+     },
+     {
+      "bytes": 131,
+      "event": "forwarded",
+      "gate_ms": 1.673,
+      "label": "A",
+      "stream": 12,
+      "t": 209421.493296458
+     },
+     {
+      "event": "stream_closed",
+      "stream": 11,
+      "t": 209421.495775833
+     },
+     {
+      "event": "stream_closed",
+      "stream": 12,
+      "t": 209421.496378708
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 13,
+      "t": 209421.543098333
+     },
+     {
+      "admit_ms": 0.51,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 13,
+      "t": 209421.54319575
+     },
+     {
+      "bytes": 44878,
+      "event": "forwarded",
+      "gate_ms": 1.009,
+      "label": "A",
+      "stream": 13,
+      "t": 209421.543690458
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 14,
+      "t": 209421.900621375
+     },
+     {
+      "admit_ms": 0.474,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 14,
+      "t": 209421.900985916
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 15,
+      "t": 209421.901529375
+     },
+     {
+      "admit_ms": 0.214,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 15,
+      "t": 209421.901689208
+     },
+     {
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 1.696,
+      "label": "A",
+      "stream": 14,
+      "t": 209421.902201666
+     },
+     {
+      "bytes": 131,
+      "event": "forwarded",
+      "gate_ms": 1.009,
+      "label": "A",
+      "stream": 15,
+      "t": 209421.902484125
+     },
+     {
+      "event": "stream_closed",
+      "stream": 14,
+      "t": 209421.904145208
+     },
+     {
+      "event": "stream_closed",
+      "stream": 15,
+      "t": 209421.904592208
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 16,
+      "t": 209422.308981375
+     },
+     {
+      "admit_ms": 1.184,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 16,
+      "t": 209422.31001725
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 17,
+      "t": 209422.310165625
+     },
+     {
+      "admit_ms": 0.602,
+      "event": "decision",
+      "label": "A",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 17,
+      "t": 209422.310456166
+     },
+     {
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 2.147,
+      "label": "A",
+      "stream": 16,
+      "t": 209422.310972708
+     },
+     {
+      "bytes": 131,
+      "event": "forwarded",
+      "gate_ms": 1.462,
+      "label": "A",
+      "stream": 17,
+      "t": 209422.311320291
+     },
+     {
+      "event": "stream_closed",
+      "stream": 17,
+      "t": 209422.314040625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 16,
+      "t": 209422.314387041
+     },
+     {
+      "closed": 1,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 209422.691159958
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 209422.691291958
+     },
+     {
+      "event": "stream_closed",
+      "stream": 13,
+      "t": 209422.691599333
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209422.709696291
+     },
+     {
+      "admit_ms": 0.454,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209422.709801333
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209422.716793791
+     },
+     {
+      "admit_ms": 0.084,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209422.716853458
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209422.717112041
+     },
+     {
+      "admit_ms": 0.071,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209422.717164916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209423.121480708
+     },
+     {
+      "admit_ms": 0.437,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209423.121840125
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209423.122546083
+     },
+     {
+      "admit_ms": 0.295,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209423.122795708
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209423.527596416
+     },
+     {
+      "admit_ms": 0.671,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209423.528180958
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209423.52864175
+     },
+     {
+      "admit_ms": 0.504,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209423.529088041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209423.933769333
+     },
+     {
+      "admit_ms": 0.783,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209423.93446375
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209423.934938125
+     },
+     {
+      "admit_ms": 0.573,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209423.93542575
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209424.339431791
+     },
+     {
+      "admit_ms": 0.368,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209424.339707208
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209424.34078
+     },
+     {
+      "admit_ms": 0.228,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209424.340947291
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209424.7444415
+     },
+     {
+      "admit_ms": 0.277,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209424.744659416
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209424.745424083
+     },
+     {
+      "admit_ms": 0.24,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209424.745629666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209425.150337291
+     },
+     {
+      "admit_ms": 0.773,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209425.151017166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209425.151533625
+     },
+     {
+      "admit_ms": 0.636,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209425.15210925
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209425.556339208
+     },
+     {
+      "admit_ms": 0.59,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209425.556860041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209425.557204833
+     },
+     {
+      "admit_ms": 0.409,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209425.557567666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209425.961570166
+     },
+     {
+      "admit_ms": 0.642,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209425.962124375
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209425.962978458
+     },
+     {
+      "admit_ms": 0.24,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209425.96316825
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209426.368118916
+     },
+     {
+      "admit_ms": 0.699,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209426.368730833
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209426.369199875
+     },
+     {
+      "admit_ms": 0.556,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209426.369694166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209426.773044333
+     },
+     {
+      "admit_ms": 0.179,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209426.7731825
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209426.773352666
+     },
+     {
+      "admit_ms": 0.189,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209426.773526208
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209427.177795666
+     },
+     {
+      "admit_ms": 0.778,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209427.178476458
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209427.178911541
+     },
+     {
+      "admit_ms": 0.578,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209427.179442916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209427.584378625
+     },
+     {
+      "admit_ms": 0.799,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209427.585086875
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209427.58557125
+     },
+     {
+      "admit_ms": 0.543,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209427.5860545
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209427.991082958
+     },
+     {
+      "admit_ms": 0.585,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209427.991577666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209427.992441166
+     },
+     {
+      "admit_ms": 0.259,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209427.992637333
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209428.398059916
+     },
+     {
+      "admit_ms": 0.64,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209428.398605541
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209428.399599125
+     },
+     {
+      "admit_ms": 0.305,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209428.399817666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209428.803674333
+     },
+     {
+      "admit_ms": 0.92,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209428.804523125
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209428.804625375
+     },
+     {
+      "admit_ms": 0.626,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209428.805012083
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209429.209084583
+     },
+     {
+      "admit_ms": 0.456,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209429.2094765
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209429.209718666
+     },
+     {
+      "admit_ms": 0.301,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209429.209992791
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209429.614880666
+     },
+     {
+      "admit_ms": 0.761,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209429.615549208
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209429.616026625
+     },
+     {
+      "admit_ms": 0.544,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209429.61651125
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209430.021372083
+     },
+     {
+      "admit_ms": 0.523,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209430.02179625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209430.022440625
+     },
+     {
+      "admit_ms": 0.229,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209430.022633041
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209430.427372833
+     },
+     {
+      "admit_ms": 0.388,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209430.427671791
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209430.429017583
+     },
+     {
+      "admit_ms": 0.376,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209430.429240583
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209430.833889541
+     },
+     {
+      "admit_ms": 0.687,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209430.834471916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209430.834945
+     },
+     {
+      "admit_ms": 0.501,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209430.835385291
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209431.24028
+     },
+     {
+      "admit_ms": 0.403,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209431.240608458
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209431.241361375
+     },
+     {
+      "admit_ms": 0.336,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209431.241646541
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209431.483704166
+     },
+     {
+      "admit_ms": 0.465,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209431.483804791
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209431.645997708
+     },
+     {
+      "admit_ms": 0.529,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209431.646431625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209431.646717041
+     },
+     {
+      "admit_ms": 0.399,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209431.647087875
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209432.05154575
+     },
+     {
+      "admit_ms": 1.061,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209432.052519125
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209432.052630375
+     },
+     {
+      "admit_ms": 0.933,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209432.053283666
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209432.458044916
+     },
+     {
+      "admit_ms": 0.732,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209432.458686541
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209432.4590945
+     },
+     {
+      "admit_ms": 0.505,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209432.459553916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209432.864288208
+     },
+     {
+      "admit_ms": 0.741,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209432.8649425
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209432.8654325
+     },
+     {
+      "admit_ms": 0.534,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209432.865899708
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209433.269637916
+     },
+     {
+      "admit_ms": 0.22,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209433.2697915
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209433.270562958
+     },
+     {
+      "admit_ms": 0.194,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209433.270709458
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209433.67473475
+     },
+     {
+      "admit_ms": 0.597,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209433.675260083
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209433.675641791
+     },
+     {
+      "admit_ms": 0.406,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209433.676004458
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209434.08076125
+     },
+     {
+      "admit_ms": 0.774,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209434.081444875
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209434.081906041
+     },
+     {
+      "admit_ms": 0.524,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209434.082373166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209434.485976666
+     },
+     {
+      "admit_ms": 0.278,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209434.486227625
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209434.486252
+     },
+     {
+      "admit_ms": 0.151,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209434.486342833
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209434.889429625
+     },
+     {
+      "admit_ms": 0.695,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209434.8900695
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209434.890162125
+     },
+     {
+      "admit_ms": 0.598,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209434.890534333
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209435.295295708
+     },
+     {
+      "admit_ms": 1.045,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209435.296263875
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused",
+      "t": 209435.296359916
+     },
+     {
+      "admit_ms": 0.745,
+      "event": "decision",
+      "label": "A",
+      "ok": false,
+      "path": "/v1/messages",
+      "reason": "threshold_five_hour",
+      "stream": null,
+      "t": 209435.296840791
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 209435.6368655
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 209419.116998,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 61981,
+      "reserved": 19,
+      "t": 209419.123595708
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 209419.128723125
+     },
+     {
+      "event": "monitor_started",
+      "pid": 93516,
+      "t": 209419.130283041
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 93517,
+      "t": 209419.13178425
+     },
+     {
+      "event": "self_test",
+      "ms": 36.7,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 209419.278980916
+     },
+     {
+      "event": "native_started",
+      "pid": 93520,
+      "t": 209419.284101125
+     },
+     {
+      "event": "said",
+      "t": 209422.692196291,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 209422.692352333,
+      "text": "quota reserve paused (threshold_five_hour); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 209435.636128083
+     },
+     {
+      "event": "launcher_exit",
+      "t": 209435.638848
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 209419.148840416
+     }
+    ],
+    "poll_count": 33,
+    "poll_ms": 4.075,
+    "terminal_head": " Claude Code v2.1.322 Sonnet 4.6 \u00b7 Claude Max <root>/cases/claude-threshold/workspace \u276f KM-thr-first start \u00b7 Processing\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' -I -B '<root>/km/child.py' '<root>/cases/claude-threshold/child-thr.json' direct '<root>/cases/claude-threshold/out/direct.jsonl'; '\u2026 Zesting\u2026 (0s \u00b7 \u2193 25 tokens) \u2588\u259f \u2588 \u2588\u2580 \u259d\u259d Ran 1 shell command \u23fa KM fixture reply after tool \u273b Cooked for 0s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents Please answer KM-thr-hold \u2588\u2588\u259f \u2588\u2588 \u2588\u2580 \u259d\u259d \u2588\u259b\u2588 \u2584 \u2588\u2588 \u2588\u2598 \u259d\u259d \u2597\u259f \u259b\u2588 \u2588\u259b\u2588 \u2584 \u259c \u2588\u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d \u276f Please answer KM-thr-hold \u00b7 Cooking\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u2026 \u2722 g \u2733 n \u2736 \u273b i \u2026 \u273d k g o n [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. Cooking\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Brewed for 1s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to a",
+    "terminal_tail": "pt \u00b7 \u2190 for agents \u2026 \u2722 g \u2733 n \u2736 \u273b i \u2026 \u273d k g o n [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check \u23fa Streaming response ended before any complete data was received. Retrying without streaming. If this keeps happening, check any proxy or gateway between Claude Code and your model provider. Cooking\u2026 \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Brewed for 1s \u00b7 done 11:39 AM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f / help Show help and available commands /debug Turn on debug logging and investigate problems /team-onboarding Help teammates ramp on Claude Code with a guide from your usage /help \u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594\u2594 \u25cf high \u00b7 /effort \u2594 Help General Commands Custom commands Claude understands your codebase, makes edits with your permission, and executes commands \u2014 right from your terminal. Shortcuts ! for shell mode double tap esc to clear input ctrl + shift + _ to undo / for commands shift + tab to auto-accept edits ctrl + z to suspend @ for file paths ctrl + o for verbose output ctrl + v to paste images /btw for side question ctrl + t to toggle tasks opt + p to switch model backslash (\\) + return (\u23ce) for ctrl + s to stash prompt newline ctrl + g to edit in $EDITOR /keybindings to customize For more help: https://code.claude.com/docs/en/overview Esc to cancel \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents Later turn KM-thr-later \u276f Later turn KM-thr-later \u2722 Wibbling\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Cooked for 0s \u00b7 done 11:39 AM \u276f ? for shortcuts \u276f /exit \u00b7 Accomplishin g\u2026 \u23bf Tip: Use /memory to view and manage Claude memory \u276f esc to interrupt \u000f \u000f Resume this session with: claude --resume ed9acbe7-fd28-4e78-9dd7-b9b270fa6ca8 "
+   },
+   "tool_ran": true,
+   "upstream": [
+    {
+     "action": "tool",
+     "bytes": 43327,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-thr-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209419.739253375
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209419.853478875
+    },
+    {
+     "action": "text",
+     "bytes": 131,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209419.853679083
+    },
+    {
+     "action": "text",
+     "bytes": 44597,
+     "kind": "tool_result",
+     "label": "A",
+     "main": true,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209419.867864333
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209420.261493666
+    },
+    {
+     "action": "text",
+     "bytes": 131,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209420.26285375
+    },
+    {
+     "action": "text",
+     "bytes": 131,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209420.672390166
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209420.674255875
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209421.08318375
+    },
+    {
+     "action": "text",
+     "bytes": 131,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209421.084477791
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209421.493885166
+    },
+    {
+     "action": "text",
+     "bytes": 131,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209421.495165041
+    },
+    {
+     "action": "hold",
+     "bytes": 44878,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-thr-hold",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209421.544575458
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209421.902942083
+    },
+    {
+     "action": "text",
+     "bytes": 131,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209421.90374525
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209422.312147375
+    },
+    {
+     "action": "text",
+     "bytes": 131,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 209422.313005708
+    },
+    {
+     "bytes": 0,
+     "event": "hold_end",
+     "marker": "KM-thr-hold",
+     "outcome": "client_gone",
+     "t": 209422.972037541
+    }
+   ]
+  }
+ },
+ "completed": true,
+ "deadline_seconds": 600,
+ "finished": "2026-11-12T19:40:12Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [],
+ "stage": "claude-loss",
+ "started": "2026-11-12T19:39:02Z"
+}

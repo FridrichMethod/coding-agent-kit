@@ -147,8 +147,9 @@ class Invocation:
                 settings['sandbox'] = {'enabled': True, 'autoAllowBashIfSandboxed': True}
             else:
                 settings['sandbox'] = {'enabled': False}
-            fixed = ['--settings', json.dumps(settings), '--model', CLAUDE_MODELS[0], '--permission-mode', 'default',
-                     '--tools', 'Bash']
+            # --tools is variadic: keep it before another option so the prompt stays positional.
+            fixed = ['--tools', 'Bash', '--settings', json.dumps(settings), '--model', CLAUDE_MODELS[0],
+                     '--permission-mode', 'default']
             gate.update(usage_port=case.usage.port, config_dir=str(case.cfg), registered=list(IDENT_A))
             pre = []
         else:
@@ -289,9 +290,10 @@ class Invocation:
         return result
 
     def summary(self):
+        quiet = ('quota_fetch', 'extended', 'paused_poll', 'not_extended')
         gate = [r for r in jsonl(self.dir / 'gate.jsonl') if r.get('event') in KEEP or
-                (r.get('event') == 'controller' and r.get('kind') != 'quota_fetch') or
-                (r.get('event') == 'fetch' and r.get('cause') != 'poll')]
+                (r.get('event') == 'controller' and r.get('kind') not in quiet) or
+                (r.get('event') == 'fetch' and r.get('cause') not in (None, 'poll'))]
         polls = [r for r in jsonl(self.dir / 'gate.jsonl') if r.get('event') == 'poll']
         fetches = [r for r in jsonl(self.dir / 'gate.jsonl') if r.get('event') == 'fetch']
         return {'gate_rows': gate[-400:], 'poll_count': len(polls),
@@ -300,6 +302,7 @@ class Invocation:
                 'launcher_rows': [r for r in self.launcher() if r.get('event') != 'gate_notify'][-200:],
                 'monitor_rows': jsonl(self.dir / 'monitor.jsonl')[-20:],
                 'gate_stderr_tail': _tail(self.dir / 'gate.err'),
+                'terminal_head': FX_strip(self.term.text())[:2500],
                 'terminal_tail': FX_strip(self.term.text())[-2500:]}
 
     def close(self):
@@ -328,6 +331,9 @@ class Case:
     def __init__(self, ctx, name, provider):
         self.ctx, self.name, self.provider = ctx, name, provider
         self.dir = ctx.root / 'cases' / name
+        if self.dir.exists():  # an earlier run of this case in the same root: start clean
+            import shutil
+            shutil.rmtree(self.dir)
         self.root_dir = self.dir
         for part in ('home', 'tmp', 'xdg', 'cache', 'state', 'data', 'workspace', 'shim', 'out',
                      'accounts', 'accounts/a', 'accounts/a/cfg', 'codex', 'outside'):
@@ -348,7 +354,8 @@ class Case:
         log = self.out / 'security-argv.jsonl'
         shim = self.shim / 'security'
         shim.write_text('#!%s -I\nimport json, sys\nargs = sys.argv[1:]\nsafe = list(args)\n'
-                        'for i, a in enumerate(args[:-1]):\n    if a in ("-w", "-X"):\n        safe[i + 1] = "<redacted>"\n'
+                        'for i, a in enumerate(args[:-1]):\n    if args[:1] == ["add-generic-password"] and a in ("-w", "-X"):\n'
+                        '        safe[i + 1] = "<redacted>"\n'
                         'open(%r, "a").write(json.dumps(safe) + "\\n")\n'
                         'sys.exit(44 if args[:1] == ["find-generic-password"] else 1)\n' % (self.ctx.python, str(log)))
         shim.chmod(0o700)
@@ -358,6 +365,7 @@ class Case:
         access, refresh = FX.claude_token(label), FX.claude_token(label + 'R')
         self.labels[label] = access
         self.tokens[label] = (access, refresh)
+        self.upstream.labels[access] = label
         self.usage.add(label, access, identity, five, week)
         return access, refresh, int(time.time() * 1000) + expires_in_ms
 
@@ -1413,7 +1421,8 @@ def main():
             except Exception as error:  # record and continue; an error is never a pass
                 import traceback
                 ctx.data['cases'][key] = {'error': '%s: %s' % (type(error).__name__, error),
-                                          'trace': traceback.format_exc()[-1500:]}
+                                          'trace': traceback.format_exc()[-1500:],
+                                          'summaries': {inv.name: inv.summary() for inv in case.invocations}}
             finally:
                 case.close()
                 ctx.data['cases'][key]['case_seconds'] = round(now() - began, 1)
