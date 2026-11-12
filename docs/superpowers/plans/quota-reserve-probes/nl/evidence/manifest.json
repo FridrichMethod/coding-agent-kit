@@ -1,23 +1,23 @@
 {
   "evidence_sha256": {
-    "claude-inet-unix.json": "143755b6e212dd3ca7f2db1dc51841b0d774c2bb195c89958b6cd8b50c6a3131",
-    "claude-inet.json": "5b4b2e858b3a40907de3956b9b1f39bf8dac31e3ba59a84a2274582d22a71f22",
-    "codex-inet-no-daemon.json": "f014f30f7f3b12d1c687e56e5b35a65fa6b086e0febc2ecbc3ab12e02ad418b2",
-    "codex-inet-unix-outside-daemon.json": "d01f5e42dec0229bbf84689ba98bb341882b342404d1172ccef0a239787e9ee3",
-    "codex-inet-unix.json": "2341d78592cab4d64cb1324866e3381251c80833668ff1c1a430ab51c22d4b48",
-    "codex-inet.json": "cb9c9349be9a638b86451a7dbb45ad516d60f6cb4976bbc47b1d21efc7e012e1",
-    "compat.json": "edf7264c64cab3bf0e6036c62e5bab2b28c8920f3dc8435bdc8283ee9d5bc89f",
-    "host.json": "26fbff9922f222488d4c00996665bc3d3626f062bc115b04e6df9544655a71c8",
-    "matrix.json": "e061e7768dc61ea104bbe69bd2a0aa2276c765c8a6df07f676fc9fa5889fedd3"
+    "claude-inet-unix.json": "9635dd0245fb389e4c5b661afff70aab61b1e4a2490258db0716e29f9a2ae71a",
+    "claude-inet.json": "694cb630985a906c0b7ad42e00490f1bf2d81ad8de6a4f58607ff1b1c566497f",
+    "codex-inet-no-daemon.json": "995076a4b9c6a5895e86b8c164c097b8eea948539350bb77cf0d718a88582daf",
+    "codex-inet-unix-outside-daemon.json": "d131221640ad705ed8b679991f432e118421ae6c12eb9da6b6bb7a48af94a125",
+    "codex-inet-unix.json": "3f4a7603f52080fec7442b91dadf68f562a58bd9821ea89551e2087651cffba8",
+    "codex-inet.json": "f1ffd08c8b8a2fcd0f1ace370bb2f2aae31898e1130d0c6fa9d45f1ca394bc78",
+    "compat.json": "a9dff8558cd627024660861d0e223b6d2dbc495ac9c798b21d32598c1d082a49",
+    "host.json": "79a9275c397447f9e0df08bef729b098874f907299c63c40122e5f94503fbb3e",
+    "matrix.json": "762d1e7f517aff749c14a8f10f8ba552059e68f92b54fabd585381944170b08a"
   },
   "fixture_sha256": {
-    "attempt.py": "18015eff162a0ca9f4b46f9fe887a066d5d4949cb0c5f999119840bb7cda9369",
-    "boundary.py": "9b6f1ecd7738e98ee4cd3fd1278891ef89c918fe0491210806bdc9694de3851c",
-    "compat.py": "93de29b9e208496814eac97ceded105df5d44e3e9dd93de6d0b4563ccb10d379",
-    "hostfacts.py": "4383b41f4747fa092aa6720a9018be6fefee494972b30de1cd46d91c58e427b6",
-    "natives.py": "39777e0bb3d38585c92c42b245b9b039d08f689d701303544370b9e096fa7962",
-    "probe.py": "4caa5633051889f4bc9935f7f8e50028f1d72facd9a47556c22fb1863edc428a",
-    "run.py": "bec3895497332e20463070b7ec6f3c5085d5f53bef2325248006e4651acf5ab0"
+    "attempt.py": "4bfab0adde084191580c357ae7cad5142584fa0982cda3768a92cfad20015eef",
+    "boundary.py": "54c49a3a0f67313fbc26d3da62d51dd0069d9eb2a94c35ae4f32e1bb7488941c",
+    "compat.py": "d1bb95740b5d04fa6b3d22cb81ecc2bc4711bc36a7018f623ae89c01e964bfb1",
+    "hostfacts.py": "d96705c7b7878108810e0382cf1af26537b48cd62b1a399dcfdbcf52c669c352",
+    "natives.py": "7cbc0da3865f6f86168e82b20f75a0a81c780e87f0d1f67172906723ce504dd9",
+    "probe.py": "71632d27aec64eeb186afa67937da0cdeed4348638ff9d3e0ceed54add0788ff",
+    "run.py": "e4c25b1e631a99a7efa2144049b201e382bbbe1bea13ce3105ddb1b78274fa68"
   },
   "host": {
     "kernel_release": "7.0.0-42-generic",
@@ -40,14 +40,14 @@
       "exit": 0,
       "leftover_processes_killed": 0,
       "roots_left_by_stage": 0,
-      "seconds": 3.5,
+      "seconds": 3.6,
       "stdout_tail": "scratch <PROBE_ROOT>\ngate_head {\"path\": \"/api/hello\"}\nmodel_request {\"tool_result\": false, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": false}\nmodel_request {\"tool_result\": false, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_call\": true, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": true}\nremoved <PROBE_ROOT>\n"
     },
     "claude-inet+unix": {
       "exit": 0,
       "leftover_processes_killed": 0,
       "roots_left_by_stage": 0,
-      "seconds": 3.5,
+      "seconds": 3.6,
       "stdout_tail": "scratch <PROBE_ROOT>\ngate_head {\"path\": \"/api/hello\"}\nmodel_request {\"tool_result\": false, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": false}\nmodel_request {\"tool_result\": false, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_call\": true, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/v1/messages\", \"fabricated_auth\": true, \"prompt\": true}\nremoved <PROBE_ROOT>\n"
     },
     "codex-inet": {
@@ -61,28 +61,28 @@
       "exit": 0,
       "leftover_processes_killed": 0,
       "roots_left_by_stage": 0,
-      "seconds": 12.0,
-      "stdout_tail": "scratch <PROBE_ROOT>\ngate_get {\"path\": \"/backend-api/codex/models\"}\ngate_get {\"path\": \"/api/codex/accounts/check\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/rate-limit-reset-credits\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_call\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_result\": false, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nowned_cleanup {\"pid\": 1126323}\nremoved <PROBE_ROOT>\n"
+      "seconds": 11.5,
+      "stdout_tail": "scratch <PROBE_ROOT>\ngate_get {\"path\": \"/api/codex/accounts/check\"}\ngate_get {\"path\": \"/backend-api/codex/models\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/rate-limit-reset-credits\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_call\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_result\": false, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nowned_cleanup {\"pid\": 1339329}\nowned_cleanup {\"pid\": 1339471}\nowned_cleanup {\"pid\": 1339129}\nremoved <PROBE_ROOT>\n"
     },
     "codex-inet+unix-outside-daemon": {
       "exit": 0,
       "leftover_processes_killed": 0,
       "roots_left_by_stage": 0,
-      "seconds": 5.7,
-      "stdout_tail": "scratch <PROBE_ROOT>\ngate_get {\"path\": \"/backend-api/codex/models\"}\ngate_get {\"path\": \"/api/codex/accounts/check\"}\ngate_get {\"path\": \"/api/codex/rate-limit-reset-credits\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_call\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_result\": false, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nremoved <PROBE_ROOT>\n"
+      "seconds": 5.2,
+      "stdout_tail": "scratch <PROBE_ROOT>\ngate_get {\"path\": \"/api/codex/accounts/check\"}\ngate_get {\"path\": \"/backend-api/codex/models\"}\ngate_get {\"path\": \"/api/codex/rate-limit-reset-credits\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_call\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_result\": false, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nowned_cleanup {\"pid\": 1341734}\nowned_cleanup {\"pid\": 1341907}\nremoved <PROBE_ROOT>\n"
     },
     "codex-inet-no-daemon": {
       "exit": 0,
       "leftover_processes_killed": 0,
       "roots_left_by_stage": 0,
-      "seconds": 4.3,
-      "stdout_tail": "scratch <PROBE_ROOT>\ngate_get {\"path\": \"/backend-api/codex/models\"}\ngate_get {\"path\": \"/api/codex/accounts/check\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/rate-limit-reset-credits\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_call\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_result\": false, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nremoved <PROBE_ROOT>\n"
+      "seconds": 4.4,
+      "stdout_tail": "scratch <PROBE_ROOT>\ngate_get {\"path\": \"/backend-api/codex/models\"}\ngate_get {\"path\": \"/api/codex/accounts/check\"}\ngate_get {\"path\": \"/api/codex/rate-limit-reset-credits\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/usage\"}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_call\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\ngate_get {\"path\": \"/api/codex/settings/user\"}\nmodel_request {\"tool_result\": false, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nmodel_request {\"tool_result\": true, \"path\": \"/backend-api/codex/responses\", \"fabricated_auth\": true, \"prompt\": true}\nremoved <PROBE_ROOT>\n"
     },
     "compat": {
       "exit": 0,
       "leftover_processes_killed": 0,
       "roots_left_by_stage": 0,
-      "seconds": 4.7,
+      "seconds": 5.7,
       "stdout_tail": "scratch <PROBE_ROOT>\nremoved <PROBE_ROOT>\n"
     },
     "host": {
@@ -96,7 +96,7 @@
       "exit": 0,
       "leftover_processes_killed": 0,
       "roots_left_by_stage": 0,
-      "seconds": 11.0,
+      "seconds": 11.1,
       "stdout_tail": "scratch <PROBE_ROOT>\nremoved <PROBE_ROOT>\n"
     }
   },

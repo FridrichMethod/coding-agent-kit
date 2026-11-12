@@ -63,15 +63,19 @@ RESIDUE = re.compile(r'/home/|/Users/|/run/user/\d|/tmp/quota-nl')
 
 
 def leftovers(roots):
+    """Live processes whose command line, environment or cwd names a stage's temporary root."""
     found = []
     for entry in Path('/proc').iterdir():
-        if not entry.name.isdigit():
+        if not entry.name.isdigit() or int(entry.name) == os.getpid():
             continue
-        try:
-            cmdline = (entry / 'cmdline').read_bytes().decode(errors='replace')
-        except OSError:
-            continue
-        if any(root in cmdline for root in roots):
+        names = []
+        for read in (lambda: (entry / 'cmdline').read_bytes(), lambda: (entry / 'environ').read_bytes(),
+                     lambda: os.readlink(entry / 'cwd').encode()):
+            try:
+                names.append(read().decode(errors='replace'))
+            except OSError:
+                pass
+        if any(root in text for root in roots for text in names):
             found.append(int(entry.name))
     return found
 

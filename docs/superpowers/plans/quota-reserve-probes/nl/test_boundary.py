@@ -5,7 +5,9 @@ seccomp_data, so these tests need no kernel feature and change no process.
 """
 import errno
 import importlib.util
+import os
 from pathlib import Path
+import socket
 import struct
 import unittest
 
@@ -70,6 +72,17 @@ class SeccompProgram(unittest.TestCase):
         self.check(False, X86['socketpair'], (2, 1, 0), 'EAFNOSUPPORT')
         self.check(False, X86['socket'], (16, 3, 0), 'allow')
 
+    def test_socketpair_types_without_unix(self):
+        cloexec, nonblock, high = 0o2000000, 0o4000, 1 << 32
+        for kind in (1, 5, 1 | cloexec, 5 | nonblock | cloexec, high | 1):
+            self.check(False, X86['socketpair'], (1, kind, 0), 'allow')
+        # Datagram and raw (a datagram alias for AF_UNIX) pairs can sendto()/connect() outside.
+        for kind in (2, 3, 2 | cloexec, 3 | nonblock, high | 2, 0, 4, 6, 10):
+            self.check(False, X86['socketpair'], (1, kind, 0), 'EPROTONOSUPPORT')
+        for kind in (1, 2, 3, 5):
+            self.check(True, X86['socketpair'], (1, kind, 0), 'allow')
+            self.check(False, X86['socketpair'], (10, kind, 0), 'EAFNOSUPPORT')
+
     def test_fastopen_and_io_uring_denied_others_allowed(self):
         self.check(False, X86['sendto'], (3, 0, 5, boundary.MSG_FASTOPEN, 0, 0), 'EOPNOTSUPP')
         self.check(False, X86['sendmmsg'], (3, 0, 1, boundary.MSG_FASTOPEN | 0x40, 0, 0), 'EOPNOTSUPP')
@@ -125,6 +138,18 @@ class LandlockPlan(unittest.TestCase):
 
     def test_main_refuses_without_exec(self):
         self.assertEqual(boundary.main(['--gate-port', '9']), 2)
+
+    def test_socket_stdio_detected(self):
+        first, second = socket.socketpair()
+        reader, writer = os.pipe()
+        try:
+            fds = (first.fileno(), reader, writer, second.fileno())
+            self.assertEqual(boundary.stdio_sockets(fds), [first.fileno(), second.fileno()])
+        finally:
+            for item in (first, second):
+                item.close()
+            for fd in (reader, writer):
+                os.close(fd)
 
 
 if __name__ == '__main__':

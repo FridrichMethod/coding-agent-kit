@@ -5,7 +5,8 @@ markers they receive: that record, not the actor's report, decides whether a
 direct attempt reached the alternate listener. Runs (layers):
   L0   no boundary (unrelated outside process; runs concurrently with L2a)
   L1   Landlock only (TCP connect to the gate port, abstract UNIX + signal scopes)
-  L2a  L1 plus seccomp complement denying AF_UNIX socket(), UDP, MPTCP, io_uring
+  L2a  L1 plus seccomp complement denying AF_UNIX socket() and datagram socketpair(),
+       UDP, MPTCP, io_uring
   L2b  L1 plus seccomp complement that still allows AF_UNIX socket()
 L1, L2a and L2b each try one `systemd-run --user` escape as a transient,
 collected unit named quota-nl-*. No real network, credentials or native client.
@@ -143,6 +144,20 @@ class Fixtures:
                     self.record('abstract_request', marker=line)
                     peer.sendall(b'ABSTRACT\n')
 
+    def unix_dgram(self, address, event):
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        s.bind(address)
+        self.sockets.append(s)
+        self.thread(self.serve_dgram, s, event)
+
+    def serve_dgram(self, s, event):
+        while True:
+            try:
+                data = s.recv(256)
+            except OSError:
+                return
+            self.record(event, marker=data.decode(errors='replace'))
+
     def signals(self):
         while True:
             info = signal.sigwaitinfo({signal.SIGUSR1})
@@ -211,12 +226,15 @@ def main():
         fx.unix(str(root / 'daemon.sock'), 'daemon')
         abstract = 'quota-nl-' + fx.nonce
         fx.unix('\0' + abstract, 'abstract')
+        fx.unix_dgram(str(root / 'dgram.sock'), 'unix_dgram')
+        fx.unix_dgram('\0' + abstract + '-dgram', 'abstract_dgram')
         runtime = os.environ.get('XDG_RUNTIME_DIR', '/run/user/%d' % os.getuid())
         bus = os.environ.get('DBUS_SESSION_BUS_ADDRESS', '')
         dbus_path = bus.split('unix:path=', 1)[1].split(',')[0] if 'unix:path=' in bus else runtime + '/bus'
         base = {'alt_port': fx.alt_port, 'gate_port': fx.gate_port, 'udp_port': udp_port,
                 'remote_host': '127.0.0.2', 'daemon_path': str(root / 'daemon.sock'),
                 'abstract_name': abstract, 'dbus_path': dbus_path, 'runtime_dir': runtime,
+                'dgram_path': str(root / 'dgram.sock'), 'abstract_dgram_name': abstract + '-dgram',
                 'victim_pid': os.getpid(), 'python': sys.executable, 'node': shutil.which('node'),
                 'curl': shutil.which('curl'), 'outdir': str(root)}
         result['fixture'] = {'dbus_present': Path(dbus_path).exists(),

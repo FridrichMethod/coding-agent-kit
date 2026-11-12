@@ -47,6 +47,10 @@ class EvidenceChecks(unittest.TestCase):
         with self.assertRaises(AssertionError):
             self.verify()
 
+    def fresh(self):
+        shutil.rmtree(checker.HERE)
+        shutil.copytree(HERE / 'evidence', checker.HERE)
+
     def event(self, data, event, marker):
         data['events'].append({'at': 0, 'event': event, 'marker': marker})
 
@@ -81,6 +85,17 @@ class EvidenceChecks(unittest.TestCase):
             data['events'] = [e for e in data['events'] if e.get('marker') != 'L1:root:mptcp_alt']
         self.corrupt('matrix', change)
 
+    def test_l2a_datagram_pair_reaching_fixture_fails(self):
+        self.corrupt('matrix', lambda data: self.event(data, 'unix_dgram', 'L2a:detached:unix_dgram_pair_sendto'))
+
+    def test_missing_datagram_control_fails(self):
+        def change(data):
+            data['events'] = [e for e in data['events'] if e.get('marker') != 'L0:envi:unix_dgram_pair_connect']
+        self.corrupt('matrix', change)
+
+    def test_connected_pair_reaching_fixture_fails(self):
+        self.corrupt('matrix', lambda data: self.event(data, 'unix_dgram', 'L0:root:unix_seqpacket_pair_sendto'))
+
     def test_l2a_escape_fails(self):
         self.corrupt('matrix', lambda data: self.event(data, 'alt_tcp', 'L2a:escaped:tcp4_alt'))
 
@@ -110,6 +125,32 @@ class EvidenceChecks(unittest.TestCase):
                 if row['attempt'] == 'tcp4_alt':
                     row['result'] = 'EACCES'
         self.corrupt('codex-inet-unix-outside-daemon', change)
+
+    def test_native_non_gate_connect_not_denied_fails(self):
+        for result in ('ok', 'EINPROGRESS'):
+            self.fresh()
+
+            def change(data, result=result):
+                data['native_only_syscalls']['inet_connect'].append(
+                    {'exe': 'codex', 'call': 'connect', 'target': 'other_loopback', 'result': result,
+                     'address': '127.0.0.1', 'port': 1})
+            self.corrupt('codex-inet-no-daemon', change)
+
+    def test_native_main_exit_required(self):
+        for value in (1, None, 'SIGKILL'):
+            self.fresh()
+            self.corrupt('claude-inet-unix', lambda data, value=value: data.update(native_main_exit=value))
+
+    def test_native_datagram_delivery_under_l2a_fails(self):
+        self.corrupt('claude-inet', lambda data: data['fixture_events'].append(
+            {'event': 'unix_dgram', 'marker': 'CLAUDE-inet:claude_detached:unix_dgram_pair_sendto'}))
+
+    def test_compat_dgram_pair_success_under_l2a_fails(self):
+        def change(data):
+            for case in data['runs']['L2a']['cases']:
+                if case['case'] == 'unix_socketpair_dgram':
+                    case['exit'] = 0
+        self.corrupt('compat', change)
 
     def test_native_lingering_process_fails(self):
         self.corrupt('claude-inet', lambda data: data.update(lingering_after_kill=1))

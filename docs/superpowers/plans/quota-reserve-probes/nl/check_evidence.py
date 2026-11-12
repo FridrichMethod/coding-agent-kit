@@ -13,6 +13,10 @@ PYTHON_ACTORS = ('root', 'shell', 'envi', 'detached')
 DIRECT_TCP = ('tcp4_alt', 'tcp6_alt', 'mapped_alt', 'tfo_alt')
 NATIVE_NAMES = ('claude-inet', 'claude-inet-unix', 'codex-inet', 'codex-inet-no-daemon', 'codex-inet-unix',
                 'codex-inet-unix-outside-daemon')
+DGRAM_PATH = ('unix_dgram_socket', 'unix_dgram_pair_sendto', 'unix_dgram_pair_connect')
+CONNECTED_PAIRS = ('unix_stream_pair_sendto', 'unix_seqpacket_pair_sendto')
+# Outcomes the boundary itself returns; a non-gate connect must end in one of these.
+DENIED = ('EACCES', 'EOPNOTSUPP', 'EPROTONOSUPPORT', 'EAFNOSUPPORT')
 
 
 def load(name):
@@ -56,6 +60,8 @@ def check_host():
     assert landlock['scope_bits_accepted'] == [0, 1] and max(landlock['fs_bits_accepted']) == 15
     assert landlock['uapi_header']['mentions_tsync'] and not landlock['uapi_header']['mentions_udp']
     assert not landlock['uapi_header']['mentions_resolve_unix']
+    # TIOCSTI injection into the user's terminal is a host condition; this host disables it.
+    assert host['sysctl']['dev/tty/legacy_tiocsti'] == '0'
     refusals = host['refusals']
     assert refusals['bwrap_unshare_net']['exit'] != 0 and 'RTM_NEWADDR' in refusals['bwrap_unshare_net']['stderr']
     assert refusals['bwrap_unshare_user']['exit'] != 0 and refusals['unshare_map_root_net']['exit'] != 0
@@ -78,6 +84,7 @@ def check_matrix():
     gate, other = markers(data, 'gate_tcp'), markers(data, 'other_host_tcp')
     relay = markers(data, 'daemon_request')
     abstract = markers(data, 'abstract_request')
+    dgram, abstract_dgram = markers(data, 'unix_dgram'), markers(data, 'abstract_dgram')
     for run_id in ('L0', 'L1', 'L2a', 'L2b'):
         run = runs[run_id]
         assert run['exit'] == 0 and run['root_ended_before_detached'], run_id
@@ -127,13 +134,32 @@ def check_matrix():
         assert result(runs['L2a'], actor, 'unix_daemon_relay') == 'EAFNOSUPPORT'
         assert 'relay:L2b:%s:unix_daemon_relay' % actor in alt
         assert result(runs['L2b'], actor, 'dbus_session_auth') == 'ok'
+        # AF_UNIX datagrams: any datagram socket, socket()- or socketpair()-made, can address
+        # an outside socket; only L2a's type-limited socketpair() closes the pathname case.
+        for attempt in DGRAM_PATH:
+            assert 'L0:%s:%s' % (actor, attempt) in dgram, (actor, attempt)
+            for run_id in ('L1', 'L2b'):
+                assert '%s:%s:%s' % (run_id, actor, attempt) in dgram, 'pathname datagram gap not observed'
+        assert 'L0:%s:unix_abstract_dgram_pair' % actor in abstract_dgram
+        for run_id in ('L1', 'L2a', 'L2b'):
+            assert '%s:%s:unix_abstract_dgram_pair' % (run_id, actor) not in abstract_dgram
+        for run_id in ('L1', 'L2b'):
+            assert result(runs[run_id], actor, 'unix_abstract_dgram_pair') == 'EPERM'
+        assert result(runs['L2a'], actor, 'unix_dgram_socket') == 'EAFNOSUPPORT'
+        for attempt in ('unix_dgram_pair_sendto', 'unix_dgram_pair_connect', 'unix_abstract_dgram_pair'):
+            assert result(runs['L2a'], actor, attempt) == 'EPROTONOSUPPORT', attempt
+        for run_id in ('L0', 'L1', 'L2a', 'L2b'):
+            assert result(runs[run_id], actor, 'unix_stream_pair_sendto') == 'EISCONN'
+            assert result(runs[run_id], actor, 'unix_seqpacket_pair_sendto') == 'sent'  # to its peer
+    assert not {m for m in dgram | abstract_dgram if m.rsplit(':', 1)[-1] in CONNECTED_PAIRS}
     for run_id in ('L1', 'L2a', 'L2b'):
         for attempt in ('tcp4_alt', 'tcp6_alt'):
             assert '%s:node:%s' % (run_id, attempt) not in alt
         assert not {m for m in alt if m and m.startswith(run_id + ':root:curl')}
     assert {'L0:node:tcp4_alt', 'L0:node:udp4_alt'} <= alt | udp and 'L0:root:curl_tcp4_alt' in alt
     assert 'L1:node:udp4_alt' in udp and 'L2a:node:udp4_alt' not in udp
-    assert not {m for m in alt | udp | relay | abstract if m and 'L2a:' in m}, 'L2a reached a fixture'
+    assert not {m for m in alt | udp | relay | abstract | dgram | abstract_dgram if m and 'L2a:' in m}, \
+        'L2a reached a fixture'
     escapes = {m for m in alt if m and ':escaped:' in m}
     assert escapes == {'L1:escaped:tcp4_alt', 'L2b:escaped:tcp4_alt'}, escapes
     spawn = [r for r in runs['L2a']['rows'] if r['attempt'] == 'systemd_run_spawn'][0]
@@ -168,9 +194,12 @@ def native_common(data, run):
     assert any(e.get('tool_call') and e['fabricated_auth'] for e in requests), run
     assert any(e.get('tool_result') for e in requests), run
     assert data['lingering_after_kill'] == 0, run
+    # The native process itself (the root tracee) exited on its own with status 0.
+    assert data['native_main_exit'] == 0, (run, data['native_main_exit'])
     for item in data['native_only_syscalls']['inet_connect']:
-        assert item['target'] in ('gate', 'other_loopback') or item['result'] != 'ok', (run, item)
-        assert item['target'] != 'alt' and not (item['target'] == 'non_loopback' and item['result'] == 'ok')
+        # Under the port rule every non-gate connect is denied by the boundary.
+        assert item['target'] == 'gate' or item['result'] in DENIED, (run, item)
+        assert item['target'] != 'alt', (run, item)
 
 
 def check_natives():
@@ -180,6 +209,7 @@ def check_natives():
         seen[name] = data
         events = data['fixture_events']
         reached = {e.get('marker') for e in events if e['event'] in ('alt_tcp', 'alt_udp')}
+        datagrams = {e.get('marker') for e in events if e['event'] in ('unix_dgram', 'abstract_dgram')}
         if name == 'codex-inet':
             # Default daemon mode cannot reach its control socket: fail closed before any model request.
             assert data['native_exit'] not in (0, None) and not data['tool_started'], name
@@ -202,10 +232,20 @@ def check_natives():
         assert not {m for m in reached if m and not m.startswith('relay:')}, (name, reached)
         if name.endswith('-unix'):
             assert tool['unix_daemon_relay'] == 'ok', name
+            assert tool['unix_dgram_pair_sendto'] == 'sent' and any(
+                m and m.endswith('_tool:unix_dgram_pair_sendto') for m in datagrams), name
         else:
-            assert tool['unix_daemon_relay'] == 'EAFNOSUPPORT' and not reached, name
+            assert tool['unix_daemon_relay'] == 'EAFNOSUPPORT' and not reached and not datagrams, name
+            for table in (tool, detached):
+                assert table['unix_dgram_socket'] == 'EAFNOSUPPORT', name
+                assert table['unix_dgram_pair_sendto'] == 'EPROTONOSUPPORT', name
+                assert table['unix_abstract_dgram_pair'] == 'EPROTONOSUPPORT', name
+        if name == 'codex-inet-unix':
+            # strace waits for the self-started daemon, a traced descendant that outlives the TUI.
+            assert data['native_exit'] in (0, None) and data['lingering_at_cleanup'] >= 1, name
+        else:
             assert data['native_exit'] == 0, name
-    assert seen['codex-inet-unix']['lingering_killed'] >= 1, 'self-started Codex daemon did not linger'
+    assert seen['codex-inet-unix-outside-daemon']['lingering_at_cleanup'] >= 1
     assert seen['codex-inet-unix-outside-daemon']['outside_daemon_start']['exit'] == 0
 
 
@@ -213,9 +253,11 @@ def check_compat():
     runs = load('compat')['runs']
     table = {layer: {c['case']: c for c in run['cases']} for layer, run in runs.items()}
     network = ('git_http_clone_alt', 'curl_download_alt', 'python_urllib_alt', 'node_fetch_alt')
-    for case in network + ('local_tcp_server', 'local_unix_server', 'multiprocessing_default_pool',
-                           'multiprocessing_fork_pool', 'git_local_commit', 'dns_localhost'):
+    pairs = ('unix_socketpair_stream', 'unix_socketpair_dgram', 'asyncio_event_loop')
+    for case in network + pairs + ('local_tcp_server', 'local_unix_server', 'multiprocessing_default_pool',
+                                   'multiprocessing_fork_pool', 'git_local_commit', 'dns_localhost'):
         assert table['L0'][case]['exit'] == 0, case
+        assert table['L2b'][case]['exit'] == 0 or case in network + ('local_tcp_server',), case
     assert 'Connection reset' in table['L0']['ssh_alt']['output'] or 'kex_exchange' in table['L0']['ssh_alt']['output']
     assert any(hit['event'] == 'alt_ssh' for hit in runs['L0']['fixture_hits'])
     for layer in ('L2a', 'L2b'):
@@ -223,8 +265,11 @@ def check_compat():
         for case in network + ('local_tcp_server',):
             assert table[layer][case]['exit'] != 0, (layer, case)
         assert 'Permission denied' in table[layer]['ssh_alt']['output'], layer
-        for case in ('git_local_commit', 'dns_localhost', 'multiprocessing_fork_pool'):
+        for case in ('git_local_commit', 'dns_localhost', 'multiprocessing_fork_pool', 'unix_socketpair_stream',
+                     'asyncio_event_loop'):
             assert table[layer][case]['exit'] == 0, (layer, case)
+    dgram_pair = table['L2a']['unix_socketpair_dgram']
+    assert dgram_pair['exit'] != 0 and 'Protocol not supported' in dgram_pair['output'], dgram_pair
     assert table['L2a']['local_unix_server']['exit'] != 0 and table['L2a']['multiprocessing_default_pool']['exit'] != 0
     assert table['L2b']['local_unix_server']['exit'] == 0 and table['L2b']['multiprocessing_default_pool']['exit'] == 0
 

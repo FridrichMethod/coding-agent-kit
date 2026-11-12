@@ -28,6 +28,8 @@ LOCAL_UNIX = ('import socket,os,tempfile; p=os.path.join(tempfile.mkdtemp(),"s")
               's.bind(p); s.listen(); c=socket.socket(1); c.connect(p); print("local unix ok")')
 POOL = ('import multiprocessing as m; print(m.get_start_method(), m.Pool(2).map(abs,[-1,-2]))')
 FORK_POOL = ('import multiprocessing as m; print(m.get_context("fork").Pool(2).map(abs,[-1,-2]))')
+PAIR = 'import socket; a,b=socket.socketpair(socket.AF_UNIX,socket.SOCK_%s); a.send(b"x"); print("pair",b.recv(1))'
+ASYNCIO = 'import asyncio; asyncio.run(asyncio.sleep(0)); print("asyncio ok")'
 NODE_FETCH = ('fetch(process.argv[1]).then(r=>r.text()).then(t=>console.log("fetched",t.length))'
               '.catch(e=>{console.log(String(e.cause&&e.cause.code||e));process.exit(1)})')
 
@@ -58,6 +60,9 @@ def actor(spec_path):
         ('local_unix_server', [py, '-I', '-c', LOCAL_UNIX]),
         ('multiprocessing_default_pool', [py, '-I', '-c', POOL]),
         ('multiprocessing_fork_pool', [py, '-I', '-c', FORK_POOL]),
+        ('unix_socketpair_stream', [py, '-I', '-c', PAIR % 'STREAM']),
+        ('unix_socketpair_dgram', [py, '-I', '-c', PAIR % 'DGRAM']),
+        ('asyncio_event_loop', [py, '-I', '-c', ASYNCIO]),
     ]
     for name, command in cases:
         try:

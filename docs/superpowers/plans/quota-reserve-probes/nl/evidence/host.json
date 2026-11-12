@@ -11,7 +11,7 @@
       "exit": 101,
       "non_loopback_inet_attempts": [],
       "observer": "strace",
-      "stderr": "\nthread 'main' (1121423) panicked at linux-sandbox/src/linux_run_main.rs:385:9:\nfilesystem-restricted execution requires bubblewrap to isolate app-server sockets\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace",
+      "stderr": "\nthread 'main' (1335838) panicked at linux-sandbox/src/linux_run_main.rs:385:9:\nfilesystem-restricted execution requires bubblewrap to isolate app-server sockets\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace",
       "stdout": ""
     },
     "network_enabled": {
@@ -90,6 +90,7 @@
     }
   },
   "sysctl": {
+    "dev/tty/legacy_tiocsti": "0",
     "kernel/apparmor_restrict_unprivileged_userns": "1",
     "kernel/unprivileged_userns_clone": "1",
     "kernel/yama/ptrace_scope": "1",

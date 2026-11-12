@@ -1,10 +1,12 @@
 """NL research launcher: Landlock gate-port boundary plus optional seccomp complement.
 
 Research code only: not product runtime, not an adopted sandbox. Before exec
-it closes inherited descriptors, sets no_new_privs, enters a Landlock domain
-that allows TCP connect only to the gate port and scopes abstract UNIX sockets
-and signals, and (with --seccomp) installs a socket filter. A requested layer
-that is unavailable refuses with exit 2; nothing falls back silently.
+it refuses socket stdio, closes inherited descriptors, sets no_new_privs,
+enters a Landlock domain that allows TCP connect only to the gate port and
+scopes abstract UNIX sockets and signals, and (with --seccomp) installs a
+socket filter. A requested layer that is unavailable refuses with exit 2;
+nothing falls back silently. The Landlock rules govern egress only: listening
+and accepting inbound connections stay possible.
 
 python3 -I -B boundary.py --gate-port P [--seccomp none|inet|inet+unix]
         [--keep-fd N]... [--extra-port N]... [--verbose] -- COMMAND ARG...
@@ -16,6 +18,7 @@ import errno
 import json
 import os
 import platform
+import stat
 import sys
 
 # Landlock uapi (include/uapi/linux/landlock.h, kernel 7.0 = ABI 8).
@@ -32,7 +35,7 @@ SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC = 1, 1
 RET_KILL_PROCESS, RET_ERRNO, RET_ALLOW = 0x80000000, 0x00050000, 0x7fff0000
 LD_ABS, ALU_AND, JEQ, JGE, JSET, RET = 0x20, 0x54, 0x15, 0x35, 0x45, 0x06
 AF_UNIX, AF_INET, AF_INET6, AF_NETLINK = 1, 2, 10, 16
-SOCK_STREAM, IPPROTO_TCP, NETLINK_ROUTE = 1, 6, 0
+SOCK_STREAM, SOCK_SEQPACKET, IPPROTO_TCP, NETLINK_ROUTE = 1, 5, 6, 0
 MSG_FASTOPEN = 0x20000000
 X32_BIT = 0x40000000
 # Only x86_64 was exercised. The arm64 row is review data for G0 cost (U).
@@ -122,7 +125,9 @@ def assemble(program):
 
 def seccomp_program(arch, allow_unix):
     """Allow TCP-only inet sockets and netlink route; deny UDP/raw/MPTCP/other families,
-    TCP Fast Open sends and io_uring. AF_UNIX socket() only when allow_unix."""
+    TCP Fast Open sends and io_uring. AF_UNIX socket() only when allow_unix; without it,
+    socketpair(AF_UNIX) only for stream and seqpacket, whose connected ends cannot be
+    re-addressed (a datagram or raw pair can sendto()/connect() any outside socket)."""
     table = ARCHES[arch]
     deny = lambda name: RET_ERRNO | getattr(errno, name)
     program = [('ld', 4), ('jeq', table['audit'], None, 'kill'), ('ld', 0),
@@ -142,7 +147,10 @@ def seccomp_program(arch, allow_unix):
                 ('jeq', SOCK_STREAM, None, 'eprotonosupport'), ('ld', 32),
                 ('jeq', 0, 'allow', None), ('jeq', IPPROTO_TCP, 'allow', 'eprotonosupport'),
                 ('label', 'netlink'), ('ld', 32), ('jeq', NETLINK_ROUTE, 'allow', 'eafnosupport'),
-                ('label', 'socketpair'), ('ld', 16), ('jeq', AF_UNIX, 'allow', 'eafnosupport'),
+                ('label', 'socketpair'), ('ld', 16),
+                ('jeq', AF_UNIX, 'allow' if allow_unix else 'pairtype', 'eafnosupport'),
+                ('label', 'pairtype'), ('ld', 24), ('and', 0xf), ('jeq', SOCK_STREAM, 'allow', None),
+                ('jeq', SOCK_SEQPACKET, 'allow', 'eprotonosupport'),
                 ('label', 'flags3'), ('ld', 40), ('jset', MSG_FASTOPEN, 'eopnotsupp', 'allow'),
                 ('label', 'flags2'), ('ld', 32), ('jset', MSG_FASTOPEN, 'eopnotsupp', 'allow'),
                 ('label', 'allow'), ('ret', RET_ALLOW),
@@ -152,6 +160,18 @@ def seccomp_program(arch, allow_unix):
                 ('label', 'eprotonosupport'), ('ret', deny('EPROTONOSUPPORT')),
                 ('label', 'eopnotsupp'), ('ret', deny('EOPNOTSUPP'))]
     return assemble(program)
+
+
+def stdio_sockets(fds=(0, 1, 2)):
+    """Descriptors kept across exec that are sockets: the boundary does not police them."""
+    found = []
+    for fd in fds:
+        try:
+            if stat.S_ISSOCK(os.fstat(fd).st_mode):
+                found.append(fd)
+        except OSError:
+            pass
+    return found
 
 
 class Attr(ctypes.Structure):
@@ -192,6 +212,9 @@ def apply(options):
     plan = landlock_plan(abi, options['gate_port'], options['seccomp'], options['extra'])
     if options['seccomp'] != 'none' and arch not in ('x86_64',):
         raise Refusal('seccomp complement not validated on ' + arch)
+    sockets = stdio_sockets()
+    if sockets:
+        raise Refusal('stdio descriptor %s is a socket' % sockets)
     keep = set(options['keep'])
     for name in os.listdir('/proc/self/fd'):
         fd = int(name)

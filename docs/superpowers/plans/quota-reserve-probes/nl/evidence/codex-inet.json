@@ -1,6 +1,6 @@
 {
   "boundary_applied": [
-    "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 36305}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 38}"
+    "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 33667}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42}"
   ],
   "codex_daemon": "default",
   "daemon_stop_exit": 0,
@@ -11,14 +11,20 @@
   "gate_port_label": "GATE_PORT",
   "layer": "inet",
   "lingering_after_kill": 0,
+  "lingering_at_cleanup": 0,
   "lingering_killed": 0,
   "native": "codex",
   "native_alive_after_turn": false,
   "native_exit": 1,
   "native_exited_by_keys": true,
+  "native_inet_listeners": [],
+  "native_main_exit": 1,
   "native_only_syscalls": {
     "inet_connect": [],
-    "socket_allowed": {},
+    "socket_allowed": {
+      "codex pair AF_UNIX/SOCK_SEQPACKET/0": 1,
+      "codex pair AF_UNIX/SOCK_STREAM/0": 6
+    },
     "socket_denied": {
       "codex AF_UNIX/SOCK_STREAM/0": 16
     },
@@ -27,7 +33,10 @@
   "observer": "strace",
   "syscalls": {
     "inet_connect": [],
-    "socket_allowed": {},
+    "socket_allowed": {
+      "codex pair AF_UNIX/SOCK_SEQPACKET/0": 1,
+      "codex pair AF_UNIX/SOCK_STREAM/0": 6
+    },
     "socket_denied": {
       "codex AF_UNIX/SOCK_STREAM/0": 16
     },
@@ -38,7 +47,7 @@
     "fixture_reply_visible": false,
     "tool_output_visible": false
   },
-  "terminal_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 36305}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 38}\r\n   >_ OpenAI Codex (v0.167.2)     loading  \u203a Ask Codex to do anything  \u001b[0 q <PATH> q\u001b[0 qError: app server did not become ready on <PATH>\r\n\r\nDaemon used app-server:\r\n  path: <PATH>\r\n  version: 0.167.2\r\n\r\nManaged app-server stderr <PATH>\r\n  Error: Address family not supported by protocol (os error 97): failed to connect to <PATH> Address family not supported by protocol (os error 97)\r\nTo work without the background server, rerun the same command with --no-daemon (including resume or fork and its arguments).\r\n",
+  "terminal_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 33667}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42}\r\n   >_ OpenAI Codex (v0.167.2)     loading  \u203a Ask Codex to do anything  \u001b[0 q <PATH> q\u001b[0 qError: app server did not become ready on <PATH>\r\n\r\nDaemon used app-server:\r\n  path: <PATH>\r\n  version: 0.167.2\r\n\r\nManaged app-server stderr <PATH>\r\n  Error: Address family not supported by protocol (os error 97): failed to connect to <PATH> Address family not supported by protocol (os error 97)\r\nTo work without the background server, rerun the same command with --no-daemon (including resume or fork and its arguments).\r\n",
   "termios_restored": true,
   "tool_finished": false,
   "tool_result_excerpt": "",
@@ -55,5 +64,5 @@
     "sh",
     "tr"
   ],
-  "traced_processes": 221
+  "traced_processes": 223
 }

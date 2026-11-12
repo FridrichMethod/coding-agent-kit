@@ -30,17 +30,17 @@
         {
           "case": "node_fetch_alt",
           "exit": 0,
-          "output": "fetched 3872"
+          "output": "fetched 3907"
         },
         {
           "case": "ssh_alt",
           "exit": 255,
-          "output": "Connection reset by 127.0.0.1 port 34509"
+          "output": "Connection reset by 127.0.0.1 port 40833"
         },
         {
           "case": "git_ssh_clone_alt",
           "exit": 128,
-          "output": "Connection reset by 127.0.0.1 port 34509\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists."
+          "output": "Connection reset by 127.0.0.1 port 40833\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists."
         },
         {
           "case": "local_tcp_server",
@@ -61,6 +61,21 @@
           "case": "multiprocessing_fork_pool",
           "exit": 0,
           "output": "[1, 2]"
+        },
+        {
+          "case": "unix_socketpair_stream",
+          "exit": 0,
+          "output": "pair b'x'"
+        },
+        {
+          "case": "unix_socketpair_dgram",
+          "exit": 0,
+          "output": "pair b'x'"
+        },
+        {
+          "case": "asyncio_event_loop",
+          "exit": 0,
+          "output": "asyncio ok"
         }
       ],
       "exit": 0,
@@ -75,7 +90,7 @@
         },
         {
           "event": "alt_http",
-          "path": "/repo.git/objects/2d/f05b29c163a2189bc1e0c69cea367dfcf01870"
+          "path": "/repo.git/objects/5c/e8d0da20f42837f964e1708042ebbff9b3e646"
         },
         {
           "event": "alt_http",
@@ -120,12 +135,12 @@
         {
           "case": "git_http_clone_alt",
           "exit": 128,
-          "output": "fatal: unable to access 'http://127.0.0.1:38225/repo.git/': Failed to connect to 127.0.0.1 port 38225 after 0 ms: Couldn't connect to server"
+          "output": "fatal: unable to access 'http://127.0.0.1:43939/repo.git/': Failed to connect to 127.0.0.1 port 43939 after 0 ms: Couldn't connect to server"
         },
         {
           "case": "curl_download_alt",
           "exit": 7,
-          "output": "curl: (7) Failed to connect to 127.0.0.1:38225 after 0 ms: Could not connect to server"
+          "output": "curl: (7) Failed to connect to 127.0.0.1:43939 after 0 ms: Could not connect to server"
         },
         {
           "case": "python_urllib_alt",
@@ -140,12 +155,12 @@
         {
           "case": "ssh_alt",
           "exit": 255,
-          "output": "ssh: connect to host 127.0.0.1 port 34509: Permission denied"
+          "output": "ssh: connect to host 127.0.0.1 port 40833: Permission denied"
         },
         {
           "case": "git_ssh_clone_alt",
           "exit": 128,
-          "output": "ssh: connect to host 127.0.0.1 port 34509: Permission denied\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists."
+          "output": "ssh: connect to host 127.0.0.1 port 40833: Permission denied\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists."
         },
         {
           "case": "local_tcp_server",
@@ -166,6 +181,21 @@
           "case": "multiprocessing_fork_pool",
           "exit": 0,
           "output": "[1, 2]"
+        },
+        {
+          "case": "unix_socketpair_stream",
+          "exit": 0,
+          "output": "pair b'x'"
+        },
+        {
+          "case": "unix_socketpair_dgram",
+          "exit": 1,
+          "output": " \"<PYTHON_PREFIX>/lib/python3.15/socket.py\", line 678, in socketpair\n    a, b = _socket.socketpair(family, type, proto)\n           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\nOSError: [Errno 93] Protocol not supported"
+        },
+        {
+          "case": "asyncio_event_loop",
+          "exit": 0,
+          "output": "asyncio ok"
         }
       ],
       "exit": 0,
@@ -186,12 +216,12 @@
         {
           "case": "git_http_clone_alt",
           "exit": 128,
-          "output": "fatal: unable to access 'http://127.0.0.1:38225/repo.git/': Failed to connect to 127.0.0.1 port 38225 after 0 ms: Couldn't connect to server"
+          "output": "fatal: unable to access 'http://127.0.0.1:43939/repo.git/': Failed to connect to 127.0.0.1 port 43939 after 0 ms: Couldn't connect to server"
         },
         {
           "case": "curl_download_alt",
           "exit": 7,
-          "output": "curl: (7) Failed to connect to 127.0.0.1:38225 after 0 ms: Could not connect to server"
+          "output": "curl: (7) Failed to connect to 127.0.0.1:43939 after 0 ms: Could not connect to server"
         },
         {
           "case": "python_urllib_alt",
@@ -206,12 +236,12 @@
         {
           "case": "ssh_alt",
           "exit": 255,
-          "output": "ssh: connect to host 127.0.0.1 port 34509: Permission denied"
+          "output": "ssh: connect to host 127.0.0.1 port 40833: Permission denied"
         },
         {
           "case": "git_ssh_clone_alt",
           "exit": 128,
-          "output": "ssh: connect to host 127.0.0.1 port 34509: Permission denied\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists."
+          "output": "ssh: connect to host 127.0.0.1 port 40833: Permission denied\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists."
         },
         {
           "case": "local_tcp_server",
@@ -232,6 +262,21 @@
           "case": "multiprocessing_fork_pool",
           "exit": 0,
           "output": "[1, 2]"
+        },
+        {
+          "case": "unix_socketpair_stream",
+          "exit": 0,
+          "output": "pair b'x'"
+        },
+        {
+          "case": "unix_socketpair_dgram",
+          "exit": 0,
+          "output": "pair b'x'"
+        },
+        {
+          "case": "asyncio_event_loop",
+          "exit": 0,
+          "output": "asyncio ok"
         }
       ],
       "exit": 0,

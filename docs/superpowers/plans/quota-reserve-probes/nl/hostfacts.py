@@ -156,7 +156,8 @@ def main():
         facts['sysctl'] = {name: read('/proc/sys/' + name) for name in (
             'kernel/apparmor_restrict_unprivileged_userns', 'kernel/unprivileged_userns_clone',
             'user/max_user_namespaces', 'kernel/yama/ptrace_scope', 'net/mptcp/enabled',
-            'net/ipv4/tcp_fastopen', 'net/ipv4/ping_group_range', 'net/ipv6/conf/lo/disable_ipv6')}
+            'net/ipv4/tcp_fastopen', 'net/ipv4/ping_group_range', 'net/ipv6/conf/lo/disable_ipv6',
+            'dev/tty/legacy_tiocsti')}
         facts['landlock'] = landlock_bits()
         header = Path('/usr/src/linux-hwe-7.0-headers-%s' % platform.release().rsplit('-', 1)[0]) / \
             'include/uapi/linux/landlock.h'

@@ -111,6 +111,24 @@ class Actor:
         except OSError as error:
             self.emit(name, code(error))
 
+    def unix_send(self, name, address, kind=socket.SOCK_DGRAM, pair=True, connect=False):
+        """Address an outside UNIX socket from a socket()- or socketpair()-made AF_UNIX socket."""
+        made = []
+        try:
+            made = list(socket.socketpair(socket.AF_UNIX, kind)) if pair else [socket.socket(socket.AF_UNIX, kind)]
+            data = self.marker(name).encode()
+            if connect:
+                made[0].connect(address)
+                made[0].send(data)
+            else:
+                made[0].sendto(data, address)
+            self.emit(name, 'sent')
+        except OSError as error:
+            self.emit(name, code(error))
+        finally:
+            for s in made:
+                s.close()
+
     def network(self):
         spec = self.spec
         alt, gate, remote, udp = spec['alt_port'], spec['gate_port'], spec['remote_host'], spec['udp_port']
@@ -134,6 +152,14 @@ class Actor:
                   (self.marker('unix_abstract') + '\n').encode(), expect='ABSTRACT')
         uid = str(os.getuid()).encode().hex().encode()
         self.unix('dbus_session_auth', spec['dbus_path'], b'\0AUTH EXTERNAL ' + uid + b'\r\n', expect='OK')
+        # Pathname and abstract datagram fixtures outside: only the fixture record proves delivery.
+        self.unix_send('unix_dgram_socket', spec['dgram_path'], pair=False)
+        self.unix_send('unix_dgram_pair_sendto', spec['dgram_path'])
+        self.unix_send('unix_dgram_pair_connect', spec['dgram_path'], connect=True)
+        self.unix_send('unix_abstract_dgram_pair', '\0' + spec['abstract_dgram_name'])
+        # Connected stream/seqpacket pairs: sendto() gives EISCONN or goes to the peer.
+        self.unix_send('unix_stream_pair_sendto', spec['dgram_path'], kind=socket.SOCK_STREAM)
+        self.unix_send('unix_seqpacket_pair_sendto', spec['dgram_path'], kind=socket.SOCK_SEQPACKET)
         try:
             os.kill(spec['victim_pid'], signal.SIGUSR1)
             self.emit('signal_outside', 'ok')
