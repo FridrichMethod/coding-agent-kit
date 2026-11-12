@@ -1,0 +1,115 @@
+{
+ "code_sha256": {
+  "klc/child.py": "d6c2c77510288021d100347ce797d098427b287788bedc4cd549b7b5c1de89f6",
+  "klc/compose.py": "ffd7714f29b1fa8ee436dd873e7c03549153e973c1f5bfeb70a7de3e2fc9364f",
+  "klc/fixtures.py": "35387be81b70cc4c922b13168479b9d685529d53159a1006a8ae17b1b22e101f",
+  "klc/fsrules.py": "644b84a0f1fdff837b585051264ed736287c134f62be43cb538ebb4ffa5fb92e",
+  "klc/gate.py": "9578c34d4a24834a5529fc60fe4ad5b00d1ad21d42ecbc9aa49b4238e3bf4798",
+  "klc/monitor.py": "d664580191ee9c7442750aae660409289e5fc4327ec9d90f19655ce833aac508",
+  "klc/probe.py": "fd26a592f3560b3668afb4543f54676d5d22aadb1c363f18f829807992c4fd49",
+  "klc/run.py": "e309201968916e194067a60e212a9a82ea7d6ee008dbce8ceccb515372c01d0e",
+  "nl/boundary.py": "54c49a3a0f67313fbc26d3da62d51dd0069d9eb2a94c35ae4f32e1bb7488941c",
+  "nl/natives.py": "7cbc0da3865f6f86168e82b20f75a0a81c780e87f0d1f67172906723ce504dd9",
+  "nl/probe.py": "71632d27aec64eeb186afa67937da0cdeed4348638ff9d3e0ceed54add0788ff",
+  "pc_continue/control.py": "8b98eee39bd83b7769356db3fb49bcfefe8423da28cb4942430a9bad5e218dad",
+  "qc/admission.py": "4f9cd87a71d66d86fa1057bc5d97d54c1f1adc46a936e631264eecd69df0c3d0",
+  "qc/bearer.py": "e4b6a2c734f2cfcf04fc619bc15c7bc129417df19eab8b9712613058bb30797d",
+  "qc/fake_usage.py": "886380098c88f7a52342129c67be402a286437e5e983ccdf5140bb1049154ab5",
+  "qc/usage.py": "6306dc6cc2f354ae41be9327d26a25b126d3aa76179af55a888a667612f05f5f"
+ },
+ "evidence_sha256": {
+  "continuation.json": "50134d7f713fb84d90f0da4b109b79df578629204910667e9f19a9d06b05240c",
+  "fsrules.json": "0acf809c16142775df28b798d4191061e58fbfc0c59bce2edd20cb2dcaf83eb6",
+  "gate-death.json": "24d46059d684b1575bf1222971d0e5031d61f60fe0332ea9826a5522457db610",
+  "independent.json": "cc5891750a18fd1e658f4132f3dcd67d091e85d0129d92769a34cfea6f46ca1a",
+  "loss-eof.json": "ab6bbcbb31bbbbe62139ee26fbee733eb8bdc6c8bd288d2b97317b3f414e67b5",
+  "loss-kill.json": "7d127106dfb3051d16bf1fec100918581ad78d60be4ae83bd47767d94990c9b7",
+  "loss-stall.json": "a34a8eee9d03d0788cb48feb509e5a702b65512af0c8bb985242bdbfc99a9b86",
+  "norefresh.json": "dfa28b7b7729552b39893ff22f7f4ca3679f563047fd66274782686ee975a97d",
+  "prelaunch.json": "7e24cd28b135d9d4e27417ad4506cc9ef117c716b37024a83135eb762d31abce",
+  "refusals.json": "49bf79f234465f99e6f660b02fd3b90d5d6d452e30b11c8d09fa406af0ae1fdf",
+  "rotation.json": "b877f62b0a9f9e078c01a43d4d50d64d10c4206bb40b025932680eb3e46dac56",
+  "sandbox.json": "861ac445315ce3eef2716efd9a03b4dc0a1893434af47deb90a438d11b550b67",
+  "threshold.json": "26faab260ef7423d8e09cee3c87815033bacbd4b0c72aaa64f6105ccfc13cd23",
+  "tools.json": "32b98222eedad44f6ac1f1d5456de936f5746a7a4509cbd538ae416430feb6b2"
+ },
+ "kernel": "7.0.0-42-generic",
+ "leftover_processes": 0,
+ "leftover_temp_roots": 0,
+ "machine": "x86_64",
+ "native_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+ "native_version": "2.1.322 (Claude Code)",
+ "python": "3.15.2",
+ "stages": {
+  "continuation": {
+   "duration_s": 17.6,
+   "evidence_sha256": "50134d7f713fb84d90f0da4b109b79df578629204910667e9f19a9d06b05240c",
+   "exit": 0
+  },
+  "fsrules": {
+   "duration_s": 6.0,
+   "evidence_sha256": "0acf809c16142775df28b798d4191061e58fbfc0c59bce2edd20cb2dcaf83eb6",
+   "exit": 0
+  },
+  "gate-death": {
+   "duration_s": 14.8,
+   "evidence_sha256": "24d46059d684b1575bf1222971d0e5031d61f60fe0332ea9826a5522457db610",
+   "exit": 0
+  },
+  "independent": {
+   "duration_s": 16.6,
+   "evidence_sha256": "cc5891750a18fd1e658f4132f3dcd67d091e85d0129d92769a34cfea6f46ca1a",
+   "exit": 0
+  },
+  "loss-eof": {
+   "duration_s": 11.6,
+   "evidence_sha256": "ab6bbcbb31bbbbe62139ee26fbee733eb8bdc6c8bd288d2b97317b3f414e67b5",
+   "exit": 0
+  },
+  "loss-kill": {
+   "duration_s": 11.5,
+   "evidence_sha256": "7d127106dfb3051d16bf1fec100918581ad78d60be4ae83bd47767d94990c9b7",
+   "exit": 0
+  },
+  "loss-stall": {
+   "duration_s": 15.6,
+   "evidence_sha256": "a34a8eee9d03d0788cb48feb509e5a702b65512af0c8bb985242bdbfc99a9b86",
+   "exit": 0
+  },
+  "norefresh": {
+   "duration_s": 59.7,
+   "evidence_sha256": "dfa28b7b7729552b39893ff22f7f4ca3679f563047fd66274782686ee975a97d",
+   "exit": 0
+  },
+  "prelaunch": {
+   "duration_s": 1.6,
+   "evidence_sha256": "7e24cd28b135d9d4e27417ad4506cc9ef117c716b37024a83135eb762d31abce",
+   "exit": 0
+  },
+  "refusals": {
+   "duration_s": 4.5,
+   "evidence_sha256": "49bf79f234465f99e6f660b02fd3b90d5d6d452e30b11c8d09fa406af0ae1fdf",
+   "exit": 0
+  },
+  "rotation": {
+   "duration_s": 10.1,
+   "evidence_sha256": "b877f62b0a9f9e078c01a43d4d50d64d10c4206bb40b025932680eb3e46dac56",
+   "exit": 0
+  },
+  "sandbox": {
+   "duration_s": 6.1,
+   "evidence_sha256": "861ac445315ce3eef2716efd9a03b4dc0a1893434af47deb90a438d11b550b67",
+   "exit": 0
+  },
+  "threshold": {
+   "duration_s": 47.7,
+   "evidence_sha256": "26faab260ef7423d8e09cee3c87815033bacbd4b0c72aaa64f6105ccfc13cd23",
+   "exit": 0
+  },
+  "tools": {
+   "duration_s": 17.0,
+   "evidence_sha256": "32b98222eedad44f6ac1f1d5456de936f5746a7a4509cbd538ae416430feb6b2",
+   "exit": 0
+  }
+ }
+}

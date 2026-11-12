@@ -1,0 +1,5704 @@
+{
+ "case": "independent",
+ "child_rows": [
+  {
+   "actor": "sdk-inv1",
+   "attempt": "start",
+   "mode": "sdk",
+   "pid": 3514280,
+   "t": 171403.336617751
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "direct_upstream",
+   "pid": 3514280,
+   "result": "EACCES",
+   "t": 171403.343332672
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171403.343484492,
+   "seq": 1,
+   "status": 200,
+   "t": 171403.344292625
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "start",
+   "mode": "sdk",
+   "pid": 3514391,
+   "t": 171403.513280301
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "direct_upstream",
+   "pid": 3514391,
+   "result": "EACCES",
+   "t": 171403.519634108
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171403.519767696,
+   "seq": 1,
+   "status": 200,
+   "t": 171403.521106795
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171403.744759582,
+   "seq": 2,
+   "status": 200,
+   "t": 171403.746103116
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171403.921553487,
+   "seq": 2,
+   "status": 200,
+   "t": 171403.922836771
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171404.146567236,
+   "seq": 3,
+   "status": 200,
+   "t": 171404.148065668
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171404.323265945,
+   "seq": 3,
+   "status": 200,
+   "t": 171404.324822701
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171404.54839663,
+   "seq": 4,
+   "status": 200,
+   "t": 171404.549558165
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171404.725236117,
+   "seq": 4,
+   "status": 200,
+   "t": 171404.72650861
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171404.949962708,
+   "seq": 5,
+   "status": 403,
+   "t": 171404.950851089
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "direct_upstream",
+   "pid": 3514280,
+   "result": "EACCES",
+   "t": 171404.951062482
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171405.126928488,
+   "seq": 5,
+   "status": 200,
+   "t": 171405.128570152
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "direct_upstream",
+   "pid": 3514391,
+   "result": "EACCES",
+   "t": 171405.128941615
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171405.35139574,
+   "seq": 6,
+   "status": 403,
+   "t": 171405.352088724
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171405.529328308,
+   "seq": 6,
+   "status": 200,
+   "t": 171405.530668379
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171405.7527779,
+   "seq": 7,
+   "status": 403,
+   "t": 171405.753563449
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171405.93103537,
+   "seq": 7,
+   "status": 200,
+   "t": 171405.932280292
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171406.154187452,
+   "seq": 8,
+   "status": 403,
+   "t": 171406.155202068
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171406.332786345,
+   "seq": 8,
+   "status": 200,
+   "t": 171406.334325977
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171406.556486139,
+   "seq": 9,
+   "status": 403,
+   "t": 171406.557365198
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171406.734831684,
+   "seq": 9,
+   "status": 200,
+   "t": 171406.736215941
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171406.958610766,
+   "seq": 10,
+   "status": 403,
+   "t": 171406.959606663
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "direct_upstream",
+   "pid": 3514280,
+   "result": "EACCES",
+   "t": 171406.959818941
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171407.136563647,
+   "seq": 10,
+   "status": 200,
+   "t": 171407.137813742
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "direct_upstream",
+   "pid": 3514391,
+   "result": "EACCES",
+   "t": 171407.138009805
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171407.36053328,
+   "seq": 11,
+   "status": 403,
+   "t": 171407.361673172
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171407.53843746,
+   "seq": 11,
+   "status": 200,
+   "t": 171407.540031629
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171407.762660414,
+   "seq": 12,
+   "status": 403,
+   "t": 171407.763647955
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171407.940565242,
+   "seq": 12,
+   "status": 200,
+   "t": 171407.942190902
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171408.164115434,
+   "seq": 13,
+   "status": 403,
+   "t": 171408.165029838
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171408.342731221,
+   "seq": 13,
+   "status": 200,
+   "t": 171408.344352629
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171408.565564298,
+   "seq": 14,
+   "status": 403,
+   "t": 171408.56664823
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171408.744818313,
+   "seq": 14,
+   "status": 200,
+   "t": 171408.746444146
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171408.967380312,
+   "seq": 15,
+   "status": 403,
+   "t": 171408.968185373
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "direct_upstream",
+   "pid": 3514280,
+   "result": "EACCES",
+   "t": 171408.968838505
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171409.147088186,
+   "seq": 15,
+   "status": 403,
+   "t": 171409.148173863
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "direct_upstream",
+   "pid": 3514391,
+   "result": "EACCES",
+   "t": 171409.148338301
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171409.369667471,
+   "seq": 16,
+   "status": 403,
+   "t": 171409.370550279
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171409.548618636,
+   "seq": 16,
+   "status": 403,
+   "t": 171409.549384686
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171409.771826473,
+   "seq": 17,
+   "status": 403,
+   "t": 171409.772620211
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171409.950094836,
+   "seq": 17,
+   "status": 403,
+   "t": 171409.950978343
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171410.17393654,
+   "seq": 18,
+   "status": 403,
+   "t": 171410.175707831
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171410.352896175,
+   "seq": 18,
+   "status": 403,
+   "t": 171410.353799746
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171410.576882914,
+   "seq": 19,
+   "status": 403,
+   "t": 171410.578324009
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171410.754838924,
+   "seq": 19,
+   "status": 403,
+   "t": 171410.756048177
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171410.97873785,
+   "seq": 20,
+   "status": 403,
+   "t": 171410.97952186
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "direct_upstream",
+   "pid": 3514280,
+   "result": "EACCES",
+   "t": 171410.979712648
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171411.156652456,
+   "seq": 20,
+   "status": 403,
+   "t": 171411.157608099
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "direct_upstream",
+   "pid": 3514391,
+   "result": "EACCES",
+   "t": 171411.157856544
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171411.380086994,
+   "seq": 21,
+   "status": 403,
+   "t": 171411.381475149
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171411.558236586,
+   "seq": 21,
+   "status": 403,
+   "t": 171411.560599999
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171411.781977056,
+   "seq": 22,
+   "status": 403,
+   "t": 171411.783636028
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171411.961451532,
+   "seq": 22,
+   "status": 403,
+   "t": 171411.963093436
+  },
+  {
+   "actor": "sdk-inv1",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514280,
+   "sent": 171412.184438331,
+   "seq": 23,
+   "status": 403,
+   "t": 171412.18618573
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171412.363528548,
+   "seq": 23,
+   "status": 403,
+   "t": 171412.364498442
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171412.765508619,
+   "seq": 24,
+   "status": 403,
+   "t": 171412.766781484
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171413.167813064,
+   "seq": 25,
+   "status": 403,
+   "t": 171413.16883302
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "direct_upstream",
+   "pid": 3514391,
+   "result": "EACCES",
+   "t": 171413.169103634
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171413.570057118,
+   "seq": 26,
+   "status": 403,
+   "t": 171413.571800875
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171413.972613028,
+   "seq": 27,
+   "status": 403,
+   "t": 171413.973873799
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171414.374969637,
+   "seq": 28,
+   "status": 403,
+   "t": 171414.376379559
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171414.77678467,
+   "seq": 29,
+   "status": 403,
+   "t": 171414.777697675
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171415.178768578,
+   "seq": 30,
+   "status": 403,
+   "t": 171415.180209992
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "direct_upstream",
+   "pid": 3514391,
+   "result": "EACCES",
+   "t": 171415.180517877
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171415.58091236,
+   "seq": 31,
+   "status": 403,
+   "t": 171415.581781407
+  },
+  {
+   "actor": "sdk-inv2",
+   "attempt": "model_request",
+   "bearer": "A",
+   "pid": 3514391,
+   "sent": 171415.982393147,
+   "seq": 32,
+   "status": 403,
+   "t": 171415.983734952
+  }
+ ],
+ "cleanup": {
+  "inv1": {
+   "lingering_killed": 1,
+   "native_main_exit": 0,
+   "syscalls": {
+    "inet_connect": [
+     {
+      "call": "connect",
+      "exe": "2.1.322",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
+      "address": "127.0.0.1",
+      "call": "connect",
+      "exe": "python3.15",
+      "port": 39947,
+      "result": "EACCES",
+      "target": "other_loopback"
+     },
+     {
+      "call": "connect",
+      "exe": "python3.15",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
+      "call": "connect",
+      "exe": "git-remote-https",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     }
+    ],
+    "socket_allowed": {
+     "2.1.322 AF_INET/SOCK_STREAM/IPPROTO_IP": 18,
+     "2.1.322 pair AF_UNIX/SOCK_STREAM/0": 48,
+     "git-remote-https AF_INET/SOCK_STREAM/IPPROTO_TCP": 1,
+     "python3.15 AF_INET/SOCK_STREAM/IPPROTO_TCP": 28
+    },
+    "socket_denied": {
+     "2.1.322 AF_UNIX/SOCK_STREAM/0": 1,
+     "env AF_UNIX/SOCK_STREAM/0": 2,
+     "gh AF_UNIX/SOCK_STREAM/0": 3,
+     "ps AF_UNIX/SOCK_STREAM/0": 2,
+     "ssh AF_INET/SOCK_DGRAM/IPPROTO_IP": 4,
+     "ssh AF_UNIX/SOCK_STREAM/0": 12,
+     "zsh AF_UNIX/SOCK_STREAM/0": 4
+    },
+    "unix_connect": {}
+   },
+   "traced_executables": [
+    "2.1.322",
+    "awk",
+    "cat",
+    "cut",
+    "dpkg-query",
+    "env",
+    "gh",
+    "git",
+    "git-remote-https",
+    "grep",
+    "mv",
+    "ps",
+    "python3.15",
+    "sh",
+    "ssh",
+    "touch",
+    "uname",
+    "xdg-mime",
+    "zsh"
+   ],
+   "traced_processes": 113
+  },
+  "inv2": {
+   "lingering_killed": 0,
+   "native_main_exit": 0,
+   "syscalls": {
+    "inet_connect": [
+     {
+      "call": "connect",
+      "exe": "2.1.322",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
+      "address": "127.0.0.1",
+      "call": "connect",
+      "exe": "python3.15",
+      "port": 39947,
+      "result": "EACCES",
+      "target": "other_loopback"
+     },
+     {
+      "call": "connect",
+      "exe": "python3.15",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
+      "call": "connect",
+      "exe": "git-remote-https",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     }
+    ],
+    "socket_allowed": {
+     "2.1.322 AF_INET/SOCK_STREAM/IPPROTO_IP": 21,
+     "2.1.322 pair AF_UNIX/SOCK_STREAM/0": 48,
+     "git-remote-https AF_INET/SOCK_STREAM/IPPROTO_TCP": 1,
+     "python3.15 AF_INET/SOCK_STREAM/IPPROTO_TCP": 39
+    },
+    "socket_denied": {
+     "2.1.322 AF_UNIX/SOCK_STREAM/0": 1,
+     "env AF_UNIX/SOCK_STREAM/0": 2,
+     "gh AF_UNIX/SOCK_STREAM/0": 3,
+     "ps AF_UNIX/SOCK_STREAM/0": 2,
+     "ssh AF_INET/SOCK_DGRAM/IPPROTO_IP": 4,
+     "ssh AF_UNIX/SOCK_STREAM/0": 12,
+     "zsh AF_UNIX/SOCK_STREAM/0": 4
+    },
+    "unix_connect": {}
+   },
+   "traced_executables": [
+    "2.1.322",
+    "awk",
+    "cat",
+    "cut",
+    "dpkg-query",
+    "env",
+    "gh",
+    "git",
+    "git-remote-https",
+    "grep",
+    "mv",
+    "ps",
+    "python3.15",
+    "sh",
+    "ssh",
+    "touch",
+    "uname",
+    "xdg-mime",
+    "zsh"
+   ],
+   "traced_processes": 110
+  }
+ },
+ "exits": [
+  {
+   "began_t": 171409.904718162,
+   "exited": true,
+   "exited_t": 171413.806124415,
+   "seconds": 3.9,
+   "stop_tasks_dialog": true,
+   "termios_restored": true
+  },
+  {
+   "began_t": 171413.806139533,
+   "exited": true,
+   "exited_t": 171417.707710882,
+   "seconds": 3.9,
+   "stop_tasks_dialog": true,
+   "termios_restored": true
+  }
+ ],
+ "first_change_t": 171403.95249736,
+ "inv1_forwarded_after_first_change": 0,
+ "inv1_latch": {
+  "closed": 1,
+  "event": "controller",
+  "inv": "inv1",
+  "kind": "latched",
+  "reason": "threshold_five_hour",
+  "source": "gate",
+  "state": "paused",
+  "t": 171404.655365787
+ },
+ "inv2_forwarded_after_first_change": 11,
+ "inv2_latch": {
+  "closed": 1,
+  "event": "controller",
+  "inv": "inv2",
+  "kind": "latched",
+  "reason": "threshold_five_hour",
+  "source": "gate",
+  "state": "paused",
+  "t": 171408.870575225
+ },
+ "inv2_latched_after_first_change": false,
+ "launched": true,
+ "lingering_after_cleanup": 0,
+ "native_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+ "natives_alive": [
+  true,
+  true
+ ],
+ "policy": {
+  "allowed_models": [
+   "claude-sonnet-4-6"
+  ],
+  "max_age_s": 4.0,
+  "reserves": {
+   "five_hour": 20,
+   "weekly": 10
+  },
+  "revalidations_per_minute": 4
+ },
+ "rows": [
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 7.864,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.57903251,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171402.579067486
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.323,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.580414098,
+   "what": "profile"
+  },
+  {
+   "cause": "startup",
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "lease",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.580532113
+  },
+  {
+   "event": "preflight",
+   "inv": "inv1",
+   "ms": 9.513,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.580552641
+  },
+  {
+   "event": "gate_ready",
+   "inv": "inv1",
+   "mode": "startup",
+   "pid": 3514102,
+   "port": 34323,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.580884249
+  },
+  {
+   "event": "gate_started",
+   "inv": "inv1",
+   "mode": "startup",
+   "row": "event",
+   "source": "launcher",
+   "spawn_to_ready_ms": 174.11,
+   "t": 171402.588836954
+  },
+  {
+   "gate_event": "gate_ready",
+   "inv": "inv1",
+   "launcher_refusal": null,
+   "reason": null,
+   "row": "launch",
+   "t": 171402.588848194
+  },
+  {
+   "event": "native_started",
+   "inv": "inv1",
+   "row": "event",
+   "source": "launcher",
+   "t": 171402.590067456
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.051,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.650289148,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171402.650333754
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 0.763,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.65110905,
+   "what": "profile"
+  },
+  {
+   "deadline": 171406.649159909,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.651333004
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 2.197,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.651358053
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.776071494
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171402.776095355,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 8.148,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.78421871,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171402.784282956
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 0.681,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.784987428,
+   "what": "profile"
+  },
+  {
+   "cause": "startup",
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "lease",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.785144441
+  },
+  {
+   "event": "preflight",
+   "inv": "inv2",
+   "ms": 9.197,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.785165574
+  },
+  {
+   "event": "gate_ready",
+   "inv": "inv2",
+   "mode": "startup",
+   "pid": 3514119,
+   "port": 42645,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.78540178
+  },
+  {
+   "event": "gate_started",
+   "inv": "inv2",
+   "mode": "startup",
+   "row": "event",
+   "source": "launcher",
+   "spawn_to_ready_ms": 194.378,
+   "t": 171402.793009036
+  },
+  {
+   "gate_event": "gate_ready",
+   "inv": "inv2",
+   "launcher_refusal": null,
+   "reason": null,
+   "row": "launch",
+   "t": 171402.793020101
+  },
+  {
+   "event": "native_started",
+   "inv": "inv2",
+   "row": "event",
+   "source": "launcher",
+   "t": 171402.793718536
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.836013227
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171402.836257196,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.072,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.855646349,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171402.855706103
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 0.675,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171402.856402449,
+   "what": "profile"
+  },
+  {
+   "deadline": 171406.85445494,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.856554585
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 2.123,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.856577902
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.859477131
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171402.859509419,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 171402.962568711
+  },
+  {
+   "admit_ms": 0.117,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 1,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": false,
+   "stream": 1,
+   "t": 171402.9626395,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.292,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 171402.962782343
+  },
+  {
+   "continued": false,
+   "first": "quota",
+   "id": 1,
+   "kind": "probe",
+   "label": "A",
+   "later": false,
+   "max_tokens": 1,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": false,
+   "t": 171402.963408321,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 171402.963586856
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 171402.974475254
+  },
+  {
+   "admit_ms": 0.145,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 2,
+   "t": 171402.974533716,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.316,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 171402.974684258
+  },
+  {
+   "continued": false,
+   "first": "<session>\nKLC root inv1\n</session>\n\nWrite the ti",
+   "id": 2,
+   "kind": "aux",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171402.975080124,
+   "tag": "inv1",
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 171402.975274969
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.98945051
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171402.989487823,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171402.996662074
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171402.996698435,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.00326059
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.003285538,
+   "target": "raw.githubusercontent.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.005778224
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.005788994,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.005883452
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.005899939,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.005955577
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.005965656,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.006079696
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.006131219,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.017460361
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.017487068,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.017602963
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.017645124,
+   "target": "downloads.claude.ai:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.034169392
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.034205276,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 171403.047611409
+  },
+  {
+   "admit_ms": 0.556,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 3,
+   "t": 171403.047663703,
+   "tools": 13
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.741,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 171403.047830993
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 3,
+   "kind": "root",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.04874852,
+   "tag": "inv1",
+   "tool_results": 0,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 171403.048958968
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 171403.107943905
+  },
+  {
+   "admit_ms": 0.422,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 4,
+   "t": 171403.107998146,
+   "tools": 13
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.617,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 171403.108174518
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 4,
+   "kind": "root",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": "\"Command running in background with ID: bf6ppz0iw. Output is being written to: <PROBE_ROOT>/native-inv1/tmp/claude-<UID>/<PROBE_ROOT_SLUG>-native-inv1-workspace/d4b26295-c60b-489c-ad95-ee6b2aedb6d6/tasks/bf6ppz0iw.output. You will be notified when it completes",
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.108882254,
+   "tag": "inv1",
+   "tool_results": 1,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "id": 4,
+   "kind": "root",
+   "label": "A",
+   "row": "stream_held",
+   "t": 171403.109005509
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.118833252
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.118866614,
+   "target": "github.com:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 171403.157637077
+  },
+  {
+   "admit_ms": 0.122,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 1,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": false,
+   "stream": 1,
+   "t": 171403.1577106,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.297,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 171403.157850339
+  },
+  {
+   "continued": false,
+   "first": "quota",
+   "id": 5,
+   "kind": "probe",
+   "label": "A",
+   "later": false,
+   "max_tokens": 1,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": false,
+   "t": 171403.158201143,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 1,
+   "t": 171403.158348564
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 171403.173352734
+  },
+  {
+   "admit_ms": 0.148,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 2,
+   "t": 171403.173411361,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.324,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 171403.173564792
+  },
+  {
+   "continued": false,
+   "first": "<session>\nKLC root inv2\n</session>\n\nWrite the ti",
+   "id": 6,
+   "kind": "aux",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.173920868,
+   "tag": "inv2",
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 171403.174112191
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.217013702
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.217054175,
+   "target": "raw.githubusercontent.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.220006711
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.22013496,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.220191782
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.220225214,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.220337767
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.220362597,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.220487237
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.220545447,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.231202078
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.231222674,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.231313499
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.231332215,
+   "target": "downloads.claude.ai:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 171403.256379563
+  },
+  {
+   "admit_ms": 0.565,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 3,
+   "t": 171403.256431091,
+   "tools": 13
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.766,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 171403.25661511
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 7,
+   "kind": "root",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.257496845,
+   "tag": "inv2",
+   "tool_results": 0,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 3,
+   "t": 171403.258167147
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 171403.318267533
+  },
+  {
+   "admit_ms": 0.437,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 32000,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 4,
+   "t": 171403.318318923,
+   "tools": 13
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.617,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 171403.318482625
+  },
+  {
+   "continued": false,
+   "first": "<system-reminder>\n# Environment\nYou have been in",
+   "id": 8,
+   "kind": "root",
+   "label": "A",
+   "later": false,
+   "max_tokens": 32000,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": "\"Command running in background with ID: b4b8hnmoj. Output is being written to: <PROBE_ROOT>/native-inv2/tmp/claude-<UID>/<PROBE_ROOT_SLUG>-native-inv2-workspace/58ef6a52-e904-44c2-8fd6-95dd7963c33b/tasks/b4b8hnmoj.output. You will be notified when it completes",
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.319243127,
+   "tag": "inv2",
+   "tool_results": 1,
+   "tools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "DeferredToolPlaceholder",
+    "Edit",
+    "ListAgents",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "Skill",
+    "ToolSearch",
+    "Workflow",
+    "Write"
+   ]
+  },
+  {
+   "id": 8,
+   "kind": "root",
+   "label": "A",
+   "row": "stream_held",
+   "t": 171403.319369387
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.332593007
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171403.332624515,
+   "target": "github.com:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 171403.343837176
+  },
+  {
+   "admit_ms": 0.052,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 5,
+   "t": 171403.343869513,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.151,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 171403.343956751
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv1 1",
+   "id": 9,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.344203561,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 171403.344314033
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 171403.520205154
+  },
+  {
+   "admit_ms": 0.073,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 5,
+   "t": 171403.520249259,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.198,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 171403.520359182
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 1",
+   "id": 10,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.520762607,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 5,
+   "t": 171403.520931002
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.351,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171403.652578258,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171403.652597086
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 0.981,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171403.653589364,
+   "what": "profile"
+  },
+  {
+   "deadline": 171407.651080244,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.653785503
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 2.728,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.65380814
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 171403.745174909
+  },
+  {
+   "admit_ms": 0.067,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 6,
+   "t": 171403.745216569,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.197,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 171403.745332098
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv1 2",
+   "id": 11,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.745690074,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 171403.745854184
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.523,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171403.858434938,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171403.858467764
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 0.876,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171403.85936331,
+   "what": "profile"
+  },
+  {
+   "deadline": 171407.856763253,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.859598064
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 2.86,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171403.85962293
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 171403.922139053
+  },
+  {
+   "admit_ms": 0.063,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 6,
+   "t": 171403.922179719,
+   "tools": 0
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 2",
+   "id": 12,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171403.922580038,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.195,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 171403.922295501
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 6,
+   "t": 171403.922743613
+  },
+  {
+   "five_hour_utilization": 75,
+   "row": "usage_set",
+   "seven_day_utilization": 30,
+   "t": 171403.952496139
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 171404.147187677
+  },
+  {
+   "admit_ms": 0.079,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 7,
+   "t": 171404.147237727,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.227,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 171404.147369955
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv1 3",
+   "id": 13,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171404.14782872,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 171404.148081782
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 171404.323816791
+  },
+  {
+   "admit_ms": 0.078,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 7,
+   "t": 171404.323866421,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.211,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 171404.323982941
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 3",
+   "id": 14,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171404.324464831,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 7,
+   "t": 171404.32465269
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 8,
+   "t": 171404.54891184
+  },
+  {
+   "admit_ms": 0.079,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 8,
+   "t": 171404.548961032,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.238,
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 8,
+   "t": 171404.549103853
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv1 4",
+   "id": 15,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171404.549410437,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 8,
+   "t": 171404.549578311
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.201,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171404.654381933,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171404.654414731
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 0.782,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171404.655215601,
+   "what": "profile"
+  },
+  {
+   "closed": 1,
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "latched",
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "state": "paused",
+   "t": 171404.655365787
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 2.371,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171404.655408644
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 171404.655481871
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 8,
+   "t": 171404.725753104
+  },
+  {
+   "admit_ms": 0.096,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 8,
+   "t": 171404.725815308,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.239,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 8,
+   "t": 171404.725942106
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 4",
+   "id": 16,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171404.726250714,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 8,
+   "t": 171404.726415319
+  },
+  {
+   "id": 4,
+   "kind": "root",
+   "row": "stream_disconnected",
+   "t": 171404.812171223
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.007,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171404.859686879,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171404.859719316
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 0.793,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171404.860529433,
+   "what": "profile"
+  },
+  {
+   "deadline": 171408.858548089,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171404.860683409
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 2.154,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171404.860703909
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171404.950586558
+  },
+  {
+   "admit_ms": 0.059,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171404.950635222,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 9,
+   "t": 171405.127620307
+  },
+  {
+   "admit_ms": 0.081,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 9,
+   "t": 171405.127670215,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.218,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 9,
+   "t": 171405.127791787
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 5",
+   "id": 17,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171405.128304904,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 9,
+   "t": 171405.128592441
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171405.226617194
+  },
+  {
+   "admit_ms": 0.386,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 32000,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171405.226675769,
+   "tools": 13
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171405.351893364
+  },
+  {
+   "admit_ms": 0.042,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171405.351930663,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 10,
+   "t": 171405.529861104
+  },
+  {
+   "admit_ms": 0.076,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 10,
+   "t": 171405.529907485,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.227,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 10,
+   "t": 171405.530044462
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 6",
+   "id": 18,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171405.530368655,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 10,
+   "t": 171405.530547961
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 0.965,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171405.655885943,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171405.655941826
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.047,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171405.655961046
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171405.753299225
+  },
+  {
+   "admit_ms": 0.052,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171405.753345958,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 2.239,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171405.862966047,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171405.863104614
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.082,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171405.864211847,
+   "what": "profile"
+  },
+  {
+   "deadline": 171409.860513136,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171405.864492655
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 4.001,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171405.864515403
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 11,
+   "t": 171405.931552021
+  },
+  {
+   "admit_ms": 0.08,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 11,
+   "t": 171405.931602284,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.234,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 11,
+   "t": 171405.931739868
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 7",
+   "id": 19,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171405.932112926,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 11,
+   "t": 171405.932295312
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171406.154911712
+  },
+  {
+   "admit_ms": 0.064,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171406.154965432,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 12,
+   "t": 171406.333425011
+  },
+  {
+   "admit_ms": 0.083,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 12,
+   "t": 171406.333476031,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.221,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 12,
+   "t": 171406.333598204
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 8",
+   "id": 20,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171406.334040828,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 12,
+   "t": 171406.334228074
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171406.557145615
+  },
+  {
+   "admit_ms": 0.063,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171406.557199357,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.817,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171406.659414847,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171406.659451088
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.882,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171406.659468591
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 13,
+   "t": 171406.735465689
+  },
+  {
+   "admit_ms": 0.078,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 13,
+   "t": 171406.735514704,
+   "tools": 0
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 9",
+   "id": 21,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171406.735996771,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.207,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 13,
+   "t": 171406.735627411
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 13,
+   "t": 171406.736190998
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.582,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171406.864943728,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171406.865103653
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.242,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171406.866371225,
+   "what": "profile"
+  },
+  {
+   "deadline": 171410.863202589,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171406.866599655
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 3.418,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171406.866621595
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171406.959314011
+  },
+  {
+   "admit_ms": 0.061,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171406.95936711,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 14,
+   "t": 171407.137226848
+  },
+  {
+   "admit_ms": 0.063,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 14,
+   "t": 171407.13726223,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.156,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 14,
+   "t": 171407.137343891
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 10",
+   "id": 22,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171407.13765869,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 14,
+   "t": 171407.13781335
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171407.361185937
+  },
+  {
+   "admit_ms": 0.038,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171407.361219351,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 15,
+   "t": 171407.539072227
+  },
+  {
+   "admit_ms": 0.075,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 15,
+   "t": 171407.539117125,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.211,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 15,
+   "t": 171407.539239343
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 11",
+   "id": 23,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171407.539702299,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 15,
+   "t": 171407.539875856
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.387,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171407.661346944,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171407.661378248
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.44,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171407.661394567
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171407.763400435
+  },
+  {
+   "admit_ms": 0.056,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171407.763448445,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.466,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171407.867481566,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171407.867604635
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 0.785,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171407.868413477,
+   "what": "profile"
+  },
+  {
+   "deadline": 171411.865869577,
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171407.868658177
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 2.809,
+   "ok": true,
+   "reason": "extended",
+   "row": "event",
+   "source": "gate",
+   "t": 171407.868680373
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171407.941066636
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171407.941098489,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 16,
+   "t": 171407.941195524
+  },
+  {
+   "admit_ms": 0.07,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 16,
+   "t": 171407.941238851,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.209,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 16,
+   "t": 171407.941362393
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 12",
+   "id": 24,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171407.941802713,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 16,
+   "t": 171407.941980374
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.126255498
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171408.126285933,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.164739171
+  },
+  {
+   "admit_ms": 0.064,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171408.164792891,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 17,
+   "t": 171408.343442902
+  },
+  {
+   "admit_ms": 0.079,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 17,
+   "t": 171408.343492014,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.213,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 17,
+   "t": 171408.34361059
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 13",
+   "id": 25,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171408.344071835,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 17,
+   "t": 171408.344360983
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.443674979
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171408.443706762,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.566169536
+  },
+  {
+   "admit_ms": 0.041,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171408.566206698,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.628160792
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171408.628191284,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.474,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171408.663122961,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.663264636
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.638,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.663287752
+  },
+  {
+   "five_hour_utilization": 93,
+   "row": "usage_set",
+   "seven_day_utilization": 30,
+   "t": 171408.703851993
+  },
+  {
+   "epoch": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "admitted",
+   "row": "event",
+   "source": "gate",
+   "stream": 18,
+   "t": 171408.745464945
+  },
+  {
+   "admit_ms": 0.077,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": true,
+   "reason": "admitted",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": 18,
+   "t": 171408.745509934,
+   "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.209,
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 18,
+   "t": 171408.745627496
+  },
+  {
+   "continued": false,
+   "first": "KLC sdk sdk-inv2 14",
+   "id": 26,
+   "kind": "sdk",
+   "label": "A",
+   "later": false,
+   "max_tokens": 16,
+   "model": "claude-sonnet-4-6",
+   "path": "/v1/messages",
+   "result_text": null,
+   "row": "upstream_request",
+   "stream": true,
+   "t": 171408.746088821,
+   "tag": null,
+   "tool_results": 0,
+   "tools": []
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 18,
+   "t": 171408.746386701
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.19,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171408.869401453,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "quota_fetch",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "status": 200,
+   "t": 171408.869480369
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 0.869,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171408.870368266,
+   "what": "profile"
+  },
+  {
+   "closed": 1,
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "latched",
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "state": "paused",
+   "t": 171408.870575225
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 2.644,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.87061638
+  },
+  {
+   "event": "stream_closed",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "stream": 4,
+   "t": 171408.870653089
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171408.967887869
+  },
+  {
+   "admit_ms": 0.06,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171408.967940377,
+   "tools": 0
+  },
+  {
+   "id": 8,
+   "kind": "root",
+   "row": "stream_disconnected",
+   "t": 171409.0294657
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.147888597
+  },
+  {
+   "admit_ms": 0.046,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171409.147928396,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.370287199
+  },
+  {
+   "admit_ms": 0.06,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171409.370338478,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.427284781
+  },
+  {
+   "admit_ms": 0.388,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 32000,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171409.427340321,
+   "tools": 13
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.549163566
+  },
+  {
+   "admit_ms": 0.057,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171409.549216108,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.665,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171409.665748303,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.665789054
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.731,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.665808164
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.772351633
+  },
+  {
+   "admit_ms": 0.055,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171409.772400694,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.844,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171409.872414468,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.872442037
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.898,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.872460569
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171409.950725803
+  },
+  {
+   "admit_ms": 0.058,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171409.950776173,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.175050258
+  },
+  {
+   "admit_ms": 0.063,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171410.175104858,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.353378768
+  },
+  {
+   "admit_ms": 0.057,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171410.353428577,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.577549965
+  },
+  {
+   "admit_ms": 0.078,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171410.577618635,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.884,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171410.668848975,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.668883764
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.944,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.668901781
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.755389589
+  },
+  {
+   "admit_ms": 0.061,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171410.755442452,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.733,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171410.87548961,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.875525004
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.799,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.875543506
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171410.979265808
+  },
+  {
+   "admit_ms": 0.044,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171410.979305759,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.157326445
+  },
+  {
+   "admit_ms": 0.061,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171411.157377993,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.38063797
+  },
+  {
+   "admit_ms": 0.058,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171411.380687232,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.560389547
+  },
+  {
+   "admit_ms": 0.065,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171411.560443814,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 0.976,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171411.669478853,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.669531816
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.056,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.669553001
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.782824991
+  },
+  {
+   "admit_ms": 0.072,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171411.782887755,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.313,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171411.876898796,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.876932672
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.369,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.876948634
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171411.962045607
+  },
+  {
+   "admit_ms": 0.058,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171411.962094382,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.185196068
+  },
+  {
+   "admit_ms": 0.05,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv1",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171412.185235283,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.3640749
+  },
+  {
+   "admit_ms": 0.062,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171412.364127929,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv1",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.473381507
+  },
+  {
+   "event": "connect",
+   "inv": "inv1",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171412.473415475,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.447,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171412.673027535,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.673058997
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.5,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.673075653
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.766195771
+  },
+  {
+   "admit_ms": 0.058,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171412.766241782,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 0.993,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171412.87943695,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.879493612
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.073,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.879512623
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171412.999907436
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171412.999938776,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.16848367
+  },
+  {
+   "admit_ms": 0.062,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171413.168536711,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.507012111
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171413.507045426,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.571402563
+  },
+  {
+   "admit_ms": 0.044,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171413.571444516,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.483,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171413.676436683,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.676470117
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.539,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.676486665
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.417,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171413.883709416,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.883740368
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.47,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.883758673
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171413.973206587
+  },
+  {
+   "admit_ms": 0.061,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171413.973258401,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171414.375632908
+  },
+  {
+   "admit_ms": 0.066,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171414.375690564,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.366,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171414.680502284,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171414.680564722
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.454,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171414.680583565
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171414.777445922
+  },
+  {
+   "admit_ms": 0.065,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171414.777502375,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.134,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171414.886006323,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171414.886037785
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.193,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171414.886056068
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.179441382
+  },
+  {
+   "admit_ms": 0.062,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171415.179494471,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.512898316
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171415.512933678,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.581408374
+  },
+  {
+   "admit_ms": 0.059,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171415.581458433,
+   "tools": 0
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.242,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171415.682820334,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.682884261
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.33,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.6829038
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.625,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171415.889507824,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.889534972
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.673,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.889551069
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171415.982938432
+  },
+  {
+   "admit_ms": 0.058,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "inv2",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171415.98298733,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "inv2",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171416.382602981
+  },
+  {
+   "event": "connect",
+   "inv": "inv2",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171416.382635925,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.05,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171416.685892945,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171416.68594756
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 1.128,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171416.685966232
+  },
+  {
+   "event": "fetch",
+   "inv": "inv2",
+   "ms": 1.247,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171416.890742357,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv2",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171416.890799446
+  },
+  {
+   "event": "poll",
+   "inv": "inv2",
+   "ms": 1.327,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171416.890817447
+  },
+  {
+   "event": "fetch",
+   "inv": "inv1",
+   "ms": 1.954,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171417.690842106,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "inv1",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171417.690875463
+  },
+  {
+   "event": "poll",
+   "inv": "inv1",
+   "ms": 2.011,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171417.690892079
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "inv1",
+   "row": "event",
+   "source": "gate",
+   "t": 171417.7269651
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "inv2",
+   "row": "event",
+   "source": "gate",
+   "t": 171417.7271795
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "inv1",
+   "row": "event",
+   "source": "monitor",
+   "t": 171417.727549363
+  },
+  {
+   "code": -9,
+   "event": "process_exit",
+   "inv": "inv2",
+   "row": "event",
+   "source": "monitor",
+   "t": 171417.747002773
+  }
+ ],
+ "sanitized": true,
+ "second_change_t": 171408.703853353,
+ "summary": {
+  "inv1": {
+   "connects": {
+    "api.anthropic.com:443 refused": 11,
+    "downloads.claude.ai:443 refused": 1,
+    "github.com:443 refused": 1,
+    "raw.githubusercontent.com:443 refused": 1
+   },
+   "decisions_refused": 20,
+   "forwarded": 8,
+   "forwarded_after_latch": 0,
+   "latch": {
+    "reason": "threshold_five_hour",
+    "t": 171404.655365787
+   },
+   "upstream_requests": 26
+  },
+  "inv2": {
+   "connects": {
+    "api.anthropic.com:443 refused": 14,
+    "downloads.claude.ai:443 refused": 1,
+    "github.com:443 refused": 1,
+    "raw.githubusercontent.com:443 refused": 1
+   },
+   "decisions_refused": 19,
+   "forwarded": 18,
+   "forwarded_after_latch": 0,
+   "latch": {
+    "reason": "threshold_five_hour",
+    "t": 171408.870575225
+   },
+   "upstream_requests": 26
+  }
+ },
+ "terminal": {
+  "inv1": "\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 34323}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42} \u2590\u259b\u2588\u2588\u2588\u259b\u2588ClaudeCodev2.1.322 \u259d\u259c\u2588\u2588\u2588\u2588\u2588\u2588\u2580Sonnet4.6\u00b7ClaudeMax <PATH> \u26a0Safemode:allcustomizationsaredisabled(CLAUDE.md,skills,plugins,hooks,MCP,agents,andmore) Restartwithout--safe-modetore-enable \u276f KLC root inv1 \u00b7Cerebrating\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u276f esc to interrupt \u00b7 \u2190 for agents <PATH> <PATH> \u23bf Running\u2026 \u00b7 Envisioning\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cf in the background (\u2193 to manage) \u00b7 1 shell \u00b7 es to interrup \u00b7 \u2190 fo agents\u00b7 \u2193to manage Envisioning\u2026 \u2722(0s \u00b7 \u219325 tokens) \u25cf \u2722 Envisioning\u2026 (0s \u00b7 \u2193 25 tokens) \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> 50 *63 \u273676 \u273b80 1 \u273d3 5 17 \u273b8 90 \u27362 *3 \u27225 \u273bAPI error \u00b7 Retrying in 1s \u00b7 attempt <PATH> \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u23f5\u23f5 don't ask on \u00b7 1 shell \u00b7 esc to interrupt \u00b7 \u2190 for agents \u00b7 \u2193 to manage\u25cf high \u00b7 <PATH> \u25cfPlease run <PATH> \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Saut\u00e9ed for 2s \u00b7 done 11:54 AM \u00b7 1 shell still running \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u000f No backgroundagentsrunning Press Ctrl-C again to exit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Background work is running The following will stop when you exit: shell \u00b7KLCfixturecommand \u276f1.Exitandstoptasks 2.Movetobackgroundandexit 3.Stay Entertoconfirm\u00b7Esctocancel \u000f Resume this session with: claude --resume d4b26295-c60b-489c-ad95-ee6b2aedb6d6 ",
+  "inv2": "oped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42} \u2590\u259b\u2588\u2588\u2588\u259b\u2588ClaudeCodev2.1.322 \u259d\u259c\u2588\u2588\u2588\u2588\u2588\u2588\u2580Sonnet4.6\u00b7ClaudeMax <PATH> \u26a0Safemode:allcustomizationsaredisabled(CLAUDE.md,skills,plugins,hooks,MCP,agents,andmore) Restartwithout--safe-modetore-enable \u276f KLC root inv2 \u00b7Cascading\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u276f esc to interrupt \u00b7 \u2190 for agents <PATH> <PATH> \u23bf Running\u2026 \u00b7 Accomplishing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cf in the background (\u2193 to manage) \u00b7 1 shell \u00b7 es to interrup \u00b7 \u2190 fo agents\u00b7 \u2193to manage Accomplishing\u2026 \u2722(0s \u00b7 \u219325 tokens) 50 \u25cf \u2722 Accomplishing\u2026 (0s \u00b7 \u2193 50 tokens) \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> *63 \u273676 \u273b80 1 \u273d3 5 17 \u273b8 90 \u27362 *3 \u27225 6 \u00b7 \u2026 2 \u2722g *n \u2736 \u273bi\u2026 \u273dhg sn 3 \u273bii \u2736lh * \u2722ps \u00b7mi ol 4 \u2722cp *cm \u2736 \u273bAo \u273dc c 5 \u273bA \u2736 * \u2722 \u273bAPI error \u00b7 Retrying in 1s \u00b7 attempt <PATH> \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u23f5\u23f5 don't ask on \u00b7 1 shell \u00b7 esc to interrupt \u00b7 \u2190 for agents \u00b7 \u2193 to manage\u25cf high \u00b7 <PATH> \u25cfPlease run <PATH> \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (threshold_five_hour); continue only from the trusted terminal after a fresh check \u273b Baked for 6s \u00b7 done 11:55 AM \u00b7 1 shell still running \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u2193t mnage \u000f No background agents running Press Ctrl-C again to exit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Background work is running The following will stop when you exit: shell \u00b7KLCfixturecommand \u276f1.Exitandstoptasks 2.Movetobackgroundandexit 3.Stay Entertoconfirm\u00b7Esctocancel \u000f Resume this session with: claude --resume 58ef6a52-e904-44c2-8fd6-95dd7963c33b "
+ },
+ "usage_requests": [
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171402.578646131
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171402.580063121
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171402.649978948
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171402.65084475
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171402.783845025
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171402.784746658
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171402.855314217
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171402.856180641
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171403.652287282
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171403.653336635
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171403.858033609
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171403.859062884
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171404.654005387
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171404.654984256
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171404.859362551
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171404.860313146
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171405.655520756
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171405.862577408
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171405.863908584
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171406.658992795
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171406.864556346
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171406.866049925
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171407.660962326
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171407.867042481
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171407.868158114
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171408.66268455
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171408.869063197
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/profile",
+   "t": 171408.870128854
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171409.665369247
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171409.871926876
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171410.668441804
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171410.875097267
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171411.669137876
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171411.87657173
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171412.672614599
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171412.879094368
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171413.676025309
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171413.883350099
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171414.680008391
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171414.885687547
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171415.682461262
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171415.889136522
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171416.685517219
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171416.890375675
+  },
+  {
+   "account": "A",
+   "path": "/api/oauth/usage",
+   "t": 171417.690459164
+  }
+ ]
+}
