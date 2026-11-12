@@ -18,7 +18,10 @@ HERE = Path(os.path.realpath(__file__)).parent
 STAGES = ('claude-loss', 'codex-loss', 'claude-resume', 'codex-resume', 'claude-refresh', 'codex-refresh',
           'claude-tools', 'codex-tools', 'refusals', 'portmatrix', 'proxy')
 PROVIDERS = ('claude', 'codex')
+VERSIONS = {'claude': '2.1.322 (Claude Code)', 'codex': 'codex-cli 0.166.0'}  # the versions the report claims
 REFUSED = (403, 503)
+CODEX_USAGE = ('/backend-api/wham/usage', '/api/codex/usage')
+QUOTA_VARIANTS = ('missing_quota', 'stale_quota', 'malformed_quota', 'threshold_at_start')
 
 
 class Fail(AssertionError):
@@ -115,12 +118,15 @@ def check_gate_death(case, provider):
     queued = [d for d in case['queued_turn_decisions'] if d[2] == 'KM-gd-queued']
     need(case['queued_turn_visible'] and queued and all(d[0] is False and 'gate_restart' in d[1] for d in queued),
          'queued native request was not refused by the restarted gate')
-    restarted = [r for r in case['summary']['gate_rows'] if r['event'] == 'gate_ready' and r.get('mode') == 'restart']
-    need(restarted and restarted[0]['port'] == case['summary']['gate_rows'][0].get('port', restarted[0]['port']),
-         'gate did not restart')
+    ready = [r for r in case['summary']['gate_rows'] if r['event'] == 'gate_ready']
+    started = [r.get('port') for r in ready if r.get('mode') == 'startup']
+    restarted = [r.get('port') for r in ready if r.get('mode') == 'restart']
+    need(len(started) == 1 and isinstance(started[0], int) and restarted == started,
+         'gate did not restart on the held port')
     need(all(r['result'] == 'errno:1' for r in case['bind_rows']) and case['bind_rows'], 'confined bind not denied')
-    need(all(r['result'] == 'errno:1' for r in case['direct_rows'] if r['port_role'] != 'gate_udp') and
-         case['direct_rows'], 'confined direct egress not denied')
+    need(all(r['result'] == 'errno:1' for r in case['direct_rows']) and
+         {'upstream', 'usage', 'gate_udp'} <= {r['port_role'] for r in case['direct_rows']},
+         'confined direct egress (TCP to fixtures, UDP to the gate port) not denied')
     for phase in ('squat_during_death', 'squat_after_restart'):
         need(case[phase] and all(v == 'errno:48' for v in case[phase].values()), 'an outside bind took the port')
     need(case['sdk_after_restart'] and all(r.get('status') in REFUSED for r in case['sdk_after_restart']),
@@ -138,6 +144,8 @@ def check_continuation(case, provider):
         need(steps[name]['granted'] is False, '%s granted a continuation' % name)
     need(steps['typed_without_f12']['challenge'] is False, 'typing without F12 produced a challenge')
     need(steps['background_wakeup']['polls_during_pause'] > 2, 'no polls during the pause')
+    wake = steps['background_wakeup']['status']
+    need(wake['resumed'] == 0 and wake['latched'] == 1, 'passive quota recovery reopened (or relatched) the gate')
     for name in ('stale_answer', 'failing_check'):
         need(steps[name]['granted'] is False and steps[name]['still_paused'] is True, '%s reopened' % name)
     need(steps['passing_check']['granted'] is True, 'passing check did not reopen')
@@ -174,9 +182,23 @@ def check_rotation(case, provider):
         holds = rows(case, 'controller', 'rotation_hold')
         need(holds and min(h['t'] for h in holds) <= min(r['t'] for r in a2), 'A2 admitted without a rotation hold')
     else:
-        reads = [r for r in case['summary']['gate_rows'] if r['event'] == 'controller' and r.get('kind') == 'latched']
-        need(case['upstream_usage_labels'].get('A2', 0) >= 1, 'no same-bearer usage read for A2')
-        del reads
+        # Old quota never authorizes the new bearer: A2 is bound by a fresh same-bearer usage read
+        # (native's own, forwarded, or the gate's rebind read) before its first admission, and every
+        # A2 admission carries a newer lease epoch than the startup one.
+        first = min(r['t'] for r in a2)
+        startup = [r.get('epoch') for r in rows(case, 'control') if r.get('op') == 'reply:status' and r.get('ready')]
+        need(startup and isinstance(startup[0], int), 'no startup lease epoch')
+        epochs = {r.get('stream'): r.get('epoch') for r in rows(case, 'controller', 'admitted')}
+        need(all(isinstance(epochs.get(r.get('stream')), int) and epochs[r['stream']] > startup[0] for r in a2),
+             'an A2 admission is not under a newer epoch than the startup one')
+        upstream = [r['t'] for r in case['upstream'] if r.get('method') == 'GET' and r.get('label') == 'A2'
+                    and r.get('path') in CODEX_USAGE]
+        need(upstream and min(upstream) < first, 'no same-bearer A2 usage read upstream before the first A2 admission')
+        bound = [r['t'] for r in rows(case, 'read') if r.get('kind') == 'usage' and r.get('label') == 'A2'
+                 and r.get('outcome') == 'fresh']
+        bound += [r['t'] for r in rows(case, 'fetch') if r.get('cause') == 'rebind' and r.get('label') == 'A2'
+                  and r.get('outcome') == 'fresh']
+        need(bound and min(bound) < first, 'the gate did not bind A2 by a fresh read before admitting it')
     latch = first_latch(case, case['swap_t'])
     need(latch is not None and latch == case['latch_t'], 'A -> B did not latch')
     reason = [r for r in rows(case, 'controller', 'latched') if r['t'] == latch][0]['reason']
@@ -266,6 +288,13 @@ def check_refusals(case, provider):
         need(row['refused'] and row['native_started'] is False and row['launcher_exit'] == 3, '%s not refused' % name)
         need(row['model_posts'] == 0, '%s sent a model request' % name)
         need(any('protected mode refused' in t for t in row['terminal']), '%s showed no refusal message' % name)
+        if name in QUOTA_VARIANTS and provider == 'codex':
+            # the self-test passed before the in-boundary reader, the only native run before refusing
+            need(row['self_test'] and row['reader'], '%s: self-test or reader missing' % name)
+        elif name not in QUOTA_VARIANTS:
+            need(row['upstream_gets'] == [] and row['reader'] == [], '%s ran native code or reached upstream' % name)
+    need(variants['self_test_fails']['self_test'] and
+         variants['self_test_fails']['refused'] == ['boundary self-test failed'], 'self-test refusal not recorded')
 
 
 def check_portmatrix(case, provider):
@@ -309,16 +338,38 @@ CHECKS = {'threshold': check_threshold, 'loss-kill': check_loss('kill'), 'loss-e
           'refusals': check_refusals, 'portmatrix': check_portmatrix, 'proxy': check_proxy}
 
 
+def summaries(node):
+    """Every recorded invocation summary (a dict with gate_rows) anywhere in a case."""
+    if isinstance(node, dict):
+        if 'gate_rows' in node:
+            yield node
+        for value in node.values():
+            yield from summaries(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from summaries(value)
+
+
 def check_stage(name, data):
     need(data.get('completed') is True, 'stage incomplete')
+    clock = data.get('clock') or {}
+    try:
+        drift = (clock['wall_end'] - clock['wall_start']) - (clock['mono_end'] - clock['mono_start'])
+    except (KeyError, TypeError):
+        raise Fail('no stage clock record') from None
+    need(abs(drift) < 2.0, 'the host slept or its clock jumped during the stage (%.1f s)' % drift)
     need(data.get('leftover_processes_after') == [], 'leftover processes after the stage')
     for provider in PROVIDERS:
-        need(data['binaries'][provider]['version'], 'missing native version')
+        need(data['binaries'][provider]['version'] == VERSIONS[provider], 'native version is not the claimed one')
     need(data['cases'], 'no cases')
     for key, case in data['cases'].items():
         need('error' not in case, '%s errored: %s' % (key, case.get('error')))
         provider, _, kind = key.partition('-')
         try:
+            for summary in summaries(case):
+                need(summary.get('gate_rows_total') == len(summary['gate_rows']) and
+                     summary.get('launcher_rows_total') == len(summary['launcher_rows']),
+                     'a summary was truncated (rows dropped) or carries no row count')
             CHECKS[kind](case, provider)
         except (KeyError, IndexError, TypeError) as error:
             raise Fail('%s: malformed evidence (%s: %s)' % (key, type(error).__name__, error))

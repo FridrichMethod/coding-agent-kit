@@ -2,10 +2,12 @@
 
 python3 -I -B -m unittest discover -s docs/superpowers/plans/quota-reserve-probes/km -p test_km.py
 
-They cover the launcher's pure refusals and profile shape, the gate route table and both
-composed adapters against loopback fixtures (no native, no Seatbelt), the driver's sanitizing,
-and the evidence checker: every committed stage passes, and each targeted mutation of a
-verdict-bearing row makes it fail. No native code is started and nothing leaves 127.0.0.1.
+They cover the launcher's pure refusals, profile shape and control round trip without a gate,
+the gate route table and selector rules, both composed adapters against loopback fixtures (no
+native, no Seatbelt), an established CONNECT tunnel through the real gate handler being cut by a
+latch and by monitor loss, the driver's sanitizing and Claude temp-entry matching, and the
+evidence checker: every committed stage passes, and each targeted mutation of a verdict-bearing
+row makes it fail. No native code is started and nothing leaves 127.0.0.1.
 """
 import copy
 import importlib.util
@@ -15,6 +17,7 @@ from pathlib import Path
 import shutil
 import socket
 import tempfile
+import threading
 import time
 import unittest
 
@@ -49,10 +52,13 @@ class LauncherChecks(unittest.TestCase):
     def test_args(self):
         self.assertEqual(LAUNCHER.check_args('codex', ['hello']), ['--no-daemon', 'hello'])
         self.assertEqual(LAUNCHER.check_args('codex', ['--no-daemon', 'x']), ['--no-daemon', 'x'])
-        self.assertEqual(LAUNCHER.check_args('codex', ['-m', 'gpt', 'resume']), ['--no-daemon', '-m', 'gpt', 'resume'])
+        self.assertEqual(LAUNCHER.check_args('codex', ['hello', 'resume']), ['--no-daemon', 'hello', 'resume'])
+        self.assertEqual(LAUNCHER.check_args('codex', ['--config=model="m"', 'fix', 'exec']),
+                         ['--no-daemon', '--config=model="m"', 'fix', 'exec'])
         for argv in (['resume'], ['--profile', 'p'], ['-c', 'chatgpt_base_url="x"'], ['--config=model_providers.a=1'],
-                     ['app-server']):
-            with self.assertRaises(LAUNCHER.Refusal):
+                     ['app-server'], ['exec', 'prompt'], ['e', 'prompt'], ['review'], ['-m', 'gpt', 'resume'],
+                     ['-c', 'model="m"', 'exec', 'x'], ['--no-alt-screen', 'review']):
+            with self.assertRaises(LAUNCHER.Refusal, msg=argv):
                 LAUNCHER.check_args('codex', argv)
         self.assertEqual(LAUNCHER.check_args('claude', ['KM prompt']), ['KM prompt'])
         for argv in (['-p'], ['--settings', '{}'], ['--print'], ['--dangerously-skip-permissions']):
@@ -113,6 +119,23 @@ class LauncherChecks(unittest.TestCase):
         self.assertIn('/dev/ptmx', rules)
         self.assertTrue(rules.rstrip().endswith('(deny file-write* (subpath "/private/var/at"))'))
 
+    def test_continuation_without_gate_stays_paused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for provider in ('claude', 'codex'):
+                launcher = LAUNCHER.Launcher({'case_dir': tmp, 'provider': provider})
+                said = []
+                launcher.say = said.append
+                launcher.control = None  # the gate died and its channel hit EOF
+                self.assertFalse(launcher.check())
+                a, b = socket.socketpair()
+                b.close()
+                launcher.control = a  # a broken channel during a restart
+                self.assertEqual(launcher.request('continue')['reason'], 'gate_unavailable')
+                self.assertIsNone(launcher.control)
+                a.close()
+                self.assertEqual(said, ['still paused: gate_unavailable'])
+                launcher.log.close()
+
     def test_self_test_verdict(self):
         good = {'gate': 'connected', 'other': 'errno:1', 'bind': 'errno:1', 'tiocsti': 'errno:1'}
         self.assertTrue(LAUNCHER.self_test_ok(good))
@@ -140,6 +163,14 @@ class GatePure(unittest.TestCase):
         self.assertFalse(GATE.connect_allowed('platform.claude.com:443', allow, True, 'monitor_eof'))
         self.assertFalse(GATE.connect_allowed('api.anthropic.com:443', allow, True, None))
         self.assertFalse(GATE.connect_allowed('platform.claude.com:8443', allow, True, None))
+
+    def test_codex_selectors(self):
+        a, acct = ('Authorization', 'Bearer tok'), ('ChatGPT-Account-ID', 'acct-a')
+        self.assertEqual(GATE.codex_selectors([a, acct]), ('tok', 'acct-a'))
+        self.assertEqual(GATE.codex_selectors([a]), ('tok', None))
+        for headers in ([a, acct, ('chatgpt-account-id', 'acct-b')], [a, a, acct], [acct],
+                        [('Authorization', 'Basic x'), acct]):
+            self.assertIsNone(GATE.codex_selectors(headers))
 
     def test_labels(self):
         labels = GATE.Labels({'A': 'KMFAKE-A-0123456789abcdef'})
@@ -210,6 +241,17 @@ class CodexAdapter(unittest.TestCase):
         self.assertEqual(reason, 'identity-changed')
         self.assertFalse(adapter.admit(self.headers(self.access, 'acct-a'), body, lambda: None)[0])
 
+    def test_duplicate_selectors_refused_before_admission(self):
+        adapter = self.gate.adapter
+        body = b'{"model": "gpt-5.4"}'
+        self.assertTrue(adapter.admit(self.headers(self.access, 'acct-a'), body, lambda: None)[0])
+        posts = len(self.up.snapshot())
+        ok, reason, _ = adapter.admit(self.headers(self.access, 'acct-a') + [('ChatGPT-Account-ID', 'acct-b')],
+                                      body, lambda: None)
+        self.assertEqual((ok, reason), (False, 'auth_selector_conflict'))
+        self.assertEqual(len(self.up.snapshot()), posts)  # nothing reached upstream
+        self.assertFalse(adapter.admit(self.headers(self.access, 'acct-a'), body, lambda: None)[0])
+
     def test_loss_is_final_and_closes_connect(self):
         self.gate.allow = {'auth.openai.com:443': ('127.0.0.1', 9)}
         adapter = self.gate.adapter
@@ -226,6 +268,96 @@ class CodexAdapter(unittest.TestCase):
         ok, reason, _ = adapter.admit(self.headers(self.access, 'acct-a'), b'{"model":"m"}', lambda: None)
         self.assertFalse(ok)
         self.assertIn('gate_restart', reason)
+
+
+class TunnelClosure(unittest.TestCase):
+    """An established refresh CONNECT tunnel through the real gate handler is cut by a latch and
+    by monitor loss: the allowlisted loopback sink receives no byte after either."""
+
+    def setUp(self):
+        self.up = FX.Upstream()
+        self.access, _ = self.up.add_codex('A', 'acct-a', 'user-a')
+        self.sink = socket.socket()
+        self.sink.bind(('127.0.0.1', 0))
+        self.sink.listen(4)
+        self.received, self.sink_eof = [], threading.Event()
+        threading.Thread(target=self._sink, daemon=True).start()
+        config = {'provider': 'codex', 'upstream_port': self.up.port, 'expected_account': 'acct-a',
+                  'expected_user': 'user-a', 'labels': {'A': self.access},
+                  'connect_allow': {'auth.openai.com:443': self.sink.getsockname()[1]},
+                  'policy': {'reserves': {'five_hour': 30, 'weekly': None}, 'max_age_s': 30}}
+        self.emit = Collect()
+        self.gate = GATE.Gate(config, self.emit)
+        self.gate.notify = lambda op, **kw: None
+        listener = socket.socket()
+        listener.bind(('127.0.0.1', 0))
+        listener.listen(8)
+        self.server = GATE.Server(listener, self.gate)
+        threading.Thread(target=self.server.serve_forever, kwargs={'poll_interval': 0.05}, daemon=True).start()
+        self.port = listener.getsockname()[1]
+        headers = [('Authorization', 'Bearer ' + self.access), ('ChatGPT-Account-ID', 'acct-a')]
+        self.assertTrue(self.gate.adapter.admit(headers, b'{"model": "m"}', lambda: None)[0])
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.sink.close()
+        self.up.close()
+
+    def _sink(self):
+        try:
+            conn, _ = self.sink.accept()
+        except OSError:
+            return
+        with conn:
+            while True:
+                try:
+                    data = conn.recv(65536)
+                except OSError:
+                    data = b''
+                if not data:
+                    self.sink_eof.set()
+                    return
+                self.received.append(data)
+
+    def tunnel(self):
+        client = socket.create_connection(('127.0.0.1', self.port), timeout=5)
+        client.sendall(b'CONNECT auth.openai.com:443 HTTP/1.1\r\nHost: auth.openai.com:443\r\n\r\n')
+        head = b''
+        while b'\r\n\r\n' not in head:
+            head += client.recv(1)
+        self.assertIn(b' 200 ', head.split(b'\r\n')[0] + b' ')
+        client.sendall(b'hello')
+        FX.wait_for(lambda: sum(map(len, self.received)) == 5, 5)
+        return client
+
+    def cut(self, trigger):
+        client = self.tunnel()
+        trigger()
+        self.assertTrue(self.sink_eof.wait(5), 'upstream side of the tunnel stayed open')
+        try:
+            client.sendall(b'after the latch')
+        except OSError:
+            pass
+        time.sleep(0.3)
+        self.assertEqual(b''.join(self.received), b'hello')
+        client.settimeout(5)
+        try:
+            self.assertEqual(client.recv(10), b'')
+        except OSError:
+            pass  # reset is also a closed tunnel
+        client.close()
+        FX.wait_for(lambda: any(r['event'] == 'tunnel_closed' for r in self.emit.rows), 5)
+        late = socket.create_connection(('127.0.0.1', self.port), timeout=5)
+        late.sendall(b'CONNECT auth.openai.com:443 HTTP/1.1\r\nHost: auth.openai.com:443\r\n\r\n')
+        self.assertTrue(late.recv(64).startswith(b'HTTP/1.1 403'))
+        late.close()
+
+    def test_latch_cuts_open_tunnel(self):
+        self.cut(lambda: self.gate.adapter.latch('threshold:five_hour'))
+
+    def test_monitor_loss_cuts_open_tunnel(self):
+        self.cut(lambda: self.gate.lose('monitor_eof'))
 
 
 class ClaudeAdapter(unittest.TestCase):
@@ -304,12 +436,29 @@ class Driver(unittest.TestCase):
         mapping = RUN.replacements('/tmp/quota-km-AbC123', '/Users/someone', 'someone', '501')
         self.assertEqual(mapping['/private/tmp/quota-km-AbC123'], '<root>')
         self.assertEqual(mapping['/claude-501/'], '/claude-<uid>/')
+        self.assertEqual(mapping['quota-km-AbC123'], '<root-name>')
         for bad in (('/tmp/quota-nm-AbC123', '/h', 'u'), ('/tmp/quota-km-AbC123', 'rel', 'u'),
                     ('/tmp/quota-km-AbC123', '/h', '')):
             with self.assertRaises(ValueError):
                 RUN.replacements(*bad)
         with self.assertRaises(SystemExit):
             RUN.parse_discovery('claude=/x\nhome=/h\n')
+
+    def test_claude_tmp_entries(self):
+        root = '/tmp/quota-km-AbC123'
+        self.assertEqual(RUN.claude_tmp_slug(root), '-private-tmp-quota-km-AbC123')
+        listing = '\n'.join(['/private/tmp/claude-501/-private-tmp-quota-km-AbC123-cases-x-workspace',
+                              '/private/tmp/claude-501/-private-tmp-quota-km-AbC123',
+                              '/private/tmp/claude-501/-private-tmp-quota-km-AbC1234-x',
+                              '/private/tmp/claude-501/-private-tmp-quota-km-Other1-x',
+                              '/private/tmp/claude-501/-Users-someone-project',
+                              '/private/tmp/claude-501/-private-tmp-quota-km-AbC123-x/../../etc',
+                              '/private/tmp/claude-501'])
+        self.assertEqual(RUN.claude_tmp_entries(root, listing),
+                         ['/private/tmp/claude-501/-private-tmp-quota-km-AbC123-cases-x-workspace',
+                          '/private/tmp/claude-501/-private-tmp-quota-km-AbC123'])
+        with self.assertRaises(ValueError):
+            RUN.claude_tmp_slug('/tmp/quota-nm-AbC123')
 
 
 class Evidence(unittest.TestCase):
@@ -323,7 +472,7 @@ class Evidence(unittest.TestCase):
 
     def test_no_host_strings(self):
         text = json.dumps(self.data)
-        for needle in ('/Users/', os.path.expanduser('~'), '/private/tmp/quota-km-'):
+        for needle in ('/Users/', os.path.expanduser('~'), '/private/tmp/quota-km-', 'quota-km-'):
             self.assertNotIn(needle, text)
 
     def mutate(self, stage, edit):
@@ -370,8 +519,57 @@ class Evidence(unittest.TestCase):
         self.mutate('proxy', lambda c: c['claude-proxy'].update(launcher_proxy=None))
         self.mutate('proxy', lambda c: c['codex-proxy']['proxy_rows'].append(
             {'ok': True, 'target': 'api.anthropic.com:443', 't': 1}))
+        self.mutate('claude-resume', lambda c: c['claude-continuation']['steps']['background_wakeup']['status'].update(
+            resumed=1))
+        self.mutate('codex-resume', lambda c: [r.update(result='connected') for r in c['codex-gate-death']['direct_rows']
+                                               if r['port_role'] == 'gate_udp'])
+        self.mutate('codex-resume', lambda c: [r.update(port=r['port'] + 1) for r in c['codex-gate-death']['summary'][
+            'gate_rows'] if r['event'] == 'gate_ready' and r.get('mode') == 'restart'])
+        self.mutate('refusals', lambda c: c['codex-refusals']['variants']['self_test_fails'].update(
+            upstream_gets=['/backend-api/codex/models']))
+        self.mutate('refusals', lambda c: c['codex-refusals']['variants']['self_test_fails'].update(reader=[True]))
+        self.mutate('refusals', lambda c: c['codex-refusals']['variants']['stale_quota'].update(self_test=[]))
+        self.mutate('claude-loss', lambda c: c['claude-threshold']['summary'].update(
+            gate_rows_total=c['claude-threshold']['summary']['gate_rows_total'] + 1))
+
+    def test_codex_rotation_order_mutations(self):
+        def first_a2(case):
+            return min(r['t'] for r in case['summary']['gate_rows']
+                       if r['event'] == 'decision' and r.get('ok') and r.get('label') == 'A2')
+
+        def late_upstream_read(cases):
+            c = cases['codex-rotation']
+            first = first_a2(c)
+            for r in c['upstream']:
+                if r.get('method') == 'GET' and r.get('label') == 'A2' and r['t'] < first:
+                    r['t'] = first + 0.01
+
+        def late_gate_bind(cases):
+            c = cases['codex-rotation']
+            first = first_a2(c)
+            for r in c['summary']['gate_rows']:
+                if r['event'] in ('read', 'fetch') and r.get('label') == 'A2' and r['t'] < first:
+                    r['t'] = first + 0.01
+
+        def old_epoch(cases):
+            c = cases['codex-rotation']
+            for r in c['summary']['gate_rows']:
+                if r['event'] == 'controller' and r.get('kind') == 'admitted':
+                    r['epoch'] = 1
+
+        self.mutate('codex-refresh', late_upstream_read)
+        self.mutate('codex-refresh', late_gate_bind)
+        self.mutate('codex-refresh', old_epoch)
 
     def test_stage_level_failures(self):
+        data = copy.deepcopy(self.data['codex-loss'])
+        data['binaries']['claude']['version'] = '2.1.300 (Claude Code)'
+        with self.assertRaises(CHECK.Fail):
+            CHECK.check_stage('codex-loss', data)
+        data = copy.deepcopy(self.data['claude-resume'])
+        data['clock']['wall_end'] += 30  # a sleep stops the monotonic clock, not the wall clock
+        with self.assertRaises(CHECK.Fail):
+            CHECK.check_stage('claude-resume', data)
         data = copy.deepcopy(self.data['codex-tools'])
         data['leftover_processes_after'] = [{'pid': 1, 'command': 'x'}]
         with self.assertRaises(CHECK.Fail):

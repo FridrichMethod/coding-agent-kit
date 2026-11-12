@@ -46,7 +46,8 @@ CLAUDE_MODELS = ['claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-haiku-4-5-2025
 IDENT_A, IDENT_B = ('km-acct-a', 'km-org-a'), ('km-acct-b', 'km-org-b')
 CODEX_A, CODEX_B = ('km-codex-acct-a', 'km-codex-user-a'), ('km-codex-acct-b', 'km-codex-user-b')
 KEEP = ('decision', 'forwarded', 'stream_closed', 'aborted_before_upstream', 'connect', 'tunnel_closed', 'lost',
-        'notify', 'startup_refused', 'preflight', 'gate_ready', 'route_refused', 'read_refused', 'control')
+        'notify', 'startup_refused', 'preflight', 'gate_ready', 'route_refused', 'read_refused', 'control', 'read')
+ROW_CAP = {'gate_rows': 1000, 'launcher_rows': 300}  # the checker fails a truncated summary
 CHALLENGE = re.compile(r'Type ([0-9a-f]{8}) then Enter')
 F12 = b'\x1b[24~'
 
@@ -297,10 +298,11 @@ class Invocation:
                 (r.get('event') == 'fetch' and r.get('cause') not in (None, 'poll'))]
         polls = [r for r in jsonl(self.dir / 'gate.jsonl') if r.get('event') == 'poll']
         fetches = [r for r in jsonl(self.dir / 'gate.jsonl') if r.get('event') == 'fetch']
-        return {'gate_rows': gate[-400:], 'poll_count': len(polls),
+        launcher = [r for r in self.launcher() if r.get('event') != 'gate_notify']
+        return {'gate_rows': gate[-ROW_CAP['gate_rows']:], 'gate_rows_total': len(gate), 'poll_count': len(polls),
                 'poll_ms': sorted(r['ms'] for r in polls)[len(polls) // 2] if polls else None,
                 'fetch_ms': sorted(r['ms'] for r in fetches)[len(fetches) // 2] if fetches else None,
-                'launcher_rows': [r for r in self.launcher() if r.get('event') != 'gate_notify'][-200:],
+                'launcher_rows': launcher[-ROW_CAP['launcher_rows']:], 'launcher_rows_total': len(launcher),
                 'monitor_rows': jsonl(self.dir / 'monitor.jsonl')[-20:],
                 'gate_stderr_tail': _tail(self.dir / 'gate.err'),
                 'terminal_head': FX_strip(self.term.text())[:2500],
@@ -1370,6 +1372,7 @@ def case_refusals(case):
                           'upstream_gets': sorted({r['path'] for r in sub.upstream.snapshot() if r.get('method') == 'GET'}),
                           'terminal': re.findall(r'\[coding-agent-kit\] ([^\[]{0,200})', FX_strip(inv.term.text()))[-2:],
                           'self_test': [r.get('result') for r in inv.launcher('self_test')],
+                          'reader': [r.get('ok') for r in inv.launcher('reader')],
                           'gate_started': bool(inv.launcher('gate_started'))}
         except Exception as error:  # record; an error is never a pass
             rows[name] = {'error': '%s: %s' % (type(error).__name__, error)}
@@ -1553,6 +1556,9 @@ def main():
         signal.alarm(int(sys.argv[4]))
         ctx.data['deadline_seconds'] = int(sys.argv[4])
     only = os.environ.get('KM_ONLY', '').split(',') if os.environ.get('KM_ONLY') else None
+    # time.monotonic() (mach_absolute_time) stops while the Mac sleeps and wall time does not, so
+    # the two elapsed values differ after a sleep or a clock jump; the checker refuses such a stage.
+    ctx.data['clock'] = {'wall_start': time.time(), 'mono_start': now()}
     try:
         import hashlib
         for name in ('claude', 'codex'):
@@ -1585,6 +1591,7 @@ def main():
     finally:
         signal.alarm(0)
         ctx.cleanup()
+        ctx.data['clock'].update(wall_end=time.time(), mono_end=now())
         ctx.save()
     print(json.dumps({'stage': stage, 'completed': ctx.data.get('completed')}))
 

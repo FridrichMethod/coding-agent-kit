@@ -39,21 +39,45 @@
      "forwarded": 2
     },
     "summary": {
-     "fetch_ms": 2.048,
+     "fetch_ms": 2.092,
      "gate_rows": [
       {
        "event": "preflight",
        "ms": 0.001,
        "reason": "awaiting_read",
-       "t": 211739.585990416
+       "t": 215491.500439625
       },
       {
        "event": "gate_ready",
        "listeners": 2,
        "mode": "startup",
-       "pid": 1642,
-       "port": 54954,
-       "t": 211739.586477708
+       "pid": 7181,
+       "port": 63547,
+       "t": 215491.500882416
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215491.657882166
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215491.658106083
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215491.658306125
       },
       {
        "epoch": 1,
@@ -65,24 +89,72 @@
        "reason": null,
        "state": "open",
        "streams": 0,
-       "t": 211739.72045025
+       "t": 215491.661088916
       },
       {
        "event": "connect",
        "ok": false,
        "stream": null,
-       "t": 211740.093562583,
+       "t": 215491.995236791,
        "target": "raw.githubusercontent.com:443"
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215491.999821
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215492.000476291
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/rate-limit-reset-credits",
+       "t": 215492.013988916
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215492.014194166
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "superseded",
+       "path": "/backend-api/wham/usage",
+       "t": 215492.014339458
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215492.037415333
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 1,
-       "t": 211740.168168208
+       "t": 215492.044815583
       },
       {
-       "admit_ms": 0.36,
+       "admit_ms": 0.348,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -91,30 +163,38 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 1,
-       "t": 211740.168282666
+       "t": 215492.0449225
       },
       {
        "bytes": 43826,
        "event": "forwarded",
-       "gate_ms": 0.561,
+       "gate_ms": 0.491,
        "label": "A",
        "stream": 1,
-       "t": 211740.168479166
+       "t": 215492.045063666
       },
       {
        "event": "stream_closed",
        "stream": 1,
-       "t": 211740.169372416
+       "t": 215492.045632791
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215492.078072166
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 2,
-       "t": 211740.208196208
+       "t": 215492.079594833
       },
       {
-       "admit_ms": 0.203,
+       "admit_ms": 0.175,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -123,30 +203,30 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 2,
-       "t": 211740.208263041
+       "t": 215492.079656583
       },
       {
        "bytes": 20411,
        "event": "forwarded",
-       "gate_ms": 0.452,
+       "gate_ms": 0.318,
        "label": "A",
        "stream": 2,
-       "t": 211740.208508083
+       "t": 215492.07979775
       },
       {
        "event": "stream_closed",
        "stream": 2,
-       "t": 211740.209085375
+       "t": 215492.080188375
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 3,
-       "t": 211740.214408791
+       "t": 215492.088500416
       },
       {
-       "admit_ms": 0.273,
+       "admit_ms": 0.302,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -155,30 +235,38 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 3,
-       "t": 211740.214489125
+       "t": 215492.088608583
       },
       {
        "bytes": 44538,
        "event": "forwarded",
-       "gate_ms": 0.538,
+       "gate_ms": 0.57,
        "label": "A",
        "stream": 3,
-       "t": 211740.21475075
+       "t": 215492.088875083
       },
       {
        "event": "stream_closed",
        "stream": 3,
-       "t": 211740.215260833
+       "t": 215492.089341125
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215496.377888458
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 4,
-       "t": 211744.516773333
+       "t": 215496.38596325
       },
       {
-       "admit_ms": 0.554,
+       "admit_ms": 0.487,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -187,30 +275,38 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 4,
-       "t": 211744.516952541
+       "t": 215496.386121708
       },
       {
        "bytes": 44797,
        "event": "forwarded",
-       "gate_ms": 0.816,
+       "gate_ms": 0.726,
        "label": "A",
        "stream": 4,
-       "t": 211744.517210333
+       "t": 215496.386358083
       },
       {
        "event": "stream_closed",
        "stream": 4,
-       "t": 211744.518165208
+       "t": 215496.387137875
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215496.425044083
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 5,
-       "t": 211744.562225375
+       "t": 215496.428104666
       },
       {
-       "admit_ms": 0.475,
+       "admit_ms": 0.306,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -219,81 +315,76 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 5,
-       "t": 211744.56246225
+       "t": 215496.428213958
       },
       {
        "bytes": 20417,
        "event": "forwarded",
-       "gate_ms": 1.05,
+       "gate_ms": 0.589,
        "label": "A",
        "stream": 5,
-       "t": 211744.56302375
+       "t": 215496.428492833
       },
       {
        "event": "stream_closed",
        "stream": 5,
-       "t": 211744.564117208
+       "t": 215496.429044125
       },
       {
        "event": "lost",
        "reason": "monitor_eof",
-       "t": 211746.118104125
+       "t": 215497.993543583
       },
       {
        "closed": 0,
        "event": "controller",
        "kind": "latched",
        "reason": "monitor_eof",
-       "t": 211746.1182375
+       "t": 215497.9936895
       },
       {
        "event": "notify",
        "op": "latched",
        "reason": "monitor_eof",
-       "t": 211746.118268583
+       "t": 215497.993726333
       }
      ],
+     "gate_rows_total": 39,
      "gate_stderr_tail": "",
      "launcher_rows": [
       {
        "event": "native_version",
-       "t": 211739.5071335,
+       "t": 215491.423969166,
        "text": "codex-cli 0.166.0"
       },
       {
        "event": "holder",
        "failed": [],
        "mode": "all",
-       "port": 54954,
-       "reserved": 19,
-       "t": 211739.516229166
+       "port": 63547,
+       "reserved": 21,
+       "t": 215491.435102041
       },
       {
        "event": "profile",
        "fs_rules": true,
        "lines": 26,
-       "t": 211739.523274375
+       "t": 215491.441015833
       },
       {
        "event": "monitor_started",
-       "pid": 1641,
-       "t": 211739.526116666
+       "pid": 7180,
+       "t": 215491.443493375
       },
       {
        "event": "gate_started",
        "mode": "startup",
-       "pid": 1642,
-       "t": 211739.528101083
-      },
-      {
-       "event": "reader",
-       "ok": true,
-       "seconds": 0.087,
-       "t": 211739.7201455
+       "pid": 7181,
+       "t": 215491.445347375
       },
       {
        "event": "self_test",
-       "ms": 37.1,
+       "ms": 37.7,
        "ok": true,
        "result": {
         "bind": "errno:1",
@@ -301,33 +392,40 @@
         "other": "errno:1",
         "tiocsti": "errno:1"
        },
-       "t": 211739.757819458
+       "t": 215491.592532833
+      },
+      {
+       "event": "reader",
+       "ok": true,
+       "seconds": 0.068,
+       "t": 215491.660957625
       },
       {
        "event": "native_started",
-       "pid": 1651,
-       "t": 211739.765062416
+       "pid": 7185,
+       "t": 215491.66702025
       },
       {
        "code": 0,
        "event": "native_exit",
-       "t": 211746.116672666
+       "t": 215497.991514916
       },
       {
        "event": "launcher_exit",
-       "t": 211746.123320416
+       "t": 215497.998225166
       }
      ],
+     "launcher_rows_total": 10,
      "monitor_rows": [
       {
        "event": "monitor_started",
-       "t": 211739.550584666
+       "t": 215491.46758525
       }
      ],
      "poll_count": 13,
-     "poll_ms": 2.286,
-     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-fsrules/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-fs-strict start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran echo in > <root>/cases/codex-fsrules/workspace/fs-inside-strict.txt ; echo out > /private/ \u2502 tmp/quota-km-XvIXqx/cases/codex-fsrules/outside/fs-escape-strict.txt ; echo rc= $ ? \u2514 zsh:1: operation not permitted: <root>/cases/codex-fsrules/outside/fs-escape-strict.txt rc=1 \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 12:17 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-fs-strict-second \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-fs-strict-second Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:17 \u203a Shutting down... To continue this session, run: codex resume 01a1d168-babf-7f91-b930-e3fb17334718 ",
-     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-fsrules/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-fs-strict start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran echo in > <root>/cases/codex-fsrules/workspace/fs-inside-strict.txt ; echo out > /private/ \u2502 tmp/quota-km-XvIXqx/cases/codex-fsrules/outside/fs-escape-strict.txt ; echo rc= $ ? \u2514 zsh:1: operation not permitted: <root>/cases/codex-fsrules/outside/fs-escape-strict.txt rc=1 \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 12:17 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-fs-strict-second \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-fs-strict-second Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:17 \u203a Shutting down... To continue this session, run: codex resume 01a1d168-babf-7f91-b930-e3fb17334718 "
+     "poll_ms": 2.249,
+     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-fsrules/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-fs-strict start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran echo in > <root>/cases/codex-fsrules/workspace/fs-inside-strict.txt ; echo out > /private/ \u2502 tmp/<root-name>/cases/codex-fsrules/outside/fs-escape-strict.txt ; echo rc= $ ? \u2514 rc=1 zsh:1: operation not permitted: <root>/cases/codex-fsrules/outside/fs-escape-strict.txt \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 13:23 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-fs-strict-second \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-fs-strict-second Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:23 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a4-df9d-7a03-ae21-28e9aa281ec2 ",
+     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-fsrules/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-fsrules/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-fs-strict start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran echo in > <root>/cases/codex-fsrules/workspace/fs-inside-strict.txt ; echo out > /private/ \u2502 tmp/<root-name>/cases/codex-fsrules/outside/fs-escape-strict.txt ; echo rc= $ ? \u2514 rc=1 zsh:1: operation not permitted: <root>/cases/codex-fsrules/outside/fs-escape-strict.txt \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 13:23 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-fs-strict-second \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-fs-strict-second Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-fsrules/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:23 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a4-df9d-7a03-ae21-28e9aa281ec2 "
     },
     "tool_results": [
      {
@@ -341,8 +439,8 @@
       "model": "gpt-5.4",
       "path": "/backend-api/codex/responses",
       "provider": "codex",
-      "t": 211740.215109625,
-      "tool_output": "Chunk ID: c0a28c\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 29\nOutput:\nzsh:1: operation not permitted: <root>/cases/codex-fsrules/outside/fs-escape-strict.txt\nrc=1\n"
+      "t": 215492.0892075,
+      "tool_output": "Chunk ID: 43b16f\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 29\nOutput:\nrc=1\nzsh:1: operation not permitted: <root>/cases/codex-fsrules/outside/fs-escape-strict.txt\n"
      }
     ]
    }
@@ -357,21 +455,45 @@
    "native_started": true,
    "refused": [],
    "summary": {
-    "fetch_ms": 2.217,
+    "fetch_ms": 2.483,
     "gate_rows": [
      {
       "event": "preflight",
       "ms": 0.001,
       "reason": "awaiting_read",
-      "t": 211734.532957041
+      "t": 215486.505305833
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 1631,
-      "port": 54912,
-      "t": 211734.533505041
+      "pid": 7169,
+      "port": 63499,
+      "t": 215486.506290833
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215486.641136458
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215486.641308958
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215486.641590583
      },
      {
       "epoch": 1,
@@ -383,24 +505,72 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211734.674863291
+      "t": 215486.644480208
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211735.041442166,
+      "t": 215486.972100791,
       "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215486.978222125
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215486.979151291
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215487.003358625
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215487.003503791
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215487.003812041
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215487.027730791
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 1,
-      "t": 211735.103664833
+      "t": 215487.03539225
      },
      {
-      "admit_ms": 0.328,
+      "admit_ms": 0.309,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -409,30 +579,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 1,
-      "t": 211735.103761083
+      "t": 215487.035481
      },
      {
       "bytes": 44788,
       "event": "forwarded",
-      "gate_ms": 0.562,
+      "gate_ms": 0.583,
       "label": "A",
       "stream": 1,
-      "t": 211735.103990916
+      "t": 215487.035751583
      },
      {
       "event": "stream_closed",
       "stream": 1,
-      "t": 211735.104540166
+      "t": 215487.036365
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215487.065581666
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211735.138829583
+      "t": 215487.067233666
      },
      {
-      "admit_ms": 0.246,
+      "admit_ms": 0.16,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -441,30 +619,30 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 2,
-      "t": 211735.138908875
+      "t": 215487.067284708
      },
      {
       "bytes": 20411,
       "event": "forwarded",
-      "gate_ms": 0.416,
+      "gate_ms": 0.29,
       "label": "A",
       "stream": 2,
-      "t": 211735.13907475
+      "t": 215487.067412625
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211735.139524583
+      "t": 215487.067735291
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 3,
-      "t": 211735.150635416
+      "t": 215487.083320958
      },
      {
-      "admit_ms": 0.282,
+      "admit_ms": 0.604,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -473,81 +651,76 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 3,
-      "t": 211735.150711083
+      "t": 215487.083486875
      },
      {
       "bytes": 45350,
       "event": "forwarded",
-      "gate_ms": 0.567,
+      "gate_ms": 1.116,
       "label": "A",
       "stream": 3,
-      "t": 211735.150994125
+      "t": 215487.0839905
      },
      {
       "event": "stream_closed",
       "stream": 3,
-      "t": 211735.151517333
+      "t": 215487.08467975
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211738.253903
+      "t": 215490.145159583
      },
      {
       "closed": 0,
       "event": "controller",
       "kind": "latched",
       "reason": "monitor_eof",
-      "t": 211738.254006
+      "t": 215490.145292208
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "monitor_eof",
-      "t": 211738.254055333
+      "t": 215490.145334625
      }
     ],
+    "gate_rows_total": 29,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211734.45395175,
+      "t": 215486.398022416,
       "text": "codex-cli 0.166.0"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 54912,
-      "reserved": 19,
-      "t": 211734.462772625
+      "port": 63499,
+      "reserved": 21,
+      "t": 215486.410236291
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211734.469503416
+      "t": 215486.420928583
      },
      {
       "event": "monitor_started",
-      "pid": 1630,
-      "t": 211734.472116625
+      "pid": 7168,
+      "t": 215486.424194083
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 1631,
-      "t": 211734.474453875
-     },
-     {
-      "event": "reader",
-      "ok": true,
-      "seconds": 0.089,
-      "t": 211734.674684916
+      "pid": 7169,
+      "t": 215486.427691916
      },
      {
       "event": "self_test",
-      "ms": 37.2,
+      "ms": 37.7,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -555,33 +728,40 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211734.712220666
+      "t": 215486.571378958
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.073,
+      "t": 215486.644334291
      },
      {
       "event": "native_started",
-      "pid": 1635,
-      "t": 211734.718868666
+      "pid": 7173,
+      "t": 215486.651469125
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211738.252461916
+      "t": 215490.143138666
      },
      {
       "event": "launcher_exit",
-      "t": 211738.256183958
+      "t": 215490.149638458
      }
     ],
+    "launcher_rows_total": 10,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211734.497344708
+      "t": 215486.461797666
      }
     ],
     "poll_count": 8,
-    "poll_ms": 2.458,
-    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-sandbox/workspace gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-sandbox/workspace Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nsb-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 12:17 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d168-a6fa-7772-b683-2458c33214f4 ",
-    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-sandbox/workspace gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-sandbox/workspace Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nsb-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 12:17 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d168-a6fa-7772-b683-2458c33214f4 "
+    "poll_ms": 2.841,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-sandbox/workspace gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-sandbox/workspace Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nsb-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply after tool \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:23 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a4-cc06-70e1-af4b-100db5c27617 ",
+    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-sandbox/workspace gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-sandbox/workspace Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nsb-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply after tool \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-sandbox/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:23 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a4-cc06-70e1-af4b-100db5c27617 "
    },
    "tool_effect_file": false,
    "tool_results": [
@@ -596,8 +776,8 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211735.151381833,
-     "tool_output": "Chunk ID: 64deaa\nWall time: 0.0000 seconds\nProcess exited with code 71\nOriginal token count: 14\nOutput:\nsandbox-exec: sandbox_apply: Operation not permitted\n"
+     "t": 215487.084507291,
+     "tool_output": "Chunk ID: 8933ba\nWall time: 0.0000 seconds\nProcess exited with code 71\nOriginal token count: 14\nOutput:\nsandbox-exec: sandbox_apply: Operation not permitted\n"
     }
    ]
   },
@@ -608,7 +788,7 @@
     "at_latch": 10
    },
    "bg_started": true,
-   "case_seconds": 17.1,
+   "case_seconds": 17.6,
    "decisions_after_latch": [],
    "exit": {
     "launcher_exit": 0,
@@ -617,29 +797,53 @@
    "fg_loop": {
     "at_latch": 3,
     "five_s_later": 12,
-    "interrupt_t": 211725.491296083,
+    "interrupt_t": 215476.916653666,
     "one_s_after_esc": 7
    },
-   "latch_t": 211722.418336625,
+   "latch_t": 215473.843481291,
    "model_posts_after_latch": 0,
    "native_alive": true,
    "native_started": true,
    "summary": {
-    "fetch_ms": 2.131,
+    "fetch_ms": 1.928,
     "gate_rows": [
      {
       "event": "preflight",
-      "ms": 0.001,
+      "ms": 0.002,
       "reason": "awaiting_read",
-      "t": 211717.396405333
+      "t": 215468.845272208
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 1578,
-      "port": 54819,
-      "t": 211717.396826166
+      "pid": 7111,
+      "port": 63385,
+      "t": 215468.845737625
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215469.027968041
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215469.028280541
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215469.028306208
      },
      {
       "epoch": 1,
@@ -651,24 +855,72 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211717.549022916
+      "t": 215469.034291291
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211717.948203541,
+      "t": 215469.367937083,
       "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215469.372529208
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215469.372674208
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215469.396909416
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215469.3970875
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215469.398487833
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215469.430449791
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 1,
-      "t": 211718.0212205
+      "t": 215469.439106708
      },
      {
-      "admit_ms": 0.309,
+      "admit_ms": 0.426,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -677,30 +929,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 1,
-      "t": 211718.021304166
+      "t": 215469.439224541
      },
      {
       "bytes": 43822,
       "event": "forwarded",
-      "gate_ms": 0.557,
+      "gate_ms": 0.665,
       "label": "A",
       "stream": 1,
-      "t": 211718.021549291
+      "t": 215469.4394595
      },
      {
       "event": "stream_closed",
       "stream": 1,
-      "t": 211718.022137125
+      "t": 215469.440316791
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215469.471460416
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211718.05598225
+      "t": 215469.473321291
      },
      {
-      "admit_ms": 0.186,
+      "admit_ms": 0.177,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -709,30 +969,30 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 2,
-      "t": 211718.056047208
+      "t": 215469.473385541
      },
      {
       "bytes": 20413,
       "event": "forwarded",
-      "gate_ms": 0.333,
+      "gate_ms": 0.324,
       "label": "A",
       "stream": 2,
-      "t": 211718.056192458
+      "t": 215469.47353
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211718.056638833
+      "t": 215469.473990416
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 3,
-      "t": 211718.147703
+      "t": 215469.568378333
      },
      {
-      "admit_ms": 0.3,
+      "admit_ms": 0.289,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -741,42 +1001,50 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 3,
-      "t": 211718.147787541
+      "t": 215469.568456375
      },
      {
       "bytes": 44544,
       "event": "forwarded",
-      "gate_ms": 0.538,
+      "gate_ms": 0.424,
       "label": "A",
       "stream": 3,
-      "t": 211718.148023375
+      "t": 215469.568589
      },
      {
       "event": "stream_closed",
       "stream": 3,
-      "t": 211718.148669
+      "t": 215469.569210333
      },
      {
       "event": "route_refused",
       "method": "GET",
-      "path": "http://127.0.0.1:54850/simple/kmfixture/",
-      "t": 211718.658630791
+      "path": "http://127.0.0.1:63420/simple/kmfixture/",
+      "t": 215470.141278291
      },
      {
       "event": "route_refused",
       "method": "GET",
       "path": "/",
-      "t": 211719.571316291
+      "t": 215470.99128725
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215471.655825958
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 4,
-      "t": 211720.158790833
+      "t": 215471.665446416
      },
      {
-      "admit_ms": 0.583,
+      "admit_ms": 0.459,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -785,30 +1053,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 4,
-      "t": 211720.158970791
+      "t": 215471.665583375
      },
      {
       "bytes": 44798,
       "event": "forwarded",
-      "gate_ms": 0.926,
+      "gate_ms": 0.671,
       "label": "A",
       "stream": 4,
-      "t": 211720.159308375
+      "t": 215471.665790583
      },
      {
       "event": "stream_closed",
       "stream": 4,
-      "t": 211720.160614708
+      "t": 215471.666447208
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215471.700257875
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 5,
-      "t": 211720.203266375
+      "t": 215471.702880916
      },
      {
-      "admit_ms": 0.292,
+      "admit_ms": 0.177,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -817,123 +1093,118 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 5,
-      "t": 211720.203377541
+      "t": 215471.702944333
      },
      {
       "bytes": 20412,
       "event": "forwarded",
-      "gate_ms": 0.596,
+      "gate_ms": 0.377,
       "label": "A",
       "stream": 5,
-      "t": 211720.203677791
+      "t": 215471.703141541
      },
      {
       "event": "stream_closed",
       "stream": 5,
-      "t": 211720.204226166
+      "t": 215471.703674208
      },
      {
       "event": "route_refused",
       "method": "GET",
       "path": "/",
-      "t": 211721.585071458
+      "t": 215473.000202625
      },
      {
       "closed": 0,
       "event": "controller",
       "kind": "latched",
       "reason": "threshold:five_hour",
-      "t": 211722.418336625
+      "t": 215473.843481291
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "threshold:five_hour",
-      "t": 211722.418541833
+      "t": 215473.843681666
      },
      {
       "event": "route_refused",
       "method": "GET",
       "path": "/",
-      "t": 211723.595741625
+      "t": 215475.005881458
      },
      {
       "event": "route_refused",
       "method": "GET",
       "path": "/",
-      "t": 211725.607347166
+      "t": 215477.012718
      },
      {
       "event": "route_refused",
       "method": "GET",
       "path": "/",
-      "t": 211727.619605708
+      "t": 215479.020514083
      },
      {
       "event": "route_refused",
       "method": "GET",
       "path": "/",
-      "t": 211729.631323
+      "t": 215481.026263458
      },
      {
       "event": "route_refused",
       "method": "GET",
       "path": "/",
-      "t": 211731.642404125
+      "t": 215483.032411291
      },
      {
       "event": "route_refused",
       "method": "GET",
-      "path": "http://127.0.0.1:54850/simple/kmfixture/",
-      "t": 211731.981454791
+      "path": "http://127.0.0.1:63420/simple/kmfixture/",
+      "t": 215483.387433708
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211732.015484916
+      "t": 215483.419308375
      }
     ],
+    "gate_rows_total": 48,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211717.328132083,
+      "t": 215468.769480958,
       "text": "codex-cli 0.166.0"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 54819,
-      "reserved": 19,
-      "t": 211717.335491041
+      "port": 63385,
+      "reserved": 21,
+      "t": 215468.776811208
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211717.341305958
+      "t": 215468.782890875
      },
      {
       "event": "monitor_started",
-      "pid": 1577,
-      "t": 211717.343032208
+      "pid": 7110,
+      "t": 215468.784881916
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 1578,
-      "t": 211717.344427333
-     },
-     {
-      "event": "reader",
-      "ok": true,
-      "seconds": 0.093,
-      "t": 211717.548868083
+      "pid": 7111,
+      "t": 215468.786412541
      },
      {
       "event": "self_test",
-      "ms": 52.7,
+      "ms": 38.3,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -941,97 +1212,104 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211717.601802666
+      "t": 215468.934083791
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.1,
+      "t": 215469.0341235
      },
      {
       "event": "native_started",
-      "pid": 1582,
-      "t": 211717.612385708
+      "pid": 7119,
+      "t": 215469.040375833
      },
      {
       "event": "said",
-      "t": 211722.419264,
+      "t": 215473.844507833,
       "text": "Paused. Research F12 control requires a new typed confirmation."
      },
      {
       "event": "said",
-      "t": 211722.419347833,
+      "t": 215473.844632375,
       "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211732.014829041
+      "t": 215483.418552541
      },
      {
       "event": "launcher_exit",
-      "t": 211732.017473416
+      "t": 215483.42090675
      }
     ],
+    "launcher_rows_total": 12,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211717.36304375
+      "t": 215468.807967291
      }
     ],
-    "poll_count": 29,
-    "poll_ms": 2.345,
-    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-tools/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-tools-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-tools/child-tools.json' tools \u2502 '<root>/cases/codex-tools/out/tools.jsonl' ; echo km-bg-started \u2514 km-bg-started \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 12:17 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view Run KM-tools-fg now \u001bM\u001bM\u001bM\u001bM \u203a Run KM-tools-fg now Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u25e6 1 \u2022 \u25e6 2 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u001bM\u001bM \u25a0 Conversation interrupted - use /feedback if something went wrong 1 back round terminal running \u00b7 /ps to view \u00b7 /stop to close 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u203a Shutting down... To continue this session, run: codex resume 01a1d168-6438-7b72-9d3a-a4dd364bd63a ",
-    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-tools/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-tools-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-tools/child-tools.json' tools \u2502 '<root>/cases/codex-tools/out/tools.jsonl' ; echo km-bg-started \u2514 km-bg-started \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 12:17 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view Run KM-tools-fg now \u001bM\u001bM\u001bM\u001bM \u203a Run KM-tools-fg now Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u25e6 1 \u2022 \u25e6 2 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u001bM\u001bM \u25a0 Conversation interrupted - use /feedback if something went wrong 1 back round terminal running \u00b7 /ps to view \u00b7 /stop to close 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u203a Shutting down... To continue this session, run: codex resume 01a1d168-6438-7b72-9d3a-a4dd364bd63a "
+    "poll_count": 30,
+    "poll_ms": 2.128,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-tools/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-tools-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-tools/child-tools.json' tools \u2502 '<root>/cases/codex-tools/out/tools.jsonl' ; echo km-bg-started \u2514 km-bg-started \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 13:23 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view Run KM-tools-fg now \u001bM\u001bM\u001bM\u001bM \u203a Run KM-tools-fg now Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u25e6 1 \u2022 \u25e6 2 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u001bM\u001bM \u25a0 Conversation interrupted - use /feedback if something went wrong 1 back round terminal running \u00b7 /ps to view \u00b7 /stop to close 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u203a Shutting down... To continue this session, run: codex resume 01a1d1a4-8741-7311-a67f-dd098ca602e4 ",
+    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-tools/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-tools/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-tools-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-tools/child-tools.json' tools \u2502 '<root>/cases/codex-tools/out/tools.jsonl' ; echo km-bg-started \u2514 km-bg-started \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply after tool Worked for <1s \u2022 13:23 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view Run KM-tools-fg now \u001bM\u001bM\u001bM\u001bM \u203a Run KM-tools-fg now Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-tools/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u25e6 1 \u2022 \u25e6 2 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u001bM\u001bM \u25a0 Conversation interrupted - use /feedback if something went wrong 1 back round terminal running \u00b7 /ps to view \u00b7 /stop to close 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u203a Shutting down... To continue this session, run: codex resume 01a1d1a4-8741-7311-a67f-dd098ca602e4 "
    },
    "tool_net_rows": [
     {
      "action": "tools_parent_exit",
-     "pid": 1586,
-     "t": 211718.06267225
+     "pid": 7122,
+     "t": 215469.484400333
     },
     {
      "action": "tool_net",
      "gate": "connected",
      "n": 4,
-     "pid": 1587,
+     "pid": 7123,
      "result": "errno:1",
-     "t": 211719.570815375
+     "t": 215470.990955875
     },
     {
      "action": "tool_net",
      "gate": "connected",
      "n": 8,
-     "pid": 1587,
+     "pid": 7123,
      "result": "errno:1",
-     "t": 211721.584636
+     "t": 215472.999866583
     },
     {
      "action": "tool_net",
      "gate": "connected",
      "n": 12,
-     "pid": 1587,
+     "pid": 7123,
      "result": "errno:1",
-     "t": 211723.595280958
+     "t": 215475.005453791
     },
     {
      "action": "tool_net",
      "gate": "connected",
      "n": 16,
-     "pid": 1587,
+     "pid": 7123,
      "result": "errno:1",
-     "t": 211725.606837208
+     "t": 215477.012457541
     },
     {
      "action": "tool_net",
      "gate": "connected",
      "n": 20,
-     "pid": 1587,
+     "pid": 7123,
      "result": "errno:1",
-     "t": 211727.618931416
+     "t": 215479.019939666
     },
     {
      "action": "tool_net",
      "gate": "connected",
      "n": 24,
-     "pid": 1587,
+     "pid": 7123,
      "result": "errno:1",
-     "t": 211729.630822083
+     "t": 215481.025827791
     }
    ],
    "upstream": [
@@ -1040,70 +1318,70 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211717.542945791
+     "t": 215469.027798916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211717.54314825
+     "t": 215469.028027708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211717.543318708
+     "t": 215469.028207916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211717.874992625
+     "t": 215469.31172675
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211717.95318
+     "t": 215469.37231
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211717.954017458
+     "t": 215469.372534333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215469.3964265
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/rate-limit-reset-credits",
-     "t": 211717.978082625
+     "t": 215469.396914166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211717.978530625
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211717.979295541
+     "t": 215469.39834375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211718.013453416
+     "t": 215469.430366875
     },
     {
      "action": "tool",
@@ -1116,7 +1394,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211718.021982708,
+     "t": 215469.440032958,
      "tool_output": null
     },
     {
@@ -1124,7 +1402,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211718.053946416
+     "t": 215469.471354666
     },
     {
      "action": "text",
@@ -1137,7 +1415,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211718.056454625,
+     "t": 215469.473837041,
      "tool_output": null
     },
     {
@@ -1151,43 +1429,43 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211718.1485185,
-     "tool_output": "Chunk ID: bfec15\nWall time: 0.0528 seconds\nProcess exited with code 0\nOriginal token count: 4\nOutput:\nkm-bg-started\n"
+     "t": 215469.569072875,
+     "tool_output": "Chunk ID: 843e96\nWall time: 0.0528 seconds\nProcess exited with code 0\nOriginal token count: 4\nOutput:\nkm-bg-started\n"
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211718.380649708
+     "t": 215469.815676458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211718.882880708
+     "t": 215470.317265166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211719.38668625
+     "t": 215470.820361583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211719.887074625
+     "t": 215471.325624833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211720.147935166
+     "t": 215471.6556755
     },
     {
      "action": "tool",
@@ -1200,7 +1478,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211720.160276083,
+     "t": 215471.666261083,
      "tool_output": null
     },
     {
@@ -1208,7 +1486,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211720.199789208
+     "t": 215471.700058041
     },
     {
      "action": "text",
@@ -1221,7 +1499,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211720.204047166,
+     "t": 215471.703502,
      "tool_output": null
     },
     {
@@ -1229,167 +1507,174 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211720.3961075
+     "t": 215471.830193916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211720.903816166
+     "t": 215472.3345395
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211721.40752925
+     "t": 215472.838372333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211721.915788625
+     "t": 215473.339444166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211722.417633125
+     "t": 215473.842778333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211722.923739458
+     "t": 215474.345681083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211723.432120208
+     "t": 215474.847133291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211723.93911225
+     "t": 215475.352544666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211724.4461065
+     "t": 215475.858755083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211724.955615375
+     "t": 215476.355560666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211725.463603625
+     "t": 215476.857664458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211725.971802333
+     "t": 215477.363339875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211726.480222208
+     "t": 215477.866228791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211726.987032333
+     "t": 215478.371187291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211727.496361916
+     "t": 215478.872826791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211728.003709708
+     "t": 215479.3765835
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211728.5118625
+     "t": 215479.878282291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211729.019373375
+     "t": 215480.3776075
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211729.5283075
+     "t": 215480.883210166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211730.031444916
+     "t": 215481.388362458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211730.537826875
+     "t": 215481.890022958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211731.039657791
+     "t": 215482.395101791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211731.548145791
+     "t": 215482.896264958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215483.397835708
     }
    ],
    "workflow_paused": {
     "git_confined": {
      "code": 128,
-     "stderr_tail": "fatal: unable to access 'http://127.0.0.1:54850/repo.git/': Failed to connect to 127.0.0.1 port 54850 after 0 ms: Couldn't connect to server\n",
+     "stderr_tail": "fatal: unable to access 'http://127.0.0.1:63420/repo.git/': Failed to connect to 127.0.0.1 port 63420 after 0 ms: Couldn't connect to server\n",
      "timed_out": false
     },
     "pip_confined": {
@@ -1406,7 +1691,7 @@
    "workflow_running": {
     "git_confined": {
      "code": 128,
-     "stderr_tail": "fatal: unable to access 'http://127.0.0.1:54850/repo.git/': Failed to connect to 127.0.0.1 port 54850 after 0 ms: Couldn't connect to server\n",
+     "stderr_tail": "fatal: unable to access 'http://127.0.0.1:63420/repo.git/': Failed to connect to 127.0.0.1 port 63420 after 0 ms: Couldn't connect to server\n",
      "timed_out": false
     },
     "git_control_outside": {
@@ -1421,7 +1706,7 @@
     },
     "pip_control_outside": {
      "code": 0,
-     "stderr_tail": "ttp://127.0.0.1:54850/simple\nCollecting kmfixture\n  Downloading kmfixture-1.0-py3-none-any.whl (660 bytes)\nSaved <root>/cases/codex-tools/wf-pip-control/kmfixture-1.0-py3-none-any.whl\nSuccessfully downloaded kmfixture\n",
+     "stderr_tail": "ttp://127.0.0.1:63420/simple\nCollecting kmfixture\n  Downloading kmfixture-1.0-py3-none-any.whl (660 bytes)\nSaved <root>/cases/codex-tools/wf-pip-control/kmfixture-1.0-py3-none-any.whl\nSuccessfully downloaded kmfixture\n",
      "timed_out": false
     },
     "pip_via_gate_proxy": {
@@ -1432,9 +1717,15 @@
    }
   }
  },
+ "clock": {
+  "mono_end": 215499.963516541,
+  "mono_start": 215468.16959775,
+  "wall_end": 1794518613.679054,
+  "wall_start": 1794518581.885068
+ },
  "completed": true,
  "deadline_seconds": 600,
- "finished": "2026-11-12T20:17:52Z",
+ "finished": "2026-11-12T21:23:33Z",
  "host": {
   "arch": "arm64",
   "macos": "27.2"
@@ -1443,9 +1734,9 @@
  "leftover_processes_killed": [
   {
    "command": "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python -I -B <root>/",
-   "pid": 1587
+   "pid": 7123
   }
  ],
  "stage": "codex-tools",
- "started": "2026-11-12T20:17:20Z"
+ "started": "2026-11-12T21:23:01Z"
 }

@@ -11,13 +11,13 @@
  },
  "cases": {
   "codex-continuation": {
-   "case_seconds": 23.6,
+   "case_seconds": 23.5,
    "exit": {
     "launcher_exit": 0,
     "native_exit": 0
    },
    "first_turn_forwarded": true,
-   "latch_t": 211478.555313666,
+   "latch_t": 215210.036612416,
    "model_posts_paused": [],
    "native_started": true,
    "refused": [],
@@ -52,7 +52,7 @@
        "reason": null,
        "state": "open",
        "streams": 0,
-       "t": 211475.67251525
+       "t": 215207.209696625
       },
       "latched": 1,
       "resumed": 0
@@ -60,11 +60,11 @@
     },
     "failing_check": {
      "challenge_shown": true,
-     "check_ms": 429.6,
+     "check_ms": 403.8,
      "expected": false,
      "granted": false,
      "messages": [
-      "Type 801069ed then Enter to request a fresh quota check. ",
+      "Type 9f8f87b4 then Enter to request a fresh quota check. ",
       "still paused: threshold:five_hour ",
       "Still paused; request a new confirmation to retry. "
      ],
@@ -81,7 +81,7 @@
       "reason": "threshold:five_hour",
       "state": "paused",
       "streams": 0,
-      "t": 211494.382251666
+      "t": 215225.835796583
      },
      "latched": 1,
      "resumed": 0
@@ -89,15 +89,15 @@
     "native_output": {
      "alive": true,
      "granted": false,
-     "output_bytes": 2142
+     "output_bytes": 2094
     },
     "passing_check": {
      "challenge_shown": true,
-     "check_ms": 405.6,
+     "check_ms": 408.7,
      "expected": true,
      "granted": true,
      "messages": [
-      "Type 645b430f then Enter to request a fresh quota check. ",
+      "Type a9c33f80 then Enter to request a fresh quota check. ",
       "Fresh quota check passed; one healthy lease granted. ",
       "quota reserve resumed after a fresh check "
      ],
@@ -117,7 +117,7 @@
        "reason": null,
        "state": "open",
        "streams": 0,
-       "t": 211475.67251525
+       "t": 215207.209696625
       },
       "latched": 1,
       "resumed": 0
@@ -133,7 +133,7 @@
      "expected": false,
      "granted": false,
      "messages": [
-      "Type 1e2879a5 then Enter to request a fresh quota check. ",
+      "Type 4c2466b1 then Enter to request a fresh quota check. ",
       "Still paused; request a new confirmation to retry. "
      ],
      "still_paused": true
@@ -144,21 +144,45 @@
     }
    },
    "summary": {
-    "fetch_ms": 2.414,
+    "fetch_ms": 2.112,
     "gate_rows": [
      {
       "event": "preflight",
       "ms": 0.001,
       "reason": "awaiting_read",
-      "t": 211475.550340791
+      "t": 215207.050260833
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 310,
-      "port": 53493,
-      "t": 211475.550906541
+      "pid": 6065,
+      "port": 61990,
+      "t": 215207.050651291
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215207.206797541
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215207.206915583
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215207.206935291
      },
      {
       "epoch": 1,
@@ -170,24 +194,72 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211475.67251525
+      "t": 215207.209696625
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211476.039701541,
+      "t": 215207.536579541,
       "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215207.542139458
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215207.543351875
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215207.558877583
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215207.558984916
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215207.559224333
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215207.594023875
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 1,
-      "t": 211476.099998958
+      "t": 215207.60013025
      },
      {
-      "admit_ms": 0.543,
+      "admit_ms": 0.309,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -196,30 +268,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 1,
-      "t": 211476.100178541
+      "t": 215207.600214333
      },
      {
       "bytes": 43842,
       "event": "forwarded",
-      "gate_ms": 1.011,
+      "gate_ms": 0.511,
       "label": "A",
       "stream": 1,
-      "t": 211476.100637166
+      "t": 215207.60041325
      },
      {
       "event": "stream_closed",
       "stream": 1,
-      "t": 211476.101536458
+      "t": 215207.600988666
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215207.632398083
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211476.14216625
+      "t": 215207.6340635
      },
      {
-      "admit_ms": 0.226,
+      "admit_ms": 0.182,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -228,33 +308,33 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 2,
-      "t": 211476.142254416
+      "t": 215207.634127416
      },
      {
       "bytes": 20412,
       "event": "forwarded",
-      "gate_ms": 0.456,
+      "gate_ms": 0.335,
       "label": "A",
       "stream": 2,
-      "t": 211476.142478291
+      "t": 215207.634277208
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211476.142888541
+      "t": 215207.634634333
      },
      {
       "closed": 0,
       "event": "controller",
       "kind": "latched",
       "reason": "threshold:five_hour",
-      "t": 211478.555313666
+      "t": 215210.036612416
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "threshold:five_hour",
-      "t": 211478.555523833
+      "t": 215210.036782708
      },
      {
       "event": "read_refused",
@@ -262,16 +342,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211480.104886625
+      "t": 215211.643641
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:threshold:five_hour",
-      "t": 211480.119203958
+      "t": 215211.655194875
      },
      {
-      "admit_ms": 0.564,
+      "admit_ms": 0.509,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -280,7 +360,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:threshold:five_hour",
       "stream": null,
-      "t": 211480.119381208
+      "t": 215211.655354416
      },
      {
       "event": "read_refused",
@@ -288,16 +368,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211480.156241041
+      "t": 215211.690512875
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:threshold:five_hour",
-      "t": 211480.158864
+      "t": 215211.693167625
      },
      {
-      "admit_ms": 0.283,
+      "admit_ms": 0.308,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -306,7 +386,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:threshold:five_hour",
       "stream": null,
-      "t": 211480.158968666
+      "t": 215211.693318
      },
      {
       "event": "read_refused",
@@ -314,16 +394,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211490.369932125
+      "t": 215221.871424125
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:awaiting-continuation",
-      "t": 211490.380845583
+      "t": 215221.880545708
      },
      {
-      "admit_ms": 0.649,
+      "admit_ms": 0.64,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -332,7 +412,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:awaiting-continuation",
       "stream": null,
-      "t": 211490.381060833
+      "t": 215221.880721708
      },
      {
       "event": "read_refused",
@@ -340,16 +420,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211490.421372958
+      "t": 215221.916871708
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:awaiting-continuation",
-      "t": 211490.42434525
+      "t": 215221.919078375
      },
      {
-      "admit_ms": 0.254,
+      "admit_ms": 0.202,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -358,7 +438,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:awaiting-continuation",
       "stream": null,
-      "t": 211490.424437916
+      "t": 215221.919169875
      },
      {
       "event": "control",
@@ -366,7 +446,15 @@
       "ok": true,
       "op": "reply:continue",
       "reason": "armed",
-      "t": 211494.292340916
+      "t": 215225.770861166
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/accounts/check",
+      "paused": true,
+      "t": 215225.8315455
      },
      {
       "event": "read_refused",
@@ -374,7 +462,7 @@
       "lost": null,
       "path": "/backend-api/codex/models",
       "paused": true,
-      "t": 211494.376460958
+      "t": 215225.831793583
      },
      {
       "event": "read_refused",
@@ -382,15 +470,15 @@
       "lost": null,
       "path": "/backend-api/wham/accounts/check",
       "paused": true,
-      "t": 211494.376829958
+      "t": 215225.832256666
      },
      {
-      "event": "read_refused",
-      "kind": "read",
-      "lost": null,
-      "path": "/backend-api/wham/accounts/check",
-      "paused": true,
-      "t": 211494.377490625
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215225.832447666
      },
      {
       "epoch": 1,
@@ -402,7 +490,7 @@
       "reason": "threshold:five_hour",
       "state": "paused",
       "streams": 0,
-      "t": 211494.382251666
+      "t": 215225.835796583
      },
      {
       "event": "control",
@@ -410,7 +498,7 @@
       "ok": true,
       "op": "reply:continue",
       "reason": "armed",
-      "t": 211494.815354166
+      "t": 215226.281672666
      },
      {
       "event": "read_refused",
@@ -418,7 +506,7 @@
       "lost": null,
       "path": "/backend-api/codex/models",
       "paused": true,
-      "t": 211494.886287083
+      "t": 215226.349012916
      },
      {
       "event": "read_refused",
@@ -426,19 +514,35 @@
       "lost": null,
       "path": "/backend-api/wham/accounts/check",
       "paused": true,
-      "t": 211494.886721041
+      "t": 215226.349382666
      },
      {
       "cause": "manual_continuation",
       "epoch": 1,
       "event": "controller",
       "kind": "lease",
-      "t": 211494.887441833
+      "t": 215226.349764125
      },
      {
       "event": "notify",
       "op": "resumed",
-      "t": 211494.887475916
+      "t": 215226.349790625
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215226.349817958
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215226.350750791
      },
      {
       "epoch": 1,
@@ -450,17 +554,25 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211494.892025125
+      "t": 215226.353710125
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215227.615451791
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 3,
-      "t": 211496.15478225
+      "t": 215227.626145625
      },
      {
-      "admit_ms": 0.652,
+      "admit_ms": 0.596,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -469,30 +581,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 3,
-      "t": 211496.15494025
+      "t": 215227.626337833
      },
      {
       "bytes": 44359,
       "event": "forwarded",
-      "gate_ms": 0.895,
+      "gate_ms": 0.95,
       "label": "A",
       "stream": 3,
-      "t": 211496.155180916
+      "t": 215227.626686208
      },
      {
       "event": "stream_closed",
       "stream": 3,
-      "t": 211496.1559095
+      "t": 215227.627999708
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215227.665822375
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 4,
-      "t": 211496.192198625
+      "t": 215227.66876225
      },
      {
-      "admit_ms": 0.233,
+      "admit_ms": 0.23,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -501,81 +621,76 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 4,
-      "t": 211496.192283666
+      "t": 215227.668842833
      },
      {
       "bytes": 20413,
       "event": "forwarded",
-      "gate_ms": 0.459,
+      "gate_ms": 0.453,
       "label": "A",
       "stream": 4,
-      "t": 211496.19250675
+      "t": 215227.669063208
      },
      {
       "event": "stream_closed",
       "stream": 4,
-      "t": 211496.193026541
+      "t": 215227.669703625
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211497.7723905
+      "t": 215229.229044375
      },
      {
       "closed": 0,
       "event": "controller",
       "kind": "latched",
       "reason": "monitor_eof",
-      "t": 211497.772514916
+      "t": 215229.229191833
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "monitor_eof",
-      "t": 211497.772547166
+      "t": 215229.229235083
      }
     ],
+    "gate_rows_total": 63,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211475.470269208,
+      "t": 215206.96599175,
       "text": "codex-cli 0.166.0"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 53493,
-      "reserved": 19,
-      "t": 211475.478994333
+      "port": 61990,
+      "reserved": 21,
+      "t": 215206.97534725
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211475.486259625
+      "t": 215206.982008333
      },
      {
       "event": "monitor_started",
-      "pid": 309,
-      "t": 211475.488740166
+      "pid": 6064,
+      "t": 215206.984081083
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 310,
-      "t": 211475.490458041
-     },
-     {
-      "event": "reader",
-      "ok": true,
-      "seconds": 0.079,
-      "t": 211475.672355208
+      "pid": 6065,
+      "t": 215206.985975291
      },
      {
       "event": "self_test",
-      "ms": 36.2,
+      "ms": 37.8,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -583,83 +698,53 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211475.708825083
-     },
-     {
-      "event": "native_started",
-      "pid": 314,
-      "t": 211475.7148185
-     },
-     {
-      "event": "said",
-      "t": 211478.556215666,
-      "text": "Paused. Research F12 control requires a new typed confirmation."
-     },
-     {
-      "event": "said",
-      "t": 211478.556278958,
-      "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
-     },
-     {
-      "event": "said",
-      "t": 211482.086094291,
-      "text": "Type 6457bc78 then Enter to request a fresh quota check."
-     },
-     {
-      "event": "said",
-      "t": 211482.694463958,
-      "text": "Type 1e2879a5 then Enter to request a fresh quota check."
-     },
-     {
-      "event": "said",
-      "t": 211483.110937958,
-      "text": "Still paused; request a new confirmation to retry."
-     },
-     {
-      "event": "said",
-      "t": 211483.212407166,
-      "text": "Type cbda155d then Enter to request a fresh quota check."
-     },
-     {
-      "event": "said",
-      "t": 211493.86539475,
-      "text": "Type 801069ed then Enter to request a fresh quota check."
-     },
-     {
-      "event": "continue_reply",
-      "ms": 0.8,
-      "needs_read": true,
-      "ok": true,
-      "reason": "armed",
-      "t": 211494.292909166
+      "t": 215207.134270916
      },
      {
       "event": "reader",
       "ok": true,
-      "seconds": 0.089,
-      "t": 211494.381970375
+      "seconds": 0.075,
+      "t": 215207.209560666
      },
      {
-      "event": "continue_status",
-      "ms": 90.2,
-      "ok": false,
-      "reason": "threshold:five_hour",
-      "t": 211494.382343166
-     },
-     {
-      "event": "said",
-      "t": 211494.382382041,
-      "text": "still paused: threshold:five_hour"
+      "event": "native_started",
+      "pid": 6070,
+      "t": 215207.21640325
      },
      {
       "event": "said",
-      "t": 211494.382403125,
+      "t": 215210.037277916,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 215210.037402833,
+      "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
+     },
+     {
+      "event": "said",
+      "t": 215213.626606375,
+      "text": "Type 93d80405 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 215214.2317335,
+      "text": "Type 4c2466b1 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 215214.638090291,
       "text": "Still paused; request a new confirmation to retry."
      },
      {
       "event": "said",
-      "t": 211494.402555083,
-      "text": "Type 645b430f then Enter to request a fresh quota check."
+      "t": 215214.743393458,
+      "text": "Type 5620080b then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 215225.363856333,
+      "text": "Type 9f8f87b4 then Enter to request a fresh quota check."
      },
      {
       "event": "continue_reply",
@@ -667,55 +752,92 @@
       "needs_read": true,
       "ok": true,
       "reason": "armed",
-      "t": 211494.815835666
+      "t": 215225.771328
      },
      {
       "event": "reader",
       "ok": true,
-      "seconds": 0.076,
-      "t": 211494.891828583
+      "seconds": 0.064,
+      "t": 215225.835618583
      },
      {
       "event": "continue_status",
-      "ms": 77.0,
-      "ok": true,
-      "reason": null,
-      "t": 211494.892083666
-     },
-     {
-      "event": "granted",
-      "t": 211494.89211
+      "ms": 65.3,
+      "ok": false,
+      "reason": "threshold:five_hour",
+      "t": 215225.835879375
      },
      {
       "event": "said",
-      "t": 211494.892141916,
+      "t": 215225.835911291,
+      "text": "still paused: threshold:five_hour"
+     },
+     {
+      "event": "said",
+      "t": 215225.835933541,
+      "text": "Still paused; request a new confirmation to retry."
+     },
+     {
+      "event": "said",
+      "t": 215225.872323875,
+      "text": "Type a9c33f80 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "continue_reply",
+      "ms": 0.5,
+      "needs_read": true,
+      "ok": true,
+      "reason": "armed",
+      "t": 215226.28201675
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.071,
+      "t": 215226.353527958
+     },
+     {
+      "event": "continue_status",
+      "ms": 72.3,
+      "ok": true,
+      "reason": null,
+      "t": 215226.353784291
+     },
+     {
+      "event": "granted",
+      "t": 215226.353817458
+     },
+     {
+      "event": "said",
+      "t": 215226.353853375,
       "text": "Fresh quota check passed; one healthy lease granted."
      },
      {
       "event": "said",
-      "t": 211494.892179708,
+      "t": 215226.353894875,
       "text": "quota reserve resumed after a fresh check"
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211497.770881583
+      "t": 215229.227066625
      },
      {
       "event": "launcher_exit",
-      "t": 211497.776830458
+      "t": 215229.233760541
      }
     ],
+    "launcher_rows_total": 29,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211475.513092958
+      "t": 215207.010579083
      }
     ],
-    "poll_count": 44,
-    "poll_ms": 2.678,
-    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-continuation/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-continuation/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-continuation/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-cont-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:13 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check deadbeef \u001bM\u001bM\u001bM\u001bM \u203a deadbeef Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53493/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 6457bc78 then Enter to request a fresh quota check. [coding-agent-kit] Type 1e2879a5 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type cbda155d then Enter to request a fresh quota check. \u203a cbda155d gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a cbda155d gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view /status Ask Codex to do anything \u001bM\u001bM\u001bM\u001bM \u203a cbda155d/status \u2022 Working (0s \u2022 esc t",
-    "terminal_tail": "n/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53493/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 6457bc78 then Enter to request a fresh quota check. [coding-agent-kit] Type 1e2879a5 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type cbda155d then Enter to request a fresh quota check. \u203a cbda155d gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a cbda155d gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view /status Ask Codex to do anything \u001bM\u001bM\u001bM\u001bM \u203a cbda155d/status \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:awaiting-continuation); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53493/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 801069ed then Enter to request a fresh quota check. [coding-agent-kit] still paused: threshold:five_hour [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 645b430f then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-cont-resumed Ask Codex to do anything \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-cont-resumed \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view Worked for <1s \u2022 12:13 \u203a Shutting down... To continue this session, run: codex resume 01a1d164-b340-7471-a961-1140982b5a97 "
+    "poll_count": 45,
+    "poll_ms": 2.286,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-continuation/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-continuation/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-continuation/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-cont-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 13:18 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check deadbeef \u001bM\u001bM\u001bM\u001bM \u203a deadbeef Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61990/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 93d80405 then Enter to request a fresh quota check. [coding-agent-kit] Type 4c2466b1 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 5620080b then Enter to request a fresh quota check. \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view /status \u001bM\u001bM\u001bM\u001bM \u203a 5620080b/status Ask Codex to do anything \u2022 Working (0s \u2022 esc to",
+    "terminal_tail": "n/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61990/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 93d80405 then Enter to request a fresh quota check. [coding-agent-kit] Type 4c2466b1 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 5620080b then Enter to request a fresh quota check. \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view /status \u001bM\u001bM\u001bM\u001bM \u203a 5620080b/status Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:awaiting-continuation); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61990/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 9f8f87b4 then Enter to request a fresh quota check. [coding-agent-kit] still paused: threshold:five_hour [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type a9c33f80 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-cont-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-cont-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view Worked for <1s \u2022 13:19 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-8875-78f0-ade1-197fd5a2115b "
    },
    "upstream": [
     {
@@ -723,70 +845,70 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211475.669157291
+     "t": 215207.206498833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211475.6693645
+     "t": 215207.206736375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211475.669517458
+     "t": 215207.206834
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211476.016696791
+     "t": 215207.517601
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211476.044543833
+     "t": 215207.541821333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211476.045213708
+     "t": 215207.54312375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/rate-limit-reset-credits",
-     "t": 211476.066066541
+     "t": 215207.558543541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211476.066537875
+     "t": 215207.558676291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211476.066759416
+     "t": 215207.558955291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211476.093067291
+     "t": 215207.593898083
     },
     {
      "action": "text",
@@ -799,7 +921,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211476.101326416,
+     "t": 215207.600815958,
      "tool_output": null
     },
     {
@@ -807,7 +929,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211476.1391375
+     "t": 215207.632277833
     },
     {
      "action": "text",
@@ -820,7 +942,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211476.142764375,
+     "t": 215207.634498916,
      "tool_output": null
     },
     {
@@ -828,301 +950,301 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211476.524376708
+     "t": 215208.022738083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211477.033085708
+     "t": 215208.527651958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211477.540362583
+     "t": 215209.030608
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211478.047184125
+     "t": 215209.535104791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211478.554698666
+     "t": 215210.036126
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211479.06154875
+     "t": 215210.540913541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211479.565029916
+     "t": 215211.042266708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211480.074174583
+     "t": 215211.545629583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211480.585083083
+     "t": 215212.051105666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211481.089750833
+     "t": 215212.551707291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211481.595544
+     "t": 215213.05614
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211482.0985835
+     "t": 215213.560976375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211482.603400875
+     "t": 215214.064145
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211483.104835208
+     "t": 215214.565436708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211483.614663
+     "t": 215215.070572583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211484.11991275
+     "t": 215215.575467208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211484.629204458
+     "t": 215216.081850333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211485.132119166
+     "t": 215216.582187041
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211485.640471666
+     "t": 215217.085854333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211486.145562291
+     "t": 215217.590759916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211486.649987375
+     "t": 215218.096672708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211487.157588333
+     "t": 215218.597695458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211487.663733833
+     "t": 215219.097674125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211488.17135325
+     "t": 215219.599903166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211488.682609625
+     "t": 215220.102057208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211489.19038475
+     "t": 215220.604585541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211489.69874325
+     "t": 215221.1088875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211490.206649833
+     "t": 215221.612434958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211490.713292916
+     "t": 215222.116278791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211491.217640375
+     "t": 215222.61788425
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211491.72396375
+     "t": 215223.11922275
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211492.232364916
+     "t": 215223.623970458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211492.741009416
+     "t": 215224.126497541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211493.249789
+     "t": 215224.626942208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211493.75908375
+     "t": 215225.131037208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211494.266287708
+     "t": 215225.634334291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211494.37729925
+     "t": 215225.832281541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211494.774288708
+     "t": 215226.136998583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211494.887149791
+     "t": 215226.349374416
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211494.888011291
+     "t": 215226.350637458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211495.279988916
+     "t": 215226.642256291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211495.790125166
+     "t": 215227.147345125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211496.143880583
+     "t": 215227.615205625
     },
     {
      "action": "text",
@@ -1135,15 +1257,22 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211496.15572025,
+     "t": 215227.627692625,
      "tool_output": null
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215227.651321041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211496.189843541
+     "t": 215227.665533125
     },
     {
      "action": "text",
@@ -1156,7 +1285,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211496.192834916,
+     "t": 215227.669522416,
      "tool_output": null
     },
     {
@@ -1164,21 +1293,21 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211496.299896583
+     "t": 215228.156819958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211496.8033155
+     "t": 215228.66162175
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211497.312985625
+     "t": 215229.165331208
     }
    ]
   },
@@ -1203,54 +1332,54 @@
     {
      "action": "bind_gate_port",
      "host": "127.0.0.1",
-     "pid": 292,
+     "pid": 6050,
      "result": "errno:1",
-     "t": 211457.786813916
+     "t": 215189.313037125
     },
     {
      "action": "bind_gate_port",
      "host": "::1",
-     "pid": 292,
+     "pid": 6050,
      "result": "errno:1",
-     "t": 211457.787054666
+     "t": 215189.313233708
     },
     {
      "action": "bind_gate_port",
      "host": "0.0.0.0",
-     "pid": 292,
+     "pid": 6050,
      "result": "errno:1",
-     "t": 211457.787501166
+     "t": 215189.313303458
     },
     {
      "action": "bind_gate_port",
      "host": "::",
-     "pid": 292,
+     "pid": 6050,
      "result": "errno:1",
-     "t": 211457.787564125
+     "t": 215189.313410875
     }
    ],
    "case_seconds": 24.5,
    "confined_bind": {
     "code": 0,
-    "seconds": 0.07,
+    "seconds": 0.08,
     "stderr": "",
     "stdout": "",
     "timed_out": false
    },
    "confined_direct": {
     "code": 0,
-    "seconds": 0.04,
+    "seconds": 0.05,
     "stderr": "",
     "stdout": "",
     "timed_out": false
    },
    "continuation": {
     "challenge_shown": true,
-    "check_ms": 410.4,
+    "check_ms": 406.5,
     "expected": true,
     "granted": true,
     "messages": [
-     "Type 39010cfa then Enter to request a fresh quota check. ",
+     "Type a8046ff3 then Enter to request a fresh quota check. ",
      "Fresh quota check passed; one healthy lease granted. ",
      "quota reserve resumed after a fresh check "
     ],
@@ -1260,42 +1389,42 @@
     {
      "action": "direct",
      "host": "127.0.0.1",
-     "pid": 293,
+     "pid": 6051,
      "port_role": "upstream",
      "result": "errno:1",
-     "t": 211457.829918291
+     "t": 215189.3590225
     },
     {
      "action": "direct",
      "host": "127.0.0.1",
-     "pid": 293,
+     "pid": 6051,
      "port_role": "usage",
      "result": "errno:1",
-     "t": 211457.830127208
+     "t": 215189.359204666
     },
     {
      "action": "direct",
      "host": "::1",
-     "pid": 293,
+     "pid": 6051,
      "port_role": "upstream",
      "result": "errno:1",
-     "t": 211457.830191625
+     "t": 215189.359343958
     },
     {
      "action": "direct",
      "host": "::1",
-     "pid": 293,
+     "pid": 6051,
      "port_role": "usage",
      "result": "errno:1",
-     "t": 211457.830245
+     "t": 215189.3593995
     },
     {
      "action": "direct",
      "host": "127.0.0.1",
-     "pid": 293,
+     "pid": 6051,
      "port_role": "gate_udp",
      "result": "errno:1",
-     "t": 211457.830300166
+     "t": 215189.359459875
     }
    ],
    "exit": {
@@ -1303,7 +1432,7 @@
     "native_exit": 0
    },
    "first_turn_forwarded": true,
-   "killed_t": 211453.506007333,
+   "killed_t": 215185.023118541,
    "model_posts_after_kill": 0,
    "model_posts_after_kill_before_continue": 0,
    "model_posts_between_kill_and_continuation": null,
@@ -1314,91 +1443,91 @@
      false,
      "paused:gate_restart",
      "KM-gd-queued",
-     10.19
+     10.17
     ],
     [
      false,
      "paused:gate_restart",
      "KM-gd-queued",
-     10.19
+     10.17
     ]
    ],
    "queued_turn_visible": true,
    "refused": [],
    "restart_seen": true,
-   "restart_t": 211463.715117791,
+   "restart_t": 215195.208536875,
    "sdk_after_restart": [
     {
      "action": "sdk",
-     "ms": 2.9,
+     "ms": 2.5,
      "n": 1,
-     "pid": 297,
+     "pid": 6055,
      "role": "direct",
      "status": 503,
-     "t": 211466.856819708
+     "t": 215198.38575
     },
     {
      "action": "sdk",
-     "ms": 3.2,
+     "ms": 2.4,
      "n": 2,
-     "pid": 297,
+     "pid": 6055,
      "role": "direct",
      "status": 503,
-     "t": 211467.36109375
+     "t": 215198.893519541
     },
     {
      "action": "sdk",
-     "ms": 4.0,
+     "ms": 2.9,
      "n": 3,
-     "pid": 297,
+     "pid": 6055,
      "role": "direct",
      "status": 503,
-     "t": 211467.867306791
+     "t": 215199.398049083
     },
     {
      "action": "sdk",
-     "ms": 3.0,
+     "ms": 3.9,
      "n": 4,
-     "pid": 297,
+     "pid": 6055,
      "role": "direct",
      "status": 503,
-     "t": 211468.371721708
+     "t": 215199.905815541
+    },
+    {
+     "action": "sdk",
+     "ms": 2.0,
+     "n": 5,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215200.412253166
     },
     {
      "action": "sdk",
      "ms": 3.5,
-     "n": 5,
-     "pid": 297,
-     "role": "direct",
-     "status": 503,
-     "t": 211468.880493708
-    },
-    {
-     "action": "sdk",
-     "ms": 3.6,
      "n": 6,
-     "pid": 297,
+     "pid": 6055,
      "role": "direct",
      "status": 503,
-     "t": 211469.388765958
+     "t": 215200.919169083
     },
     {
      "action": "sdk",
-     "ms": 2.8,
+     "ms": 3.8,
      "n": 7,
-     "pid": 297,
+     "pid": 6055,
      "role": "direct",
      "status": 503,
-     "t": 211469.895750125
+     "t": 215201.428577625
     },
     {
      "action": "sdk",
-     "ms": 2.7,
+     "ms": 3.7,
      "n": 8,
-     "pid": 297,
+     "pid": 6055,
      "role": "direct",
      "status": 503,
-     "t": 211470.403638458
+     "t": 215201.936483166
     }
    ],
    "sdk_exit": 0,
@@ -1427,21 +1556,45 @@
     "lo6_reuseaddr": "errno:48"
    },
    "summary": {
-    "fetch_ms": 2.179,
+    "fetch_ms": 2.086,
     "gate_rows": [
      {
       "event": "preflight",
       "ms": 0.001,
       "reason": "awaiting_read",
-      "t": 211450.908112708
+      "t": 215182.416342083
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 284,
-      "port": 53410,
-      "t": 211450.908492166
+      "pid": 6041,
+      "port": 61915,
+      "t": 215182.416756625
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215182.597522666
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215182.597689166
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215182.597723541
      },
      {
       "epoch": 1,
@@ -1453,24 +1606,72 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211451.053296958
+      "t": 215182.6025845
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211451.41364825,
+      "t": 215182.927598708,
       "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215182.931463166
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215182.931494583
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215182.957824333
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215182.95802075
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215182.958280083
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215182.989595
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 1,
-      "t": 211451.494447416
+      "t": 215182.99686175
      },
      {
-      "admit_ms": 0.35,
+      "admit_ms": 0.285,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -1479,30 +1680,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 1,
-      "t": 211451.494540458
+      "t": 215182.99693175
      },
      {
       "bytes": 43834,
       "event": "forwarded",
-      "gate_ms": 0.622,
+      "gate_ms": 0.465,
       "label": "A",
       "stream": 1,
-      "t": 211451.494809166
+      "t": 215182.99710975
      },
      {
       "event": "stream_closed",
       "stream": 1,
-      "t": 211451.495523083
+      "t": 215182.997652541
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215183.028353416
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211451.530657541
+      "t": 215183.02976625
      },
      {
-      "admit_ms": 0.181,
+      "admit_ms": 0.178,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -1511,41 +1720,41 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 2,
-      "t": 211451.530721583
+      "t": 215183.029832666
      },
      {
       "bytes": 20410,
       "event": "forwarded",
-      "gate_ms": 0.384,
+      "gate_ms": 0.381,
       "label": "A",
       "stream": 2,
-      "t": 211451.530920791
+      "t": 215183.030033833
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211451.531374625
+      "t": 215183.030356166
      },
      {
       "closed": 0,
       "event": "controller",
       "kind": "latched",
       "reason": "gate_restart",
-      "t": 211463.69285725
+      "t": 215195.193778333
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "gate_restart",
-      "t": 211463.692934708
+      "t": 215195.193857333
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "restart",
-      "pid": 296,
-      "port": 53410,
-      "t": 211463.693365125
+      "pid": 6054,
+      "port": 61915,
+      "t": 215195.194328333
      },
      {
       "event": "read_refused",
@@ -1553,16 +1762,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211463.693643791
+      "t": 215195.194639291
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211463.69431875
+      "t": 215195.195318208
      },
      {
-      "admit_ms": 0.351,
+      "admit_ms": 0.278,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -1571,7 +1780,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211463.694483333
+      "t": 215195.19540925
      },
      {
       "event": "read_refused",
@@ -1579,16 +1788,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211463.694411875
+      "t": 215195.195544916
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211463.69725775
+      "t": 215195.197913875
      },
      {
-      "admit_ms": 0.162,
+      "admit_ms": 0.172,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -1597,16 +1806,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211463.697307125
+      "t": 215195.197971166
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211466.856323
+      "t": 215198.385356791
      },
      {
-      "admit_ms": 0.159,
+      "admit_ms": 0.152,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1615,16 +1824,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211466.85641175
+      "t": 215198.385429
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211467.360326166
+      "t": 215198.892847291
      },
      {
-      "admit_ms": 0.381,
+      "admit_ms": 0.338,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1633,16 +1842,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211467.360526833
+      "t": 215198.893078
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211467.865736625
+      "t": 215199.397199041
      },
      {
-      "admit_ms": 0.522,
+      "admit_ms": 0.347,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1651,16 +1860,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211467.866009166
+      "t": 215199.397414333
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211468.370557833
+      "t": 215199.904699958
      },
      {
-      "admit_ms": 0.481,
+      "admit_ms": 0.442,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1669,16 +1878,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211468.370862958
+      "t": 215199.904968416
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211468.879367
+      "t": 215200.411690041
      },
      {
-      "admit_ms": 0.473,
+      "admit_ms": 0.16,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1687,16 +1896,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211468.879654833
+      "t": 215200.411791291
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211469.387513791
+      "t": 215200.918057083
      },
      {
-      "admit_ms": 0.503,
+      "admit_ms": 0.448,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1705,16 +1914,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211469.387839083
+      "t": 215200.91829475
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211469.894861958
+      "t": 215201.427498041
      },
      {
-      "admit_ms": 0.386,
+      "admit_ms": 0.399,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1723,16 +1932,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211469.89506225
+      "t": 215201.427738333
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:gate_restart",
-      "t": 211470.40296425
+      "t": 215201.935286708
      },
      {
-      "admit_ms": 0.255,
+      "admit_ms": 0.448,
       "child": true,
       "event": "decision",
       "label": "A",
@@ -1741,7 +1950,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:gate_restart",
       "stream": null,
-      "t": 211470.403121541
+      "t": 215201.935568791
      },
      {
       "event": "control",
@@ -1749,15 +1958,7 @@
       "ok": true,
       "op": "reply:continue",
       "reason": "armed",
-      "t": 211471.334960625
-     },
-     {
-      "event": "read_refused",
-      "kind": "read",
-      "lost": null,
-      "path": "/backend-api/wham/accounts/check",
-      "paused": true,
-      "t": 211471.403722083
+      "t": 215202.861090958
      },
      {
       "event": "read_refused",
@@ -1765,7 +1966,7 @@
       "lost": null,
       "path": "/backend-api/codex/models",
       "paused": true,
-      "t": 211471.403956666
+      "t": 215202.918993875
      },
      {
       "event": "read_refused",
@@ -1773,19 +1974,35 @@
       "lost": null,
       "path": "/backend-api/wham/accounts/check",
       "paused": true,
-      "t": 211471.406213291
+      "t": 215202.919340666
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/accounts/check",
+      "paused": true,
+      "t": 215202.921406583
      },
      {
       "cause": "manual_continuation",
       "epoch": 1,
       "event": "controller",
       "kind": "lease",
-      "t": 211471.40721125
+      "t": 215202.921845125
      },
      {
       "event": "notify",
       "op": "resumed",
-      "t": 211471.407239708
+      "t": 215202.921869791
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215202.921890083
      },
      {
       "epoch": 1,
@@ -1797,17 +2014,17 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211471.411375375
+      "t": 215202.925073291
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 1,
-      "t": 211472.678179833
+      "t": 215204.197018583
      },
      {
-      "admit_ms": 0.589,
+      "admit_ms": 0.69,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -1816,30 +2033,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 1,
-      "t": 211472.678388333
+      "t": 215204.197207625
      },
      {
       "bytes": 44225,
       "event": "forwarded",
-      "gate_ms": 0.908,
+      "gate_ms": 1.08,
       "label": "A",
       "stream": 1,
-      "t": 211472.678700916
+      "t": 215204.197595625
      },
      {
       "event": "stream_closed",
       "stream": 1,
-      "t": 211472.680035166
+      "t": 215204.198715916
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215204.2365235
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211472.716893583
+      "t": 215204.239384666
      },
      {
-      "admit_ms": 0.226,
+      "admit_ms": 0.196,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -1848,81 +2073,76 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 2,
-      "t": 211472.716974833
+      "t": 215204.239458791
      },
      {
       "bytes": 20411,
       "event": "forwarded",
-      "gate_ms": 0.45,
+      "gate_ms": 0.394,
       "label": "A",
       "stream": 2,
-      "t": 211472.717196541
+      "t": 215204.239653625
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211472.71774375
+      "t": 215204.240032958
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211474.282797041
+      "t": 215205.8129785
      },
      {
       "closed": 0,
       "event": "controller",
       "kind": "latched",
       "reason": "monitor_eof",
-      "t": 211474.282968541
+      "t": 215205.8131215
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "monitor_eof",
-      "t": 211474.282997916
+      "t": 215205.8131465
      }
     ],
+    "gate_rows_total": 67,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211450.840303583,
+      "t": 215182.34448,
       "text": "codex-cli 0.166.0"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 53410,
-      "reserved": 19,
-      "t": 211450.847781
+      "port": 61915,
+      "reserved": 21,
+      "t": 215182.353353083
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211450.8529005
+      "t": 215182.358951666
      },
      {
       "event": "monitor_started",
-      "pid": 283,
-      "t": 211450.854361375
+      "pid": 6040,
+      "t": 215182.361057041
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 284,
-      "t": 211450.855940166
-     },
-     {
-      "event": "reader",
-      "ok": true,
-      "seconds": 0.092,
-      "t": 211451.053167958
+      "pid": 6041,
+      "t": 215182.362548541
      },
      {
       "event": "self_test",
-      "ms": 33.3,
+      "ms": 39.2,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -1930,114 +2150,121 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211451.086710166
+      "t": 215182.509725916
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.093,
+      "t": 215182.60246
      },
      {
       "event": "native_started",
-      "pid": 288,
-      "t": 211451.091989375
+      "pid": 6045,
+      "t": 215182.609066708
      },
      {
       "code": -9,
       "event": "gate_exited",
-      "t": 211453.565933833
+      "t": 215185.081019166
      },
      {
       "event": "said",
-      "t": 211453.566205791,
+      "t": 215185.081611958,
       "text": "Paused. Research F12 control requires a new typed confirmation."
      },
      {
       "event": "said",
-      "t": 211453.566261666,
+      "t": 215185.08222175,
       "text": "gate stopped; requests are refused until a restarted gate gets a fresh check"
      },
      {
       "event": "monitor_started",
-      "pid": 295,
-      "t": 211463.598848333
+      "pid": 6053,
+      "t": 215195.097205708
      },
      {
       "event": "gate_started",
       "mode": "restart",
-      "pid": 296,
-      "t": 211463.607049875
+      "pid": 6054,
+      "t": 215195.103624708
      },
      {
       "event": "gate_restarted",
       "ok": true,
       "reason": null,
-      "t": 211463.715117791
+      "t": 215195.208536875
      },
      {
       "event": "said",
-      "t": 211463.715205083,
+      "t": 215195.208616541,
       "text": "gate restarted paused; press F12 to request a fresh check"
      },
      {
       "event": "said",
-      "t": 211470.924806375,
-      "text": "Type 39010cfa then Enter to request a fresh quota check."
+      "t": 215202.45724625,
+      "text": "Type a8046ff3 then Enter to request a fresh quota check."
      },
      {
       "event": "continue_reply",
-      "ms": 0.5,
+      "ms": 0.8,
       "needs_read": true,
       "ok": true,
       "reason": "armed",
-      "t": 211471.335262791
+      "t": 215202.861601166
      },
      {
       "event": "reader",
       "ok": true,
-      "seconds": 0.076,
-      "t": 211471.411197125
+      "seconds": 0.063,
+      "t": 215202.924908041
      },
      {
       "event": "continue_status",
-      "ms": 76.7,
+      "ms": 64.4,
       "ok": true,
       "reason": null,
-      "t": 211471.411430916
+      "t": 215202.925120208
      },
      {
       "event": "granted",
-      "t": 211471.411453583
+      "t": 215202.925140875
      },
      {
       "event": "said",
-      "t": 211471.411484291,
+      "t": 215202.925164708,
       "text": "Fresh quota check passed; one healthy lease granted."
      },
      {
       "event": "said",
-      "t": 211471.41151925,
+      "t": 215202.925198291,
       "text": "quota reserve resumed after a fresh check"
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211474.281089583
+      "t": 215205.810866583
      },
      {
       "event": "launcher_exit",
-      "t": 211474.285706375
+      "t": 215205.815548041
      }
     ],
+    "launcher_rows_total": 24,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211450.874874208
+      "t": 215182.381860291
      },
      {
       "event": "monitor_started",
-      "t": 211463.649505833
+      "t": 215195.14968575
      }
     ],
     "poll_count": 28,
-    "poll_ms": 0.003,
-    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-gate-death/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-gd-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:12 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u001bM\u001bM\u001bM\u001bM \u203a Queued turn KM-gd-queued Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u2022 6 \u25e6 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:gate_restart); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53410/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 39010cfa then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-gd-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-gd-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt",
-    "terminal_tail": "O mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-gd-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:12 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u001bM\u001bM\u001bM\u001bM \u203a Queued turn KM-gd-queued Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u2022 6 \u25e6 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:gate_restart); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53410/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 39010cfa then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-gd-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-gd-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:13 \u203a Shutting down... To continue this session, run: codex resume 01a1d164-5310-7853-8722-d6f4b2fc794d "
+    "poll_ms": 0.004,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-gate-death/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-gd-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:18 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u001bM\u001bM\u001bM\u001bM \u203a Queued turn KM-gd-queued Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u2022 6 \u25e6 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:gate_restart); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61915/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type a8046ff3 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-gd-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-gd-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt",
+    "terminal_tail": "O mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-gd-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:18 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u001bM\u001bM\u001bM\u001bM \u203a Queued turn KM-gd-queued Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u2022 6 \u25e6 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:gate_restart); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61915/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type a8046ff3 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-gd-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-gd-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:18 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-2858-7791-92e8-cdc9cf1ceeb3 "
    },
    "upstream": [
     {
@@ -2045,70 +2272,70 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211451.047724625
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/accounts/check",
-     "t": 211451.047975458
+     "t": 215182.597203625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211451.048149958
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211451.378959583
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/codex/models",
-     "t": 211451.418806833
+     "t": 215182.597444083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211451.419508083
+     "t": 215182.597614458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211451.444623333
+     "t": 215182.889280791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215182.931267125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215182.931401833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/rate-limit-reset-credits",
-     "t": 211451.445040041
+     "t": 215182.957457625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211451.445623083
+     "t": 215182.957761708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215182.958176375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211451.485255666
+     "t": 215182.98947775
     },
     {
      "action": "text",
@@ -2121,7 +2348,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211451.495351291,
+     "t": 215182.997491583,
      "tool_output": null
     },
     {
@@ -2129,7 +2356,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211451.528565
+     "t": 215183.028252958
     },
     {
      "action": "text",
@@ -2142,7 +2369,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211451.531189291,
+     "t": 215183.030255375,
      "tool_output": null
     },
     {
@@ -2150,49 +2377,49 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211451.881761208
+     "t": 215183.394572125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211452.387749666
+     "t": 215183.896303541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211452.8876975
+     "t": 215184.427768208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211453.393883583
+     "t": 215184.904693
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211471.406945083
+     "t": 215202.921652416
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211471.703435125
+     "t": 215203.214787875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211472.205093875
+     "t": 215203.718644
     },
     {
      "action": "text",
@@ -2205,7 +2432,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211472.679627875,
+     "t": 215204.198388666,
      "tool_output": null
     },
     {
@@ -2213,14 +2440,14 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211472.709272708
+     "t": 215204.222270541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211472.714524791
+     "t": 215204.236353875
     },
     {
      "action": "text",
@@ -2233,7 +2460,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211472.717527,
+     "t": 215204.239894916,
      "tool_output": null
     },
     {
@@ -2241,26 +2468,26 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211473.214023458
+     "t": 215204.723364125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211473.724143958
+     "t": 215205.22754725
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211474.232972583
+     "t": 215205.730932958
     }
    ]
   },
   "codex-independent": {
-   "case_seconds": 19.1,
+   "case_seconds": 18.5,
    "exit": {
     "first": {
      "launcher_exit": 0,
@@ -2276,7 +2503,7 @@
     "native_started": true,
     "refused": []
    },
-   "first_latch_t": 211505.207560666,
+   "first_latch_t": 215236.118643625,
    "first_turn": {
     "decisions": [
      [
@@ -2293,7 +2520,7 @@
     "expect_ok": false,
     "forwarded": 0
    },
-   "outside_t": 211512.917037166,
+   "outside_t": 215243.8410815,
    "second": {
     "first_turn_forwarded": true,
     "native_started": true,
@@ -2315,7 +2542,7 @@
     "expect_ok": false,
     "forwarded": 0
    },
-   "second_latch_t": 211513.323657875,
+   "second_latch_t": 215243.975920916,
    "second_latched_at_80": null,
    "second_turn": {
     "decisions": [
@@ -2335,21 +2562,45 @@
    },
    "summary": {
     "first": {
-     "fetch_ms": 2.125,
+     "fetch_ms": 2.377,
      "gate_rows": [
       {
        "event": "preflight",
        "ms": 0.001,
        "reason": "awaiting_read",
-       "t": 211499.172159708
+       "t": 215230.622796875
       },
       {
        "event": "gate_ready",
        "listeners": 2,
        "mode": "startup",
-       "pid": 327,
-       "port": 53605,
-       "t": 211499.172584541
+       "pid": 6084,
+       "port": 62102,
+       "t": 215230.623269375
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215230.7855815
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215230.785702166
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215230.785799125
       },
       {
        "epoch": 1,
@@ -2361,24 +2612,72 @@
        "reason": null,
        "state": "open",
        "streams": 0,
-       "t": 211499.31548825
+       "t": 215230.789319666
       },
       {
        "event": "connect",
        "ok": false,
        "stream": null,
-       "t": 211499.796819958,
+       "t": 215231.126848791,
        "target": "raw.githubusercontent.com:443"
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215231.132686541
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215231.133352708
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/rate-limit-reset-credits",
+       "t": 215231.156119416
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215231.156384125
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215231.156579875
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215231.182003333
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 1,
-       "t": 211499.856996
+       "t": 215231.189107
       },
       {
-       "admit_ms": 0.389,
+       "admit_ms": 0.424,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2387,30 +2686,38 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 1,
-       "t": 211499.857096916
+       "t": 215231.189227416
       },
       {
        "bytes": 43839,
        "event": "forwarded",
-       "gate_ms": 0.688,
+       "gate_ms": 0.799,
        "label": "A",
        "stream": 1,
-       "t": 211499.857390958
+       "t": 215231.189599791
       },
       {
        "event": "stream_closed",
        "stream": 1,
-       "t": 211499.858138958
+       "t": 215231.190379208
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215231.223648333
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 2,
-       "t": 211499.892644375
+       "t": 215231.225776833
       },
       {
-       "admit_ms": 0.259,
+       "admit_ms": 0.211,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2419,33 +2726,33 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 2,
-       "t": 211499.892735875
+       "t": 215231.225849958
       },
       {
        "bytes": 20412,
        "event": "forwarded",
-       "gate_ms": 0.532,
+       "gate_ms": 0.462,
        "label": "A",
        "stream": 2,
-       "t": 211499.893004083
+       "t": 215231.226094958
       },
       {
        "event": "stream_closed",
        "stream": 2,
-       "t": 211499.893484333
+       "t": 215231.22645325
       },
       {
        "closed": 0,
        "event": "controller",
        "kind": "latched",
        "reason": "threshold:five_hour",
-       "t": 211505.207560666
+       "t": 215236.118643625
       },
       {
        "event": "notify",
        "op": "latched",
        "reason": "threshold:five_hour",
-       "t": 211505.207747875
+       "t": 215236.118875875
       },
       {
        "event": "read_refused",
@@ -2453,16 +2760,16 @@
        "lost": null,
        "path": "/backend-api/wham/settings/user",
        "paused": true,
-       "t": 211511.318794
+       "t": 215242.252535333
       },
       {
        "event": "controller",
        "kind": "refused",
        "reason": "paused:threshold:five_hour",
-       "t": 211511.330071916
+       "t": 215242.265378083
       },
       {
-       "admit_ms": 0.565,
+       "admit_ms": 0.723,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2471,7 +2778,7 @@
        "path": "/backend-api/codex/responses",
        "reason": "paused:threshold:five_hour",
        "stream": null,
-       "t": 211511.330237708
+       "t": 215242.265567041
       },
       {
        "event": "read_refused",
@@ -2479,7 +2786,7 @@
        "lost": null,
        "path": "/backend-api/codex/models",
        "paused": true,
-       "t": 211511.334394416
+       "t": 215242.2718475
       },
       {
        "event": "read_refused",
@@ -2487,16 +2794,16 @@
        "lost": null,
        "path": "/backend-api/wham/settings/user",
        "paused": true,
-       "t": 211511.367586208
+       "t": 215242.306771166
       },
       {
        "event": "controller",
        "kind": "refused",
        "reason": "paused:threshold:five_hour",
-       "t": 211511.369742083
+       "t": 215242.310150708
       },
       {
-       "admit_ms": 0.169,
+       "admit_ms": 0.324,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2505,55 +2812,50 @@
        "path": "/backend-api/codex/responses",
        "reason": "paused:threshold:five_hour",
        "stream": null,
-       "t": 211511.3698005
+       "t": 215242.310279083
       },
       {
        "event": "lost",
        "reason": "monitor_eof",
-       "t": 211516.207438125
+       "t": 215246.898674333
       }
      ],
+     "gate_rows_total": 32,
      "gate_stderr_tail": "",
      "launcher_rows": [
       {
        "event": "native_version",
-       "t": 211499.091617833,
+       "t": 215230.534003041,
        "text": "codex-cli 0.166.0"
       },
       {
        "event": "holder",
        "failed": [],
        "mode": "all",
-       "port": 53605,
-       "reserved": 19,
-       "t": 211499.101631666
+       "port": 62102,
+       "reserved": 21,
+       "t": 215230.543799458
       },
       {
        "event": "profile",
        "fs_rules": false,
        "lines": 23,
-       "t": 211499.107892416
+       "t": 215230.551029041
       },
       {
        "event": "monitor_started",
-       "pid": 326,
-       "t": 211499.110653291
+       "pid": 6083,
+       "t": 215230.553693375
       },
       {
        "event": "gate_started",
        "mode": "startup",
-       "pid": 327,
-       "t": 211499.112696
-      },
-      {
-       "event": "reader",
-       "ok": true,
-       "seconds": 0.091,
-       "t": 211499.315290791
+       "pid": 6084,
+       "t": 215230.555912166
       },
       {
        "event": "self_test",
-       "ms": 35.7,
+       "ms": 43.4,
        "ok": true,
        "result": {
         "bind": "errno:1",
@@ -2561,60 +2863,91 @@
         "other": "errno:1",
         "tiocsti": "errno:1"
        },
-       "t": 211499.351354958
+       "t": 215230.710040708
+      },
+      {
+       "event": "reader",
+       "ok": true,
+       "seconds": 0.079,
+       "t": 215230.789137291
       },
       {
        "event": "native_started",
-       "pid": 331,
-       "t": 211499.357343208
+       "pid": 6088,
+       "t": 215230.797009833
       },
       {
        "event": "said",
-       "t": 211505.210309458,
+       "t": 215236.119849583,
        "text": "Paused. Research F12 control requires a new typed confirmation."
       },
       {
        "event": "said",
-       "t": 211505.210466666,
+       "t": 215236.119966125,
        "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
       },
       {
        "code": 0,
        "event": "native_exit",
-       "t": 211516.205025791
+       "t": 215246.896986958
       },
       {
        "event": "launcher_exit",
-       "t": 211516.213427958
+       "t": 215246.903576541
       }
      ],
+     "launcher_rows_total": 12,
      "monitor_rows": [
       {
        "event": "monitor_started",
-       "t": 211499.136570958
+       "t": 215230.578852958
       }
      ],
-     "poll_count": 34,
-     "poll_ms": 2.296,
-     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind1-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 12:13 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind1-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind1-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53605/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d165-100e-7803-ba80-bbda94dd2881 ",
-     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind1-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 12:13 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind1-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind1-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53605/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d165-100e-7803-ba80-bbda94dd2881 "
+     "poll_count": 33,
+     "poll_ms": 2.622,
+     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind1-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind1-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind1-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62102/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-e4a0-75a2-b130-0aad23bbed21 ",
+     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind1-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind1-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind1-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62102/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-e4a0-75a2-b130-0aad23bbed21 "
     },
     "second": {
-     "fetch_ms": 2.331,
+     "fetch_ms": 2.319,
      "gate_rows": [
       {
        "event": "preflight",
        "ms": 0.001,
        "reason": "awaiting_read",
-       "t": 211502.196359416
+       "t": 215233.438540291
       },
       {
        "event": "gate_ready",
        "listeners": 2,
        "mode": "startup",
-       "pid": 346,
-       "port": 53647,
-       "t": 211502.196818833
+       "pid": 6093,
+       "port": 62136,
+       "t": 215233.439098708
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215233.581114791
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215233.581168625
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215233.581190416
       },
       {
        "epoch": 1,
@@ -2626,24 +2959,72 @@
        "reason": null,
        "state": "open",
        "streams": 0,
-       "t": 211502.280551416
+       "t": 215233.585169791
       },
       {
        "event": "connect",
        "ok": false,
        "stream": null,
-       "t": 211502.641435958,
+       "t": 215233.91718,
        "target": "raw.githubusercontent.com:443"
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215233.924353583
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215233.924697708
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/rate-limit-reset-credits",
+       "t": 215233.9470835
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215233.947502083
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "superseded",
+       "path": "/backend-api/wham/usage",
+       "t": 215233.94756775
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215233.970291375
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 1,
-       "t": 211502.72278125
+       "t": 215233.977142958
       },
       {
-       "admit_ms": 0.31,
+       "admit_ms": 0.321,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2652,30 +3033,38 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 1,
-       "t": 211502.722869958
+       "t": 215233.977234458
       },
       {
        "bytes": 43839,
        "event": "forwarded",
-       "gate_ms": 0.497,
+       "gate_ms": 0.597,
        "label": "A",
        "stream": 1,
-       "t": 211502.723055791
+       "t": 215233.977505791
       },
       {
        "event": "stream_closed",
        "stream": 1,
-       "t": 211502.723680875
+       "t": 215233.978135625
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215234.009821833
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 2,
-       "t": 211502.760133583
+       "t": 215234.011867708
       },
       {
-       "admit_ms": 0.356,
+       "admit_ms": 0.21,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2684,30 +3073,38 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 2,
-       "t": 211502.760277916
+       "t": 215234.011942708
       },
       {
        "bytes": 20412,
        "event": "forwarded",
-       "gate_ms": 0.685,
+       "gate_ms": 0.443,
        "label": "A",
        "stream": 2,
-       "t": 211502.760601375
+       "t": 215234.012173333
       },
       {
        "event": "stream_closed",
        "stream": 2,
-       "t": 211502.761315375
+       "t": 215234.012591
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215239.435332916
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 3,
-       "t": 211508.50627175
+       "t": 215239.4478325
       },
       {
-       "admit_ms": 0.689,
+       "admit_ms": 0.794,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2716,30 +3113,38 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 3,
-       "t": 211508.506442708
+       "t": 215239.448095291
       },
       {
        "bytes": 44081,
        "event": "forwarded",
-       "gate_ms": 1.095,
+       "gate_ms": 1.392,
        "label": "A",
        "stream": 3,
-       "t": 211508.506844333
+       "t": 215239.448689583
       },
       {
        "event": "stream_closed",
        "stream": 3,
-       "t": 211508.507748916
+       "t": 215239.450314875
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215239.490322541
       },
       {
        "epoch": 1,
        "event": "controller",
        "kind": "admitted",
        "stream": 4,
-       "t": 211508.553412041
+       "t": 215239.493712916
       },
       {
-       "admit_ms": 0.303,
+       "admit_ms": 0.289,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2748,33 +3153,33 @@
        "path": "/backend-api/codex/responses",
        "reason": "admitted",
        "stream": 4,
-       "t": 211508.553519166
+       "t": 215239.493799458
       },
       {
        "bytes": 20411,
        "event": "forwarded",
-       "gate_ms": 0.595,
+       "gate_ms": 0.535,
        "label": "A",
        "stream": 4,
-       "t": 211508.553807916
+       "t": 215239.494040583
       },
       {
        "event": "stream_closed",
        "stream": 4,
-       "t": 211508.554443375
+       "t": 215239.494541041
       },
       {
        "closed": 0,
        "event": "controller",
        "kind": "latched",
        "reason": "threshold:five_hour",
-       "t": 211513.323657875
+       "t": 215243.975920916
       },
       {
        "event": "notify",
        "op": "latched",
        "reason": "threshold:five_hour",
-       "t": 211513.32387675
+       "t": 215243.976106166
       },
       {
        "event": "read_refused",
@@ -2782,16 +3187,16 @@
        "lost": null,
        "path": "/backend-api/wham/settings/user",
        "paused": true,
-       "t": 211514.579053375
+       "t": 215245.281009291
       },
       {
        "event": "controller",
        "kind": "refused",
        "reason": "paused:threshold:five_hour",
-       "t": 211514.588993375
+       "t": 215245.293407708
       },
       {
-       "admit_ms": 0.472,
+       "admit_ms": 0.655,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2800,7 +3205,7 @@
        "path": "/backend-api/codex/responses",
        "reason": "paused:threshold:five_hour",
        "stream": null,
-       "t": 211514.589145625
+       "t": 215245.293595583
       },
       {
        "event": "read_refused",
@@ -2808,16 +3213,16 @@
        "lost": null,
        "path": "/backend-api/wham/settings/user",
        "paused": true,
-       "t": 211514.632619958
+       "t": 215245.334236791
       },
       {
        "event": "controller",
        "kind": "refused",
        "reason": "paused:threshold:five_hour",
-       "t": 211514.635522833
+       "t": 215245.337511958
       },
       {
-       "admit_ms": 0.342,
+       "admit_ms": 0.333,
        "child": false,
        "event": "decision",
        "label": "A",
@@ -2826,55 +3231,50 @@
        "path": "/backend-api/codex/responses",
        "reason": "paused:threshold:five_hour",
        "stream": null,
-       "t": 211514.635649041
+       "t": 215245.337635208
       },
       {
        "event": "lost",
        "reason": "monitor_eof",
-       "t": 211516.794304541
+       "t": 215247.482809875
       }
      ],
+     "gate_rows_total": 41,
      "gate_stderr_tail": "",
      "launcher_rows": [
       {
        "event": "native_version",
-       "t": 211502.085088291,
+       "t": 215233.360101041,
        "text": "codex-cli 0.166.0"
       },
       {
        "event": "holder",
        "failed": [],
        "mode": "all",
-       "port": 53647,
-       "reserved": 19,
-       "t": 211502.105814541
+       "port": 62136,
+       "reserved": 21,
+       "t": 215233.369421
       },
       {
        "event": "profile",
        "fs_rules": false,
        "lines": 23,
-       "t": 211502.113534166
+       "t": 215233.3761845
       },
       {
        "event": "monitor_started",
-       "pid": 345,
-       "t": 211502.118226875
+       "pid": 6092,
+       "t": 215233.378338291
       },
       {
        "event": "gate_started",
        "mode": "startup",
-       "pid": 346,
-       "t": 211502.122522291
-      },
-      {
-       "event": "reader",
-       "ok": true,
-       "seconds": 0.042,
-       "t": 211502.280321833
+       "pid": 6093,
+       "t": 215233.380308416
       },
       {
        "event": "self_test",
-       "ms": 36.9,
+       "ms": 45.3,
        "ok": true,
        "result": {
         "bind": "errno:1",
@@ -2882,43 +3282,50 @@
         "other": "errno:1",
         "tiocsti": "errno:1"
        },
-       "t": 211502.317552041
+       "t": 215233.536364541
+      },
+      {
+       "event": "reader",
+       "ok": true,
+       "seconds": 0.048,
+       "t": 215233.584958416
       },
       {
        "event": "native_started",
-       "pid": 353,
-       "t": 211502.324390791
+       "pid": 6097,
+       "t": 215233.592470666
       },
       {
        "event": "said",
-       "t": 211513.324790041,
+       "t": 215243.976844541,
        "text": "Paused. Research F12 control requires a new typed confirmation."
       },
       {
        "event": "said",
-       "t": 211513.324963458,
+       "t": 215243.976955625,
        "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
       },
       {
        "code": 0,
        "event": "native_exit",
-       "t": 211516.793674833
+       "t": 215247.482121416
       },
       {
        "event": "launcher_exit",
-       "t": 211516.796313791
+       "t": 215247.484585291
       }
      ],
+     "launcher_rows_total": 12,
      "monitor_rows": [
       {
        "event": "monitor_started",
-       "t": 211502.157863666
+       "t": 215233.403529
       }
      ],
-     "poll_count": 29,
-     "poll_ms": 2.426,
-     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind2-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:13 Turn KM-ind2-works \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-works Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:13 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53647/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d165-1b3c-7f70-ae13-3f1be29f1402 ",
-     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind2-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:13 Turn KM-ind2-works \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-works Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:13 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:53647/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d165-1b3c-7f70-ae13-3f1be29f1402 "
+     "poll_count": 28,
+     "poll_ms": 2.587,
+     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind2-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 13:19 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-ind2-works \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-works Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62136/backend-api/codex/responses \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-ef88-7162-8e41-57b81b59e357 ",
+     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind2-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 13:19 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-ind2-works \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-works Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62136/backend-api/codex/responses \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-ef88-7162-8e41-57b81b59e357 "
     }
    },
    "upstream": [
@@ -2927,70 +3334,70 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211499.3114615
+     "t": 215230.785310291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211499.311686083
+     "t": 215230.78555425
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211499.31185825
+     "t": 215230.785710708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211499.645159541
+     "t": 215231.086609833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211499.803457416
+     "t": 215231.1323505
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211499.803811333
+     "t": 215231.133220333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215231.155778625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/rate-limit-reset-credits",
-     "t": 211499.823655458
+     "t": 215231.156000833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211499.823952583
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211499.8253915
+     "t": 215231.156403958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211499.850284416
+     "t": 215231.181857791
     },
     {
      "action": "text",
@@ -3003,7 +3410,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211499.857939875,
+     "t": 215231.190144166,
      "tool_output": null
     },
     {
@@ -3011,7 +3418,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211499.89000475
+     "t": 215231.223544666
     },
     {
      "action": "text",
@@ -3024,7 +3431,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211499.893331791,
+     "t": 215231.226334083,
      "tool_output": null
     },
     {
@@ -3032,112 +3439,105 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211500.14842875
+     "t": 215231.5889795
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211500.652447833
+     "t": 215232.093461083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211501.163153875
+     "t": 215232.596680458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211501.669187458
+     "t": 215233.099034875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211502.171619708
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211502.276184625
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/codex/models",
-     "t": 211502.27636925
+     "t": 215233.580555083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211502.276558458
+     "t": 215233.580770791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211502.647938625
+     "t": 215233.580998416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.597721541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.909931291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215233.924040583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211502.649441291
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211502.666212333
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211502.675838916
+     "t": 215233.924536666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/rate-limit-reset-credits",
-     "t": 211502.68575475
+     "t": 215233.9467445
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211502.686077875
+     "t": 215233.946959208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211502.686286958
+     "t": 215233.947091166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211502.710997666
+     "t": 215233.970138625
     },
     {
      "action": "text",
@@ -3150,7 +3550,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211502.723518291,
+     "t": 215233.97793575,
      "tool_output": null
     },
     {
@@ -3158,7 +3558,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211502.75738525
+     "t": 215234.009700958
     },
     {
      "action": "text",
@@ -3171,7 +3571,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211502.761148666,
+     "t": 215234.012448666,
      "tool_output": null
     },
     {
@@ -3179,161 +3579,161 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211503.166897625
+     "t": 215234.099857708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211503.177782125
+     "t": 215234.414996208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211503.676638083
+     "t": 215234.605767208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211503.687111125
+     "t": 215234.920316375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211504.19024225
+     "t": 215235.10962825
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211504.193339666
+     "t": 215235.422847625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211504.695221291
+     "t": 215235.614695875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211504.699077458
+     "t": 215235.926743708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211505.204823
+     "t": 215236.117838333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211505.206826416
+     "t": 215236.432368916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211505.709205333
+     "t": 215236.622235916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211505.715241458
+     "t": 215236.937622458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211506.215820125
+     "t": 215237.12371425
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211506.22231525
+     "t": 215237.43754025
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211506.719775083
+     "t": 215237.626081333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211506.730668666
+     "t": 215237.94091275
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211507.228258791
+     "t": 215238.128474916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211507.237251416
+     "t": 215238.444633041
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211507.737309375
+     "t": 215238.630391875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211507.74737575
+     "t": 215238.9456425
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211508.2475695
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211508.256909875
+     "t": 215239.136081958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211508.495187708
+     "t": 215239.435097083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215239.449026875
     },
     {
      "action": "text",
@@ -3346,7 +3746,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211508.507502291,
+     "t": 215239.449977916,
      "tool_output": null
     },
     {
@@ -3354,7 +3754,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211508.550377583
+     "t": 215239.490061166
     },
     {
      "action": "text",
@@ -3367,7 +3767,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211508.554222041,
+     "t": 215239.494372666,
      "tool_output": null
     },
     {
@@ -3375,224 +3775,223 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211508.754152125
+     "t": 215239.640057416
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211508.762034833
+     "t": 215239.95058225
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211509.262660625
+     "t": 215240.144589416
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211509.271078541
+     "t": 215240.452538125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211509.770710958
+     "t": 215240.646118875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211509.77280575
+     "t": 215240.956208333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211510.274472166
+     "t": 215241.150021
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211510.278735166
+     "t": 215241.46016325
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211510.779353958
+     "t": 215241.652185625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211510.78744
+     "t": 215241.960428708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211511.286377875
+     "t": 215242.155206333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211511.2961565
+     "t": 215242.464694458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211511.788258375
+     "t": 215242.655430458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211511.803763916
+     "t": 215242.967161958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211512.291356083
+     "t": 215243.159336583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211512.308435875
+     "t": 215243.470982791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211512.799960916
+     "t": 215243.663935458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211512.81614575
+     "t": 215243.975502625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211513.299984583
+     "t": 215244.166750458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211513.323048958
+     "t": 215244.476614708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211513.807694875
+     "t": 215244.670803208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211513.832390958
+     "t": 215244.982407083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211514.314931375
+     "t": 215245.17507025
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211514.342936583
+     "t": 215245.487506583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211514.815955708
+     "t": 215245.67678075
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211514.852821666
+     "t": 215245.99221975
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211515.316319375
+     "t": 215246.181157083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211515.361671333
+     "t": 215246.49641
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211515.825844125
+     "t": 215246.682438916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211515.86933025
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211516.372529708
+     "t": 215246.995956125
     }
    ]
   }
  },
+ "clock": {
+  "mono_end": 215249.606714791,
+  "mono_start": 215181.725331416,
+  "wall_end": 1794518363.321695,
+  "wall_start": 1794518295.4401631
+ },
  "completed": true,
  "deadline_seconds": 700,
- "finished": "2026-11-12T20:14:02Z",
+ "finished": "2026-11-12T21:19:23Z",
  "host": {
   "arch": "arm64",
   "macos": "27.2"
@@ -3600,5 +3999,5 @@
  "leftover_processes_after": [],
  "leftover_processes_killed": [],
  "stage": "codex-resume",
- "started": "2026-11-12T20:12:54Z"
+ "started": "2026-11-12T21:18:15Z"
 }

@@ -11,7 +11,7 @@
  },
  "cases": {
   "codex-norefresh": {
-   "case_seconds": 54.7,
+   "case_seconds": 55.1,
    "connects": [
     [
      "auth.openai.com:443",
@@ -199,8 +199,8 @@
     "native_exit": 0
    },
    "first_turn_forwarded": true,
-   "latch_after_expiry_s": 5.74,
-   "latch_t": 211657.057683458,
+   "latch_after_expiry_s": 5.98,
+   "latch_t": 215396.146030833,
    "later": {
     "decisions_after": [
      [
@@ -218,71 +218,95 @@
    "native_alive": true,
    "native_started": true,
    "refused": [],
-   "revoked_t": 211651.314338833,
+   "revoked_t": 215390.166949958,
    "summary": {
-    "fetch_ms": 2.155,
+    "fetch_ms": 2.223,
     "gate_rows": [
      {
       "event": "preflight",
-      "ms": 0.002,
+      "ms": 0.001,
       "reason": "awaiting_read",
-      "t": 211606.498841333
+      "t": 215345.315978625
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 1026,
-      "port": 54250,
-      "t": 211606.499540041
+      "pid": 6581,
+      "port": 62760,
+      "t": 215345.316543708
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.550432583,
+      "t": 215345.443010916,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.5524945,
+      "t": 215345.444799791,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.586535416,
+      "t": 215345.4748525,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.592991291,
+      "t": 215345.480405666,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.593597,
+      "t": 215345.481381166,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.594356291,
+      "t": 215345.483263833,
       "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215345.483844125
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215345.484182583
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215345.484366875
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.597258416,
+      "t": 215345.484850291,
       "target": "auth.openai.com:443"
      },
      {
@@ -295,181 +319,236 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211606.600753666
+      "t": 215345.487907125
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.942742625,
+      "t": 215345.803688833,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.953149875,
+      "t": 215345.815050666,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.964826916,
+      "t": 215345.827672583,
       "target": "raw.githubusercontent.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.967348541,
+      "t": 215345.830554958,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.969535208,
+      "t": 215345.833451666,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.971737125,
+      "t": 215345.834730333,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.972680416,
+      "t": 215345.835796583,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215345.837006166
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215345.837694875
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215345.846020833,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.983917166,
+      "t": 215345.854136666,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.991691958,
+      "t": 215345.856054625,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.993471583,
+      "t": 215345.857583458,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.994177791,
+      "t": 215345.858807666,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215345.859341291
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215345.859729541
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215345.860276708
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215345.860508833,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.994986916,
+      "t": 215345.861201791,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.996964541,
+      "t": 215345.861888583,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.997510083,
+      "t": 215345.862858541,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211606.9989995,
+      "t": 215345.863476541,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.000323041,
+      "t": 215345.864054375,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.001524958,
+      "t": 215345.864635458,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.002428708,
+      "t": 215345.87610475,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.003191958,
+      "t": 215345.886102416,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215345.88722375
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215345.892954708,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.0125855,
+      "t": 215345.893724833,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.024013333,
+      "t": 215345.894389708,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.030776875,
+      "t": 215345.8950785,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.031487208,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211607.032098541,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211607.032696708,
+      "t": 215345.896237541,
       "target": "auth.openai.com:443"
      },
      {
@@ -477,10 +556,10 @@
       "event": "controller",
       "kind": "admitted",
       "stream": 1,
-      "t": 211607.033832458
+      "t": 215345.896655666
      },
      {
-      "admit_ms": 0.326,
+      "admit_ms": 0.319,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -489,110 +568,111 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 1,
-      "t": 211607.0339065
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211607.034013125,
-      "target": "auth.openai.com:443"
+      "t": 215345.896712833
      },
      {
       "bytes": 43831,
       "event": "forwarded",
-      "gate_ms": 0.644,
+      "gate_ms": 0.56,
       "label": "A",
       "stream": 1,
-      "t": 211607.034220125
+      "t": 215345.896950208
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215345.897408208,
+      "target": "auth.openai.com:443"
      },
      {
       "event": "stream_closed",
       "stream": 1,
-      "t": 211607.034933291
+      "t": 215345.897664666
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.03533575,
+      "t": 215345.924103416,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.061770208,
+      "t": 215345.925096291,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.063044,
+      "t": 215345.925787791,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.063745375,
+      "t": 215345.92642475,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.064261541,
+      "t": 215345.927040166,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.064732291,
+      "t": 215345.927577375,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.065215083,
+      "t": 215345.929318333,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215345.9305905
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215345.932022083,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.06691975,
+      "t": 215345.932637208,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.069468875,
+      "t": 215345.933184541,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211607.070030375,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211607.070545208,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211607.071061583,
+      "t": 215345.933636833,
       "target": "auth.openai.com:443"
      },
      {
@@ -600,10 +680,10 @@
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211607.071792291
+      "t": 215345.934317125
      },
      {
-      "admit_ms": 0.162,
+      "admit_ms": 0.138,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -612,163 +692,46 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 2,
-      "t": 211607.071837875
+      "t": 215345.934353333
      },
      {
       "bytes": 20410,
       "event": "forwarded",
-      "gate_ms": 0.356,
+      "gate_ms": 0.287,
       "label": "A",
       "stream": 2,
-      "t": 211607.072029833
+      "t": 215345.934500333
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211607.07240175
+      "t": 215345.934820208
      },
      {
       "closed": 0,
       "event": "controller",
       "kind": "latched",
       "reason": "stale",
-      "t": 211657.057683458
+      "t": 215396.146030833
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "stale",
-      "t": 211657.058150791
+      "t": 215396.14634625
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211658.345534583,
+      "t": 215397.524885416,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211658.358385083,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "read_refused",
-      "kind": "read",
-      "lost": null,
-      "path": "/backend-api/wham/settings/user",
-      "paused": true,
-      "t": 211658.359495541
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.370669333,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.371883541,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.373561208,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.374258041,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.37502075,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "controller",
-      "kind": "refused",
-      "reason": "paused:stale",
-      "t": 211658.376461208
-     },
-     {
-      "admit_ms": 0.499,
-      "child": false,
-      "event": "decision",
-      "label": "A",
-      "marker": "KM-nr-later",
-      "ok": false,
-      "path": "/backend-api/codex/responses",
-      "reason": "paused:stale",
-      "stream": null,
-      "t": 211658.376624291
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.376682916,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.404265708,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.405688291,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.406296583,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.406880083,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.407386041,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.407914666,
-      "target": "auth.openai.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211658.410329208,
+      "t": 215397.569964541,
       "target": "auth.openai.com:443"
      },
      {
@@ -777,44 +740,44 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211658.411492458
+      "t": 215397.571195
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211658.414133125,
+      "t": 215397.5858585,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211658.415093833,
+      "t": 215397.586593791,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211658.415807291,
+      "t": 215397.587272,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211658.41654925,
+      "t": 215397.587948541,
       "target": "auth.openai.com:443"
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:stale",
-      "t": 211658.41765225
+      "t": 215397.592331458
      },
      {
-      "admit_ms": 0.265,
+      "admit_ms": 0.336,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -823,55 +786,167 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:stale",
       "stream": null,
-      "t": 211658.417722666
+      "t": 215397.592411916
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.597804041,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.600081291,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.629350208,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.630961916,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.6315365,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.632100708,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.63261075,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.637190541,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.6387705,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 215397.639308041
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.641129208,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.641620375,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.642083125,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215397.64249375,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:stale",
+      "t": 215397.643537333
+     },
+     {
+      "admit_ms": 0.204,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-nr-later",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:stale",
+      "stream": null,
+      "t": 215397.643603
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211659.974616041
+      "t": 215399.175355833
      }
     ],
+    "gate_rows_total": 94,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211606.383823375,
+      "t": 215345.24086225,
       "text": "codex-cli 0.166.0"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 54250,
-      "reserved": 19,
-      "t": 211606.392209791
+      "port": 62760,
+      "reserved": 21,
+      "t": 215345.249331083
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211606.397822875
+      "t": 215345.255246375
      },
      {
       "event": "monitor_started",
-      "pid": 1025,
-      "t": 211606.400663333
+      "pid": 6580,
+      "t": 215345.257695833
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 1026,
-      "t": 211606.403170041
-     },
-     {
-      "event": "reader",
-      "ok": true,
-      "seconds": 0.082,
-      "t": 211606.600582625
+      "pid": 6581,
+      "t": 215345.259696958
      },
      {
       "event": "self_test",
-      "ms": 33.5,
+      "ms": 41.1,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -879,43 +954,50 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211606.634432583
+      "t": 215345.411341625
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.076,
+      "t": 215345.487769375
      },
      {
       "event": "native_started",
-      "pid": 1032,
-      "t": 211606.640240125
+      "pid": 6585,
+      "t": 215345.494500333
      },
      {
       "event": "said",
-      "t": 211657.059614666,
+      "t": 215396.149696541,
       "text": "Paused. Research F12 control requires a new typed confirmation."
      },
      {
       "event": "said",
-      "t": 211657.059855166,
+      "t": 215396.149917666,
       "text": "quota reserve paused (stale); press F12 to request a fresh check"
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211659.972495666
+      "t": 215399.174477416
      },
      {
       "event": "launcher_exit",
-      "t": 211659.980733916
+      "t": 215399.177277416
      }
     ],
+    "launcher_rows_total": 12,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211606.423956
+      "t": 215345.281414583
      }
     ],
-    "poll_count": 106,
-    "poll_ms": 2.416,
-    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-norefresh/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nr-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:15 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (stale); press F12 to request a fresh check Later turn KM-nr-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-nr-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:stale); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:54250/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d166-b2b2-7610-b9a3-352ea0f41cf1 ",
-    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-norefresh/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nr-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:15 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (stale); press F12 to request a fresh check Later turn KM-nr-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-nr-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:stale); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:54250/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d166-b2b2-7610-b9a3-352ea0f41cf1 "
+    "poll_count": 108,
+    "poll_ms": 2.464,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-norefresh/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nr-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:20 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (stale); press F12 to request a fresh check Later turn KM-nr-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-nr-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:stale); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62760/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a2-a4af-7072-bbd5-b4ee6a12bf06 ",
+    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-norefresh/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-norefresh/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-nr-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:20 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (stale); press F12 to request a fresh check Later turn KM-nr-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-nr-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:stale); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62760/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-norefresh/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a2-a4af-7072-bbd5-b4ee6a12bf06 "
    },
    "upstream": [
     {
@@ -923,70 +1005,70 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211606.596186791
+     "t": 215345.483678375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211606.5964245
+     "t": 215345.483879583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211606.596574458
+     "t": 215345.484309958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211606.934438625
+     "t": 215345.787889166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211606.973508333
+     "t": 215345.83667475
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211606.9741125
+     "t": 215345.837588791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/rate-limit-reset-credits",
-     "t": 211606.99567675
+     "t": 215345.859134333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211606.995949791
+     "t": 215345.859436166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211606.996253458
+     "t": 215345.860160875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211607.024952625
+     "t": 215345.887116791
     },
     {
      "action": "text",
@@ -999,7 +1081,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211607.034747458,
+     "t": 215345.897503916,
      "tool_output": null
     },
     {
@@ -1007,7 +1089,7 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211607.067970083
+     "t": 215345.930477916
     },
     {
      "action": "text",
@@ -1020,7 +1102,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211607.072284083,
+     "t": 215345.934702416,
      "tool_output": null
     },
     {
@@ -1028,739 +1110,753 @@
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211607.444290458
+     "t": 215346.2934945
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211607.952698791
+     "t": 215346.793346833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211608.459075541
+     "t": 215347.296911583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211608.966152125
+     "t": 215347.800270666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211609.470635375
+     "t": 215348.304934333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211609.977090916
+     "t": 215348.806240708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211610.486603833
+     "t": 215349.308339166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211610.990217541
+     "t": 215349.813047166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211611.497133041
+     "t": 215350.315388083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211612.004325625
+     "t": 215350.815986083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211612.514429958
+     "t": 215351.321421375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211613.0243165
+     "t": 215351.824691
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211613.532660541
+     "t": 215352.329795583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211614.040087208
+     "t": 215352.832996875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211614.548290708
+     "t": 215353.33744475
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211615.052741666
+     "t": 215353.841289
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211615.557123875
+     "t": 215354.343227416
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211616.065266833
+     "t": 215354.849233541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211616.573288041
+     "t": 215355.353411541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211617.078991708
+     "t": 215355.858103916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211617.588158291
+     "t": 215356.358818083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211618.090591708
+     "t": 215356.861713166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211618.593337083
+     "t": 215357.366642625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211619.099422708
+     "t": 215357.869253125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211619.60777875
+     "t": 215358.37189825
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211620.10761125
+     "t": 215358.874720083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211620.615535833
+     "t": 215359.377177875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211621.121266458
+     "t": 215359.876832833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211621.626790416
+     "t": 215360.37990225
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211622.129100333
+     "t": 215360.881009083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211622.637640041
+     "t": 215361.386141333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211623.145132083
+     "t": 215361.889891291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211623.64622325
+     "t": 215362.391254166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211624.154546791
+     "t": 215362.896838166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211624.663486541
+     "t": 215363.399172666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211625.17021675
+     "t": 215363.90411225
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211625.678014291
+     "t": 215364.409491041
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211626.181636208
+     "t": 215364.911598125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211626.684410083
+     "t": 215365.417253291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211627.19175725
+     "t": 215365.921208208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211627.695817625
+     "t": 215366.426185083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211628.2040655
+     "t": 215366.9270385
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211628.714152541
+     "t": 215367.431806375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211629.220996083
+     "t": 215367.936639125
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211629.728621083
+     "t": 215368.43790675
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211630.229316041
+     "t": 215368.942356458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211630.734157208
+     "t": 215369.445256333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211631.241249458
+     "t": 215369.950186166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211631.747077375
+     "t": 215370.450389583
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211632.256354833
+     "t": 215370.953298833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211632.764505083
+     "t": 215371.454048666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211633.272706708
+     "t": 215371.957851208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211633.781355541
+     "t": 215372.46335
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211634.28674225
+     "t": 215372.963591416
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211634.796892166
+     "t": 215373.464016458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211635.30589575
+     "t": 215373.968127708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211635.808506791
+     "t": 215374.471429458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211636.313568208
+     "t": 215374.97515175
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211636.821170166
+     "t": 215375.477742166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211637.329673583
+     "t": 215375.980642833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211637.835912958
+     "t": 215376.486118333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211638.34067675
+     "t": 215376.989904708
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211638.846242083
+     "t": 215377.492317625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211639.353754291
+     "t": 215377.993724375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211639.864046125
+     "t": 215378.49922425
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211640.370485875
+     "t": 215379.002695291
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211640.881086291
+     "t": 215379.507227958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211641.389475208
+     "t": 215380.008342541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211641.899891458
+     "t": 215380.510626541
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211642.404238583
+     "t": 215381.014839458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211642.90764875
+     "t": 215381.5179755
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211643.415555375
+     "t": 215382.022569166
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211643.925761958
+     "t": 215382.5275755
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211644.433830083
+     "t": 215383.031606958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211644.934270583
+     "t": 215383.535278041
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211645.440087333
+     "t": 215384.034873916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211645.947746
+     "t": 215384.537720625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211646.458229958
+     "t": 215385.041135875
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211646.966611125
+     "t": 215385.544046458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211647.47587525
+     "t": 215386.047565083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211647.983974041
+     "t": 215386.552600958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211648.488482791
+     "t": 215387.057348333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211648.99813425
+     "t": 215387.560616333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211649.505804458
+     "t": 215388.065209458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211650.01399175
+     "t": 215388.569355
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211650.523629458
+     "t": 215389.099577458
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211651.029107333
+     "t": 215389.601552041
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211651.535706333
+     "t": 215390.105550791
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211652.046298708
+     "t": 215390.60649675
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211652.556432208
+     "t": 215391.110918083
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211653.05979125
+     "t": 215391.613230625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211653.568429916
+     "t": 215392.116604958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211654.075812958
+     "t": 215392.621928416
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211654.582650208
+     "t": 215393.126574666
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211655.0919525
+     "t": 215393.631456375
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211655.599019916
+     "t": 215394.13655975
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211656.106821666
+     "t": 215394.639844833
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211656.608081291
+     "t": 215395.145272333
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211657.117706541
+     "t": 215395.650450958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211657.627045291
+     "t": 215396.152061208
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211658.136271333
+     "t": 215396.658759625
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211658.643186041
+     "t": 215397.161216958
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211659.153079
+     "t": 215397.6631715
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211659.658117083
+     "t": 215398.166436916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215398.667066416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215399.170083083
     }
    ]
   },
   "codex-prelaunch": {
-   "case_seconds": 2.5,
+   "case_seconds": 2.0,
    "runs": [
     {
      "command": "login status",
      "exit": 0,
      "refresh_requests": [],
-     "seconds": 0.11,
+     "seconds": 0.12,
      "stdout_tail": "",
      "store_label_after": "Pnear_expiry",
      "timed_out": false,
@@ -1777,14 +1873,14 @@
        "granted": true,
        "host": "auth.openai.com",
        "path": "/oauth/token",
-       "t": 211661.223004041
+       "t": 215400.480267125
       },
       {
        "event": "refresh_request",
        "granted": false,
        "host": "auth.openai.com",
        "path": "/oauth/token",
-       "t": 211661.329060708
+       "t": 215400.59751675
       }
      ],
      "result_keys": [
@@ -1800,7 +1896,7 @@
      "command": "login status",
      "exit": 0,
      "refresh_requests": [],
-     "seconds": 0.12,
+     "seconds": 0.1,
      "stdout_tail": "",
      "store_label_after": "Pexpired",
      "timed_out": false,
@@ -1817,14 +1913,14 @@
        "granted": true,
        "host": "auth.openai.com",
        "path": "/oauth/token",
-       "t": 211661.887828666
+       "t": 215401.123673666
       },
       {
        "event": "refresh_request",
        "granted": false,
        "host": "auth.openai.com",
        "path": "/oauth/token",
-       "t": 211661.967498416
+       "t": 215401.198891041
       }
      ],
      "result_keys": [
@@ -1832,7 +1928,7 @@
       "requiresOpenaiAuth",
       "workspaceRouting"
      ],
-     "seconds": 0.5,
+     "seconds": 0.49,
      "store_label_after": "Pexpired2",
      "variant": "expired"
     }
@@ -1841,27 +1937,31 @@
     {
      "method": "CONNECT",
      "ok": true,
+     "t": 215400.456365416,
      "target": "auth.openai.com:443"
     },
     {
      "method": "CONNECT",
      "ok": true,
+     "t": 215400.595699041,
      "target": "auth.openai.com:443"
     },
     {
      "method": "CONNECT",
      "ok": true,
+     "t": 215401.101223416,
      "target": "auth.openai.com:443"
     },
     {
      "method": "CONNECT",
      "ok": true,
+     "t": 215401.197415708,
      "target": "auth.openai.com:443"
     }
    ]
   },
   "codex-rotation": {
-   "case_seconds": 9.5,
+   "case_seconds": 10.0,
    "connect_open": {
     "code": 0,
     "seconds": 0.08,
@@ -1873,33 +1973,33 @@
     {
      "action": "connect",
      "phase": "open",
-     "pid": 1020,
+     "pid": 6563,
      "status": 200,
-     "t": 211599.216630791,
+     "t": 215337.598437416,
      "target": "auth.openai.com:443"
     },
     {
      "action": "connect",
      "phase": "open",
-     "pid": 1020,
+     "pid": 6563,
      "status": 403,
-     "t": 211599.21819825,
+     "t": 215337.599176083,
      "target": "api.anthropic.com:443"
     },
     {
      "action": "connect",
      "phase": "open",
-     "pid": 1020,
+     "pid": 6563,
      "status": 403,
-     "t": 211599.218725791,
+     "t": 215337.599769958,
      "target": "chatgpt.com:443"
     },
     {
      "action": "connect",
      "phase": "paused",
-     "pid": 1021,
+     "pid": 6571,
      "status": 403,
-     "t": 211602.164718958,
+     "t": 215340.62300525,
      "target": "auth.openai.com:443"
     }
    ],
@@ -1907,7 +2007,7 @@
     "launcher_exit": 0,
     "native_exit": 0
    },
-   "latch_t": 211600.06434275,
+   "latch_t": 215338.453698958,
    "later": {
     "decisions_after": [
      [
@@ -1947,207 +2047,238 @@
      "granted": true,
      "host": "auth.openai.com",
      "path": "/oauth/token",
-     "t": 211597.322145666
+     "t": 215335.751882833
     },
     {
      "error": "SSLEOFError",
      "event": "refresh_error",
-     "t": 211599.217023458
+     "t": 215337.598797625
     }
    ],
    "refreshed": true,
    "sdk_rows": [
     {
      "action": "detach_parent_exit",
-     "pid": 1017,
-     "t": 211598.048147583
+     "pid": 6560,
+     "t": 215336.4305815
+    },
+    {
+     "action": "sdk",
+     "ms": 3.6,
+     "n": 1,
+     "pid": 6562,
+     "role": "grandchild",
+     "status": 200,
+     "t": 215336.434648
     },
     {
      "action": "sdk",
      "ms": 3.9,
      "n": 1,
-     "pid": 1019,
+     "pid": 6561,
+     "role": "child",
+     "status": 200,
+     "t": 215336.434807041
+    },
+    {
+     "action": "sdk",
+     "ms": 13.9,
+     "n": 2,
+     "pid": 6561,
+     "role": "child",
+     "status": 200,
+     "t": 215337.450296458
+    },
+    {
+     "action": "sdk",
+     "ms": 13.7,
+     "n": 2,
+     "pid": 6562,
      "role": "grandchild",
      "status": 200,
-     "t": 211598.052534416
+     "t": 215337.450302791
+    },
+    {
+     "action": "sdk",
+     "ms": 3.7,
+     "n": 3,
+     "pid": 6561,
+     "role": "child",
+     "status": 503,
+     "t": 215338.455563833
+    },
+    {
+     "action": "sdk",
+     "ms": 3.7,
+     "n": 3,
+     "pid": 6562,
+     "role": "grandchild",
+     "status": 503,
+     "t": 215338.455575166
+    },
+    {
+     "action": "sdk",
+     "ms": 3.7,
+     "n": 4,
+     "pid": 6561,
+     "role": "child",
+     "status": 503,
+     "t": 215339.460070458
+    },
+    {
+     "action": "sdk",
+     "ms": 3.2,
+     "n": 4,
+     "pid": 6562,
+     "role": "grandchild",
+     "status": 503,
+     "t": 215339.460533958
     },
     {
      "action": "sdk",
      "ms": 4.2,
-     "n": 1,
-     "pid": 1018,
-     "role": "child",
-     "status": 200,
-     "t": 211598.0526825
+     "n": 5,
+     "pid": 6562,
+     "role": "grandchild",
+     "status": 503,
+     "t": 215340.466453708
     },
     {
      "action": "sdk",
      "ms": 5.1,
-     "n": 2,
-     "pid": 1018,
+     "n": 5,
+     "pid": 6561,
      "role": "child",
-     "status": 200,
-     "t": 211599.060273791
-    },
-    {
-     "action": "sdk",
-     "ms": 5.2,
-     "n": 2,
-     "pid": 1019,
-     "role": "grandchild",
-     "status": 200,
-     "t": 211599.060273
-    },
-    {
-     "action": "sdk",
-     "ms": 4.8,
-     "n": 3,
-     "pid": 1019,
-     "role": "grandchild",
      "status": 503,
-     "t": 211600.066638083
+     "t": 215340.467068541
     },
     {
      "action": "sdk",
      "ms": 4.4,
-     "n": 3,
-     "pid": 1018,
-     "role": "child",
-     "status": 503,
-     "t": 211600.066823166
-    },
-    {
-     "action": "sdk",
-     "ms": 3.0,
-     "n": 4,
-     "pid": 1018,
-     "role": "child",
-     "status": 503,
-     "t": 211601.071468375
-    },
-    {
-     "action": "sdk",
-     "ms": 2.7,
-     "n": 4,
-     "pid": 1019,
-     "role": "grandchild",
-     "status": 503,
-     "t": 211601.072048458
-    },
-    {
-     "action": "sdk",
-     "ms": 2.5,
-     "n": 5,
-     "pid": 1019,
-     "role": "grandchild",
-     "status": 503,
-     "t": 211602.075951083
-    },
-    {
-     "action": "sdk",
-     "ms": 2.2,
-     "n": 5,
-     "pid": 1018,
-     "role": "child",
-     "status": 503,
-     "t": 211602.076386208
-    },
-    {
-     "action": "sdk",
-     "ms": 2.3,
      "n": 6,
-     "pid": 1019,
+     "pid": 6562,
      "role": "grandchild",
      "status": 503,
-     "t": 211603.078968875
-    },
-    {
-     "action": "sdk",
-     "ms": 1.2,
-     "n": 6,
-     "pid": 1018,
-     "role": "child",
-     "status": 503,
-     "t": 211603.080118625
+     "t": 215341.472584666
     },
     {
      "action": "sdk",
      "ms": 3.9,
-     "n": 7,
-     "pid": 1019,
-     "role": "grandchild",
+     "n": 6,
+     "pid": 6561,
+     "role": "child",
      "status": 503,
-     "t": 211604.085672083
+     "t": 215341.472643208
     },
     {
      "action": "sdk",
-     "ms": 3.3,
+     "ms": 3.7,
      "n": 7,
-     "pid": 1018,
+     "pid": 6561,
      "role": "child",
      "status": 503,
-     "t": 211604.086109
+     "t": 215342.476962625
+    },
+    {
+     "action": "sdk",
+     "ms": 3.2,
+     "n": 7,
+     "pid": 6562,
+     "role": "grandchild",
+     "status": 503,
+     "t": 215342.477503333
     }
    ],
    "security_argv": {},
    "store_after_refresh": "A2",
    "summary": {
-    "fetch_ms": 2.337,
+    "fetch_ms": 2.195,
     "gate_rows": [
      {
       "event": "preflight",
       "ms": 0.001,
       "reason": "awaiting_read",
-      "t": 211596.833164625
+      "t": 215335.238145166
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 1010,
-      "port": 54165,
-      "t": 211596.833550125
+      "pid": 6553,
+      "port": 62659,
+      "t": 215335.238512916
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211596.978458375,
+      "t": 215335.362073708,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211597.034831125,
+      "t": 215335.415748125,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211597.125657875,
+      "t": 215335.503162916,
+      "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215335.512469
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215335.557300041,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211597.182552416,
+      "t": 215335.609187666,
       "target": "auth.openai.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211597.237038208,
+      "t": 215335.667046,
       "target": "auth.openai.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215335.6741
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215335.722769875
      },
      {
       "event": "connect",
       "ok": true,
       "stream": 1,
-      "t": 211597.298005375,
+      "t": 215335.728772791,
       "target": "auth.openai.com:443"
      },
      {
@@ -2155,7 +2286,7 @@
       "bytes_up": 2013,
       "event": "tunnel_closed",
       "stream": 1,
-      "t": 211597.322372208
+      "t": 215335.752109041
      },
      {
       "epoch": 1,
@@ -2167,24 +2298,72 @@
       "reason": null,
       "state": "open",
       "streams": 0,
-      "t": 211597.380108708
+      "t": 215335.808046125
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211597.821967541,
+      "t": 215336.217616291,
       "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A2",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215336.225212375
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A2",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215336.230568291
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A2",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215336.304401958
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A2",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215336.30467675
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A2",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215336.307103666
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A2",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215336.329625958
      },
      {
       "epoch": 2,
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211598.007735166
+      "t": 215336.390307291
      },
      {
-      "admit_ms": 0.28,
+      "admit_ms": 0.284,
       "child": false,
       "event": "decision",
       "label": "A2",
@@ -2193,30 +2372,38 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 2,
-      "t": 211598.007818375
+      "t": 215336.390382916
      },
      {
       "bytes": 43829,
       "event": "forwarded",
-      "gate_ms": 0.498,
+      "gate_ms": 0.482,
       "label": "A2",
       "stream": 2,
-      "t": 211598.008034625
+      "t": 215336.390578291
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211598.008535333
+      "t": 215336.391065333
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A2",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215336.422333166
      },
      {
       "epoch": 2,
       "event": "controller",
       "kind": "admitted",
       "stream": 3,
-      "t": 211598.051729458
+      "t": 215336.433785583
      },
      {
-      "admit_ms": 0.162,
+      "admit_ms": 0.154,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -2225,17 +2412,17 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 3,
-      "t": 211598.05184875
+      "t": 215336.433864916
      },
      {
       "epoch": 2,
       "event": "controller",
       "kind": "admitted",
       "stream": 4,
-      "t": 211598.051872291
+      "t": 215336.433963833
      },
      {
-      "admit_ms": 0.104,
+      "admit_ms": 0.062,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -2244,43 +2431,43 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 4,
-      "t": 211598.051922875
+      "t": 215336.434008875
      },
      {
       "bytes": 158,
       "event": "forwarded",
-      "gate_ms": 0.367,
+      "gate_ms": 0.433,
       "label": "A2",
       "stream": 3,
-      "t": 211598.052051291
+      "t": 215336.434142291
      },
      {
       "bytes": 153,
       "event": "forwarded",
-      "gate_ms": 0.292,
+      "gate_ms": 0.244,
       "label": "A2",
       "stream": 4,
-      "t": 211598.052109958
+      "t": 215336.43419075
      },
      {
       "event": "stream_closed",
       "stream": 3,
-      "t": 211598.05243025
+      "t": 215336.434488708
      },
      {
       "event": "stream_closed",
       "stream": 4,
-      "t": 211598.052598458
+      "t": 215336.434703708
      },
      {
       "epoch": 2,
       "event": "controller",
       "kind": "admitted",
       "stream": 5,
-      "t": 211598.098507458
+      "t": 215336.477969625
      },
      {
-      "admit_ms": 0.198,
+      "admit_ms": 0.146,
       "child": false,
       "event": "decision",
       "label": "A2",
@@ -2289,30 +2476,30 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 5,
-      "t": 211598.098580875
+      "t": 215336.478019625
      },
      {
       "bytes": 20411,
       "event": "forwarded",
-      "gate_ms": 0.383,
+      "gate_ms": 0.365,
       "label": "A2",
       "stream": 5,
-      "t": 211598.098763083
+      "t": 215336.478237375
      },
      {
       "event": "stream_closed",
       "stream": 5,
-      "t": 211598.099265916
+      "t": 215336.478587083
      },
      {
       "epoch": 2,
       "event": "controller",
       "kind": "admitted",
       "stream": 6,
-      "t": 211598.189098083
+      "t": 215336.564376458
      },
      {
-      "admit_ms": 0.219,
+      "admit_ms": 0.216,
       "child": false,
       "event": "decision",
       "label": "A2",
@@ -2321,30 +2508,30 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 6,
-      "t": 211598.18916375
+      "t": 215336.564435916
      },
      {
       "bytes": 44552,
       "event": "forwarded",
-      "gate_ms": 0.41,
+      "gate_ms": 0.484,
       "label": "A2",
       "stream": 6,
-      "t": 211598.189353166
+      "t": 215336.564703
      },
      {
       "event": "stream_closed",
       "stream": 6,
-      "t": 211598.18979575
+      "t": 215336.565139166
      },
      {
       "epoch": 2,
       "event": "controller",
       "kind": "admitted",
       "stream": 7,
-      "t": 211599.057108166
+      "t": 215337.43916125
      },
      {
-      "admit_ms": 0.43,
+      "admit_ms": 0.73,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -2353,17 +2540,17 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 7,
-      "t": 211599.057404333
+      "t": 215337.439688333
      },
      {
       "epoch": 2,
       "event": "controller",
       "kind": "admitted",
       "stream": 8,
-      "t": 211599.057626208
+      "t": 215337.440295041
      },
      {
-      "admit_ms": 0.095,
+      "admit_ms": 0.383,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -2372,39 +2559,39 @@
       "path": "/backend-api/codex/responses",
       "reason": "admitted",
       "stream": 8,
-      "t": 211599.057676541
-     },
-     {
-      "bytes": 153,
-      "event": "forwarded",
-      "gate_ms": 1.105,
-      "label": "A2",
-      "stream": 7,
-      "t": 211599.058074666
+      "t": 215337.440545416
      },
      {
       "bytes": 158,
       "event": "forwarded",
-      "gate_ms": 0.687,
+      "gate_ms": 2.0,
+      "label": "A2",
+      "stream": 7,
+      "t": 215337.440950041
+     },
+     {
+      "bytes": 153,
+      "event": "forwarded",
+      "gate_ms": 1.173,
       "label": "A2",
       "stream": 8,
-      "t": 211599.058268041
+      "t": 215337.441332541
      },
      {
       "event": "stream_closed",
       "stream": 7,
-      "t": 211599.059615083
+      "t": 215337.449375041
      },
      {
       "event": "stream_closed",
       "stream": 8,
-      "t": 211599.059866916
+      "t": 215337.449536
      },
      {
       "event": "connect",
       "ok": true,
       "stream": 9,
-      "t": 211599.215991208,
+      "t": 215337.59781925,
       "target": "auth.openai.com:443"
      },
      {
@@ -2412,20 +2599,20 @@
       "bytes_up": 0,
       "event": "tunnel_closed",
       "stream": 9,
-      "t": 211599.216600541
+      "t": 215337.598327166
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211599.218016458,
+      "t": 215337.599017583,
       "target": "api.anthropic.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211599.21853675,
+      "t": 215337.599601666,
       "target": "chatgpt.com:443"
      },
      {
@@ -2433,22 +2620,22 @@
       "event": "controller",
       "kind": "latched",
       "reason": "identity-changed",
-      "t": 211600.06434275
+      "t": 215338.453698958
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "identity-changed",
-      "t": 211600.064873083
+      "t": 215338.453954666
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211600.065420666
+      "t": 215338.454168125
      },
      {
-      "admit_ms": 1.397,
+      "admit_ms": 0.875,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2457,16 +2644,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211600.065596333
+      "t": 215338.454501333
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211600.065687833
+      "t": 215338.454577166
      },
      {
-      "admit_ms": 0.795,
+      "admit_ms": 0.397,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2475,16 +2662,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211600.06604525
+      "t": 215338.454817166
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211601.070141875
+      "t": 215339.458596833
      },
      {
-      "admit_ms": 0.394,
+      "admit_ms": 0.321,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2493,16 +2680,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211601.070466375
+      "t": 215339.45884275
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211601.070692625
+      "t": 215339.459387083
      },
      {
-      "admit_ms": 0.373,
+      "admit_ms": 0.328,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2511,16 +2698,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211601.071041833
+      "t": 215339.4596325
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211602.074820458
+      "t": 215340.464568
      },
      {
-      "admit_ms": 0.284,
+      "admit_ms": 1.051,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2529,16 +2716,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211602.075038375
+      "t": 215340.465488791
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211602.075226291
+      "t": 215340.46555325
      },
      {
-      "admit_ms": 0.387,
+      "admit_ms": 0.574,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2547,23 +2734,23 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211602.075584541
+      "t": 215340.465930583
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211602.16444025,
+      "t": 215340.622734166,
       "target": "auth.openai.com:443"
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211603.078529208
+      "t": 215341.470873375
      },
      {
-      "admit_ms": 0.181,
+      "admit_ms": 0.425,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2572,16 +2759,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211603.078652583
+      "t": 215341.471241666
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211603.079566375
+      "t": 215341.47224
      },
      {
-      "admit_ms": 0.144,
+      "admit_ms": 0.169,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2590,7 +2777,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211603.079675708
+      "t": 215341.472361333
      },
      {
       "event": "read_refused",
@@ -2598,16 +2785,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211603.477385708
+      "t": 215341.935221458
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:awaiting-continuation",
-      "t": 211603.540982708
+      "t": 215341.997111958
      },
      {
-      "admit_ms": 0.297,
+      "admit_ms": 0.345,
       "child": false,
       "event": "decision",
       "label": "A2",
@@ -2616,7 +2803,7 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:awaiting-continuation",
       "stream": null,
-      "t": 211603.541074625
+      "t": 215341.997228208
      },
      {
       "event": "read_refused",
@@ -2624,16 +2811,16 @@
       "lost": null,
       "path": "/backend-api/wham/settings/user",
       "paused": true,
-      "t": 211603.576650916
+      "t": 215342.02632025
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused:awaiting-continuation",
-      "t": 211603.634431916
+      "t": 215342.080440125
      },
      {
-      "admit_ms": 0.183,
+      "admit_ms": 0.168,
       "child": false,
       "event": "decision",
       "label": "A2",
@@ -2642,16 +2829,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "paused:awaiting-continuation",
       "stream": null,
-      "t": 211603.634508208
+      "t": 215342.080502041
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211604.083927666
+      "t": 215342.475475791
      },
      {
-      "admit_ms": 0.481,
+      "admit_ms": 0.441,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2660,16 +2847,16 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211604.084338833
+      "t": 215342.4758425
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "identity-changed",
-      "t": 211604.084633333
+      "t": 215342.476368666
      },
      {
-      "admit_ms": 0.482,
+      "admit_ms": 0.237,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -2678,55 +2865,50 @@
       "path": "/backend-api/codex/responses",
       "reason": "identity-changed",
       "stream": null,
-      "t": 211604.085069458
+      "t": 215342.47656875
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211604.913480083
+      "t": 215343.3621055
      }
     ],
+    "gate_rows_total": 84,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211596.759555208,
+      "t": 215335.174366375,
       "text": "codex-cli 0.166.0"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 54165,
-      "reserved": 19,
-      "t": 211596.767241833
+      "port": 62659,
+      "reserved": 21,
+      "t": 215335.1811635
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211596.77236875
+      "t": 215335.186539208
      },
      {
       "event": "monitor_started",
-      "pid": 1009,
-      "t": 211596.7741275
+      "pid": 6552,
+      "t": 215335.18809275
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 1010,
-      "t": 211596.775759916
-     },
-     {
-      "event": "reader",
-      "ok": true,
-      "seconds": 0.5,
-      "t": 211597.379979333
+      "pid": 6553,
+      "t": 215335.189690458
      },
      {
       "event": "self_test",
-      "ms": 32.4,
+      "ms": 30.4,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -2734,122 +2916,129 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211597.412566
+      "t": 215335.275190583
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.533,
+      "t": 215335.8079165
      },
      {
       "event": "native_started",
-      "pid": 1014,
-      "t": 211597.418426875
+      "pid": 6557,
+      "t": 215335.814398208
      },
      {
       "event": "said",
-      "t": 211600.066279166,
+      "t": 215338.454774208,
       "text": "Paused. Research F12 control requires a new typed confirmation."
      },
      {
       "event": "said",
-      "t": 211600.066429916,
+      "t": 215338.454963041,
       "text": "quota reserve paused (identity-changed); press F12 to request a fresh check"
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211604.911501708
+      "t": 215343.360555583
      },
      {
       "event": "launcher_exit",
-      "t": 211604.91911475
+      "t": 215343.364735125
      }
     ],
+    "launcher_rows_total": 12,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211596.796094291
+      "t": 215335.20669875
      }
     ],
-    "poll_count": 16,
-    "poll_ms": 2.552,
-    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-rotation/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-rot-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-rotation/child-rot.json' detach \u2502 '<root>/cases/codex-rotation/out/sdk.jsonl' ; echo km-tool-done \u2514 km-tool-done \u001bM\u001bM \u2022 KM fixture reply after tool \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:15 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (identity-changed); press F12 to request a fresh check Later turn KM-rot-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-rot-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:awaiting-continuation); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:54165/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d166-8efc-7411-b80b-9d771f1c72e2 ",
-    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-rotation/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-rot-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-rotation/child-rot.json' detach \u2502 '<root>/cases/codex-rotation/out/sdk.jsonl' ; echo km-tool-done \u2514 km-tool-done \u001bM\u001bM \u2022 KM fixture reply after tool \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 12:15 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (identity-changed); press F12 to request a fresh check Later turn KM-rot-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-rot-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:awaiting-continuation); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:54165/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d166-8efc-7411-b80b-9d771f1c72e2 "
+    "poll_count": 17,
+    "poll_ms": 2.326,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-rotation/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-rot-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-rotation/child-rot.json' detach \u2502 '<root>/cases/codex-rotation/out/sdk.jsonl' ; echo km-tool-done \u2514 km-tool-done \u001bM\u001bM \u2022 KM fixture reply after tool \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:20 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (identity-changed); press F12 to request a fresh check Later turn KM-rot-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-rot-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:awaiting-continuation); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62659/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a2-7f25-7ae1-864b-5f9db5865e53 ",
+    "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-rotation/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-rotation/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-rot-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u00b7 1 background terminal running \u00b7 /ps to view \u00b7 /stop to close \u001bM\u001bM\u001bM\u001bM\u001bM \u2022 Ran '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' - I - B '/ \u2502 private<root>/km/child.py' '<root>/cases/codex-rotation/child-rot.json' detach \u2502 '<root>/cases/codex-rotation/out/sdk.jsonl' ; echo km-tool-done \u2514 km-tool-done \u001bM\u001bM \u2022 KM fixture reply after tool \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:20 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (identity-changed); press F12 to request a fresh check Later turn KM-rot-later \u001bM\u001bM\u001bM\u001bM \u203a Later turn KM-rot-later Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:awaiting-continuation); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62659/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-rotation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a2-7f25-7ae1-864b-5f9db5865e53 "
    },
-   "swap_t": 211599.223664875,
+   "swap_t": 215337.60414025,
    "upstream": [
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211597.137233
+     "t": 215335.512350916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211597.293858791
+     "t": 215335.673865916
     },
     {
      "bytes": 0,
      "label": "A",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211597.303075
+     "t": 215335.712134125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215335.722667833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215336.215776291
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/codex/models",
-     "t": 211597.376950333
-    },
-    {
-     "bytes": 0,
-     "label": "A",
-     "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "t": 211597.810759666
-    },
-    {
-     "bytes": 0,
-     "label": "A2",
-     "method": "GET",
-     "path": "/backend-api/codex/models",
-     "t": 211597.829130791
+     "t": 215336.225115583
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
-     "t": 211597.834316958
+     "t": 215336.2304905
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/rate-limit-reset-credits",
-     "t": 211597.911889958
+     "t": 215336.304293875
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211597.9121175
+     "t": 215336.30448775
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211597.915297125
+     "t": 215336.306983708
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211597.942125083
+     "t": 215336.329536666
     },
     {
      "action": "tool",
@@ -2862,7 +3051,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211598.008398916,
+     "t": 215336.390922708,
      "tool_output": null
     },
     {
@@ -2870,7 +3059,7 @@
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/settings/user",
-     "t": 211598.041762541
+     "t": 215336.422234541
     },
     {
      "action": "text",
@@ -2883,7 +3072,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211598.052299791,
+     "t": 215336.434337291,
      "tool_output": null
     },
     {
@@ -2897,7 +3086,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211598.052519916,
+     "t": 215336.434560625,
      "tool_output": null
     },
     {
@@ -2911,7 +3100,7 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211598.099116625,
+     "t": 215336.478455041,
      "tool_output": null
     },
     {
@@ -2925,36 +3114,22 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211598.189672625,
-     "tool_output": "Chunk ID: 0c56e5\nWall time: 0.0528 seconds\nProcess exited with code 0\nOriginal token count: 4\nOutput:\nkm-tool-done\n"
+     "t": 215336.56499,
+     "tool_output": "Chunk ID: 32c7bc\nWall time: 0.0512 seconds\nProcess exited with code 0\nOriginal token count: 4\nOutput:\nkm-tool-done\n"
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211598.320761958
+     "t": 215336.721369833
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211598.822660541
-    },
-    {
-     "action": "text",
-     "bytes": 153,
-     "kind": "turn",
-     "label": "A2",
-     "main": false,
-     "marker": null,
-     "method": "POST",
-     "model": "gpt-5.4",
-     "path": "/backend-api/codex/responses",
-     "provider": "codex",
-     "t": 211599.058704333,
-     "tool_output": null
+     "t": 215337.233756583
     },
     {
      "action": "text",
@@ -2967,7 +3142,21 @@
      "model": "gpt-5.4",
      "path": "/backend-api/codex/responses",
      "provider": "codex",
-     "t": 211599.059256541,
+     "t": 215337.441919916,
+     "tool_output": null
+    },
+    {
+     "action": "text",
+     "bytes": 153,
+     "kind": "turn",
+     "label": "A2",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215337.449096833,
      "tool_output": null
     },
     {
@@ -2975,89 +3164,102 @@
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211599.328163958
+     "t": 215337.73252825
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211599.834905791
+     "t": 215338.23819175
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211600.344289125
+     "t": 215338.742878708
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211600.854282875
+     "t": 215339.248091291
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211601.361559291
+     "t": 215339.750040166
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211601.869467
+     "t": 215340.2548655
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211602.379571291
+     "t": 215340.760317
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211602.889370083
+     "t": 215341.263684041
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211603.397555041
+     "t": 215341.766152875
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211603.904277916
+     "t": 215342.269649125
     },
     {
      "bytes": 0,
      "label": "A2",
      "method": "GET",
      "path": "/backend-api/wham/usage",
-     "t": 211604.412904333
+     "t": 215342.773512458
+    },
+    {
+     "bytes": 0,
+     "label": "A2",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215343.275679541
     }
    ],
    "upstream_usage_labels": {
     "A": 3,
-    "A2": 15
+    "A2": 16
    },
    "usage_labels": null
   }
  },
+ "clock": {
+  "mono_end": 215402.870136833,
+  "mono_start": 215334.7088445,
+  "wall_end": 1794518516.585461,
+  "wall_start": 1794518448.424017
+ },
  "completed": true,
  "deadline_seconds": 600,
- "finished": "2026-11-12T20:16:28Z",
+ "finished": "2026-11-12T21:21:56Z",
  "host": {
   "arch": "arm64",
   "macos": "27.2"
@@ -3065,5 +3267,5 @@
  "leftover_processes_after": [],
  "leftover_processes_killed": [],
  "stage": "codex-refresh",
- "started": "2026-11-12T20:15:20Z"
+ "started": "2026-11-12T21:20:48Z"
 }

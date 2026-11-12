@@ -1,6 +1,7 @@
 """Linux-side driver for the KM macOS composed probes (research only).
 
 python3 -I -B run.py [--dev] [--only CASE,CASE] init|STAGE...|cleanup
+python3 -I -B run.py claude-tmp-cleanup /tmp/quota-km-XXXXXX
 
 `init` creates one remote temp root with mktemp (or reuses the recorded one) and records it in
 the ignored worktree cache (.cache/km/remote.json and temp-roots.txt). Each STAGE copies the KM
@@ -8,8 +9,12 @@ probes and the read-only F1 modules they import (nm, qc, qx, pc_continue) to ROO
 runs mac_probe.py there under a remote stage deadline and a local ssh timeout 90 s longer,
 copies ROOT/out/STAGE.json back to .cache/km/raw/, and writes sanitized evidence to
 evidence/STAGE.json. --dev (and --only) write to .cache/km/dev/ instead, so development runs
-never replace committed evidence. `cleanup` checks for leftover processes naming ROOT, then
-removes ROOT. The Mac host alias, remote username and home never enter tracked files.
+never replace committed evidence. `cleanup` checks for leftover processes naming ROOT, removes
+the entries Claude's Bash tool made for this root in its fixed per-uid temp directory
+(/private/tmp/claude-<uid>/<cwd slug>, which ignores TMPDIR; only names that start with this
+root's slug, after lsof shows no process using them), then removes ROOT; `claude-tmp-cleanup`
+does the first part for an earlier, already removed root. The Mac host alias, remote username
+and home never enter tracked files.
 """
 import json
 import os
@@ -33,10 +38,29 @@ STAGES = {'claude-loss': 600, 'codex-loss': 600, 'claude-resume': 700, 'codex-re
           'claude-refresh': 600, 'codex-refresh': 600, 'claude-tools': 600, 'codex-tools': 600,
           'refusals': 900, 'portmatrix': 180, 'proxy': 300}
 ROOT_PATTERN = re.compile(r'^/tmp/quota-km-[A-Za-z0-9]{6}$')
+CLAUDE_TMP = re.compile(r'^/private/tmp/claude-[0-9]+/(-private-tmp-quota-km-[A-Za-z0-9]{6})(-[A-Za-z0-9._-]+)?$')
 
 
 def root_ok(path):
     return bool(ROOT_PATTERN.match(path or ''))
+
+
+def claude_tmp_slug(root):
+    """Claude names its per-cwd temp entries after the realpath of the cwd, '/' -> '-'."""
+    if not root_ok(root):
+        raise ValueError('not a KM root')
+    return ('/private' + root).replace('/', '-')
+
+
+def claude_tmp_entries(root, listing):
+    """Only entries for cwds at or under this root: the exact slug, or the slug plus '-...'."""
+    slug = claude_tmp_slug(root)
+    found = []
+    for line in listing.splitlines():
+        match = CLAUDE_TMP.match(line.strip())
+        if match and match.group(1) == slug:
+            found.append(line.strip())
+    return found
 
 
 def replacements(root, home, user, uid=None):
@@ -46,7 +70,8 @@ def replacements(root, home, user, uid=None):
     local_home = os.path.expanduser('~')
     slug = ('/private' + root).replace('/', '-')  # Claude names project dirs after the cwd
     mapping = {'/private' + root: '<root>', root: '<root>', slug: '-<root-slug>', home: '<home>', user: '<user>',
-               local_home: '<local-home>'}
+               local_home: '<local-home>',
+               root.rsplit('/', 1)[1]: '<root-name>'}  # a TUI may wrap a path across lines
     if uid and uid.isdigit():
         mapping['/claude-%s/' % uid] = '/claude-<uid>/'  # Claude's fixed per-uid temp directory
         mapping['/claude-%s"' % uid] = '/claude-<uid>"'
@@ -112,8 +137,7 @@ def init():
         raise SystemExit('unexpected remote root')
     current = {'root': root, 'created': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
     save_state(current)
-    with (CACHE / 'temp-roots.txt').open('a') as handle:
-        handle.write('mac:%s created %s (run.py)\n' % (root, current['created']))
+    record('mac:%s created %s (run.py)' % (root, current['created']))
     return current
 
 
@@ -156,6 +180,40 @@ def run_stage(stage, dev=False, only=None):
                       'cases': {k: ('error' if 'error' in v else 'ok') for k, v in clean.get('cases', {}).items()}}))
 
 
+def record(line):
+    CACHE.mkdir(parents=True, exist_ok=True)
+    with (CACHE / 'temp-roots.txt').open('a') as handle:
+        handle.write(line + '\n')
+
+
+def claude_tmp_cleanup(root):
+    """Remove the KM-created entries in Claude's fixed per-uid temp directory for ROOT only."""
+    slug = claude_tmp_slug(root)
+    lister = ('for d in /private/tmp/claude-"$(id -u)"/%s /private/tmp/claude-"$(id -u)"/%s-*; do '
+              '[ -e "$d" ] && printf "%%s\\n" "$d"; done; exit 0') % (slug, slug)
+    entries = claude_tmp_entries(root, ssh('/bin/sh -c %s' % shlex.quote(lister), 30).stdout)
+    stamp = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    if not entries:
+        record('mac:/private/tmp/claude-<uid>/%s* none present %s' % (slug, stamp))
+        print('no claude temp entries for', root)
+        return []
+    quoted = ' '.join(shlex.quote(e) for e in entries)
+    busy = ssh('/bin/sh -c %s' % shlex.quote('for d in %s; do /usr/sbin/lsof -t +D "$d" 2>/dev/null; done; exit 0'
+                                             % quoted), 120).stdout.strip()
+    ps = ssh('/bin/ps -axo pid=,command= | /usr/bin/grep -F %s | /usr/bin/grep -v grep || true' % root, 30).stdout
+    if busy or ps.strip():
+        raise SystemExit('claude temp entries for %s are in use; not removing' % root)
+    ssh('/bin/rm -rf -- %s' % quoted, 60)
+    left = claude_tmp_entries(root, ssh('/bin/sh -c %s' % shlex.quote(lister), 30).stdout)
+    if left:
+        raise SystemExit('claude temp entries not removed: %d left' % len(left))
+    names = [e.rsplit('/', 1)[1] for e in entries]
+    record('mac:/private/tmp/claude-<uid>/{%s} removed %s (Claude Bash tool entries; lsof: none in use)'
+           % (','.join(names), stamp))
+    print('removed %d claude temp entries for %s' % (len(entries), root))
+    return names
+
+
 def cleanup():
     current = state()
     root = current.get('root')
@@ -165,13 +223,13 @@ def cleanup():
     ps = ssh('/bin/ps -axo pid=,command= | /usr/bin/grep -F %s | /usr/bin/grep -v grep || true' % root, 30)
     if ps.stdout.strip():
         raise SystemExit('leftover processes name the remote root; not removing:\n' + ps.stdout)
+    claude_tmp_cleanup(root)
     removed = ssh('rm -rf %s && test ! -e %s && echo removed' % (root, root), 60).stdout.strip()
     if removed != 'removed':
         raise SystemExit('remote root not removed')
     current['removed'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     save_state(current)
-    with (CACHE / 'temp-roots.txt').open('a') as handle:
-        handle.write('mac:%s removed %s (no leftover processes)\n' % (root, current['removed']))
+    record('mac:%s removed %s (no leftover processes)' % (root, current['removed']))
     print('removed')
 
 
@@ -184,6 +242,9 @@ def main():
         args.remove('--only')
         args.remove(only)
         dev = True
+    if args[:1] == ['claude-tmp-cleanup'] and len(args) == 2:
+        claude_tmp_cleanup(args[1])
+        return
     for arg in args:
         if arg == '--dev':
             continue

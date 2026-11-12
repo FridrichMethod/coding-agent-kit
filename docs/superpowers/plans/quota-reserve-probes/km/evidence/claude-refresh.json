@@ -11,22 +11,18 @@
  },
  "cases": {
   "claude-norefresh": {
-   "case_seconds": 50.4,
+   "case_seconds": 50.0,
    "connects": [
-    [
-     "platform.claude.com:443",
-     false
-    ],
     [
      "downloads.claude.ai:443",
      false
     ],
     [
-     "api.anthropic.com:443",
+     "platform.claude.com:443",
      false
     ],
     [
-     "platform.claude.com:443",
+     "api.anthropic.com:443",
      false
     ],
     [
@@ -39,8 +35,8 @@
     "native_exit": 0
    },
    "first_turn_forwarded": true,
-   "latch_after_expiry_s": 0.26,
-   "latch_t": 211580.498382833,
+   "latch_after_expiry_s": 0.38,
+   "latch_t": 215317.238194375,
    "later": {
     "decisions_after": [
      [
@@ -54,75 +50,54 @@
    "native_alive": true,
    "native_started": true,
    "refused": [],
-   "revoked_t": 211580.237939625,
+   "revoked_t": 215316.8552435,
    "summary": {
-    "fetch_ms": 2.319,
+    "fetch_ms": 2.297,
     "gate_rows": [
      {
       "cause": "startup",
       "epoch": 1,
       "event": "controller",
       "kind": "lease",
-      "t": 211535.374618625
+      "t": 215271.956926416
      },
      {
       "event": "preflight",
-      "ms": 3.313,
+      "ms": 2.716,
       "reason": "startup_ok",
-      "t": 211535.374635625
+      "t": 215271.956942541
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 668,
-      "port": 53843,
-      "t": 211535.374904458
+      "pid": 6327,
+      "port": 62340,
+      "t": 215271.957185
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211535.835598041,
-      "target": "platform.claude.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211535.944567083,
+      "t": 215272.50859175,
       "target": "downloads.claude.ai:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211535.950507625,
-      "target": "api.anthropic.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211536.018614416,
+      "t": 215272.521255666,
       "target": "platform.claude.com:443"
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211536.031703625,
-      "target": "github.com:443"
      },
      {
       "epoch": 1,
       "event": "controller",
       "kind": "admitted",
       "stream": 1,
-      "t": 211536.044311208
+      "t": 215272.612981291
      },
      {
-      "admit_ms": 0.277,
+      "admit_ms": 1.048,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -131,20 +106,34 @@
       "path": "/v1/messages",
       "reason": "admitted",
       "stream": 1,
-      "t": 211536.044395541
+      "t": 215272.613644416
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215272.61372875,
+      "target": "api.anthropic.com:443"
      },
      {
       "bytes": 43326,
       "event": "forwarded",
-      "gate_ms": 0.442,
+      "gate_ms": 1.559,
       "label": "A",
       "stream": 1,
-      "t": 211536.0445585
+      "t": 215272.614156583
      },
      {
       "event": "stream_closed",
       "stream": 1,
-      "t": 211536.045098125
+      "t": 215272.61814425
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215272.69074175,
+      "target": "github.com:443"
      },
      {
       "closed": 0,
@@ -152,30 +141,30 @@
       "kind": "latched",
       "reason": "server_identity_unavailable",
       "state": "paused",
-      "t": 211580.498382833
+      "t": 215317.238194375
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "server_identity_unavailable",
       "state": "paused",
-      "t": 211580.498489833
+      "t": 215317.238348541
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211581.900875708,
+      "t": 215318.608085708,
       "target": "platform.claude.com:443"
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211581.929969375
+      "t": 215318.633423708
      },
      {
-      "admit_ms": 0.326,
+      "admit_ms": 0.378,
       "child": false,
       "event": "decision",
       "label": "A",
@@ -184,49 +173,50 @@
       "path": "/v1/messages",
       "reason": "server_identity_unavailable",
       "stream": null,
-      "t": 211581.930071666
+      "t": 215318.633510708
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211584.162535833
+      "t": 215320.891638333
      }
     ],
+    "gate_rows_total": 17,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211535.287286958,
+      "t": 215271.866848666,
       "text": "2.1.322 (Claude Code)"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 53843,
-      "reserved": 19,
-      "t": 211535.295608916
+      "port": 62340,
+      "reserved": 21,
+      "t": 215271.875178875
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211535.302899208
+      "t": 215271.882267833
      },
      {
       "event": "monitor_started",
-      "pid": 666,
-      "t": 211535.305347083
+      "pid": 6326,
+      "t": 215271.884079333
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 668,
-      "t": 211535.307519375
+      "pid": 6327,
+      "t": 215271.885800291
      },
      {
       "event": "self_test",
-      "ms": 39.4,
+      "ms": 35.4,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -234,43 +224,44 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211535.467541625
+      "t": 215272.028462166
      },
      {
       "event": "native_started",
-      "pid": 678,
-      "t": 211535.47323325
+      "pid": 6330,
+      "t": 215272.034791
      },
      {
       "event": "said",
-      "t": 211580.4994375,
+      "t": 215317.240460125,
       "text": "Paused. Research F12 control requires a new typed confirmation."
      },
      {
       "event": "said",
-      "t": 211580.499552666,
+      "t": 215317.240660833,
       "text": "quota reserve paused (server_identity_unavailable); press F12 to request a fresh check"
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211584.161032791
+      "t": 215320.890582666
      },
      {
       "event": "launcher_exit",
-      "t": 211584.165137125
+      "t": 215320.893516083
      }
     ],
+    "launcher_rows_total": 11,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211535.329093083
+      "t": 215271.906780666
      }
     ],
-    "poll_count": 97,
-    "poll_ms": 7.603,
-    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-norefresh/workspace \u276f KM-nr-first start \u00b7 Bootstrapping\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u2590 \u259b \u259b\u2588 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 \u23fa KM fixture reply \u273b Cogitated for 0s \u00b7 done 12:14 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u2581\u2581\u2581 \u259d\u259d \u2590 \u259b \u259c \u2590 \u259d \u259d \u2590 \u2588 \u2590 \u2590 \u2588 \u2588 \u2590 \u2588 \u2588 \u259d \u259d \u2590 \u2588 \u2588 \u259d\u259c \u2588 \u2588\u2580 \u259d \u259d \u2590 \u2590 \u259d \u259d \u2590 \u2590 \u2590 \u259c\u259b \u2588 \u2590 \u2588 \u2588 \u259d \u259d \u2597\u259f \u259b\u2588\u2588 \u259b\u2588 \u2584 \u259c \u2588 \u2588\u2598 \u259d \u2581 \u2581 \u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (server_identity_unavailable); press F12 to request a fresh check \u000f Later turn KM-nr-later \u276f Later turn KM-nr-later \u00b7 Swooping\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (server_identity_unavailable); continue only from the trusted terminal after a fresh check \u273b Worked for 0s \u00b7 done 12:15 PM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume 19fe6a05-48d6-4901-8bc5-9fcc6298e2af ",
-    "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-norefresh/workspace \u276f KM-nr-first start \u00b7 Bootstrapping\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u2590 \u259b \u259b\u2588 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 \u23fa KM fixture reply \u273b Cogitated for 0s \u00b7 done 12:14 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588 \u2588\u2598 \u259d\u259d \u2581\u2581\u2581 \u259d\u259d \u2590 \u259b \u259c \u2590 \u259d \u259d \u2590 \u2588 \u2590 \u2590 \u2588 \u2588 \u2590 \u2588 \u2588 \u259d \u259d \u2590 \u2588 \u2588 \u259d\u259c \u2588 \u2588\u2580 \u259d \u259d \u2590 \u2590 \u259d \u259d \u2590 \u2590 \u2590 \u259c\u259b \u2588 \u2590 \u2588 \u2588 \u259d \u259d \u2597\u259f \u259b\u2588\u2588 \u259b\u2588 \u2584 \u259c \u2588 \u2588\u2598 \u259d \u2581 \u2581 \u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (server_identity_unavailable); press F12 to request a fresh check \u000f Later turn KM-nr-later \u276f Later turn KM-nr-later \u00b7 Swooping\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (server_identity_unavailable); continue only from the trusted terminal after a fresh check \u273b Worked for 0s \u00b7 done 12:15 PM \u276f ? for shortcuts \u000f \u000f Resume this session with: claude --resume 19fe6a05-48d6-4901-8bc5-9fcc6298e2af "
+    "poll_count": 98,
+    "poll_ms": 7.431,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-norefresh/workspace \u276f KM-nr-first start \u00b7 Misting\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u259f \u259f \u23fa KM fixture reply \u273b Saut\u00e9ed for 0s \u00b7 done 1:19 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2588\u259f \u2588\u259f \u259f\u2588 \u259f\u2588 \u2597\u259f \u259b \u259b \u2584 \u2598 \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (server_identity_unavailable); press F12 to request a fresh check \u000f Later turn KM-nr-later \u276f Later turn KM-nr-later \u00b7 Fiddle-fadd lin g\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (server_identity_unavailable); continue only from the trusted terminal after a fresh check \u273b Churned for 0s \u00b7 done 1:20 PM \u276f ? for shortcuts \u276f /exit \u2733 Envi sio ning\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u000f \u000f Resume this session with: claude --resume a3813f05-03b1-47ef-8f7b-84c2d8396d73 ",
+    "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-norefresh/workspace \u276f KM-nr-first start \u00b7 Misting\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u259f \u259f \u23fa KM fixture reply \u273b Saut\u00e9ed for 0s \u00b7 done 1:19 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2588\u259f \u2588\u259f \u259f\u2588 \u259f\u2588 \u2597\u259f \u259b \u259b \u2584 \u2598 \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (server_identity_unavailable); press F12 to request a fresh check \u000f Later turn KM-nr-later \u276f Later turn KM-nr-later \u00b7 Fiddle-fadd lin g\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (server_identity_unavailable); continue only from the trusted terminal after a fresh check \u273b Churned for 0s \u00b7 done 1:20 PM \u276f ? for shortcuts \u276f /exit \u2733 Envi sio ning\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u000f \u000f Resume this session with: claude --resume a3813f05-03b1-47ef-8f7b-84c2d8396d73 "
    },
    "upstream": [
     {
@@ -284,13 +275,13 @@
      "model": "claude-sonnet-4-6",
      "path": "/v1/messages",
      "provider": "claude",
-     "t": 211536.044960458,
+     "t": 215272.616938458,
      "tool_output": null
     }
    ]
   },
   "claude-prelaunch": {
-   "case_seconds": 4.1,
+   "case_seconds": 1.2,
    "runs": [
     {
      "command": "auth status",
@@ -301,10 +292,10 @@
        "granted": true,
        "host": "platform.claude.com",
        "path": "/v1/oauth/token",
-       "t": 211588.88739625
+       "t": 215322.151589916
       }
      ],
-     "seconds": 3.39,
+     "seconds": 0.45,
      "stdout_tail": "ounts/a/cfg/projects\",\n  \"configDirectory\": \"<root>/cases/claude-prelaunch/accounts/a/cfg\",\n  \"loginExpiresAt\": null,\n  \"email\": \"km@example.invalid\",\n  \"orgId\": \"km-org-a\",\n  \"orgName\": null,\n  \"subscriptionType\": \"max\",\n  \"storedClaudeAiLogin\": true,\n  \"planTier\": \"max_5x\"\n}\n",
      "store_label_after": "Pnear_expiry2",
      "timed_out": false,
@@ -319,10 +310,10 @@
        "granted": true,
        "host": "platform.claude.com",
        "path": "/v1/oauth/token",
-       "t": 211589.167581166
+       "t": 215322.455893208
       }
      ],
-     "seconds": 0.27,
+     "seconds": 0.31,
      "stdout_tail": "ounts/a/cfg/projects\",\n  \"configDirectory\": \"<root>/cases/claude-prelaunch/accounts/a/cfg\",\n  \"loginExpiresAt\": null,\n  \"email\": \"km@example.invalid\",\n  \"orgId\": \"km-org-a\",\n  \"orgName\": null,\n  \"subscriptionType\": \"max\",\n  \"storedClaudeAiLogin\": true,\n  \"planTier\": \"max_5x\"\n}\n",
      "store_label_after": "Pexpired2",
      "timed_out": false,
@@ -333,30 +324,34 @@
     {
      "method": "CONNECT",
      "ok": true,
+     "t": 215322.148338083,
      "target": "platform.claude.com:443"
     },
     {
      "method": "CONNECT",
      "ok": false,
+     "t": 215322.153692458,
      "target": "api.anthropic.com:443"
     },
     {
      "method": "CONNECT",
      "ok": true,
+     "t": 215322.452482833,
      "target": "platform.claude.com:443"
     },
     {
      "method": "CONNECT",
      "ok": false,
+     "t": 215322.45795525,
      "target": "api.anthropic.com:443"
     }
    ]
   },
   "claude-rotation": {
-   "case_seconds": 10.0,
+   "case_seconds": 10.2,
    "connect_open": {
     "code": 0,
-    "seconds": 0.06,
+    "seconds": 0.08,
     "stderr": "",
     "stdout": "",
     "timed_out": false
@@ -365,33 +360,33 @@
     {
      "action": "connect",
      "phase": "open",
-     "pid": 645,
+     "pid": 6317,
      "status": 200,
-     "t": 211527.112360833,
+     "t": 215263.729764916,
      "target": "platform.claude.com:443"
     },
     {
      "action": "connect",
      "phase": "open",
-     "pid": 645,
+     "pid": 6317,
      "status": 403,
-     "t": 211527.112844208,
+     "t": 215263.730508041,
      "target": "api.anthropic.com:443"
     },
     {
      "action": "connect",
      "phase": "open",
-     "pid": 645,
+     "pid": 6317,
      "status": 403,
-     "t": 211527.113223041,
+     "t": 215263.731028958,
      "target": "chatgpt.com:443"
     },
     {
      "action": "connect",
      "phase": "paused",
-     "pid": 649,
+     "pid": 6318,
      "status": 403,
-     "t": 211530.167579166,
+     "t": 215266.745375166,
      "target": "platform.claude.com:443"
     }
    ],
@@ -399,7 +394,7 @@
     "launcher_exit": 0,
     "native_exit": 0
    },
-   "latch_t": 211528.047027333,
+   "latch_t": 215264.64088575,
    "later": {
     "decisions_after": [
      [
@@ -439,235 +434,235 @@
      "granted": true,
      "host": "platform.claude.com",
      "path": "/v1/oauth/token",
-     "t": 211525.868380625
+     "t": 215262.471800833
     },
     {
      "error": "SSLEOFError",
      "event": "refresh_error",
-     "t": 211527.112640958
+     "t": 215263.730076958
     }
    ],
    "refreshed": true,
    "sdk_rows": [
     {
      "action": "detach_parent_exit",
-     "pid": 632,
-     "t": 211526.024493125
+     "pid": 6310,
+     "t": 215262.615388625
     },
     {
      "action": "sdk",
-     "ms": 4.0,
+     "ms": 3.9,
      "n": 1,
-     "pid": 637,
+     "pid": 6313,
      "role": "child",
      "status": 200,
-     "t": 211526.028906333
+     "t": 215262.619636708
     },
     {
      "action": "sdk",
-     "ms": 4.3,
+     "ms": 3.9,
      "n": 1,
-     "pid": 641,
+     "pid": 6314,
      "role": "grandchild",
      "status": 200,
-     "t": 211526.029500375
+     "t": 215262.619636
     },
     {
      "action": "sdk",
-     "ms": 2.3,
+     "ms": 6.4,
      "n": 2,
-     "pid": 641,
-     "role": "grandchild",
+     "pid": 6313,
+     "role": "child",
      "status": 200,
-     "t": 211527.033981916
+     "t": 215263.627752
     },
     {
      "action": "sdk",
-     "ms": 2.4,
+     "ms": 6.7,
      "n": 2,
-     "pid": 637,
-     "role": "child",
+     "pid": 6314,
+     "role": "grandchild",
      "status": 200,
-     "t": 211527.033974708
+     "t": 215263.627899916
     },
     {
      "action": "sdk",
-     "ms": 11.8,
+     "ms": 13.1,
      "n": 3,
-     "pid": 641,
+     "pid": 6314,
      "role": "grandchild",
      "status": 403,
-     "t": 211528.048136791
+     "t": 215264.642044875
     },
     {
      "action": "sdk",
-     "ms": 11.7,
+     "ms": 13.9,
      "n": 3,
-     "pid": 637,
+     "pid": 6313,
      "role": "child",
      "status": 403,
-     "t": 211528.0481365
+     "t": 215264.642106166
     },
     {
      "action": "sdk",
-     "ms": 3.2,
+     "ms": 3.6,
      "n": 4,
-     "pid": 637,
+     "pid": 6313,
      "role": "child",
      "status": 403,
-     "t": 211529.053702708
+     "t": 215265.653228
     },
     {
      "action": "sdk",
-     "ms": 3.3,
+     "ms": 3.9,
      "n": 4,
-     "pid": 641,
+     "pid": 6314,
      "role": "grandchild",
      "status": 403,
-     "t": 211529.053738666
+     "t": 215265.653293291
     },
     {
      "action": "sdk",
-     "ms": 2.1,
+     "ms": 3.0,
      "n": 5,
-     "pid": 637,
-     "role": "child",
+     "pid": 6314,
+     "role": "grandchild",
      "status": 403,
-     "t": 211530.057542083
+     "t": 215266.657875166
     },
     {
      "action": "sdk",
-     "ms": 2.9,
+     "ms": 3.6,
      "n": 5,
-     "pid": 641,
-     "role": "grandchild",
-     "status": 403,
-     "t": 211530.057837416
-    },
-    {
-     "action": "sdk",
-     "ms": 4.7,
-     "n": 6,
-     "pid": 641,
-     "role": "grandchild",
-     "status": 403,
-     "t": 211531.063595916
-    },
-    {
-     "action": "sdk",
-     "ms": 4.6,
-     "n": 6,
-     "pid": 637,
+     "pid": 6313,
      "role": "child",
      "status": 403,
-     "t": 211531.0643075
+     "t": 215266.658292041
     },
     {
      "action": "sdk",
-     "ms": 2.3,
-     "n": 7,
-     "pid": 641,
+     "ms": 1.9,
+     "n": 6,
+     "pid": 6314,
      "role": "grandchild",
      "status": 403,
-     "t": 211532.067456125
+     "t": 215267.661223958
     },
     {
      "action": "sdk",
-     "ms": 1.5,
-     "n": 7,
-     "pid": 637,
+     "ms": 1.9,
+     "n": 6,
+     "pid": 6313,
      "role": "child",
      "status": 403,
-     "t": 211532.067741791
+     "t": 215267.661651416
+    },
+    {
+     "action": "sdk",
+     "ms": 2.0,
+     "n": 7,
+     "pid": 6314,
+     "role": "grandchild",
+     "status": 403,
+     "t": 215268.664842
+    },
+    {
+     "action": "sdk",
+     "ms": 1.8,
+     "n": 7,
+     "pid": 6313,
+     "role": "child",
+     "status": 403,
+     "t": 215268.66484175
     }
    ],
    "security_argv": {
     "-i -i": 1,
-    "find-generic-password Claude Code-credentials-d156bf49": 13,
-    "find-generic-password Claude Code-d156bf49": 1
+    "find-generic-password Claude Code-4b5bf546": 1,
+    "find-generic-password Claude Code-credentials-4b5bf546": 12
    },
    "store_after_refresh": "A2",
    "summary": {
-    "fetch_ms": 1.698,
+    "fetch_ms": 1.678,
     "gate_rows": [
      {
       "cause": "startup",
       "epoch": 1,
       "event": "controller",
       "kind": "lease",
-      "t": 211525.266214458
+      "t": 215261.787672083
      },
      {
       "event": "preflight",
-      "ms": 2.618,
+      "ms": 2.804,
       "reason": "startup_ok",
-      "t": 211525.266229166
+      "t": 215261.787688208
      },
      {
       "event": "gate_ready",
       "listeners": 2,
       "mode": "startup",
-      "pid": 586,
-      "port": 53760,
-      "t": 211525.266447041
-     },
-     {
-      "event": "connect",
-      "ok": false,
-      "stream": null,
-      "t": 211525.854398,
-      "target": "downloads.claude.ai:443"
+      "pid": 6266,
+      "port": 62254,
+      "t": 215261.787911125
      },
      {
       "event": "connect",
       "ok": true,
       "stream": 1,
-      "t": 211525.860589416,
+      "t": 215262.389144,
       "target": "platform.claude.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215262.471931,
+      "target": "downloads.claude.ai:443"
      },
      {
       "bytes_down": 3417,
       "bytes_up": 2102,
       "event": "tunnel_closed",
       "stream": 1,
-      "t": 211525.8830215
+      "t": 215262.477241166
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211525.8851855,
+      "t": 215262.480739541,
       "target": "api.anthropic.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211525.933285166,
+      "t": 215262.550263291,
       "target": "github.com:443"
      },
      {
       "event": "controller",
       "kind": "rotation_hold",
       "previous_epoch": 1,
-      "t": 211525.96446575
+      "t": 215262.555318541
      },
      {
       "cause": "rotation",
       "epoch": 4,
       "event": "controller",
       "kind": "lease",
-      "t": 211525.966123208
+      "t": 215262.556875708
      },
      {
       "epoch": 4,
       "event": "controller",
       "kind": "admitted",
       "stream": 2,
-      "t": 211525.966145916
+      "t": 215262.556896
      },
      {
-      "admit_ms": 1.948,
+      "admit_ms": 1.856,
       "child": false,
       "event": "decision",
       "label": "A2",
@@ -676,37 +671,37 @@
       "path": "/v1/messages",
       "reason": "admitted",
       "stream": 2,
-      "t": 211525.966199125
+      "t": 215262.556951875
      },
      {
       "bytes": 43324,
       "event": "forwarded",
-      "gate_ms": 2.14,
+      "gate_ms": 2.046,
       "label": "A2",
       "stream": 2,
-      "t": 211525.966389833
+      "t": 215262.557141083
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211525.966737083,
+      "t": 215262.557661333,
       "target": "api.anthropic.com:443"
      },
      {
       "event": "stream_closed",
       "stream": 2,
-      "t": 211525.966886791
+      "t": 215262.557762833
      },
      {
       "epoch": 4,
       "event": "controller",
       "kind": "admitted",
       "stream": 3,
-      "t": 211526.027817541
+      "t": 215262.618495916
      },
      {
-      "admit_ms": 0.231,
+      "admit_ms": 0.17,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -715,17 +710,17 @@
       "path": "/v1/messages",
       "reason": "admitted",
       "stream": 3,
-      "t": 211526.028006833
+      "t": 215262.618604041
      },
      {
       "epoch": 4,
       "event": "controller",
       "kind": "admitted",
       "stream": 4,
-      "t": 211526.0280375
+      "t": 215262.618707916
      },
      {
-      "admit_ms": 0.111,
+      "admit_ms": 0.04,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -734,43 +729,43 @@
       "path": "/v1/messages",
       "reason": "admitted",
       "stream": 4,
-      "t": 211526.028086208
-     },
-     {
-      "bytes": 136,
-      "event": "forwarded",
-      "gate_ms": 0.469,
-      "label": "A2",
-      "stream": 3,
-      "t": 211526.028244208
+      "t": 215262.618731416
      },
      {
       "bytes": 131,
       "event": "forwarded",
-      "gate_ms": 0.339,
+      "gate_ms": 0.418,
       "label": "A2",
-      "stream": 4,
-      "t": 211526.028313625
+      "stream": 3,
+      "t": 215262.618848875
      },
      {
-      "event": "stream_closed",
+      "bytes": 136,
+      "event": "forwarded",
+      "gate_ms": 0.202,
+      "label": "A2",
       "stream": 4,
-      "t": 211526.028665458
+      "t": 215262.618894
      },
      {
       "event": "stream_closed",
       "stream": 3,
-      "t": 211526.028749541
+      "t": 215262.619419708
+     },
+     {
+      "event": "stream_closed",
+      "stream": 4,
+      "t": 215262.619514375
      },
      {
       "epoch": 4,
       "event": "controller",
       "kind": "admitted",
       "stream": 5,
-      "t": 211526.078369958
+      "t": 215262.65345325
      },
      {
-      "admit_ms": 0.316,
+      "admit_ms": 0.225,
       "child": false,
       "event": "decision",
       "label": "A2",
@@ -779,30 +774,30 @@
       "path": "/v1/messages",
       "reason": "admitted",
       "stream": 5,
-      "t": 211526.078466166
+      "t": 215262.653527
      },
      {
       "bytes": 44004,
       "event": "forwarded",
-      "gate_ms": 0.509,
+      "gate_ms": 0.417,
       "label": "A2",
       "stream": 5,
-      "t": 211526.078656416
+      "t": 215262.653717625
      },
      {
       "event": "stream_closed",
       "stream": 5,
-      "t": 211526.079274583
+      "t": 215262.65414075
      },
      {
       "epoch": 4,
       "event": "controller",
       "kind": "admitted",
       "stream": 6,
-      "t": 211527.032466166
+      "t": 215263.623820541
      },
      {
-      "admit_ms": 0.268,
+      "admit_ms": 0.66,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -811,17 +806,17 @@
       "path": "/v1/messages",
       "reason": "admitted",
       "stream": 6,
-      "t": 211527.03269
+      "t": 215263.624315708
      },
      {
       "epoch": 4,
       "event": "controller",
       "kind": "admitted",
       "stream": 7,
-      "t": 211527.032734083
+      "t": 215263.624835166
      },
      {
-      "admit_ms": 0.154,
+      "admit_ms": 0.205,
       "child": true,
       "event": "decision",
       "label": "A2",
@@ -830,39 +825,39 @@
       "path": "/v1/messages",
       "reason": "admitted",
       "stream": 7,
-      "t": 211527.032805
+      "t": 215263.624954583
      },
      {
       "bytes": 131,
       "event": "forwarded",
-      "gate_ms": 0.501,
+      "gate_ms": 1.676,
       "label": "A2",
       "stream": 6,
-      "t": 211527.032919791
+      "t": 215263.625326083
      },
      {
       "bytes": 136,
       "event": "forwarded",
-      "gate_ms": 0.338,
+      "gate_ms": 0.86,
       "label": "A2",
       "stream": 7,
-      "t": 211527.032988416
+      "t": 215263.625607666
      },
      {
       "event": "stream_closed",
       "stream": 6,
-      "t": 211527.033648125
+      "t": 215263.626953041
      },
      {
       "event": "stream_closed",
       "stream": 7,
-      "t": 211527.033745791
+      "t": 215263.6273555
      },
      {
       "event": "connect",
       "ok": true,
       "stream": 8,
-      "t": 211527.111839875,
+      "t": 215263.72920575,
       "target": "platform.claude.com:443"
      },
      {
@@ -870,27 +865,27 @@
       "bytes_up": 0,
       "event": "tunnel_closed",
       "stream": 8,
-      "t": 211527.112315416
+      "t": 215263.729678375
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211527.1127185,
+      "t": 215263.730349958,
       "target": "api.anthropic.com:443"
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211527.113102083,
+      "t": 215263.7309025,
       "target": "chatgpt.com:443"
      },
      {
       "event": "controller",
       "kind": "rotation_hold",
       "previous_epoch": 4,
-      "t": 211528.0386875
+      "t": 215264.631150166
      },
      {
       "closed": 0,
@@ -898,17 +893,17 @@
       "kind": "latched",
       "reason": "bearer_identity_mismatch",
       "state": "paused",
-      "t": 211528.047027333
+      "t": 215264.64088575
      },
      {
       "event": "notify",
       "op": "latched",
       "reason": "bearer_identity_mismatch",
       "state": "paused",
-      "t": 211528.047115083
+      "t": 215264.641008791
      },
      {
-      "admit_ms": 8.716,
+      "admit_ms": 10.337,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -917,16 +912,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211528.047292833
+      "t": 215264.641301666
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211528.047345291
+      "t": 215264.641343291
      },
      {
-      "admit_ms": 8.31,
+      "admit_ms": 9.332,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -935,16 +930,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211528.047586041
+      "t": 215264.641638833
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211529.052103
+      "t": 215265.652112166
      },
      {
-      "admit_ms": 0.78,
+      "admit_ms": 0.235,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -953,16 +948,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211529.052767875
+      "t": 215265.65232125
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211529.053066041
+      "t": 215265.652616666
      },
      {
-      "admit_ms": 0.242,
+      "admit_ms": 0.138,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -971,16 +966,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211529.053276166
+      "t": 215265.652748125
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211530.056405583
+      "t": 215266.656288541
      },
      {
-      "admit_ms": 0.266,
+      "admit_ms": 0.439,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -989,16 +984,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211530.056629583
+      "t": 215266.656664
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211530.05701975
+      "t": 215266.65709275
      },
      {
-      "admit_ms": 0.191,
+      "admit_ms": 0.563,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -1007,23 +1002,23 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211530.057182625
+      "t": 215266.657592208
      },
      {
       "event": "connect",
       "ok": false,
       "stream": null,
-      "t": 211530.167304833,
+      "t": 215266.745145791,
       "target": "platform.claude.com:443"
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211531.062313833
+      "t": 215267.660305083
      },
      {
-      "admit_ms": 0.404,
+      "admit_ms": 0.313,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -1032,16 +1027,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211531.062659708
+      "t": 215267.660561208
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211531.063303041
+      "t": 215267.660715875
      },
      {
-      "admit_ms": 0.375,
+      "admit_ms": 0.297,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -1050,16 +1045,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211531.063631166
+      "t": 215267.66099525
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211531.474238125
+      "t": 215268.044167541
      },
      {
-      "admit_ms": 0.372,
+      "admit_ms": 0.448,
       "child": false,
       "event": "decision",
       "label": "B",
@@ -1068,16 +1063,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211531.474381916
+      "t": 215268.044286333
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211532.066522458
+      "t": 215268.664033625
      },
      {
-      "admit_ms": 0.469,
+      "admit_ms": 0.186,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -1086,16 +1081,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211532.0669455
+      "t": 215268.664175416
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211532.066983791
+      "t": 215268.664342916
      },
      {
-      "admit_ms": 0.328,
+      "admit_ms": 0.147,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -1104,16 +1099,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211532.067206541
+      "t": 215268.664471583
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211533.071228958
+      "t": 215269.668930791
      },
      {
-      "admit_ms": 0.598,
+      "admit_ms": 0.529,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -1122,16 +1117,16 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211533.071755083
+      "t": 215269.669401125
      },
      {
       "event": "controller",
       "kind": "refused",
       "reason": "paused",
-      "t": 211533.072066458
+      "t": 215269.669666333
      },
      {
-      "admit_ms": 0.513,
+      "admit_ms": 0.203,
       "child": true,
       "event": "decision",
       "label": "B",
@@ -1140,49 +1135,50 @@
       "path": "/v1/messages",
       "reason": "bearer_identity_mismatch",
       "stream": null,
-      "t": 211533.0725445
+      "t": 215269.669833458
      },
      {
       "event": "lost",
       "reason": "monitor_eof",
-      "t": 211533.575042791
+      "t": 215270.146890333
      }
     ],
+    "gate_rows_total": 69,
     "gate_stderr_tail": "",
     "launcher_rows": [
      {
       "event": "native_version",
-      "t": 211525.185556333,
+      "t": 215261.709778875,
       "text": "2.1.322 (Claude Code)"
      },
      {
       "event": "holder",
       "failed": [],
       "mode": "all",
-      "port": 53760,
-      "reserved": 19,
-      "t": 211525.192939166
+      "port": 62254,
+      "reserved": 21,
+      "t": 215261.717042416
      },
      {
       "event": "profile",
       "fs_rules": false,
       "lines": 23,
-      "t": 211525.198076208
+      "t": 215261.722210708
      },
      {
       "event": "monitor_started",
-      "pid": 585,
-      "t": 211525.200116083
+      "pid": 6265,
+      "t": 215261.723765666
      },
      {
       "event": "gate_started",
       "mode": "startup",
-      "pid": 586,
-      "t": 211525.201726833
+      "pid": 6266,
+      "t": 215261.725312666
      },
      {
       "event": "self_test",
-      "ms": 38.4,
+      "ms": 33.4,
       "ok": true,
       "result": {
        "bind": "errno:1",
@@ -1190,45 +1186,46 @@
        "other": "errno:1",
        "tiocsti": "errno:1"
       },
-      "t": 211525.355042125
+      "t": 215261.869125666
      },
      {
       "event": "native_started",
-      "pid": 590,
-      "t": 211525.361455125
+      "pid": 6269,
+      "t": 215261.873925291
      },
      {
       "event": "said",
-      "t": 211528.047856541,
+      "t": 215264.641864875,
       "text": "Paused. Research F12 control requires a new typed confirmation."
      },
      {
       "event": "said",
-      "t": 211528.047944,
+      "t": 215264.641925958,
       "text": "quota reserve paused (bearer_identity_mismatch); press F12 to request a fresh check"
      },
      {
       "code": 0,
       "event": "native_exit",
-      "t": 211533.574259666
+      "t": 215270.14592525
      },
      {
       "event": "launcher_exit",
-      "t": 211533.577470708
+      "t": 215270.148942625
      }
     ],
+    "launcher_rows_total": 11,
     "monitor_rows": [
      {
       "event": "monitor_started",
-      "t": 211525.220276875
+      "t": 215261.743795458
      }
     ],
     "poll_count": 17,
-    "poll_ms": 3.456,
-    "terminal_head": " Claude Code v2.1.322 Sonnet 4.6 \u00b7 Claude Max <root>/cases/claude-rotation/workspace \u276f KM-rot-first start \u00b7 Mulling\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' -I -B '<root>/km/child.py' '<root>/cases/claude-rotation/child-rot.json' detach '<root>/cases/claude-rotation/out/sdk.jsonl'; echo k\u2026 Crunching\u2026 \u2588\u259f \u2588 \u2588\u2580 \u259d\u259d \u2722 Crunching\u2026 (0s \u00b7 \u2193 25 tokens) Ran 1 shell command \u23fa KM fixture reply after tool \u273b Cooked for 0s \u00b7 done 12:14 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2588\u2588\u259f \u2588\u2588 \u2588\u2580 \u259d\u259d \u2588\u259b\u2588 \u2584 \u2588\u2588 \u2588\u2598 \u259d\u259d \u2597\u259f \u259b\u2588 \u2588\u259b\u2588 \u2584 \u259c \u2588\u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (bearer_identity_mismatch); press F12 to request a fresh check Later turn KM-rot-later \u276f Later turn KM-rot-later \u2722 Herding\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (bearer_identity_mismatch); continue only from the trusted terminal after a fresh check \u273b Worked for 0s \u00b7 done 12:14 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u2722 Stewing \u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 000d888b-d80e-47e4-a841-4303456722f8 ",
-    "terminal_tail": " Claude Code v2.1.322 Sonnet 4.6 \u00b7 Claude Max <root>/cases/claude-rotation/workspace \u276f KM-rot-first start \u00b7 Mulling\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' -I -B '<root>/km/child.py' '<root>/cases/claude-rotation/child-rot.json' detach '<root>/cases/claude-rotation/out/sdk.jsonl'; echo k\u2026 Crunching\u2026 \u2588\u259f \u2588 \u2588\u2580 \u259d\u259d \u2722 Crunching\u2026 (0s \u00b7 \u2193 25 tokens) Ran 1 shell command \u23fa KM fixture reply after tool \u273b Cooked for 0s \u00b7 done 12:14 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2588\u2588\u259f \u2588\u2588 \u2588\u2580 \u259d\u259d \u2588\u259b\u2588 \u2584 \u2588\u2588 \u2588\u2598 \u259d\u259d \u2597\u259f \u259b\u2588 \u2588\u259b\u2588 \u2584 \u259c \u2588\u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (bearer_identity_mismatch); press F12 to request a fresh check Later turn KM-rot-later \u276f Later turn KM-rot-later \u2722 Herding\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (bearer_identity_mismatch); continue only from the trusted terminal after a fresh check \u273b Worked for 0s \u00b7 done 12:14 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u2722 Stewing \u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 000d888b-d80e-47e4-a841-4303456722f8 "
+    "poll_ms": 2.604,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-rotation/workspace \u276f KM-rot-first start \u00b7 Perambulating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u259f \u259f \u23fa NM fixture egress probe \u23bf $ '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' -I -B '<root>/km/child.py' '<root>/cases/claude-rotation/child-rot.json' detach '<root>/cases/claude-rotation/out/sdk.jsonl'; echo k\u2026 Vibing\u2026 \u2722 Vibing\u2026 (0s \u00b7 \u2193 25 tokens) Ran 1 shell command \u23fa KM fixture reply after tool \u273b Brewed for 0s \u00b7 done 1:19 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2588\u259f \u2588\u259f \u259f\u2588 \u259f\u2588 \u2597\u259f \u259b \u259b \u2584 \u2598 \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (bearer_identity_mismatch); press F12 to request a fresh check Later turn KM-rot-later \u276f Later turn KM-rot-later \u2733 Ionizing\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (bearer_identity_mismatch); continue only from the trusted terminal after a fresh check \u273b Saut\u00e9ed for 0s \u00b7 done 1:19 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u2733 Twisting\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 1ef45415-2070-497c-a35b-026621152812 ",
+    "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-rotation/workspace \u276f KM-rot-first start \u00b7 Perambulating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u259f \u259f \u23fa NM fixture egress probe \u23bf $ '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' -I -B '<root>/km/child.py' '<root>/cases/claude-rotation/child-rot.json' detach '<root>/cases/claude-rotation/out/sdk.jsonl'; echo k\u2026 Vibing\u2026 \u2722 Vibing\u2026 (0s \u00b7 \u2193 25 tokens) Ran 1 shell command \u23fa KM fixture reply after tool \u273b Brewed for 0s \u00b7 done 1:19 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u2588\u259f \u2588\u259f \u259f\u2588 \u259f\u2588 \u2597\u259f \u259b \u259b \u2584 \u2598 \u2590 \u259d \u2580 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (bearer_identity_mismatch); press F12 to request a fresh check Later turn KM-rot-later \u276f Later turn KM-rot-later \u2733 Ionizing\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa Please run /login \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (bearer_identity_mismatch); continue only from the trusted terminal after a fresh check \u273b Saut\u00e9ed for 0s \u00b7 done 1:19 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u2733 Twisting\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 1ef45415-2070-497c-a35b-026621152812 "
    },
-   "swap_t": 211527.116851,
+   "swap_t": 215263.735269625,
    "upstream": [
     {
      "action": "tool",
@@ -1241,21 +1238,7 @@
      "model": "claude-sonnet-4-6",
      "path": "/v1/messages",
      "provider": "claude",
-     "t": 211525.966739875,
-     "tool_output": null
-    },
-    {
-     "action": "text",
-     "bytes": 136,
-     "kind": "turn",
-     "label": "A2",
-     "main": false,
-     "marker": null,
-     "method": "POST",
-     "model": "claude-sonnet-4-6",
-     "path": "/v1/messages",
-     "provider": "claude",
-     "t": 211526.02840825,
+     "t": 215262.557479416,
      "tool_output": null
     },
     {
@@ -1269,7 +1252,21 @@
      "model": "claude-sonnet-4-6",
      "path": "/v1/messages",
      "provider": "claude",
-     "t": 211526.028559375,
+     "t": 215262.61906025,
+     "tool_output": null
+    },
+    {
+     "action": "text",
+     "bytes": 136,
+     "kind": "turn",
+     "label": "A2",
+     "main": false,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 215262.619267625,
      "tool_output": null
     },
     {
@@ -1283,7 +1280,7 @@
      "model": "claude-sonnet-4-6",
      "path": "/v1/messages",
      "provider": "claude",
-     "t": 211526.079118375,
+     "t": 215262.654027458,
      "tool_output": "km-tool-done\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>"
     },
     {
@@ -1297,7 +1294,7 @@
      "model": "claude-sonnet-4-6",
      "path": "/v1/messages",
      "provider": "claude",
-     "t": 211527.033244833,
+     "t": 215263.626069083,
      "tool_output": null
     },
     {
@@ -1311,7 +1308,7 @@
      "model": "claude-sonnet-4-6",
      "path": "/v1/messages",
      "provider": "claude",
-     "t": 211527.033533083,
+     "t": 215263.626579708,
      "tool_output": null
     }
    ],
@@ -1323,9 +1320,15 @@
    }
   }
  },
+ "clock": {
+  "mono_end": 215323.595951125,
+  "mono_start": 215261.073754416,
+  "wall_end": 1794518437.3110971,
+  "wall_start": 1794518374.7887628
+ },
  "completed": true,
  "deadline_seconds": 600,
- "finished": "2026-11-12T20:15:14Z",
+ "finished": "2026-11-12T21:20:37Z",
  "host": {
   "arch": "arm64",
   "macos": "27.2"
@@ -1333,5 +1336,5 @@
  "leftover_processes_after": [],
  "leftover_processes_killed": [],
  "stage": "claude-refresh",
- "started": "2026-11-12T20:14:08Z"
+ "started": "2026-11-12T21:19:34Z"
 }

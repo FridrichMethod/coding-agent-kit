@@ -17,7 +17,7 @@
      "host4_reuseaddr_squatter": "errno:48",
      "squatter_accepted": []
     },
-    "reserved": 19,
+    "reserved": 21,
     "squats": {
      "any4_plain": "errno:48",
      "any4_reuseaddr": "errno:48",
@@ -31,7 +31,7 @@
      "lo6_reuseaddr": "errno:48"
     }
    },
-   "case_seconds": 3.0,
+   "case_seconds": 2.5,
    "host_ipv4_found": true,
    "loopback": {
     "reach": {
@@ -58,7 +58,7 @@
    "sbpl_forms": {
     "ip4_literal": {
      "exit": 65,
-     "stderr": "sandbox-exec: host must be * or localhost in network address\n\nBacktrace: \n<input string>:4:26:\n\t(remote tcp \"127.0.0.1:55349\")\n\n"
+     "stderr": "sandbox-exec: host must be * or localhost in network address\n\nBacktrace: \n<input string>:4:26:\n\t(remote tcp \"127.0.0.1:63779\")\n\n"
     },
     "localhost": {
      "any4": "connected",
@@ -117,9 +117,15 @@
    }
   }
  },
+ "clock": {
+  "mono_end": 215558.844675291,
+  "mono_start": 215555.300126666,
+  "wall_end": 1794518672.5603478,
+  "wall_start": 1794518669.0157921
+ },
  "completed": true,
  "deadline_seconds": 180,
- "finished": "2026-11-12T20:20:43Z",
+ "finished": "2026-11-12T21:24:32Z",
  "host": {
   "arch": "arm64",
   "macos": "27.2"
@@ -127,5 +133,5 @@
  "leftover_processes_after": [],
  "leftover_processes_killed": [],
  "stage": "portmatrix",
- "started": "2026-11-12T20:20:39Z"
+ "started": "2026-11-12T21:24:29Z"
 }

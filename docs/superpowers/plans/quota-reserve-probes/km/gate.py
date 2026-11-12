@@ -68,6 +68,17 @@ def route(provider, method, path):
     return None
 
 
+def codex_selectors(headers):
+    """(bearer, account) when a Codex request carries exactly one 'Authorization: Bearer X' and at
+    most one ChatGPT-Account-ID, else None: with a duplicate selector the account the lease
+    admits and the account upstream charges could differ (QC refuses duplicates the same way)."""
+    auth = [v for k, v in headers if k.lower() == 'authorization']
+    accounts = [v for k, v in headers if k.lower() == 'chatgpt-account-id']
+    if len(auth) != 1 or not auth[0].startswith('Bearer ') or len(accounts) > 1:
+        return None
+    return auth[0][7:], (accounts[0] if accounts else None)
+
+
 def connect_allowed(target, allow, admission_open, lost):
     """Exact host:port only, only while admission is open and the monitor is alive."""
     return target in allow and admission_open and not lost
@@ -312,16 +323,15 @@ class CodexAdapter:
         return outcome
 
     def admit(self, headers, body, close):
-        auth = [v for k, v in headers if k.lower() == 'authorization']
-        bearer = auth[0][7:] if len(auth) == 1 and auth[0].startswith('Bearer ') else None
-        account = next((v for k, v in headers if k.lower() == 'chatgpt-account-id'), None)
+        selectors = codex_selectors(headers)
+        if selectors is None:
+            self.latch('auth_selector_conflict')
+            return False, 'auth_selector_conflict', None
+        bearer, account = selectors
         try:
             model = json.loads(body).get('model')
         except (ValueError, AttributeError):
             model = None
-        if bearer is None:
-            self.latch('auth_selector_conflict')
-            return False, 'auth_selector_conflict', None
         with self.lock:
             ok, reason = self.lease.admit(bearer, account, model)
         if reason == 'rebind-required':
@@ -440,6 +450,8 @@ class Gate:
         return sock
 
     def heartbeat(self):
+        # Research shortcut: one usage poll per monitor heartbeat. Production must decouple the
+        # liveness heartbeat (about 1 s) from the usage poll interval (about 30 s).
         self.last_beat = time.monotonic()
         if self.lost is None and self.polling.acquire(blocking=False):
             def run():
@@ -579,15 +591,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._connect()
         adapter = gate.adapter
         started = time.monotonic()
-        account = self.headers.get('ChatGPT-Account-ID')
-        auth = self.headers.get('Authorization') or ''
-        bearer = auth[7:] if auth.startswith('Bearer ') else None
+        selectors = codex_selectors(list(self.headers.items()))
+        bearer, account = selectors or (None, None)
         paused = adapter.lease.paused is not None
         allowed = (gate.lost is None and account == gate.config['expected_account'] and bearer
                    and (kind == 'usage' or not paused))
         if not allowed:
             gate.emit('read_refused', path=path, kind=kind, lost=gate.lost, paused=paused)
-            return self._refuse(gate.lost or ('paused' if paused else 'foreign_account'))
+            return self._refuse(gate.lost or ('auth_selector_conflict' if selectors is None else
+                                              ('paused' if paused else 'foreign_account')))
         try:
             upstream = gate.open_upstream(gate.upstream)
             upstream.sendall(self._head(path, b''))

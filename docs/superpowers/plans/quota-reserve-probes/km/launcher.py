@@ -5,11 +5,12 @@ It owns the user's terminal and the gate port. Order of one invocation:
   2. bind the gate port in the launcher (port holder) and keep the listening sockets for the
      whole invocation, plus non-listening reservations of the same port on the wildcard and
      interface addresses that Seatbelt's `localhost` filter admits;
-  3. start the monitor, then the gate with the holder's listening sockets; the gate runs the
-     Claude preflight (memory-only bearer, same-bearer usage plus profile) or, for Codex, a fresh
-     in-boundary `codex app-server` read binds the first epoch; any failure refuses;
-  4. render the Seatbelt profile (NM M1 plus com.apple.SecurityServer), run a startup self-test
-     under it (gate reachable, other port EPERM, bind EPERM, TIOCSTI EPERM), refuse on mismatch;
+  3. render the Seatbelt profile (NM M1 plus com.apple.SecurityServer); start the monitor, then
+     the gate with the holder's listening sockets; the Claude gate runs its preflight outside the
+     boundary (memory-only bearer, same-bearer usage plus profile); any failure refuses;
+  4. run the startup self-test under the profile (gate reachable, other port EPERM, bind EPERM,
+     TIOCSTI EPERM) and refuse on mismatch, before any native code runs under the profile;
+     only then, for Codex, a fresh in-boundary `codex app-server` read binds the first epoch;
   5. exec the native under /usr/bin/sandbox-exec on its own PTY with every other descriptor
      closed, and relay the terminal through PC5's TerminalControl: only the user's terminal can
      request a continuation (F12, a fresh typed challenge, then a fresh check).
@@ -48,7 +49,8 @@ CLAUDE_REFUSED_ENV = ('CLAUDE_SECURESTORAGE_CONFIG_DIR', 'CLAUDE_CODE_OAUTH_TOKE
 CODEX_REFUSED_ENV = ('CODEX_REFRESH_TOKEN_URL_OVERRIDE', 'CODEX_REVOKE_TOKEN_URL_OVERRIDE', 'OPENAI_BASE_URL',
                      'OPENAI_API_KEY', 'CODEX_API_KEY', 'CODEX_ACCESS_TOKEN')
 CODEX_REFUSED_WORDS = {'resume', 'fork', 'remote-control', 'app-server', 'exec-server', 'cloud', 'login',
-                       'logout', 'mcp-server', 'queue', 'sandbox'}
+                       'logout', 'mcp-server', 'queue', 'sandbox',
+                       'exec', 'e', 'review'}  # headless model modes: no trusted terminal to continue from
 CODEX_REFUSED_OPTIONS = {'--remote', '--remote-auth-token-env', '--oss', '--local-provider', '-p', '--profile'}
 CODEX_PROTECTED_KEYS = ('model_provider', 'model_providers', 'chatgpt_base_url', 'openai_base_url',
                         'cli_auth_credentials_store', 'sandbox_mode', 'profile', 'profiles')
@@ -95,12 +97,22 @@ def check_args(provider, argv):
             key = value.split('=', 1)[0].strip()
             if any(key == k or key.startswith(k + '.') for k in CODEX_PROTECTED_KEYS):
                 raise Refusal('protected mode refuses a user override of ' + key)
-        if not word.startswith('-') and word in CODEX_REFUSED_WORDS and all(
-                previous.startswith('-') for previous in argv[:index]):
+        if not word.startswith('-') and word in CODEX_REFUSED_WORDS and could_be_subcommand(argv, index):
             raise Refusal('protected mode refuses the %s subcommand' % word)
     if provider == 'codex':
         return ['--no-daemon'] + [w for w in argv if w != '--no-daemon']
     return list(argv)
+
+
+def could_be_subcommand(argv, index):
+    """Whether argv[index] can be the native's subcommand: every earlier word is an option or
+    may be an option's value (the word right after an option). Conservative: the kit does not
+    track which native options take a value, so `-m gpt resume` counts as a subcommand."""
+    for position, previous in enumerate(argv[:index]):
+        if not previous.startswith('-') and not (position and argv[position - 1].startswith('-')
+                                                  and '=' not in argv[position - 1]):
+            return False
+    return True
 
 
 def check_env(provider, env):
@@ -367,7 +379,15 @@ class Launcher:
         return False, 'gate_timeout'
 
     def request(self, op, seconds=15):
-        self.control.sendall((json.dumps({'op': op}) + '\n').encode())
+        """One control round trip; a missing or broken control channel (dead or restarting gate)
+        answers 'still paused' instead of raising into the terminal relay."""
+        if self.control is None:
+            return {'ok': False, 'reason': 'gate_unavailable'}
+        try:
+            self.control.sendall((json.dumps({'op': op}) + '\n').encode())
+        except OSError:
+            self.control = None
+            return {'ok': False, 'reason': 'gate_unavailable'}
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
             self.read_control(0.1)
@@ -540,13 +560,14 @@ class Launcher:
         ok, reason = self.spawn_gate('startup')
         if not ok:
             return self.refuse(reason)
+        # The self-test precedes every native process under the profile (the Codex reader too).
+        if c.get('self_test', True) and not self.self_test(profile):
+            return self.refuse('boundary self-test failed')
         if c['provider'] == 'codex':
             self.reader(profile)
             status = self.request('status')
             if not status.get('ready'):
                 return self.refuse('preflight: %s' % (status.get('reason') or 'no fresh passing usage read'))
-        if c.get('self_test', True) and not self.self_test(profile):
-            return self.refuse('boundary self-test failed')
         control = _load('km_pc_control', HERE.parent / 'pc_continue' / 'control.py')
         native, master = self.start_native(profile)
         outer = termios.tcgetattr(0) if os.isatty(0) else None
