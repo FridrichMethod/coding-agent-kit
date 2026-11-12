@@ -1,0 +1,995 @@
+{
+ "stage": "identity",
+ "ok": true,
+ "timeline": [
+  {
+   "at": 1.079,
+   "event": "rate_limits_read",
+   "label": "preflight-a",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509659
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803059
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509659
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803059
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.345,
+   "event": "turn",
+   "text": "Fixture turn as A",
+   "status": "completed",
+   "error": "",
+   "error_notifications": [],
+   "upstream_model_requests": 1
+  },
+  {
+   "at": 1.35,
+   "event": "login_b",
+   "result": {
+    "type": "chatgptAuthTokens"
+   }
+  },
+  {
+   "at": 1.39,
+   "event": "turn",
+   "text": "Fixture existing thread after switch to B",
+   "status": "failed",
+   "error": "unexpected status 503 Service Unavailable: quota reserve gate refused: identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses",
+   "error_notifications": [
+    "unexpected status 503 Service Unavailable: quota reserve gate refused: identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses"
+   ],
+   "upstream_model_requests": 0
+  },
+  {
+   "at": 1.42,
+   "event": "turn",
+   "text": "Fixture new thread after switch to B",
+   "status": "failed",
+   "error": "unexpected status 503 Service Unavailable: quota reserve gate refused: identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses",
+   "error_notifications": [
+    "unexpected status 503 Service Unavailable: quota reserve gate refused: identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses"
+   ],
+   "upstream_model_requests": 0
+  },
+  {
+   "at": 1.426,
+   "event": "rate_limits_read",
+   "label": "read-as-b",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509660
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803060
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-b",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509660
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803060
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.431,
+   "event": "login_a_again",
+   "result": {
+    "type": "chatgptAuthTokens"
+   }
+  },
+  {
+   "at": 1.467,
+   "event": "turn",
+   "text": "Fixture new thread back on A before continuation",
+   "status": "failed",
+   "error": "unexpected status 503 Service Unavailable: quota reserve gate refused: paused:identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses",
+   "error_notifications": [
+    "unexpected status 503 Service Unavailable: quota reserve gate refused: paused:identity-changed, url: http://127.0.0.1:<PORT>/backend-api/codex/responses"
+   ],
+   "upstream_model_requests": 0
+  },
+  {
+   "at": 1.475,
+   "event": "rate_limits_read",
+   "label": "fresh-a-without-continuation",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509660
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803060
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509660
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803060
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.475,
+   "event": "lease_after_fresh_a",
+   "paused": "identity-changed",
+   "epoch": 5
+  },
+  {
+   "at": 1.475,
+   "event": "continuation",
+   "accepted": true
+  },
+  {
+   "at": 1.532,
+   "event": "rate_limits_read",
+   "label": "fresh-a-after-continuation",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509660
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803060
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509660
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803060
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.532,
+   "event": "lease_after_continuation",
+   "paused": null,
+   "epoch": 5
+  },
+  {
+   "at": 1.566,
+   "event": "turn",
+   "text": "Fixture turn after deliberate continuation",
+   "status": "completed",
+   "error": "",
+   "error_notifications": [],
+   "upstream_model_requests": 1
+  }
+ ],
+ "gates": [
+  {
+   "events": [
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "query": true,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "originator",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "codex_cli_rs",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "cache-control",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "admission",
+     "method": "POST",
+     "path": "/backend-api/codex/responses",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "content-length",
+      "content-type",
+      "host",
+      "originator",
+      "session-id",
+      "thread-id",
+      "user-agent",
+      "x-client-request-id",
+      "x-codex-beta-features",
+      "x-codex-turn-metadata",
+      "x-codex-window-id"
+     ],
+     "shown": {
+      "accept": "text/event-stream",
+      "content-type": "application/json",
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "qx-native-research"
+     },
+     "model": "gpt-5.4",
+     "admitted": true,
+     "reason": "admitted",
+     "epoch": 1
+    },
+    {
+     "event": "model_upstream",
+     "status": 200,
+     "credential": "TA"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "TB",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-b",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "query": true,
+     "credential": "TB",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "originator",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-b",
+      "originator": "qx-native-research",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "query": false,
+     "credential": "TB",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "cache-control",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-b",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "streams_closed",
+     "reason": "identity-changed",
+     "count": 0
+    },
+    {
+     "event": "admission",
+     "method": "POST",
+     "path": "/backend-api/codex/responses",
+     "query": false,
+     "credential": "TB",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "content-length",
+      "content-type",
+      "host",
+      "originator",
+      "session-id",
+      "thread-id",
+      "user-agent",
+      "x-client-request-id",
+      "x-codex-beta-features",
+      "x-codex-turn-metadata",
+      "x-codex-window-id"
+     ],
+     "shown": {
+      "accept": "text/event-stream",
+      "content-type": "application/json",
+      "chatgpt-account-id": "fixture-account-b",
+      "originator": "qx-native-research"
+     },
+     "model": "gpt-5.4",
+     "admitted": false,
+     "reason": "identity-changed",
+     "epoch": 2
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "query": false,
+     "credential": "TB",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "cache-control",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-b",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 2,
+     "paused": "identity-changed"
+    },
+    {
+     "event": "admission",
+     "method": "POST",
+     "path": "/backend-api/codex/responses",
+     "query": false,
+     "credential": "TB",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "content-length",
+      "content-type",
+      "host",
+      "originator",
+      "session-id",
+      "thread-id",
+      "user-agent",
+      "x-client-request-id",
+      "x-codex-beta-features",
+      "x-codex-turn-metadata",
+      "x-codex-window-id"
+     ],
+     "shown": {
+      "accept": "text/event-stream",
+      "content-type": "application/json",
+      "chatgpt-account-id": "fixture-account-b",
+      "originator": "qx-native-research"
+     },
+     "model": "gpt-5.4",
+     "admitted": false,
+     "reason": "identity-changed",
+     "epoch": 3
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "TB",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-b",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "identity-changed",
+     "epoch": 4,
+     "paused": "identity-changed"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 4,
+     "paused": "identity-changed"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "query": true,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "originator",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "qx-native-research",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": null,
+     "epoch": 4,
+     "paused": "identity-changed"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "cache-control",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 4,
+     "paused": "identity-changed"
+    },
+    {
+     "event": "admission",
+     "method": "POST",
+     "path": "/backend-api/codex/responses",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "content-length",
+      "content-type",
+      "host",
+      "originator",
+      "session-id",
+      "thread-id",
+      "user-agent",
+      "x-client-request-id",
+      "x-codex-beta-features",
+      "x-codex-turn-metadata",
+      "x-codex-window-id"
+     ],
+     "shown": {
+      "accept": "text/event-stream",
+      "content-type": "application/json",
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "qx-native-research"
+     },
+     "model": "gpt-5.4",
+     "admitted": false,
+     "reason": "paused:identity-changed",
+     "epoch": 5
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 5,
+     "paused": "identity-changed"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 5,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "cache-control",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 5,
+     "paused": null
+    },
+    {
+     "event": "admission",
+     "method": "POST",
+     "path": "/backend-api/codex/responses",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "content-length",
+      "content-type",
+      "host",
+      "originator",
+      "session-id",
+      "thread-id",
+      "user-agent",
+      "x-client-request-id",
+      "x-codex-beta-features",
+      "x-codex-turn-metadata",
+      "x-codex-window-id"
+     ],
+     "shown": {
+      "accept": "text/event-stream",
+      "content-type": "application/json",
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "qx-native-research"
+     },
+     "model": "gpt-5.4",
+     "admitted": true,
+     "reason": "admitted",
+     "epoch": 5
+    },
+    {
+     "event": "model_upstream",
+     "status": 200,
+     "credential": "TA"
+    },
+    {
+     "event": "streams_closed",
+     "reason": "gate-shutdown",
+     "count": 0
+    }
+   ],
+   "lease_log": [
+    {
+     "event": "epoch",
+     "epoch": 1,
+     "cause": "usage-credential"
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    },
+    {
+     "event": "epoch",
+     "epoch": 2,
+     "cause": "request-account"
+    },
+    {
+     "event": "pause",
+     "epoch": 2,
+     "reason": "identity-changed"
+    },
+    {
+     "event": "epoch",
+     "epoch": 3,
+     "cause": "request-account"
+    },
+    {
+     "event": "epoch",
+     "epoch": 4,
+     "cause": "request-account"
+    },
+    {
+     "event": "epoch",
+     "epoch": 5,
+     "cause": "model-credential"
+    },
+    {
+     "event": "fresh",
+     "epoch": 5,
+     "verdict": null
+    },
+    {
+     "event": "continuation-requested",
+     "epoch": 5
+    },
+    {
+     "event": "fresh",
+     "epoch": 5,
+     "verdict": null
+    },
+    {
+     "event": "resume",
+     "epoch": 5,
+     "after": "identity-changed"
+    }
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "kind": "model",
+   "path": "/backend-api/codex/responses",
+   "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "kind": "model",
+   "path": "/backend-api/codex/responses",
+   "live": true
+  }
+ ],
+ "backend_stderr_tail": {
+  "codex": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+ }
+}

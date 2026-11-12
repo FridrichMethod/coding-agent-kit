@@ -1,0 +1,1857 @@
+{
+ "stage": "shape",
+ "ok": true,
+ "timeline": [
+  {
+   "at": 1.012,
+   "event": "startup_requests",
+   "gate": []
+  },
+  {
+   "at": 1.029,
+   "event": "rate_limits_read",
+   "label": "baseline",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.038,
+   "event": "rate_limits_read",
+   "label": "baseline-repeat",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.047,
+   "event": "rate_limits_read",
+   "label": "with-reset-credit-details",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.048,
+   "event": "get_auth_status_include_token",
+   "exported": true,
+   "matches": {
+    "T1": true
+   },
+   "auth_method": "chatgpt",
+   "rpc_error": null
+  },
+  {
+   "at": 1.056,
+   "event": "rate_limits_read",
+   "label": "swapped-slots",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "secondary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "secondary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.056,
+   "event": "case",
+   "name": "swapped-slots",
+   "native_ok": true,
+   "lease_outcome": "fresh",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.062,
+   "event": "rate_limits_read",
+   "label": "other-family-row",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     },
+     "codex_bengalfox": {
+      "limitId": "codex_bengalfox",
+      "limitName": "gpt-fixture-spark",
+      "primary": {
+       "usedPercent": 90,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": null,
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.062,
+   "event": "case",
+   "name": "other-family-row",
+   "native_ok": true,
+   "lease_outcome": "fresh",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.068,
+   "event": "rate_limits_read",
+   "label": "missing-secondary",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": null,
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": null,
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.068,
+   "event": "case",
+   "name": "missing-secondary",
+   "native_ok": true,
+   "lease_outcome": "fresh",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.076,
+   "event": "rate_limits_read",
+   "label": "rate-limit-null",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": null,
+     "secondary": null,
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": null,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": null,
+      "secondary": null,
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.076,
+   "event": "case",
+   "name": "rate-limit-null",
+   "native_ok": true,
+   "lease_outcome": "no-codex-family",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.083,
+   "event": "rate_limits_read",
+   "label": "fractional-percent",
+   "result": {
+    "rpc_error": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro\", \"rate_limit\": {\"allowed\": true, \"limit_reached\": false, \"primary_window\": {\"used_percent\": 25.5, \"limit_window_seconds\": 18000, \"reset_after_seconds\": 9000, \"reset_at\": 1794509652}, \"secondary_window\": {\"used_percent\": 60, \"limit_window_seconds\": 604800, \"reset_after_seconds\": 302400, \"reset_at\": 1794803052}}}"
+   }
+  },
+  {
+   "at": 1.083,
+   "event": "case",
+   "name": "fractional-percent",
+   "native_ok": false,
+   "lease_outcome": "fresh",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.088,
+   "event": "rate_limits_read",
+   "label": "percent-over-100",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 150,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 150,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.088,
+   "event": "case",
+   "name": "percent-over-100",
+   "native_ok": true,
+   "lease_outcome": "out-of-range",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.094,
+   "event": "rate_limits_read",
+   "label": "percent-negative",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": -5,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": -5,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.094,
+   "event": "case",
+   "name": "percent-negative",
+   "native_ok": true,
+   "lease_outcome": "out-of-range",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.101,
+   "event": "rate_limits_read",
+   "label": "zero-window-seconds",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": null,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": null,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.101,
+   "event": "case",
+   "name": "zero-window-seconds",
+   "native_ok": true,
+   "lease_outcome": "malformed",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.106,
+   "event": "rate_limits_read",
+   "label": "reset-in-past",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794493452
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794493452
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.106,
+   "event": "case",
+   "name": "reset-in-past",
+   "native_ok": true,
+   "lease_outcome": "reset-anomaly",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.112,
+   "event": "rate_limits_read",
+   "label": "limit-reached",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": false,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.112,
+   "event": "case",
+   "name": "limit-reached",
+   "native_ok": true,
+   "lease_outcome": "fresh",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.118,
+   "event": "rate_limits_read",
+   "label": "unknown-plan",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "unknown",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "unknown",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.118,
+   "event": "case",
+   "name": "unknown-plan",
+   "native_ok": true,
+   "lease_outcome": "unsupported-plan",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.123,
+   "event": "rate_limits_read",
+   "label": "usage-based-plan",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "self_serve_business_usage_based",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "self_serve_business_usage_based",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.123,
+   "event": "case",
+   "name": "usage-based-plan",
+   "native_ok": true,
+   "lease_outcome": "unsupported-plan",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.128,
+   "event": "rate_limits_read",
+   "label": "missing-plan",
+   "result": {
+    "rpc_error": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: missing field `plan_type` at line 1 column 374; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"rate_limit\": {\"allowed\": true, \"limit_reached\": false, \"primary_window\": {\"used_percent\": 25, \"limit_window_seconds\": 18000, \"reset_after_seconds\": 9000, \"reset_at\": 1794509652}, \"secondary_window\": {\"used_percent\": 60, \"limit_window_seconds\": 604800, \"reset_after_seconds\": 302400, \"reset_at\": 1794803052}}}"
+   }
+  },
+  {
+   "at": 1.128,
+   "event": "case",
+   "name": "missing-plan",
+   "native_ok": false,
+   "lease_outcome": "malformed",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.133,
+   "event": "rate_limits_read",
+   "label": "account-mismatch",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-b",
+    "ordinaryUsageAllowed": null,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.133,
+   "event": "case",
+   "name": "account-mismatch",
+   "native_ok": true,
+   "lease_outcome": "account-mismatch",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.138,
+   "event": "rate_limits_read",
+   "label": "user-mismatch",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": null,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.138,
+   "event": "case",
+   "name": "user-mismatch",
+   "native_ok": true,
+   "lease_outcome": "user-mismatch",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.143,
+   "event": "rate_limits_read",
+   "label": "identity-absent",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794509652
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794803052
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": null,
+    "ordinaryUsageAllowed": null,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794509652
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794803052
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 1.143,
+   "event": "case",
+   "name": "identity-absent",
+   "native_ok": true,
+   "lease_outcome": "account-mismatch",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.149,
+   "event": "rate_limits_read",
+   "label": "http-401",
+   "result": {
+    "rpc_error": "failed to fetch codex rate limits: GET http://127.0.0.1:<PORT>/backend-api/wham/usage failed: 401 Unauthorized; content-type=application/json; body={\"error\": {\"code\": \"token_expired\"}}"
+   }
+  },
+  {
+   "at": 1.149,
+   "event": "case",
+   "name": "http-401",
+   "native_ok": false,
+   "lease_outcome": "failure",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.154,
+   "event": "rate_limits_read",
+   "label": "http-503",
+   "result": {
+    "rpc_error": "failed to fetch codex rate limits: GET http://127.0.0.1:<PORT>/backend-api/wham/usage failed: 503 Service Unavailable; content-type=application/json; body={\"error\": \"fixture outage\"}"
+   }
+  },
+  {
+   "at": 1.154,
+   "event": "case",
+   "name": "http-503",
+   "native_ok": false,
+   "lease_outcome": "failure",
+   "refresh_connects": 0
+  },
+  {
+   "at": 1.16,
+   "event": "rate_limits_read",
+   "label": "non-json",
+   "result": {
+    "rpc_error": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: expected ident at line 1 column 2; content-type=application/json; body=fixture is not json"
+   }
+  },
+  {
+   "at": 1.16,
+   "event": "case",
+   "name": "non-json",
+   "native_ok": false,
+   "lease_outcome": "malformed",
+   "refresh_connects": 0
+  }
+ ],
+ "gates": [
+  {
+   "events": [
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "query": true,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "originator",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "codex_cli_rs",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "streams_closed",
+     "reason": "window-missing:weekly",
+     "count": 0
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": "window-missing:weekly"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "no-codex-family",
+     "epoch": 1,
+     "paused": "window-missing:weekly"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": "window-missing:weekly"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "out-of-range",
+     "epoch": 1,
+     "paused": "window-missing:weekly"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "out-of-range",
+     "epoch": 1,
+     "paused": "window-missing:weekly"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "malformed",
+     "epoch": 1,
+     "paused": "window-missing:weekly"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "reset-anomaly",
+     "epoch": 1,
+     "paused": "window-missing:weekly"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "unsupported-plan",
+     "epoch": 1,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "unsupported-plan",
+     "epoch": 1,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "malformed",
+     "epoch": 1,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "account-mismatch",
+     "epoch": 2,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "user-mismatch",
+     "epoch": 4,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "account-mismatch",
+     "epoch": 6,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 401,
+     "lease": "failure",
+     "epoch": 7,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": "failure",
+     "epoch": 7,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "malformed",
+     "epoch": 7,
+     "paused": "limit-reached"
+    },
+    {
+     "event": "streams_closed",
+     "reason": "gate-shutdown",
+     "count": 0
+    }
+   ],
+   "lease_log": [
+    {
+     "event": "epoch",
+     "epoch": 1,
+     "cause": "usage-credential"
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": "window-missing:weekly"
+    },
+    {
+     "event": "pause",
+     "epoch": 1,
+     "reason": "window-missing:weekly"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "no-codex-family"
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "out-of-range"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "out-of-range"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "malformed"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "reset-anomaly"
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": "limit-reached"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "unsupported-plan"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "unsupported-plan"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "malformed"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 1,
+     "reason": "account-mismatch"
+    },
+    {
+     "event": "epoch",
+     "epoch": 2,
+     "cause": "account-mismatch"
+    },
+    {
+     "event": "epoch",
+     "epoch": 3,
+     "cause": "usage-credential"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 3,
+     "reason": "user-mismatch"
+    },
+    {
+     "event": "epoch",
+     "epoch": 4,
+     "cause": "user-mismatch"
+    },
+    {
+     "event": "epoch",
+     "epoch": 5,
+     "cause": "usage-credential"
+    },
+    {
+     "event": "unavailable",
+     "epoch": 5,
+     "reason": "account-mismatch"
+    },
+    {
+     "event": "epoch",
+     "epoch": 6,
+     "cause": "account-mismatch"
+    },
+    {
+     "event": "epoch",
+     "epoch": 7,
+     "cause": "usage-credential"
+    },
+    {
+     "event": "failure",
+     "epoch": 7,
+     "status": 401
+    },
+    {
+     "event": "failure",
+     "epoch": 7,
+     "status": 503
+    },
+    {
+     "event": "unavailable",
+     "epoch": 7,
+     "reason": "malformed"
+    }
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/rate-limit-reset-credits"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  }
+ ],
+ "backend_stderr_tail": {
+  "codex": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+ }
+}
