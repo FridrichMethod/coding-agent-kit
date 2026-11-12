@@ -175,8 +175,8 @@ main commands only in the original main checkout.
 | PA1C | HAuth, request-gate research approval, reviewed PC5 fixture | new claude_control fixtures and report | done at 3453dbb; 9 native cases, 10 focused tests, hooks and independent review passed |
 | PTU | reviewed PA1F, consumed count permission | new claude_usage_permission fixture and report | done at 22490bc; 22 offline tests, hooks and independent review passed; distinct usage GET permission pending |
 | PR | reviewed PC5, PA1F and PA1C | new routing audit report and fixtures | done at 49c529a; two native reload cases, focused checks, final hooks and independent review passed |
-| PC6 | reviewed PC5 and PR's concrete realtime route candidate | new pc_realtime fixtures and report | core routing research in quota-realtime-codex from 8c87497; no actual audio or live accounts |
-| PA1T | reviewed PA1C, spec local-tool evidence requirement | new claude_tools fixtures and report | two bounded local-tool cases in quota-tools-claude from 8c87497; fake native TUI only |
+| PC6 | reviewed PC5 and PR's concrete realtime route candidate | new pc_realtime fixtures and report | done at 845a6a5; native core routing, 13 focused tests, final hooks and independent fix review passed |
+| PA1T | reviewed PA1C, spec local-tool evidence requirement | new claude_tools fixtures and report | done at a231874; two native cases, 3 tests with 26 mutations, hooks and independent review passed |
 | PA1 | PT or reviewed fallback feasibility, applicable human gates | Claude approved quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
 | G0 | Codex/Claude research, startup quota and routing evidence | coordinator architecture record and frozen interfaces | blocked; native default paths do not establish complete routing or real quota permission |
 | C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
@@ -610,6 +610,61 @@ Never overwrite another run's ledger when selecting new branch names.
   architecture approval remain required. No runtime implementation, push,
   implementation-document deletion or release-ready claim has occurred.
 
+### Execution checkpoint: realtime refusal and local-tool effects
+
+- Wave 7 is integrated at `5fea1ca`, preserving PTU/PR ancestry. Combined
+  focused checks, independent integration review and all-files hooks passed.
+  PTU's checkout remains available for its pending exact permission question;
+  its preparation and PR's source/evidence archive are durably retained.
+- PC6 is committed at `845a6a5`. Its
+  [realtime route report](quota-reserve-codex-realtime-research.md) passed
+  independent SPEC and QUALITY/SECURITY review after one path-redaction fix.
+  Both startup realtime URL overrides displaced distinct alternate addresses.
+  Actual native core WebRTC and WebSocket requests each reached the gate and
+  received 503 while its ordinary Responses lease was open; the alternate
+  listener saw no request. Native remained alive during the bounded subsequent
+  observation. These are refusal-route observations, not working audio or a
+  voice UI test. No microphone or user audio service was accessed.
+- WebRTC used fabricated subscription auth and synthetic SDP. The direct core
+  WebSocket path required a fabricated provider API key; its earlier keyless
+  refusal sent no request and is not routing success. Preserve that distinction
+  when deciding supported modes. The source-linked RPC tests do not establish
+  all ordinary TUI route transitions or future native-version compatibility.
+- PC6's two committed captures were re-redacted offline to remove machine
+  paths. Independent review reproduced them from private raw data and verified
+  that only the two path strings changed; original capture source and current
+  transform provenance remain separate. Thirteen focused tests and source/
+  evidence checks passed. One final hook process ended without an exit record;
+  it was not counted as passing. A fresh complete all-files run exited zero
+  on the final frozen tree before commit.
+- PA1T is committed at `a231874`. Its
+  [local-tool report](quota-reserve-claude-tools-research.md) passed independent
+  SPEC, QUALITY and SECURITY review. Under gate-only closure, the fixed local
+  Bash command completed after about four seconds. With closure plus one
+  native Ctrl-C, the shell disappeared shortly after the key and native
+  history recorded rejection; no finished marker appeared during five seconds.
+  The recorded child/reaping observations do not establish a universal native
+  termination guarantee or exact terminating signal. Both cases kept history
+  UI usable, exited zero, restored termios and forwarded no post-pause request.
+- PA1T's two native cases, three test methods with 26 evidence mutations and
+  final all-files hooks passed. A nonblocking review precision note concerns
+  an earlier failed guard attempt: "before native launch" means before the
+  native TUI launch; a guarded version-helper fork may have been attempted.
+  That failed run is retained and is not counted as successful native evidence.
+  Neither uninterrupted computation nor automatic termination is a requirement
+  inferred from these observations; adoption must disclose the chosen effect.
+- No answer has arrived for the separately scoped usage GET or ownership of
+  shell/tool-launched model clients. No further real credential request has
+  run, and no narrower ownership boundary is assumed. Resume those decisions
+  from the durable ledger; do not repeat the consumed count experiment or
+  already accepted HAuth design question.
+- G0 still requires an attributable startup quota source, the remaining finite
+  supported-route/ownership checks, same-credential admission binding, composed
+  loss/continuation and applicable platform acceptance, final timings and
+  interfaces, and human architecture review. All runtime and both publication
+  cycles remain blocked. These completed research nodes are not a release-ready
+  implementation and do not authorize deleting the task documents early.
+
 ### PC: prove Codex control rather than rediscover interruption
 
 **Files:** read `lib/codex-as/{launch,check,handoff,usage}.py` and
@@ -810,11 +865,12 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [x] B0, PA0, PTP/PTU preparation, PA2, PC3/PC4/PC5, PA1F/PA1C and PR research are complete;
+- [x] B0, PA0, PTP/PTU preparation, PA2, PC3/PC4/PC5/PC6, PA1F/PA1C/PA1T and PR research are complete;
   capability gaps remain. HAuth and continuation research scope are approved;
   the one named-account count request completed without quota headers. Resume
-  PC6/PA1T evidence and the pending usage-GET/ownership questions from the
-  durable ledger, not B0.
+  the pending usage-GET/ownership decisions and remaining finite G0 acceptance
+  from the durable ledger, not B0. Reuse the completed evidence and exact
+  reviewed source commits; do not repeat native matrices without a new reason.
   Setup-token-only is preferred; persistent
   initial login is permitted as fallback, with no routine repeated login.
   G0 remains closed; no runtime implementation is authorized. Concrete

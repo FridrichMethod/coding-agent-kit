@@ -1,0 +1,15 @@
+{
+  "commit": "ce21072c90d32c40af7a55b60b2fb35c84a43a6a",
+  "files": {
+    "codex-rs/core/src/realtime_conversation.rs": "ee7b72decc2c41695a8c6610668c5000251cb753818cf189d4361e5579fe05bc",
+    "codex-rs/core/src/client.rs": "662cf64d10f4b0d7eaf3ad046e53b1eb6dcf8dfb3cb5a425a3c8c222adc05da5",
+    "codex-rs/tui/src/chatwidget/session_flow.rs": "ae99739b757a0c1b339e1b61ae2a1f3e0cbc4aa097bea4ff26ae64cd6c931f6b",
+    "codex-rs/tui/src/chatwidget/realtime.rs": "19dc82f1f44b5e3ef2f6b097739427d5f775777f679e64785be35819f349c973",
+    "codex-rs/tui/src/app_server_session/realtime.rs": "b5d2269b64c4edfa0e4b5e6deeeb2a71917d801c3f2a194a51514de4037401c9",
+    "codex-rs/app-server-protocol/src/protocol/v2/realtime.rs": "a9e62779fa91f49926342a502f2a9058a02fe327734f46753feb6c5c005a8575",
+    "codex-rs/realtime-webrtc/src/session.rs": "e747d53929cc243059685f640ab16668b8162dcf3ed29df25441291f3dec5cf9",
+    "codex-rs/realtime-webrtc/src/client.rs": "2cf33f6b77917adec87b6f6b3a2d66fa4826e882f743d769897d5b84ce0ecb51",
+    "codex-rs/codex-api/src/endpoint/realtime_call.rs": "c9a987c05dadabb620dfaea38e8b739735efaf3f931daeec7c59d69f56788252",
+    "codex-rs/codex-api/src/endpoint/realtime_websocket/methods.rs": "baa6a2961a8610286018b8cfcdff24f6d325cd93d43cd32f522fd6046e4f781a"
+  }
+}

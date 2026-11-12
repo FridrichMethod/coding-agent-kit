@@ -1,0 +1,206 @@
+{
+  "native_tui": true,
+  "mode": "gate",
+  "command": "printf \"%s\\n\" \"$$\" > tool.pid; printf \"started\\n\" > started; sleep 4; printf \"finished\\n\" > finished; printf \"PA1T command finished\\n\"",
+  "events": [
+    {
+      "at": 0.2109,
+      "event": "gate_ready",
+      "when": 142653.329439445
+    },
+    {
+      "at": 0.21182,
+      "event": "gate_open",
+      "when": 142653.330413595
+    },
+    {
+      "at": 0.24318,
+      "event": "version",
+      "code": 0,
+      "output": "2.1.322 (Claude Code)"
+    },
+    {
+      "at": 0.35688,
+      "event": "auth_status",
+      "code": 0,
+      "output": "{\n  \"loggedIn\": true,\n  \"authMethod\": \"claude.ai\",\n  \"apiProvider\": \"firstParty\",\n  \"analyticsDisabled\": true,\n  \"projectsDirectory\": \"<PROBE_ROOT>/config/projects\",\n  \"configDirectory\": \"<PROBE_ROOT>/config\",\n  \"loginExpiresAt\": null,\n  \"email\": \"tools@example.invalid\",\n  \"orgId\": \"fixture-org\",\n  \"orgName\": null,\n  \"subscriptionType\": \"max\",\n  \"storedClaudeAiLogin\": true,\n  \"planTier\": \"max_5x\"\n}"
+    },
+    {
+      "at": 0.6191,
+      "event": "model_request",
+      "path": "/v1/messages?beta=true",
+      "fixture_auth": true,
+      "bash_available": true
+    },
+    {
+      "at": 0.61923,
+      "event": "gate_forward",
+      "when": 142653.737233231,
+      "request_id": 1
+    },
+    {
+      "at": 0.61949,
+      "event": "fixed_tool_sent",
+      "command": "printf \"%s\\n\" \"$$\" > tool.pid; printf \"started\\n\" > started; sleep 4; printf \"finished\\n\" > finished; printf \"PA1T command finished\\n\""
+    },
+    {
+      "at": 0.61958,
+      "event": "gate_stream_closed",
+      "when": 142653.738218867,
+      "request_id": 1
+    },
+    {
+      "at": 0.65968,
+      "event": "tool_started",
+      "marker": "started\n",
+      "identity": {
+        "pid": 3270921,
+        "state": "S",
+        "parent": 3270801,
+        "group": 3270921,
+        "session": 3270921,
+        "start_ticks": 14265376
+      },
+      "native_alive": true,
+      "finished_present": false
+    },
+    {
+      "at": 0.6598,
+      "event": "tool_children",
+      "identities": [
+        {
+          "pid": 3270922,
+          "state": "S",
+          "parent": 3270921,
+          "group": 3270921,
+          "session": 3270921,
+          "start_ticks": 14265377
+        }
+      ]
+    },
+    {
+      "at": 0.65981,
+      "event": "pause_requested",
+      "mode": "gate"
+    },
+    {
+      "at": 0.65999,
+      "event": "gate_latched",
+      "when": 142653.778596614,
+      "reason": "monitor_eof",
+      "active_ids": []
+    },
+    {
+      "at": 4.66658,
+      "event": "tool_shell_gone",
+      "identity": null
+    },
+    {
+      "at": 4.66668,
+      "event": "tool_finished",
+      "marker": "finished\n",
+      "marker_elapsed_seconds": 4.001021207
+    },
+    {
+      "at": 4.6707,
+      "event": "gate_reject",
+      "when": 142657.789301156,
+      "old_queue": false,
+      "later_prompt": false
+    },
+    {
+      "at": 5.21775,
+      "event": "gate_reject",
+      "when": 142658.336336381,
+      "old_queue": false,
+      "later_prompt": false
+    },
+    {
+      "at": 5.69664,
+      "event": "tool_observed",
+      "finished": "finished\n",
+      "identity": null,
+      "same_identity_alive": false,
+      "native_alive": true,
+      "children": [
+        null
+      ]
+    },
+    {
+      "at": 5.69988,
+      "event": "tool_history",
+      "results": [
+        {
+          "content": {
+            "tool_use_id": "tool_pa1t",
+            "type": "tool_result",
+            "content": "PA1T command finished",
+            "is_error": false
+          },
+          "toolUseResult": {
+            "stdout": "PA1T command finished",
+            "stderr": "",
+            "interrupted": false,
+            "isImage": false,
+            "noOutputExpected": false
+          }
+        },
+        {
+          "content": {
+            "tool_use_id": "tool_pa1t",
+            "type": "tool_result",
+            "content": "PA1T command finished\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>",
+            "is_error": false
+          },
+          "toolUseResult": null
+        }
+      ]
+    },
+    {
+      "at": 6.02291,
+      "event": "gate_reject",
+      "when": 142659.141464898,
+      "old_queue": false,
+      "later_prompt": true
+    },
+    {
+      "at": 6.20015,
+      "event": "later_prompt",
+      "native_alive": true
+    },
+    {
+      "at": 6.80047,
+      "event": "history_view",
+      "native_alive": true
+    },
+    {
+      "at": 7.40107,
+      "event": "native_exit",
+      "exited": true,
+      "code": 0,
+      "termios_restored": true
+    },
+    {
+      "at": 7.40112,
+      "event": "credential_files",
+      "unchanged": true
+    },
+    {
+      "at": 7.40115,
+      "event": "owned_cleanup",
+      "pid": 3270782
+    },
+    {
+      "at": 7.40317,
+      "event": "final_tool_identity",
+      "identity": null
+    }
+  ],
+  "outcome": {
+    "completed": true,
+    "ended_without_completion": false,
+    "terminated": false,
+    "cleanup_before_observation": false
+  },
+  "terminal": "\u001b7\u001b[r\u001b8\u001b[?25h\u001b[?2004h\u001b[?2031h\u001b[?1004h\u001b]0;\u2733 Claude Code\u0007\u001b[?1049h\u001b[2J\u001b[H\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b[?25l\u001b[?25l\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\u001b[12G\u001b[39m\u001b[49m\u001b[1mClaude Code\u001b[24G\u001b[22m\u001b[38;5;246mv2.1.322\r\u001b[1B\u001b[38;5;174m\u259d\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u2580\u001b[12G\u001b[38;5;246mSonnet 4.6 \u00b7 Claude Max\r\u001b[1B\u001b[38;5;174m \u259d\u259d   \u259d\u259d \u001b[12G\u001b[38;5;246m<PROBE_ROOT>/workspace\r\u001b[3B\u001b[48;5;237m\u276f \u001b[38;5;231mFixture local tool\u001b[39m                                                                                                    \r\u001b[28B\u001b[49m\u001b[38;5;174m\u00b7\u001b[3GComposing\u2026 \r\u001b[102C\u001b[1B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[37B\u001b[38;5;246m\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[>0q\u001b[?u\u001b]7501;?\u0007\u001b[c\u001b[H\r\u001b[8B\u001b[38;5;246m\u25cf\u001b[3G\u001b[39mFixed\u001b[9Gprivate\u001b[17Gfixture\u001b[25Gmarkers\u001b[33Gand\u001b[37Gfour-second\u001b[49Gsleep\r\u001b[1B\u001b[38;5;246m  \u23bf  $ printf \"%s\\n\" \"$$\" > tool.pid; printf \"started\\n\" > started; sleep 4; printf \"finished\\n\" > finished; printf \r\u001b[5C\u001b[1B\"PA1T command finished\\n\"\r\u001b[2C\u001b[24B\u001b[38;5;180mHashing\u2026\u001b[38;5;174m \u001b[38;5;246m(0s \u00b7 \u2193\u001b[20G25 tokens)\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[6C\u001b[3B\u001b[38;5;174m  \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[3G\u001b[38;5;216mHashing\u2026\u001b[20G\u001b[38;5;246m36\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[3B\u001b[38;5;174m  \u001b[7G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[19C\u001b[34B\u001b[38;5;246m44\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[3B\u001b[38;5;174m\u259d\u259d\u001b[7G  \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m*\u001b[21G\u001b[38;5;246m7\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[3B\u001b[38;5;174m  \u001b[7G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2736\u001b[20G\u001b[38;5;246m50\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[3B\u001b[38;5;174m\u259d\u259d\u001b[7G  \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u273b\u001b[21G\u001b[38;5;246m1\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[3B\u001b[38;5;174m  \u001b[7G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m\u2597\u259f\u001b[9G\u2584\r\u001b[1B \u001b[9G\u2598\r\u001b[1C\u001b[1B\u259d\u259d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[20C\u001b[34B\u001b[38;5;246m3\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u273d\u001b[3G\u001b[38;5;180mHashing\u2026\u001b[21G\u001b[38;5;246m4\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[9G\u001b[39m \r\u001b[1B\u001b[38;5;174m\u259d\u001b[9G\u2580\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[20C\u001b[34B\u001b[38;5;246m6\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d1 Claude Code\u0007\u001b[H\r\u001b[12C\u001b[34B\u001b[38;5;246m1\u001b[21G8\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m\u25cf\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u273b\u001b[3GHashing\u2026\u001b[21G\u001b[38;5;246m9\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[19C\u001b[34B\u001b[38;5;246m61\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2736\u001b[21G\u001b[38;5;246m3\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m*\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[34B\u001b[38;5;180mHashing\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u00b7\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[2C\u001b[34B\u001b[38;5;216mHashing\u2026\u001b[13G\u001b[38;5;246m2\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m\u25cf\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m*\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2736\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u273b\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u273d\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[34B\u001b[38;5;180mHashing\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d1 Claude Code\u0007\u001b[H\r\u001b[53C\u001b[8B\u001b[38;5;246m \u00b7 2s\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[12C\u001b[34B\u001b[38;5;246m3\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[30C\u001b[10B\u001b[38;5;246m (3s)\r\u001b[5C\u001b[1B(ctrl+b to run in background)\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u273b\u001b[3GHashing\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2736\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m*\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m\u25cf\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u2722\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;174m\u00b7\u001b[3G\u001b[38;5;180mHashing\u2026\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[56C\u001b[8B\u001b[38;5;246m3\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[34B\u001b[38;5;216mHashing\u2026\u001b[13G\u001b[38;5;246m4\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[53C\u001b[8B\u001b[K\r\u001b[30C\u001b[2B\u001b[K\r\u001b[5C\u001b[1B\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[34B\u001b[38;5;211m\u273b\u001b[3GAPI error\u001b[38;5;246m \u00b7 Retrying in 1\u001b[29G \u00b7 attempt 1/10\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[26C\u001b[34B\u001b[38;5;246m0\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[26C\u001b[34B\u001b[38;5;246m2\u001b[40G2\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[26C\u001b[34B\u001b[38;5;246m1\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B\u001b[38;5;246m\u25cf\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d1 Claude Code\u0007\u001b(B\u000f\u001b[?2004h\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[4C\u001b[1B\u001b[38;5;246m\u00a0Interrupted \u00b7 What should Clau\u001b[37Ge\u001b[39Gdo instead?\u001b[39m\u001b[K\r\u001b[5C\u001b[1B\u001b[K\r\u001b[24B\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b]0;\u25d1 Claude Code\u0007\u001b[H\r\u001b[11B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231mFixture later prompt\u001b[39m                                                                                                  \r\u001b[22B\u001b[49m\u001b[38;5;174m\u2736\u001b[3GRuminating\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[33B\u001b[K\r\u001b[1B\u001b[38;5;211m\u273b\u001b[39m \u001b[38;5;211mAPI error\u001b[38;5;246m \u00b7 Retrying in 1s \u00b7 attempt\u001b[40G1/10\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[34B\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[11B\u001b[K\r\u001b[2C\u001b[26BFixture\u001b[11Glater\u001b[17Gprompt\u001b[7m \r\u001b[18C\u001b[2B\u001b[27m\u001b[K\u001b[40;1H\u001b[38;23H\u001b[H\r\u001b[8B\u001b[38;5;114m\u25cf\u001b[3G\u001b[39m\u001b[1mBash\u001b[22m(printf \"%s\\n\" \"$$\"\u001b[27G>\u001b[29Gtool.pid;\u001b[39Gprintf\u001b[46G\"started\\n\"\u001b[58G>\u001b[60Gstarted;\u001b[69Gsleep\u001b[75G4;\u001b[78Gprintf\u001b[85G\"finished\\n\"\u001b[98G>\u001b[100Gfinished;\u001b[110Gprintf\r\u001b[1B      \"PA1T command finished\\n\")\u001b[K\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0\u001b[39mPA1T\u001b[11Gcommand\u001b[19Gfinished\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0(timeout 10s)\r\u001b[1B  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[102C\u001b[23B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[2m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[22m\u001b[38;5;246mShowing detailed transcript \u00b7 ctrl+o to toggle \u00b7 \u2191\u2193 scroll \u00b7 v to open in code \u00b7 ? for shortcuts\u001b[113Gverbose \u001b[39m\u001b[40;1H\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[1B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[K\r\u001b[102C\u001b[23B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0Fixture\u001b[11Glater\u001b[17Gprompt\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on\u001b[39m\u001b[K\u001b[40;1H\u001b[38;23H\u001b[H\r\u001b[2C\u001b[37B\u001b[7m \u001b[27m\u001b[K\r\u001b[2C\u001b[2B\u001b[38;5;246mPress Ctrl-C again to exit\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume db297542-027e-4438-b93a-ab318040f006\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h"
+}
