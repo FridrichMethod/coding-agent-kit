@@ -61,3 +61,6 @@ coverage.xml
 
 # Cursor (local-only AI assistant config)
 .cursor/
+
+# Isolated task worktrees
+/.worktrees/
