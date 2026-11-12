@@ -11,12 +11,14 @@ accounts while retaining the existing setup-token mode. Credential isolation
 and migration require a separate design review before implementation. These
 decisions do not waive the native-control feasibility requirements below.
 
-Subsequent execution decisions supersede the optional full-login direction:
-many accounts have only a setup token and cannot complete full OAuth login.
-Supporting those accounts is a hard requirement. Quota protection must not
-require converting them to full login, replacing their credentials, or logging
-in again when switching accounts. The full-login proposal is not adopted as
-the solution for this release; ordinary setup-token behavior remains intact.
+The latest clarification makes setup-token-only support the preferred path.
+If it cannot satisfy protection, the user permits an initial web login per
+account with persistent credentials. Routine account switching must select
+the saved account without another login. Native credential refresh stays with
+Claude; revoked or unrefreshable credentials may require explicit recovery.
+This supersedes the earlier hard token-only constraint, but does not approve
+the detailed storage schema, shared device-state access, credential migration
+or real-account experiments. Ordinary setup-token behavior remains intact.
 
 The user separately authorized research of a foreground, per-invocation model
 request gate proxy after native control counterexamples were reproduced.
@@ -200,8 +202,10 @@ local rejection alone does not prove every server endpoint rejects the token.
 Any alternative must still provide fresh, attributable subscription windows
 without a model request. Token counting, missing data, cached response headers
 or a first inference used to seed usage cannot satisfy startup preflight.
-If no such token-only mechanism can be proved, report the feature blocked
-rather than requiring full login or silently weakening the startup guarantee.
+If no such token-only mechanism can be proved, the permitted fallback is an
+explicit, persistent full-login account mode after its credential design is
+reviewed. It must satisfy the same model-free startup and freshness checks;
+login itself is not evidence of quota capability.
 
 Claude hooks can stop an agent loop at documented boundaries. That does not
 establish cancellation of every active subagent or in-flight model request.
@@ -216,10 +220,10 @@ required before choosing an implementation architecture:
 - For each provider, demonstrate a model-free startup query under the
   launcher's supported authentication mode. Record native version, window
   identity, reset semantics, and supported freshness signals. If Claude needs
-  different credentials, that cannot satisfy the hard setup-token-only
-  requirement. Report the missing capability; do not change enrollment or add
-  a credential store as a substitute. Any optional future credential design
-  still requires its own human review.
+  different credentials, explain why setup-token-only cannot satisfy the
+  requirement and review the persistent-login fallback with the user. Prove
+  account isolation and reuse across switches before changing enrollment or
+  adding a credential store. Real-account checks require separate approval.
 - Demonstrate that the native TUI stays usable while current model work,
   delegated agents, automatic continuation, and new model submissions remain
   stopped. Demonstrate deliberate manual continuation after rechecking quota.

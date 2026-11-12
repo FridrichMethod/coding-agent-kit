@@ -13,9 +13,12 @@ The smallest remaining endpoint hypothesis is whether a direct token-count
 response carries subscription-window headers; neither its setup-token
 authorization nor those headers is documented or demonstrated here.
 
-Setup-token accounts are a hard requirement. Many users cannot perform full
-OAuth login. The PA0 full-login proposal is frozen, not adopted, and is not a
-fallback or prerequisite. Existing accounts and switching remain unchanged.
+Setup-token-only support is the preferred path. The latest user clarification
+permits an initial web login as fallback if needed, with persistent credentials
+and no repeated login during routine switching. It supersedes the hard
+token-only constraint in force when this research was performed. Detailed
+credential design and live experiments still need their gates; existing
+setup-token behavior remains unchanged.
 Full A, fresh startup observations before any model generation, per-invocation
 control and manual continuation remain hard gates. Proxy research is now
 authorized at a bounded architectural level; proxy implementation is not.
@@ -269,5 +272,6 @@ Do not begin implementation on this evidence. The smallest capability decision
 is whether to prepare and separately authorize the exact one-account count
 header probe above, or seek provider confirmation of a setup-token-compatible
 fresh usage interface. If no such source exists, token-only protection with
-the accepted startup guarantee is blocked; full login and a first generation
-request are not substitutes.
+the accepted startup guarantee is blocked. The user now permits a separately
+reviewed persistent-login fallback, which still needs its own quota/control
+proof; a first generation request cannot satisfy either path's startup check.

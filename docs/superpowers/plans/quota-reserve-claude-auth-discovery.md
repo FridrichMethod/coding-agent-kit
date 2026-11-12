@@ -1,10 +1,10 @@
 # Claude PA0 authentication discovery and HAuth proposal
 
-Historical proposal: after this research was reviewed, the user required
-support for accounts that possess only setup tokens and cannot complete full
-login. This candidate is frozen, not adopted as the release auth solution.
-See the current spec, central handoff and durable decisions for that steering.
-The storage findings below remain evidence; they authorize no credential work.
+Current direction: setup-token-only support is preferred. The user permits
+initial web login as fallback if needed, provided credentials persist per
+account and routine switching requires no further login. This proposal remains
+subject to concrete HAuth isolation/schema review and quota/control evidence.
+Its storage findings authorize no real-account or shared device-state access.
 
 Status: PA0 research complete; validation and independent review results are
 recorded in the coordinator handoff.

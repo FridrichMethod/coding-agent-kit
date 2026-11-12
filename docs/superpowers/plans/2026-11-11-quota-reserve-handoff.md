@@ -39,7 +39,7 @@ scope gate, and native usage may be cached without freshness provenance.
 G0 is a real blocker, not a checkbox that a mock test can satisfy. The goal is
 release readiness only if the evidence supports the agreed product.
 
-### Current execution steering after research wave 1
+### Current execution steering
 
 The reviewed first research wave is integrated at `03f6b99`. Its native
 counterexamples and PA0 proposal are evidence, not implemented functionality.
@@ -49,19 +49,20 @@ monitor-loss protection and verified manual continuation. This supersedes the
 earlier prohibition on exploring a proxy; it does not approve a production
 proxy, new public UX, replacement UI, persistent daemon or weaker behavior.
 
-The user also stated a hard requirement that many accounts have only setup
-tokens and cannot perform full login. Quota protection must not require full
-OAuth conversion or login on each switch. The full-login candidate is frozen,
-not adopted as the release solution. A later question asked whether full login
-can persist; the coordinator explained that native credentials can persist
-per account and asked whether first login is actually unavailable or only
-repeated login is unacceptable. Until the user clarifies, the token-only hard
-requirement remains binding. No question or explanation counts as approval.
+The user clarified the earlier token-only constraint: prefer setup-token-only
+support; if it cannot satisfy protection, initial web login is allowed with
+persistent credentials per account. Routine switching must not require another
+login. This permits a persistent-login fallback in principle, not automatic
+migration, default-account reuse, the detailed storage schema, shared device
+state access or a live credential experiment. Native refresh remains native
+owned; revocation or unrefreshable credentials require explicit recovery.
 
 The new research nodes are PC2 (request-gate feasibility) and PT (token-only
 startup quota). They extend the research before G0; they do not restart B0 or
-authorize C/X/A/U. HAuth remains required for any future credential-design
-change, but the unadopted full-login branch cannot replace token-only support.
+authorize C/X/A/U. PTP prepares the offline-reviewed permission probe. PA2
+extends persistent-login isolation evidence; PC3 extends subscription TUI and
+routing evidence independently of the pending continuation-control decision.
+HAuth remains required for the concrete credential design.
 Read `gate-decisions.md` in the durable ledger for decisions received after
 any frozen checkpoint. Original task text below is historical where this
 explicit steering supersedes it; all protection and publication gates remain.
@@ -74,7 +75,7 @@ explicit steering supersedes it; all protection and publication gates remain.
 - Query before model work; stale or missing enabled windows are unavailable. Persistent failures pause; finite retries never extend freshness indefinitely.
 - Keep native UI, stop invocation-owned current/future delegated model work, and require verified manual continuation after a fresh quota check. Never silently substitute process exit.
 - Preserve setup-token behavior when protection is off. No unapproved credential format, account migration, or OAuth refresh implementation.
-- Setup-token-only support is currently a hard requirement for protection too; full login or a first inference cannot substitute for a model-free startup quota source.
+- Prefer setup-token-only protection. A reviewed persistent-login fallback is permitted if needed; routine switching must not require login. Neither authentication nor a first inference substitutes for a model-free startup quota source.
 - Python is `python3 -I -B`; modules load by physical path. Only config.py reads launcher HOME, XDG_STATE_HOME, or the kit config file.
 - Linux/macOS, system Bash 3.2 compatibility, POSIX sh for claude-as/install.sh, no native Windows support. Native version floors must follow demonstrated capabilities, not an exact pin or upper bound.
 - Tests use temporary homes, fictitious credentials, and loopback fixtures. A real-account probe requires explicit authorization and user-performed authentication.
@@ -152,11 +153,13 @@ main commands only in the original main checkout.
 | PC | B0 | Codex probe fixtures and own evidence report | blocked-user; reviewed checkpoint 9c660f8 and hooks passed |
 | PA0 | B0 | Claude discovery fixtures and own auth/control proposal | done at 2df1ce5; independent review and hooks passed |
 | PC2 | PC, explicit proxy-research authorization | new pc_proxy fixtures and Codex proxy report | reviewed checkpoint 9538f748; full A blocked-user |
-| PT | PA0, setup-token-only requirement | new claude_token fixtures and token-only report | reviewed checkpoint ad8c079; startup source unproved |
-| PTP | PT | offline one-shot permission-probe harness and tests | local preparation running; no real account access authorized |
-| HAuth | any proposed credential-design change | coordinator human credential-design decision record | full-login candidate not adopted; no migration or real-account authorization |
-| PA1 | PT feasibility, applicable human gates | Claude approved token-only quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
-| G0 | PC2, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
+| PT | PA0, setup-token preference | new claude_token fixtures and token-only report | reviewed checkpoint ad8c079; startup source unproved |
+| PTP | PT | offline one-shot permission-probe harness and tests | done at d6ce140; 21 offline tests, hooks and independent review passed; no live authorization |
+| PA2 | PA0, persistent-login fallback direction | new claude_persistence fixtures and report | running in quota-native-claude from 796847a |
+| PC3 | PC2 | new pc_ui fixtures and report | running in quota-ui-codex from 796847a |
+| HAuth | any proposed credential-design change | coordinator human credential-design decision record | persistent fallback allowed in principle; concrete isolation/schema unresolved |
+| PA1 | PT or reviewed fallback feasibility, applicable human gates | Claude approved quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
+| G0 | PC2/PC3, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
 | C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
 | X | C | bin/codex-as, lib/codex-as/*, Codex-specific tests | blocked |
 | A | C | bin/claude-as, lib/claude-as/*, statusline/helper changes, Claude-specific tests | blocked |
@@ -333,12 +336,38 @@ Never overwrite another run's ledger when selecting new branch names.
   based on `ad8c079`. No real token may be read or sent while preparing it.
   Execution requires separate named-account/exact-path/endpoint authorization
   after review; no permission is inferred from a CLI flag or research scope.
-- The user asked whether full-login credentials can persist across switches.
-  Official documentation confirms separate config directories can retain
-  multiple claude.ai logins. The outstanding clarification is whether some
-  accounts cannot perform even the first login, or whether only repeated
-  login was unacceptable. Until answered, retain the explicit token-only hard
-  constraint and do not revive the full-login proposal by assumption.
+- The subsequent user clarification permits initial web login as fallback,
+  with credentials retained per account and no repeated login during routine
+  switching. This supersedes the former hard token-only constraint. The exact
+  HAuth design, shared device-state effects and live probes remain gated.
+
+### Execution checkpoint: permission-probe preparation and auth clarification
+
+- PTP is committed at `d6ce140b6526e479cbb707e4a2400049f85dd29a`, following
+  the initial `36c608a` checkpoint. Its [reviewable command and limits](quota-reserve-claude-permission-probe.md)
+  describe one fixed count request, no generation or retry, explicit account
+  and token path, strict credential handling and sanitized output. Twenty-one
+  fabricated offline tests and all-files hooks passed. Independent review
+  accepted the three bounded fixes: independent test network denial, accurate
+  metadata-line limits and disclosed abrupt-parent-death limitations.
+- This completes preparation only. No real token was read, no provider was
+  contacted and no live request is authorized. A named account, exact configured
+  token file and direct first-party HTTPS permission are still needed before
+  the reviewed experiment. Syntactically complete headers would not themselves
+  prove freshness, quota family, account identity or a polling policy.
+- PC2/PT evidence was integrated at `796847a`. Their logs and temporary-root
+  inventories were archived before verified cleanup of their worktrees and
+  merged branches. The integration and PTP worktrees preserve ongoing work.
+- PA2 and PC3 are independent bounded research extensions in separate new
+  worktrees. PA2 checks persistent native-login and device-state isolation
+  using fabricated records and denied network. PC3 investigates a sourced
+  subscription TUI account-discovery fixture and native routing. Neither may
+  read real credentials or change runtime behavior.
+- A concrete G0 scope question is pending: permit research of HTTP/SSE-only
+  protected routing plus a dedicated continuation key outside the native UI,
+  or retain current interaction and wait for a native primitive. No new key,
+  production proxy or weaker stop semantics is approved by asking. Continue
+  independent research while awaiting that decision.
 
 ### PC: prove Codex control rather than rediscover interruption
 
@@ -540,8 +569,9 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [x] B0 and PA0 are complete; PC has reviewed blocker evidence. Resume PC2/PT
-  and pending human decisions from the durable ledger, not from B0. The
-  full-login proposal is not adopted under the current token-only constraint.
-  G0 remains closed; no runtime implementation is authorized. Any future
-  credential-design change or real-account experiment still needs its gate.
+- [x] B0, PA0 and PTP preparation are complete; PC/PC2/PT have reviewed evidence
+  and unresolved capability gaps. Resume PA2/PC3 and pending human decisions
+  from the durable ledger, not B0. Setup-token-only is preferred; persistent
+  initial login is permitted as fallback, with no routine repeated login.
+  G0 remains closed; no runtime implementation is authorized. Concrete
+  credential design and real-account experiments retain their gates.
