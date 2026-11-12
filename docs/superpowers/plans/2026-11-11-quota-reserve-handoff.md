@@ -62,6 +62,8 @@ startup quota). They extend the research before G0; they do not restart B0 or
 authorize C/X/A/U. PTP prepares the offline-reviewed permission probe. PA2
 extends persistent-login isolation evidence; PC3 extends subscription TUI and
 routing evidence independently of the pending continuation-control decision.
+PC4 now investigates monitor/proxy loss across owned native streams within
+the already-authorized gate research; it adds no continuation UX or runtime.
 HAuth remains required for the concrete credential design.
 Read `gate-decisions.md` in the durable ledger for decisions received after
 any frozen checkpoint. Original task text below is historical where this
@@ -155,11 +157,12 @@ main commands only in the original main checkout.
 | PC2 | PC, explicit proxy-research authorization | new pc_proxy fixtures and Codex proxy report | reviewed checkpoint 9538f748; full A blocked-user |
 | PT | PA0, setup-token preference | new claude_token fixtures and token-only report | reviewed checkpoint ad8c079; startup source unproved |
 | PTP | PT | offline one-shot permission-probe harness and tests | done at d6ce140; 21 offline tests, hooks and independent review passed; no live authorization |
-| PA2 | PA0, persistent-login fallback direction | new claude_persistence fixtures and report | running in quota-native-claude from 796847a |
-| PC3 | PC2 | new pc_ui fixtures and report | running in quota-ui-codex from 796847a |
+| PA2 | PA0, persistent-login fallback direction | new claude_persistence fixtures and report | done at 950948d; isolated matrix, hooks and independent review passed |
+| PC3 | PC2 | new pc_ui fixtures and report | done at ab41738; native matrix, hooks and independent review passed |
+| PC4 | reviewed PC3, existing gate-research authorization | new pc_loss fixtures and report | running in quota-loss-codex from ab41738; no continuation UX |
 | HAuth | any proposed credential-design change | coordinator human credential-design decision record | persistent fallback allowed in principle; concrete isolation/schema unresolved |
 | PA1 | PT or reviewed fallback feasibility, applicable human gates | Claude approved quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
-| G0 | PC2/PC3, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
+| G0 | PC2/PC3/PC4, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
 | C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
 | X | C | bin/codex-as, lib/codex-as/*, Codex-specific tests | blocked |
 | A | C | bin/claude-as, lib/claude-as/*, statusline/helper changes, Claude-specific tests | blocked |
@@ -369,6 +372,47 @@ Never overwrite another run's ledger when selecting new branch names.
   production proxy or weaker stop semantics is approved by asking. Continue
   independent research while awaiting that decision.
 
+### Execution checkpoint: persistent selection and native delegated routing
+
+- PA2 is committed at `950948d73574f4b2f9228f9e3906c0c7b614c5d5`.
+  Its [persistence and device-state report](quota-reserve-claude-persistence-research.md)
+  passed independent spec/security review and final all-files hooks. Fifteen
+  native operations across three fabricated device-state cases preserve A/B
+  credential separation; A logout clears A OAuth but preserves its legacy
+  device record and B credentials. No shared device-key path was accessed in
+  those status/logout cases. Fabricated logged-in status is not authentication
+  proof, and these operations do not test real login or refresh.
+- Static inspection finds account-indexed shared device keys, legacy migration,
+  corrupt-file quarantine and native registration/reenrollment updates. Even
+  a denied network call need not prevent a local device-key write. HAuth must
+  review this specific shared-state exposure before real-HOME enrollment;
+  ordinary per-account config separation cannot prove universal isolation.
+  macOS, real account binding, refresh concurrency and quota freshness remain
+  unproved. No actual credential or default-account file was read.
+- PC3 is committed at `ab417382602dd09142b7048ba4743c49b4ed2472`.
+  Its [subscription TUI and delegation report](quota-reserve-codex-ui-research.md)
+  passed independent spec/security review, native fixture/evidence checks and
+  all-files hooks. The account-discovery fixture comes from the matching
+  official source. The native subscription TUI starts, root/title requests
+  reach the configured gate, and root interruption leaves UI/history available.
+  This resolves PC2's local discovery-503 fixture blocker, not real subscription
+  permission, every UI interaction or workspace-policy compatibility.
+- Native spawn history proves actual default root/child/grandchild delegation
+  under fabricated SSE responses. All requests use the root session header;
+  separate thread IDs and the native spawn graph establish ancestry. Root
+  interruption leaves the title stream open at one second and descendant
+  streams at two seconds. Individually interrupting descendants closes their
+  local streams; no remote computation-cancellation guarantee follows.
+- PC4 uses a separate worktree and branch `task/quota-loss-codex` from reviewed
+  PC3 to test monitor/proxy-loss admission and owned-stream closure. It may not
+  add a continuation key, product transport restrictions or production proxy.
+  The two pending human questions concern that continuation research scope and
+  one named-account setup-token count experiment; no answer is assumed.
+- Neither research result passes G0. Real quota permissions/freshness,
+  exhaustive routing, trusted new manual continuation, monitor/proxy loss,
+  running tools, macOS and concrete timings/interfaces remain open. No runtime
+  node, remote push or functional/document-cleanup publication cycle has begun.
+
 ### PC: prove Codex control rather than rediscover interruption
 
 **Files:** read `lib/codex-as/{launch,check,handoff,usage}.py` and
@@ -569,9 +613,9 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [x] B0, PA0 and PTP preparation are complete; PC/PC2/PT have reviewed evidence
-  and unresolved capability gaps. Resume PA2/PC3 and pending human decisions
-  from the durable ledger, not B0. Setup-token-only is preferred; persistent
+- [x] B0, PA0, PTP preparation, PA2 and PC3 research are complete; capability
+  gaps remain. Resume PC4 and pending human decisions from the durable ledger,
+  not B0. Setup-token-only is preferred; persistent
   initial login is permitted as fallback, with no routine repeated login.
   G0 remains closed; no runtime implementation is authorized. Concrete
   credential design and real-account experiments retain their gates.

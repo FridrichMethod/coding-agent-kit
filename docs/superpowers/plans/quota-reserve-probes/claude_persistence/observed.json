@@ -1,0 +1,230 @@
+{
+  "version": "2.1.322 (Claude Code)",
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "runner_sha256": "f4eb8231cd7a4430ec66e476dd5271b1e9de353224066a66d94fcf4db006a5a7",
+  "probe_sha256": "f11b33c05501946c0b43f9c0d89d50d0a057874d15fc73903d99dbf03e10ff23",
+  "denied_syscalls": [
+    "socket",
+    "connect",
+    "sendto",
+    "sendmsg",
+    "sendmmsg",
+    "io_uring_setup"
+  ],
+  "version_denials": 0,
+  "classification": "local_fabricated_persistence_not_server_authentication",
+  "login_invocations": 0,
+  "model_invocations": 0,
+  "cases": [
+    {
+      "case": "absent-device",
+      "operations": [
+        {
+          "name": "a-first",
+          "account": "a",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 5,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "a@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "b-first",
+          "account": "b",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 5,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "b@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "a-return",
+          "account": "a",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 4,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "a@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "a-logout",
+          "account": "a",
+          "operation": "logout",
+          "exit_status": 0,
+          "denied_network_calls": 8,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0
+        },
+        {
+          "name": "b-after",
+          "account": "b",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 5,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "b@example.invalid",
+          "credentials_unchanged": true
+        }
+      ],
+      "a_oauth_removed": true,
+      "legacy_device_preserved": false,
+      "shared_device_unchanged": true,
+      "shared_device_exists": false
+    },
+    {
+      "case": "shared-device",
+      "operations": [
+        {
+          "name": "a-first",
+          "account": "a",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 5,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "a@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "b-first",
+          "account": "b",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 5,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "b@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "a-return",
+          "account": "a",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 3,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "a@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "a-logout",
+          "account": "a",
+          "operation": "logout",
+          "exit_status": 0,
+          "denied_network_calls": 8,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0
+        },
+        {
+          "name": "b-after",
+          "account": "b",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 3,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "b@example.invalid",
+          "credentials_unchanged": true
+        }
+      ],
+      "a_oauth_removed": true,
+      "legacy_device_preserved": false,
+      "shared_device_unchanged": true,
+      "shared_device_exists": true
+    },
+    {
+      "case": "legacy-device",
+      "operations": [
+        {
+          "name": "a-first",
+          "account": "a",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 5,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "a@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "b-first",
+          "account": "b",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 5,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "b@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "a-return",
+          "account": "a",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 3,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "a@example.invalid",
+          "credentials_unchanged": true
+        },
+        {
+          "name": "a-logout",
+          "account": "a",
+          "operation": "logout",
+          "exit_status": 0,
+          "denied_network_calls": 8,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0
+        },
+        {
+          "name": "b-after",
+          "account": "b",
+          "operation": "status",
+          "exit_status": 0,
+          "denied_network_calls": 3,
+          "device_path_calls": 0,
+          "other_account_path_calls": 0,
+          "loggedIn": true,
+          "authMethod": "claude.ai",
+          "email": "b@example.invalid",
+          "credentials_unchanged": true
+        }
+      ],
+      "a_oauth_removed": true,
+      "legacy_device_preserved": true,
+      "shared_device_unchanged": true,
+      "shared_device_exists": true
+    }
+  ]
+}
