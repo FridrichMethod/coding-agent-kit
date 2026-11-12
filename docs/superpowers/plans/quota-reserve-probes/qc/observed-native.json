@@ -1,0 +1,1122 @@
+{
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "version": "2.1.322",
+  "probe_sha256": "0a9c504f71ed712f0bb764344fc23c04cbf16fcea34e38135c8db9fb8f65254b",
+  "tls_probe_sha256": "75a924f4a8d14aee77e2ba990a40c2299d01473ff3bbc68946dbc5b38325eabb",
+  "guard_sha256": "b1ced01775b5b1e23dc845c68f68faf856133356e38c6a75624be035a72ceee4",
+  "runner_sha256": "f4eb8231cd7a4430ec66e476dd5271b1e9de353224066a66d94fcf4db006a5a7",
+  "classification": "loopback_fixture_not_real_provider_behavior",
+  "cases": [
+    {
+      "case": "startup-valid",
+      "nonessential_off": false,
+      "base_url_gate": false,
+      "fixture_refresh": "success",
+      "initial_expired": false,
+      "requests": [
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/eval/sdk-<redacted>",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_cli/bootstrap",
+          "query_keys": [
+            "entrypoint",
+            "model"
+          ],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_penguin_mode",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_grove",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/organizations/fixture-org-a/referral/eligibility",
+          "query_keys": [
+            "campaign"
+          ],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/mcp-registry/v0/servers",
+          "query_keys": [
+            "limit",
+            "version",
+            "visibility"
+          ],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        }
+      ],
+      "connect_hosts": [
+        "api.anthropic.com"
+      ],
+      "refused_connect_hosts": [],
+      "connection_errors": 1,
+      "model_attempts": 0,
+      "model_events": 0,
+      "exit_status": 0,
+      "credential_before": {
+        "mode": "0o600",
+        "nlink": 1
+      },
+      "credential_after": {
+        "mode": "0o600",
+        "nlink": 1,
+        "regular": true,
+        "inode_replaced": false
+      },
+      "credential_contents": {
+        "access": "A",
+        "refresh": "A",
+        "expires_changed": false,
+        "expires_zero": false,
+        "keys": [
+          "accessToken",
+          "expiresAt",
+          "rateLimitTier",
+          "refreshToken",
+          "scopes",
+          "subscriptionType"
+        ],
+        "top_level_keys": [
+          "claudeAiOauth"
+        ]
+      },
+      "config_entries_before": [
+        ".claude.json",
+        ".credentials.json"
+      ],
+      "config_entries_after": [
+        ".claude.json",
+        ".credentials.json",
+        "backups",
+        "sessions",
+        "telemetry"
+      ],
+      "oauth_account_keys_after": [
+        "accountUuid",
+        "ccOnboardingFlags",
+        "claudeCodeTrialDurationDays",
+        "claudeCodeTrialEndsAt",
+        "emailAddress",
+        "hasExtraUsageEnabled",
+        "organizationUuid",
+        "profileFetchedAt",
+        "seatTier"
+      ],
+      "oauth_account_ids_unchanged": true,
+      "usage_cache_written": true,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:41Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:41Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:41Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:41Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "startup-valid-nonessential-off",
+      "nonessential_off": true,
+      "base_url_gate": false,
+      "fixture_refresh": "success",
+      "initial_expired": false,
+      "requests": [
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "startup"
+        }
+      ],
+      "connect_hosts": [
+        "api.anthropic.com"
+      ],
+      "refused_connect_hosts": [],
+      "connection_errors": 0,
+      "model_attempts": 0,
+      "model_events": 0,
+      "exit_status": 0,
+      "credential_before": {
+        "mode": "0o600",
+        "nlink": 1
+      },
+      "credential_after": {
+        "mode": "0o600",
+        "nlink": 1,
+        "regular": true,
+        "inode_replaced": false
+      },
+      "credential_contents": {
+        "access": "A",
+        "refresh": "A",
+        "expires_changed": false,
+        "expires_zero": false,
+        "keys": [
+          "accessToken",
+          "expiresAt",
+          "rateLimitTier",
+          "refreshToken",
+          "scopes",
+          "subscriptionType"
+        ],
+        "top_level_keys": [
+          "claudeAiOauth"
+        ]
+      },
+      "config_entries_before": [
+        ".claude.json",
+        ".credentials.json"
+      ],
+      "config_entries_after": [
+        ".claude.json",
+        ".credentials.json",
+        "backups",
+        "sessions"
+      ],
+      "oauth_account_keys_after": [
+        "accountUuid",
+        "ccOnboardingFlags",
+        "claudeCodeTrialDurationDays",
+        "claudeCodeTrialEndsAt",
+        "emailAddress",
+        "hasExtraUsageEnabled",
+        "organizationUuid",
+        "profileFetchedAt",
+        "seatTier"
+      ],
+      "oauth_account_ids_unchanged": true,
+      "usage_cache_written": false,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        }
+      ]
+    },
+    {
+      "case": "expired-refresh-success",
+      "nonessential_off": false,
+      "base_url_gate": false,
+      "fixture_refresh": "success",
+      "initial_expired": true,
+      "requests": [
+        {
+          "host": "platform.claude.com",
+          "method": "POST",
+          "path": "/v1/oauth/token",
+          "query_keys": [],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "body_keys": [
+            "client_id",
+            "grant_type",
+            "refresh_token",
+            "scope"
+          ],
+          "grant_type": "refresh_token",
+          "refresh_token_is_fixture_A": true,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/eval/sdk-<redacted>",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_cli/bootstrap",
+          "query_keys": [
+            "entrypoint",
+            "model"
+          ],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_penguin_mode",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_grove",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/organizations/fixture-org-a/referral/eligibility",
+          "query_keys": [
+            "campaign"
+          ],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/mcp-registry/v0/servers",
+          "query_keys": [
+            "limit",
+            "version",
+            "visibility"
+          ],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        }
+      ],
+      "connect_hosts": [
+        "api.anthropic.com",
+        "platform.claude.com"
+      ],
+      "refused_connect_hosts": [],
+      "connection_errors": 1,
+      "model_attempts": 0,
+      "model_events": 0,
+      "exit_status": 0,
+      "credential_before": {
+        "mode": "0o600",
+        "nlink": 1
+      },
+      "credential_after": {
+        "mode": "0o600",
+        "nlink": 1,
+        "regular": true,
+        "inode_replaced": true
+      },
+      "credential_contents": {
+        "access": "A2",
+        "refresh": "A2",
+        "expires_changed": true,
+        "expires_zero": false,
+        "keys": [
+          "accessToken",
+          "expiresAt",
+          "rateLimitTier",
+          "refreshToken",
+          "scopes",
+          "subscriptionType"
+        ],
+        "top_level_keys": [
+          "claudeAiOauth"
+        ]
+      },
+      "config_entries_before": [
+        ".claude.json",
+        ".credentials.json"
+      ],
+      "config_entries_after": [
+        ".claude.json",
+        ".credentials.json",
+        "backups",
+        "sessions",
+        "telemetry"
+      ],
+      "oauth_account_keys_after": [
+        "accountUuid",
+        "ccOnboardingFlags",
+        "claudeCodeTrialDurationDays",
+        "claudeCodeTrialEndsAt",
+        "emailAddress",
+        "hasExtraUsageEnabled",
+        "organizationUuid",
+        "profileFetchedAt",
+        "seatTier"
+      ],
+      "oauth_account_ids_unchanged": true,
+      "usage_cache_written": true,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:46Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:46Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:46Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:46Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "expired-refresh-invalid-grant",
+      "nonessential_off": false,
+      "base_url_gate": false,
+      "fixture_refresh": "invalid_grant",
+      "initial_expired": true,
+      "requests": [
+        {
+          "host": "platform.claude.com",
+          "method": "POST",
+          "path": "/v1/oauth/token",
+          "query_keys": [],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "body_keys": [
+            "client_id",
+            "grant_type",
+            "refresh_token",
+            "scope"
+          ],
+          "grant_type": "refresh_token",
+          "refresh_token_is_fixture_A": true,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/eval/sdk-<redacted>",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_cli/bootstrap",
+          "query_keys": [
+            "entrypoint",
+            "model"
+          ],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_penguin_mode",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_grove",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/mcp-registry/v0/servers",
+          "query_keys": [
+            "limit",
+            "version",
+            "visibility"
+          ],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        }
+      ],
+      "connect_hosts": [
+        "api.anthropic.com",
+        "platform.claude.com"
+      ],
+      "refused_connect_hosts": [],
+      "connection_errors": 1,
+      "model_attempts": 0,
+      "model_events": 0,
+      "exit_status": 0,
+      "credential_before": {
+        "mode": "0o600",
+        "nlink": 1
+      },
+      "credential_after": {
+        "mode": "0o600",
+        "nlink": 1,
+        "regular": true,
+        "inode_replaced": true
+      },
+      "credential_contents": {
+        "access": "empty",
+        "refresh": "empty",
+        "expires_changed": true,
+        "expires_zero": true,
+        "keys": [
+          "accessToken",
+          "expiresAt",
+          "rateLimitTier",
+          "refreshToken",
+          "scopes",
+          "subscriptionType"
+        ],
+        "top_level_keys": [
+          "claudeAiOauth"
+        ]
+      },
+      "config_entries_before": [
+        ".claude.json",
+        ".credentials.json"
+      ],
+      "config_entries_after": [
+        ".claude.json",
+        ".credentials.json",
+        "backups",
+        "sessions",
+        "telemetry"
+      ],
+      "oauth_account_keys_after": [
+        "accountUuid",
+        "ccOnboardingFlags",
+        "claudeCodeTrialDurationDays",
+        "claudeCodeTrialEndsAt",
+        "emailAddress",
+        "hasExtraUsageEnabled",
+        "organizationUuid",
+        "profileFetchedAt",
+        "seatTier"
+      ],
+      "oauth_account_ids_unchanged": true,
+      "usage_cache_written": false,
+      "replies": [
+        {
+          "subscription_type": null,
+          "rate_limits_available": false,
+          "rate_limits": null
+        },
+        {
+          "subscription_type": null,
+          "rate_limits_available": false,
+          "rate_limits": null
+        }
+      ]
+    },
+    {
+      "case": "usage-401-refresh-success",
+      "nonessential_off": false,
+      "base_url_gate": false,
+      "fixture_refresh": "success",
+      "initial_expired": false,
+      "requests": [
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/eval/sdk-<redacted>",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_cli/bootstrap",
+          "query_keys": [
+            "entrypoint",
+            "model"
+          ],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_penguin_mode",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_grove",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/organizations/fixture-org-a/referral/eligibility",
+          "query_keys": [
+            "campaign"
+          ],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/mcp-registry/v0/servers",
+          "query_keys": [
+            "limit",
+            "version",
+            "visibility"
+          ],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "platform.claude.com",
+          "method": "POST",
+          "path": "/v1/oauth/token",
+          "query_keys": [],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "body_keys": [
+            "client_id",
+            "grant_type",
+            "refresh_token",
+            "scope"
+          ],
+          "grant_type": "refresh_token",
+          "refresh_token_is_fixture_A": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "query_keys": [],
+          "auth": "bearer-A2",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        }
+      ],
+      "connect_hosts": [
+        "api.anthropic.com",
+        "platform.claude.com"
+      ],
+      "refused_connect_hosts": [],
+      "connection_errors": 1,
+      "model_attempts": 0,
+      "model_events": 0,
+      "exit_status": 0,
+      "credential_before": {
+        "mode": "0o600",
+        "nlink": 1
+      },
+      "credential_after": {
+        "mode": "0o600",
+        "nlink": 1,
+        "regular": true,
+        "inode_replaced": true
+      },
+      "credential_contents": {
+        "access": "A2",
+        "refresh": "A2",
+        "expires_changed": true,
+        "expires_zero": false,
+        "keys": [
+          "accessToken",
+          "expiresAt",
+          "rateLimitTier",
+          "refreshToken",
+          "scopes",
+          "subscriptionType"
+        ],
+        "top_level_keys": [
+          "claudeAiOauth"
+        ]
+      },
+      "config_entries_before": [
+        ".claude.json",
+        ".credentials.json"
+      ],
+      "config_entries_after": [
+        ".claude.json",
+        ".credentials.json",
+        "backups",
+        "sessions",
+        "telemetry"
+      ],
+      "oauth_account_keys_after": [
+        "accountUuid",
+        "ccOnboardingFlags",
+        "claudeCodeTrialDurationDays",
+        "claudeCodeTrialEndsAt",
+        "emailAddress",
+        "hasExtraUsageEnabled",
+        "organizationUuid",
+        "profileFetchedAt",
+        "seatTier"
+      ],
+      "oauth_account_ids_unchanged": true,
+      "usage_cache_written": true,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:51Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:51Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:51Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:51Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "startup-valid-base-url-gate",
+      "nonessential_off": false,
+      "base_url_gate": true,
+      "fixture_refresh": "success",
+      "initial_expired": false,
+      "requests": [
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/eval/sdk-<redacted>",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/profile",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "startup"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_cli/bootstrap",
+          "query_keys": [
+            "entrypoint",
+            "model"
+          ],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_penguin_mode",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/claude_code_grove",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/organizations/fixture-org-a/referral/eligibility",
+          "query_keys": [
+            "campaign"
+          ],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "GET",
+          "path": "/mcp-registry/v0/servers",
+          "query_keys": [
+            "limit",
+            "version",
+            "visibility"
+          ],
+          "auth": "none",
+          "x_api_key_present": false,
+          "anthropic_beta_present": false,
+          "phase": "after_get_usage"
+        },
+        {
+          "host": "api.anthropic.com",
+          "method": "POST",
+          "path": "/api/event_logging/v2/batch",
+          "query_keys": [],
+          "auth": "bearer-A",
+          "x_api_key_present": false,
+          "anthropic_beta_present": true,
+          "phase": "after_get_usage"
+        }
+      ],
+      "connect_hosts": [
+        "api.anthropic.com"
+      ],
+      "refused_connect_hosts": [],
+      "connection_errors": 1,
+      "model_attempts": 0,
+      "model_events": 0,
+      "exit_status": 0,
+      "credential_before": {
+        "mode": "0o600",
+        "nlink": 1
+      },
+      "credential_after": {
+        "mode": "0o600",
+        "nlink": 1,
+        "regular": true,
+        "inode_replaced": false
+      },
+      "credential_contents": {
+        "access": "A",
+        "refresh": "A",
+        "expires_changed": false,
+        "expires_zero": false,
+        "keys": [
+          "accessToken",
+          "expiresAt",
+          "rateLimitTier",
+          "refreshToken",
+          "scopes",
+          "subscriptionType"
+        ],
+        "top_level_keys": [
+          "claudeAiOauth"
+        ]
+      },
+      "config_entries_before": [
+        ".claude.json",
+        ".credentials.json"
+      ],
+      "config_entries_after": [
+        ".claude.json",
+        ".credentials.json",
+        "backups",
+        "sessions",
+        "telemetry"
+      ],
+      "oauth_account_keys_after": [
+        "accountUuid",
+        "ccOnboardingFlags",
+        "claudeCodeTrialDurationDays",
+        "claudeCodeTrialEndsAt",
+        "emailAddress",
+        "hasExtraUsageEnabled",
+        "organizationUuid",
+        "profileFetchedAt",
+        "seatTier"
+      ],
+      "oauth_account_ids_unchanged": true,
+      "usage_cache_written": true,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:54Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:54Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2026-11-12T17:32:54Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2026-11-13T16:32:54Z"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
