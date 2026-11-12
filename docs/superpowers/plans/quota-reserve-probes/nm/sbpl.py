@@ -66,12 +66,12 @@ def render(policy):
 
     Keys: tag (required), gate_ports, gate_sockets, private_socket_dirs,
     deny_network, deny_launch, deny_mach, mach_allow, mach_deny,
-    report_mach, deny_write, deny_signal_others, deny_tiocsti. Later SBPL rules override
-    earlier ones, so the explicit mach_deny list is emitted after any allow.
+    report_mach, deny_write, deny_signal_others, deny_tiocsti, gate_tcp_only. Later SBPL
+    rules override earlier ones, so the explicit mach_deny list is emitted after any allow.
     """
     known = {'tag', 'gate_ports', 'gate_sockets', 'private_socket_dirs', 'deny_network',
              'deny_launch', 'deny_mach', 'mach_allow', 'mach_deny', 'report_mach', 'deny_write',
-             'deny_signal_others', 'deny_tiocsti'}
+             'deny_signal_others', 'deny_tiocsti', 'gate_tcp_only'}
     unknown = set(policy) - known
     if unknown:
         raise ProfileError('unknown policy keys: %s' % sorted(unknown))
@@ -82,8 +82,9 @@ def render(policy):
     lines = ['(version 1)', '(allow default)']
     if policy.get('deny_network', True):
         lines.append('(deny network* %s)' % msg)
+        proto = 'tcp' if policy.get('gate_tcp_only') else 'ip'
         for port in sorted(set(_port(p) for p in policy.get('gate_ports', ()))):
-            lines.append('(allow network-outbound (remote ip "localhost:%d"))' % port)
+            lines.append('(allow network-outbound (remote %s "localhost:%d"))' % (proto, port))
         for sock in sorted(set(policy.get('gate_sockets', ()))):
             lines.append('(allow network-outbound (remote unix-socket (path-literal %s)))' % _path(sock))
         for directory in sorted(set(policy.get('private_socket_dirs', ()))):

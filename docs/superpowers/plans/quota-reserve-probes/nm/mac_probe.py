@@ -63,6 +63,11 @@ ENFORCED_MACH = (
     'com.apple.PowerManagement.control',
 )
 STORE = 'com.apple.SecurityServer'
+# Recommended candidate: only the services that census runs actually looked up
+# (trustd can fetch OCSP/CRL/AIA URLs for a client, so it is left out).
+MINIMAL_MACH = tuple(s for s in ENFORCED_MACH if s not in (
+    'com.apple.trustd', 'com.apple.trustd.agent', 'com.apple.diagnosticd', 'com.apple.system.logger',
+    'com.apple.bsd.dirhelper'))
 
 
 class Ctx:
@@ -101,6 +106,9 @@ class Ctx:
         elif kind == 'hardened':
             base.update(deny_mach=True, mach_allow=list(ENFORCED_MACH), deny_signal_others=True,
                         deny_tiocsti=True)
+        elif kind == 'recommended':
+            base.update(deny_mach=True, mach_allow=list(MINIMAL_MACH), deny_signal_others=True,
+                        deny_tiocsti=True, gate_tcp_only=True)
         elif kind == 'network-only':
             base.update(deny_mach=False, deny_launch=False, deny_write=[])
         else:
@@ -191,14 +199,14 @@ def now_for_log():
 class Listener:
     """Outside-sandbox fixture: TCP v4+v6 on one port, optional UDP, or Unix."""
 
-    def __init__(self, kind, path=None):
+    def __init__(self, kind, path=None, port=0):
         self.kind, self.hits, self.lock = kind, [], threading.Lock()
         self.socks = []
         if kind in ('tcp', 'udp'):
             stype = socket.SOCK_STREAM if kind == 'tcp' else socket.SOCK_DGRAM
             for _ in range(50):
                 first = socket.socket(socket.AF_INET, stype)
-                first.bind(('127.0.0.1', 0))
+                first.bind(('127.0.0.1', port))
                 self.port = first.getsockname()[1]
                 second = socket.socket(socket.AF_INET6, stype)
                 second.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
@@ -208,6 +216,8 @@ class Listener:
                 except OSError:
                     first.close()
                     second.close()
+                if port:
+                    raise OSError('requested loopback port %d is busy' % port)
             else:
                 raise OSError('no common IPv4/IPv6 loopback port')
             for s in (first, second):
@@ -220,12 +230,14 @@ class Listener:
         else:
             if os.path.lexists(path):
                 os.unlink(path)  # a stale fixture socket from an earlier run in this root
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            dgram = kind == 'unix_dgram'
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM if dgram else socket.SOCK_STREAM)
             s.bind(path)
-            s.listen(16)
+            if not dgram:
+                s.listen(16)
             self.path = path
             self.socks.append(s)
-            threading.Thread(target=self._accept, args=(s,), daemon=True).start()
+            threading.Thread(target=self._recv if dgram else self._accept, args=(s,), daemon=True).start()
 
     def _note(self, data):
         with self.lock:
@@ -925,6 +937,44 @@ def stage_tty(ctx):
     ctx.data['log'] = ctx.logs(since, tag)
 
 
+def stage_dgram(ctx):
+    """Datagram gaps: AF_UNIX datagrams outside, and UDP to the gate port number."""
+    gate = Listener('tcp')
+    gate_udp = Listener('udp', port=gate.port)  # an outside process owning UDP on the gate port
+    unix = Listener('unix_dgram', str(ctx.root / 'outside' / 'dgram-daemon.sock'))
+    attempts = [
+        {'name': 'gate_tcp4', 'kind': 'tcp4', 'host': '127.0.0.1', 'port': gate.port},
+        {'name': 'gate_tcp6', 'kind': 'tcp6', 'host': '::1', 'port': gate.port},
+        {'name': 'gate_port_udp4', 'kind': 'udp4', 'host': '127.0.0.1', 'port': gate.port},
+        {'name': 'gate_port_udp6', 'kind': 'udp6', 'host': '::1', 'port': gate.port},
+        {'name': 'outside_unix_dgram', 'kind': 'unix_dgram', 'path': unix.path},
+        {'name': 'private_unix_dgram_self', 'kind': 'unix_dgram_self', 'path': str(ctx.root / 'private')}]
+    tags = []
+    try:
+        for name, extra in (('enforced_remote_ip', {}), ('enforced_remote_tcp', {'gate_tcp_only': True})):
+            tag = ctx.tag()
+            tags.append(tag)
+            since = now_for_log()
+            before = {'gate': gate.count(), 'udp': gate_udp.count(), 'unix': unix.count()}
+            case = ctx.run(client_cmd(ctx, {'attempts': attempts}), ctx.policy('enforced', gate.port, tag, **extra))
+            time.sleep(.5)
+            case['parsed'] = parse_json(case['stdout'])
+            case['hits'] = {'gate_tcp': gate.count() - before['gate'], 'gate_port_udp': gate_udp.count() - before['udp'],
+                            'outside_unix_dgram': unix.count() - before['unix']}
+            case['log'] = ctx.logs(since, tag)
+            ctx.data['cases'][name] = case
+        before = {'udp': gate_udp.count(), 'unix': unix.count()}
+        control = ctx.run(client_cmd(ctx, {'attempts': attempts}))
+        time.sleep(.5)
+        control['parsed'] = parse_json(control['stdout'])
+        control['hits'] = {'gate_port_udp': gate_udp.count() - before['udp'],
+                           'outside_unix_dgram': unix.count() - before['unix']}
+        ctx.data['cases']['outside_control'] = control
+    finally:
+        for listener in (gate, gate_udp, unix):
+            listener.close()
+
+
 NATIVE_SETS = {
     'natives': [('claude', 'census', 'oauth-file'), ('claude', 'enforced', 'oauth-file'),
                 ('codex', 'census', 'plain'), ('codex', 'enforced', 'plain'), ('codex', 'enforced', 'daemon')],
@@ -934,6 +984,7 @@ NATIVE_SETS = {
                 ('codex', 'enforced', 'refresh-override')],
     'hardened': [('claude', 'enforced', 'tty-probe'), ('codex', 'enforced', 'tty-probe'),
                  ('claude', 'hardened', 'tty-probe'), ('codex', 'hardened', 'tty-probe')],
+    'recommended': [('claude', 'recommended', 'tty-probe'), ('codex', 'recommended', 'tty-probe')],
 }
 
 
@@ -952,7 +1003,7 @@ def main():
             stage_natives(ctx, NATIVE_SETS[stage])
         else:
             {'boundary': stage_boundary, 'ipc': stage_ipc, 'fds': stage_fds, 'keychain': stage_keychain,
-             'compat': stage_compat, 'tty': stage_tty}[stage](ctx)
+             'compat': stage_compat, 'tty': stage_tty, 'dgram': stage_dgram}[stage](ctx)
         ctx.data['completed'] = True
     except Exception as error:
         ctx.data['completed'] = False

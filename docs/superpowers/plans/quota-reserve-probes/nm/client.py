@@ -2,9 +2,9 @@
 
 Usage: python3 -I -B client.py SPEC_JSON
 SPEC: {"attempts": [...], "detach": OUT_PATH|null, "inherit_fds": [..]}
-Each attempt: {"name", "kind": tcp4|tcp6|udp4|udp6|unix|dns|fdwrite|mach,
-"host", "port", "path", "fd", "service"}; unix_self binds and connects
-to its own socket inside "path". Results are JSON on stdout, or in
+Each attempt: {"name", "kind": tcp4|tcp6|udp4|udp6|unix|unix_dgram|dns|fdwrite|mach,
+"host", "port", "path", "fd", "service"}; unix_self and unix_dgram_self bind
+and use their own socket inside "path". Results are JSON on stdout, or in
 OUT_PATH written by a double-forked, setsid grandchild when "detach" is set.
 Only loopback/fixture endpoints are ever named by mac_probe.py.
 """
@@ -54,6 +54,31 @@ def attempt(item):
                     os.unlink(path)
                 except OSError:
                     pass
+        if kind == 'unix_dgram_self':
+            path = os.path.join(item['path'], 'dgram-%d.sock' % os.getpid())
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            try:
+                server.bind(path)
+                peer = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+                try:
+                    peer.sendto(b'NM-DGRAM-SELF', path)
+                finally:
+                    peer.close()
+                server.settimeout(3)
+                return 'received' if server.recv(64) == b'NM-DGRAM-SELF' else 'mismatch'
+            finally:
+                server.close()
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+        if kind == 'unix_dgram':
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            try:
+                sock.sendto(b'NM-UNIX-DGRAM', item['path'])
+                return 'sent'
+            finally:
+                sock.close()
         if kind == 'fdwrite':
             os.write(item['fd'], b'NM-INHERITED-WRITE\n')
             return 'written'

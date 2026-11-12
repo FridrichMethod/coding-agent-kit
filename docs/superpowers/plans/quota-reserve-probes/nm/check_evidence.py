@@ -251,9 +251,39 @@ def check_hardened(data):
                                       and '(deny file-ioctl (ioctl-command TIOCSTI)' in text for text in hardened)
 
 
+def check_dgram(data):
+    _common(data)
+    cases = data['cases']
+    for name, udp in (('enforced_remote_ip', 'sent'), ('enforced_remote_tcp', DENIED)):
+        got, hits = cases[name]['parsed']['results'], cases[name]['hits']
+        assert got['gate_tcp4'] == got['gate_tcp6'] == 'connected' and hits['gate_tcp'] == 2, name
+        assert got['gate_port_udp4'] == got['gate_port_udp6'] == udp, (name, got)
+        assert hits['gate_port_udp'] == (2 if udp == 'sent' else 0), (name, hits)
+        assert got['outside_unix_dgram'] == DENIED and hits['outside_unix_dgram'] == 0, name
+        assert got['private_unix_dgram_self'] == 'received', name
+    control = cases['outside_control']
+    assert control['parsed']['results']['outside_unix_dgram'] == 'sent' and control['hits']['outside_unix_dgram'] == 1
+    assert _denies(cases['enforced_remote_tcp']['log'], 'network-outbound')
+
+
+def check_recommended(data):
+    _common(data)
+    for native in ('claude', 'codex'):
+        case = data['cases'][native + '-recommended-tty-probe']
+        _native_ok(case, native)
+        assert case['tool_outputs']['signal.txt'].strip() == 'rc=1'
+        assert case['tool_outputs']['tty.json'] == {'tiocsti': 'error:OSError:6'}
+    profiles = list(data['profiles'].values())
+    assert len(profiles) == 2
+    for text in profiles:
+        assert '(remote tcp "localhost:' in text and '(remote ip ' not in text
+        assert 'trustd' not in text and '(ioctl-command TIOCSTI)' in text and '(target same-sandbox)' in text
+
+
 CHECKS = {'boundary': check_boundary, 'ipc': check_ipc, 'fds': check_fds, 'keychain': check_keychain,
           'natives': check_natives, 'natives-extra': check_natives_extra, 'compat': check_compat,
-          'nested': check_nested, 'refresh': check_refresh, 'tty': check_tty, 'hardened': check_hardened}
+          'nested': check_nested, 'refresh': check_refresh, 'tty': check_tty, 'hardened': check_hardened,
+          'dgram': check_dgram, 'recommended': check_recommended}
 
 
 def check_stage(stage, data):

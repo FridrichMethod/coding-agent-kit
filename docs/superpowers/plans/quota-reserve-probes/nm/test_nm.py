@@ -66,6 +66,11 @@ class Render(unittest.TestCase):
         self.assertEqual(lines[deny + 1], '(allow signal (target same-sandbox))')
         self.assertNotIn('(deny signal (with message "qnm-abc123"))', SBPL.render(self.base()))
 
+    def test_gate_tcp_only_rule(self):
+        lines = SBPL.render(self.base(gate_tcp_only=True)).splitlines()
+        self.assertIn('(allow network-outbound (remote tcp "localhost:4242"))', lines)
+        self.assertFalse(any('(remote ip ' in line for line in lines))
+
     def test_tiocsti_rule(self):
         rule = '(deny file-ioctl (ioctl-command TIOCSTI) (with message "qnm-abc123"))'
         self.assertIn(rule, SBPL.render(self.base(deny_tiocsti=True)).splitlines())
@@ -307,6 +312,24 @@ class Evidence(unittest.TestCase):
         for mutate in (signal_allowed, injected, broken):
             with self.subTest(mutate=mutate.__name__):
                 self.reject('hardened', mutate)
+
+    def test_dgram_and_recommended_mutations(self):
+        def udp_escape(d):
+            d['cases']['enforced_remote_tcp']['hits']['gate_port_udp'] = 1
+        def unix_dgram(d):
+            d['cases']['enforced_remote_ip']['parsed']['results']['outside_unix_dgram'] = 'sent'
+        for mutate in (udp_escape, unix_dgram):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('dgram', mutate)
+
+        def ip_rule(d):
+            key = sorted(d['profiles'])[0]
+            d['profiles'][key] = d['profiles'][key].replace('(remote tcp ', '(remote ip ')
+        def no_turn(d):
+            d['cases']['codex-recommended-tty-probe']['tool_done'] = False
+        for mutate in (ip_rule, no_turn):
+            with self.subTest(mutate=mutate.__name__):
+                self.reject('recommended', mutate)
 
     def test_fds_and_keychain_mutations(self):
         def closed(d):
