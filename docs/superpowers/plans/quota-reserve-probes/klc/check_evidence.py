@@ -2,10 +2,12 @@
 
 python3 -I -B check_evidence.py [EVIDENCE_DIR]
 Exit 0 only if every case file exists, matches its manifest digest, was
-produced by the current code digests, and satisfies its case predicates.
+produced by the current code digests (the manifest must bind exactly
+run.CODE + run.IMPORTED), and satisfies its case predicates.
 check(name, document) is importable for the regression tests.
 """
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,13 @@ CASES = ['refusals', 'threshold', 'loss-kill', 'loss-eof', 'loss-stall', 'gate-d
          'independent', 'rotation', 'norefresh', 'prelaunch', 'tools', 'sandbox', 'fsrules']
 NATIVE = [c for c in CASES if c not in ('refusals', 'prelaunch')]
 MAX_AGE = 4.0
+QUOTA_REFUSALS = {'threshold': 'threshold_five_hour', 'window_missing': 'window_unavailable', 'malformed': 'quota_200',
+                  'unavailable': 'quota_503', 'rate_limited': 'quota_429', 'unproved_row': 'quota_row_unproved',
+                  'no_usage_account': 'server_identity_unavailable', 'stale_server_clock': 'clock_anomaly',
+                  'expired_token': 'expired_native_refresh_required'}
+LAUNCH_REFUSALS = {'older_native': 'native_version_unsupported', 'print': 'native_mode_unsupported',
+                   'combined_print': 'native_mode_unsupported', 'bare': 'native_mode_unsupported',
+                   'caller_base_url': 'caller_env_conflict', 'caller_oauth_token': 'caller_env_conflict'}
 
 
 class Failure(Exception):
@@ -42,6 +51,12 @@ def latch(d, inv='main'):
 
 
 def native_common(d, invs=('main',)):
+    launches = rows(d, 'launch')
+    need(launches and all(r.get('launcher_refusal', 'absent') is None and r['gate_event'] == 'gate_ready'
+                          for r in launches), 'launch did not pass the launcher checks and gate preflight')
+    forwards = sum(len(gate(d, 'forwarded', inv=inv)) for inv in invs)
+    arrivals = len(rows(d, 'upstream_request'))
+    need(arrivals == forwards, 'upstream arrivals %d != gate forwards %d' % (arrivals, forwards))
     for inv in invs:
         clean = d['cleanup'][inv]
         need(clean.get('native_main_exit') == 0, '%s native exit %r' % (inv, clean.get('native_main_exit')))
@@ -61,10 +76,8 @@ def no_bytes_after(d, inv='main'):
     need(mark is not None, 'no latch')
     forwarded = gate(d, 'forwarded', inv=inv)
     need(all(f['t'] < mark['t'] for f in forwarded), 'forward after latch')
-    upstream = rows(d, 'upstream_request')
     if inv == 'main':
-        need(len(upstream) == len(forwarded), 'upstream arrivals %d != forwards %d' % (len(upstream), len(forwarded)))
-        need(all(u['t'] <= mark['t'] + 0.25 for u in upstream), 'upstream arrival after latch')
+        need(all(u['t'] <= mark['t'] + 0.25 for u in rows(d, 'upstream_request')), 'upstream arrival after latch')
     return mark
 
 
@@ -93,10 +106,15 @@ def c_threshold(d):
     sdk_split(d, 'sdk', mark)
     sdk_split(d, 'sdk-grandchild', mark)
     need(d['native_alive_after_pause'] and d['later_refused'] and not d['later_admitted'], 'TTY/later prompt')
-    need(rows(d, 'later_prompt')[0]['history_view_alive'], 'history view')
+    history_view(d)
 
 
-def loss(d, reason, bound):
+def history_view(d):
+    view = rows(d, 'later_prompt')[0]
+    need(view['history_view_alive'] and view['history_banner'], 'history view not shown')
+
+
+def loss(d, reason, bound, continuation):
     native_common(d)
     mark = no_bytes_after(d)
     need(mark['reason'] == reason, 'reason %s' % mark['reason'])
@@ -104,19 +122,29 @@ def loss(d, reason, bound):
     held_closed(d, mark, d['held_ids'])
     sdk_split(d, 'sdk', mark)
     need(d['native_alive_after_pause'] and d['later_refused'] and not d['later_admitted'], 'TTY/later prompt')
+    history_view(d)
+    # Monitor loss is sticky for continuation: refused before any store read or quota fetch.
+    reply = d['continue_after_loss']
+    need(reply.get('ok') is False and reply.get('reason') == continuation, 'continuation after loss %r' % reply)
+    need(d['status_after_refused_continue']['state'] == 'paused', 'reopened after loss')
+    need(d['usage_fetches_during_refused_continue'] == 0, 'quota fetched for a refused continuation')
+    need(gate(d, 'controller', kind='continuation_refused', reason=continuation), 'no continuation_refused event')
+    need(not gate(d, 'controller', kind='lease', cause='manual_continuation'), 'continuation lease after loss')
 
 
 def c_loss_kill(d):
-    loss(d, 'monitor_eof', 0.5)
+    loss(d, 'monitor_eof', 0.5, 'monitor_lost')
 
 
 def c_loss_eof(d):
-    loss(d, 'monitor_eof', 0.5)
-    need(d['upstream_proxy_tunnels'] == len(gate(d, 'forwarded')), 'upstream not via launcher proxy')
+    loss(d, 'monitor_eof', 0.5, 'monitor_lost')
+    need(d['status_after_refused_continue']['monitor_lost'] is True, 'monitor_lost not reported')
+    need(d['upstream_proxy_tunnels'] == len(gate(d, 'forwarded')) + len(gate(d, 'aborted_before_upstream')),
+         'upstream not via launcher proxy')
 
 
 def c_loss_stall(d):
-    loss(d, 'freshness_expired', MAX_AGE + 0.5)
+    loss(d, 'freshness_expired', MAX_AGE + 0.5, 'monitor_stale')
 
 
 def c_gate_death(d):
@@ -135,8 +163,12 @@ def c_gate_death(d):
     lease = gate(d, 'controller', kind='lease', cause='manual_continuation')
     need(lease and all(f['t'] > lease[0]['t'] for f in gate(d, 'forwarded') if f['t'] > first['t']),
          'forward after restart without continuation')
-    need(d['in_boundary_bind_without_holder'] == ['bound'] or d['outside_bind_without_holder'] == 'bound',
-         'holder-loss gap not exercised')
+    # The gap without the holder: each impostor binds and receives the confined client's request.
+    need(d['in_boundary_bind_without_holder'] == ['bound'], 'in-boundary impostor did not bind')
+    need(any(str(line).startswith('POST /v1/messages') for line in d['in_boundary_accepted_without_holder']),
+         'in-boundary impostor not reached')
+    need(d['outside_bind_without_holder'] == 'bound', 'outside impostor did not bind')
+    need(str(d['outside_impostor_reached_by']).startswith('POST /v1/messages'), 'outside impostor not reached')
 
 
 def c_continuation(d):
@@ -201,7 +233,10 @@ def c_norefresh(d):
     need(0 <= mark['t'] - d['revoked_t'] <= MAX_AGE + 1.5, 'stale pause delay')
     need(mark['reason'] in ('server_identity_unavailable', 'freshness_expired', 'quota_401'), 'reason %s' % mark['reason'])
     need(not d['summary']['connects'], 'proxy path present')
-    need(all(not r['ok'] for r in d['native_requests_after_typed']), 'native admitted after expiry')
+    need(d['native_requests_after_typed'] and all(not r['ok'] and r['bearer'] == 'A'
+                                                  for r in d['native_requests_after_typed']),
+         'native admitted after expiry, or not with the expired bearer')
+    need(d['native_bearers_after_expiry'] == ['A'] and d['store_label_end'] == 'A', 'bearer after expiry')
     denied = d['cleanup']['main']['syscalls']['socket_denied']
     need(any(k.endswith('AF_INET/SOCK_DGRAM/IPPROTO_IP') and k.startswith('2.1.322') for k in denied),
          'no denied native resolution attempt recorded')
@@ -220,7 +255,8 @@ def c_tools(d):
     mark = no_bytes_after(d)
     need(d['fg_ticks_2s_after'] > d['fg_ticks_at_latch'] and d['bg_ticks_2s_after'] > d['bg_ticks_at_latch'],
          'local work stopped at pause')
-    need(d['fg_shell_alive_before_interrupt'] and not d['fg_finished_marker'], 'interrupt observation')
+    need(d['fg_shell_alive_before_interrupt'] and not d['fg_shell_alive_after_interrupt']
+         and not d['fg_finished_marker'] and d['native_alive_after_interrupt'], 'Ctrl-C did not end only the shell')
     need(d['bg_ticks_growing_after_interrupt'], 'background stopped by interrupt')
     ticks = [r for r in d['child_rows'] if r['actor'] == 'ticks' and r['attempt'] == 'tick_network']
     need(any(r['gate_status'] == 200 and r['t'] < mark['t'] for r in ticks), 'test-like gate use before pause')
@@ -228,6 +264,7 @@ def c_tools(d):
     need(all(r['direct'] == 'EACCES' for r in ticks), 'test-like direct egress')
     control = {r['attempt']: r for r in d['workflows_control']}
     need(control['git_clone']['exit'] == 0 and control['index_download']['result'] == 'ok', 'fixture control')
+    need(control['https_via_proxy'].get('skipped'), 'outside control made an HTTPS (resolver) call')
     for phase in ('workflows-run', 'workflows-pause'):
         got = {r['attempt']: r for r in d['child_rows'] if r['actor'] == phase}
         need(got['git_clone']['exit'] != 0 and got['index_download']['result'] == 'EACCES', phase)
@@ -235,13 +272,22 @@ def c_tools(d):
 
 
 def c_refusals(d):
+    need(set(d['quota_startup']) == set(QUOTA_REFUSALS), 'quota variants %r' % sorted(d['quota_startup']))
     for name, item in d['quota_startup'].items():
         need(item['event'] == 'startup_refused' and item['gate_exit'] == 3 and not item['native_started'], name)
+        need(item['reason'] == QUOTA_REFUSALS[name], '%s reason %r' % (name, item['reason']))
+    need(set(d['launch_path']) == set(LAUNCH_REFUSALS), 'launch variants %r' % sorted(d['launch_path']))
+    for name, item in d['launch_path'].items():
+        need(item['launched'] is False and item['reason'] == LAUNCH_REFUSALS[name] and not item['gate_started']
+             and not item['native_started'], 'launch path %s %r' % (name, item))
     need(d['upstream_requests'] == 0, 'model request during refusals')
     need(d['host_refusal'] is None, 'host refused: %r' % d['host_refusal'])
     need(d['version']['real'] is None and d['version']['fake_older'] == 'native_version_unsupported', 'version')
-    need(d['mode']['print'] == 'native_mode_unsupported' and d['mode']['interactive'] is None, 'mode')
-    need(d['token_window']['near_no_tunnel'] == 'native_refresh_window', 'token window')
+    need(d['mode'] == {'print': 'native_mode_unsupported', 'bare': 'native_mode_unsupported', 'interactive': None},
+         'mode %r' % d['mode'])
+    need(d['env'] == {'oauth_token_env': 'caller_env_conflict', 'base_url_env': 'caller_env_conflict'},
+         'env %r' % d['env'])
+    need(d['token_window'] == {'near_no_tunnel': 'native_refresh_window', 'near_with_tunnel': None}, 'token window')
     need(d['boundary_socket_stdin']['exit'] == 2 and d['boundary_socket_stdin']['launcher_refusal'] == 'stdio_socket',
          'socket stdio')
 
@@ -274,11 +320,21 @@ def check(name, document):
     CHECKS[name](document)
 
 
+def bound_code():
+    """The code list run.py binds; the manifest must name exactly these files."""
+    spec = importlib.util.spec_from_file_location('klc_run_code', HERE / 'run.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return set(module.CODE + module.IMPORTED)
+
+
 def main(argv):
     directory = Path(argv[0]) if argv else HERE / 'evidence'
     manifest = json.loads((directory / 'manifest.json').read_text())
     probes = HERE.parent
     failures = []
+    if set(manifest['code_sha256']) != bound_code():
+        failures.append('manifest code list differs from run.CODE + run.IMPORTED')
     for name, digest in manifest['code_sha256'].items():
         if hashlib.sha256((probes / name).read_bytes()).hexdigest() != digest:
             failures.append('code changed since capture: ' + name)

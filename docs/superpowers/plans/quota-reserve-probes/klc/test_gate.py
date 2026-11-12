@@ -1,5 +1,6 @@
 """Offline tests of the KLC composed gate: QC admission plus the K-owned timer,
-monitor latch, restart pause, CONNECT allowlist and port holder.
+monitor latch, sticky monitor loss and monitor-health continuation rule,
+restart pause, CONNECT allowlist, bearer fingerprints and port holder.
 
 Loopback fixtures only, fabricated bearers and accounts, temporary private
 account directories. No native, no boundary.
@@ -295,6 +296,78 @@ class InProcess(unittest.TestCase):
         self.assertFalse(decision.ok)
         self.assertEqual(decision.reason, 'quota_row_unproved')
 
+    def control(self, op):
+        """The trusted control channel of the gate, in process."""
+        if not hasattr(self, 'ctl'):
+            ctl_gate, self.ctl = socket.socketpair()
+            OPEN.extend((self.ctl, ctl_gate))
+            threading.Thread(target=gate.run_control, args=(ctl_gate, self.config, self.controller, self.events),
+                             daemon=True).start()
+        self.ctl.sendall((json.dumps({'op': op}) + '\n').encode())
+        self.ctl.settimeout(10)
+        return json.loads(self.ctl.recv(4096))
+
+    def test_continuation_after_monitor_eof_is_refused_without_a_check(self):
+        self.start()
+        sock = self.admitted_stream()
+        self.mon.close()
+        self.assertTrue(fixtures.wait_for(lambda: self.events.find('controller', kind='latched',
+                                                                    reason='monitor_eof'), 2))
+        fetched, before = len(self.usage.labels()), self.upstream.count
+        for _ in range(2):  # sticky: quota is fine and the control channel is healthy
+            reply = self.control('continue')
+            self.assertEqual((reply['ok'], reply['reason']), (False, 'monitor_lost'))
+        token = self.controller.issue_continuation()
+        decision = self.controller.continue_manually(token, gate.store_bearer(self.config))
+        self.assertEqual((decision.ok, decision.reason), (False, 'monitor_lost'))
+        self.assertFalse(self.controller.continue_manually(token, gate.store_bearer(self.config)).ok)
+        self.assertEqual(len(self.usage.labels()), fetched)  # refused before any quota fetch
+        self.assertEqual(status_of(post(self.port, A)), 403)
+        self.assertEqual(self.upstream.count, before)
+        self.assertTrue(self.control('status')['monitor_lost'])
+        self.assertFalse(self.events.find('controller', kind='lease', cause='manual_continuation'))
+        sock.close()
+
+    def test_continuation_after_monitor_stall_waits_for_polls(self):
+        self.start()
+        sock = self.admitted_stream()
+        self.assertTrue(fixtures.wait_for(lambda: self.events.find('controller', kind='latched',
+                                                                    reason='freshness_expired'), self.max_age + 2))
+        reply = self.control('continue')
+        self.assertEqual((reply['ok'], reply['reason']), (False, 'monitor_stale'))
+        self.assertEqual(status_of(post(self.port, A)), 403)
+        self.poll()  # the monitor is heard again
+        reply = self.control('continue')
+        self.assertEqual((reply['ok'], reply['reason']), (True, 'resumed'))
+        self.assertEqual(status_of(post(self.port, A)), 200)
+        sock.close()
+
+    def test_live_pauses_at_a_passed_deadline_without_tick(self):
+        self.start()
+        self.stop_timer.set()
+        time.sleep(gate.TICK * 3)
+        controller = self.controller
+        closed = []
+        with controller.lock:
+            stream = controller._register(lambda: closed.append(True))
+            self.assertTrue(controller.live(stream))
+            controller.lease.deadline = controller.clock.monotonic() - 0.001
+            self.assertFalse(controller.live(stream))
+            self.assertEqual((controller.state, controller.reason), ('paused', 'freshness_expired'))
+        self.assertEqual(closed, [True])
+
+    def test_decisions_carry_a_bearer_fingerprint_never_the_bearer(self):
+        self.start()
+        sock = self.admitted_stream(A)
+        self.assertEqual(status_of(post(self.port, B)), 403)
+        decisions = self.events.find('decision')
+        self.assertEqual([(d['ok'], d['bearer']) for d in decisions],
+                         [(True, gate.fingerprint(A)), (False, gate.fingerprint(B))])
+        text = json.dumps(self.events.rows)
+        for token in (A, B):
+            self.assertNotIn(token, text)
+        sock.close()
+
     def test_unknown_route_is_refused_without_latch(self):
         self.start()
         sock = socket.create_connection(('127.0.0.1', self.port), timeout=3)
@@ -385,6 +458,25 @@ class Process(unittest.TestCase):
         self.assertTrue(reply['ok'], reply)
         self.assertEqual(status_of(post(self.port, A)), 200)
         self.assertEqual(self.upstream.count, 2)
+
+    def test_monitor_eof_in_the_gate_process_blocks_continuation(self):
+        process, first = self.spawn('startup')
+        self.assertEqual(first['event'], 'gate_ready')
+        self.mon.close()
+        self.ctl.settimeout(10)
+        reply = None
+        for _ in range(50):  # until the gate has read the EOF
+            self.ctl.sendall(b'{"op": "status"}\n')
+            reply = json.loads(self.ctl.recv(4096))
+            if reply['state'] == 'paused':
+                break
+            time.sleep(0.05)
+        self.assertEqual((reply['reason'], reply['monitor_lost']), ('monitor_eof', True))
+        self.ctl.sendall(b'{"op": "continue"}\n')
+        reply = json.loads(self.ctl.recv(4096))
+        self.assertEqual((reply['ok'], reply['reason']), (False, 'monitor_lost'))
+        self.assertEqual(status_of(post(self.port, A)), 403)
+        self.assertEqual(self.upstream.count, 0)
 
 
 if __name__ == '__main__':

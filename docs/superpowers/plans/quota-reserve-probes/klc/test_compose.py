@@ -41,8 +41,10 @@ class NativeTests(unittest.TestCase):
     def test_mode(self):
         self.assertIsNone(compose.mode_refusal(['--model', 'claude-sonnet-4-6', 'hello']))
         for argv in (['-p', 'x'], ['--print'], ['--bare'], ['--bg'], ['--remote-control'], ['--settings={}'],
-                     ['--mcp-config', 'x.json'], ['-pc']):
+                     ['--mcp-config', 'x.json'], ['-pc'], ['-cp'], ['-dp', 'x']):
             self.assertEqual(compose.mode_refusal(argv), 'native_mode_unsupported', argv)
+        for argv in (['-c'], ['-r', 'id'], ['--model', 'claude-sonnet-4-6', '-c']):
+            self.assertIsNone(compose.mode_refusal(argv), argv)
 
     def test_env(self):
         self.assertIsNone(compose.env_refusal({'PATH': '/usr/bin'}, CONFIG))
@@ -61,6 +63,13 @@ class TokenWindowTests(unittest.TestCase):
         self.assertEqual(refuse(NOW + 20_000, NOW, True), 'expired_native_refresh_required')
         self.assertEqual(refuse(NOW + 300_000, NOW, False), 'native_refresh_window')
         self.assertIsNone(refuse(NOW + 300_001, NOW, False))
+
+    def test_launcher_refusal_reads_no_store(self):
+        self.assertIsNone(compose.launcher_refusal(GOOD, '2.1.322 (Claude Code)', ['-c'], {}, CONFIG))
+        self.assertEqual(compose.launcher_refusal(GOOD, '2.1.322 (Claude Code)', ['-cp'], {}, CONFIG),
+                         'native_mode_unsupported')
+        self.assertEqual(compose.launcher_refusal(GOOD, '2.1.322 (Claude Code)', [], {'ANTHROPIC_BASE_URL': ''},
+                                                  CONFIG), 'caller_env_conflict')
 
     def test_first_refusal_order(self):
         args = (GOOD, '2.1.322 (Claude Code)', [], {}, CONFIG, NOW + 3600_000, NOW, False)

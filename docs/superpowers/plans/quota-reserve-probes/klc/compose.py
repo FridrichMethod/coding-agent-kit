@@ -1,7 +1,10 @@
 """KLC composition: launcher refusals and one protected invocation (research).
 
 Order of one invocation, as the launcher would run it:
-  1. refuse on host, native version, mode, environment or token window (pure checks below);
+  1. refuse on host, native version, mode or environment (launcher_refusal, called by the
+     harness launch path before the gate or native starts); the token-window check below is
+     a pure function only, because the launcher never reads the store: in a product it
+     belongs in the gate's startup, next to QC's expired-token refusal, which does run there;
   2. bind the gate port on 127.0.0.1 (random ephemeral port) in the launcher; the
      launcher keeps this listening socket for the invocation's lifetime (port holder);
   3. start the gate with that socket; the gate reads the bearer memory-only and runs
@@ -95,9 +98,13 @@ def version_refusal(text):
 
 
 def mode_refusal(argv):
+    """Refused long options by exact name; any single-dash cluster containing p (-p, -pc, -cp)
+    as print mode. Fails closed: a short option whose attached value contains p refuses too."""
     for item in argv:
         name = item.split('=', 1)[0]
-        if name in REFUSED_OPTIONS or (name.startswith('-p') and not name.startswith('--')):
+        if name in REFUSED_OPTIONS:
+            return 'native_mode_unsupported'
+        if re.fullmatch(r'-[A-Za-z]+', name) and 'p' in name[1:]:
             return 'native_mode_unsupported'
     return None
 
@@ -122,12 +129,18 @@ def token_window_refusal(expires_at_ms, now_ms, refresh_tunnel):
     return None
 
 
-def first_refusal(facts, version_text, argv, env, config_dir, expires_at_ms, now_ms, refresh_tunnel):
+def launcher_refusal(facts, version_text, argv, env, config_dir):
+    """The checks a launcher can make without reading the credential store."""
     for reason in (host_refusal(facts), version_refusal(version_text), mode_refusal(argv),
-                   env_refusal(env, config_dir), token_window_refusal(expires_at_ms, now_ms, refresh_tunnel)):
+                   env_refusal(env, config_dir)):
         if reason:
             return reason
     return None
+
+
+def first_refusal(facts, version_text, argv, env, config_dir, expires_at_ms, now_ms, refresh_tunnel):
+    return (launcher_refusal(facts, version_text, argv, env, config_dir)
+            or token_window_refusal(expires_at_ms, now_ms, refresh_tunnel))
 
 
 def host_facts():
@@ -360,12 +373,14 @@ class Invocation:
         end = time.monotonic() + 45
         while time.monotonic() < end and self.native.poll() is None:
             time.sleep(0.05)
+        exited = self.native.poll() is not None
+        exited_t = time.monotonic() if exited else None  # observed within one 50 ms poll
         try:
             restored = termios.tcgetattr(self.slave) == self.termios_before
         except termios.error:
             restored = None
-        return {'exited': self.native.poll() is not None, 'termios_restored': restored,
-                'stop_tasks_dialog': dialog, 'seconds': round(time.monotonic() - began, 1)}
+        return {'exited': exited, 'termios_restored': restored, 'stop_tasks_dialog': dialog,
+                'seconds': round(time.monotonic() - began, 1), 'began_t': began, 'exited_t': exited_t}
 
     # cleanup ------------------------------------------------------------------------------------
     def close(self, natives_module, since):

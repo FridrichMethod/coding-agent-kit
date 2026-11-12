@@ -279,11 +279,18 @@ class Case:
         print('removed', self.root, flush=True)
 
 
+def fingerprint(token):
+    """Same as gate.fingerprint: the gate records only this, the evidence only the label."""
+    return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+
 def sanitize(text, root, binary):
     pairs = [(str(root), '<PROBE_ROOT>'), (str(WT), '<WORKTREE>'), (os.path.realpath(PY), '<PYTHON>'), (PY, '<PYTHON>')]
     if binary:
         pairs.append((binary, '<NATIVE_BINARY>'))
-    pairs += [(str(Path.home()), '<HOME>'), ('/run/user/%d' % os.getuid(), '<RUNTIME_DIR>')]
+    pairs += [(str(Path.home()), '<HOME>'), ('/run/user/%d' % os.getuid(), '<RUNTIME_DIR>'),
+              ('/claude-%d/' % os.getuid(), '/claude-<UID>/'), (re.sub(r'[^A-Za-z0-9]', '-', str(root)), '<PROBE_ROOT_SLUG>')]
+    pairs += [('"%s"' % fingerprint(token), '"%s"' % label) for token, label in LABELS.items()]
     for old, new in sorted(pairs, key=lambda p: -len(p[0])):
         text = text.replace(old, new)
     return text
@@ -294,9 +301,39 @@ def sanitize_terminal(text):
     return re.sub(r'\s+', ' ', text)[-2500:]
 
 
+VERSION_TEXT = {}
+
+
+def native_version_text(case, binary):
+    """`claude --version` outside the boundary with a scratch HOME (version query only), once per binary."""
+    if binary not in VERSION_TEXT:
+        home = case.root / 'launcher-version-home'
+        home.mkdir(mode=0o700, exist_ok=True)
+        try:
+            VERSION_TEXT[binary] = subprocess.run(
+                [binary, '--version'], env={'PATH': '/usr/bin:/bin', 'HOME': str(home), 'LANG': 'C.UTF-8',
+                                            'DISABLE_AUTOUPDATER': '1'},
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=20).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            VERSION_TEXT[binary] = ''
+    return VERSION_TEXT[binary]
+
+
 def launch(case, inv, extra_args=()):
+    """compose.py order: launcher refusals (host, version, mode, caller environment), then the gate
+    with its same-bearer preflight, the monitor and the confined native. The port holder was bound
+    when the Invocation was built, so a refusal here leaves only that listening socket."""
+    if 'facts' not in VERSION_TEXT:
+        VERSION_TEXT['facts'] = compose.host_facts()
+    env, _ = inv.native_env()
+    refusal = compose.launcher_refusal(VERSION_TEXT['facts'], native_version_text(case, inv.binary),
+                                       list(extra_args), env, inv.config_dir)
+    if refusal:
+        case.record('launch', inv=inv.name, launcher_refusal=refusal, gate_event=None)
+        return False
     ready = inv.start_gate()
-    case.record('launch', inv=inv.name, gate_event=ready.get('event'), reason=ready.get('reason'))
+    case.record('launch', inv=inv.name, launcher_refusal=None, gate_event=ready.get('event'),
+                reason=ready.get('reason'))
     if ready.get('event') != 'gate_ready':
         return False
     inv.start_monitor()
@@ -310,16 +347,18 @@ def sdk_status(case, name, status=200):
 
 def later_prompt(case, inv, text=b'KLC later prompt'):
     """History view, then a new prompt through native send-now; returns typed time."""
+    mark = len(inv.visible())
     inv.write(b'\x0f')
     time.sleep(0.6)
     history_alive = inv.native_alive()
+    banner = 'showingdetailedtranscript' in re.sub(r'\s', '', inv.visible()[mark:]).lower()
     inv.write(b'\x0f')
     time.sleep(0.3)
     typed = time.monotonic()
     inv.write(b'\x15' + text + b'\r')
     time.sleep(0.3)
     inv.write(b'\x18\x13')
-    case.record('later_prompt', inv=inv.name, history_view_alive=history_alive, t=typed)
+    case.record('later_prompt', inv=inv.name, history_view_alive=history_alive, history_banner=banner, t=typed)
     return typed
 
 
@@ -405,12 +444,19 @@ def loss_case(case, mode):
     fixtures.wait_for(lambda: case.latch(inv), POLICY['max_age_s'] + 4)
     closed = fixtures.wait_for(lambda: not set(held_ids) & set(upstream.held()), 6)
     time.sleep(2.5)
+    # Quota is still fine and the control channel is healthy: only monitor health refuses.
+    fetches = len(case.usage.requests)
+    continue_reply = inv.control('continue')
+    status_after_continue = inv.control('status')
+    fetches_during_continue = len(case.usage.requests) - fetches
     typed = later_prompt(case, inv)
     fixtures.wait_for(lambda: native_requests_after(inv, typed), 10)
     time.sleep(1)
     alive = inv.native_alive()
     exit_info = inv.exit_native()
     return {'launched': True, 'mode': mode, 'held_before_trigger': bool(held), 'held_ids': held_ids,
+            'continue_after_loss': continue_reply, 'status_after_refused_continue': status_after_continue,
+            'usage_fetches_during_refused_continue': fetches_during_continue,
             'trigger_t': trigger, 'held_closed': closed, 'native_alive_after_pause': alive,
             'later_typed_t': typed, 'later_refused': bool(native_requests_after(inv, typed, ok=False)),
             'later_admitted': bool(native_requests_after(inv, typed, ok=True)), 'exit': exit_info,
@@ -773,8 +819,9 @@ def case_norefresh(case):
     exit_info = inv.exit_native()
     return {'launched': True, 'held_before_expiry': bool(held), 'expires_in_ms_at_start': 45000,
             'revoked_t': revoked, 'later_typed_t': typed,
-            'native_requests_after_typed': [{'ok': d['ok'], 'reason': d['reason']} for d in
-                                            native_requests_after(inv, typed)],
+            'native_requests_after_typed': [{'ok': d['ok'], 'reason': d['reason'], 'bearer': d.get('bearer')}
+                                            for d in native_requests_after(inv, typed)],
+            'native_bearers_after_expiry': sorted({d.get('bearer') for d in native_requests_after(inv, revoked)}),
             'store_label_end': case.store_label(config), 'native_alive': alive, 'exit': exit_info,
             'summary': summary(case, inv, upstream)}
 
@@ -999,6 +1046,23 @@ def case_refusals(case):
         if not change.get('revoke'):
             usage.revoke(A)
     out['quota_startup'] = variants
+    # The same launcher checks on the composed launch path (launch()): neither gate nor native starts.
+    config = case.account(name='refuse-launch')
+    launch_path = {}
+    for name, change in (('older_native', {'binary': str(fake_native)}), ('print', {'args': ['-p']}),
+                         ('combined_print', {'args': ['-cp']}), ('bare', {'args': ['--bare']}),
+                         ('caller_base_url', {'env': {'ANTHROPIC_BASE_URL': 'http://127.0.0.1:9'}}),
+                         ('caller_oauth_token', {'env': {'CLAUDE_CODE_OAUTH_TOKEN': 'x'}})):
+        inv = compose.Invocation(case.root, 'launch-' + name, case.record, change.get('binary', case.binary),
+                                 config_dir=config, registered=IDENT_A, usage_port=case.usage.port,
+                                 upstream_port=upstream.port, policy=POLICY, prompt='KLC root refused',
+                                 extra_env=change.get('env'))
+        case.invocations.append(inv)
+        launched = launch(case, inv, change.get('args', ()))
+        row = case.events('launch', inv=inv.name)
+        launch_path[name] = {'launched': launched, 'reason': row[-1].get('launcher_refusal') if row else None,
+                             'gate_started': inv.gate is not None, 'native_started': inv.native is not None}
+    out['launch_path'] = launch_path
     left, right = socket.socketpair()
     probe = subprocess.run([PY, '-I', '-B', str(PROBES / 'nl' / 'boundary.py'), '--gate-port', '9', '--seccomp',
                             'inet', '--', '/bin/true'], stdin=left, capture_output=True, text=True, timeout=10)

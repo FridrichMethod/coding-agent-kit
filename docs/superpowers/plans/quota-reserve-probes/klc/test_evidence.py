@@ -1,7 +1,9 @@
 """Regression tests: the KLC checker accepts the retained evidence and rejects
-tampered copies (a forward after the latch, a wrong latch reason, a non-loopback
-connect, an admitted later prompt, a reopened pause, upstream bytes of the
-switched bearer, a changed digest, and more). Offline; no native run.
+tampered copies (a forward after the latch, an upstream arrival without a gate
+forward in any native case, a wrong latch reason, a non-loopback connect, an
+admitted later prompt, a continuation accepted after monitor loss, a reopened
+pause, upstream bytes of the switched bearer, a wrong refusal reason, a changed
+digest or code list, and more). Offline; no native run.
 """
 import copy
 import importlib.util
@@ -52,7 +54,26 @@ class Rejects(unittest.TestCase):
         def mutate(d):
             row = copy.deepcopy(first(d['rows'], lambda r: r['row'] == 'upstream_request'))
             d['rows'].append(row)
-        self.rejects('threshold', mutate)
+        for name in checker.NATIVE:
+            self.rejects(name, mutate)
+
+    def test_launch_without_launcher_checks(self):
+        def mutate(d):
+            first(d['rows'], lambda r: r['row'] == 'launch').pop('launcher_refusal')
+        self.rejects('sandbox', mutate)
+
+    def test_continuation_after_monitor_loss(self):
+        for name in ('loss-kill', 'loss-eof', 'loss-stall'):
+            self.rejects(name, lambda d: d['continue_after_loss'].update(ok=True, reason='resumed'))
+            self.rejects(name, lambda d: d['status_after_refused_continue'].__setitem__('state', 'open'))
+            self.rejects(name, lambda d: d.__setitem__('usage_fetches_during_refused_continue', 2))
+        self.rejects('loss-stall', lambda d: d['continue_after_loss'].__setitem__('reason', 'monitor_lost'))
+
+    def test_history_view_not_shown(self):
+        def mutate(d):
+            first(d['rows'], lambda r: r['row'] == 'later_prompt')['history_banner'] = False
+        for name in ('threshold', 'loss-kill'):
+            self.rejects(name, mutate)
 
     def test_wrong_latch_reason(self):
         def mutate(d):
@@ -102,6 +123,9 @@ class Rejects(unittest.TestCase):
         self.rejects('gate-death', lambda d: d.__setitem__('upstream_count_while_dead',
                                                            d['upstream_count_at_kill'] + 1))
         self.rejects('gate-death', lambda d: d.__setitem__('refused_after_restart', 0))
+        self.rejects('gate-death', lambda d: d.__setitem__('outside_impostor_reached_by', 'none:timeout'))
+        self.rejects('gate-death', lambda d: d.__setitem__('in_boundary_accepted_without_holder', []))
+        self.rejects('gate-death', lambda d: d.__setitem__('in_boundary_bind_without_holder', ['EACCES']))
 
     def test_continuation_variants(self):
         for key in ('paste_ignored', 'stale_typed_ignored', 'native_output_ignored', 'same_invocation'):
@@ -130,8 +154,16 @@ class Rejects(unittest.TestCase):
 
     def test_tools_and_refusals_variants(self):
         self.rejects('tools', lambda d: d.__setitem__('fg_ticks_2s_after', d['fg_ticks_at_latch']))
+        self.rejects('tools', lambda d: d.__setitem__('fg_shell_alive_after_interrupt', True))
+        self.rejects('tools', lambda d: first(d['workflows_control'], lambda r: r['attempt'] == 'https_via_proxy')
+                     .pop('skipped'))
         self.rejects('refusals', lambda d: d.__setitem__('upstream_requests', 1))
         self.rejects('refusals', lambda d: d['quota_startup']['threshold'].__setitem__('native_started', True))
+        self.rejects('refusals', lambda d: d['quota_startup']['malformed'].__setitem__('reason', 'quota_503'))
+        self.rejects('refusals', lambda d: d['env'].__setitem__('base_url_env', None))
+        self.rejects('refusals', lambda d: d['launch_path']['combined_print'].__setitem__('reason', None))
+        self.rejects('refusals', lambda d: d['launch_path']['print'].__setitem__('gate_started', True))
+        self.rejects('norefresh', lambda d: d['native_requests_after_typed'][0].__setitem__('bearer', 'A2'))
         self.rejects('prelaunch', lambda d: d['runs'][0].__setitem__('refresh_requests', 0))
         self.rejects('fsrules', lambda d: d.__setitem__('outside_written', True))
         self.rejects('sandbox', lambda d: d.__setitem__('file_written', True))
@@ -148,6 +180,10 @@ class Rejects(unittest.TestCase):
         manifest['code_sha256']['klc/gate.py'] = '0' * 64
         (directory / 'manifest.json').write_text(json.dumps(manifest))
         shutil.copy(EVIDENCE / 'threshold.json', target)
+        self.assertEqual(checker.main([str(directory)]), 1)
+        manifest = json.loads((EVIDENCE / 'manifest.json').read_text())
+        del manifest['code_sha256']['klc/gate.py']  # dropping an entry escapes nothing
+        (directory / 'manifest.json').write_text(json.dumps(manifest))
         self.assertEqual(checker.main([str(directory)]), 1)
 
 

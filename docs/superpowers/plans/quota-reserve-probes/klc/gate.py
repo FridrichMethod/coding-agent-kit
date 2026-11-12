@@ -2,21 +2,27 @@
 
 Runs outside the boundary. It composes the reviewed QC admission contract
 (imported read-only from ../qc) with PA1C's stream-closing rule and adds what
-QC left to K: an independent lease timer, a monitor channel whose EOF latches,
-a trusted control channel for manual continuation, an exact-host CONNECT
-allowlist for the native refresh host, and an inherited listening socket that
-the invocation owns (the port holder), so a restarted gate serves the same
-port and starts paused.
+QC left to K: an independent lease timer, a monitor channel whose EOF latches
+and stays lost, a trusted control channel for manual continuation that
+refuses while the monitor is lost or stale, an exact-host CONNECT allowlist
+for the native refresh host, and an inherited listening socket that the
+invocation owns (the port holder), so a restarted gate serves the same port
+and starts paused.
 
 Invariant: every byte sent upstream (Messages request or tunnel payload) is
 written while holding the admission lock, and only for a stream that is still
-registered under an open lease. A latch that takes the lock first therefore
-leaves zero upstream bytes. A pause closes every registered client and
-upstream socket. The bearer lives only in this process, memory-only.
+registered under an open lease whose deadline has not passed. A latch that
+takes the lock first therefore leaves zero upstream bytes. The TCP (or proxy
+CONNECT) setup to the upstream runs before the lock is taken and carries no
+request byte. A pause closes every registered client and upstream socket.
+The bearer lives only in this process, memory-only; events carry only a
+short SHA-256 fingerprint of the presented bearer, which the harness maps to
+a fixture label.
 
 python3 -I -B gate.py CONFIG.json --listen-fd N --monitor-fd N --control-fd N
 Research code only: not a production gateway, no TLS interception.
 """
+import hashlib
 import importlib.util
 import json
 import os
@@ -59,7 +65,47 @@ class EventLog(list):
 
 
 class ComposedController(admission.AdmissionController):
-    """QC AdmissionController plus the K-owned timer, latch, restart and tunnel rules."""
+    """QC AdmissionController plus the K-owned timer, latch, restart, monitor-health and tunnel rules."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The monitor channel is attached when the gate starts; a poll line proves it alive.
+        self.monitor_lost, self.monitor_seen = False, self.clock.monotonic()
+
+    def monitor_heard(self):
+        with self.lock:
+            self.monitor_seen = self.clock.monotonic()
+
+    def monitor_gone(self, reason='monitor_eof'):
+        """Monitor channel EOF: latch now and stay lost. Only a new gate process with a new
+        monitor channel (restart_paused) clears it; continuation cannot."""
+        with self.lock:
+            self.monitor_lost = True
+            return self.latch(reason)
+
+    def continuation_refusal(self):
+        """Continuation resumes only while control remains healthy (spec): a lost monitor, or one
+        that sent no poll within the maximum observation age, refuses before any store read or check."""
+        with self.lock:
+            if self.state != 'paused':
+                return None
+            if self.monitor_lost:
+                return 'monitor_lost'
+            if self.clock.monotonic() - self.monitor_seen > self.policy.max_age_s:
+                return 'monitor_stale'
+            return None
+
+    def continue_manually(self, continuation, observed):
+        with self.lock:
+            refusal = self.continuation_refusal()
+            if refusal is None and observed is not None:
+                return super().continue_manually(continuation, observed)
+            refusal = refusal or 'bearer_unread'
+            if isinstance(continuation, admission.TrustedContinuation) and continuation.nonce in self._continuations:
+                continuation.used = True  # a refused attempt voids its one-use token
+                self._continuations.discard(continuation.nonce)
+            self._event('continuation_refused', reason=refusal)
+            return admission.Decision(False, refusal)
 
     def latch(self, reason):
         """Monitor loss or another outside trigger: close everything now."""
@@ -83,6 +129,7 @@ class ComposedController(admission.AdmissionController):
         with self.lock:
             self.state, self.reason, self.lease = 'paused', reason, None
             self.paused_monotonic = self.clock.monotonic()
+            self.monitor_lost, self.monitor_seen = False, self.paused_monotonic  # new monitor channel
             self._continuations.clear()
             self._event('latched', state='paused', reason=reason, closed=0)
 
@@ -113,8 +160,19 @@ class ComposedController(admission.AdmissionController):
             return admission.Decision(True, 'tunnel', stream_id)
 
     def live(self, stream_id):
-        """Caller holds self.lock: the stream is still registered under an open lease."""
-        return self.state == 'open' and stream_id in self.streams
+        """Caller holds self.lock: the stream is still registered under an open lease whose
+        deadline has not passed. A passed deadline pauses here, without waiting for tick()."""
+        if self.state != 'open' or stream_id not in self.streams:
+            return False
+        if self.clock.monotonic() >= self.lease.deadline:
+            self._pause('freshness_expired')
+            return False
+        return True
+
+
+def fingerprint(token):
+    """Short SHA-256 fingerprint of a presented bearer for event correlation; never the bearer."""
+    return hashlib.sha256(token.encode()).hexdigest()[:16] if token else None
 
 
 def shut(sock):
@@ -223,20 +281,23 @@ class Handler(BaseHTTPRequestHandler):
             shut(holder['upstream'])
 
         controller = gate.controller
-        decision = controller.admit(list(self.headers.items()), model, close)
+        headers = list(self.headers.items())
+        decision = controller.admit(headers, model, close)
         admitted_at = time.monotonic()
         gate.emit('decision', ok=decision.ok, reason=decision.reason, stream=decision.stream_id,
-                  admit_ms=round((admitted_at - began) * 1000, 3), **shape)
+                  admit_ms=round((admitted_at - began) * 1000, 3),
+                  bearer=fingerprint(admission.presented_bearer(headers)), **shape)
         if not decision.ok:
             return self._refuse(decision.reason)
         upstream = None
         try:
+            # Connection setup outside the admission lock: no request byte is sent here.
+            upstream = gate.open_upstream(gate.upstream)
+            holder['upstream'] = upstream
             with controller.lock:
                 if not controller.live(decision.stream_id):
                     gate.emit('aborted_before_upstream', stream=decision.stream_id)
                     return self._refuse(controller.reason or 'closed')
-                upstream = gate.open_upstream(gate.upstream)
-                holder['upstream'] = upstream
                 head = ['POST %s HTTP/1.1' % self.path, 'Host: upstream.fixture', 'Connection: close',
                         'Content-Length: %d' % len(body)]
                 head += ['%s: %s' % (k, v) for k, v in self.headers.items() if k.lower() not in HOP]
@@ -285,12 +346,12 @@ class Handler(BaseHTTPRequestHandler):
         upstream = None
         sent = {'up': 0, 'down': 0}
         try:
+            upstream = gate.open_upstream(gate.allow[target])  # setup outside the lock, no payload
+            holder['upstream'] = upstream
             with controller.lock:
                 if not controller.live(decision.stream_id):
                     self.close_connection = True
                     return
-                upstream = gate.open_upstream(gate.allow[target])
-                holder['upstream'] = upstream
             self.send_response(200, 'Connection established')
             self.end_headers()
             self.wfile.flush()
@@ -389,12 +450,15 @@ def run_monitor(sock, controller, emit):
             data = b''
         if not data:
             emit('monitor_eof')
-            controller.latch('monitor_eof')
+            controller.monitor_gone('monitor_eof')
             return
         buffer += data
         while b'\n' in buffer:
             line, buffer = buffer.split(b'\n', 1)
-            if line == b'poll' and busy.acquire(blocking=False):
+            if line != b'poll':
+                continue
+            controller.monitor_heard()
+            if busy.acquire(blocking=False):
                 threading.Thread(target=poll, daemon=True).start()
 
 
@@ -418,7 +482,8 @@ def run_control(sock, config, controller, emit):
             if op == 'continue':
                 token = controller.issue_continuation()
                 try:
-                    observed = store_bearer(config)
+                    # An unhealthy monitor refuses before the store is read or quota is fetched.
+                    observed = None if controller.continuation_refusal() else store_bearer(config)
                 except bearer_mod.BearerRefused as error:
                     reply = {'op': op, 'ok': False, 'reason': error.reason}
                 else:
@@ -428,7 +493,7 @@ def run_control(sock, config, controller, emit):
                 with controller.lock:
                     reply = {'op': op, 'state': controller.state, 'reason': controller.reason,
                              'epoch': controller.lease.epoch if controller.lease else None,
-                             'streams': len(controller.streams)}
+                             'streams': len(controller.streams), 'monitor_lost': controller.monitor_lost}
             else:
                 reply = {'op': op, 'ok': False, 'reason': 'unknown_op'}
             emit('control', **reply)

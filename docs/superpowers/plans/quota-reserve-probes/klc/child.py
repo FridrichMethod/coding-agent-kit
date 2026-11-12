@@ -13,7 +13,8 @@ Modes (python3 -I -B child.py MODE --spec SPEC.json [--name NAME] [--out FILE]):
   connects   CONNECT through the gate to the refresh host and to api.anthropic.com.
   bind       try to bind and listen on the gate port.
   workflows  git clone over loopback HTTP and a pip-style index download, direct,
-             plus one https fetch through HTTPS_PROXY.
+             plus one https fetch through HTTPS_PROXY (skipped in the outside
+             control phase, which has no proxy: it would need a resolver lookup).
   ttywrite   write a fake confirmation key and text to /dev/tty (native output side).
 """
 import errno
@@ -176,6 +177,9 @@ def workflows(spec, out, phase):
     except OSError as error:
         reason = getattr(error, 'reason', error)
         out('index_download', phase=phase, result=code(reason) if isinstance(reason, OSError) else type(error).__name__)
+    if phase == 'control':
+        out('https_via_proxy', phase=phase, exit=None, skipped='no_proxy_outside_no_resolver_lookup')
+        return
     try:
         proxied = subprocess.run(['curl', '-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5',
                                   'https://pypi.fixture.invalid/simple/'], capture_output=True, text=True,
