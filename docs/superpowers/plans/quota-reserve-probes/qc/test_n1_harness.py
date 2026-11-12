@@ -157,8 +157,25 @@ class SelectorAndPolicyTests(Base):
                 policy.write_text(json.dumps(document))
                 self.assertRefused(reason, n1.check_policy, [str(policy)], registration)
         more = [({"policyHelpers": {"linux": {"command": "/bin/true"}}}, "policy_helper_unevaluable"),
+                ({"policyHelper": {"path": "/usr/local/bin/compute-claude-policy"}}, "policy_helper_unevaluable"),
+                ({"policyHelper": {"path": None}}, "policy_helper_unevaluable"),  # whatever the value
+                ({"policyHelper": None}, "policy_helper_unevaluable"),
                 ({"proxyAuthHelper": "/bin/true"}, "policy_conflicting_auth"),
-                ({"processWrapper": "/bin/true"}, "policy_conflicting_auth")]
+                ({"processWrapper": "/bin/true"}, "policy_conflicting_auth"),
+                ({"otelHeadersHelper": "/bin/true"}, "policy_conflicting_auth"),
+                ({"forceLoginGatewayUrl": "https://gw.example"}, "policy_conflicting_auth"),
+                ({"gatewayInternalNetworks": ["203.0.113.0/24"]}, "policy_conflicting_auth"),
+                ({"xaaIdp": {"issuer": "https://idp.example"}}, "policy_conflicting_auth")]
+        for document in ({"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "/bin/true"}]}]}},
+                         {"statusLine": {"type": "command", "command": "/bin/true"}},
+                         {"subagentStatusLine": {"command": "/bin/true"}}, {"fileSuggestion": {"command": "x"}},
+                         {"sshConfigs": [{"id": "a"}]}, {"sshHostCommands": [{"id": "a", "command": "x"}]},
+                         {"managedMcpServers": {"m": {"type": "http", "url": "https://mcp.example"}}},
+                         {"extraKnownMarketplaces": {"m": {}}}, {"additionalMarketplaces": {"m": {}}},
+                         {"remoteControlAtStartup": True}, {"autoUploadSessions": True},
+                         {"daemonColdStart": "transient"}, {"autoDreamEnabled": True},
+                         {"forceRemoteSettingsRefresh": True}):
+            more.append((document, "policy_command_unevaluable"))
         for name in ("CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_UNIX_SOCKET", "NODE_OPTIONS", "ANTHROPIC_FUTURE_KNOB",
                      "CLAUDE_CODE_SOMETHING_NEW", "https_proxy", "REQUESTS_CA_BUNDLE", "AWS_PROFILE"):
             more.append(({"env": {name: "x"}}, "policy_conflicting_env"))
@@ -167,7 +184,10 @@ class SelectorAndPolicyTests(Base):
                 policy.write_text(json.dumps(document))
                 self.assertRefused(reason, n1.check_policy, [str(policy)], registration)
         policy.write_text(json.dumps({"forceLoginMethod": "claudeai", "forceLoginOrgUUID": ["org-a"],
-                                      "permissions": {"deny": ["Bash"]}, "env": {"EDITOR": "vi"}}))
+                                      "permissions": {"deny": ["Bash"]}, "env": {"EDITOR": "vi"},
+                                      "allowedProviders": ["anthropic"], "hooks": {}, "statusLine": None,
+                                      "remoteControlAtStartup": False, "autoDreamEnabled": False,
+                                      "forceRemoteSettingsRefresh": False, "extraKnownMarketplaces": {}}))
         n1.check_policy([str(policy), str(self.root / "absent.json")], registration)
         self.assertEqual(n1.MANAGED_DIRS["linux"], ("/etc/claude-code",))
         self.assertEqual(n1.MANAGED_DIRS["wsl"], ("/mnt/c/Program Files/ClaudeCode", "/etc/claude-code"))
@@ -203,6 +223,26 @@ class SelectorAndPolicyTests(Base):
         (managed / "managed-settings.json").write_text(json.dumps({"forceLoginOrgUUID": "org-other"}))
         self.assertRefused("policy_organization_mismatch", n1.check_effective_policy, self.paths.config,
                            registration, "linux", [str(managed)])
+
+    def test_policy_helper_otel_helper_and_managed_mcp_refused_in_managed_sources(self):
+        # Review round 2 (I2): the reviewer's reproduction passed before this fix.
+        registration = {"identity": IDENT}
+        managed = self.root / "managed"
+        (managed / "managed-settings.d").mkdir(parents=True)
+        base = managed / "managed-settings.json"
+        base.write_text(json.dumps({"policyHelper": {"path": "/usr/local/bin/compute-claude-policy"}}))
+        self.assertRefused("policy_helper_unevaluable", n1.check_effective_policy, self.paths.config,
+                           registration, "linux", [str(managed)])
+        base.write_text("{}")
+        (managed / "managed-settings.d" / "20-otel.json").write_text(json.dumps({"otelHeadersHelper": "/bin/true"}))
+        self.assertRefused("policy_conflicting_auth", n1.check_effective_policy, self.paths.config,
+                           registration, "linux", [str(managed)])
+        (managed / "managed-settings.d" / "20-otel.json").unlink()
+        os.symlink(self.root / "nowhere", managed / "managed-mcp.json")  # even a dangling entry counts
+        self.assertRefused("policy_managed_mcp_present", n1.check_effective_policy, self.paths.config,
+                           registration, "linux", [str(managed)])
+        (managed / "managed-mcp.json").unlink()
+        self.assertEqual(len(n1.check_effective_policy(self.paths.config, registration, "linux", [str(managed)])), 2)
 
     @unittest.skipIf(os.geteuid() == 0, "root ignores directory permissions")
     def test_unlistable_dropin_directory_refuses(self):
@@ -296,6 +336,9 @@ class RunTests(Base):
         (Path(self.paths.config) / "policy-limits.json").write_text("{}")
         self.assertEqual(self.run_n1()["reason"], "policy_server_managed_present")
         (Path(self.paths.config) / "policy-limits.json").unlink()
+        (self.root / "managed" / "managed-settings.json").write_text(json.dumps({"policyHelper": {"path": "/x"}}))
+        self.assertEqual(self.run_n1()["reason"], "policy_helper_unevaluable")
+        (self.root / "managed" / "managed-settings.json").unlink()
         self.assertEqual(self.run_n1(platform="darwin")["reason"], "policy_os_source_uninspectable")
         self.native = Path("claude")
         self.assertEqual(self.run_n1()["reason"], "native_binary_unusable")
@@ -307,7 +350,47 @@ class RunTests(Base):
         result = self.run_n1()
         self.assertEqual((result["classification"], result["reason"]), ("refused", "server_policy_fetched"))
         self.assertTrue(result["server_policy_written"])
+        # Review round 2 (M6): a voided result retains no quota data.
+        self.assertNotIn("replies", result)
+        self.assertNotIn("cache", result)
+        self.assertNotIn("windows", json.dumps(result))
+        self.assertNotIn("utilization", json.dumps(result))
         self.assertEqual(self.run_n1()["reason"], "policy_server_managed_present")  # and every later run refuses
+
+    def test_workspace_ancestor_project_markers_refuse_before_spawn(self):
+        # Review round 2 (M8): native could take an ancestor as a project root.
+        self.ready()
+        self.behave(write_cache=True, rate_limits=windows(), record_env=True)
+        parent = self.root / "work"
+        nested = parent / "nested"
+        nested.mkdir(parents=True, mode=0o700)
+        for marker, make in ((".git", Path.mkdir), (".claude", Path.mkdir), (".git", Path.touch)):
+            with self.subTest(marker=marker, make=make.__name__):
+                make(parent / marker)
+                result = self.run_n1(workspace_parent=str(nested))
+                self.assertEqual((result["classification"], result["reason"]),
+                                 ("refused", "workspace_ancestor_project"))
+                self.assertFalse((self.bin / "env.json").exists())
+                self.assertEqual([p.name for p in nested.iterdir()], [])
+                if (parent / marker).is_dir():
+                    (parent / marker).rmdir()
+                else:
+                    (parent / marker).unlink()
+        self.assertEqual(self.run_n1(workspace_parent=str(nested))["classification"], "fresh_windows")
+
+    def test_default_workspace_parent_is_private_runtime_dir(self):
+        runtime = self.root / "runtime"
+        runtime.mkdir(mode=0o700)
+        self.assertEqual(n1.default_workspace_parent({"XDG_RUNTIME_DIR": str(runtime)}), str(runtime))
+        runtime.chmod(0o755)
+        self.assertIsNone(n1.default_workspace_parent({"XDG_RUNTIME_DIR": str(runtime)}))
+        runtime.chmod(0o700)
+        os.symlink(runtime, self.root / "link")
+        for value in (str(self.root / "link"), "relative/run", str(self.root / "absent"), ""):
+            with self.subTest(value=value):
+                self.assertIsNone(n1.default_workspace_parent({"XDG_RUNTIME_DIR": value}))
+        self.assertIsNone(n1.default_workspace_parent({}))
+        self.assertIsNone(n1.default_workspace_parent({"XDG_RUNTIME_DIR": str(runtime)}, uid=os.getuid() + 1))
 
     def test_cache_shortcut_inconclusive_unless_requery_approved(self):
         self.ready()

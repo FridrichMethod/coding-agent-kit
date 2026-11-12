@@ -15,10 +15,16 @@ Design points (PN N0/HLogin/N1):
   per document: <config>/settings.json, managed-settings.json and the
   managed-settings.d/*.json drop-ins (WSL adds the Windows-side managed
   directory). Sources the harness cannot evaluate refuse: cached server-managed
-  policy (remote-settings.json, policy-limits.json), policy helpers, macOS
-  managed preferences and the WSL Windows registry. Server-managed policy
-  fetched during the run is detected afterwards by its cache file and voids the
-  result; it cannot be prevented before it applies.
+  policy (remote-settings.json, policy-limits.json), policyHelper and
+  policyHelpers (executables that compute policy), managed-mcp.json, macOS
+  managed preferences and the WSL Windows registry. Keys that run a command,
+  change auth or transport, or start a connection, upload, service or
+  background work refuse in any document. Server-managed policy fetched during
+  the run is detected afterwards by its cache file and voids the result; it
+  cannot be prevented before it applies.
+- Native runs in a fresh 0700 workspace, by default under a private
+  XDG_RUNTIME_DIR; any workspace ancestor holding .git or .claude refuses,
+  because native could take it as a project root with its own settings.
 - The native child gets an allowlisted environment, closed inherited fds, its
   own session/process group, bounded output/time, and is reaped with its group.
   Limit: a descendant that calls setsid() leaves the group and is not reaped.
@@ -83,9 +89,26 @@ REFUSED_ENV = tuple(bearer_mod.STORE_SELECTORS) + (
     "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy", "NODE_EXTRA_CA_CERTS",
     "NODE_TLS_REJECT_UNAUTHORIZED", "SSL_CERT_FILE", "SSL_CERT_DIR", "CLAUDE_CODE_PROCESS_WRAPPER",
     "CLAUDE_CODE_HTTP_PROXY", "CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_UNIX_SOCKET")
-# Command settings that change auth or transport (native lists them with the helpers).
+# Settings keys of native 2.1.322 (S, schema near offset 283926780). Present in
+# any inspected document means refuse, whatever the value:
+# - the credential helpers and auth pins that native's managedSourcesBehavior
+#   description names, plus processWrapper and the XAA IdP login config;
 SETTINGS_REFUSED = ("apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "gcpAuthRefresh",
-                    "proxyAuthHelper", "processWrapper")
+                    "otelHeadersHelper", "proxyAuthHelper", "processWrapper", "forceLoginGatewayUrl",
+                    "gatewayInternalNetworks", "xaaIdp")
+# - executables or payloads that compute managed settings nobody inspected
+#   (native reads policyHelper from admin sources, offset about 284577561).
+POLICY_HELPERS = ("policyHelper", "policyHelpers")
+# Keys that run a command or start a connection, upload, service or background
+# work. Refused unless null, false or empty. Native keeps managed hooks in safe
+# mode (S, offset about 287982373); the rest are refused rather than traced.
+SETTINGS_ACTIVE = ("hooks", "statusLine", "subagentStatusLine", "fileSuggestion", "sshConfigs", "sshHostCommands",
+                   "managedMcpServers", "extraKnownMarketplaces", "additionalMarketplaces", "remoteControlAtStartup",
+                   "autoUploadSessions", "daemonColdStart", "autoDreamEnabled", "forceRemoteSettingsRefresh")
+# MCP server file the managed directory may hold (S); it can name programs.
+MANAGED_MCP = "managed-mcp.json"
+# Workspace ancestors with these entries could act as a project root.
+PROJECT_MARKERS = (".git", ".claude")
 # A settings `env` may set anything; refuse whole families, not only known names.
 SETTINGS_ENV_REFUSED = re.compile(r"(?:ANTHROPIC_|CLAUDE_|AWS_|GOOGLE_|VERTEX_|CLOUD_ML_|NODE_|SSL_|BUN_|"
                                   r"NPM_CONFIG_).*|.*(?:PROXY|CERT|_CA_).*", re.IGNORECASE)
@@ -297,6 +320,22 @@ def check_environment(caller_env):
         raise HarnessRefused("home_missing")
 
 
+def _active(value):
+    """False only for an absent, null, false or empty setting."""
+    return not (value is None or value is False or (isinstance(value, (dict, list, str)) and len(value) == 0))
+
+
+def _present(path):
+    """lstat-based existence (a dangling symlink counts); refuses if it cannot tell."""
+    try:
+        os.lstat(path)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        raise HarnessRefused("policy_unreadable") from None
+    return True
+
+
 def check_policy(settings_paths, registration):
     """Inspect (never rewrite) each policy document for incompatible selectors.
 
@@ -322,10 +361,12 @@ def check_policy(settings_paths, registration):
         if not isinstance(env, dict) or any(name in REFUSED_ENV or SETTINGS_ENV_REFUSED.fullmatch(name)
                                             for name in env):
             raise HarnessRefused("policy_conflicting_env")
-        if "policyHelpers" in settings:
+        if any(key in settings for key in POLICY_HELPERS):
             raise HarnessRefused("policy_helper_unevaluable")
         if any(key in settings for key in SETTINGS_REFUSED):
             raise HarnessRefused("policy_conflicting_auth")
+        if any(_active(settings.get(key)) for key in SETTINGS_ACTIVE):
+            raise HarnessRefused("policy_command_unevaluable")
         method = settings.get("forceLoginMethod")
         if method is not None and method != "claudeai":
             raise HarnessRefused("policy_login_method_incompatible")
@@ -376,15 +417,7 @@ def managed_documents(directory):
 
 def server_managed_present(config_dir):
     """True if any signed server-managed policy cache exists; refuses if it cannot tell."""
-    for name in SERVER_MANAGED:
-        try:
-            os.lstat(config_dir + "/" + name)
-        except (FileNotFoundError, NotADirectoryError):
-            continue
-        except OSError:
-            raise HarnessRefused("policy_unreadable") from None
-        return True
-    return False
+    return any(_present(config_dir + "/" + name) for name in SERVER_MANAGED)
 
 
 def check_effective_policy(config_dir, registration, platform, managed_dirs=None):
@@ -401,9 +434,44 @@ def check_effective_policy(config_dir, registration, platform, managed_dirs=None
         raise HarnessRefused("policy_server_managed_present")
     documents = [config_dir + "/settings.json"]
     for directory in MANAGED_DIRS[platform] if managed_dirs is None else managed_dirs:
+        if _present(directory + "/" + MANAGED_MCP):
+            raise HarnessRefused("policy_managed_mcp_present")
         documents += managed_documents(directory)
     check_policy(documents, registration)
     return documents
+
+
+def default_workspace_parent(caller_env, uid=None):
+    """XDG_RUNTIME_DIR when it is this user's private directory, else None (system temp)."""
+    uid = os.getuid() if uid is None else uid
+    path = caller_env.get("XDG_RUNTIME_DIR", "")
+    if not path.startswith("/"):
+        return None
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return None
+    if stat.S_ISDIR(info.st_mode) and info.st_uid == uid and not stat.S_IMODE(info.st_mode) & 0o077:
+        return path
+    return None
+
+
+def check_workspace_ancestors(workspace):
+    """Refuse if any ancestor of the workspace holds .git or .claude (or cannot be checked)."""
+    current = os.path.realpath(workspace)
+    while True:
+        parent = os.path.dirname(current)
+        for marker in PROJECT_MARKERS:
+            try:
+                os.lstat(os.path.join(parent, marker))
+            except (FileNotFoundError, NotADirectoryError):
+                continue
+            except OSError:
+                raise HarnessRefused("workspace_unusable") from None
+            raise HarnessRefused("workspace_ancestor_project")
+        if parent == current:
+            return
+        current = parent
 
 
 def build_child_env(caller_env, paths, proxy_port=None):
@@ -651,7 +719,8 @@ def run_n1(binary, paths, caller_env, *, managed_dirs=None, platform=None, allow
 
     Returns a sanitized dict; never raises for expected refusals. A
     server-managed policy cache that appears during the run voids the result
-    (server_policy_fetched): native already applied that policy.
+    (server_policy_fetched) and drops its replies and cache fields: native
+    already applied that policy.
     """
     limits = {"total": TOTAL_DEADLINE, "operation": OPERATION_DEADLINE, "persistence": PERSISTENCE_WAIT,
               "shortcut": CACHE_SHORTCUT_WAIT}
@@ -679,7 +748,10 @@ def run_n1(binary, paths, caller_env, *, managed_dirs=None, platform=None, allow
             raise HarnessRefused("identity_mismatch_before")
         if tunnel_connector is not None:
             tunnel = Tunnel(tunnel_connector).__enter__()
+        if workspace_parent is None:
+            workspace_parent = default_workspace_parent(caller_env)
         workspace = tempfile.mkdtemp(prefix="quota-qc-n1-", dir=workspace_parent)
+        check_workspace_ancestors(workspace)
         native = _Native(binary, build_child_env(caller_env, paths, tunnel.port if tunnel else None),
                          workspace, os.path.join(workspace, ".stderr"), monotonic)
 
@@ -741,6 +813,10 @@ def run_n1(binary, paths, caller_env, *, managed_dirs=None, platform=None, allow
             result["server_policy_written"] = written
             if written is not False and result["classification"] != "failed":
                 result.update(classification="refused", reason="server_policy_fetched")
+            if written is not False:
+                # Observed under policy nobody evaluated: retain no quota data.
+                result.pop("replies", None)
+                result.pop("cache", None)
         if tunnel is not None:
             tunnel.__exit__(None, None, None)
             result["traffic"] = tunnel.summary()
