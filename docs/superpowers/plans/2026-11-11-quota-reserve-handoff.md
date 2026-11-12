@@ -24,7 +24,9 @@ launch prompt means the user has accepted this handoff for execution.
 The user approved exploring native full OAuth login for protected Claude
 accounts while retaining setup-token mode. This permits investigation, not
 silent credential migration or using the user's default login for another
-named account. The detailed credential design still requires human review.
+named account. The reviewed credential proposal and shared device-state
+boundary have now been accepted; actual account operations retain their
+explicit scope below.
 
 Planning baseline: `ed7e401be12d0972762915f17d86acc0f3ff2629`, main, release
 `0.7.7`. Reinspect before starting; another agent advanced main during this
@@ -52,10 +54,10 @@ proxy, new public UX, replacement UI, persistent daemon or weaker behavior.
 The user clarified the earlier token-only constraint: prefer setup-token-only
 support; if it cannot satisfy protection, initial web login is allowed with
 persistent credentials per account. Routine switching must not require another
-login. This permits a persistent-login fallback in principle, not automatic
-migration, default-account reuse, the detailed storage schema, shared device
-state access or a live credential experiment. Native refresh remains native
-owned; revocation or unrefreshable credentials require explicit recovery.
+login. Automatic migration and default-account reuse remain forbidden; the
+subsequent concrete schema/shared-state approval and individually scoped live
+experiment are recorded below. Native refresh remains native-owned; revocation
+or unrefreshable credentials require explicit recovery.
 
 The new research nodes are PC2 (request-gate feasibility) and PT (token-only
 startup quota). They extend the research before G0; they do not restart B0 or
@@ -64,7 +66,13 @@ extends persistent-login isolation evidence; PC3 extends subscription TUI and
 routing evidence independently of the pending continuation-control decision.
 PC4 adds bounded monitor/proxy-loss evidence for owned native streams within
 the already-authorized gate research; it adds no continuation UX or runtime.
-HAuth remains required for the concrete credential design.
+The user subsequently accepted the reviewed HAuth candidate and shared native
+device-state boundary, and authorized HTTP/SSE plus dedicated continuation
+control research. A named-account one-shot count experiment completed with
+HTTP 200 but no quota headers. Its permission is consumed; see the
+[result and limits](quota-reserve-claude-count-result.md). PC5 and PA1F/PA1C
+now extend the unresolved native evidence in separate worktrees. These
+approvals do not waive G0 feasibility or authorize unlisted live experiments.
 Read `gate-decisions.md` in the durable ledger for decisions received after
 any frozen checkpoint. Original task text below is historical where this
 explicit steering supersedes it; all protection and publication gates remain.
@@ -160,7 +168,11 @@ main commands only in the original main checkout.
 | PA2 | PA0, persistent-login fallback direction | new claude_persistence fixtures and report | done at 950948d; isolated matrix, hooks and independent review passed |
 | PC3 | PC2 | new pc_ui fixtures and report | done at ab41738; native matrix, hooks and independent review passed |
 | PC4 | reviewed PC3, existing gate-research authorization | new pc_loss fixtures and report | done at fe8c4a2; native matrix, hooks and independent review passed; no continuation UX |
-| HAuth | any proposed credential-design change | coordinator human credential-design decision record | persistent fallback allowed in principle; concrete isolation/schema unresolved |
+| PTLive | reviewed PTP, explicit named-account permission | coordinator sanitized result and private audit | one count request completed; HTTP 200, quota headers missing; independent result review pending |
+| PC5 | reviewed PC4, continuation-control research approval | new pc_continue fixtures and report | running in quota-continue-codex from bb195717 |
+| HAuth | reviewed PA0/PA2 candidate, explicit human decision | coordinator human credential-design decision record | approved design and native shared-device boundary; no automatic migration or unlisted live experiment |
+| PA1F | HAuth | new claude_freshness fixtures and report | running in quota-freshness-claude from bb195717; fake accounts only |
+| PA1C | HAuth, request-gate research approval | new claude_control fixtures and report | running in quota-control-claude from bb195717; fake accounts only |
 | PA1 | PT or reviewed fallback feasibility, applicable human gates | Claude approved quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
 | G0 | PC2/PC3/PC4, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
 | C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
@@ -458,6 +470,39 @@ Never overwrite another run's ledger when selecting new branch names.
   push, CI1/M1, implementation-document deletion, CI2/M2 or release tag has
   occurred. The requested two-cycle release-ready outcome is not achieved.
 
+### Execution checkpoint: approvals and the one-shot count result
+
+- The user explicitly authorized one existing named account for the reviewed
+  no-generation count experiment and accepted the other presented choices:
+  HAuth's persistent native-login/shared-device boundary and HTTP/SSE plus
+  dedicated continuation-control research. Exact user scope and the private
+  account/path are recorded in the durable ledger. No repeated ordinary
+  implementation or integration permission is needed.
+- The one permitted request returned HTTP 200 with an input-token field and
+  no five-hour or weekly quota headers. The observed source is unusable for
+  startup quota; no retry, alternate endpoint or generation request followed.
+  This does not prove all possible setup-token-only interfaces impossible.
+  The selected token was not printed, copied, hashed or committed.
+- HAuth's design decision is complete for the reviewed proposal. It does not
+  prove real refresh, macOS behavior, account binding or quota freshness, and
+  it does not authorize automatic account migration or an unlisted real login.
+  PA1F investigates fresh model-free quota with fabricated native auth/cache
+  state; PA1C investigates actual Claude TUI/delegated work and control.
+- PC5 investigates a new deliberate terminal action distinct from old queued
+  input, native output and background events. Product key/interaction details
+  are not frozen. Native event separation is required; no added claim of
+  physical-human attestation against arbitrary malicious same-UID processes
+  is assumed. Keep terminal trust and experimental limitations explicit.
+- The three research worktrees all start at `bb195717`; each has exclusive
+  new report/fixture paths. PC5 and PA1C coordinate the continuation fixture
+  rather than inventing incompatible interfaces. All native experiments use
+  fabricated credentials and independent external-network denial. Only the
+  coordinator may perform a separately authorized real-account operation.
+- G0 remains closed on missing evidence. C/X/A/U, remote publication and the
+  two required completion cycles have not started. Resume the running research
+  nodes and the result review from the ledger rather than asking the three
+  already answered questions again.
+
 ### PC: prove Codex control rather than rediscover interruption
 
 **Files:** read `lib/codex-as/{launch,check,handoff,usage}.py` and
@@ -481,7 +526,7 @@ HAuth and G0. Keep the native default login and existing token files untouched.
 - [x] **PA0:** reproduce model-free stream-json initialize/get_usage with a fully isolated, network-denied, fabricated-token harness. Assert zero model events/cost; pin `rate_limits_available:false` as an unsupported result rather than treating it as zero usage.
 - [x] **PA0:** investigate native full login with `CLAUDE_CONFIG_DIR`, Linux credential storage, macOS Keychain namespaces, refresh, identity reporting, and session/settings isolation. Prefer native credential management. Do not simply copy the user's default credential or fake OAuth scopes.
 - [x] **PA0:** produce a concrete proposed auth schema, enrollment command, private account paths/modes, same-account concurrency behavior, refresh ownership, compatibility behavior, and migration/recovery procedure that preserves existing setup-token mode. Commit the reviewed discovery report and record PA0 complete before requesting HAuth.
-- [ ] **HAuth: stop for human review of that proposal.** Record the exact approval or requested changes. Before a real-account check, separately name the account, command, data accessed, and absence of model inference; the user performs any login. Authorization to research full login is not authorization to migrate credentials.
+- [x] **HAuth: human design review.** The user accepted the reviewed persistent-login proposal and native shared device-state boundary. Exact decision is in the durable ledger. Before any further real-account check, separately name its account, command, data and absence of inference; the user performs any login. The one-shot count permission is consumed. No automatic migration is authorized.
 - [ ] **PA1:** prove native quota freshness on the approved path. A cached/seeded get_usage response with no proven age cannot reset the observation deadline. Test unchanged-but-new observations, stale cache, scope failure, missing windows, and endpoint retry/rate limits.
 - [ ] **PA1:** investigate native session attachment/control with the full G0 matrix. Hooks may assist; UserPromptSubmit is not proof of human origin, SubagentStart cannot block creation, and headless control does not control another TUI. Record running-tool effects and monitor death.
 - [ ] **PA1:** if full A or safe credential isolation is unavailable, stop dependent work and raise a specific design question. Otherwise commit evidence/fixtures, run checks, request independent review, and report exact capabilities and supported native versions.
@@ -659,8 +704,9 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
 - [x] B0, PA0, PTP preparation, PA2, PC3 and PC4 research are complete;
-  capability gaps remain. Resume the pending HAuth, named-account experiment
-  and continuation-scope decisions from the durable ledger, not B0.
+  capability gaps remain. HAuth and continuation research scope are approved;
+  the one named-account count request completed without quota headers. Resume
+  PC5, PA1F/PA1C and the result review from the durable ledger, not B0.
   Setup-token-only is preferred; persistent
   initial login is permitted as fallback, with no routine repeated login.
   G0 remains closed; no runtime implementation is authorized. Concrete

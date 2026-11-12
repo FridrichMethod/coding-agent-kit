@@ -3,6 +3,11 @@
 Research date: November 11, 2026. Base: `2df1ce5d4f95a42dacae3e2675897c26c258a4a5`.
 Scope: evidence only; no runtime change or provider credential request.
 
+Later authorized follow-up: the reviewed direct count request returned HTTP
+200 with no subscription-window headers. See the [result and limits](quota-reserve-claude-count-result.md).
+This report's original local research remains unchanged; the one-shot live
+permission is consumed and cannot be reused for another endpoint.
+
 ## Result and binding requirement
 
 No verified model-free startup source of fresh five-hour and weekly subscription

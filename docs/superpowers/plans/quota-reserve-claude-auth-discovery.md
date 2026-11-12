@@ -2,15 +2,17 @@
 
 Current direction: setup-token-only support is preferred. The user permits
 initial web login as fallback if needed, provided credentials persist per
-account and routine switching requires no further login. This proposal remains
-subject to concrete HAuth isolation/schema review and quota/control evidence.
-Its storage findings authorize no real-account or shared device-state access.
+account and routine switching requires no further login. The user subsequently
+accepted this reviewed schema and native shared device-state boundary after
+PA2. Quota/control evidence and separately scoped real-account operations
+remain required; no default-account reuse or automatic migration is approved.
 
 Status: PA0 research complete; validation and independent review results are
 recorded in the coordinator handoff.
 This is a proposal, not implemented behavior. Candidate-schema review has been
-requested; HAuth remains unresolved. PA1 (authenticated freshness and native
-control) has not started. See the coordinator handoff for current decisions.
+completed by the later user decision. PA1 freshness and native-control research
+has started with fabricated accounts. See the coordinator handoff for current
+decisions; historical review notes below describe the earlier checkpoint.
 Research date: November 11, 2026. Base: `0a79911`.
 
 ## Decision to review

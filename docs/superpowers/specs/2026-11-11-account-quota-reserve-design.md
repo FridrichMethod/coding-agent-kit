@@ -16,14 +16,19 @@ If it cannot satisfy protection, the user permits an initial web login per
 account with persistent credentials. Routine account switching must select
 the saved account without another login. Native credential refresh stays with
 Claude; revoked or unrefreshable credentials may require explicit recovery.
-This supersedes the earlier hard token-only constraint, but does not approve
-the detailed storage schema, shared device-state access, credential migration
-or real-account experiments. Ordinary setup-token behavior remains intact.
+This supersedes the earlier hard token-only constraint. The user subsequently
+accepted the explicit per-account native-login schema and Claude's native
+shared device-state boundary. Credentials and refresh remain native-owned;
+there is no silent migration or default-account credential reuse. Real-account
+experiments remain individually scoped. Ordinary setup-token behavior remains
+intact.
 
 The user separately authorized research of a foreground, per-invocation model
 request gate proxy after native control counterexamples were reproduced.
-This expands research scope only. A production proxy, new continuation UI or
-changed credential handling still requires concrete evidence and human review.
+The user also accepted research of HTTP/SSE protected routing with a dedicated
+continuation control outside the native UI. This expands research scope only;
+the concrete production architecture still needs the required evidence and
+G0 review.
 All startup, freshness, owned-work, native-UI, monitor-loss and manual-resume
 requirements remain unchanged.
 

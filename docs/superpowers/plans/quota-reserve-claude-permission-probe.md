@@ -1,7 +1,10 @@
 # PTP: one-shot count-header permission probe
 
-This is a review artifact, not permission to execute with a real account. No
-real token was read and no provider was contacted. Setup-token-only support
+This is a review artifact, not permission to execute with a real account. At
+preparation time no real token was read and no provider was contacted. One
+later explicitly authorized count request returned HTTP 200 without quota
+headers; see the [result](quota-reserve-claude-count-result.md). That one-shot
+permission is consumed and does not authorize another request. Setup-token-only support
 is preferred; persistent full login is permitted as a reviewed fallback if
 needed, but generation never substitutes for startup quota. The experiment
 implements the exact endpoint hypothesis in the reviewed

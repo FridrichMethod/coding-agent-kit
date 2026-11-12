@@ -1,5 +1,10 @@
 # PA2: persistent Claude login and shared device-state boundary
 
+Later decision: the user accepted the reviewed persistent-login proposal and
+shared device-state boundary described here. This report preserves the earlier
+evidence and review questions; real-account experiments remain separately
+scoped, and its technical limitations still apply. See the current handoff.
+
 Research checkpoint, November 12, 2026; base `796847a6`. No runtime change.
 The user's latest clarification permits an initial web login fallback while
 preferring setup-token-only support. Routine account selection must retain
