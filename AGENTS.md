@@ -41,9 +41,10 @@ tests/                           suites, fixtures, runners, COVERAGE.md
   one frozen object that every consumer takes. Unknown keys warn and never
   fail, so a newer configuration file works with an older kit. See
   [docs/configuration.md](docs/configuration.md).
-- Without a configuration file the launchers must keep passing the same
-  arguments, environment, files and links as before; the golden test in
-  `tests/test_config.py` compares no file with an explicit-defaults file.
+- Without a configuration file the launchers must pass exactly the
+  arguments, environment, files and links that a file with the defaults
+  written out gives; the golden test in `tests/test_config.py` compares the
+  two.
 
 ## Public contract
 
@@ -68,7 +69,7 @@ pre-commit hook:
 
 The command-line surface is public too, guarded by the suites rather than
 `contract.sh`: the help text; the own options, only as the first argument
-and by exact match, in every spelling, the older ones kept for good:
+and by exact match, in every spelling, aliases included, which no release drops:
 `-h`/`--help`, `-V`/`-v`/`--version`, `-l`/`--list`/`--list-accounts`, `--labels`/`--account-labels`,
 `-i`/`--info`/`--account-info NAME`, `claude-as --label`/`--set-label` and
 `--show-config`, with their outputs and exit codes (`--version` prints
