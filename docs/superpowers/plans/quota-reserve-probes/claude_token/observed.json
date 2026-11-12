@@ -1,0 +1,51 @@
+{
+  "version": "2.1.322 (Claude Code)",
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "runner_sha256": "f4eb8231cd7a4430ec66e476dd5271b1e9de353224066a66d94fcf4db006a5a7",
+  "requests": [
+    {
+      "request_id": "quota1",
+      "rate_limits_available": false,
+      "rate_limits": null,
+      "total_cost_usd": 0,
+      "total_api_duration_ms": 0,
+      "model_usage": {}
+    },
+    {
+      "request_id": "quota2",
+      "rate_limits_available": false,
+      "rate_limits": null,
+      "total_cost_usd": 0,
+      "total_api_duration_ms": 0,
+      "model_usage": {}
+    },
+    {
+      "request_id": "quota3",
+      "rate_limits_available": false,
+      "rate_limits": null,
+      "total_cost_usd": 0,
+      "total_api_duration_ms": 0,
+      "model_usage": {}
+    }
+  ],
+  "denied_syscalls": [
+    "socket",
+    "connect",
+    "sendto",
+    "sendmsg",
+    "sendmmsg",
+    "io_uring_setup"
+  ],
+  "injected_denials": {
+    "version": 0,
+    "usage": 39
+  },
+  "event_types": [
+    "system",
+    "control_response",
+    "control_response",
+    "control_response",
+    "control_response"
+  ],
+  "classification": "native_token_quota_unavailable_not_server_permission_test"
+}
