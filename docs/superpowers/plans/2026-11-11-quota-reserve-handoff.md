@@ -120,9 +120,9 @@ main commands only in the original main checkout.
 
 | Node | Dependencies | Exclusive write ownership | Initial status |
 | --- | --- | --- | --- |
-| B0 | none | integration metadata, .gitignore, handoff | pending |
-| PC | B0 | Codex probe fixtures and own evidence report | partial evidence; further proof required |
-| PA0 | B0 | Claude discovery fixtures and own auth/control proposal | research authorized |
+| B0 | none | integration metadata, .gitignore, handoff | done; preservation commit and independent review passed |
+| PC | B0 | Codex probe fixtures and own evidence report | running in isolated probe worktree |
+| PA0 | B0 | Claude discovery fixtures and own auth/control proposal | running in isolated probe worktree |
 | HAuth | PA0 | coordinator human credential-design decision record | awaiting concrete proposal |
 | PA1 | HAuth | Claude approved-auth quota/control fixtures and evidence | blocked on review |
 | G0 | PC, PA1 | coordinator architecture record and frozen interfaces | blocked on proof |
@@ -155,12 +155,42 @@ Never overwrite another run's ledger when selecting new branch names.
 
 ### B0: preserve planning and create isolated ownership
 
-- [ ] Read AGENTS.md, this handoff, spec and research; inspect status, diffs, worktrees, branches, current local/remote refs, and active agent ownership. Record the actual base SHA.
-- [ ] Ensure `/.worktrees/` is ignored BEFORE creating it. Because main cannot receive an untested bootstrap commit, first add that exact entry to the shared `.git/info/exclude` if needed; record whether it was already present. Verify with `git check-ignore`.
-- [ ] Create `.worktrees/quota-integration` on a new `ci/quota-reserve` branch from current main. Add `/.worktrees/` to tracked .gitignore in that worktree. Leave the original main checkout on main.
-- [ ] Copy only the known spec, handoff, research and two probe files into integration. Compare bytes, stage explicit paths, run required hooks, and commit `docs: preserve quota reserve implementation handoff` with the ignore change.
-- [ ] Only after those copies are committed, remove identical untracked originals from the main checkout so a later fast-forward is not blocked. Preserve anything different or unexplained. Record the integration document path for subsequent resumes.
-- [ ] Initialize the identity-checked durable ledger and node records, including all actual branch/path selections. Create probe worktrees from the committed integration SHA. Each worker receives the original root, its exact worktree, dependency SHAs, allowed files, and its node's acceptance checks.
+- [x] Read AGENTS.md, this handoff, spec and research; inspect status, diffs, worktrees, branches, current local/remote refs, and active agent ownership. Record the actual base SHA.
+- [x] Ensure `/.worktrees/` is ignored BEFORE creating it. Because main cannot receive an untested bootstrap commit, first add that exact entry to the shared `.git/info/exclude` if needed; record whether it was already present. Verify with `git check-ignore`.
+- [x] Create `.worktrees/quota-integration` on a new `ci/quota-reserve` branch from current main. Add `/.worktrees/` to tracked .gitignore in that worktree. Leave the original main checkout on main.
+- [x] Copy only the known spec, handoff, research and two probe files into integration. Compare bytes, stage explicit paths, run required hooks, and commit `docs: preserve quota reserve implementation handoff` with the ignore change.
+- [x] Only after those copies are committed, remove identical untracked originals from the main checkout so a later fast-forward is not blocked. Preserve anything different or unexplained. Record the integration document path for subsequent resumes.
+- [x] Initialize the identity-checked durable ledger and node records, including all actual branch/path selections. Create probe worktrees from the committed integration SHA. Each worker receives the original root, its exact worktree, dependency SHAs, allowed files, and its node's acceptance checks.
+
+### Execution checkpoint: B0 preservation and probe dispatch
+
+- Actual base remains `ed7e401be12d0972762915f17d86acc0f3ff2629`;
+  local main and freshly fetched origin/main agree. Preservation commit:
+  `0a79911` on `ci/quota-reserve` in `.worktrees/quota-integration`.
+- The Git common directory contains the identity-checked durable ledger at
+  `coding-agent-kit-handoffs/quota-reserve/`. Its `identity.json` records
+  resolved local paths; `progress.md`, original byte-for-byte artifacts,
+  hook logs, node briefs and independent review are preserved there.
+- A pre-existing `.worktrees/` entry in `.git/info/exclude` covered bootstrap;
+  this task did not add it. The committed ignore uses `/.worktrees/`.
+- `pre-commit run --all-files` and staged `git diff --check` passed.
+  Independent B0 spec-compliance and quality/security review both passed.
+  No runtime implementation or native-account experiment was performed.
+- PC owns `.worktrees/quota-probe-codex`, branch
+  `task/quota-probe-codex`; PA0 owns `.worktrees/quota-probe-claude`, branch
+  `task/quota-probe-claude`. Both start at `0a79911`. Workers only write
+  provider-specific evidence and fixtures; coordinator owns this handoff.
+- Automatic approval review rejected removal of the five untracked original
+  duplicates twice, interpreting it as deletion of the retained spec.
+  Separate checks proved all originals equal committed and archived copies.
+  The user then explicitly approved removing exactly these five duplicates
+  while retaining the committed spec. Removal succeeded, empty task-only
+  directories were removed, and original main is now clean.
+- B0 review identified proxy-only network containment and early-startup
+  process cleanup hazards in the supplied disposable scripts. PC must use
+  bounded supervision and establish containment before reproducing them.
+- HAuth and G0 remain unapproved. No runtime node may start. The next task
+  checkpoints are reviewed PC evidence and the reviewed PA0 auth proposal.
 
 ### PC: prove Codex control rather than rediscover interruption
 
