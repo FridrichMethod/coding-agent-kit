@@ -4,7 +4,8 @@ python3 -I -B check_evidence.py [EVIDENCE_DIR]
 
 It fails (exit 1) when a stage is missing, failed, leaked a credential or a private path, left a
 process behind, admitted a bearer without its own fresh observation, forwarded model work
-between a latch and its continuation, or when any evidence or source digest differs from the
+between a latch and its continuation, forwarded any request while a gate was lost or dead, let
+a non-gate connect through the boundary, or when any evidence or source digest differs from the
 manifest. It also recomputes the G0 measurements and requires them to equal the manifest's.
 """
 import hashlib
@@ -15,10 +16,13 @@ import statistics
 import sys
 
 HERE = Path(__file__).resolve().parent
-STAGES = ('pause', 'loss', 'restart', 'sessions', 'rotation', 'rotation_gate', 'refresh', 'startup')
+STAGES = ('pause', 'loss', 'restart', 'sessions', 'rotation', 'rotation_gate', 'refresh', 'startup', 'confine')
 SOURCES = ('klx/gate.py', 'klx/fixtures.py', 'klx/reader.py', 'klx/monitor.py', 'klx/actors.py', 'klx/launcher.py',
-           'klx/compose.py', 'klx/run.py', 'qx/binding.py', 'qx/gate.py', 'qx/fixtures.py', 'nl/boundary.py',
+           'klx/compose.py', 'klx/run.py', 'klx/fsrules.py', 'qx/binding.py', 'qx/gate.py', 'qx/fixtures.py', 'nl/boundary.py',
            'nl/natives.py', 'nl/probe.py', 'pc_continue/control.py')
+# Backend events that are requests reaching upstream (the rest are the fixture's own notes).
+REQUESTS = ('usage', 'accounts_check', 'models', 'other_get', 'refresh', 'revoke', 'other_post', 'model', 'upgrade',
+            'connect', 'refresh_host_other')
 LEAKS = (re.compile(r'eyJ[A-Za-z0-9_-]{8,}'), re.compile(r'fixture-refresh-[0-9a-f]'), re.compile(r'/home/'),
          re.compile(r'/tmp/quota-klx'), re.compile(r'"Bearer '))
 
@@ -79,6 +83,13 @@ def no_model_between(data, start, end, label):
     need(not late, '%s: %d model requests reached upstream during %s' % (data['stage'], len(late), label))
 
 
+def only_requests_between(data, start, end, allowed, label):
+    """No upstream request of any kind outside `allowed` arrived between `start` and `end`."""
+    late = sorted({row['kind'] for row in data['backend'] if row['kind'] in REQUESTS and row['kind'] not in allowed
+                   and start < row['at'] < end})
+    need(not late, '%s: upstream requests %s during %s' % (data['stage'], late, label))
+
+
 def common(data):
     stage = data['stage']
     need(data['ok'] is True and data['error'] is None, '%s: stage failed: %s' % (stage, data['error']))
@@ -93,9 +104,12 @@ def common(data):
             need(trace['native_main_exit'] == 0, '%s/%s: traced native did not exit 0' % (stage, inv['name']))
             for row in trace['syscalls']['inet_connect']:
                 need(row['target'] != 'non_loopback', '%s/%s: non-loopback connect' % (stage, inv['name']))
-                if row['target'] != 'gate':
-                    need(row['result'] in ('EACCES', 'ECONNREFUSED'), '%s/%s: non-gate connect %s' %
-                         (stage, inv['name'], row['result']))
+                # The boundary must deny every non-gate connect itself (EACCES; ECONNREFUSED would
+                # mean it let the connect through to a port without a listener). The one known gap
+                # is NL's port-only rule: the gate port on another loopback address.
+                gap = row.get('address') == '127.0.0.2' and row.get('port') == inv['port']
+                if row['target'] != 'gate' and not gap:
+                    need(row['result'] == 'EACCES', '%s/%s: non-gate connect %s' % (stage, inv['name'], row['result']))
     for row in timeline(data, 'preflight'):
         need(row['model_requests'] == 0, '%s: model request before the preflight verdict' % stage)
 
@@ -111,6 +125,7 @@ def check_pause(data):
     resume = [e['at'] for e in first if e['event'] == 'continuation_requested']
     need(len(resume) >= 2, 'pause: continuation attempts missing')
     no_model_between(data, latch, resume[-1], 'the pause')
+    only_requests_between(data, latch, resume[-1], ('usage',), 'the pause')
     rows = {(r['actor'], r['attempt']): r for r in inv['actors']}
     need(rows[('sdk', 'model_after_signal')]['result'] == 503, 'pause: child request after the latch not refused')
     need(rows[('grandchild', 'model_after_latch')]['result'] == 503, 'pause: grandchild request not refused')
@@ -134,6 +149,26 @@ def check_pause(data):
     need(paste['checks'] == 0 and paste['status']['paused'], 'pause: paste or native output confirmed')
     need(one(data, 'recovered_quota_no_resume')['status']['paused'], 'pause: recovered quota resumed by itself')
     need(one(data, 'tui_usable_while_paused')['status_card'], 'pause: native /status not usable while paused')
+    history = one(data, 'transcript_while_paused')
+    need(history['before_key'] is False and history['history_visible'] and history['tui_alive'],
+         'pause: earlier history not shown by the native transcript view while paused')
+    need(one(data, 'ps_while_paused')['listed'], 'pause: native /ps not usable while paused')
+    # Case 9: the tools survive the pause, Esc, the continuation and the next turn (still alive six
+    # seconds after it, with the TUI open) and end only when the TUI shuts down.
+    phases = {row['phase']: row for row in timeline(data, 'tools_alive')}
+    for phase in ('before-latch', 'paused', 'after-interrupt', 'after-continuation', 'after-next-turn',
+                  'next-turn-plus-6s'):
+        need(phases[phase]['alive'] == {'loop': True, 'testlike': True}, 'pause: tools not alive at ' + phase)
+    need(phases['after-tui-exit']['alive'] == {'loop': False, 'testlike': False}, 'pause: tools outlived the TUI')
+    exit_row = one(data, 'tui_exit')
+    for name, ended in phases['after-tui-exit']['ended_at'].items():
+        need(phases['next-turn-plus-6s']['at'] < ended <= phases['after-tui-exit']['at'],
+             'pause: %s ended outside the TUI shutdown window' % name)
+    need(exit_row['exited'] and exit_row['at'] - phases['next-turn-plus-6s']['at'] < 3, 'pause: TUI exit timing')
+    need(one(data, 'resumed_same_invocation')['at'] + 5.5 < phases['next-turn-plus-6s']['at'],
+         'pause: tools not watched long enough after the next turn')
+    need(all(check.get('disarmed_armed') is not None for check in inv['checks'] if not check['resumed']),
+         'pause: a failed check did not cancel its continuation')
     failed = one(data, 'failed_check')
     need(failed['resumed'] is False and failed['message_visible'], 'pause: failed check resumed or no message')
     resumed = one(data, 'resumed_same_invocation')
@@ -154,10 +189,14 @@ def check_loss(data):
         need(case['monitor_alive'] == (case['case'] != 'kill'), 'loss: monitor liveness')
         need(recovery['refused_before_continuation'] and recovery['resumed'] and recovery['completed'],
              'loss: recovery needs and honours continuation')
-        later = [e['at'] for e in data['invocations'][0]['gates'][cases.index(case) + 1]['events']
+        index = cases.index(case)
+        later = [e['at'] for e in data['invocations'][0]['gates'][index + 1]['events']
                  if e['event'] == 'continuation_requested']
         need(later, 'loss: no continuation after restart')
         no_model_between(data, case['latch_at'], later[-1], 'monitor loss ' + case['case'])
+        replaced = [row['mono'] for row in timeline(data, 'gate_started') if row['index'] == index + 1]
+        need(replaced, 'loss: replacement gate missing')
+        only_requests_between(data, case['latch_at'], replaced[0], (), 'the lost gate of ' + case['case'])
 
 
 def check_restart(data):
@@ -176,6 +215,8 @@ def check_restart(data):
     need(result['refused_before'] and result['resumed'] and result['completed'], 'restart: continuation')
     again = [e['at'] for e in inv['gates'][1]['events'] if e['event'] == 'continuation_requested']
     no_model_between(data, data['extra']['gate_killed_at'], again[-1], 'gate death and restart')
+    restarted = [row['mono'] for row in timeline(data, 'gate_started') if row['index'] == 1]
+    only_requests_between(data, data['extra']['gate_killed_at'], restarted[0], (), 'the dead gate')
 
 
 def check_sessions(data):
@@ -185,6 +226,9 @@ def check_sessions(data):
     need(one(data, 'second_paused')['s2_refused'], 'sessions: outside consumption did not count')
     tunnels = data['extra']['proxy_tunnels']
     need(tunnels and all(row['allowed'] for row in tunnels), 'sessions: second gate bypassed the launcher proxy')
+    second = gate_events(data['invocations'][1])
+    forwarded = sum(1 for e in second if e['event'] == 'get' or (e['event'] == 'admission' and e.get('admitted')))
+    need(len(tunnels) >= forwarded > 0, 'sessions: fewer proxy tunnels than upstream requests of the second gate')
 
 
 def check_rotation(data):
@@ -194,6 +238,14 @@ def check_rotation(data):
          'rotation: native refresh did not use the CONNECT allowlist')
     need(one(data, 'native_refresh')['completed'] or data['extra']['rebind_mode'] == 'controller-reader',
          'rotation: gate-read rebind did not carry the turn across the refresh')
+    # The report's finding 2 describes this capture: the turn and the title each refreshed (two new
+    # bearers), and only the controller variant, which can bind just the bearer on disk, lost the turn.
+    revoked = [row['at'] for row in data['backend'] if row['kind'] == 'revoked'][0]
+    refreshed = [row for row in data['backend'] if row['kind'] == 'refresh' and row['accepted']
+                 and revoked < row['at'] < one(data, 'native_refresh')['mono']]
+    need(len(refreshed) == 2, 'rotation: the capture does not show the double refresh the report describes')
+    need(one(data, 'native_refresh')['completed'] == (data['extra']['rebind_mode'] == 'gate-read'),
+         'rotation: turn outcome differs from the report for ' + data['extra']['rebind_mode'])
     after = [r for r in timeline(data, 'long_lived_read') if r['phase'] == 'after-refresh']
     need(after and 'rpc_error' in after[0]['result'], 'rotation: long-lived reader did not show its stale bearer')
     rows = {r['marker']: r for r in inv['actors'] if r['attempt'].startswith('model_after')}
@@ -210,11 +262,16 @@ def check_rotation(data):
 
 
 def check_refresh(data):
-    first, second = data['invocations']
+    first, second = data['invocations'][:2]
     events, others = gate_events(first), gate_events(second)
     need(one(data, 'connect_refresh')['completed'], 'refresh: turn after CONNECT refresh did not complete')
-    need([r['host'] for r in data['backend'] if r['kind'] == 'refresh'] == ['auth.openai.com'],
-         'refresh: refreshes other than the single native CONNECT refresh')
+    prelaunch = timeline(data, 'prelaunch_refresh')
+    need(len(prelaunch) == 2, 'refresh: pre-launch refresh cases missing')
+    split = prelaunch[0]['mono'] - prelaunch[0]['total_seconds'] - .5  # the pre-launch reader's start
+    refreshes = [r for r in data['backend'] if r['kind'] == 'refresh']
+    need(all(r['host'] == 'auth.openai.com' for r in refreshes), 'refresh: a refresh bypassed the refresh host')
+    need([r['accepted'] for r in refreshes if r['at'] < split] == [True],
+         'refresh: refreshes other than the single native CONNECT refresh before the pre-launch case')
     need(first['reader_refresh_failures'] > 0, 'refresh: reader refresh attempt not observed')
     running = [r for r in first['actors'] if r['actor'] == 'tunnel' and r['attempt'].startswith('connect_')]
     need([r['result'] for r in running[:2]] == ['tunnel', 'tunnel'], 'refresh: tunnel while running')
@@ -229,7 +286,24 @@ def check_refresh(data):
     need(stale['paused'] and stale['status']['paused'] == 'stale', 'refresh: expiry did not pause stale')
     need(one(data, 'no_refresh_refused')['refused'], 'refresh: stale pause admitted work')
     latch = [e['at'] for e in others if e['event'] == 'streams_closed' and e['reason'] == 'stale'][0]
-    no_model_between(data, latch, latch + 60, 'the stale pause')
+    no_model_between(data, latch, prelaunch[0]['mono'], 'the stale pause')
+    # Option (a): a native outside the gate refreshed before launch; the protected run that followed
+    # needed no refresh and made no refresh CONNECT; a failed pre-launch refresh refused the start.
+    good, bad = prelaunch
+    need(good['changed'] and good['verdict'] is None and good['refreshes'] >= 1, 'refresh: pre-launch refresh failed')
+    run = one(data, 'prelaunch_run')
+    need(run['completed'] and run['refreshes_during_run'] == 0, 'refresh: protected run refreshed after pre-launch')
+    third = gate_events(data['invocations'][2])
+    need(not any(e['event'] in ('connect_refused', 'connect_tunnel') and e['destination'] == 'auth.openai.com:443'
+                 for e in third), 'refresh: refresh CONNECT after a pre-launch refresh')
+    need(sum(e['event'] == 'connect_refused' and e['destination'] == 'auth.openai.com:443' for e in others) > 0,
+         'refresh: no-refresh comparison lost its refused refresh attempts')
+    need(not bad['changed'] and bad['verdict'] == 'prelaunch-refresh:failed', 'refresh: failed pre-launch refresh')
+    refused = one(data, 'prelaunch_refused')
+    need(not refused['gate_started'] and not refused['tui_started'] and refused['model_requests'] == 0,
+         'refresh: a failed pre-launch refresh did not refuse the start')
+    need(all(row['allowed'] and row['destination'] == 'auth.openai.com:443' for row in data['extra']['prelaunch_proxy']),
+         'refresh: pre-launch native used the proxy for another destination')
 
 
 def check_startup(data):
@@ -239,22 +313,52 @@ def check_startup(data):
         need(row['refused'] == expected, 'startup: %s refused=%s' % (case, row['refused']))
     boundary = data['extra']['socket_stdio_boundary']
     need(boundary['exit'] == 2 and not boundary['native_started'], 'startup: socket stdio not refused')
+    probes = data['extra']['clap_probes']
+    need(any(p['subcommand'] and p['argv'][0].startswith('-') for p in probes), 'startup: no option-value probe')
+    for probe in probes:
+        need(probe['exit'] == 0, 'startup: clap probe failed for %s' % probe['argv'])
+        need(probe['screen_refused'] or not probe['subcommand'], 'startup: screen let clap select a subcommand: %s'
+             % probe['argv'])
+    need([p['screen_refused'] for p in probes if not p['subcommand'] and 'fix the resume parser' in p['argv']] == [False],
+         'startup: screen refused a plain prompt')
     cases = data['extra']['preflight_cases']
-    need(len(cases) == 10, 'startup: preflight cases missing')
+    need(len(cases) == 11, 'startup: preflight cases missing')
+    need({row['case']: row['verdict'] for row in cases}['monitor-missing'] == 'monitor-not-started',
+         'startup: started without a monitor heartbeat')
     for row in cases:
         need(row['model_requests'] == 0 and not row['tui_started'], 'startup: native started for ' + row['case'])
         need((row['verdict'] is None) == (row['case'] == 'passing-control'), 'startup: verdict for ' + row['case'])
     need(not [r for r in data['backend'] if r['kind'] == 'model'], 'startup: model request reached upstream')
 
 
+def check_confine(data):
+    native = one(data, 'native_sandbox')
+    need(native['tool_result_sent'] and native['reply_visible'] and native['second_turn'] and native['tui_alive'],
+         'confine: native sandbox run unusable')
+    need('bwrap' in (native['tool_output'] or '') and not native['file_written'],
+         'confine: native sandbox result differs from the recorded bwrap failure')
+    rules = one(data, 'fs_rules')
+    need(rules['tool_result_sent'] and rules['reply_visible'] and rules['second_turn'] and rules['status_card'],
+         'confine: TUI unusable under the filesystem rules')
+    need(not rules['home_entries'] and not rules['outside_entries'], 'confine: write outside the writable paths')
+    inv = next(inv for inv in data['invocations'] if inv['name'] == 'fs')
+    rows = {r['attempt']: r['result'] for r in inv['actors'] if r['actor'] == 'fswrite'}
+    need(rows == {'started': 'ok', 'write_workspace': 'ok', 'write_tmp': 'ok', 'write_codex_home': 'ok',
+                  'write_home': 'EACCES', 'write_outside': 'EACCES', 'git_commit_workspace': 0},
+         'confine: filesystem rule results %s' % rows)
+
+
 CHECKS = {'pause': check_pause, 'loss': check_loss, 'restart': check_restart, 'sessions': check_sessions,
           'rotation': check_rotation, 'rotation_gate': check_rotation, 'refresh': check_refresh,
-          'startup': check_startup}
+          'startup': check_startup, 'confine': check_confine}
 
 
 def metrics(stages):
     """G0 measurements from the evidence (loopback, fixtures; not live numbers)."""
     preflight, usage, overhead, holds, gate_holds, close = [], [], [], [], [], []
+    loss = {case['case']: round((case['latch_at'] - case['trigger']) * 1000, 1)
+            for case in stages['loss']['extra']['loss_cases']}
+    prelaunch = [row['total_seconds'] for row in timeline(stages['refresh'], 'prelaunch_refresh') if not row['verdict']]
     for stage, data in stages.items():
         if stage == 'startup':  # refusal cases with deliberately slow or failing fixtures
             continue
@@ -286,7 +390,8 @@ def metrics(stages):
                 'max_ms': round(values[-1] * 1000, 1)}
     return {'preflight_reader': summary(preflight), 'usage_get_at_gate': summary(usage),
             'admission_overhead': summary(overhead), 'controller_rebind_hold': summary(holds),
-            'gate_read_rebind_hold': summary(gate_holds), 'latch_to_upstream_close': summary(close)}
+            'gate_read_rebind_hold': summary(gate_holds), 'latch_to_upstream_close': summary(close),
+            'monitor_loss_to_latch_ms': loss, 'prelaunch_refresh': summary(prelaunch)}
 
 
 def check(directory=HERE / 'evidence'):

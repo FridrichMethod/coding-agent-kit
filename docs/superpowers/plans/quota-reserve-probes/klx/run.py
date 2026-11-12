@@ -24,7 +24,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[4]
 CACHE = REPO / '.cache' / 'klx'
 STAGES = (('startup', 120), ('pause', 170), ('loss', 210), ('restart', 150), ('sessions', 150),
-          ('rotation', 180), ('rotation_gate', 180), ('refresh', 180))
+          ('rotation', 180), ('rotation_gate', 180), ('refresh', 210), ('confine', 150))
 
 
 def load(name, path):
@@ -90,7 +90,7 @@ def main():
     summary, status = {'runs': [], 'exit': 1}, 1
     all_roots = []
     try:
-        for name in ('test_launcher', 'test_gate'):
+        for name in ('test_launcher', 'test_gate', 'test_fsrules'):
             code, out, err = execute([*python, str(HERE / (name + '.py'))], 180)
             summary['runs'].append({'label': name, 'exit': code, 'tail': (out + err)[-300:]})
             print(name, 'exit', code, flush=True)

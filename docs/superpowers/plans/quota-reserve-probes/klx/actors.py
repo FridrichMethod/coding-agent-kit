@@ -3,7 +3,7 @@ same boundary). Each prints or appends JSON rows stamped with the host monotonic
 the gate and the fake backend share. Fabricated credentials only; loopback targets only.
 
 python3 -I -B actors.py --spec SPEC.json ACTOR [options]
-Actors: sdk, grandchild, testlike, workflow, loop, bind, tunnel, direct.
+Actors: sdk, grandchild, testlike, workflow, loop, bind, tunnel, direct, fswrite.
 """
 import argparse
 import errno
@@ -246,6 +246,27 @@ def main(argv):
     elif options.actor == 'direct':
         tcp(('127.0.0.1', spec['backend_port']), out, 'direct_backend_tcp')
         udp(('127.0.0.1', spec['backend_port']), out, 'direct_udp')
+    elif options.actor == 'fswrite':
+        # Outer filesystem write rules: create a file in each named place; report ok or the errno.
+        for name, directory in sorted(spec['fs_targets'].items()):
+            target = Path(directory) / ('klx-fs-' + name)
+            try:
+                with open(target, 'w') as handle:
+                    handle.write('klx\n')
+                os.unlink(target)
+                out('write_' + name, 'ok')
+            except OSError as error:
+                out('write_' + name, code(error))
+        env = {'PATH': '/usr/bin:/bin', 'HOME': spec['home'], 'GIT_CONFIG_NOSYSTEM': '1',
+               'GIT_AUTHOR_NAME': 'Fixture', 'GIT_AUTHOR_EMAIL': 'fixture@example.invalid',
+               'GIT_COMMITTER_NAME': 'Fixture', 'GIT_COMMITTER_EMAIL': 'fixture@example.invalid'}
+        repo = Path(spec['workspace']) / 'fs-repo'
+        steps = [['git', 'init', '--quiet', str(repo)], ['git', '-C', str(repo), 'commit', '--quiet',
+                                                         '--allow-empty', '-m', 'klx']]
+        results = [subprocess.run(step, env=env, capture_output=True, text=True, timeout=20,
+                                  stdin=subprocess.DEVNULL) for step in steps]
+        out('git_commit_workspace', max(result.returncode for result in results),
+            stderr=' '.join(result.stderr.strip() for result in results)[-200:])
     return 0
 
 

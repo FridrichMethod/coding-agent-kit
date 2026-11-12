@@ -52,6 +52,7 @@ natives = load('klx_nl_natives', PROBES / 'nl' / 'natives.py')
 A, UA, B, UB = 'fixture-account-a', 'fixture-user-a', 'fixture-account-b', 'fixture-user-b'
 HELPER = ('import os,fcntl,termios,sys; os.setsid(); '
           'fcntl.ioctl(0,termios.TIOCSCTTY,0); os.execv(sys.argv[1],sys.argv[1:])')
+FIRST_PROMPT = 'KLX-TOOL-work'
 ANSI = re.compile(r'\x1b(\[[0-9;?<>=]*[A-Za-z~]|\][^\x07\x1b]*(\x07|\x1b\\)|[78()=>][A-Z0-9]?)')
 
 
@@ -215,14 +216,14 @@ class Invocation:
 
     def __init__(self, h, name, *, account=A, user=UA, label='A1', five=20, weekly=30, max_age=60, hold=5.0,
                  hb_max=2.0, hb_interval=0.25, poll=None, refresh='none', link=None, lifetime=3600,
-                 upstream_proxy=None, strace=True, self_read=False):
+                 upstream_proxy=None, strace=True, self_read=False, sandbox='danger-full-access', fs_rules=False):
         self.h, self.name, self.account, self.user = h, name, account, user
         self.policy = {'five_hour': five, 'weekly': weekly, 'max_age': max_age}
         self.hold, self.hb_max, self.hb_interval, self.poll = hold, hb_max, hb_interval, poll
         self.refresh, self.upstream_proxy, self.use_strace = refresh, upstream_proxy, strace
-        self.self_read = self_read
+        self.self_read, self.sandbox, self.fs_rules = self_read, sandbox, fs_rules
         self.base = h.root / name
-        for part in ('codex', 'home', 'workspace', 'tmp', 'out'):
+        for part in ('codex', 'home', 'workspace', 'tmp', 'out', 'outside'):
             (self.base / part).mkdir(parents=True, mode=0o700)
         self.codex_home, self.workspace = self.base / 'codex', self.base / 'workspace'
         self.gates, self.monitors, self.readers, self.events = [], [], [], []
@@ -249,12 +250,16 @@ class Invocation:
             self.write_auth(fixtures.auth_json(access, refresh_token, account, user))
         else:
             os.symlink(link, self.codex_home / 'auth.json')
-        (self.codex_home / 'config.toml').write_text(launcher.render_config(self.url, str(self.workspace)))
+        (self.codex_home / 'config.toml').write_text(launcher.render_config(self.url, str(self.workspace),
+                                                                            sandbox=sandbox))
         self.spec_path = self.base / 'spec.json'
         self.spec = {'gate_port': self.port, 'backend_port': h.backend.port, 'static_port': h.static.port,
                      'codex_home': str(self.codex_home), 'workspace': str(self.workspace),
                      'home': str(self.base / 'home'), 'outdir': str(self.base / 'out'),
-                     'paused_file': str(self.workspace / 'PAUSED'), 'model': 'gpt-5.4'}
+                     'paused_file': str(self.workspace / 'PAUSED'), 'model': 'gpt-5.4',
+                     'fs_targets': {'workspace': str(self.workspace), 'tmp': str(self.base / 'tmp'),
+                                    'codex_home': str(self.codex_home), 'home': str(self.base / 'home'),
+                                    'outside': str(self.base / 'outside')}}
         self.spec_path.write_text(json.dumps(self.spec))
         h.invocations.append(self)
 
@@ -384,14 +389,50 @@ class Invocation:
         self.h.record('controller_read', invocation=self.name, **row)
         return row
 
-    def preflight(self):
+    def begin(self, monitor=True):
+        """Launcher order: gate, monitor (its heartbeat lease starts at the first heartbeat), then the
+        model-free preflight. Returns the preflight verdict (None = start the native)."""
+        self.start_gate()
+        if monitor:
+            self.start_monitor()
+            if not self.h.wait(lambda: (self.status() or {}).get('heartbeat'), 3):
+                return 'monitor-not-started'
+        return self.preflight(require_monitor=monitor)
+
+    def preflight(self, require_monitor=True):
         before = self.h.backend.count('model')
         row = self.read('preflight')
         status = self.status()
-        verdict = launcher.preflight_verdict(status)
+        verdict = launcher.preflight_verdict(status, require_monitor=require_monitor)
         self.h.record('preflight', invocation=self.name, verdict=verdict, status=status,
                       model_requests=self.h.backend.count('model') - before)
         return verdict
+
+    def last_refresh(self):
+        """The credential file's `last_refresh` field: all the launcher reads of it (no token)."""
+        try:
+            return json.loads((self.codex_home / 'auth.json').read_text()).get('last_refresh')
+        except (OSError, ValueError):
+            return None
+
+    def prelaunch_refresh(self, proxy_port, ca):
+        """Refresh option (a): before the gate starts, one native App Server outside the gate asks for
+        a forced refresh. In production it would use the user's own network; here it runs in an L2a
+        domain whose only reachable port is the fixture CONNECT proxy that maps auth.openai.com:443
+        to the loopback TLS host, so any other egress is denied."""
+        before, refreshes = self.last_refresh(), self.h.backend.count('refresh')
+        env = launcher.native_env(home=str(self.base / 'home'), codex_home=str(self.codex_home),
+                                  tmp=str(self.base / 'tmp'), gate_url='http://127.0.0.1:%d' % proxy_port, ca=ca)
+        result = reader.refresh({'python': sys.executable, 'binary': self.h.binary, 'gate_port': proxy_port,
+                                 'env': env, 'cwd': str(self.workspace),
+                                 'stderr': str(self.base / 'prelaunch-refresh.stderr')})
+        after = self.last_refresh()
+        row = {key: result.get(key) for key in ('result', 'init_seconds', 'refresh_seconds', 'total_seconds',
+                                                'exit', 'error')}
+        row.update(refreshes=self.h.backend.count('refresh') - refreshes, changed=after != before,
+                   verdict=launcher.prelaunch_refresh_verdict(before, after), disk_label=self.stored_label())
+        self.h.record('prelaunch_refresh', invocation=self.name, **row)
+        return row
 
     # -- native TUI ------------------------------------------------------------------------------
     def start_tui(self, prompt):
@@ -405,6 +446,16 @@ class Invocation:
         argv = launcher.check_args(['--no-alt-screen', '-C', str(self.workspace), prompt])
         inner = self.h.boundary(self.port, [sys.executable, '-I', '-B', '-c', HELPER, self.h.binary, *argv],
                                 verbose=True)
+        if self.fs_rules:
+            # Outer filesystem write rules (K brief, added items): workspace and temporary directories
+            # writable, plus Codex's own home and the terminal and null devices; the rest read-only.
+            # `out` is the harness's actor evidence directory (it stands in for a workspace subdirectory).
+            writable = [str(self.workspace), str(self.base / 'tmp'), str(self.codex_home), str(self.base / 'out'),
+                        '/dev/null', '/dev/tty', '/dev/ptmx', '/dev/pts', '/dev/shm']
+            self.extra_fs = writable
+            inner = [sys.executable, '-I', '-B', str(HERE / 'fsrules.py'), '--verbose',
+                     *[part for path in writable if os.path.exists(path) for part in ('--write', path)], '--',
+                     *inner]
         observer = []
         strace = shutil.which('strace') if self.use_strace else None
         if strace:
@@ -484,8 +535,12 @@ class Invocation:
         row = self.read('continuation') if accepted else None
         status = self.status()
         resumed = bool(accepted and status and status.get('paused') is None and not status.get('lost'))
+        disarmed = None
+        if not resumed:  # the user is told "still paused": no later read may answer this request
+            reply = self.control.call('disarm')
+            disarmed = reply and reply.get('armed')
         self.checks.append({'accepted': accepted, 'read': row and row.get('result'), 'status': status,
-                            'resumed': resumed})
+                            'resumed': resumed, 'disarmed_armed': disarmed})
         self.h.record('continuation_check', invocation=self.name, accepted=accepted, resumed=resumed,
                       status=status)
         return resumed
@@ -656,6 +711,51 @@ class Invocation:
                 'control_visible_tail': ANSI.sub('', bytes(self.visible).decode(errors='replace'))[-1500:]}
 
 
+def proc_start(pid):
+    """(state, start time in clock ticks) of a process from /proc, or None once it is gone."""
+    try:
+        fields = Path('/proc/%d/stat' % pid).read_text().rsplit(')', 1)[1].split()
+    except (OSError, IndexError):
+        return None
+    return fields[0], fields[19]
+
+
+class Tools:
+    """Liveness of in-boundary tool processes, polled through /proc by PID and start time (a reused
+    PID never counts as the same process; a zombie counts as ended)."""
+
+    def __init__(self, h, invocation, names):
+        self.h, self.invocation, self.names, self.known, self.ended = h, invocation, names, {}, {}
+
+    def track(self, timeout=10):
+        def found():
+            for row in self.invocation.actor_rows():
+                if row['attempt'] == 'started' and row['actor'] in self.names and row['actor'] not in self.known:
+                    start = proc_start(row['pid'])
+                    self.known[row['actor']] = (row['pid'], start and start[1])
+            return all(name in self.known for name in self.names)
+        return self.h.wait(found, timeout)
+
+    def alive(self):
+        state = {}
+        for name, (pid, start) in self.known.items():
+            now = proc_start(pid)
+            state[name] = bool(now and now[1] == start and now[0] != 'Z')
+            if not state[name] and name not in self.ended:
+                self.ended[name] = round(time.monotonic() - self.h.start, 4)
+        return state
+
+    def record(self, phase):
+        self.h.record('tools_alive', phase=phase, alive=self.alive(), ended_at=dict(self.ended))
+
+    def watch(self, seconds, phase):
+        end = time.monotonic() + seconds
+        while time.monotonic() < end:
+            self.alive()
+            time.sleep(.25)
+        self.record(phase)
+
+
 def tool_command(h, invocation, steps):
     actor = '%s -I -B %s --spec %s' % (sys.executable, HERE / 'actors.py', invocation.spec_path)
     return '; '.join(step.replace('ACT', actor) for step in steps) + '; echo KLX tool finished'
@@ -667,22 +767,24 @@ def stage_pause(h):
     """Cases 1, 2, 9, 10 and 5 on one invocation: threshold latch, children, tools, workflow,
     then fresh manual continuation of the same bound invocation."""
     inv = Invocation(h, 'a', poll=2.0, max_age=60)
-    inv.start_gate()
-    verdict = inv.preflight()
+    verdict = inv.begin()
     assert verdict is None, verdict
-    inv.start_monitor()
     h.backend.hold_titles = True
     h.backend.tools['KLX-TOOL-work'] = tool_command(h, inv, [
         'ACT sdk --marker KLX-HOLD-child --wait PAUSED_FILE --seconds 60 >/dev/null 2>&1 &',
-        'ACT testlike --seconds 40 >/dev/null 2>&1 &',
+        'ACT testlike --seconds 90 >/dev/null 2>&1 &',
         'setsid -f ACT grandchild --seconds 90 </dev/null >/dev/null 2>&1',
         'ACT workflow --tag before >/dev/null 2>&1',
-        'ACT loop --seconds 20']).replace('PAUSED_FILE', inv.spec['paused_file'])
+        'ACT loop --seconds 60']).replace('PAUSED_FILE', inv.spec['paused_file'])
     h.backend.tool_yield['KLX-TOOL-work'] = 30000  # the turn stays inside the tool call through the pause
     inv.start_tui('KLX-TOOL-work run the fixture tool')
     assert h.wait(lambda: (inv.workspace / 'loop.txt').exists(), 45), 'tool loop did not start'
     assert h.wait(lambda: (inv.status() or {}).get('streams', 0) >= 2, 15), 'held title and child streams absent'
     h.record('streams_before_latch', status=inv.status())
+    tools = Tools(h, inv, ('loop', 'testlike'))
+    assert tools.track(), 'tool processes not seen'
+    h.extra['tool_pids'] = {name: pid for name, (pid, _) in tools.known.items()}
+    tools.record('before-latch')
     inv.user_text('KLX-QUEUED-1 follow up typed while the tool runs')
     # Stale typed input: keys the user typed before the pause stay buffered and must be drained.
     inv.owner_hold.set()
@@ -698,6 +800,7 @@ def stage_pause(h):
     inv.owner_hold.clear()
     time.sleep(.3)
     h.record('stale_input_after_pause', challenge=inv.terminal.challenge is not None, checks=len(inv.checks))
+    tools.record('paused')
     assert h.wait(lambda: h.backend.count('stream_lost') >= 2, 5), 'held streams were not closed'
     (inv.workspace / 'PAUSED').write_text('paused')
     h.wait(lambda: any(r['attempt'] == 'git_clone_after' for r in inv.actor_rows()), 30)
@@ -708,14 +811,36 @@ def stage_pause(h):
     time.sleep(2.5)
     h.record('after_interrupt', loop_lines=len((inv.workspace / 'loop.txt').read_text().splitlines()),
              loop_finished=(inv.workspace / 'loop.finished').exists(), tui_alive=inv.tui_alive())
+    tools.record('after-interrupt')
+    # History while paused: the native transcript view (Ctrl+T; PageUp and Home page inside it) must
+    # show the first turn's prompt, which nothing else re-renders after this mark.
+    inv.press(b'\x7f' * 80, .3)
+    mark = len(inv.output)
+    time.sleep(.5)
+    baseline = FIRST_PROMPT in inv.screen(mark)
+    inv.press(b'\x14', .8)
+    inv.press(b'\x1b[5~', .4)
+    inv.press(b'\x1b[H', .4)
+    shown = h.wait(lambda: FIRST_PROMPT in inv.screen(mark), 4)
+    inv.press(b'q', .6)
+    h.record('transcript_while_paused', before_key=baseline, history_visible=shown, tui_alive=inv.tui_alive(),
+             screen_bytes=len(inv.output) - mark)
     inv.press(b'\x7f' * 80, .3)
     mark = len(inv.output)
     inv.user_text('/status')
     h.wait(lambda: 'Context window' in inv.screen(mark), 6)
-    inv.press(b'\x1b[5~', .4)
-    inv.press(b'\x1b[6~', .4)
+    inv.press(b'\x1b', .3)
     h.record('tui_usable_while_paused', status_card='Context window' in inv.screen(mark),
              tui_alive=inv.tui_alive(), screen_bytes=len(inv.output) - mark)
+    # The native background-terminal list (a local command) while paused.
+    inv.press(b'\x7f' * 80, .3)
+    mark = len(inv.output)
+    inv.user_text('/ps')
+    listed = h.wait(lambda: 'Background terminals' in inv.screen(mark), 4)
+    running = re.search(r'(\d+) background terminals? running', inv.screen(mark))
+    inv.press(b'\x1b', .3)
+    h.record('ps_while_paused', listed=listed, running=running and int(running.group(1)),
+             tail=re.sub(r'\S*/\S*', '<PATH>', inv.screen(mark))[-400:])
     # Background wakeup: quota recovers and the monitor's fresh reads pass, but nothing reopens.
     h.backend.set_usage(A, 30, 40)
     polls = h.backend.count('usage')
@@ -739,20 +864,25 @@ def stage_pause(h):
     h.record('failed_check', resumed=failed, message_visible='quota reserve gate refused' in inv.screen(mark),
              status=inv.status())
     passed = inv.confirm()
+    tools.record('after-continuation')
     mark = len(inv.output)
     inv.user_text('KLX-RESUMED after a fresh passing check')
     h.wait(lambda: 'KLX fixture reply KLX-RESUMED' in inv.screen(mark), 10)
     h.record('resumed_same_invocation', resumed=passed, reply_visible='KLX fixture reply KLX-RESUMED' in inv.screen(mark),
              gate_pid=inv.gate_process.pid, tui_pid=inv.tui.pid, tui_alive=inv.tui_alive(), status=inv.status())
+    tools.record('after-next-turn')
+    # Running-tool effects (case 9): keep the TUI open for several seconds after the next turn, polling
+    # the tool PIDs, before the TUI exits; then poll again after the exit.
+    tools.watch(6.0, 'next-turn-plus-6s')
+    h.record('background_terminal_listed', listed='background terminal' in inv.screen(mark))
     inv.exit_tui()
+    tools.watch(1.5, 'after-tui-exit')
 
 
 def stage_loss(h):
     """Case 3: monitor EOF, monitor SIGKILL and a stalled monitor each latch the gate closed."""
     inv = Invocation(h, 'a', hb_max=1.5, poll=None)
-    inv.start_gate()
-    assert inv.preflight() is None
-    inv.start_monitor()
+    assert inv.begin() is None
     inv.start_tui('KLX-START a first turn')
     assert h.wait(lambda: 'KLX fixture reply KLX-START' in inv.screen(), 30), 'first turn did not complete'
     results = []
@@ -792,9 +922,7 @@ def stage_loss(h):
 def stage_restart(h):
     """Case 4: gate death and port reuse; a restarted gate needs a fresh verified continuation."""
     inv = Invocation(h, 'a', poll=2.0)
-    inv.start_gate()
-    assert inv.preflight() is None
-    inv.start_monitor()
+    assert inv.begin() is None
     inv.start_tui('KLX-START a first turn')
     assert h.wait(lambda: 'KLX fixture reply KLX-START' in inv.screen(), 30)
 
@@ -852,9 +980,7 @@ def stage_sessions(h):
     one = Invocation(h, 's1', five=20, poll=1.5, link=str(secret))
     two = Invocation(h, 's2', five=10, poll=1.5, link=str(secret), upstream_proxy=('127.0.0.1', proxy.port))
     for inv in (one, two):
-        inv.start_gate()
-        assert inv.preflight() is None
-        inv.start_monitor()
+        assert inv.begin() is None
     one.start_tui('KLX-S1-START first session')
     two.start_tui('KLX-S2-START second session')
     assert h.wait(lambda: 'KLX fixture reply KLX-S1-START' in one.screen()
@@ -902,9 +1028,7 @@ def stage_rotation(h, self_read=False):
     With self_read the gate binds a held bearer by its own usage GET with that bearer (variant)."""
     h.extra['rebind_mode'] = 'gate-read' if self_read else 'controller-reader'
     inv = Invocation(h, 'a', refresh='connect', hold=5.0, poll=None, self_read=self_read)
-    inv.start_gate()
-    assert inv.preflight() is None
-    inv.start_monitor()
+    assert inv.begin() is None
     long_lived = reader.Session(inv.reader_config('long-lived'))
     assert long_lived.initialize()
     first = long_lived.read()
@@ -967,10 +1091,8 @@ def stage_rotation(h, self_read=False):
 def stage_refresh(h):
     """Case 8: native refresh through the gate's CONNECT allowlist (a), and no refresh path (b)."""
     inv = Invocation(h, 'a', refresh='connect', hold=5.0, poll=2.0, lifetime=120)
-    inv.start_gate()
-    assert inv.preflight() is None
+    assert inv.begin() is None
     h.record('reader_refresh_attempts', refreshes=h.backend.count('refresh'))
-    inv.start_monitor()
     inv.start_tui('KLX-REFRESH-A first turn')
     completed = h.wait(lambda: 'KLX fixture reply KLX-REFRESH-A' in inv.screen(), 30)
     h.record('connect_refresh', completed=completed, refreshes=h.backend.count('refresh'),
@@ -984,9 +1106,7 @@ def stage_refresh(h):
     inv.exit_tui()
     h.backend.set_usage(A, 25, 40)
     nr = Invocation(h, 'b', refresh='none', hold=5.0, poll=2.0, lifetime=120, max_age=8, label='A5')
-    nr.start_gate()
-    assert nr.preflight() is None
-    nr.start_monitor()
+    assert nr.begin() is None
     nr.start_tui('KLX-NOREFRESH-1 first turn')
     first = h.wait(lambda: 'KLX fixture reply KLX-NOREFRESH-1' in nr.screen(), 30)
     h.record('no_refresh_first', completed=first, disk_label=nr.stored_label(), status=nr.status())
@@ -999,6 +1119,72 @@ def stage_refresh(h):
     refused = nr.turn('KLX-NOREFRESH-2 after expiry', 'quota reserve gate refused')
     h.record('no_refresh_refused', refused=refused, status=nr.status())
     nr.exit_tui()
+    # (a, pre-launch) A native outside the gate refreshes before launch; the protected run then needs
+    # no refresh path until the new token expires, which pauses stale as in (b).
+    certs = fixtures.make_ca(h.root / 'prelaunch-ca')
+    tls = fixtures.TlsRefreshHost(h.backend, certs)
+    proxy = fixtures.ConnectProxy({'auth.openai.com:443'}, routes={'auth.openai.com:443': ('127.0.0.1', tls.port)})
+    pre = Invocation(h, 'c', refresh='none', poll=2.0, lifetime=120, label='A7')  # inside native's window
+    row = pre.prelaunch_refresh(proxy.port, certs['ca'])
+    assert row['verdict'] is None, row
+    assert pre.begin() is None
+    run_started = time.monotonic()
+    pre.start_tui('KLX-PRE-1 first turn after the pre-launch refresh')
+    completed = h.wait(lambda: 'KLX fixture reply KLX-PRE-1' in pre.screen(), 30)
+    time.sleep(6.0)  # 8b's TUI retried its refresh every few hundred ms in a window like this
+    refreshes = sum(1 for b in h.backend.events if b['kind'] == 'refresh' and b['at'] > run_started)
+    h.record('prelaunch_run', completed=completed, refreshes_during_run=refreshes, status=pre.status())
+    pre.exit_tui()
+    bad = Invocation(h, 'd', refresh='none', poll=2.0, lifetime=120, label='A9')
+    with h.backend.lock:  # the refresh token is no longer accepted (revoked or reused elsewhere)
+        for token in [key for key, owner in h.backend.refreshes.items() if owner[2] == 'A9']:
+            del h.backend.refreshes[token]
+    models = h.backend.count('model')
+    row = bad.prelaunch_refresh(proxy.port, certs['ca'])
+    h.record('prelaunch_refused', verdict=row['verdict'], gate_started=bool(bad.gates), tui_started=bad.tui is not None,
+             model_requests=h.backend.count('model') - models)
+    h.extra['prelaunch_proxy'] = proxy.events
+    proxy.close()
+    tls.close()
+
+
+def stage_confine(h):
+    """K brief added items: the native tool sandbox inside the outer boundary, and outer filesystem
+    write rules (a Landlock layer stacked under L2a) as its replacement in protected mode."""
+    def tool_turn(inv, marker, prompt):
+        inv.start_tui(prompt)
+        ended = h.wait(lambda: any(b['kind'] == 'model' and b.get('request') == 'tool_result'
+                                   and b.get('marker') == marker for b in h.backend.events), 45)
+        replied = h.wait(lambda: 'KLX fixture reply ' + marker in inv.screen(), 10)
+        output = next((b.get('tool_output') for b in h.backend.events if b['kind'] == 'model'
+                       and b.get('request') == 'tool_result' and b.get('marker') == marker), None)
+        return ended, replied, output
+
+    # (a) Codex's own workspace-write sandbox inside L2a, without outer filesystem rules.
+    ns = Invocation(h, 'ns', sandbox='workspace-write')
+    assert ns.begin() is None
+    h.backend.tools['KLX-TOOL-native'] = ('echo klx > native-sandbox-probe.txt && cat native-sandbox-probe.txt; '
+                                          'echo KLX tool finished')
+    ended, replied, output = tool_turn(ns, 'KLX-TOOL-native', 'KLX-TOOL-native write one file in the workspace')
+    second = ns.turn('KLX-NS-2 a turn after the sandboxed tool call', 'KLX fixture reply KLX-NS-2')
+    h.record('native_sandbox', mode='workspace-write', tool_result_sent=ended, reply_visible=replied,
+             tool_output=output and re.sub(r'\S*/\S*', '<PATH>', output), second_turn=second,
+             file_written=(ns.workspace / 'native-sandbox-probe.txt').exists(), tui_alive=ns.tui_alive())
+    ns.exit_tui()
+    # (b) danger-full-access inside L2a plus the outer filesystem write rules.
+    fs = Invocation(h, 'fs', fs_rules=True)
+    assert fs.begin() is None
+    h.backend.tools['KLX-TOOL-fs'] = tool_command(h, fs, ['ACT fswrite'])
+    ended, replied, output = tool_turn(fs, 'KLX-TOOL-fs', 'KLX-TOOL-fs try writes inside and outside')
+    second = fs.turn('KLX-FS-2 a turn after the confined tool call', 'KLX fixture reply KLX-FS-2')
+    card = fs.status_card()
+    written = sorted({path.relative_to(fs.codex_home).parts[0] for path in fs.codex_home.rglob('*')
+                      if path.is_file()})
+    h.record('fs_rules', tool_result_sent=ended, reply_visible=replied, second_turn=second, status_card=card,
+             tui_alive=fs.tui_alive(), codex_home_entries=written, writable=getattr(fs, 'extra_fs', None),
+             home_entries=sorted(path.name for path in (fs.base / 'home').iterdir()),
+             outside_entries=sorted(path.name for path in (fs.base / 'outside').iterdir()))
+    fs.exit_tui()
 
 
 def stage_startup(h):
@@ -1026,9 +1212,31 @@ def stage_startup(h):
     refusal('version-real', lambda: launcher.check_version(version_of(h.binary)))
     for argv in (['--remote', 'ws://127.0.0.1:9'], ['resume', '--last'], ['fork'], ['remote-control'],
                  ['-c', 'chatgpt_base_url="https://example.invalid"'], ['--profile', 'other'],
-                 ['-c', 'model_providers.x.base_url="http://127.0.0.1:9"']):
+                 ['-c', 'model_providers.x.base_url="http://127.0.0.1:9"'],
+                 ['-cchatgpt_base_url="https://example.invalid"'], ['-cmodel_providers.klxgate.base_url="http://x"'],
+                 ['--enable', 'apps'], ['-s', 'workspace-write']):
         refusal('args ' + ' '.join(argv), lambda argv=argv: launcher.check_args(argv))
     refusal('args plain prompt', lambda: launcher.check_args(['KLX prompt']))
+    # What clap 0.167.2 itself makes of each spelling: `ARGV --help` prints the help of the
+    # subcommand clap selected ("Codex CLI" = no subcommand). Run inside L2a with a dead gate port and
+    # a scratch home, so nothing can leave the host; the screen must refuse every subcommand parse.
+    probes = []
+    workdir = str(h.root / 'version-home')
+    for argv in (['-m', 'gpt-5.4', 'resume'], ['-mgpt-5.4', 'resume'], ['-c=model=x', 'resume'],
+                 ['--model=x', 'fork'], ['-C', workdir, 'fork'], ['hello', 'resume'], ['--image=a.png', 'fork'],
+                 ['-i', 'a.png', 'fork'], ['-m', 'resume'], ['e'], ['-m', 'gpt-5.4', 'fix the resume parser']):
+        result = subprocess.run(h.boundary(9, [h.binary, *argv, '--help']), env=scratch, capture_output=True,
+                                text=True, timeout=15, stdin=subprocess.DEVNULL)
+        head = (result.stdout.strip().splitlines() or [''])[0][:60]
+        try:
+            launcher.check_args(argv)
+            refused = False
+        except launcher.Refusal:
+            refused = True
+        probes.append({'argv': argv, 'exit': result.returncode, 'help_head': head,
+                       'subcommand': head != 'Codex CLI', 'screen_refused': refused})
+        h.record('clap_probe', **probes[-1])
+    h.extra['clap_probes'] = probes
     refusal('env refresh override', lambda: launcher.check_env({'CODEX_REFRESH_TOKEN_URL_OVERRIDE': 'x'}))
     abi = None
     try:
@@ -1081,12 +1289,16 @@ def stage_startup(h):
              ('identity-mismatch', lambda identity: (200, body(account_id=B)), {}),
              ('below-reserve', lambda identity: (200, body(rate={'primary_window': dict(five, used_percent=85)})), {}),
              ('stale', slow, {'max_age': 0.5}),
+             ('monitor-missing', None, {}),
              ('passing-control', None, {})]
     verdicts = []
     for name, override, options in cases:
         before = h.backend.count('model')
         inv = Invocation(h, 'q-' + name, **options)
         inv.start_gate()
+        if name != 'monitor-missing':
+            inv.start_monitor()
+            h.wait(lambda: (inv.status() or {}).get('heartbeat'), 3)
         h.backend.usage_override = override
         verdict = inv.preflight()
         h.backend.usage_override = None
@@ -1101,7 +1313,7 @@ def stage_startup(h):
 
 STAGES = {'pause': stage_pause, 'loss': stage_loss, 'restart': stage_restart, 'sessions': stage_sessions,
           'rotation': stage_rotation, 'rotation_gate': lambda h: stage_rotation(h, self_read=True),
-          'refresh': stage_refresh, 'startup': stage_startup}
+          'refresh': stage_refresh, 'startup': stage_startup, 'confine': stage_confine}
 
 
 def main(binary, stage):

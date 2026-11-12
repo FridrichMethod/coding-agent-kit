@@ -113,6 +113,33 @@ class Session:
         return self.process.returncode
 
 
+def refresh(config, timeout=15.0):
+    """Refresh option (a): one fresh native App Server asks native for a forced refresh
+    (`account/read` with `refreshToken`, S v2/account.rs GetAccountParams). Returns timings and the
+    account summary; native writes the refreshed credential itself."""
+    session = Session(config, timeout)
+    out = {'pid': session.pid, 'started': session.started}
+    try:
+        ok = session.initialize()
+        out['init_seconds'] = round(time.monotonic() - session.started, 4)
+        if not ok:
+            out['error'] = 'initialize-failed'
+        else:
+            before = time.monotonic()
+            answer = session.request('account/read', {'refreshToken': True})
+            out['refresh_seconds'] = round(time.monotonic() - before, 4)
+            result = (answer or {}).get('result')
+            account = (result or {}).get('account') or {}
+            out['result'] = ({'type': account.get('type'), 'planType': account.get('planType')} if result
+                             else {'rpc_error': str((answer or {}).get('error', answer))[:300]})
+    except (OSError, ValueError) as error:
+        out['error'] = type(error).__name__
+    finally:
+        out['exit'] = session.close()
+        out['total_seconds'] = round(time.monotonic() - session.started, 4)
+    return out
+
+
 def read(config, timeout=10.0):
     """One bounded read by a fresh process; returns a summary with timings. Never raises for
     native failures."""

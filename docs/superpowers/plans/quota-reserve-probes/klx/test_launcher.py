@@ -35,6 +35,37 @@ class Launcher(unittest.TestCase):
                 launcher.check_args(argv)
         self.assertEqual(launcher.check_args(['-c', 'model_reasoning_effort="high"', 'x'])[0], '--no-daemon')
 
+    def test_clap_spellings_that_reach_a_subcommand_or_a_routing_key(self):
+        # Each of these reaches a subcommand or a protected key in clap 0.167.2 (offline --help), or is
+        # a stricter fail-closed refusal (subcommand name as an option value, combined short flags).
+        for argv in (['-m', 'gpt-5.4', 'resume', '--last'], ['-mgpt-5.4', 'resume'], ['--model=x', 'fork'],
+                     ['-C', '/work', 'fork'], ['--cd=/work', 'fork'], ['-i', 'a.png', 'remote-control'],
+                     ['--image=a.png', 'fork'], ['-i=a.png', 'fork'], ['hello', 'resume'], ['e'], ['a'],
+                     ['help'], ['exec', 'x'], ['cloud-tasks'], ['-m', 'resume'],
+                     ['-cchatgpt_base_url="https://x"'], ['-cmodel_providers.klxgate.base_url="http://x"'],
+                     ['-c=chatgpt_base_url=x'], ['--config=model_provider=x'], ['-c', ' chatgpt_base_url =x'],
+                     ['-c', 'use_legacy_landlock=true'], ['-c', 'features.apps=true'], ['-c', 'sandbox_mode=x'],
+                     ['-c', '"chatgpt_base_url"=x'], ['-c', 'model'], ['-c'], ['-m', '-x'], ['--enable', 'apps'],
+                     ['--enable=apps'], ['--disable', 'x'], ['-s', 'workspace-write'], ['-sread-only'],
+                     ['--search'], ['--add-dir', '/x'], ['--worktree'], ['--unknown-flag'], ['-z'], ['-hV'],
+                     ['--no-alt-screen=1'], ['--approve-for-me']):
+            with self.assertRaises(launcher.Refusal, msg=argv):
+                launcher.check_args(argv)
+        for argv, expected in ((['--', 'resume'], ['--no-daemon', '--', 'resume']),
+                               (['-c', 'model="o3"', '--', 'fork'], ['--no-daemon', '-c', 'model="o3"', '--', 'fork']),
+                               (['-mgpt-5.4', 'x'], ['--no-daemon', '-mgpt-5.4', 'x']),
+                               (['--model=gpt-5.4', 'x'], ['--no-daemon', '--model=gpt-5.4', 'x']),
+                               (['-C', '/w', '--no-alt-screen', 'x'], ['--no-daemon', '-C', '/w', '--no-alt-screen', 'x']),
+                               (['-i', 'a.png', 'describe it'], ['--no-daemon', '-i', 'a.png', 'describe it']),
+                               (['-cmodel=x', '--no-daemon', 'y'], ['--no-daemon', '-cmodel=x', 'y']),
+                               (['--', '--no-daemon'], ['--no-daemon', '--', '--no-daemon'])):
+            self.assertEqual(launcher.check_args(argv), expected, argv)
+
+    def test_prelaunch_refresh_verdict(self):
+        self.assertIsNone(launcher.prelaunch_refresh_verdict('2026-11-12T00:00:00Z', '2026-11-12T00:01:00Z'))
+        self.assertEqual(launcher.prelaunch_refresh_verdict('t', 't'), 'prelaunch-refresh:failed')
+        self.assertEqual(launcher.prelaunch_refresh_verdict('t', None), 'prelaunch-refresh:credential-unreadable')
+
     def test_environment(self):
         launcher.check_env({'PATH': '/usr/bin'})
         for name in launcher.REFUSED_ENV:
@@ -58,7 +89,9 @@ class Launcher(unittest.TestCase):
             right.close()
 
     def test_preflight_verdict(self):
-        self.assertIsNone(launcher.preflight_verdict({'ready': True, 'paused': None, 'lost': None}))
+        self.assertIsNone(launcher.preflight_verdict({'ready': True, 'paused': None, 'lost': None, 'heartbeat': True}))
+        self.assertEqual(launcher.preflight_verdict({'ready': True, 'paused': None, 'lost': None}), 'monitor-not-started')
+        self.assertIsNone(launcher.preflight_verdict({'ready': True, 'paused': None, 'lost': None}, require_monitor=False))
         self.assertEqual(launcher.preflight_verdict(None), 'gate-unavailable')
         self.assertEqual(launcher.preflight_verdict({'ready': False, 'paused': 'stale', 'blocking': 'stale'}),
                          'quota:stale')

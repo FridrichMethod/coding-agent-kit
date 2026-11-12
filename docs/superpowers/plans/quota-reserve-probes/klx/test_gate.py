@@ -1,5 +1,6 @@
 """Offline tests for the KLX composed gate: routing, lock to first byte, loss latch, restart,
-CONNECT allowlist, identity, gate-read rebind and the upstream proxy. Loopback fixtures only.
+continuation cancellation, CONNECT allowlist, identity, gate-read rebind, the upstream proxy and the
+gate process's launcher-EOF latch. Loopback fixtures only.
 
 python3 -I -B test_gate.py
 """
@@ -7,7 +8,11 @@ import http.client
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import socket
+import subprocess
+import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -137,6 +142,10 @@ class Http(unittest.TestCase):
         self.make(hb_max=0.2)
         access, _ = self.backend.issue(A, UA, 'A1')
         self.usage(access)
+        time.sleep(.4)
+        self.assertIsNone(self.gate.lost)  # the heartbeat lease starts at the first heartbeat
+        self.assertFalse(self.gate.status()['heartbeat'])
+        self.gate.heartbeat()
         self.assertTrue(self.wait(lambda: self.gate.lost == 'monitor-stale', 3))
         self.assertEqual(self.usage(access)[0], 503)  # nothing is forwarded once lost
         self.assertFalse(self.gate.request_continuation())
@@ -166,6 +175,37 @@ class Http(unittest.TestCase):
         self.assertIsNone(self.gate.status()['paused'])
         self.assertEqual(self.model(access, 'KLX-Y')[0], 200)
 
+    def test_failed_check_cancels_the_continuation(self):
+        lease = self.make()
+        access, _ = self.backend.issue(A, UA, 'A1')
+        self.usage(access)
+        with self.gate.lock:
+            lease.latch('threshold:five_hour')
+        self.assertTrue(self.gate.request_continuation())
+        self.assertTrue(self.gate.cancel_continuation())  # the launcher showed "still paused"
+        time.sleep(.01)
+        self.usage(access)  # a later passing monitor read must not resume silently
+        self.assertEqual(self.gate.status()['paused'], 'threshold:five_hour')
+        self.assertEqual(self.model(access, 'KLX-X')[0], 503)
+        self.assertFalse(self.gate.cancel_continuation())
+
+    def test_forwarded_get_rechecks_the_route_before_its_first_byte(self):
+        self.make()
+        access, _ = self.backend.issue(A, UA, 'A1')
+        self.usage(access)
+        original = self.gate.open_upstream
+
+        def open_then_lose():
+            connection = original()
+            self.gate.lose('monitor-eof')  # a loss lands between the route decision and the first byte
+            return connection
+        self.gate.open_upstream = open_then_lose
+        before = len(self.backend.events)
+        status, data, _, _ = self.request('GET', '/backend-api/codex/models', access)
+        self.assertEqual(status, 503)
+        self.assertIn(b'paused:monitor-eof', data)
+        self.assertFalse([e for e in self.backend.events[before:] if e['kind'] in ('models', 'usage')])
+
     def test_foreign_account_latches_identity_before_upstream(self):
         self.make()
         access, _ = self.backend.issue(A, UA, 'A1')
@@ -185,6 +225,7 @@ class Http(unittest.TestCase):
         self.usage(first)
         self.assertEqual(self.model(second, 'KLX-NEW')[0], 503)  # old quota never authorizes a new bearer
         self.gate.shutdown()
+        self.listener.close()
         self.listener = socket.socket()
         self.listener.bind(('127.0.0.1', 0))
         self.listener.listen(64)
@@ -240,6 +281,68 @@ class Http(unittest.TestCase):
                 return True
             time.sleep(.02)
         return bool(predicate())
+
+
+class Process(unittest.TestCase):
+    """The gate as its own process, wired as the launcher wires it (gate.py main)."""
+
+    def test_launcher_eof_latches_the_gate_process(self):
+        backend = fixtures.Backend()
+        root = Path(tempfile.mkdtemp(prefix='quota-klx-test-gate-'))
+        listener = socket.socket()
+        listener.bind(('127.0.0.1', 0))
+        listener.listen(16)
+        ours, theirs = socket.socketpair()
+        monitor_ours, monitor_theirs = socket.socketpair()
+        config = {'events': str(root / 'gate.jsonl'), 'listen_fd': listener.fileno(), 'launcher_fd': theirs.fileno(),
+                  'monitor_fd': monitor_theirs.fileno(), 'account': A, 'user': UA, 'five_hour': 20, 'weekly': 30,
+                  'max_age': 60, 'upstream': ['127.0.0.1', backend.port], 'hb_max': 2.0}
+        (root / 'gate.json').write_text(json.dumps(config))
+        process = subprocess.Popen([sys.executable, '-I', '-B', str(HERE / 'gate.py'), str(root / 'gate.json')],
+                                   pass_fds=(listener.fileno(), theirs.fileno(), monitor_theirs.fileno()),
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   start_new_session=True)
+        theirs.close()
+        monitor_theirs.close()
+        port = listener.getsockname()[1]
+        try:
+            ours.settimeout(10)
+            data = b''
+            while b'\n' not in data:
+                data += ours.recv(4096)
+            self.assertEqual(json.loads(data.split(b'\n')[0])['event'], 'ready')
+            access, _ = backend.issue(A, UA, 'A1')
+
+            def usage():
+                connection = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+                connection.request('GET', '/backend-api/wham/usage',
+                                   headers={'Authorization': 'Bearer ' + access, 'ChatGPT-Account-ID': A})
+                response = connection.getresponse()
+                body = response.read()
+                connection.close()
+                return response.status, body
+            self.assertEqual(usage()[0], 200)
+            ours.close()  # the launcher dies: its end of the private channel closes
+
+            def events():
+                path = root / 'gate.jsonl'
+                return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+            end = time.monotonic() + 5
+            while time.monotonic() < end and not any(e['event'] == 'loss' for e in events()):
+                time.sleep(.05)
+            self.assertIn({'reason': 'launcher-eof'}, [{'reason': e['reason']} for e in events() if e['event'] == 'loss'])
+            before = backend.count('usage')
+            status, body = usage()
+            self.assertEqual(status, 503)
+            self.assertIn(b'paused:launcher-eof', body)
+            self.assertEqual(backend.count('usage'), before)  # nothing forwarded once lost
+        finally:
+            process.kill()
+            process.wait(timeout=5)
+            listener.close()
+            monitor_ours.close()
+            backend.close()
+            shutil.rmtree(root)
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ spec.loader.exec_module(checker)
 
 class Evidence(unittest.TestCase):
     def setUp(self):
-        self.directory = Path(tempfile.mkdtemp(prefix='klx-evidence-'))
+        self.directory = Path(tempfile.mkdtemp(prefix='quota-klx-test-evidence-'))
         for path in (HERE / 'evidence').glob('*.json'):
             shutil.copy(path, self.directory / path.name)
 
@@ -130,6 +130,82 @@ class Evidence(unittest.TestCase):
     def test_metrics_binding(self):
         manifest = json.loads((self.directory / 'manifest.json').read_text())
         manifest['metrics']['admission_overhead'] = {'n': 1, 'median_ms': 0.0, 'max_ms': 0.0}
+        (self.directory / 'manifest.json').write_text(json.dumps(manifest))
+        self.fails('metrics differ')
+
+    def test_tools_outliving_the_tui(self):
+        data = self.load('pause')
+        for row in data['timeline']:
+            if row['event'] == 'tools_alive' and row['phase'] == 'after-tui-exit':
+                row['alive']['loop'] = True
+        self.save('pause', data)
+        self.fails('outlived the TUI')
+
+    def test_tools_ending_at_the_next_turn(self):
+        data = self.load('pause')
+        for row in data['timeline']:
+            if row['event'] == 'tools_alive' and row['phase'] == 'next-turn-plus-6s':
+                row['alive']['testlike'] = False
+        self.save('pause', data)
+        self.fails('not alive at next-turn-plus-6s')
+
+    def test_history_not_shown(self):
+        data = self.load('pause')
+        for row in data['timeline']:
+            if row['event'] == 'transcript_while_paused':
+                row['history_visible'] = False
+        self.save('pause', data)
+        self.fails('earlier history')
+
+    def test_request_while_gate_lost(self):
+        data = self.load('loss')
+        case = data['extra']['loss_cases'][0]
+        data['backend'].append({'at': case['latch_at'] + 0.01, 'kind': 'models', 'label': 'A1'})
+        self.save('loss', data)
+        self.fails('upstream requests')
+
+    def test_non_usage_request_while_paused(self):
+        data = self.load('pause')
+        data['backend'].append({'at': data['extra']['latch_at'] + 0.5, 'kind': 'accounts_check', 'label': 'A1'})
+        self.save('pause', data)
+        self.fails('upstream requests')
+
+    def test_refused_connect_is_not_a_boundary_denial(self):
+        data = self.load('pause')
+        data['invocations'][0]['trace']['syscalls']['inet_connect'].append(
+            {'call': 'connect', 'exe': 'python3', 'target': 'other_loopback', 'address': '127.0.0.1', 'port': 9,
+             'result': 'ECONNREFUSED'})
+        self.save('pause', data)
+        self.fails('non-gate connect')
+
+    def test_screen_lets_a_subcommand_through(self):
+        data = self.load('startup')
+        data['extra']['clap_probes'][0]['screen_refused'] = False
+        self.save('startup', data)
+        self.fails('subcommand')
+
+    def test_write_outside_the_filesystem_rules(self):
+        data = self.load('confine')
+        for row in next(inv for inv in data['invocations'] if inv['name'] == 'fs')['actors']:
+            if row['attempt'] == 'write_outside':
+                row['result'] = 'ok'
+        self.save('confine', data)
+        self.fails('filesystem rule results')
+
+    def test_refresh_after_prelaunch(self):
+        data = self.load('refresh')
+        for row in data['timeline']:
+            if row['event'] == 'prelaunch_run':
+                row['refreshes_during_run'] = 1
+        self.save('refresh', data)
+        self.fails('refreshed after pre-launch')
+
+    def test_monitor_loss_latency_binding(self):
+        data = self.load('loss')
+        data['extra']['loss_cases'][2]['latch_at'] += 1.0
+        self.save('loss', data, rebind=False)
+        manifest = json.loads((self.directory / 'manifest.json').read_text())
+        manifest['evidence']['loss.json'] = checker.digest(self.directory / 'loss.json')
         (self.directory / 'manifest.json').write_text(json.dumps(manifest))
         self.fails('metrics differ')
 

@@ -63,6 +63,18 @@ def tool_call(command, ident, yield_ms=2000):
                  'response': {'id': ident, 'usage': {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}}}])
 
 
+def tool_output(body):
+    """The latest function_call_output text in a Responses request (what native's tool returned)."""
+    text = None
+    for item in body.get('input') or []:
+        if isinstance(item, dict) and item.get('type') == 'function_call_output':
+            output = item.get('output')
+            text = output if isinstance(output, str) else json.dumps(output)
+    if text and len(text) > 600:  # keep whole lines, so no path is cut where a sanitizer cannot see it
+        text = text[-600:].split('\n', 1)[-1]
+    return text
+
+
 def last_user_turn(body):
     """(latest user text, whether a tool output follows it) from a Responses request body."""
     items = body.get('input') or []
@@ -262,7 +274,8 @@ class Backend:
                     backend.counter += 1
                     ident = 'klx-%d' % backend.counter
                 backend.note('model', label=identity and identity['label'], live=live, marker=marker, request=kind,
-                             ident=ident, model=body.get('model'))
+                             ident=ident, model=body.get('model'),
+                             **({'tool_output': tool_output(body)} if kind == 'tool_result' else {}))
                 if not live:
                     return self.send(401, {'error': {'code': 'token_expired', 'message': 'fixture'}})
                 if backend.consume and marker and marker.startswith('KLX-OUTSIDE'):
@@ -380,8 +393,9 @@ class TlsRefreshHost:
 class ConnectProxy:
     """A loopback CONNECT proxy standing in for a launcher HTTPS_PROXY; records every tunnel."""
 
-    def __init__(self, allowed):
+    def __init__(self, allowed, routes=None):
         self.allowed = set(allowed)  # 'host:port' strings it will tunnel to
+        self.routes = dict(routes or {})  # 'host:port' -> (address, port): a fixture stands in for that host
         self.events = []
         owner = self
 
@@ -395,7 +409,7 @@ class ConnectProxy:
                 if self.path not in owner.allowed:
                     return self.send_error(403)
                 host, port = self.path.rsplit(':', 1)
-                upstream = socket.create_connection((host, int(port)), timeout=10)
+                upstream = socket.create_connection(owner.routes.get(self.path, (host, int(port))), timeout=10)
                 self.send_response(200, 'Connection Established')
                 self.end_headers()
                 self.wfile.flush()

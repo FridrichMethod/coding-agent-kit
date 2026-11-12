@@ -7,17 +7,20 @@ Research code only (not product runtime). It runs as its own process outside the
 The launcher binds the loopback gate port and keeps its own copy of the listening descriptor for
 the whole invocation, so nobody can take the port while this process is dead or restarting. It
 passes the descriptor here with two private socketpairs: the launcher channel (labels, trusted
-continuation, status, rebind requests) and the monitor channel (heartbeats only).
+continuation and its cancellation after a failed check, status, rebind requests) and the monitor
+channel (heartbeats only).
 
 What it adds to the QX prototype (the QX report's "requirements on K"):
 - Default-deny route table. While running it forwards the model-free reads native sent in QX and
   admits POST /backend-api/codex/responses through the lease. While paused it forwards only the
   usage read of the expected account; once the monitor is lost it forwards nothing.
-- Lock to first byte. The upstream connection is opened outside the admission lock, and the lease
-  is re-checked, the request bytes are sent and both sockets are registered under the lock. A
-  latch shuts down every registered client and upstream socket under the same lock.
-- Monitor. A tick thread drives Lease.tick() and the heartbeat lease. Monitor EOF, a stalled
-  heartbeat or launcher EOF latches this gate instance for good; recovery is a restarted gate.
+- Lock to first byte. The upstream connection is opened outside the admission lock, and the route
+  and lease are re-checked and the request bytes sent under the lock (model POSTs, forwarded GETs
+  and the gate's own rebind read); model streams are also registered there. A latch shuts down
+  every registered client and upstream socket under the same lock.
+- Monitor. A tick thread drives Lease.tick() and the heartbeat lease, which starts at the first
+  heartbeat. Monitor EOF, a stalled heartbeat or launcher EOF latches this gate instance for
+  good; recovery is a restarted gate.
 - A restarted gate starts latched ("gate-restarted"): only a trusted continuation plus a fresh
   passing usage read received after it reopens admission.
 - CONNECT is refused except to the configured refresh host:port while not paused (K case 8a).
@@ -85,6 +88,10 @@ class KLease(binding.Lease):
     def latch(self, reason):
         self._pause(reason)
 
+    def cancel_continuation(self, reason):
+        """The launcher reported a failed check: no later read may answer that request."""
+        self._disarm(reason)
+
 
 def route(method, path, headers, *, paused, lost):
     """Default-deny route decision before any upstream byte -> (action, reason)."""
@@ -127,7 +134,7 @@ class Gate:
         self.streams = {}
         self.lost = None
         self.last_outcome = None  # the lease outcome of the latest forwarded usage read
-        self.last_hb = time.monotonic()
+        self.last_hb = None  # the heartbeat lease starts at the first heartbeat
         self.done = threading.Event()
         lease.on_close = self._on_pause
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), self._handler(), bind_and_activate=False)
@@ -190,7 +197,8 @@ class Gate:
             return {'paused': self.lease.paused, 'blocking': self.lease.blocking, 'lost': self.lost,
                     'epoch': self.lease.epoch, 'ready': self.lease.observation is not None
                     and self.lease.paused is None and self.lost is None and self.lease.ready(),
-                    'streams': len(self.streams), 'last_outcome': self.last_outcome}
+                    'streams': len(self.streams), 'last_outcome': self.last_outcome,
+                    'heartbeat': self.last_hb is not None}
 
     def request_continuation(self):
         with self.lock:
@@ -201,10 +209,17 @@ class Gate:
             self.record('continuation_requested', accepted=accepted, paused=self.lease.paused)
             return accepted
 
+    def cancel_continuation(self):
+        with self.lock:
+            armed = self.lease.continuation is not None
+            self.lease.cancel_continuation('launcher-reported-failure')
+            self.record('continuation_cancelled', armed=armed, paused=self.lease.paused)
+            return armed
+
     def tick_loop(self, interval):
         while not self.done.wait(interval):
             with self.lock:
-                if self.lost is None and self.hb_max is not None \
+                if self.lost is None and self.hb_max is not None and self.last_hb is not None \
                         and time.monotonic() - self.last_hb > self.hb_max:
                     self.lose('monitor-stale')
                 self.lease.tick()
@@ -227,9 +242,14 @@ class Gate:
         account = headers.get('ChatGPT-Account-ID')
         try:
             connection = self.open_upstream()
-            connection.request('GET', USAGE_PATHS[0], headers={'Authorization': headers.get('Authorization'),
-                                                               'ChatGPT-Account-ID': account,
-                                                               'Accept': 'application/json'})
+            with self.lock:  # lock to first byte: a loss latched meanwhile sends nothing
+                if self.lost is not None:
+                    connection.close()
+                    self.record('self_read_refused', reason=self.lost)
+                    return None
+                connection.request('GET', USAGE_PATHS[0], headers={'Authorization': headers.get('Authorization'),
+                                                                   'ChatGPT-Account-ID': account,
+                                                                   'Accept': 'application/json'})
             response = connection.getresponse()
             data = response.read()
             connection.close()
@@ -240,7 +260,7 @@ class Gate:
             outcome = self.lease.observe_usage(bearer, account, response.status, data, started=started)
             self.last_outcome = outcome
             self.record('self_read', credential=self.label(bearer), status=response.status, lease=outcome,
-                        epoch=self.lease.epoch, seconds=round(time.monotonic() - started, 4))
+                        epoch=self.lease.epoch, seconds=round(time.monotonic() - started, 6))
         return outcome
 
     def open_upstream(self):
@@ -364,7 +384,17 @@ class Gate:
                     return
                 try:
                     connection = gate.open_upstream()
-                    connection.request('GET', self.path, headers=self.headers_out())
+                    with gate.lock:
+                        # Lock to first byte: a pause or loss latched since the decision may change
+                        # the route (a paused gate forwards only usage; a lost one nothing).
+                        again, late = route('GET', info['path'], self.headers, paused=gate.lease.paused,
+                                            lost=gate.lost)
+                        if again == action:
+                            connection.request('GET', self.path, headers=self.headers_out())
+                    if again != action:
+                        connection.close()
+                        gate.record('refused', **info, reason=late or 'route-changed', late=True)
+                        return self.refuse(late or 'route-changed')
                     response = connection.getresponse()
                     data = response.read()
                 except OSError as error:
@@ -419,7 +449,7 @@ class Gate:
                     gate.record('rebind_hold', **info, marker=marker, mode='gate-read')
                     gate.read_with(self.headers)
                     gate.record('rebind_hold_ended', credential=info['credential'], mode='gate-read',
-                                seconds=round(time.monotonic() - began, 3))
+                                seconds=round(time.monotonic() - began, 6))
                     admitted, reason = decide()
                 elif reason == 'rebind-required' and gate.rebind is not None and gate.hold > 0:
                     digest = gate.lease.digest(bearer)
@@ -435,7 +465,7 @@ class Gate:
                                                              and lease.observation is not None):
                                 break
                     gate.record('rebind_hold_ended', credential=info['credential'],
-                                seconds=round(time.monotonic() - began, 3))
+                                seconds=round(time.monotonic() - began, 6))
                     admitted, reason = decide()
                 if not admitted:
                     gate.record('admission', **info, model=model, marker=marker, admitted=False, reason=reason,
@@ -553,6 +583,8 @@ def main(config_path):
             launcher.send({'reply': 'continue', 'id': message.get('id'), 'accepted': gate.request_continuation()})
         elif command == 'status':
             launcher.send({'reply': 'status', 'id': message.get('id'), **gate.status()})
+        elif command == 'disarm':
+            launcher.send({'reply': 'disarm', 'id': message.get('id'), 'armed': gate.cancel_continuation()})
         elif command == 'shutdown':
             gate.record('shutdown_requested')
             threading.Thread(target=gate.shutdown, daemon=True).start()
