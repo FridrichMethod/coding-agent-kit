@@ -1,0 +1,5236 @@
+{
+  "events": [
+    {
+      "at": 0.1589,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L1:root:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.1594,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L1:root:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 0.1598,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L1:root:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.1604,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L1:root:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.1606,
+      "event": "alt_udp",
+      "marker": "L1:root:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.1608,
+      "event": "alt_udp",
+      "marker": "L1:root:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 0.1609,
+      "event": "alt_udp",
+      "marker": "L1:root:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.161,
+      "event": "daemon_request",
+      "marker": "L1:root:unix_daemon_relay"
+    },
+    {
+      "at": 0.1692,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L1:root:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.1696,
+      "event": "unix_dgram",
+      "marker": "L1:root:unix_dgram_socket"
+    },
+    {
+      "at": 0.1697,
+      "event": "unix_dgram",
+      "marker": "L1:root:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 0.1697,
+      "event": "unix_dgram",
+      "marker": "L1:root:unix_dgram_pair_connect"
+    },
+    {
+      "at": 0.2704,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L1:shell:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.2709,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L1:shell:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 0.2713,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L1:shell:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.2718,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L1:shell:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.272,
+      "event": "alt_udp",
+      "marker": "L1:shell:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.2722,
+      "event": "alt_udp",
+      "marker": "L1:shell:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 0.2723,
+      "event": "alt_udp",
+      "marker": "L1:shell:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.2725,
+      "event": "daemon_request",
+      "marker": "L1:shell:unix_daemon_relay"
+    },
+    {
+      "at": 0.2727,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L1:shell:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.2733,
+      "event": "unix_dgram",
+      "marker": "L1:shell:unix_dgram_socket"
+    },
+    {
+      "at": 0.2733,
+      "event": "unix_dgram",
+      "marker": "L1:shell:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 0.2733,
+      "event": "unix_dgram",
+      "marker": "L1:shell:unix_dgram_pair_connect"
+    },
+    {
+      "at": 0.3746,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L1:envi:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.3752,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L1:envi:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 0.3757,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L1:envi:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.3762,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L1:envi:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.3766,
+      "event": "alt_udp",
+      "marker": "L1:envi:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.3767,
+      "event": "alt_udp",
+      "marker": "L1:envi:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 0.3768,
+      "event": "alt_udp",
+      "marker": "L1:envi:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.377,
+      "event": "daemon_request",
+      "marker": "L1:envi:unix_daemon_relay"
+    },
+    {
+      "at": 0.3773,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L1:envi:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.3777,
+      "event": "unix_dgram",
+      "marker": "L1:envi:unix_dgram_socket"
+    },
+    {
+      "at": 0.3777,
+      "event": "unix_dgram",
+      "marker": "L1:envi:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 0.3777,
+      "event": "unix_dgram",
+      "marker": "L1:envi:unix_dgram_pair_connect"
+    },
+    {
+      "at": 0.4034,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L1:node:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.4049,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L1:node:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 0.4063,
+      "event": "alt_udp",
+      "marker": "L1:node:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 0.4067,
+      "event": "alt_udp",
+      "marker": "L1:node:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 1.9208,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L1:root:curl_tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.0457,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L1:escaped:tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.199,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L1:detached:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.1995,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L1:detached:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.1999,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L1:detached:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.2004,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L1:detached:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.2007,
+      "event": "alt_udp",
+      "marker": "L1:detached:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.2009,
+      "event": "alt_udp",
+      "marker": "L1:detached:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.201,
+      "event": "alt_udp",
+      "marker": "L1:detached:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.2011,
+      "event": "daemon_request",
+      "marker": "L1:detached:unix_daemon_relay"
+    },
+    {
+      "at": 2.2014,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L1:detached:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.2018,
+      "event": "unix_dgram",
+      "marker": "L1:detached:unix_dgram_socket"
+    },
+    {
+      "at": 2.2018,
+      "event": "unix_dgram",
+      "marker": "L1:detached:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 2.2018,
+      "event": "unix_dgram",
+      "marker": "L1:detached:unix_dgram_pair_connect"
+    },
+    {
+      "at": 2.3668,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:root:tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.3674,
+      "event": "alt_tcp",
+      "local": [
+        "::1",
+        34465
+      ],
+      "marker": "L0:root:tcp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.3678,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:root:mapped_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.3683,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L0:root:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.3687,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L0:root:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.3691,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L0:root:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.3695,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:root:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.37,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:root:tfo_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.3703,
+      "event": "alt_udp",
+      "marker": "L0:root:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.3704,
+      "event": "alt_udp",
+      "marker": "L0:root:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.3704,
+      "event": "alt_udp",
+      "marker": "L0:root:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.3705,
+      "event": "daemon_request",
+      "marker": "L0:root:unix_daemon_relay"
+    },
+    {
+      "at": 2.3708,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L0:root:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.371,
+      "event": "abstract_request",
+      "marker": "L0:root:unix_abstract"
+    },
+    {
+      "at": 2.3715,
+      "event": "unix_dgram",
+      "marker": "L0:root:unix_dgram_socket"
+    },
+    {
+      "at": 2.3715,
+      "event": "unix_dgram",
+      "marker": "L0:root:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 2.3715,
+      "event": "abstract_dgram",
+      "marker": "L0:root:unix_abstract_dgram_pair"
+    },
+    {
+      "at": 2.3715,
+      "event": "unix_dgram",
+      "marker": "L0:root:unix_dgram_pair_connect"
+    },
+    {
+      "at": 2.3716,
+      "event": "victim_signal",
+      "sender_pid": 1336637
+    },
+    {
+      "at": 2.4252,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2a:root:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4257,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2a:root:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.4263,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2a:root:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4761,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:shell:tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4766,
+      "event": "alt_tcp",
+      "local": [
+        "::1",
+        34465
+      ],
+      "marker": "L0:shell:tcp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.4771,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:shell:mapped_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4776,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L0:shell:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.478,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L0:shell:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.4785,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L0:shell:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4789,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:shell:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4794,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:shell:tfo_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4796,
+      "event": "alt_udp",
+      "marker": "L0:shell:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4797,
+      "event": "alt_udp",
+      "marker": "L0:shell:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.4798,
+      "event": "alt_udp",
+      "marker": "L0:shell:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4798,
+      "event": "daemon_request",
+      "marker": "L0:shell:unix_daemon_relay"
+    },
+    {
+      "at": 2.4801,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L0:shell:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.4804,
+      "event": "abstract_request",
+      "marker": "L0:shell:unix_abstract"
+    },
+    {
+      "at": 2.4806,
+      "event": "unix_dgram",
+      "marker": "L0:shell:unix_dgram_socket"
+    },
+    {
+      "at": 2.4806,
+      "event": "unix_dgram",
+      "marker": "L0:shell:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 2.4806,
+      "event": "unix_dgram",
+      "marker": "L0:shell:unix_dgram_pair_connect"
+    },
+    {
+      "at": 2.4807,
+      "event": "abstract_dgram",
+      "marker": "L0:shell:unix_abstract_dgram_pair"
+    },
+    {
+      "at": 2.4808,
+      "event": "victim_signal",
+      "sender_pid": 1336653
+    },
+    {
+      "at": 2.5252,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2a:shell:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5256,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2a:shell:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.5261,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2a:shell:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5851,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:envi:tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5856,
+      "event": "alt_tcp",
+      "local": [
+        "::1",
+        34465
+      ],
+      "marker": "L0:envi:tcp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.5861,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:envi:mapped_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5865,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L0:envi:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5869,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L0:envi:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.5873,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L0:envi:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5877,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:envi:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5879,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:envi:tfo_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5881,
+      "event": "alt_udp",
+      "marker": "L0:envi:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5883,
+      "event": "alt_udp",
+      "marker": "L0:envi:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.5885,
+      "event": "alt_udp",
+      "marker": "L0:envi:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.5886,
+      "event": "daemon_request",
+      "marker": "L0:envi:unix_daemon_relay"
+    },
+    {
+      "at": 2.5887,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L0:envi:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.589,
+      "event": "abstract_request",
+      "marker": "L0:envi:unix_abstract"
+    },
+    {
+      "at": 2.5893,
+      "event": "unix_dgram",
+      "marker": "L0:envi:unix_dgram_socket"
+    },
+    {
+      "at": 2.5894,
+      "event": "unix_dgram",
+      "marker": "L0:envi:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 2.5894,
+      "event": "unix_dgram",
+      "marker": "L0:envi:unix_dgram_pair_connect"
+    },
+    {
+      "at": 2.5894,
+      "event": "abstract_dgram",
+      "marker": "L0:envi:unix_abstract_dgram_pair"
+    },
+    {
+      "at": 2.5895,
+      "event": "victim_signal",
+      "sender_pid": 1336671
+    },
+    {
+      "at": 2.6065,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:node:tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.6091,
+      "event": "alt_tcp",
+      "local": [
+        "::1",
+        34465
+      ],
+      "marker": "L0:node:tcp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.6097,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L0:node:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.6108,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L0:node:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.6125,
+      "event": "alt_udp",
+      "marker": "L0:node:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.6129,
+      "event": "alt_udp",
+      "marker": "L0:node:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.6433,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2a:envi:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.6436,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2a:envi:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 2.6439,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2a:envi:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.6637,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2a:node:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 2.6646,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2a:node:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.1203,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:root:curl_tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.1256,
+      "event": "alt_tcp",
+      "local": [
+        "::1",
+        34465
+      ],
+      "marker": "L0:root:curl_tcp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.1302,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L0:root:curl_tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.1805,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2a:root:curl_tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2815,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:detached:tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2819,
+      "event": "alt_tcp",
+      "local": [
+        "::1",
+        34465
+      ],
+      "marker": "L0:detached:tcp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.2822,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:detached:mapped_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2826,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L0:detached:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2828,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L0:detached:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.2832,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L0:detached:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2836,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:detached:mptcp_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2841,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L0:detached:tfo_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2843,
+      "event": "alt_udp",
+      "marker": "L0:detached:udp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2845,
+      "event": "alt_udp",
+      "marker": "L0:detached:udp6_alt",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.2847,
+      "event": "alt_udp",
+      "marker": "L0:detached:udp4_connected_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2848,
+      "event": "daemon_request",
+      "marker": "L0:detached:unix_daemon_relay"
+    },
+    {
+      "at": 4.2851,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L0:detached:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.2854,
+      "event": "abstract_request",
+      "marker": "L0:detached:unix_abstract"
+    },
+    {
+      "at": 4.2856,
+      "event": "unix_dgram",
+      "marker": "L0:detached:unix_dgram_socket"
+    },
+    {
+      "at": 4.2856,
+      "event": "unix_dgram",
+      "marker": "L0:detached:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 4.2857,
+      "event": "unix_dgram",
+      "marker": "L0:detached:unix_dgram_pair_connect"
+    },
+    {
+      "at": 4.2857,
+      "event": "abstract_dgram",
+      "marker": "L0:detached:unix_abstract_dgram_pair"
+    },
+    {
+      "at": 4.2858,
+      "event": "victim_signal",
+      "sender_pid": 1337100
+    },
+    {
+      "at": 4.3312,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2a:detached:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.3316,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2a:detached:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.332,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2a:detached:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.5685,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2b:root:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.5689,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2b:root:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.5694,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2b:root:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.5698,
+      "event": "daemon_request",
+      "marker": "L2b:root:unix_daemon_relay"
+    },
+    {
+      "at": 4.5701,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L2b:root:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.5706,
+      "event": "unix_dgram",
+      "marker": "L2b:root:unix_dgram_socket"
+    },
+    {
+      "at": 4.5706,
+      "event": "unix_dgram",
+      "marker": "L2b:root:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 4.5706,
+      "event": "unix_dgram",
+      "marker": "L2b:root:unix_dgram_pair_connect"
+    },
+    {
+      "at": 4.6666,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2b:shell:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.6671,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2b:shell:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.6675,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2b:shell:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.6678,
+      "event": "daemon_request",
+      "marker": "L2b:shell:unix_daemon_relay"
+    },
+    {
+      "at": 4.6681,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L2b:shell:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.6686,
+      "event": "unix_dgram",
+      "marker": "L2b:shell:unix_dgram_socket"
+    },
+    {
+      "at": 4.6686,
+      "event": "unix_dgram",
+      "marker": "L2b:shell:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 4.6686,
+      "event": "unix_dgram",
+      "marker": "L2b:shell:unix_dgram_pair_connect"
+    },
+    {
+      "at": 4.7777,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2b:envi:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.778,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2b:envi:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 4.7785,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2b:envi:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.7788,
+      "event": "daemon_request",
+      "marker": "L2b:envi:unix_daemon_relay"
+    },
+    {
+      "at": 4.779,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L2b:envi:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.7795,
+      "event": "unix_dgram",
+      "marker": "L2b:envi:unix_dgram_socket"
+    },
+    {
+      "at": 4.7795,
+      "event": "unix_dgram",
+      "marker": "L2b:envi:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 4.7795,
+      "event": "unix_dgram",
+      "marker": "L2b:envi:unix_dgram_pair_connect"
+    },
+    {
+      "at": 4.8023,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2b:node:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 4.8039,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2b:node:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 6.3201,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2b:root:curl_tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 6.4456,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "L2b:escaped:tcp4_alt",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 6.6028,
+      "event": "gate_tcp",
+      "local": [
+        "127.0.0.1",
+        58129
+      ],
+      "marker": "L2b:detached:tcp4_gate",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 6.6032,
+      "event": "gate_tcp",
+      "local": [
+        "::1",
+        58129
+      ],
+      "marker": "L2b:detached:tcp6_gate",
+      "peer_host": "::1"
+    },
+    {
+      "at": 6.6036,
+      "event": "other_host_tcp",
+      "local": [
+        "127.0.0.2",
+        58129
+      ],
+      "marker": "L2b:detached:gate_port_other_host",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 6.6039,
+      "event": "daemon_request",
+      "marker": "L2b:detached:unix_daemon_relay"
+    },
+    {
+      "at": 6.6042,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "relay:L2b:detached:unix_daemon_relay",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 6.6047,
+      "event": "unix_dgram",
+      "marker": "L2b:detached:unix_dgram_socket"
+    },
+    {
+      "at": 6.6047,
+      "event": "unix_dgram",
+      "marker": "L2b:detached:unix_dgram_pair_sendto"
+    },
+    {
+      "at": 6.6048,
+      "event": "unix_dgram",
+      "marker": "L2b:detached:unix_dgram_pair_connect"
+    },
+    {
+      "at": 7.2664,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "INH-leak:inh:inherited_tcp",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 7.2666,
+      "event": "alt_udp",
+      "marker": "INH-leak:inh:inherited_udp",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 7.3345,
+      "event": "alt_tcp",
+      "local": [
+        "127.0.0.1",
+        34465
+      ],
+      "marker": "",
+      "peer_host": "127.0.0.1"
+    },
+    {
+      "at": 10.3909,
+      "event": "impostor_tcp",
+      "local": [
+        "127.0.0.1",
+        43339
+      ],
+      "marker": "REUSE-free:reuse:gate_port_reuse",
+      "peer_host": "127.0.0.1"
+    }
+  ],
+  "fixture": {
+    "curl": true,
+    "dbus_present": true,
+    "node": true
+  },
+  "nonce_units": [
+    "quota-nl-1336156-864565-l1",
+    "quota-nl-1336156-864565-l2a",
+    "quota-nl-1336156-864565-l2b"
+  ],
+  "ports": {
+    "alt": "ALT_PORT",
+    "gate": "GATE_PORT"
+  },
+  "runs": {
+    "L0": {
+      "boundary": [],
+      "detached_rows": [
+        {
+          "actor": "detached",
+          "at": 1794503851.0758061,
+          "attempt": "detached_identity",
+          "first_ppid": 1,
+          "pid": 1337100,
+          "ppid": 1,
+          "result": "ok",
+          "root_done_seen": true,
+          "run": "L0",
+          "sid": 1337099
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0764906,
+          "attempt": "tcp4_alt",
+          "pid": 1337100,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.076863,
+          "attempt": "tcp6_alt",
+          "pid": 1337100,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0772045,
+          "attempt": "mapped_alt",
+          "pid": 1337100,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0774918,
+          "attempt": "tcp4_gate",
+          "pid": 1337100,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0777452,
+          "attempt": "tcp6_gate",
+          "pid": 1337100,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.078057,
+          "attempt": "gate_port_other_host",
+          "pid": 1337100,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0785887,
+          "attempt": "mptcp_alt",
+          "pid": 1337100,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0790315,
+          "attempt": "tfo_alt",
+          "pid": 1337100,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.07923,
+          "attempt": "udp4_alt",
+          "pid": 1337100,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0794048,
+          "attempt": "udp6_alt",
+          "pid": 1337100,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.079538,
+          "attempt": "udp4_connected_alt",
+          "pid": 1337100,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0802271,
+          "attempt": "unix_daemon_relay",
+          "pid": 1337100,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0803018,
+          "attempt": "unix_abstract",
+          "pid": 1337100,
+          "reply": "ABSTRACT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0804157,
+          "attempt": "dbus_session_auth",
+          "pid": 1337100,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0804455,
+          "attempt": "unix_dgram_socket",
+          "pid": 1337100,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0804791,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1337100,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0805123,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1337100,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0805416,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1337100,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0805855,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1337100,
+          "result": "EISCONN",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0806131,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1337100,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0806344,
+          "attempt": "signal_outside",
+          "pid": 1337100,
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.0806458,
+          "attempt": "detached_done",
+          "pid": 1337100,
+          "result": "ok",
+          "run": "L0"
+        }
+      ],
+      "ended": 1794503851.033798,
+      "exit": 0,
+      "root_ended_before_detached": true,
+      "rows": [
+        {
+          "actor": "root",
+          "at": 1794503849.16181,
+          "attempt": "tcp4_alt",
+          "pid": 1336637,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1623435,
+          "attempt": "tcp6_alt",
+          "pid": 1336637,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1627688,
+          "attempt": "mapped_alt",
+          "pid": 1336637,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1632493,
+          "attempt": "tcp4_gate",
+          "pid": 1336637,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1636546,
+          "attempt": "tcp6_gate",
+          "pid": 1336637,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1641257,
+          "attempt": "gate_port_other_host",
+          "pid": 1336637,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1645014,
+          "attempt": "mptcp_alt",
+          "pid": 1336637,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.165072,
+          "attempt": "tfo_alt",
+          "pid": 1336637,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1652136,
+          "attempt": "udp4_alt",
+          "pid": 1336637,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1652749,
+          "attempt": "udp6_alt",
+          "pid": 1336637,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1653035,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336637,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1658008,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336637,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1659951,
+          "attempt": "unix_abstract",
+          "pid": 1336637,
+          "reply": "ABSTRACT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.166244,
+          "attempt": "dbus_session_auth",
+          "pid": 1336637,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1662798,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336637,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1663125,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336637,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1663442,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336637,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.166372,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336637,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1664057,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336637,
+          "result": "EISCONN",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.166431,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336637,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.1664526,
+          "attempt": "signal_outside",
+          "pid": 1336637,
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2711089,
+          "attempt": "tcp4_alt",
+          "pid": 1336653,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2716303,
+          "attempt": "tcp6_alt",
+          "pid": 1336653,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2721398,
+          "attempt": "mapped_alt",
+          "pid": 1336653,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2725692,
+          "attempt": "tcp4_gate",
+          "pid": 1336653,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2730424,
+          "attempt": "tcp6_gate",
+          "pid": 1336653,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2734694,
+          "attempt": "gate_port_other_host",
+          "pid": 1336653,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.273922,
+          "attempt": "mptcp_alt",
+          "pid": 1336653,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2743642,
+          "attempt": "tfo_alt",
+          "pid": 1336653,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.274501,
+          "attempt": "udp4_alt",
+          "pid": 1336653,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2745814,
+          "attempt": "udp6_alt",
+          "pid": 1336653,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2746353,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336653,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2751448,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336653,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2752857,
+          "attempt": "unix_abstract",
+          "pid": 1336653,
+          "reply": "ABSTRACT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2754068,
+          "attempt": "dbus_session_auth",
+          "pid": 1336653,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2754357,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336653,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2754686,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336653,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2754993,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336653,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2755263,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336653,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2755573,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336653,
+          "result": "EISCONN",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2755828,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336653,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.2756042,
+          "attempt": "signal_outside",
+          "pid": 1336653,
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2812965,
+          "attempt": "shell_spawn",
+          "code": 0,
+          "pid": 1336637,
+          "result": "exit",
+          "run": "L0",
+          "stderr": ""
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3801024,
+          "attempt": "tcp4_alt",
+          "pid": 1336671,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3805997,
+          "attempt": "tcp6_alt",
+          "pid": 1336671,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3810532,
+          "attempt": "mapped_alt",
+          "pid": 1336671,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3814445,
+          "attempt": "tcp4_gate",
+          "pid": 1336671,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3818874,
+          "attempt": "tcp6_gate",
+          "pid": 1336671,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3823447,
+          "attempt": "gate_port_other_host",
+          "pid": 1336671,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.382581,
+          "attempt": "mptcp_alt",
+          "pid": 1336671,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3828704,
+          "attempt": "tfo_alt",
+          "pid": 1336671,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3830414,
+          "attempt": "udp4_alt",
+          "pid": 1336671,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3832138,
+          "attempt": "udp6_alt",
+          "pid": 1336671,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3833404,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336671,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3837602,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336671,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3838336,
+          "attempt": "unix_abstract",
+          "pid": 1336671,
+          "reply": "ABSTRACT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3841689,
+          "attempt": "dbus_session_auth",
+          "pid": 1336671,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3841996,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336671,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3842192,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336671,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3842332,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336671,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3842444,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336671,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3842607,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336671,
+          "result": "EISCONN",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3842704,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336671,
+          "result": "sent",
+          "run": "L0"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.3842812,
+          "attempt": "signal_outside",
+          "pid": 1336671,
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.3884404,
+          "attempt": "envi_spawn",
+          "code": 0,
+          "pid": 1336637,
+          "result": "exit",
+          "run": "L0",
+          "stderr": ""
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_alt",
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_alt",
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp4_alt",
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp6_alt",
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L0"
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9109244,
+          "attempt": "node_spawn",
+          "code": 0,
+          "pid": 1336637,
+          "result": "exit",
+          "run": "L0",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9158788,
+          "attempt": "curl_tcp4_alt",
+          "pid": 1336637,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9209583,
+          "attempt": "curl_tcp6_alt",
+          "pid": 1336637,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L0",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9255393,
+          "attempt": "curl_tcp4_gate",
+          "pid": 1336637,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L0",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.0296426,
+          "attempt": "root_exit",
+          "pid": 1336637,
+          "result": "exit",
+          "run": "L0"
+        }
+      ],
+      "started": 1794503849.0554786,
+      "stderr_tail": ""
+    },
+    "L1": {
+      "boundary": [
+        {
+          "abi": 8,
+          "errata": 15,
+          "handled_access_net": 2,
+          "kept_fds": [],
+          "restrict_flags": 8,
+          "rules": [
+            {
+              "allowed_access": 2,
+              "port": 58129
+            }
+          ],
+          "scoped": 3,
+          "seccomp": "none"
+        }
+      ],
+      "detached_rows": [
+        {
+          "actor": "detached",
+          "at": 1794503848.993098,
+          "attempt": "detached_identity",
+          "first_ppid": 1,
+          "pid": 1336626,
+          "ppid": 1,
+          "result": "ok",
+          "root_done_seen": true,
+          "run": "L1",
+          "sid": 1336625
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9933124,
+          "attempt": "tcp4_alt",
+          "pid": 1336626,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9933615,
+          "attempt": "tcp6_alt",
+          "pid": 1336626,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.99339,
+          "attempt": "mapped_alt",
+          "pid": 1336626,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.993994,
+          "attempt": "tcp4_gate",
+          "pid": 1336626,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.994481,
+          "attempt": "tcp6_gate",
+          "pid": 1336626,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.994928,
+          "attempt": "gate_port_other_host",
+          "pid": 1336626,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9953492,
+          "attempt": "mptcp_alt",
+          "pid": 1336626,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.995414,
+          "attempt": "tfo_alt",
+          "pid": 1336626,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9956605,
+          "attempt": "udp4_alt",
+          "pid": 1336626,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9957955,
+          "attempt": "udp6_alt",
+          "pid": 1336626,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9958334,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336626,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.996395,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336626,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.996448,
+          "attempt": "unix_abstract",
+          "pid": 1336626,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9966114,
+          "attempt": "dbus_session_auth",
+          "pid": 1336626,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9966404,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336626,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9966729,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336626,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9967043,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336626,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.996738,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336626,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9967687,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336626,
+          "result": "EISCONN",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.996795,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336626,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.9968176,
+          "attempt": "signal_outside",
+          "pid": 1336626,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503848.996829,
+          "attempt": "detached_done",
+          "pid": 1336626,
+          "result": "ok",
+          "run": "L1"
+        }
+      ],
+      "ended": 1794503848.9512825,
+      "escape_unit_after": [
+        "LoadState=not-found",
+        "ActiveState=inactive"
+      ],
+      "exit": 0,
+      "root_ended_before_detached": true,
+      "rows": [
+        {
+          "actor": "root",
+          "at": 1794503846.9532356,
+          "attempt": "tcp4_alt",
+          "pid": 1336177,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9532678,
+          "attempt": "tcp6_alt",
+          "pid": 1336177,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.953281,
+          "attempt": "mapped_alt",
+          "pid": 1336177,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9538589,
+          "attempt": "tcp4_gate",
+          "pid": 1336177,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9543884,
+          "attempt": "tcp6_gate",
+          "pid": 1336177,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9548106,
+          "attempt": "gate_port_other_host",
+          "pid": 1336177,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9553332,
+          "attempt": "mptcp_alt",
+          "pid": 1336177,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.955385,
+          "attempt": "tfo_alt",
+          "pid": 1336177,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9555173,
+          "attempt": "udp4_alt",
+          "pid": 1336177,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9556458,
+          "attempt": "udp6_alt",
+          "pid": 1336177,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9557595,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336177,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9642105,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336177,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.964267,
+          "attempt": "unix_abstract",
+          "pid": 1336177,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9644234,
+          "attempt": "dbus_session_auth",
+          "pid": 1336177,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9644625,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336177,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9644973,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336177,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9645283,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336177,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9645598,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336177,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9645896,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336177,
+          "result": "EISCONN",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.9646132,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336177,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503846.964635,
+          "attempt": "signal_outside",
+          "pid": 1336177,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0650373,
+          "attempt": "tcp4_alt",
+          "pid": 1336188,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0650713,
+          "attempt": "tcp6_alt",
+          "pid": 1336188,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0650856,
+          "attempt": "mapped_alt",
+          "pid": 1336188,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.065404,
+          "attempt": "tcp4_gate",
+          "pid": 1336188,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0658631,
+          "attempt": "tcp6_gate",
+          "pid": 1336188,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0663092,
+          "attempt": "gate_port_other_host",
+          "pid": 1336188,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0667355,
+          "attempt": "mptcp_alt",
+          "pid": 1336188,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0667892,
+          "attempt": "tfo_alt",
+          "pid": 1336188,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0669901,
+          "attempt": "udp4_alt",
+          "pid": 1336188,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0671473,
+          "attempt": "udp6_alt",
+          "pid": 1336188,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0672722,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336188,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0677533,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336188,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0678008,
+          "attempt": "unix_abstract",
+          "pid": 1336188,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0680447,
+          "attempt": "dbus_session_auth",
+          "pid": 1336188,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.068079,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336188,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0681121,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336188,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.068146,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336188,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.068178,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336188,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0682063,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336188,
+          "result": "EISCONN",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0682306,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336188,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503847.0682516,
+          "attempt": "signal_outside",
+          "pid": 1336188,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503847.0737524,
+          "attempt": "shell_spawn",
+          "code": 0,
+          "pid": 1336177,
+          "result": "exit",
+          "run": "L1",
+          "stderr": ""
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1690378,
+          "attempt": "tcp4_alt",
+          "pid": 1336199,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1690712,
+          "attempt": "tcp6_alt",
+          "pid": 1336199,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1690865,
+          "attempt": "mapped_alt",
+          "pid": 1336199,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1696036,
+          "attempt": "tcp4_gate",
+          "pid": 1336199,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1702387,
+          "attempt": "tcp6_gate",
+          "pid": 1336199,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1706548,
+          "attempt": "gate_port_other_host",
+          "pid": 1336199,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1712723,
+          "attempt": "mptcp_alt",
+          "pid": 1336199,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.171329,
+          "attempt": "tfo_alt",
+          "pid": 1336199,
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1714923,
+          "attempt": "udp4_alt",
+          "pid": 1336199,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.171617,
+          "attempt": "udp6_alt",
+          "pid": 1336199,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1717257,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336199,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1723068,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336199,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.172359,
+          "attempt": "unix_abstract",
+          "pid": 1336199,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.172475,
+          "attempt": "dbus_session_auth",
+          "pid": 1336199,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1725018,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336199,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1725302,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336199,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1725588,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336199,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1725886,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336199,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1726167,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336199,
+          "result": "EISCONN",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1726408,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336199,
+          "result": "sent",
+          "run": "L1"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503847.1726627,
+          "attempt": "signal_outside",
+          "pid": 1336199,
+          "result": "EPERM",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503847.1781735,
+          "attempt": "envi_spawn",
+          "code": 0,
+          "pid": 1336177,
+          "result": "exit",
+          "run": "L1",
+          "stderr": ""
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_alt",
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_alt",
+          "result": "EACCES",
+          "run": "L1"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp4_alt",
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp6_alt",
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "L1"
+        },
+        {
+          "actor": "root",
+          "at": 1794503848.7040527,
+          "attempt": "node_spawn",
+          "code": 0,
+          "pid": 1336177,
+          "result": "exit",
+          "run": "L1",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503848.707475,
+          "attempt": "curl_tcp4_alt",
+          "pid": 1336177,
+          "reply": "",
+          "result": "curl_exit_7",
+          "run": "L1",
+          "stderr": "curl: (7) Failed to connect to 127.0.0.1:34465 after 0 ms: Could not connect to server"
+        },
+        {
+          "actor": "root",
+          "at": 1794503848.711668,
+          "attempt": "curl_tcp6_alt",
+          "pid": 1336177,
+          "reply": "",
+          "result": "curl_exit_7",
+          "run": "L1",
+          "stderr": "curl: (7) Failed to connect to ::1:34465 after 0 ms: Could not connect to server"
+        },
+        {
+          "actor": "root",
+          "at": 1794503848.716255,
+          "attempt": "curl_tcp4_gate",
+          "pid": 1336177,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L1",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503848.8466148,
+          "attempt": "systemd_run_spawn",
+          "code": 0,
+          "pid": 1336177,
+          "result": "exit",
+          "run": "L1",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503848.9467943,
+          "attempt": "root_exit",
+          "pid": 1336177,
+          "result": "exit",
+          "run": "L1"
+        }
+      ],
+      "started": 1794503846.79687,
+      "stderr_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 58129}], \"scoped\": 3, \"seccomp\": \"none\"}\n"
+    },
+    "L2a": {
+      "boundary": [
+        {
+          "abi": 8,
+          "errata": 15,
+          "handled_access_net": 2,
+          "kept_fds": [],
+          "restrict_flags": 8,
+          "rules": [
+            {
+              "allowed_access": 2,
+              "port": 58129
+            }
+          ],
+          "scoped": 3,
+          "seccomp": "inet",
+          "seccomp_instructions": 42
+        }
+      ],
+      "detached_rows": [
+        {
+          "actor": "detached",
+          "at": 1794503851.1254876,
+          "attempt": "detached_identity",
+          "first_ppid": 1,
+          "pid": 1337104,
+          "ppid": 1,
+          "result": "ok",
+          "root_done_seen": true,
+          "run": "L2a",
+          "sid": 1337103
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1256866,
+          "attempt": "tcp4_alt",
+          "pid": 1337104,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1257336,
+          "attempt": "tcp6_alt",
+          "pid": 1337104,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1257617,
+          "attempt": "mapped_alt",
+          "pid": 1337104,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1262012,
+          "attempt": "tcp4_gate",
+          "pid": 1337104,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1265485,
+          "attempt": "tcp6_gate",
+          "pid": 1337104,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1270046,
+          "attempt": "gate_port_other_host",
+          "pid": 1337104,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.127046,
+          "attempt": "mptcp_alt",
+          "pid": 1337104,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1270957,
+          "attempt": "tfo_alt",
+          "pid": 1337104,
+          "result": "ENOTSUP",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1271214,
+          "attempt": "udp4_alt",
+          "pid": 1337104,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.127137,
+          "attempt": "udp6_alt",
+          "pid": 1337104,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1271505,
+          "attempt": "udp4_connected_alt",
+          "pid": 1337104,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1271741,
+          "attempt": "unix_daemon_relay",
+          "pid": 1337104,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1271906,
+          "attempt": "unix_abstract",
+          "pid": 1337104,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1272097,
+          "attempt": "dbus_session_auth",
+          "pid": 1337104,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1272266,
+          "attempt": "unix_dgram_socket",
+          "pid": 1337104,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1272435,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1337104,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1272569,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1337104,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1272693,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1337104,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1272986,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1337104,
+          "result": "EISCONN",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1273313,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1337104,
+          "result": "sent",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1273556,
+          "attempt": "signal_outside",
+          "pid": 1337104,
+          "result": "EPERM",
+          "run": "L2a"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503851.1273673,
+          "attempt": "detached_done",
+          "pid": 1337104,
+          "result": "ok",
+          "run": "L2a"
+        }
+      ],
+      "ended": 1794503851.0849488,
+      "escape_unit_after": [
+        "LoadState=not-found",
+        "ActiveState=inactive"
+      ],
+      "exit": 0,
+      "root_ended_before_detached": true,
+      "rows": [
+        {
+          "actor": "root",
+          "at": 1794503849.2196748,
+          "attempt": "tcp4_alt",
+          "pid": 1336638,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2197075,
+          "attempt": "tcp6_alt",
+          "pid": 1336638,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2197206,
+          "attempt": "mapped_alt",
+          "pid": 1336638,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2202067,
+          "attempt": "tcp4_gate",
+          "pid": 1336638,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2207274,
+          "attempt": "tcp6_gate",
+          "pid": 1336638,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.221269,
+          "attempt": "gate_port_other_host",
+          "pid": 1336638,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.22131,
+          "attempt": "mptcp_alt",
+          "pid": 1336638,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2213502,
+          "attempt": "tfo_alt",
+          "pid": 1336638,
+          "result": "ENOTSUP",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2213686,
+          "attempt": "udp4_alt",
+          "pid": 1336638,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2213845,
+          "attempt": "udp6_alt",
+          "pid": 1336638,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2213972,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336638,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2214136,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336638,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.221428,
+          "attempt": "unix_abstract",
+          "pid": 1336638,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2214458,
+          "attempt": "dbus_session_auth",
+          "pid": 1336638,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2214599,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336638,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2214746,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336638,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2214875,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336638,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2214994,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336638,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2215264,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336638,
+          "result": "EISCONN",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.2215576,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336638,
+          "result": "sent",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.22158,
+          "attempt": "signal_outside",
+          "pid": 1336638,
+          "result": "EPERM",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3195155,
+          "attempt": "tcp4_alt",
+          "pid": 1336660,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3195512,
+          "attempt": "tcp6_alt",
+          "pid": 1336660,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3195648,
+          "attempt": "mapped_alt",
+          "pid": 1336660,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3201513,
+          "attempt": "tcp4_gate",
+          "pid": 1336660,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3206367,
+          "attempt": "tcp6_gate",
+          "pid": 1336660,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3210747,
+          "attempt": "gate_port_other_host",
+          "pid": 1336660,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3211129,
+          "attempt": "mptcp_alt",
+          "pid": 1336660,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3211532,
+          "attempt": "tfo_alt",
+          "pid": 1336660,
+          "result": "ENOTSUP",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3211715,
+          "attempt": "udp4_alt",
+          "pid": 1336660,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3211875,
+          "attempt": "udp6_alt",
+          "pid": 1336660,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3212008,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336660,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3212175,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336660,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.321232,
+          "attempt": "unix_abstract",
+          "pid": 1336660,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3212514,
+          "attempt": "dbus_session_auth",
+          "pid": 1336660,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3212657,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336660,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.32128,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336660,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3212924,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336660,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.321304,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336660,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.321331,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336660,
+          "result": "EISCONN",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.3213625,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336660,
+          "result": "sent",
+          "run": "L2a"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503849.321385,
+          "attempt": "signal_outside",
+          "pid": 1336660,
+          "result": "EPERM",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.3273504,
+          "attempt": "shell_spawn",
+          "code": 0,
+          "pid": 1336638,
+          "result": "exit",
+          "run": "L2a",
+          "stderr": ""
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.437827,
+          "attempt": "tcp4_alt",
+          "pid": 1336675,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4378643,
+          "attempt": "tcp6_alt",
+          "pid": 1336675,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4378774,
+          "attempt": "mapped_alt",
+          "pid": 1336675,
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4382415,
+          "attempt": "tcp4_gate",
+          "pid": 1336675,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.438574,
+          "attempt": "tcp6_gate",
+          "pid": 1336675,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4388635,
+          "attempt": "gate_port_other_host",
+          "pid": 1336675,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.438898,
+          "attempt": "mptcp_alt",
+          "pid": 1336675,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4389384,
+          "attempt": "tfo_alt",
+          "pid": 1336675,
+          "result": "ENOTSUP",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.438957,
+          "attempt": "udp4_alt",
+          "pid": 1336675,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4389725,
+          "attempt": "udp6_alt",
+          "pid": 1336675,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4389863,
+          "attempt": "udp4_connected_alt",
+          "pid": 1336675,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4390035,
+          "attempt": "unix_daemon_relay",
+          "pid": 1336675,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4390185,
+          "attempt": "unix_abstract",
+          "pid": 1336675,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4390352,
+          "attempt": "dbus_session_auth",
+          "pid": 1336675,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.439049,
+          "attempt": "unix_dgram_socket",
+          "pid": 1336675,
+          "result": "EAFNOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4390633,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1336675,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4390764,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1336675,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.439088,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1336675,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.439115,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1336675,
+          "result": "EISCONN",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4391468,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1336675,
+          "result": "sent",
+          "run": "L2a"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503849.4391704,
+          "attempt": "signal_outside",
+          "pid": 1336675,
+          "result": "EPERM",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503849.4440541,
+          "attempt": "envi_spawn",
+          "code": 0,
+          "pid": 1336638,
+          "result": "exit",
+          "run": "L2a",
+          "stderr": ""
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_alt",
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_alt",
+          "result": "EACCES",
+          "run": "L2a"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp4_alt",
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp6_alt",
+          "result": "EPROTONOSUPPORT",
+          "run": "L2a"
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9645622,
+          "attempt": "node_spawn",
+          "code": 0,
+          "pid": 1336638,
+          "result": "exit",
+          "run": "L2a",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9685755,
+          "attempt": "curl_tcp4_alt",
+          "pid": 1336638,
+          "reply": "",
+          "result": "curl_exit_7",
+          "run": "L2a",
+          "stderr": "curl: (7) Failed to connect to 127.0.0.1:34465 after 0 ms: Could not connect to server"
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9713018,
+          "attempt": "curl_tcp6_alt",
+          "pid": 1336638,
+          "reply": "",
+          "result": "curl_exit_7",
+          "run": "L2a",
+          "stderr": "curl: (7) Failed to connect to ::1:34465 after 0 ms: Could not connect to server"
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9759812,
+          "attempt": "curl_tcp4_gate",
+          "pid": 1336638,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2a",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503850.9784193,
+          "attempt": "systemd_run_spawn",
+          "code": 1,
+          "pid": 1336638,
+          "result": "exit",
+          "run": "L2a",
+          "stderr": "Failed to connect to bus: Address family not supported by protocol\n"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.0791512,
+          "attempt": "root_exit",
+          "pid": 1336638,
+          "result": "exit",
+          "run": "L2a"
+        }
+      ],
+      "started": 1794503849.0555189,
+      "stderr_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 58129}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42}\n"
+    },
+    "L2b": {
+      "boundary": [
+        {
+          "abi": 8,
+          "errata": 15,
+          "handled_access_net": 2,
+          "kept_fds": [],
+          "restrict_flags": 8,
+          "rules": [
+            {
+              "allowed_access": 2,
+              "port": 58129
+            }
+          ],
+          "scoped": 3,
+          "seccomp": "inet+unix",
+          "seccomp_instructions": 42
+        }
+      ],
+      "detached_rows": [
+        {
+          "actor": "detached",
+          "at": 1794503853.3969557,
+          "attempt": "detached_identity",
+          "first_ppid": 1,
+          "pid": 1337276,
+          "ppid": 1,
+          "result": "ok",
+          "root_done_seen": true,
+          "run": "L2b",
+          "sid": 1337275
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3971581,
+          "attempt": "tcp4_alt",
+          "pid": 1337276,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3972046,
+          "attempt": "tcp6_alt",
+          "pid": 1337276,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3972335,
+          "attempt": "mapped_alt",
+          "pid": 1337276,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3977838,
+          "attempt": "tcp4_gate",
+          "pid": 1337276,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.398188,
+          "attempt": "tcp6_gate",
+          "pid": 1337276,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3985398,
+          "attempt": "gate_port_other_host",
+          "pid": 1337276,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3985817,
+          "attempt": "mptcp_alt",
+          "pid": 1337276,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3986332,
+          "attempt": "tfo_alt",
+          "pid": 1337276,
+          "result": "ENOTSUP",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3986595,
+          "attempt": "udp4_alt",
+          "pid": 1337276,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3986757,
+          "attempt": "udp6_alt",
+          "pid": 1337276,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3986895,
+          "attempt": "udp4_connected_alt",
+          "pid": 1337276,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.399253,
+          "attempt": "unix_daemon_relay",
+          "pid": 1337276,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3993115,
+          "attempt": "unix_abstract",
+          "pid": 1337276,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3995116,
+          "attempt": "dbus_session_auth",
+          "pid": 1337276,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3995497,
+          "attempt": "unix_dgram_socket",
+          "pid": 1337276,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3995862,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1337276,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3996222,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1337276,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3996558,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1337276,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3996875,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1337276,
+          "result": "EISCONN",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.399714,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1337276,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.3997374,
+          "attempt": "signal_outside",
+          "pid": 1337276,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "detached",
+          "at": 1794503853.399749,
+          "attempt": "detached_done",
+          "pid": 1337276,
+          "result": "ok",
+          "run": "L2b"
+        }
+      ],
+      "ended": 1794503853.3552132,
+      "escape_unit_after": [
+        "LoadState=not-found",
+        "ActiveState=inactive"
+      ],
+      "exit": 0,
+      "root_ended_before_detached": true,
+      "rows": [
+        {
+          "actor": "root",
+          "at": 1794503851.3628755,
+          "attempt": "tcp4_alt",
+          "pid": 1337124,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.36292,
+          "attempt": "tcp6_alt",
+          "pid": 1337124,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3629334,
+          "attempt": "mapped_alt",
+          "pid": 1337124,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3634212,
+          "attempt": "tcp4_gate",
+          "pid": 1337124,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3638937,
+          "attempt": "tcp6_gate",
+          "pid": 1337124,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3643851,
+          "attempt": "gate_port_other_host",
+          "pid": 1337124,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3644226,
+          "attempt": "mptcp_alt",
+          "pid": 1337124,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3644626,
+          "attempt": "tfo_alt",
+          "pid": 1337124,
+          "result": "ENOTSUP",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3644803,
+          "attempt": "udp4_alt",
+          "pid": 1337124,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3644955,
+          "attempt": "udp6_alt",
+          "pid": 1337124,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.364509,
+          "attempt": "udp4_connected_alt",
+          "pid": 1337124,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.365183,
+          "attempt": "unix_daemon_relay",
+          "pid": 1337124,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3652365,
+          "attempt": "unix_abstract",
+          "pid": 1337124,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3653893,
+          "attempt": "dbus_session_auth",
+          "pid": 1337124,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3654232,
+          "attempt": "unix_dgram_socket",
+          "pid": 1337124,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3654559,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1337124,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3654876,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1337124,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3655188,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1337124,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3655477,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1337124,
+          "result": "EISCONN",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.3655727,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1337124,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.365594,
+          "attempt": "signal_outside",
+          "pid": 1337124,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4611497,
+          "attempt": "tcp4_alt",
+          "pid": 1337143,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4611824,
+          "attempt": "tcp6_alt",
+          "pid": 1337143,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4611955,
+          "attempt": "mapped_alt",
+          "pid": 1337143,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.461567,
+          "attempt": "tcp4_gate",
+          "pid": 1337143,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4621508,
+          "attempt": "tcp6_gate",
+          "pid": 1337143,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4624577,
+          "attempt": "gate_port_other_host",
+          "pid": 1337143,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4624898,
+          "attempt": "mptcp_alt",
+          "pid": 1337143,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4625278,
+          "attempt": "tfo_alt",
+          "pid": 1337143,
+          "result": "ENOTSUP",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4625463,
+          "attempt": "udp4_alt",
+          "pid": 1337143,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4625618,
+          "attempt": "udp6_alt",
+          "pid": 1337143,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.462575,
+          "attempt": "udp4_connected_alt",
+          "pid": 1337143,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.463153,
+          "attempt": "unix_daemon_relay",
+          "pid": 1337143,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4632006,
+          "attempt": "unix_abstract",
+          "pid": 1337143,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4633477,
+          "attempt": "dbus_session_auth",
+          "pid": 1337143,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4633832,
+          "attempt": "unix_dgram_socket",
+          "pid": 1337143,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4634156,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1337143,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4634454,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1337143,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.463477,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1337143,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.463507,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1337143,
+          "result": "EISCONN",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4635317,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1337143,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "shell",
+          "at": 1794503851.4635527,
+          "attempt": "signal_outside",
+          "pid": 1337143,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.468492,
+          "attempt": "shell_spawn",
+          "code": 0,
+          "pid": 1337124,
+          "result": "exit",
+          "run": "L2b",
+          "stderr": ""
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.572131,
+          "attempt": "tcp4_alt",
+          "pid": 1337153,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5721638,
+          "attempt": "tcp6_alt",
+          "pid": 1337153,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5721772,
+          "attempt": "mapped_alt",
+          "pid": 1337153,
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.572654,
+          "attempt": "tcp4_gate",
+          "pid": 1337153,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.573005,
+          "attempt": "tcp6_gate",
+          "pid": 1337153,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.573455,
+          "attempt": "gate_port_other_host",
+          "pid": 1337153,
+          "reply": "OTHER-HOST",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5734904,
+          "attempt": "mptcp_alt",
+          "pid": 1337153,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.573541,
+          "attempt": "tfo_alt",
+          "pid": 1337153,
+          "result": "ENOTSUP",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5735588,
+          "attempt": "udp4_alt",
+          "pid": 1337153,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5735743,
+          "attempt": "udp6_alt",
+          "pid": 1337153,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5735874,
+          "attempt": "udp4_connected_alt",
+          "pid": 1337153,
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.574094,
+          "attempt": "unix_daemon_relay",
+          "pid": 1337153,
+          "reply": "RELAYED",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5741434,
+          "attempt": "unix_abstract",
+          "pid": 1337153,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5743046,
+          "attempt": "dbus_session_auth",
+          "pid": 1337153,
+          "reply": "OK 5081490962b19",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.574339,
+          "attempt": "unix_dgram_socket",
+          "pid": 1337153,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5743723,
+          "attempt": "unix_dgram_pair_sendto",
+          "pid": 1337153,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.574403,
+          "attempt": "unix_dgram_pair_connect",
+          "pid": 1337153,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5744343,
+          "attempt": "unix_abstract_dgram_pair",
+          "pid": 1337153,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5744636,
+          "attempt": "unix_stream_pair_sendto",
+          "pid": 1337153,
+          "result": "EISCONN",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.5744889,
+          "attempt": "unix_seqpacket_pair_sendto",
+          "pid": 1337153,
+          "result": "sent",
+          "run": "L2b"
+        },
+        {
+          "actor": "envi",
+          "at": 1794503851.574511,
+          "attempt": "signal_outside",
+          "pid": 1337153,
+          "result": "EPERM",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503851.579948,
+          "attempt": "envi_spawn",
+          "code": 0,
+          "pid": 1337124,
+          "result": "exit",
+          "run": "L2b",
+          "stderr": ""
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_alt",
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_alt",
+          "result": "EACCES",
+          "run": "L2b"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp4_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "node",
+          "attempt": "tcp6_gate",
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp4_alt",
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "node",
+          "attempt": "udp6_alt",
+          "result": "EPROTONOSUPPORT",
+          "run": "L2b"
+        },
+        {
+          "actor": "root",
+          "at": 1794503853.1036496,
+          "attempt": "node_spawn",
+          "code": 0,
+          "pid": 1337124,
+          "result": "exit",
+          "run": "L2b",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503853.1082637,
+          "attempt": "curl_tcp4_alt",
+          "pid": 1337124,
+          "reply": "",
+          "result": "curl_exit_7",
+          "run": "L2b",
+          "stderr": "curl: (7) Failed to connect to 127.0.0.1:34465 after 0 ms: Could not connect to server"
+        },
+        {
+          "actor": "root",
+          "at": 1794503853.11187,
+          "attempt": "curl_tcp6_alt",
+          "pid": 1337124,
+          "reply": "",
+          "result": "curl_exit_7",
+          "run": "L2b",
+          "stderr": "curl: (7) Failed to connect to ::1:34465 after 0 ms: Could not connect to server"
+        },
+        {
+          "actor": "root",
+          "at": 1794503853.1155536,
+          "attempt": "curl_tcp4_gate",
+          "pid": 1337124,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "L2b",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503853.245601,
+          "attempt": "systemd_run_spawn",
+          "code": 0,
+          "pid": 1337124,
+          "result": "exit",
+          "run": "L2b",
+          "stderr": ""
+        },
+        {
+          "actor": "root",
+          "at": 1794503853.3505626,
+          "attempt": "root_exit",
+          "pid": 1337124,
+          "result": "exit",
+          "run": "L2b"
+        }
+      ],
+      "started": 1794503851.1894443,
+      "stderr_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 58129}], \"scoped\": 3, \"seccomp\": \"inet+unix\", \"seccomp_instructions\": 42}\n"
+    }
+  },
+  "stages": {
+    "INH-closed": {
+      "boundary": [
+        {
+          "abi": 8,
+          "errata": 15,
+          "handled_access_net": 2,
+          "kept_fds": [],
+          "restrict_flags": 8,
+          "rules": [
+            {
+              "allowed_access": 2,
+              "port": 58129
+            }
+          ],
+          "scoped": 3,
+          "seccomp": "inet",
+          "seccomp_instructions": 42
+        }
+      ],
+      "exit": 0,
+      "outside_peer_saw": "error ConnectionRefusedError",
+      "rows": [
+        {
+          "actor": "inh",
+          "at": 1794503854.2234972,
+          "attempt": "inherited_listener",
+          "pid": 1337325,
+          "result": "EBADF",
+          "run": "INH-closed"
+        },
+        {
+          "actor": "inh",
+          "at": 1794503854.2235208,
+          "attempt": "inherited_tcp",
+          "pid": 1337325,
+          "result": "EBADF",
+          "run": "INH-closed"
+        },
+        {
+          "actor": "inh",
+          "at": 1794503854.2235298,
+          "attempt": "inherited_udp",
+          "pid": 1337325,
+          "result": "EBADF",
+          "run": "INH-closed"
+        }
+      ]
+    },
+    "INH-leak": {
+      "boundary": [
+        {
+          "abi": 8,
+          "errata": 15,
+          "handled_access_net": 2,
+          "kept_fds": [
+            12,
+            18,
+            23
+          ],
+          "restrict_flags": 8,
+          "rules": [
+            {
+              "allowed_access": 2,
+              "port": 58129
+            }
+          ],
+          "scoped": 3,
+          "seccomp": "inet",
+          "seccomp_instructions": 42
+        }
+      ],
+      "exit": 0,
+      "outside_peer_saw": "INH-leak:inh:inherited_listener",
+      "rows": [
+        {
+          "actor": "inh",
+          "at": 1794503854.061163,
+          "attempt": "inherited_listener",
+          "pid": 1337292,
+          "reply": "OUTSIDE",
+          "result": "ok",
+          "run": "INH-leak"
+        },
+        {
+          "actor": "inh",
+          "at": 1794503854.0613863,
+          "attempt": "inherited_tcp",
+          "pid": 1337292,
+          "reply": "ALT",
+          "result": "ok",
+          "run": "INH-leak"
+        },
+        {
+          "actor": "inh",
+          "at": 1794503854.0614953,
+          "attempt": "inherited_udp",
+          "pid": 1337292,
+          "reply": "UDP-ALT",
+          "result": "ok",
+          "run": "INH-leak"
+        }
+      ]
+    },
+    "LATCH": {
+      "exit": 0,
+      "gate_received": [
+        {
+          "after_latch": false,
+          "data": "LATCH:latch:stream_before_latch"
+        }
+      ],
+      "rows": [
+        {
+          "actor": "latch",
+          "at": 1794503854.8346896,
+          "attempt": "stream_before_latch",
+          "pid": 1337356,
+          "reply": "GATE",
+          "result": "ok",
+          "run": "LATCH"
+        },
+        {
+          "actor": "latch",
+          "at": 1794503854.855041,
+          "attempt": "stream_after_latch",
+          "pid": 1337356,
+          "reply": "",
+          "result": "eof",
+          "run": "LATCH"
+        },
+        {
+          "actor": "latch",
+          "at": 1794503854.8551352,
+          "attempt": "gate_reconnect_after_latch",
+          "pid": 1337356,
+          "result": "ECONNREFUSED",
+          "run": "LATCH"
+        },
+        {
+          "actor": "latch",
+          "at": 1794503854.855172,
+          "attempt": "alt_after_latch",
+          "pid": 1337356,
+          "result": "EACCES",
+          "run": "LATCH"
+        },
+        {
+          "actor": "latch",
+          "at": 1794503854.855191,
+          "attempt": "udp_after_latch",
+          "pid": 1337356,
+          "result": "EPROTONOSUPPORT",
+          "run": "LATCH"
+        }
+      ]
+    },
+    "REUSE": {
+      "free": {
+        "boundary": [
+          {
+            "abi": 8,
+            "errata": 15,
+            "handled_access_net": 2,
+            "kept_fds": [],
+            "restrict_flags": 8,
+            "rules": [
+              {
+                "allowed_access": 2,
+                "port": 43339
+              }
+            ],
+            "scoped": 3,
+            "seccomp": "inet",
+            "seccomp_instructions": 42
+          }
+        ],
+        "ended": 1794503857.1902857,
+        "exit": 0,
+        "rows": [
+          {
+            "actor": "reuse",
+            "at": 1794503857.1858346,
+            "attempt": "gate_port_reuse",
+            "pid": 1337474,
+            "reply": "IMPOSTOR",
+            "result": "ok",
+            "run": "REUSE-free"
+          }
+        ],
+        "started": 1794503857.024355,
+        "stderr_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 43339}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42}\n"
+      },
+      "held": {
+        "boundary": [
+          {
+            "abi": 8,
+            "errata": 15,
+            "handled_access_net": 2,
+            "kept_fds": [],
+            "restrict_flags": 8,
+            "rules": [
+              {
+                "allowed_access": 2,
+                "port": 43339
+              }
+            ],
+            "scoped": 3,
+            "seccomp": "inet",
+            "seccomp_instructions": 42
+          }
+        ],
+        "ended": 1794503857.0239823,
+        "exit": 0,
+        "rows": [
+          {
+            "actor": "reuse",
+            "at": 1794503857.020025,
+            "attempt": "gate_port_reuse",
+            "pid": 1337367,
+            "result": "timeout",
+            "run": "REUSE-held"
+          }
+        ],
+        "started": 1794503854.860911,
+        "stderr_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 43339}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42}\n"
+      },
+      "impostor_bind_while_held": "EADDRINUSE"
+    }
+  }
+}

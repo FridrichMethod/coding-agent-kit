@@ -1,0 +1,164 @@
+{
+  "codex_sandbox": {
+    "default": {
+      "exit": 1,
+      "non_loopback_inet_attempts": [],
+      "observer": "strace",
+      "stderr": "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted",
+      "stdout": ""
+    },
+    "legacy_landlock": {
+      "exit": 101,
+      "non_loopback_inet_attempts": [],
+      "observer": "strace",
+      "stderr": "\nthread 'main' (1335838) panicked at linux-sandbox/src/linux_run_main.rs:385:9:\nfilesystem-restricted execution requires bubblewrap to isolate app-server sockets\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace",
+      "stdout": ""
+    },
+    "network_enabled": {
+      "exit": 1,
+      "non_loopback_inet_attempts": [],
+      "observer": "strace",
+      "stderr": "bwrap: setting up uid map: Permission denied",
+      "stdout": ""
+    },
+    "version": "codex-cli 0.167.2"
+  },
+  "host": {
+    "kernel_release": "7.0.0-42-generic",
+    "lsm": "lockdown,capability,landlock,yama,apparmor,bpf,ima,evm",
+    "machine": "x86_64",
+    "os": "Ubuntu 24.04.5 LTS",
+    "wsl": false
+  },
+  "landlock": {
+    "abi": 8,
+    "errata_bitmask": 15,
+    "fs_bits_accepted": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "net_bits_accepted": [
+      0,
+      1
+    ],
+    "scope_bits_accepted": [
+      0,
+      1
+    ],
+    "uapi_header": {
+      "mentions_resolve_unix": false,
+      "mentions_tsync": true,
+      "mentions_udp": false,
+      "present": true
+    }
+  },
+  "refusals": {
+    "bwrap_unshare_net": {
+      "exit": 1,
+      "stderr": "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted",
+      "stdout": ""
+    },
+    "bwrap_unshare_user": {
+      "exit": 1,
+      "stderr": "bwrap: setting up uid map: Permission denied",
+      "stdout": ""
+    },
+    "bwrap_version": "bubblewrap 0.9.0",
+    "unshare_map_root_net": {
+      "exit": 1,
+      "stderr": "unshare: write failed /proc/self/uid_map: Operation not permitted",
+      "stdout": ""
+    },
+    "unshare_user_only": {
+      "exit": 0,
+      "stderr": "",
+      "stdout": ""
+    }
+  },
+  "sysctl": {
+    "dev/tty/legacy_tiocsti": "0",
+    "kernel/apparmor_restrict_unprivileged_userns": "1",
+    "kernel/unprivileged_userns_clone": "1",
+    "kernel/yama/ptrace_scope": "1",
+    "net/ipv4/ping_group_range": "1\t0",
+    "net/ipv4/tcp_fastopen": "1",
+    "net/ipv6/conf/lo/disable_ipv6": "0",
+    "net/mptcp/enabled": "1",
+    "user/max_user_namespaces": "754190"
+  },
+  "systemd_user": {
+    "checks": {
+      "scope_IPAddressDeny_any": {
+        "exit": 0,
+        "listener_reached": true,
+        "stderr": "",
+        "stdout": ""
+      },
+      "scope_RestrictAddressFamilies_AF_UNIX": {
+        "exit": 1,
+        "listener_reached": false,
+        "stderr": "Unknown assignment: RestrictAddressFamilies=AF_UNIX",
+        "stdout": ""
+      },
+      "service_IPAddressDeny_any": {
+        "exit": 0,
+        "listener_reached": true,
+        "stderr": "",
+        "stdout": ""
+      },
+      "service_PrivateNetwork_yes": {
+        "exit": 0,
+        "listener_reached": true,
+        "stderr": "",
+        "stdout": ""
+      },
+      "service_RestrictAddressFamilies_AF_UNIX": {
+        "exit": 1,
+        "listener_reached": false,
+        "stderr": "",
+        "stdout": ""
+      }
+    },
+    "unit_count": 5,
+    "units_after": [
+      "LoadState=not-found"
+    ],
+    "version": [
+      "systemd 255 (255.4-1ubuntu8.18)"
+    ]
+  },
+  "tools": {
+    "bwrap": true,
+    "claude": true,
+    "codex": true,
+    "curl": true,
+    "firejail": false,
+    "git": true,
+    "node": true,
+    "nsjail": false,
+    "pasta": false,
+    "setpriv": true,
+    "setpriv_landlock": false,
+    "slirp4netns": true,
+    "socat": true,
+    "srt": false,
+    "ssh": true,
+    "strace": true,
+    "systemd-run": true,
+    "unshare": true
+  }
+}
