@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import time
@@ -67,11 +68,15 @@ class Actor:
     def tcp(self, name, family, address, proto=0, fastopen=False):
         try:
             with socket.socket(family, socket.SOCK_STREAM, proto) as s:
-                s.settimeout(2)
                 data = (self.marker(name) + '\n').encode()
                 if fastopen:
+                    # Blocking with kernel timeouts, so the cookie-less TFO send completes.
+                    limit = struct.pack('ll', 2, 0)
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, limit)
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, limit)
                     s.sendto(data, socket.MSG_FASTOPEN, address)
                 else:
+                    s.settimeout(2)
                     s.connect(address)
                     s.sendall(data)
                 reply = s.recv(64).decode(errors='replace').strip()

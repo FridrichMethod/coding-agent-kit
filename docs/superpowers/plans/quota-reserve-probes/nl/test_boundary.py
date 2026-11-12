@@ -111,9 +111,12 @@ class LandlockPlan(unittest.TestCase):
         self.assertEqual((plan['scoped'], plan['restrict_flags']), (0, 0))
 
     def test_parse(self):
-        options = boundary.parse(['--gate-port', '9', '--seccomp', 'inet', '--keep-fd', '7', '--', 'x', '-y'])
-        self.assertEqual((options['gate_port'], options['seccomp'], options['keep'], options['command']),
-                         (9, 'inet', [7], ['x', '-y']))
+        options = boundary.parse(['--gate-port', '9', '--seccomp', 'inet', '--keep-fd', '7',
+                                  '--extra-port', '80', '--', 'x', '-y'])
+        self.assertEqual((options['gate_port'], options['seccomp'], options['keep'], options['extra'],
+                          options['command']), (9, 'inet', [7], [80], ['x', '-y']))
+        plan = boundary.landlock_plan(8, 9, 'inet', options['extra'])
+        self.assertEqual([rule['port'] for rule in plan['rules']], [9, 80])
         for argv in ([], ['--', 'x'], ['--gate-port', '0', '--', 'x'], ['--gate-port', '9'],
                      ['--gate-port', '9', '--seccomp', 'all', '--', 'x'], ['--gate-port', '9', '--'],
                      ['--keep-fd', '2', '--gate-port', '9', '--', 'x']):

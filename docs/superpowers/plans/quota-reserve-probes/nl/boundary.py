@@ -7,8 +7,9 @@ and signals, and (with --seccomp) installs a socket filter. A requested layer
 that is unavailable refuses with exit 2; nothing falls back silently.
 
 python3 -I -B boundary.py --gate-port P [--seccomp none|inet|inet+unix]
-        [--keep-fd N]... [--verbose] -- COMMAND ARG...
---keep-fd exists only to model a faulty launcher in the inherited-fd test.
+        [--keep-fd N]... [--extra-port N]... [--verbose] -- COMMAND ARG...
+--keep-fd only models a faulty launcher in the inherited-fd test; --extra-port
+only models a broader sibling domain for an outside daemon in natives.py.
 """
 import ctypes
 import errno
@@ -51,7 +52,7 @@ class Refusal(Exception):
 
 
 def parse(argv):
-    options = {'gate_port': None, 'seccomp': 'none', 'keep': [], 'verbose': False}
+    options = {'gate_port': None, 'seccomp': 'none', 'keep': [], 'extra': [], 'verbose': False}
     args = list(argv)
     while args and args[0] != '--':
         flag = args.pop(0)
@@ -67,6 +68,8 @@ def parse(argv):
             options['seccomp'] = value
         elif flag == '--keep-fd' and value.isdigit() and int(value) > 2:
             options['keep'].append(int(value))
+        elif flag == '--extra-port' and value.isdigit() and 0 < int(value) < 65536:
+            options['extra'].append(int(value))
         else:
             raise Refusal('invalid option ' + flag + ' ' + value)
     if not args or args.pop(0) != '--' or not args:
@@ -77,7 +80,7 @@ def parse(argv):
     return options
 
 
-def landlock_plan(abi, gate_port, seccomp):
+def landlock_plan(abi, gate_port, seccomp, extra=()):
     """Ruleset for one gate port. Scopes need ABI 6; inet seccomp covers abstract UNIX."""
     if abi < 4:
         raise Refusal('Landlock ABI %d lacks TCP port rules (needs 4)' % abi)
@@ -85,7 +88,7 @@ def landlock_plan(abi, gate_port, seccomp):
         raise Refusal('Landlock ABI %d lacks abstract UNIX scope (needs 6) for this mode' % abi)
     return {'abi': abi, 'handled_access_net': NET_CONNECT_TCP,
             'scoped': SCOPE_ABSTRACT_UNIX | SCOPE_SIGNAL if abi >= 6 else 0,
-            'rules': [{'allowed_access': NET_CONNECT_TCP, 'port': gate_port}],
+            'rules': [{'allowed_access': NET_CONNECT_TCP, 'port': port} for port in (gate_port, *extra)],
             'restrict_flags': RESTRICT_TSYNC if abi >= 8 else 0}
 
 
@@ -186,7 +189,7 @@ def apply(options):
         abi = call(SYS_CREATE, None, 0, CREATE_VERSION)
     except OSError as error:
         raise Refusal('Landlock unavailable: ' + error.strerror)
-    plan = landlock_plan(abi, options['gate_port'], options['seccomp'])
+    plan = landlock_plan(abi, options['gate_port'], options['seccomp'], options['extra'])
     if options['seccomp'] != 'none' and arch not in ('x86_64',):
         raise Refusal('seccomp complement not validated on ' + arch)
     keep = set(options['keep'])
