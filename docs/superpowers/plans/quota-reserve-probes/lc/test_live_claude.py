@@ -105,6 +105,7 @@ class Base(unittest.TestCase):
         self.home, self.secrets = self.root / "home", self.root / "home/.secrets"
         self.out, self.bin = self.root / "out", self.root / "bin"
         self.config = self.secrets / "native-claude-accounts/alpha/config"
+        self.addCleanup(self.assertClean)  # runs before the tree is removed: every test is scanned
         self.env = {"HOME": str(self.home), "PATH": os.path.dirname(sys.executable) + ":/usr/bin:/bin",
                     "LANG": "C.UTF-8", "USER": "fixture", "XDG_RUNTIME_DIR": str(self.root / "run")}
         self.enterContext(mock.patch.dict(os.environ, self.env, clear=True))
@@ -535,6 +536,7 @@ class N1Tests(Base):
             if child.poll() is None:
                 child.kill()
                 child.communicate()
+        self.outputs = getattr(self, "outputs", []) + [stdout, stderr]
         document = json.loads(stdout)
         self.assertEqual((child.returncode, document["status"], document["attempt_consumed"], stderr),
                          (1, "interrupted", True, ""))
