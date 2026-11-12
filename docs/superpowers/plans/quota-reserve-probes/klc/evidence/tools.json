@@ -14,43 +14,42 @@
    "actor": "workflows-control",
    "attempt": "start",
    "mode": "workflows",
-   "pid": 2931722,
-   "t": 168958.963551973
+   "pid": 3521278,
+   "t": 171490.636859738
   },
   {
    "actor": "workflows-control",
    "attempt": "git_clone",
    "exit": 0,
    "phase": "control",
-   "pid": 2931722,
+   "pid": 3521278,
    "stderr": "",
-   "t": 168958.976223543
+   "t": 171490.653616721
   },
   {
    "actor": "workflows-control",
    "attempt": "index_download",
    "phase": "control",
-   "pid": 2931722,
+   "pid": 3521278,
    "result": "ok",
    "sha256_ok": true,
-   "t": 168958.987520377
+   "t": 171490.665644713
   },
   {
    "actor": "workflows-control",
    "attempt": "https_via_proxy",
-   "exit": 6,
+   "exit": null,
    "phase": "control",
-   "pid": 2931722,
-   "proxy_set": false,
-   "stderr": "curl: (6) Could not resolve host: pypi.fixture.invalid",
-   "t": 168958.993264581
+   "pid": 3521278,
+   "skipped": "no_proxy_outside_no_resolver_lookup",
+   "t": 171490.665712284
   },
   {
    "actor": "ticks",
    "attempt": "start",
    "mode": "ticks",
-   "pid": 2933716,
-   "t": 168959.967781987
+   "pid": 3521464,
+   "t": 171491.561667544
   },
   {
    "actor": "ticks",
@@ -58,42 +57,42 @@
    "direct": "EACCES",
    "gate_status": 200,
    "n": 1,
-   "pid": 2933716,
-   "t": 168959.975665589
+   "pid": 3521464,
+   "t": 171491.57012066
   },
   {
    "actor": "workflows-run",
    "attempt": "start",
    "mode": "workflows",
-   "pid": 2933718,
-   "t": 168959.984184532
+   "pid": 3521465,
+   "t": 171491.571763844
   },
   {
    "actor": "workflows-run",
    "attempt": "git_clone",
    "exit": 128,
    "phase": "run",
-   "pid": 2933718,
+   "pid": 3521465,
    "stderr": "fatal: unable to access 'http://127.0.0.1:PORT/repo.git/': Failed to connect to 127.0.0.1 port PORT after 0 ms: Couldn't connect to server",
-   "t": 168960.003172912
+   "t": 171491.595105224
   },
   {
    "actor": "workflows-run",
    "attempt": "index_download",
    "phase": "run",
-   "pid": 2933718,
+   "pid": 3521465,
    "result": "EACCES",
-   "t": 168960.019251712
+   "t": 171491.606562841
   },
   {
    "actor": "workflows-run",
    "attempt": "https_via_proxy",
    "exit": 56,
    "phase": "run",
-   "pid": 2933718,
+   "pid": 3521465,
    "proxy_set": true,
    "stderr": "curl: (56) CONNECT tunnel failed, response 403",
-   "t": 168960.032839684
+   "t": 171491.618318887
   },
   {
    "actor": "ticks",
@@ -101,8 +100,8 @@
    "direct": "EACCES",
    "gate_status": 200,
    "n": 5,
-   "pid": 2933716,
-   "t": 168961.978125248
+   "pid": 3521464,
+   "t": 171493.574187263
   },
   {
    "actor": "ticks",
@@ -110,42 +109,42 @@
    "direct": "EACCES",
    "gate_status": 403,
    "n": 9,
-   "pid": 2933716,
-   "t": 168963.980225731
+   "pid": 3521464,
+   "t": 171495.578042912
   },
   {
    "actor": "workflows-pause",
    "attempt": "start",
    "mode": "workflows",
-   "pid": 2942356,
-   "t": 168964.561321134
+   "pid": 3521815,
+   "t": 171496.255457456
   },
   {
    "actor": "workflows-pause",
    "attempt": "git_clone",
    "exit": 128,
    "phase": "pause",
-   "pid": 2942356,
+   "pid": 3521815,
    "stderr": "fatal: unable to access 'http://127.0.0.1:PORT/repo.git/': Failed to connect to 127.0.0.1 port PORT after 0 ms: Couldn't connect to server",
-   "t": 168964.568352368
+   "t": 171496.263066568
   },
   {
    "actor": "workflows-pause",
    "attempt": "index_download",
    "phase": "pause",
-   "pid": 2942356,
+   "pid": 3521815,
    "result": "EACCES",
-   "t": 168964.579338257
+   "t": 171496.277254205
   },
   {
    "actor": "workflows-pause",
    "attempt": "https_via_proxy",
    "exit": 56,
    "phase": "pause",
-   "pid": 2942356,
+   "pid": 3521815,
    "proxy_set": true,
    "stderr": "curl: (56) CONNECT tunnel failed, response 403",
-   "t": 168964.583760991
+   "t": 171496.2820333
   },
   {
    "actor": "ticks",
@@ -153,8 +152,8 @@
    "direct": "EACCES",
    "gate_status": 403,
    "n": 13,
-   "pid": 2933716,
-   "t": 168965.982430517
+   "pid": 3521464,
+   "t": 171497.582573163
   },
   {
    "actor": "ticks",
@@ -162,8 +161,8 @@
    "direct": "EACCES",
    "gate_status": 403,
    "n": 17,
-   "pid": 2933716,
-   "t": 168967.984583349
+   "pid": 3521464,
+   "t": 171499.588658944
   },
   {
    "actor": "ticks",
@@ -171,8 +170,8 @@
    "direct": "EACCES",
    "gate_status": 403,
    "n": 21,
-   "pid": 2933716,
-   "t": 168969.987102157
+   "pid": 3521464,
+   "t": 171501.593749281
   }
  ],
  "cleanup": {
@@ -189,29 +188,29 @@
      },
      {
       "call": "connect",
-      "exe": "python3.15",
-      "result": "EINPROGRESS",
-      "target": "gate"
-     },
-     {
-      "address": "127.0.0.1",
-      "call": "connect",
-      "exe": "python3.15",
-      "port": 36117,
-      "result": "EACCES",
-      "target": "other_loopback"
-     },
-     {
-      "call": "connect",
       "exe": "git-remote-https",
       "result": "EINPROGRESS",
       "target": "gate"
      },
      {
+      "call": "connect",
+      "exe": "python3.15",
+      "result": "EINPROGRESS",
+      "target": "gate"
+     },
+     {
       "address": "127.0.0.1",
       "call": "connect",
       "exe": "python3.15",
-      "port": 43801,
+      "port": 35571,
+      "result": "EACCES",
+      "target": "other_loopback"
+     },
+     {
+      "address": "127.0.0.1",
+      "call": "connect",
+      "exe": "python3.15",
+      "port": 34421,
       "result": "EACCES",
       "target": "other_loopback"
      },
@@ -219,7 +218,7 @@
       "address": "127.0.0.1",
       "call": "connect",
       "exe": "git-remote-http",
-      "port": 32971,
+      "port": 37317,
       "result": "EACCES",
       "target": "other_loopback"
      },
@@ -275,11 +274,13 @@
     "xdg-mime",
     "zsh"
    ],
-   "traced_processes": 132
+   "traced_processes": 131
   }
  },
  "exit": {
+  "began_t": 171500.791518761,
   "exited": true,
+  "exited_t": 171504.692881441,
   "seconds": 3.9,
   "stop_tasks_dialog": true,
   "termios_restored": true
@@ -287,11 +288,11 @@
  "fg_finished_marker": false,
  "fg_shell_alive_after_interrupt": false,
  "fg_shell_alive_before_interrupt": true,
- "fg_ticks_2s_after": 9,
+ "fg_ticks_2s_after": 10,
  "fg_ticks_3s_after_interrupt": 10,
  "fg_ticks_at_latch": 6,
  "fg_ticks_before_interrupt": 10,
- "latch_t": 168962.311173215,
+ "latch_t": 171494.002430424,
  "launched": true,
  "lingering_after_cleanup": 0,
  "native_alive_after_interrupt": true,
@@ -312,52 +313,52 @@
    "path": "/repo.git/info/refs",
    "row": "file_server_request",
    "server": "git",
-   "t": 168958.968645709
+   "t": 171490.644463039
   },
   {
    "path": "/repo.git/HEAD",
    "row": "file_server_request",
    "server": "git",
-   "t": 168958.971278698
+   "t": 171490.647329587
   },
   {
-   "path": "/repo.git/objects/f8/228e382eea06e1351fa9f0754fd80dee6bbe81",
+   "path": "/repo.git/objects/fa/4d818cc701d6cc41f4a37d883de91c4ad65ef4",
    "row": "file_server_request",
    "server": "git",
-   "t": 168958.972126097
+   "t": 171490.648439569
   },
   {
    "path": "/repo.git/objects/33/c49850c8e5830a1ab88468d5c789a1ad70bf48",
    "row": "file_server_request",
    "server": "git",
-   "t": 168958.972640942
+   "t": 171490.649118304
   },
   {
    "path": "/repo.git/objects/e8/4bb4525e99004f8554b2c1fe0fa05b91992636",
    "row": "file_server_request",
    "server": "git",
-   "t": 168958.973164373
+   "t": 171490.649687131
   },
   {
    "path": "/simple/klc-fixture/",
    "row": "file_server_request",
    "server": "index",
-   "t": 168958.986478378
+   "t": 171490.664491822
   },
   {
    "path": "/files/klc_fixture-1.0-py3-none-any.whl",
    "row": "file_server_request",
    "server": "index",
-   "t": 168958.987260744
+   "t": 171490.665363384
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 8.089,
+   "ms": 8.567,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168959.18630378,
+   "t": 171490.874448459,
    "what": "usage"
   },
   {
@@ -369,16 +370,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168959.186327847
+   "t": 171490.874518266
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.635,
+   "ms": 1.137,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168959.186977454,
+   "t": 171490.875679632,
    "what": "profile"
   },
   {
@@ -389,25 +390,25 @@
    "kind": "lease",
    "row": "event",
    "source": "gate",
-   "t": 168959.187140546
+   "t": 171490.875842317
   },
   {
    "event": "preflight",
    "inv": "main",
-   "ms": 9.049,
+   "ms": 10.083,
    "row": "event",
    "source": "gate",
-   "t": 168959.18716271
+   "t": 171490.875863178
   },
   {
    "event": "gate_ready",
    "inv": "main",
    "mode": "startup",
-   "pid": 2932206,
-   "port": 33659,
+   "pid": 3521295,
+   "port": 42009,
    "row": "event",
    "source": "gate",
-   "t": 168959.187422252
+   "t": 171490.876228575
   },
   {
    "event": "gate_started",
@@ -415,31 +416,32 @@
    "mode": "startup",
    "row": "event",
    "source": "launcher",
-   "spawn_to_ready_ms": 185.01,
-   "t": 168959.203469782
+   "spawn_to_ready_ms": 188.653,
+   "t": 171490.889845252
   },
   {
    "gate_event": "gate_ready",
    "inv": "main",
+   "launcher_refusal": null,
    "reason": null,
    "row": "launch",
-   "t": 168959.203477814
+   "t": 171490.889857018
   },
   {
    "event": "native_started",
    "inv": "main",
    "row": "event",
    "source": "launcher",
-   "t": 168959.203903794
+   "t": 171490.89065417
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 1.016,
+   "ms": 1.282,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168959.2652544,
+   "t": 171490.948641102,
    "what": "usage"
   },
   {
@@ -451,37 +453,37 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168959.265290267
+   "t": 171490.948697814
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.668,
+   "ms": 0.797,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168959.265978898,
+   "t": 171490.949514513,
    "what": "profile"
   },
   {
-   "deadline": 168963.264112082,
+   "deadline": 171494.947232092,
    "epoch": 1,
    "event": "controller",
    "inv": "main",
    "kind": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168959.26613016
+   "t": 171490.949630253
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 2.043,
+   "ms": 2.421,
    "ok": true,
    "reason": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168959.266154906
+   "t": 171490.949652569
   },
   {
    "event": "controller",
@@ -490,7 +492,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.389785428
+   "t": 171491.059956282
   },
   {
    "event": "connect",
@@ -500,7 +502,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.389809794,
+   "t": 171491.059988608,
    "target": "api.anthropic.com:443"
   },
   {
@@ -510,7 +512,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.439008458
+   "t": 171491.113798534
   },
   {
    "event": "connect",
@@ -520,7 +522,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.43904592,
+   "t": 171491.113836068,
    "target": "api.anthropic.com:443"
   },
   {
@@ -530,7 +532,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.461924589
+   "t": 171491.139833132
   },
   {
    "event": "connect",
@@ -540,7 +542,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.461958867,
+   "t": 171491.139867696,
    "target": "api.anthropic.com:443"
   },
   {
@@ -551,10 +553,11 @@
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168959.564936251
+   "t": 171491.239719779
   },
   {
-   "admit_ms": 0.118,
+   "admit_ms": 0.119,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 1,
@@ -564,18 +567,18 @@
    "source": "gate",
    "sse": false,
    "stream": 1,
-   "t": 168959.564977565,
+   "t": 171491.239790925,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.25,
+   "gate_ms": 0.281,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168959.565106241
+   "t": 171491.239921102
   },
   {
    "continued": false,
@@ -590,7 +593,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": false,
-   "t": 168959.565539699,
+   "t": 171491.240394459,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -601,7 +604,7 @@
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168959.565680669
+   "t": 171491.240557072
   },
   {
    "epoch": 1,
@@ -611,10 +614,11 @@
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168959.576177437
+   "t": 171491.253331955
   },
   {
-   "admit_ms": 0.15,
+   "admit_ms": 0.139,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 32000,
@@ -624,18 +628,18 @@
    "source": "gate",
    "sse": true,
    "stream": 2,
-   "t": 168959.576220933,
+   "t": 171491.253389442,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.3,
+   "gate_ms": 0.299,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168959.57636826
+   "t": 171491.253527728
   },
   {
    "continued": false,
@@ -650,7 +654,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168959.576744773,
+   "t": 171491.253914914,
    "tag": "tools",
    "tool_results": 0,
    "tools": []
@@ -661,7 +665,7 @@
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168959.576943627
+   "t": 171491.25417181
   },
   {
    "event": "controller",
@@ -670,7 +674,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.609233048
+   "t": 171491.285730739
   },
   {
    "event": "connect",
@@ -680,7 +684,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.609269443,
+   "t": 171491.285756766,
    "target": "raw.githubusercontent.com:443"
   },
   {
@@ -690,7 +694,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.611806081
+   "t": 171491.288021324
   },
   {
    "event": "connect",
@@ -700,7 +704,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.611824091,
+   "t": 171491.28803684,
    "target": "api.anthropic.com:443"
   },
   {
@@ -710,7 +714,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.611907104
+   "t": 171491.288145467
   },
   {
    "event": "connect",
@@ -720,7 +724,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.611923775,
+   "t": 171491.288162569,
    "target": "api.anthropic.com:443"
   },
   {
@@ -730,7 +734,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.612015216
+   "t": 171491.288223699
   },
   {
    "event": "connect",
@@ -740,7 +744,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.612031304,
+   "t": 171491.288233756,
    "target": "api.anthropic.com:443"
   },
   {
@@ -750,7 +754,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.612102501
+   "t": 171491.288349122
   },
   {
    "event": "connect",
@@ -760,7 +764,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.612113627,
+   "t": 171491.288357643,
    "target": "api.anthropic.com:443"
   },
   {
@@ -770,7 +774,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.612864089
+   "t": 171491.296044541
   },
   {
    "event": "connect",
@@ -780,7 +784,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.612877734,
+   "t": 171491.296061754,
    "target": "api.anthropic.com:443"
   },
   {
@@ -790,7 +794,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.624351457
+   "t": 171491.29615386
   },
   {
    "event": "connect",
@@ -800,7 +804,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.624383216,
+   "t": 171491.296169221,
    "target": "downloads.claude.ai:443"
   },
   {
@@ -811,10 +815,11 @@
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168959.660138718
+   "t": 171491.320513167
   },
   {
-   "admit_ms": 0.522,
+   "admit_ms": 0.563,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 32000,
@@ -824,18 +829,18 @@
    "source": "gate",
    "sse": true,
    "stream": 3,
-   "t": 168959.660168302,
+   "t": 171491.320563871,
    "tools": 13
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.648,
+   "gate_ms": 0.756,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168959.660291468
+   "t": 171491.320739761
   },
   {
    "continued": false,
@@ -850,7 +855,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168959.661189951,
+   "t": 171491.321637235,
    "tag": "tools",
    "tool_results": 0,
    "tools": [
@@ -875,7 +880,7 @@
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168959.661395534
+   "t": 171491.321839434
   },
   {
    "event": "controller",
@@ -884,7 +889,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168959.723744336
+   "t": 171491.372950422
   },
   {
    "event": "connect",
@@ -894,7 +899,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168959.723779701,
+   "t": 171491.372984567,
    "target": "github.com:443"
   },
   {
@@ -905,10 +910,11 @@
    "row": "event",
    "source": "gate",
    "stream": 4,
-   "t": 168959.745220408
+   "t": 171491.38197148
   },
   {
-   "admit_ms": 0.42,
+   "admit_ms": 0.434,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 32000,
@@ -918,18 +924,18 @@
    "source": "gate",
    "sse": true,
    "stream": 4,
-   "t": 168959.745258494,
+   "t": 171491.382027846,
    "tools": 13
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.585,
+   "gate_ms": 0.622,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 4,
-   "t": 168959.745421129
+   "t": 171491.382197155
   },
   {
    "continued": false,
@@ -941,10 +947,10 @@
    "max_tokens": 32000,
    "model": "claude-sonnet-4-6",
    "path": "/v1/messages",
-   "result_text": "\"Command running in background with ID: bj2mw82hx. Output is being written to: <PROBE_ROOT>/native-main/tmp/claude-1001/-tmp-quota-klc-tools-mr5hebaz-native-main-workspace/ac7d9f15-31ad-4062-acb7-14eedb8a1004/tasks/bj2mw82hx.output. You will be notified when it completes \\u2014 do n",
+   "result_text": "\"Command running in background with ID: b9twdzgel. Output is being written to: <PROBE_ROOT>/native-main/tmp/claude-<UID>/<PROBE_ROOT_SLUG>-native-main-workspace/8708d1f2-cd63-4889-8d9c-77c9db8a0676/tasks/b9twdzgel.output. You will be notified when it completes \\u2014 do n",
    "row": "upstream_request",
    "stream": true,
-   "t": 168959.746133569,
+   "t": 171491.382930954,
    "tag": "tools",
    "tool_results": 1,
    "tools": [
@@ -969,7 +975,7 @@
    "row": "event",
    "source": "gate",
    "stream": 4,
-   "t": 168959.746330233
+   "t": 171491.383130283
   },
   {
    "epoch": 1,
@@ -979,10 +985,11 @@
    "row": "event",
    "source": "gate",
    "stream": 5,
-   "t": 168959.975046713
+   "t": 171491.568802869
   },
   {
-   "admit_ms": 0.079,
+   "admit_ms": 0.073,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -992,18 +999,18 @@
    "source": "gate",
    "sse": true,
    "stream": 5,
-   "t": 168959.975070448,
+   "t": 171491.568848112,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.146,
+   "gate_ms": 0.21,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 5,
-   "t": 168959.9751357
+   "t": 171491.568969842
   },
   {
    "continued": false,
@@ -1018,7 +1025,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168959.975393664,
+   "t": 171491.569561955,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -1029,7 +1036,7 @@
    "row": "event",
    "source": "gate",
    "stream": 5,
-   "t": 168959.975580442
+   "t": 171491.569747655
   },
   {
    "event": "controller",
@@ -1038,7 +1045,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168960.029662982
+   "t": 171491.616245743
   },
   {
    "event": "connect",
@@ -1048,17 +1055,17 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168960.029695373,
+   "t": 171491.616262989,
    "target": "pypi.fixture.invalid:443"
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.928,
+   "ms": 1.272,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168960.266861578,
+   "t": 171491.95102639,
    "what": "usage"
   },
   {
@@ -1070,46 +1077,46 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168960.266909014
+   "t": 171491.951243627
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.658,
+   "ms": 0.806,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168960.267587989,
+   "t": 171491.952071173,
    "what": "profile"
   },
   {
-   "deadline": 168964.265793225,
+   "deadline": 171495.949616209,
    "epoch": 1,
    "event": "controller",
    "inv": "main",
    "kind": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168960.267746883
+   "t": 171491.952298962
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.977,
+   "ms": 2.707,
    "ok": true,
    "reason": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168960.26776947
+   "t": 171491.952322799
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.92,
+   "ms": 1.277,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168961.268250629,
+   "t": 171492.954609966,
    "what": "usage"
   },
   {
@@ -1121,41 +1128,41 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168961.268307768
+   "t": 171492.954643562
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.63,
+   "ms": 0.833,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168961.268958715,
+   "t": 171492.95549436,
    "what": "profile"
   },
   {
-   "deadline": 168965.267184663,
+   "deadline": 171496.95307723,
    "epoch": 1,
    "event": "controller",
    "inv": "main",
    "kind": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168961.269121431
+   "t": 171492.955659483
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.957,
+   "ms": 2.601,
    "ok": true,
    "reason": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168961.269142907
+   "t": 171492.955679666
   },
   {
    "row": "trigger",
-   "t": 168961.809988728,
+   "t": 171493.450354705,
    "what": "usage_crosses_reserve"
   },
   {
@@ -1166,10 +1173,11 @@
    "row": "event",
    "source": "gate",
    "stream": 6,
-   "t": 168961.977429762
+   "t": 171493.573116203
   },
   {
-   "admit_ms": 0.091,
+   "admit_ms": 0.079,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1179,18 +1187,18 @@
    "source": "gate",
    "sse": true,
    "stream": 6,
-   "t": 168961.977477593,
+   "t": 171493.573163063,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.22,
+   "gate_ms": 0.207,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 6,
-   "t": 168961.977604343
+   "t": 171493.573276054
   },
   {
    "continued": false,
@@ -1205,7 +1213,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168961.977897762,
+   "t": 171493.573705677,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -1216,16 +1224,16 @@
    "row": "event",
    "source": "gate",
    "stream": 6,
-   "t": 168961.97807161
+   "t": 171493.573881298
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.964,
+   "ms": 1.132,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168962.269827894,
+   "t": 171493.957527874,
    "what": "usage"
   },
   {
@@ -1237,16 +1245,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168962.269882468
+   "t": 171493.957582333
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.653,
+   "ms": 0.602,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168962.270555858,
+   "t": 171493.958203515,
    "what": "profile"
   },
   {
@@ -1258,26 +1266,26 @@
    "row": "event",
    "source": "gate",
    "state": "paused",
-   "t": 168962.270713771
+   "t": 171493.958354665
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 2.01,
+   "ms": 2.11,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168962.270735444
+   "t": 171493.95837605
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.974,
+   "ms": 1.316,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168963.271195442,
+   "t": 171494.960214781,
    "what": "usage"
   },
   {
@@ -1288,17 +1296,17 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168963.271252644
+   "t": 171494.960328768
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.059,
+   "ms": 1.461,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168963.271273592
+   "t": 171494.960353176
   },
   {
    "event": "controller",
@@ -1307,10 +1315,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168963.97988663
+   "t": 171495.577571742
   },
   {
-   "admit_ms": 0.065,
+   "admit_ms": 0.063,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1320,17 +1329,17 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168963.979924488,
+   "t": 171495.577625444,
    "tools": 0
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.945,
+   "ms": 1.051,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168964.272747863,
+   "t": 171495.962215858,
    "what": "usage"
   },
   {
@@ -1341,17 +1350,17 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168964.272806145
+   "t": 171495.962238211
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.034,
+   "ms": 1.091,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168964.272828662
+   "t": 171495.962247543
   },
   {
    "event": "controller",
@@ -1360,7 +1369,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168964.543293158
+   "t": 171496.217156442
   },
   {
    "event": "connect",
@@ -1370,7 +1379,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168964.543325415,
+   "t": 171496.217188645,
    "target": "api.anthropic.com:443"
   },
   {
@@ -1380,7 +1389,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168964.58307509
+   "t": 171496.281279048
   },
   {
    "event": "connect",
@@ -1390,7 +1399,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168964.583106707,
+   "t": 171496.281309733,
    "target": "pypi.fixture.invalid:443"
   },
   {
@@ -1399,12 +1408,12 @@
    "name": "workflows-pause",
    "row": "boundary_actor",
    "stderr": "",
-   "t": 168964.311486759
+   "t": 171496.002760477
   },
   {
    "key": "ctrl-c",
    "row": "interrupt",
-   "t": 168964.593677436
+   "t": 171496.290796201
   },
   {
    "event": "controller",
@@ -1413,7 +1422,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168965.045740722
+   "t": 171496.72110903
   },
   {
    "event": "connect",
@@ -1423,17 +1432,17 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168965.045774664,
+   "t": 171496.72114223,
    "target": "api.anthropic.com:443"
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.959,
+   "ms": 1.257,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168965.274146904,
+   "t": 171496.964803234,
    "what": "usage"
   },
   {
@@ -1444,17 +1453,17 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168965.274202221
+   "t": 171496.964857055
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.039,
+   "ms": 1.334,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168965.274221119
+   "t": 171496.964874625
   },
   {
    "event": "controller",
@@ -1463,10 +1472,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168965.982065874
+   "t": 171497.581509002
   },
   {
-   "admit_ms": 0.065,
+   "admit_ms": 0.062,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1476,17 +1486,17 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168965.982115203,
+   "t": 171497.581561916,
    "tools": 0
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.909,
+   "ms": 1.817,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168966.275605943,
+   "t": 171497.968284686,
    "what": "usage"
   },
   {
@@ -1497,26 +1507,26 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168966.275721376
+   "t": 171497.968318094
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.045,
+   "ms": 1.874,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168966.275736608
+   "t": 171497.968335091
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.938,
+   "ms": 1.75,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168967.277077811,
+   "t": 171498.972011543,
    "what": "usage"
   },
   {
@@ -1527,17 +1537,17 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168967.277133469
+   "t": 171498.972133222
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.017,
+   "ms": 1.906,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168967.277151922
+   "t": 171498.972156356
   },
   {
    "event": "controller",
@@ -1546,10 +1556,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168967.9842369
+   "t": 171499.587737996
   },
   {
-   "admit_ms": 0.06,
+   "admit_ms": 0.073,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1559,17 +1570,17 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168967.984272996,
+   "t": 171499.587802829,
    "tools": 0
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 1.012,
+   "ms": 1.766,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168968.278665078,
+   "t": 171499.975429005,
    "what": "usage"
   },
   {
@@ -1580,26 +1591,26 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168968.278698565
+   "t": 171499.975542923
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.069,
+   "ms": 1.909,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168968.278717206
+   "t": 171499.975567022
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.957,
+   "ms": 2.066,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168969.280331536,
+   "t": 171500.979021058,
    "what": "usage"
   },
   {
@@ -1610,17 +1621,17 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168969.28039059
+   "t": 171500.979056145
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 1.041,
+   "ms": 2.147,
    "ok": false,
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168969.280410093
+   "t": 171500.979093649
   },
   {
    "event": "controller",
@@ -1629,7 +1640,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168969.393632318
+   "t": 171501.064841572
   },
   {
    "event": "connect",
@@ -1639,7 +1650,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168969.393665694,
+   "t": 171501.06488157,
    "target": "api.anthropic.com:443"
   },
   {
@@ -1649,7 +1660,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168969.897790076
+   "t": 171501.571579152
   },
   {
    "event": "connect",
@@ -1659,7 +1670,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168969.897822337,
+   "t": 171501.571612535,
    "target": "api.anthropic.com:443"
   },
   {
@@ -1669,10 +1680,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168969.986764175
+   "t": 171501.593383066
   },
   {
-   "admit_ms": 0.06,
+   "admit_ms": 0.041,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1682,17 +1694,17 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168969.98679916,
+   "t": 171501.593418647,
    "tools": 0
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.929,
+   "ms": 1.035,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168970.281654794,
+   "t": 171501.980790587,
    "what": "usage"
   },
   {
@@ -1703,117 +1715,7 @@
    "outcome": "response",
    "row": "event",
    "source": "gate",
-   "t": 168970.281709008
-  },
-  {
-   "event": "poll",
-   "inv": "main",
-   "ms": 1.01,
-   "ok": false,
-   "reason": "threshold_five_hour",
-   "row": "event",
-   "source": "gate",
-   "t": 168970.281729917
-  },
-  {
-   "event": "fetch",
-   "inv": "main",
-   "ms": 0.908,
-   "ok": true,
-   "row": "event",
-   "source": "gate",
-   "t": 168971.283388015,
-   "what": "usage"
-  },
-  {
-   "event": "controller",
-   "fresh": true,
-   "inv": "main",
-   "kind": "paused_poll",
-   "outcome": "response",
-   "row": "event",
-   "source": "gate",
-   "t": 168971.283441294
-  },
-  {
-   "event": "poll",
-   "inv": "main",
-   "ms": 0.985,
-   "ok": false,
-   "reason": "threshold_five_hour",
-   "row": "event",
-   "source": "gate",
-   "t": 168971.283459294
-  },
-  {
-   "event": "controller",
-   "inv": "main",
-   "kind": "connect_refused",
-   "reason": "connect_unlisted",
-   "row": "event",
-   "source": "gate",
-   "t": 168971.65213826
-  },
-  {
-   "event": "connect",
-   "inv": "main",
-   "ok": false,
-   "reason": "connect_unlisted",
-   "row": "event",
-   "source": "gate",
-   "stream": null,
-   "t": 168971.65217489,
-   "target": "api.anthropic.com:443"
-  },
-  {
-   "event": "fetch",
-   "inv": "main",
-   "ms": 0.907,
-   "ok": true,
-   "row": "event",
-   "source": "gate",
-   "t": 168972.285022438,
-   "what": "usage"
-  },
-  {
-   "event": "controller",
-   "fresh": true,
-   "inv": "main",
-   "kind": "paused_poll",
-   "outcome": "response",
-   "row": "event",
-   "source": "gate",
-   "t": 168972.28507537
-  },
-  {
-   "event": "poll",
-   "inv": "main",
-   "ms": 0.986,
-   "ok": false,
-   "reason": "threshold_five_hour",
-   "row": "event",
-   "source": "gate",
-   "t": 168972.285097667
-  },
-  {
-   "event": "fetch",
-   "inv": "main",
-   "ms": 1.034,
-   "ok": true,
-   "row": "event",
-   "source": "gate",
-   "t": 168973.286587561,
-   "what": "usage"
-  },
-  {
-   "event": "controller",
-   "fresh": true,
-   "inv": "main",
-   "kind": "paused_poll",
-   "outcome": "response",
-   "row": "event",
-   "source": "gate",
-   "t": 168973.286643668
+   "t": 171501.980846458
   },
   {
    "event": "poll",
@@ -1823,7 +1725,117 @@
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168973.286663846
+   "t": 171501.98086586
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.605,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171502.98568717,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171502.985758499
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.714,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171502.985777527
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "connect_refused",
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "t": 171503.362421067
+  },
+  {
+   "event": "connect",
+   "inv": "main",
+   "ok": false,
+   "reason": "connect_unlisted",
+   "row": "event",
+   "source": "gate",
+   "stream": null,
+   "t": 171503.36245601,
+   "target": "api.anthropic.com:443"
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.66,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171503.988059364,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171503.988117795
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.742,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171503.988134125
+  },
+  {
+   "event": "fetch",
+   "inv": "main",
+   "ms": 1.365,
+   "ok": true,
+   "row": "event",
+   "source": "gate",
+   "t": 171504.990989684,
+   "what": "usage"
+  },
+  {
+   "event": "controller",
+   "fresh": true,
+   "inv": "main",
+   "kind": "paused_poll",
+   "outcome": "response",
+   "row": "event",
+   "source": "gate",
+   "t": 171504.99102762
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 1.426,
+   "ok": false,
+   "reason": "threshold_five_hour",
+   "row": "event",
+   "source": "gate",
+   "t": 171504.991045225
   },
   {
    "code": -9,
@@ -1831,7 +1843,7 @@
    "inv": "main",
    "row": "event",
    "source": "gate",
-   "t": 168974.014237962
+   "t": 171505.711506013
   },
   {
    "code": -9,
@@ -1839,7 +1851,7 @@
    "inv": "main",
    "row": "event",
    "source": "monitor",
-   "t": 168974.014790352
+   "t": 171505.712406245
   }
  ],
  "sanitized": true,
@@ -1856,118 +1868,118 @@
   "forwarded_after_latch": 0,
   "latch": {
    "reason": "threshold_five_hour",
-   "t": 168962.270713771
+   "t": 171493.958354665
   },
   "upstream_requests": 6
  },
  "terminal": {
-  "main": "afemode:allcustomizationsaredisabled(CLAUDE.md,skills,plugins,hooks,MCP,agents,andmore) Restartwithout--safe-modetore-enable \u276f KLC root tools \u00b7Slithering\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u276f esc to interrupt \u00b7 \u2190 for agents <PATH> <PATH> \u23bf Running\u2026 \u00b7 Stewing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cf in the background (\u2193 to manage) \u00b7 1 shell \u00b7 es to interrup \u00b7 \u2190 fo agents\u00b7 \u2193to manage <PATH> <PATH> \u23bf Running\u2026 \u2722 Stewing\u2026 (0s \u00b7 \u2193 25 tokens) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> 50 *75 \u2736113 tokens) \u273b38 63 \u273dStewing\u202688 205 112 \u25cf \u273bStewing\u20266 8 \u273620 *1 \u27223 Stewing\u20264 \u00b77 8 Stewing\u2026230 \u27221 \u25cf * \u2736 \u273b \u273d Stewing\u2026 3 \u273bStewing\u2026 (3s \u00b7 timeout 2m) (ctrl+b to run in background) \u273bStewing\u2026 (3s \u00b7 \u2193231 tokens) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u2736 * \u25cf \u2722 \u00b7Stewing\u2026 Stewing\u20264 \u2722 4 * \u2736 \u273b \u273d \u25cf Stewing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5 don't ask on \u00b7 1 shell \u00b7 \u2190 for agents \u00b7 \u2193 to manage \u25cf high \u00b7 <PATH> \u25cf Interrupted \u00b7 What should Claude do instead? No backgroundagentsrunning \u2193t mnage Press Ctrl-C again to exit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Background work is running The following will stop when you exit: shell \u00b7KLCtest-likeprocess \u276f1.Exitandstoptasks 2.Movetobackgroundandexit 3.Stay Entertoconfirm\u00b7Esctocancel \u000f Resume this session with: claude --resume ac7d9f15-31ad-4062-acb7-14eedb8a1004 "
+  "main": "d,skills,plugins,hooks,MCP,agents,andmore) Restartwithout--safe-modetore-enable \u276f KLC root tools \u00b7Meandering\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u276f esc to interrupt \u00b7 \u2190 for agents <PATH> <PATH> \u23bf Running\u2026 \u00b7 Composing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cf in the background (\u2193 to manage) \u00b7 1 shell \u00b7 es to interrup \u00b7 \u2190 fo agents\u00b7 \u2193to manage \u25cfBash(echo <PATH> <PATH> \u23bf Running\u2026 \u00b7 Composing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u2722Composing\u2026(0s \u00b7 \u219325 tokens) 50 *75 \u2736113 tokens) \u273b38 63 \u273dComposing\u202688 205 112 \u25cf \u273bComposing\u20266 8 \u273620 *1 \u27223 Composing\u20264 \u00b77 8 Composing\u2026230 \u27221 \u25cf * \u2736 \u273b \u273d Composing\u2026 3 \u273bComposing\u2026 (3s \u00b7 timeout 2m) (ctrl+b to run in background) \u273bComposing\u2026 (3s \u00b7 \u2193231 tokens) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u2736 * \u25cf \u2722 \u00b7Composing\u2026 Composing\u20264 4 \u2722 * \u2736 \u273b \u273d \u25cf Composing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5 don't ask on \u00b7 1 shell \u00b7 \u2190 for agents \u00b7 \u2193 to manage \u25cf high \u00b7 <PATH> \u25cf Interrupted \u00b7 What should Claude do instead? No backgroundagentsrunning \u2193t mnage Press Ctrl-C again to exit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Background work is running The following will stop when you exit: shell \u00b7KLCtest-likeprocess \u276f1.Exitandstoptasks 2.Movetobackgroundandexit 3.Stay Entertoconfirm\u00b7Esctocancel \u000f Resume this session with: claude --resume 8708d1f2-cd63-4889-8d9c-77c9db8a0676 "
  },
  "usage_requests": [
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168959.186070838
+   "t": 171490.874036943
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168959.186707621
+   "t": 171490.875374156
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168959.264898994
+   "t": 171490.948298548
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168959.265748047
+   "t": 171490.949264892
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168960.266523573
+   "t": 171491.950612383
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168960.267357206
+   "t": 171491.951856319
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168961.267910741
+   "t": 171492.954241045
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168961.268719125
+   "t": 171492.95525308
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168962.269495382
+   "t": 171493.957130647
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168962.270316417
+   "t": 171493.957981185
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168963.270838009
+   "t": 171494.959835704
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168964.272401593
+   "t": 171495.96182105
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168965.273790164
+   "t": 171496.964428409
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168966.275286343
+   "t": 171497.967884875
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168967.276736913
+   "t": 171498.971611166
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168968.278324861
+   "t": 171499.97498535
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168969.279980224
+   "t": 171500.978526397
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168970.281319094
+   "t": 171501.980451161
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168971.283052744
+   "t": 171502.985278542
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168972.28467436
+   "t": 171503.987573579
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168973.286246588
+   "t": 171504.990627414
   }
  ],
  "workflows_control": [
@@ -1975,36 +1987,35 @@
    "actor": "workflows-control",
    "attempt": "start",
    "mode": "workflows",
-   "pid": 2931722,
-   "t": 168958.963551973
+   "pid": 3521278,
+   "t": 171490.636859738
   },
   {
    "actor": "workflows-control",
    "attempt": "git_clone",
    "exit": 0,
    "phase": "control",
-   "pid": 2931722,
+   "pid": 3521278,
    "stderr": "",
-   "t": 168958.976223543
+   "t": 171490.653616721
   },
   {
    "actor": "workflows-control",
    "attempt": "index_download",
    "phase": "control",
-   "pid": 2931722,
+   "pid": 3521278,
    "result": "ok",
    "sha256_ok": true,
-   "t": 168958.987520377
+   "t": 171490.665644713
   },
   {
    "actor": "workflows-control",
    "attempt": "https_via_proxy",
-   "exit": 6,
+   "exit": null,
    "phase": "control",
-   "pid": 2931722,
-   "proxy_set": false,
-   "stderr": "curl: (6) Could not resolve host: pypi.fixture.invalid",
-   "t": 168958.993264581
+   "pid": 3521278,
+   "skipped": "no_proxy_outside_no_resolver_lookup",
+   "t": 171490.665712284
   }
  ],
  "workflows_pause": [
@@ -2012,35 +2023,35 @@
    "actor": "workflows-pause",
    "attempt": "start",
    "mode": "workflows",
-   "pid": 2942356,
-   "t": 168964.561321134
+   "pid": 3521815,
+   "t": 171496.255457456
   },
   {
    "actor": "workflows-pause",
    "attempt": "git_clone",
    "exit": 128,
    "phase": "pause",
-   "pid": 2942356,
+   "pid": 3521815,
    "stderr": "fatal: unable to access 'http://127.0.0.1:PORT/repo.git/': Failed to connect to 127.0.0.1 port PORT after 0 ms: Couldn't connect to server",
-   "t": 168964.568352368
+   "t": 171496.263066568
   },
   {
    "actor": "workflows-pause",
    "attempt": "index_download",
    "phase": "pause",
-   "pid": 2942356,
+   "pid": 3521815,
    "result": "EACCES",
-   "t": 168964.579338257
+   "t": 171496.277254205
   },
   {
    "actor": "workflows-pause",
    "attempt": "https_via_proxy",
    "exit": 56,
    "phase": "pause",
-   "pid": 2942356,
+   "pid": 3521815,
    "proxy_set": true,
    "stderr": "curl: (56) CONNECT tunnel failed, response 403",
-   "t": 168964.583760991
+   "t": 171496.2820333
   }
  ]
 }

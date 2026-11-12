@@ -20,7 +20,7 @@
   {
    "ok": true,
    "row": "prelaunch_connect",
-   "t": 168957.217739169,
+   "t": 171488.978885154,
    "target": "platform.claude.com:443"
   },
   {
@@ -30,24 +30,24 @@
    "method": "POST",
    "path": "/v1/oauth/token",
    "row": "refresh_request",
-   "t": 168957.222766865
+   "t": 171488.984795726
   },
   {
    "ok": false,
    "row": "prelaunch_connect",
-   "t": 168957.225907464,
+   "t": 171488.987753509,
    "target": "api.anthropic.com:443"
   },
   {
    "ok": false,
    "row": "prelaunch_connect",
-   "t": 168957.233166317,
+   "t": 171488.994167469,
    "target": "api.anthropic.com:443"
   },
   {
    "ok": true,
    "row": "prelaunch_connect",
-   "t": 168957.403328078,
+   "t": 171489.154033652,
    "target": "platform.claude.com:443"
   },
   {
@@ -57,24 +57,24 @@
    "method": "POST",
    "path": "/v1/oauth/token",
    "row": "refresh_request",
-   "t": 168957.408964728
+   "t": 171489.157640826
   },
   {
    "ok": false,
    "row": "prelaunch_connect",
-   "t": 168957.41194275,
+   "t": 171489.159720952,
    "target": "api.anthropic.com:443"
   },
   {
    "ok": false,
    "row": "prelaunch_connect",
-   "t": 168957.419199773,
+   "t": 171489.165642958,
    "target": "api.anthropic.com:443"
   }
  ],
  "runs": [
   {
-   "elapsed_s": 0.23,
+   "elapsed_s": 0.17,
    "exit": 0,
    "refresh_requests": 1,
    "status_fields": {
@@ -86,7 +86,7 @@
    "variant": "near_expiry"
   },
   {
-   "elapsed_s": 0.19,
+   "elapsed_s": 0.18,
    "exit": 0,
    "refresh_requests": 1,
    "status_fields": {

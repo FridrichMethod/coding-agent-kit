@@ -5,297 +5,297 @@
    "actor": "sdk",
    "attempt": "start",
    "mode": "sdk",
-   "pid": 2851369,
-   "t": 168838.387452355
+   "pid": 3504073,
+   "t": 171370.87448636
   },
   {
    "actor": "sdk",
    "attempt": "direct_upstream",
-   "pid": 2851369,
+   "pid": 3504073,
    "result": "EACCES",
-   "t": 168838.393939763
+   "t": 171370.880940066
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168838.394069144,
+   "pid": 3504073,
+   "sent": 171370.881079364,
    "seq": 1,
    "status": 200,
-   "t": 168838.395703727
+   "t": 171370.882274955
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168838.796108928,
+   "pid": 3504073,
+   "sent": 171371.28251695,
    "seq": 2,
    "status": 200,
-   "t": 168838.79733407
+   "t": 171371.283490442
   },
   {
    "actor": "bind-holder",
    "attempt": "start",
    "mode": "bind",
-   "pid": 2851964,
-   "t": 168839.230014351
+   "pid": 3504359,
+   "t": 171371.741317067
   },
   {
    "actor": "bind-holder",
    "attempt": "bind_gate_port",
-   "pid": 2851964,
+   "pid": 3504359,
    "result": "EADDRINUSE",
-   "t": 168839.230227398
+   "t": 171371.74142265
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168839.197661394,
+   "pid": 3504073,
+   "sent": 171371.683829707,
    "seq": 3,
    "status": 403,
-   "t": 168841.913047328
+   "t": 171374.427292298
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168842.313351575,
+   "pid": 3504073,
+   "sent": 171374.828512575,
    "seq": 4,
    "status": 403,
-   "t": 168842.31427869
+   "t": 171374.82940401
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168842.714715614,
+   "pid": 3504073,
+   "sent": 171375.230034545,
    "seq": 5,
    "status": 403,
-   "t": 168842.715432084
+   "t": 171375.231368614
   },
   {
    "actor": "sdk",
    "attempt": "direct_upstream",
-   "pid": 2851369,
+   "pid": 3504073,
    "result": "EACCES",
-   "t": 168842.715585033
+   "t": 171375.231613188
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168843.116042616,
+   "pid": 3504073,
+   "sent": 171375.632311617,
    "seq": 6,
    "status": 403,
-   "t": 168843.11690039
+   "t": 171375.633669891
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168843.517255911,
+   "pid": 3504073,
+   "sent": 171376.034200843,
    "seq": 7,
    "status": 403,
-   "t": 168843.518148352
+   "t": 171376.035091563
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168843.918567436,
+   "pid": 3504073,
+   "sent": 171376.435789305,
    "seq": 8,
    "status": 403,
-   "t": 168843.919334044
+   "t": 171376.436525206
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168844.319697082,
+   "pid": 3504073,
+   "sent": 171376.836858662,
    "seq": 9,
    "status": 403,
-   "t": 168844.320431376
+   "t": 171376.837568746
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168844.720800348,
+   "pid": 3504073,
+   "sent": 171377.237967358,
    "seq": 10,
    "status": 200,
-   "t": 168844.721984277
+   "t": 171377.239294546
   },
   {
    "actor": "sdk",
    "attempt": "direct_upstream",
-   "pid": 2851369,
+   "pid": 3504073,
    "result": "EACCES",
-   "t": 168844.722251031
+   "t": 171377.239439723
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168845.122848137,
+   "pid": 3504073,
+   "sent": 171377.639663762,
    "seq": 11,
    "status": 200,
-   "t": 168845.124003145
+   "t": 171377.640850826
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
-   "pid": 2851369,
-   "sent": 168845.524383641,
+   "pid": 3504073,
+   "sent": 171378.041889305,
    "seq": 12,
    "status": 200,
-   "t": 168845.525680933
+   "t": 171378.043583527
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNREFUSED",
-   "pid": 2851369,
-   "sent": 168845.926092524,
+   "pid": 3504073,
+   "sent": 171378.444138744,
    "seq": 13,
    "status": null,
-   "t": 168845.926316059
+   "t": 171378.444347978
   },
   {
    "actor": "bind-gap",
    "attempt": "start",
    "mode": "bind",
-   "pid": 2857164,
-   "t": 168845.985472274
+   "pid": 3507325,
+   "t": 171378.492468734
   },
   {
    "actor": "bind-gap",
    "attempt": "bind_gate_port",
-   "pid": 2857164,
+   "pid": 3507325,
    "result": "bound",
-   "t": 168845.985550852
+   "t": 171378.492546385
   },
   {
    "actor": "bind-gap",
    "attempt": "bind_accepted",
-   "pid": 2857164,
+   "pid": 3507325,
    "request_line": "POST /v1/messages?beta=true HTTP/1.1",
-   "t": 168846.327028488
+   "t": 171378.845675085
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNRESET",
-   "pid": 2851369,
-   "sent": 168846.326681751,
+   "pid": 3504073,
+   "sent": 171378.845286652,
    "seq": 14,
    "status": null,
-   "t": 168846.327211895
+   "t": 171378.845904826
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNRESET",
-   "pid": 2851369,
-   "sent": 168846.727700421,
+   "pid": 3504073,
+   "sent": 171379.246292624,
    "seq": 15,
    "status": null,
-   "t": 168846.728052566
+   "t": 171379.246635157
   },
   {
    "actor": "sdk",
    "attempt": "direct_upstream",
-   "pid": 2851369,
+   "pid": 3504073,
    "result": "EACCES",
-   "t": 168846.729251241
+   "t": 171379.246916628
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNREFUSED",
-   "pid": 2851369,
-   "sent": 168847.12958218,
+   "pid": 3504073,
+   "sent": 171379.647895135,
    "seq": 16,
    "status": null,
-   "t": 168847.129736679
+   "t": 171379.648141522
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNREFUSED",
-   "pid": 2851369,
-   "sent": 168847.530107998,
+   "pid": 3504073,
+   "sent": 171380.049148809,
    "seq": 17,
    "status": null,
-   "t": 168847.530270295
+   "t": 171380.049389373
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNREFUSED",
-   "pid": 2851369,
-   "sent": 168847.930640827,
+   "pid": 3504073,
+   "sent": 171380.450404547,
    "seq": 18,
    "status": null,
-   "t": 168847.930817291
+   "t": 171380.450648648
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNREFUSED",
-   "pid": 2851369,
-   "sent": 168848.331591863,
+   "pid": 3504073,
+   "sent": 171380.851660723,
    "seq": 19,
    "status": null,
-   "t": 168848.331747391
+   "t": 171380.851996026
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNREFUSED",
-   "pid": 2851369,
-   "sent": 168848.733249067,
+   "pid": 3504073,
+   "sent": 171381.252984145,
    "seq": 20,
    "status": null,
-   "t": 168848.73341945
+   "t": 171381.253168644
   },
   {
    "actor": "sdk",
    "attempt": "direct_upstream",
-   "pid": 2851369,
+   "pid": 3504073,
    "result": "EACCES",
-   "t": 168848.733539454
+   "t": 171381.253282436
   },
   {
    "actor": "sdk",
    "attempt": "model_request",
    "bearer": "A",
    "error": "ECONNREFUSED",
-   "pid": 2851369,
-   "sent": 168849.133729838,
+   "pid": 3504073,
+   "sent": 171381.653737444,
    "seq": 21,
    "status": null,
-   "t": 168849.133953206
+   "t": 171381.653914956
   }
  ],
  "cleanup": {
@@ -314,7 +314,7 @@
       "address": "127.0.0.1",
       "call": "connect",
       "exe": "python3.15",
-      "port": 43911,
+      "port": 39093,
       "result": "EACCES",
       "target": "other_loopback"
      },
@@ -369,7 +369,7 @@
     "xdg-mime",
     "zsh"
    ],
-   "traced_processes": 116
+   "traced_processes": 112
   }
  },
  "continue_reply": {
@@ -377,10 +377,12 @@
   "ok": true,
   "op": "continue",
   "reason": "resumed",
-  "t": 168844.430375099
+  "t": 171376.940370891
  },
  "exit": {
+  "began_t": 171379.246601609,
   "exited": true,
+  "exited_t": 171383.147961683,
   "seconds": 3.9,
   "stop_tasks_dialog": true,
   "termios_restored": true
@@ -399,7 +401,7 @@
  "in_boundary_bind_without_holder": [
   "bound"
  ],
- "killed_t": 168838.829194736,
+ "killed_t": 171371.297233872,
  "launched": true,
  "lingering_after_cleanup": 0,
  "native_alive": true,
@@ -424,11 +426,11 @@
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 11.101,
+   "ms": 7.98,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168837.652739219,
+   "t": 171370.186592597,
    "what": "usage"
   },
   {
@@ -440,16 +442,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168837.652776832
+   "t": 171370.186627945
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 1.322,
+   "ms": 1.189,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168837.654122614,
+   "t": 171370.187838872,
    "what": "profile"
   },
   {
@@ -460,25 +462,25 @@
    "kind": "lease",
    "row": "event",
    "source": "gate",
-   "t": 168837.654255755
+   "t": 171370.188024915
   },
   {
    "event": "preflight",
    "inv": "main",
-   "ms": 12.815,
+   "ms": 9.531,
    "row": "event",
    "source": "gate",
-   "t": 168837.654356377
+   "t": 171370.18804612
   },
   {
    "event": "gate_ready",
    "inv": "main",
    "mode": "startup",
-   "pid": 2851122,
-   "port": 35705,
+   "pid": 3503774,
+   "port": 44517,
    "row": "event",
    "source": "gate",
-   "t": 168837.654862185
+   "t": 171370.188564187
   },
   {
    "event": "gate_started",
@@ -486,31 +488,32 @@
    "mode": "startup",
    "row": "event",
    "source": "launcher",
-   "spawn_to_ready_ms": 188.195,
-   "t": 168837.668793631
+   "spawn_to_ready_ms": 181.483,
+   "t": 171370.188737099
   },
   {
    "gate_event": "gate_ready",
    "inv": "main",
+   "launcher_refusal": null,
    "reason": null,
    "row": "launch",
-   "t": 168837.668805733
+   "t": 171370.188744879
   },
   {
    "event": "native_started",
    "inv": "main",
    "row": "event",
    "source": "launcher",
-   "t": 168837.669880296
+   "t": 171370.189463865
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 1.348,
+   "ms": 1.457,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168837.736034193,
+   "t": 171370.251566943,
    "what": "usage"
   },
   {
@@ -522,37 +525,37 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168837.736097858
+   "t": 171370.251629704
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 1.143,
+   "ms": 1.005,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168837.737262282,
+   "t": 171370.252657627,
    "what": "profile"
   },
   {
-   "deadline": 168841.734537923,
+   "deadline": 171374.249963702,
    "epoch": 1,
    "event": "controller",
    "inv": "main",
    "kind": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168837.737504121
+   "t": 171370.252838754
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 2.992,
+   "ms": 2.899,
    "ok": true,
    "reason": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168837.737529367
+   "t": 171370.252862512
   },
   {
    "event": "controller",
@@ -561,7 +564,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168837.851888772
+   "t": 171370.374528127
   },
   {
    "event": "connect",
@@ -571,7 +574,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168837.851915243,
+   "t": 171370.374563031,
    "target": "api.anthropic.com:443"
   },
   {
@@ -581,7 +584,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168837.907536697
+   "t": 171370.426440954
   },
   {
    "event": "connect",
@@ -591,7 +594,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168837.907570118,
+   "t": 171370.426474193,
    "target": "api.anthropic.com:443"
   },
   {
@@ -601,7 +604,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168837.932858946
+   "t": 171370.451227345
   },
   {
    "event": "connect",
@@ -611,7 +614,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168837.932896549,
+   "t": 171370.451263572,
    "target": "api.anthropic.com:443"
   },
   {
@@ -622,10 +625,11 @@
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168838.036869231
+   "t": 171370.556043591
   },
   {
-   "admit_ms": 0.116,
+   "admit_ms": 0.12,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 1,
@@ -635,18 +639,18 @@
    "source": "gate",
    "sse": false,
    "stream": 1,
-   "t": 168838.036912226,
+   "t": 171370.556112735,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.263,
+   "gate_ms": 0.28,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168838.037055153
+   "t": 171370.556240232
   },
   {
    "continued": false,
@@ -661,7 +665,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": false,
-   "t": 168838.037643595,
+   "t": 171370.556676847,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -672,7 +676,7 @@
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168838.037805288
+   "t": 171370.556836051
   },
   {
    "epoch": 1,
@@ -682,10 +686,11 @@
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168838.048652843
+   "t": 171370.567018837
   },
   {
-   "admit_ms": 0.149,
+   "admit_ms": 0.139,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 32000,
@@ -695,18 +700,18 @@
    "source": "gate",
    "sse": true,
    "stream": 2,
-   "t": 168838.048694736,
+   "t": 171370.567073741,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.289,
+   "gate_ms": 0.292,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168838.048832171
+   "t": 171370.567206435
   },
   {
    "continued": false,
@@ -721,7 +726,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168838.049229028,
+   "t": 171370.56755879,
    "tag": "gate",
    "tool_results": 0,
    "tools": []
@@ -732,7 +737,7 @@
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168838.049427589
+   "t": 171370.567739912
   },
   {
    "event": "controller",
@@ -741,7 +746,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.08039607
+   "t": 171370.596400321
   },
   {
    "event": "connect",
@@ -751,7 +756,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.080419286,
+   "t": 171370.596422877,
    "target": "raw.githubusercontent.com:443"
   },
   {
@@ -761,7 +766,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.082415982
+   "t": 171370.598648961
   },
   {
    "event": "connect",
@@ -771,7 +776,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.0824258,
+   "t": 171370.598665557,
    "target": "api.anthropic.com:443"
   },
   {
@@ -781,7 +786,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.082519438
+   "t": 171370.598736312
   },
   {
    "event": "connect",
@@ -791,7 +796,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.082535916,
+   "t": 171370.598861354,
    "target": "api.anthropic.com:443"
   },
   {
@@ -801,7 +806,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.082623015
+   "t": 171370.598886046
   },
   {
    "event": "connect",
@@ -811,7 +816,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.082637996,
+   "t": 171370.598897869,
    "target": "api.anthropic.com:443"
   },
   {
@@ -821,7 +826,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.082748736
+   "t": 171370.598933789
   },
   {
    "event": "connect",
@@ -831,7 +836,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.0827756,
+   "t": 171370.598943515,
    "target": "api.anthropic.com:443"
   },
   {
@@ -841,7 +846,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.090237067
+   "t": 171370.599521693
   },
   {
    "event": "connect",
@@ -851,7 +856,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.090323836,
+   "t": 171370.5995356,
    "target": "api.anthropic.com:443"
   },
   {
@@ -861,7 +866,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.090381533
+   "t": 171370.606590844
   },
   {
    "event": "connect",
@@ -871,7 +876,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.090403987,
+   "t": 171370.606605758,
    "target": "downloads.claude.ai:443"
   },
   {
@@ -882,10 +887,11 @@
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168838.11625293
+   "t": 171370.631464736
   },
   {
-   "admit_ms": 0.567,
+   "admit_ms": 0.552,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 32000,
@@ -895,18 +901,18 @@
    "source": "gate",
    "sse": true,
    "stream": 3,
-   "t": 168838.116292226,
+   "t": 171370.631516555,
    "tools": 13
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.751,
+   "gate_ms": 0.753,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168838.116473158
+   "t": 171370.631700755
   },
   {
    "continued": false,
@@ -921,7 +927,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168838.117397369,
+   "t": 171370.632572445,
    "tag": "gate",
    "tool_results": 0,
    "tools": [
@@ -946,7 +952,7 @@
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168838.117603295
+   "t": 171370.632780188
   },
   {
    "epoch": 1,
@@ -956,10 +962,11 @@
    "row": "event",
    "source": "gate",
    "stream": 4,
-   "t": 168838.175094993
+   "t": 171370.691189733
   },
   {
-   "admit_ms": 0.428,
+   "admit_ms": 0.458,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 32000,
@@ -969,18 +976,18 @@
    "source": "gate",
    "sse": true,
    "stream": 4,
-   "t": 168838.175139882,
+   "t": 171370.691241511,
    "tools": 13
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.605,
+   "gate_ms": 0.646,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 4,
-   "t": 168838.175307459
+   "t": 171370.691410279
   },
   {
    "continued": false,
@@ -992,10 +999,10 @@
    "max_tokens": 32000,
    "model": "claude-sonnet-4-6",
    "path": "/v1/messages",
-   "result_text": "\"Command running in background with ID: bx01ky905. Output is being written to: <PROBE_ROOT>/native-main/tmp/claude-1001/-tmp-quota-klc-gate-death-zgty0l9j-native-main-workspace/59127f4f-efe0-4389-abdc-70759da59bb5/tasks/bx01ky905.output. You will be notified when it completes \\",
+   "result_text": "\"Command running in background with ID: bla30itz5. Output is being written to: <PROBE_ROOT>/native-main/tmp/claude-<UID>/<PROBE_ROOT_SLUG>-native-main-workspace/b2857647-9c70-4e32-b357-37ab2fe37e75/tasks/bla30itz5.output. You will be notified when it completes \\",
    "row": "upstream_request",
    "stream": true,
-   "t": 168838.175994269,
+   "t": 171370.692123613,
    "tag": "gate",
    "tool_results": 1,
    "tools": [
@@ -1019,7 +1026,7 @@
    "kind": "root",
    "label": "A",
    "row": "stream_held",
-   "t": 168838.176115237
+   "t": 171370.692243686
   },
   {
    "event": "controller",
@@ -1028,7 +1035,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168838.18536746
+   "t": 171370.706088961
   },
   {
    "event": "connect",
@@ -1038,7 +1045,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168838.185395861,
+   "t": 171370.706121411,
    "target": "github.com:443"
   },
   {
@@ -1049,10 +1056,11 @@
    "row": "event",
    "source": "gate",
    "stream": 5,
-   "t": 168838.394650756
+   "t": 171370.881551075
   },
   {
-   "admit_ms": 0.071,
+   "admit_ms": 0.076,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1062,18 +1070,18 @@
    "source": "gate",
    "sse": true,
    "stream": 5,
-   "t": 168838.394682777,
+   "t": 171370.881598161,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.193,
+   "gate_ms": 0.215,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 5,
-   "t": 168838.394803094
+   "t": 171370.881721365
   },
   {
    "continued": false,
@@ -1088,7 +1096,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168838.395304042,
+   "t": 171370.882127,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -1099,16 +1107,16 @@
    "row": "event",
    "source": "gate",
    "stream": 5,
-   "t": 168838.395480585
+   "t": 171370.882223206
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 1.067,
+   "ms": 0.947,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168838.737259694,
+   "t": 171371.252444429,
    "what": "usage"
   },
   {
@@ -1120,37 +1128,37 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168838.737404985
+   "t": 171371.252499227
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.632,
+   "ms": 0.63,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168838.738059822,
+   "t": 171371.253149724,
    "what": "profile"
   },
   {
-   "deadline": 168842.736045859,
+   "deadline": 171375.251362651,
    "epoch": 1,
    "event": "controller",
    "inv": "main",
    "kind": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168838.738208966
+   "t": 171371.253303708
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 2.188,
+   "ms": 1.964,
    "ok": true,
    "reason": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168838.738231748
+   "t": 171371.253326882
   },
   {
    "epoch": 1,
@@ -1160,10 +1168,11 @@
    "row": "event",
    "source": "gate",
    "stream": 6,
-   "t": 168838.796655131
+   "t": 171371.282839261
   },
   {
-   "admit_ms": 0.079,
+   "admit_ms": 0.06,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1173,18 +1182,18 @@
    "source": "gate",
    "sse": true,
    "stream": 6,
-   "t": 168838.796690857,
+   "t": 171371.282877778,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.21,
+   "gate_ms": 0.184,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 6,
-   "t": 168838.796820633
+   "t": 171371.282988163
   },
   {
    "continued": false,
@@ -1199,7 +1208,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168838.797154009,
+   "t": 171371.283335662,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -1210,7 +1219,7 @@
    "row": "event",
    "source": "gate",
    "stream": 6,
-   "t": 168838.797322537
+   "t": 171371.283487708
   },
   {
    "command": "sigkill",
@@ -1218,7 +1227,7 @@
    "inv": "main",
    "row": "event",
    "source": "launcher",
-   "t": 168838.827256236
+   "t": 171371.295632372
   },
   {
    "code": -9,
@@ -1226,13 +1235,13 @@
    "inv": "main",
    "row": "event",
    "source": "gate",
-   "t": 168838.829170537
+   "t": 171371.297190345
   },
   {
    "id": 4,
    "kind": "root",
    "row": "stream_disconnected",
-   "t": 168838.977184296
+   "t": 171371.493336853
   },
   {
    "exit": 0,
@@ -1240,7 +1249,7 @@
    "name": "bind-holder",
    "row": "boundary_actor",
    "stderr": "",
-   "t": 168838.979635124
+   "t": 171371.497649503
   },
   {
    "closed": 0,
@@ -1251,17 +1260,17 @@
    "row": "event",
    "source": "gate",
    "state": "paused",
-   "t": 168841.911653211
+   "t": 171374.425033028
   },
   {
    "event": "gate_ready",
    "inv": "main",
    "mode": "restart",
-   "pid": 2854726,
-   "port": 35705,
+   "pid": 3505798,
+   "port": 44517,
    "row": "event",
    "source": "gate",
-   "t": 168841.912031001
+   "t": 171374.42567179
   },
   {
    "event": "controller",
@@ -1270,10 +1279,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168841.912397712
+   "t": 171374.426242519
   },
   {
-   "admit_ms": 0.091,
+   "admit_ms": 0.04,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1283,7 +1293,7 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168841.91246478,
+   "t": 171374.426298375,
    "tools": 0
   },
   {
@@ -1293,10 +1303,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168841.913178269
+   "t": 171374.4272172
   },
   {
-   "admit_ms": 0.434,
+   "admit_ms": 0.528,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 32000,
@@ -1306,7 +1317,7 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168841.913199277,
+   "t": 171374.427255467,
    "tools": 13
   },
   {
@@ -1315,8 +1326,8 @@
    "mode": "restart",
    "row": "event",
    "source": "launcher",
-   "spawn_to_ready_ms": 175.775,
-   "t": 168841.917552144
+   "spawn_to_ready_ms": 178.196,
+   "t": 171374.429620486
   },
   {
    "code": -9,
@@ -1324,7 +1335,65 @@
    "inv": "main",
    "row": "event",
    "source": "monitor",
-   "t": 168841.918676161
+   "t": 171374.43048623
+  },
+  {
+   "event": "poll",
+   "inv": "main",
+   "ms": 0.006,
+   "ok": false,
+   "reason": "gate_restart",
+   "row": "event",
+   "source": "gate",
+   "t": 171374.489467158
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171374.829222692
+  },
+  {
+   "admit_ms": 0.044,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "gate_restart",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171374.829259937,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171375.230674724
+  },
+  {
+   "admit_ms": 0.055,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "gate_restart",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171375.23072245,
+   "tools": 0
   },
   {
    "event": "poll",
@@ -1334,63 +1403,7 @@
    "reason": "gate_restart",
    "row": "event",
    "source": "gate",
-   "t": 168841.977612479
-  },
-  {
-   "event": "controller",
-   "inv": "main",
-   "kind": "refused",
-   "reason": "paused",
-   "row": "event",
-   "source": "gate",
-   "t": 168842.313778674
-  },
-  {
-   "admit_ms": 0.069,
-   "event": "decision",
-   "inv": "main",
-   "max_tokens": 16,
-   "ok": false,
-   "reason": "gate_restart",
-   "row": "event",
-   "source": "gate",
-   "sse": true,
-   "stream": null,
-   "t": 168842.3138249,
-   "tools": 0
-  },
-  {
-   "event": "controller",
-   "inv": "main",
-   "kind": "refused",
-   "reason": "paused",
-   "row": "event",
-   "source": "gate",
-   "t": 168842.715231493
-  },
-  {
-   "admit_ms": 0.037,
-   "event": "decision",
-   "inv": "main",
-   "max_tokens": 16,
-   "ok": false,
-   "reason": "gate_restart",
-   "row": "event",
-   "source": "gate",
-   "sse": true,
-   "stream": null,
-   "t": 168842.715253931,
-   "tools": 0
-  },
-  {
-   "event": "poll",
-   "inv": "main",
-   "ms": 0.007,
-   "ok": false,
-   "reason": "gate_restart",
-   "row": "event",
-   "source": "gate",
-   "t": 168842.979483671
+   "t": 171375.491526006
   },
   {
    "event": "controller",
@@ -1399,7 +1412,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168843.012572713
+   "t": 171375.532318918
   },
   {
    "event": "connect",
@@ -1409,7 +1422,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168843.012607364,
+   "t": 171375.532350859,
    "target": "api.anthropic.com:443"
   },
   {
@@ -1419,10 +1432,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168843.116551304
+   "t": 171375.632869341
   },
   {
-   "admit_ms": 0.057,
+   "admit_ms": 0.051,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1432,7 +1446,31 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168843.116587034,
+   "t": 171375.632914663,
+   "tools": 0
+  },
+  {
+   "event": "controller",
+   "inv": "main",
+   "kind": "refused",
+   "reason": "paused",
+   "row": "event",
+   "source": "gate",
+   "t": 171376.034793565
+  },
+  {
+   "admit_ms": 0.108,
+   "bearer": "A",
+   "event": "decision",
+   "inv": "main",
+   "max_tokens": 16,
+   "ok": false,
+   "reason": "gate_restart",
+   "row": "event",
+   "source": "gate",
+   "sse": true,
+   "stream": null,
+   "t": 171376.034892114,
    "tools": 0
   },
   {
@@ -1442,7 +1480,7 @@
    "reason": "connect_unlisted",
    "row": "event",
    "source": "gate",
-   "t": 168843.515402044
+   "t": 171376.035191621
   },
   {
    "event": "connect",
@@ -1452,7 +1490,7 @@
    "row": "event",
    "source": "gate",
    "stream": null,
-   "t": 168843.515437675,
+   "t": 171376.035217886,
    "target": "api.anthropic.com:443"
   },
   {
@@ -1462,10 +1500,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168843.517624025
+   "t": 171376.43629391
   },
   {
    "admit_ms": 0.06,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1475,30 +1514,7 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168843.517664731,
-   "tools": 0
-  },
-  {
-   "event": "controller",
-   "inv": "main",
-   "kind": "refused",
-   "reason": "paused",
-   "row": "event",
-   "source": "gate",
-   "t": 168843.919113527
-  },
-  {
-   "admit_ms": 0.059,
-   "event": "decision",
-   "inv": "main",
-   "max_tokens": 16,
-   "ok": false,
-   "reason": "gate_restart",
-   "row": "event",
-   "source": "gate",
-   "sse": true,
-   "stream": null,
-   "t": 168843.919148515,
+   "t": 171376.436345799,
    "tools": 0
   },
   {
@@ -1509,7 +1525,7 @@
    "reason": "gate_restart",
    "row": "event",
    "source": "gate",
-   "t": 168843.981927451
+   "t": 171376.493924616
   },
   {
    "event": "controller",
@@ -1518,10 +1534,11 @@
    "reason": "paused",
    "row": "event",
    "source": "gate",
-   "t": 168844.320208471
+   "t": 171376.837335399
   },
   {
-   "admit_ms": 0.061,
+   "admit_ms": 0.072,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1531,7 +1548,7 @@
    "source": "gate",
    "sse": true,
    "stream": null,
-   "t": 168844.320245138,
+   "t": 171376.83739829,
    "tools": 0
   },
   {
@@ -1540,16 +1557,16 @@
    "op": "continue",
    "row": "event",
    "source": "launcher",
-   "t": 168844.419350308
+   "t": 171376.931235226
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 9.924,
+   "ms": 7.842,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168844.429539996,
+   "t": 171376.939438778,
    "what": "usage"
   },
   {
@@ -1561,16 +1578,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168844.429561149
+   "t": 171376.939499686
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.602,
+   "ms": 0.658,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168844.430176848,
+   "t": 171376.940179783,
    "what": "profile"
   },
   {
@@ -1581,7 +1598,7 @@
    "kind": "lease",
    "row": "event",
    "source": "gate",
-   "t": 168844.430353606
+   "t": 171376.940349794
   },
   {
    "event": "control",
@@ -1591,7 +1608,7 @@
    "reason": "resumed",
    "row": "event",
    "source": "gate",
-   "t": 168844.430375099
+   "t": 171376.940370891
   },
   {
    "epoch": 1,
@@ -1601,10 +1618,11 @@
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168844.72136447
+   "t": 171377.238496247
   },
   {
-   "admit_ms": 0.095,
+   "admit_ms": 0.094,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1614,18 +1632,18 @@
    "source": "gate",
    "sse": true,
    "stream": 1,
-   "t": 168844.72139965,
+   "t": 171377.238544935,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.231,
+   "gate_ms": 0.249,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168844.721534499
+   "t": 171377.2386843
   },
   {
    "continued": false,
@@ -1640,7 +1658,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168844.721835252,
+   "t": 171377.238993153,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -1651,16 +1669,16 @@
    "row": "event",
    "source": "gate",
    "stream": 1,
-   "t": 168844.722017931
+   "t": 171377.239161535
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.961,
+   "ms": 1.228,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168844.985121848,
+   "t": 171377.49711822,
    "what": "usage"
   },
   {
@@ -1672,37 +1690,37 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168844.985178593
+   "t": 171377.497151723
   },
   {
    "event": "fetch",
    "inv": "main",
-   "ms": 0.638,
+   "ms": 0.773,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168844.985838193,
+   "t": 171377.497944003,
    "what": "profile"
   },
   {
-   "deadline": 168848.983999241,
+   "deadline": 171381.495748603,
    "epoch": 1,
    "event": "controller",
    "inv": "main",
    "kind": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168844.986005413
+   "t": 171377.498103023
   },
   {
    "event": "poll",
    "inv": "main",
-   "ms": 2.028,
+   "ms": 2.374,
    "ok": true,
    "reason": "extended",
    "row": "event",
    "source": "gate",
-   "t": 168844.986028035
+   "t": 171377.498124119
   },
   {
    "epoch": 1,
@@ -1712,10 +1730,11 @@
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168845.123384098
+   "t": 171377.640176152
   },
   {
-   "admit_ms": 0.093,
+   "admit_ms": 0.1,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1725,8 +1744,18 @@
    "source": "gate",
    "sse": true,
    "stream": 2,
-   "t": 168845.123420332,
+   "t": 171377.640233835,
    "tools": 0
+  },
+  {
+   "epoch": 1,
+   "event": "forwarded",
+   "gate_ms": 0.245,
+   "inv": "main",
+   "row": "event",
+   "source": "gate",
+   "stream": 2,
+   "t": 171377.64036391
   },
   {
    "continued": false,
@@ -1741,20 +1770,10 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168845.123840534,
+   "t": 171377.640672822,
    "tag": null,
    "tool_results": 0,
    "tools": []
-  },
-  {
-   "epoch": 1,
-   "event": "forwarded",
-   "gate_ms": 0.224,
-   "inv": "main",
-   "row": "event",
-   "source": "gate",
-   "stream": 2,
-   "t": 168845.12354916
   },
   {
    "event": "stream_closed",
@@ -1762,7 +1781,7 @@
    "row": "event",
    "source": "gate",
    "stream": 2,
-   "t": 168845.124027549
+   "t": 171377.640845277
   },
   {
    "epoch": 1,
@@ -1772,10 +1791,11 @@
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168845.524906183
+   "t": 171378.04246793
   },
   {
-   "admit_ms": 0.078,
+   "admit_ms": 0.073,
+   "bearer": "A",
    "event": "decision",
    "inv": "main",
    "max_tokens": 16,
@@ -1785,18 +1805,18 @@
    "source": "gate",
    "sse": true,
    "stream": 3,
-   "t": 168845.52494119,
+   "t": 171378.042513601,
    "tools": 0
   },
   {
    "epoch": 1,
    "event": "forwarded",
-   "gate_ms": 0.222,
+   "gate_ms": 0.197,
    "inv": "main",
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168845.525082822
+   "t": 171378.042623174
   },
   {
    "continued": false,
@@ -1811,7 +1831,7 @@
    "result_text": null,
    "row": "upstream_request",
    "stream": true,
-   "t": 168845.525483242,
+   "t": 171378.043080962,
    "tag": null,
    "tool_results": 0,
    "tools": []
@@ -1822,7 +1842,7 @@
    "row": "event",
    "source": "gate",
    "stream": 3,
-   "t": 168845.525669541
+   "t": 171378.04338568
   },
   {
    "command": "sigkill",
@@ -1830,7 +1850,11 @@
    "inv": "main",
    "row": "event",
    "source": "launcher",
-   "t": 168845.740393287
+   "t": 171378.252220263
+  },
+  {
+   "row": "holder_released",
+   "t": 171378.253517095
   },
   {
    "code": -9,
@@ -1838,11 +1862,7 @@
    "inv": "main",
    "row": "event",
    "source": "gate",
-   "t": 168845.741824357
-  },
-  {
-   "row": "holder_released",
-   "t": 168845.741882404
+   "t": 171378.253572215
   },
   {
    "exit": 0,
@@ -1850,13 +1870,13 @@
    "name": "bind-gap",
    "row": "boundary_actor",
    "stderr": "",
-   "t": 168845.741987414
+   "t": 171378.253752754
   },
   {
    "bind": "bound",
    "reached": "POST /v1/messages?beta=true HTTP/1.1",
    "row": "impostor",
-   "t": 168846.727997867
+   "t": 171379.246590232
   },
   {
    "code": -9,
@@ -1864,7 +1884,7 @@
    "inv": "main",
    "row": "event",
    "source": "monitor",
-   "t": 168850.648040587
+   "t": 171383.165221062
   }
  ],
  "sanitized": true,
@@ -1880,12 +1900,12 @@
   "forwarded_after_latch": 3,
   "latch": {
    "reason": "gate_restart",
-   "t": 168841.911653211
+   "t": 171374.425033028
   },
   "upstream_requests": 9
  },
  "terminal": {
-  "main": "andled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 35705}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42} \u2590\u259b\u2588\u2588\u2588\u259b\u2588ClaudeCodev2.1.322 \u259d\u259c\u2588\u2588\u2588\u2588\u2588\u2588\u2580Sonnet4.6\u00b7ClaudeMax <PATH> \u26a0Safemode:allcustomizationsaredisabled(CLAUDE.md,skills,plugins,hooks,MCP,agents,andmore) Restartwithout--safe-modetore-enable \u276f KLC root gate death \u00b7Flibbertigibbeting\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u276f esc to interrupt \u00b7 \u2190 for agents <PATH> <PATH> \u23bf Running\u2026 \u00b7 Hyperspacing\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cf in the background (\u2193 to manage) \u00b7 1 shell \u00b7 es to interrup \u00b7 \u2190 fo agents\u00b7 \u2193to manage Hyperspacing\u2026 \u2722(0s \u00b7 \u219325 tokens) \u25cf \u2722 Hyperspacing\u2026 (0s \u00b7 \u2193 25 tokens) \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> 50 *62 \u273674 \u273b8 80 \u273bAPI error \u00b7 Retrying in 1s \u00b7 attempt <PATH> \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u23f5\u23f5 don't ask on \u00b7 1 shell \u00b7 esc to interrupt \u00b7 \u2190 for agents \u00b7 \u2193 to manage\u25cf high \u00b7 <PATH> 0 \u25cfPlease run <PATH> \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (gate_restart); continue only from the trusted terminal after a fresh check \u273b Crunched for 3s \u00b7 done 11:12 AM \u00b7 1 shell still running \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u000f No backgroundagentsrunning Press Ctrl-C again to exit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Background work is running The following will stop when you exit: shell \u00b7KLCsdkchild \u276f1.Exitandstoptasks 2.Movetobackgroundandexit 3.Stay Entertoconfirm\u00b7Esctocancel \u000f Resume this session with: claude --resume 59127f4f-efe0-4389-abdc-70759da59bb5 "
+  "main": ", \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 44517}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42} \u2590\u259b\u2588\u2588\u2588\u259b\u2588ClaudeCodev2.1.322 \u259d\u259c\u2588\u2588\u2588\u2588\u2588\u2588\u2580Sonnet4.6\u00b7ClaudeMax <PATH> \u26a0Safemode:allcustomizationsaredisabled(CLAUDE.md,skills,plugins,hooks,MCP,agents,andmore) Restartwithout--safe-modetore-enable \u276f KLC root gate death \u00b7Pontificating\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u276f esc to interrupt \u00b7 \u2190 for agents <PATH> <PATH> \u23bf Running\u2026 \u00b7 Precipitating\u2026 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon <PATH> \u25cf in the background (\u2193 to manage) \u00b7 1 shell \u00b7 es to interrup \u00b7 \u2190 fo agents\u00b7 \u2193to manage Precipitating\u2026 \u2722(0s \u00b7 \u219325 tokens) \u25cf \u2722 Precipitating\u2026 (0s \u00b7 \u2193 25 tokens) \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> 50 *62 \u273674 \u273b8 80 \u273bAPI error \u00b7 Retrying in 1s \u00b7 attempt <PATH> \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u23f5\u23f5 don't ask on \u00b7 1 shell \u00b7 esc to interrupt \u00b7 \u2190 for agents \u00b7 \u2193 to manage\u25cf high \u00b7 <PATH> 0 \u25cfPlease run <PATH> \u00b7 API Error: 403 coding-agent-kit quota gate: paused or refused (gate_restart); continue only from the trusted terminal after a fresh check \u273b Worked for 3s \u00b7 done 11:54 AM \u00b7 1 shell still running \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f5\u23f5don'taskon \u00b71shell <PATH> \u000f No backgroundagentsrunning Press Ctrl-C again to exit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Background work is running The following will stop when you exit: shell \u00b7KLCsdkchild \u276f1.Exitandstoptasks 2.Movetobackgroundandexit 3.Stay Entertoconfirm\u00b7Esctocancel \u000f Resume this session with: claude --resume b2857647-9c70-4e32-b357-37ab2fe37e75 "
  },
  "upstream_count_after_continue": 9,
  "upstream_count_at_kill": 6,
@@ -1895,52 +1915,52 @@
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168837.652332405
+   "t": 171370.186195426
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168837.653815139
+   "t": 171370.187552456
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168837.735611488
+   "t": 171370.251155033
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168837.736956441
+   "t": 171370.252336622
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168838.736907524
+   "t": 171371.252121442
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168838.737859603
+   "t": 171371.252919573
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168844.429313735
+   "t": 171376.93906957
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168844.429922537
+   "t": 171376.939945077
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168844.984760431
+   "t": 171377.496764513
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168844.985608501
+   "t": 171377.497699265
   }
  ]
 }

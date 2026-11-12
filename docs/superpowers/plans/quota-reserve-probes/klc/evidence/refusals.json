@@ -7,6 +7,24 @@
  "case": "refusals",
  "child_rows": [],
  "cleanup": {
+  "launch-bare": {
+   "lingering_killed": 0
+  },
+  "launch-caller_base_url": {
+   "lingering_killed": 0
+  },
+  "launch-caller_oauth_token": {
+   "lingering_killed": 0
+  },
+  "launch-combined_print": {
+   "lingering_killed": 0
+  },
+  "launch-older_native": {
+   "lingering_killed": 0
+  },
+  "launch-print": {
+   "lingering_killed": 0
+  },
   "refuse-expired_token": {
    "lingering_killed": 0
   },
@@ -47,6 +65,44 @@
   "stdio_sockets": []
  },
  "host_refusal": null,
+ "launch_path": {
+  "bare": {
+   "gate_started": false,
+   "launched": false,
+   "native_started": false,
+   "reason": "native_mode_unsupported"
+  },
+  "caller_base_url": {
+   "gate_started": false,
+   "launched": false,
+   "native_started": false,
+   "reason": "caller_env_conflict"
+  },
+  "caller_oauth_token": {
+   "gate_started": false,
+   "launched": false,
+   "native_started": false,
+   "reason": "caller_env_conflict"
+  },
+  "combined_print": {
+   "gate_started": false,
+   "launched": false,
+   "native_started": false,
+   "reason": "native_mode_unsupported"
+  },
+  "older_native": {
+   "gate_started": false,
+   "launched": false,
+   "native_started": false,
+   "reason": "native_version_unsupported"
+  },
+  "print": {
+   "gate_started": false,
+   "launched": false,
+   "native_started": false,
+   "reason": "native_mode_unsupported"
+  }
+ },
  "launched": true,
  "lingering_after_cleanup": 0,
  "mode": {
@@ -126,11 +182,11 @@
   {
    "event": "fetch",
    "inv": "refuse-threshold",
-   "ms": 8.835,
+   "ms": 8.617,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168746.249921787,
+   "t": 171279.188640419,
    "what": "usage"
   },
   {
@@ -142,16 +198,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168746.249998622
+   "t": 171279.188676737
   },
   {
    "event": "fetch",
    "inv": "refuse-threshold",
-   "ms": 0.763,
+   "ms": 1.213,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168746.250795193,
+   "t": 171279.189913079,
    "what": "profile"
   },
   {
@@ -163,7 +219,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168746.250959109
+   "t": 171279.190035872
   },
   {
    "event": "startup_refused",
@@ -171,7 +227,7 @@
    "reason": "threshold_five_hour",
    "row": "event",
    "source": "gate",
-   "t": 168746.250981603
+   "t": 171279.190056448
   },
   {
    "code": 3,
@@ -179,16 +235,16 @@
    "inv": "refuse-threshold",
    "row": "event",
    "source": "gate",
-   "t": 168746.259878643
+   "t": 171279.19928861
   },
   {
    "event": "fetch",
    "inv": "refuse-window_missing",
-   "ms": 11.375,
+   "ms": 9.46,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168746.564633714,
+   "t": 171279.486283195,
    "what": "usage"
   },
   {
@@ -200,16 +256,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168746.564678268
+   "t": 171279.486406696
   },
   {
    "event": "fetch",
    "inv": "refuse-window_missing",
-   "ms": 0.653,
+   "ms": 1.235,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168746.565355386,
+   "t": 171279.487668719,
    "what": "profile"
   },
   {
@@ -221,7 +277,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168746.565501694
+   "t": 171279.487817469
   },
   {
    "event": "startup_refused",
@@ -229,7 +285,7 @@
    "reason": "window_unavailable",
    "row": "event",
    "source": "gate",
-   "t": 168746.565524258
+   "t": 171279.487837115
   },
   {
    "code": 3,
@@ -237,16 +293,16 @@
    "inv": "refuse-window_missing",
    "row": "event",
    "source": "gate",
-   "t": 168746.574801537
+   "t": 171279.495470595
   },
   {
    "event": "fetch",
    "inv": "refuse-malformed",
-   "ms": 10.668,
+   "ms": 7.661,
    "ok": false,
    "row": "event",
    "source": "gate",
-   "t": 168746.878153127,
+   "t": 171279.765035996,
    "what": "usage"
   },
   {
@@ -258,16 +314,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168746.87823382
+   "t": 171279.765362185
   },
   {
    "event": "fetch",
    "inv": "refuse-malformed",
-   "ms": 0.68,
+   "ms": 1.095,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168746.878940279,
+   "t": 171279.76649381,
    "what": "profile"
   },
   {
@@ -279,7 +335,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168746.879088898
+   "t": 171279.766648027
   },
   {
    "event": "startup_refused",
@@ -287,7 +343,7 @@
    "reason": "quota_200",
    "row": "event",
    "source": "gate",
-   "t": 168746.879110402
+   "t": 171279.766667668
   },
   {
    "code": 3,
@@ -295,16 +351,16 @@
    "inv": "refuse-malformed",
    "row": "event",
    "source": "gate",
-   "t": 168746.886565041
+   "t": 171279.775028293
   },
   {
    "event": "fetch",
    "inv": "refuse-unavailable",
-   "ms": 8.332,
+   "ms": 11.108,
    "ok": false,
    "row": "event",
    "source": "gate",
-   "t": 168747.182055359,
+   "t": 171280.050785194,
    "what": "usage"
   },
   {
@@ -316,16 +372,16 @@
    "row": "event",
    "source": "gate",
    "status": 503,
-   "t": 168747.182111657
+   "t": 171280.050851077
   },
   {
    "event": "fetch",
    "inv": "refuse-unavailable",
-   "ms": 0.481,
+   "ms": 0.943,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168747.18261072,
+   "t": 171280.051819557,
    "what": "profile"
   },
   {
@@ -337,7 +393,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168747.182700748
+   "t": 171280.05196493
   },
   {
    "event": "startup_refused",
@@ -345,7 +401,7 @@
    "reason": "quota_503",
    "row": "event",
    "source": "gate",
-   "t": 168747.182712575
+   "t": 171280.05198484
   },
   {
    "code": 3,
@@ -353,16 +409,16 @@
    "inv": "refuse-unavailable",
    "row": "event",
    "source": "gate",
-   "t": 168747.189835356
+   "t": 171280.060256724
   },
   {
    "event": "fetch",
    "inv": "refuse-rate_limited",
-   "ms": 11.38,
+   "ms": 8.328,
    "ok": false,
    "row": "event",
    "source": "gate",
-   "t": 168747.500509029,
+   "t": 171280.341676946,
    "what": "usage"
   },
   {
@@ -374,16 +430,16 @@
    "row": "event",
    "source": "gate",
    "status": 429,
-   "t": 168747.500576485
+   "t": 171280.341745041
   },
   {
    "event": "fetch",
    "inv": "refuse-rate_limited",
-   "ms": 0.898,
+   "ms": 0.952,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168747.501499822,
+   "t": 171280.342720513,
    "what": "profile"
   },
   {
@@ -395,7 +451,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168747.501645513
+   "t": 171280.342850838
   },
   {
    "event": "startup_refused",
@@ -403,7 +459,7 @@
    "reason": "quota_429",
    "row": "event",
    "source": "gate",
-   "t": 168747.501667697
+   "t": 171280.342870817
   },
   {
    "code": 3,
@@ -411,16 +467,16 @@
    "inv": "refuse-rate_limited",
    "row": "event",
    "source": "gate",
-   "t": 168747.509329587
+   "t": 171280.349932864
   },
   {
    "event": "fetch",
    "inv": "refuse-unproved_row",
-   "ms": 8.325,
+   "ms": 8.671,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168747.827504669,
+   "t": 171280.636364228,
    "what": "usage"
   },
   {
@@ -432,16 +488,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168747.827582014
+   "t": 171280.636400744
   },
   {
    "event": "fetch",
    "inv": "refuse-unproved_row",
-   "ms": 0.693,
+   "ms": 1.06,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168747.828301331,
+   "t": 171280.63748201,
    "what": "profile"
   },
   {
@@ -452,7 +508,7 @@
    "kind": "lease",
    "row": "event",
    "source": "gate",
-   "t": 168747.828472505
+   "t": 171280.63765186
   },
   {
    "closed": 0,
@@ -463,7 +519,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168747.82850253
+   "t": 171280.637675363
   },
   {
    "event": "startup_refused",
@@ -471,7 +527,7 @@
    "reason": "quota_row_unproved",
    "row": "event",
    "source": "gate",
-   "t": 168747.828521983
+   "t": 171280.637690016
   },
   {
    "code": 3,
@@ -479,16 +535,16 @@
    "inv": "refuse-unproved_row",
    "row": "event",
    "source": "gate",
-   "t": 168747.837405078
+   "t": 171280.645448812
   },
   {
    "event": "fetch",
    "inv": "refuse-no_usage_account",
-   "ms": 10.776,
+   "ms": 8.344,
    "ok": false,
    "row": "event",
    "source": "gate",
-   "t": 168748.136776724,
+   "t": 171280.922420512,
    "what": "usage"
   },
   {
@@ -500,16 +556,16 @@
    "row": "event",
    "source": "gate",
    "status": 401,
-   "t": 168748.136845826
+   "t": 171280.922580492
   },
   {
    "event": "fetch",
    "inv": "refuse-no_usage_account",
-   "ms": 0.689,
+   "ms": 1.199,
    "ok": false,
    "row": "event",
    "source": "gate",
-   "t": 168748.137561299,
+   "t": 171280.923805207,
    "what": "profile"
   },
   {
@@ -521,7 +577,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168748.137709715
+   "t": 171280.923908317
   },
   {
    "event": "startup_refused",
@@ -529,7 +585,7 @@
    "reason": "server_identity_unavailable",
    "row": "event",
    "source": "gate",
-   "t": 168748.137732223
+   "t": 171280.923928424
   },
   {
    "code": 3,
@@ -537,16 +593,16 @@
    "inv": "refuse-no_usage_account",
    "row": "event",
    "source": "gate",
-   "t": 168748.147139787
+   "t": 171280.932627829
   },
   {
    "event": "fetch",
    "inv": "refuse-stale_server_clock",
-   "ms": 11.396,
+   "ms": 8.088,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168748.488781228,
+   "t": 171281.228775079,
    "what": "usage"
   },
   {
@@ -558,16 +614,16 @@
    "row": "event",
    "source": "gate",
    "status": 200,
-   "t": 168748.488848439
+   "t": 171281.228836647
   },
   {
    "event": "fetch",
    "inv": "refuse-stale_server_clock",
-   "ms": 0.725,
+   "ms": 1.067,
    "ok": true,
    "row": "event",
    "source": "gate",
-   "t": 168748.489600475,
+   "t": 171281.229927095,
    "what": "profile"
   },
   {
@@ -579,7 +635,7 @@
    "row": "event",
    "source": "gate",
    "state": "refused",
-   "t": 168748.489755136
+   "t": 171281.230149349
   },
   {
    "event": "startup_refused",
@@ -587,7 +643,7 @@
    "reason": "clock_anomaly",
    "row": "event",
    "source": "gate",
-   "t": 168748.489777145
+   "t": 171281.230170964
   },
   {
    "code": 3,
@@ -595,7 +651,7 @@
    "inv": "refuse-stale_server_clock",
    "row": "event",
    "source": "gate",
-   "t": 168748.496760784
+   "t": 171281.237967382
   },
   {
    "event": "startup_refused",
@@ -603,7 +659,7 @@
    "reason": "expired_native_refresh_required",
    "row": "event",
    "source": "gate",
-   "t": 168748.784083018
+   "t": 171281.517365987
   },
   {
    "code": 3,
@@ -611,7 +667,49 @@
    "inv": "refuse-expired_token",
    "row": "event",
    "source": "gate",
-   "t": 168748.789886835
+   "t": 171281.523136598
+  },
+  {
+   "gate_event": null,
+   "inv": "launch-older_native",
+   "launcher_refusal": "native_version_unsupported",
+   "row": "launch",
+   "t": 171281.630748977
+  },
+  {
+   "gate_event": null,
+   "inv": "launch-print",
+   "launcher_refusal": "native_mode_unsupported",
+   "row": "launch",
+   "t": 171281.636857354
+  },
+  {
+   "gate_event": null,
+   "inv": "launch-combined_print",
+   "launcher_refusal": "native_mode_unsupported",
+   "row": "launch",
+   "t": 171281.637334156
+  },
+  {
+   "gate_event": null,
+   "inv": "launch-bare",
+   "launcher_refusal": "native_mode_unsupported",
+   "row": "launch",
+   "t": 171281.637666175
+  },
+  {
+   "gate_event": null,
+   "inv": "launch-caller_base_url",
+   "launcher_refusal": "caller_env_conflict",
+   "row": "launch",
+   "t": 171281.637987503
+  },
+  {
+   "gate_event": null,
+   "inv": "launch-caller_oauth_token",
+   "launcher_refusal": "caller_env_conflict",
+   "row": "launch",
+   "t": 171281.638305059
   }
  ],
  "sanitized": true,
@@ -625,72 +723,72 @@
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168746.249466442
+   "t": 171279.188236838
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168746.250521246
+   "t": 171279.18958661
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168746.564213025
+   "t": 171279.48588826
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168746.565149192
+   "t": 171279.487368415
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168746.877773369
+   "t": 171279.764701114
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168746.878684411
+   "t": 171279.766172958
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168747.181750217
+   "t": 171280.050382817
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168747.182466021
+   "t": 171280.051515912
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168747.500067412
+   "t": 171280.341263337
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168747.501255956
+   "t": 171280.342434305
   },
   {
    "account": "A",
    "path": "/api/oauth/usage",
-   "t": 168747.827070316
+   "t": 171280.635946208
   },
   {
    "account": "A",
    "path": "/api/oauth/profile",
-   "t": 168747.828049567
+   "t": 171280.637203746
   },
   {
    "account": "unknown",
    "path": "/api/oauth/usage",
-   "t": 168748.136359124
+   "t": 171280.921914731
   },
   {
    "account": "unknown",
    "path": "/api/oauth/profile",
-   "t": 168748.137321552
+   "t": 171280.923541198
   }
  ],
  "version": {
