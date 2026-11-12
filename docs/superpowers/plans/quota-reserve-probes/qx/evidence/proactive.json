@@ -1,0 +1,444 @@
+{
+ "stage": "proactive",
+ "ok": true,
+ "timeline": [
+  {
+   "at": 0.319,
+   "event": "rate_limits_read",
+   "label": "hooked",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794511713
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794805113
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794511713
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794805113
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 0.319,
+   "event": "proactive",
+   "variant": "hooked",
+   "upstream_order": [
+    "refresh",
+    "other_get",
+    "models",
+    "usage"
+   ],
+   "connects": [],
+   "usage_credentials": [
+    "T2"
+   ]
+  },
+  {
+   "at": 0.646,
+   "event": "rate_limits_read",
+   "label": "production-host",
+   "result": {
+    "rateLimits": {
+     "limitId": "codex",
+     "limitName": null,
+     "primary": {
+      "usedPercent": 25,
+      "windowDurationMins": 300,
+      "resetsAt": 1794511713
+     },
+     "secondary": {
+      "usedPercent": 60,
+      "windowDurationMins": 10080,
+      "resetsAt": 1794805113
+     },
+     "planType": "pro",
+     "rateLimitReachedType": null
+    },
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "byLimitId": {
+     "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {
+       "usedPercent": 25,
+       "windowDurationMins": 300,
+       "resetsAt": 1794511713
+      },
+      "secondary": {
+       "usedPercent": 60,
+       "windowDurationMins": 10080,
+       "resetsAt": 1794805113
+      },
+      "planType": "pro",
+      "rateLimitReachedType": null
+     }
+    }
+   }
+  },
+  {
+   "at": 0.646,
+   "event": "proactive",
+   "variant": "production-host",
+   "upstream_order": [
+    "other_get",
+    "other_get",
+    "models",
+    "other_get",
+    "usage"
+   ],
+   "connects": [
+    "auth.openai.com:443",
+    "auth.openai.com:443",
+    "auth.openai.com:443",
+    "auth.openai.com:443",
+    "auth.openai.com:443",
+    "auth.openai.com:443",
+    "auth.openai.com:443"
+   ],
+   "usage_credentials": [
+    "T1"
+   ]
+  }
+ ],
+ "gates": [
+  {
+   "events": [
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T2",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "query": true,
+     "credential": "T2",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "originator",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "codex_cli_rs",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T2",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T2",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "streams_closed",
+     "reason": "gate-shutdown",
+     "count": 0
+    }
+   ],
+   "lease_log": [
+    {
+     "event": "epoch",
+     "epoch": 1,
+     "cause": "usage-credential"
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "query": true,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "originator",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "codex_cli_rs",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
+     "event": "streams_closed",
+     "reason": "gate-shutdown",
+     "count": 0
+    }
+   ],
+   "lease_log": [
+    {
+     "event": "epoch",
+     "epoch": 1,
+     "cause": "usage-credential"
+    },
+    {
+     "event": "fresh",
+     "epoch": 1,
+     "verdict": null
+    }
+   ]
+  }
+ ],
+ "upstream": [
+  {
+   "kind": "refresh",
+   "path": "/oauth/token",
+   "accepted": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
+  }
+ ],
+ "backend_stderr_tail": {
+  "hooked": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/hooked\"))\n",
+  "production-host": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/production-host\"))\n\u001b[2m2026-11-12T16:58:33.594439Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.601643Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.607663Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.644795Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.655033Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n"
+ }
+}
