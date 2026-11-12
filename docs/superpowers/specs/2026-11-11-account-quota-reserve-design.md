@@ -11,6 +11,20 @@ accounts while retaining the existing setup-token mode. Credential isolation
 and migration require a separate design review before implementation. These
 decisions do not waive the native-control feasibility requirements below.
 
+Subsequent execution decisions supersede the optional full-login direction:
+many accounts have only a setup token and cannot complete full OAuth login.
+Supporting those accounts is a hard requirement. Quota protection must not
+require converting them to full login, replacing their credentials, or logging
+in again when switching accounts. The full-login proposal is not adopted as
+the solution for this release; ordinary setup-token behavior remains intact.
+
+The user separately authorized research of a foreground, per-invocation model
+request gate proxy after native control counterexamples were reproduced.
+This expands research scope only. A production proxy, new continuation UI or
+changed credential handling still requires concrete evidence and human review.
+All startup, freshness, owned-work, native-UI, monitor-loss and manual-resume
+requirements remain unchanged.
+
 ## Intent and agreed behavior
 
 Protect an account's remaining subscription allowance when using it through
@@ -181,6 +195,13 @@ paths. The current wrapper uses long-lived `setup-token` credentials, which
 the official authentication documentation describes as model-request-only.
 Independent usage-query compatibility with those credentials remains to be
 verified. Do not assume a full login's capabilities apply to this token.
+The native profile-scope gate blocks the tested setup-token usage query; that
+local rejection alone does not prove every server endpoint rejects the token.
+Any alternative must still provide fresh, attributable subscription windows
+without a model request. Token counting, missing data, cached response headers
+or a first inference used to seed usage cannot satisfy startup preflight.
+If no such token-only mechanism can be proved, report the feature blocked
+rather than requiring full login or silently weakening the startup guarantee.
 
 Claude hooks can stop an agent loop at documented boundaries. That does not
 establish cancellation of every active subagent or in-flight model request.
@@ -195,8 +216,10 @@ required before choosing an implementation architecture:
 - For each provider, demonstrate a model-free startup query under the
   launcher's supported authentication mode. Record native version, window
   identity, reset semantics, and supported freshness signals. If Claude needs
-  different credentials, return that scope change for discussion rather than
-  silently changing account enrollment or adding another credential store.
+  different credentials, that cannot satisfy the hard setup-token-only
+  requirement. Report the missing capability; do not change enrollment or add
+  a credential store as a substitute. Any optional future credential design
+  still requires its own human review.
 - Demonstrate that the native TUI stays usable while current model work,
   delegated agents, automatic continuation, and new model submissions remain
   stopped. Demonstrate deliberate manual continuation after rechecking quota.

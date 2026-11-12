@@ -1,0 +1,385 @@
+{
+  "mode": "refresh",
+  "events": [
+    {
+      "at": 0.287,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.287,
+      "event": "get",
+      "service": "gate",
+      "path": "/backend-api/codex/models?client_version=0.167.2",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.321,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.33,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.331,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.333,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.333,
+      "event": "preflight",
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      },
+      "model_requests": 0
+    },
+    {
+      "at": 0.341,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-9a5c-75f2-8d0d-3ff49b4ca9d9",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-9a5c-75f2-8d0d-3ff49b4ca9d9",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469894,
+          "updatedAt": 1794469894,
+          "recencyAt": 1794469894,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-34-01a1cebd-9a5c-75f2-8d0d-3ff49b4ca9d9.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 0.344,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cebd-9a5c-75f2-8d0d-3ff49b4ca9d9",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture initial prompt"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cebd-9a63-7fa0-93aa-7a6c36053c52",
+          "rootTurnId": "01a1cebd-9a63-7fa0-93aa-7a6c36053c52",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 0.387,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.402,
+      "event": "admit",
+      "service": "gate",
+      "path": "/backend-api/codex/responses",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true,
+      "model": "gpt-5.4",
+      "input_summary": [
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n"
+        },
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Ge"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture initial prompt"
+        }
+      ],
+      "header_names": [
+        "accept",
+        "authorization",
+        "chatgpt-account-id",
+        "content-length",
+        "content-type",
+        "host",
+        "originator",
+        "session-id",
+        "thread-id",
+        "user-agent",
+        "x-client-request-id",
+        "x-codex-beta-features",
+        "x-codex-turn-metadata",
+        "x-codex-window-id"
+      ]
+    },
+    {
+      "at": 0.41,
+      "event": "admit",
+      "service": "gate",
+      "path": "/backend-api/codex/responses",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true,
+      "model": "gpt-5.4",
+      "input_summary": [
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n"
+        },
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Ge"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture initial prompt"
+        }
+      ],
+      "header_names": [
+        "accept",
+        "authorization",
+        "chatgpt-account-id",
+        "content-length",
+        "content-type",
+        "host",
+        "originator",
+        "session-id",
+        "thread-id",
+        "user-agent",
+        "x-client-request-id",
+        "x-codex-beta-features",
+        "x-codex-turn-metadata",
+        "x-codex-window-id"
+      ]
+    },
+    {
+      "at": 0.419,
+      "event": "connect_rejected",
+      "destination": "auth.openai.com:443"
+    },
+    {
+      "at": 0.444,
+      "event": "subscription_route",
+      "admitted": 2
+    }
+  ],
+  "terminal": "",
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+}

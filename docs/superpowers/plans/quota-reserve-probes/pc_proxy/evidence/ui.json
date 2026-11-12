@@ -1,0 +1,198 @@
+{
+  "mode": "ui",
+  "events": [
+    {
+      "at": 0.266,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.274,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.275,
+      "event": "get",
+      "service": "gate",
+      "path": "/backend-api/codex/models?client_version=0.167.2",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.28,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.281,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.281,
+      "event": "preflight",
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      },
+      "model_requests": 0
+    },
+    {
+      "at": 0.282,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.58,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.582,
+      "event": "connect_rejected",
+      "destination": "raw.githubusercontent.com:443"
+    },
+    {
+      "at": 0.586,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.633,
+      "event": "subscription_ui_bootstrap",
+      "exited": true,
+      "exit": 1,
+      "model_requests": 0,
+      "discovery_error": true,
+      "termios_restored": true
+    }
+  ],
+  "terminal": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\r\n\u001b[?2004h\u001b[>4;0m\u001b[>7u\u001b[?1004h\u001b[?u\u001b[c\u001b[6n\u001b]10;?\u001b\\\u001b]11;?\u001b\\\u001b[?2026h\u001b[?2026h\u001b[1;1H\u001b[J\u001b[?25l\u001b[1;2H\u001b[0m\u001b[49m\u001b[K\u001b[2;29H\u001b[0m\u001b[49m\u001b[K\u001b[3;13H\u001b[0m\u001b[49m\u001b[K\u001b[4;2H\u001b[0m\u001b[49m\u001b[K\u001b[5;2H\u001b[0m\u001b[49m\u001b[K\u001b[6;27H\u001b[0m\u001b[49m\u001b[K\u001b[7;2H\u001b[0m\u001b[49m\u001b[K\u001b[8;2H\u001b[0m\u001b[49m\u001b[K\u001b[1;1H \u001b[2;1H  \u001b[38;5;75;49m>_ \u001b[1m\u001b[39;49mOpenAI Codex\u001b[22m\u001b[2m\u001b[2m (v0.167.2)\u001b[3;1H\u001b[22m     \u001b[2mloading\u001b[4;1H\u001b[22m \u001b[5;1H \u001b[6;1H\u001b[1m\u203a\u001b[22m \u001b[2mAsk Codex to do anything\u001b[7;1H\u001b[22m \u001b[8;1H \u001b[39m\u001b[49m\u001b[0m\u001b[1;1H\u001b[0 q\u001b[1;1H \u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[?25l\u001b[3;6H\u001b[2m<PROBE_ROOT>/workspace\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[?2026h\u001b[39m\u001b[49m\u001b[0m\u001b[6;3H\u001b[?25h\u001b[?2026l\u001b[<1u\u001b[<u\u001b[>4;0m\u001b[?2004l\u001b[?1004l\u001b[c\u001b[0 q\u001b[?25hError: account/read failed during TUI bootstrap: account/read failed: workspace routing discovery failed (code -32603)\r\n\u001b[0 q",
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+}

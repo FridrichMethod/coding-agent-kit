@@ -1,5 +1,11 @@
 # Claude PA0 authentication discovery and HAuth proposal
 
+Historical proposal: after this research was reviewed, the user required
+support for accounts that possess only setup tokens and cannot complete full
+login. This candidate is frozen, not adopted as the release auth solution.
+See the current spec, central handoff and durable decisions for that steering.
+The storage findings below remain evidence; they authorize no credential work.
+
 Status: PA0 research complete; validation and independent review results are
 recorded in the coordinator handoff.
 This is a proposal, not implemented behavior. Candidate-schema review has been

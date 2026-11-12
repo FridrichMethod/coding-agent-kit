@@ -1,0 +1,4042 @@
+{
+  "mode": "loss",
+  "events": [
+    {
+      "at": 0.285,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.285,
+      "event": "get",
+      "service": "gate",
+      "path": "/backend-api/codex/models?client_version=0.167.2",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.321,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.333,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.334,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.335,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.335,
+      "event": "preflight",
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      },
+      "model_requests": 0
+    },
+    {
+      "at": 0.343,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469900,
+          "recencyAt": 1794469900,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 0.347,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture initial prompt"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+          "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 0.396,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.413,
+      "event": "admit",
+      "service": "gate",
+      "path": "/backend-api/codex/responses",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true,
+      "model": "gpt-5.4",
+      "input_summary": [
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "You are a coding agent running in the Codex CLI, a terminal-based coding assistant. Codex CLI is an open source project led by OpenAI. You are expected to be precise, safe, and helpful.\n\nYour capabilities:\n\n- Receive user prompts and other context provided by the harness, such as files in the workspace.\n- Communicate with the user by streaming thinking & responses, and by making & updating plans.\n"
+        },
+        {
+          "role": "developer",
+          "type": "message",
+          "text": "<skills_instructions>\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and a short path that can be expanded into an absolute path using the skill roots table.\n### Skill roots\n- `r0` = `<PROBE_ROOT>/codex/skills/.system`\n### Available skills\n- imagegen: Ge"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "<environment_context>\n  <cwd><PROBE_ROOT>/workspace</cwd>\n  <shell>zsh</shell>\n  <current_date>2026-11-11</current_date>\n  <timezone>America/Los_Angeles</timezone>\n  <filesystem><workspace_roots><root><PROBE_ROOT>/workspace</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry><entry access"
+        },
+        {
+          "role": "user",
+          "type": "message",
+          "text": "Fixture initial prompt"
+        }
+      ],
+      "header_names": [
+        "accept",
+        "authorization",
+        "chatgpt-account-id",
+        "content-length",
+        "content-type",
+        "host",
+        "originator",
+        "session-id",
+        "thread-id",
+        "user-agent",
+        "x-client-request-id",
+        "x-codex-beta-features",
+        "x-codex-turn-metadata",
+        "x-codex-window-id"
+      ]
+    },
+    {
+      "at": 0.447,
+      "event": "subscription_route",
+      "admitted": 1
+    },
+    {
+      "at": 0.458,
+      "event": "rpc",
+      "method": "thread/goal/set",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "objective": "Fixture goal",
+        "status": "active",
+        "origin": "user"
+      },
+      "result": {
+        "goal": {
+          "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "objective": "Fixture goal",
+          "status": "active",
+          "tokenBudget": null,
+          "tokensUsed": 0,
+          "timeUsedSeconds": 0,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469900
+        }
+      }
+    },
+    {
+      "at": 0.46,
+      "event": "rpc",
+      "method": "thread/queue/add",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "clientUserMessageId": "pc2-old",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture old queued prompt"
+          }
+        ]
+      },
+      "result": {
+        "queuedSubmission": {
+          "id": "01a1cebd-b2b3-77b3-ade3-03406d0b10b5",
+          "input": [
+            {
+              "type": "text",
+              "text": "Fixture old queued prompt",
+              "text_elements": []
+            }
+          ],
+          "clientUserMessageId": "pc2-old"
+        }
+      }
+    },
+    {
+      "at": 0.46,
+      "event": "gate_closed",
+      "admitted": 1
+    },
+    {
+      "at": 0.913,
+      "event": "fixture_closed_transport",
+      "service": "gate",
+      "request_id": 1
+    },
+    {
+      "at": 0.913,
+      "event": "gate_listener_lost",
+      "closed_streams": 1
+    },
+    {
+      "at": 0.915,
+      "event": "stream_disconnected",
+      "service": "gate",
+      "request_id": 1
+    },
+    {
+      "at": 0.919,
+      "event": "rpc",
+      "method": "turn/interrupt",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "turnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f"
+      },
+      "result": {}
+    },
+    {
+      "at": 0.919,
+      "event": "controller_lost"
+    },
+    {
+      "at": 0.92,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.923,
+      "event": "rpc",
+      "method": "thread/queue/start",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+          "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 0.926,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/accounts/check",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 0.927,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469900,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 0.933,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/settings/user",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 1.431,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 1.937,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 2.443,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 2.948,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 3.454,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 3.961,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 4.468,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 4.973,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 5.479,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 5.981,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 6.487,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 6.99,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 7.492,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 7.998,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 8.504,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 9.01,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 9.515,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 10.02,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 10.523,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 11.027,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 11.532,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 12.035,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 12.541,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 13.046,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 13.552,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 14.057,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 14.562,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 15.067,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 15.572,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 16.078,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cebd-b23a-7022-9aeb-fae342ecbacd",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture initial prompt",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794469900,
+          "updatedAt": 1794469901,
+          "recencyAt": 1794469901,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/11/rollout-2026-11-11T23-51-40-01a1cebd-b23a-7022-9aeb-fae342ecbacd.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "rootTurnId": "01a1cebd-b242-7cb3-99f5-6037d1b34b8f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b27c-7373-8e59-649e3423c735",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture initial prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469900924,
+                  "completedAtMs": 1794469900924
+                }
+              ],
+              "itemsView": "full",
+              "status": "interrupted",
+              "error": null,
+              "startedAt": 1794469900,
+              "completedAt": 1794469901,
+              "durationMs": 572
+            },
+            {
+              "id": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "rootTurnId": "01a1cebd-b483-7ab1-a03f-10dcb611be1f",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cebd-b492-78e2-8603-08a936064710",
+                  "clientId": "pc2-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture old queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794469901458,
+                  "completedAtMs": 1794469901458
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794469901,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cebd-b23a-7022-9aeb-fae342ecbacd"
+        }
+      }
+    },
+    {
+      "at": 16.078,
+      "event": "queue_after_listener_loss",
+      "admitted": 1,
+      "status": "inProgress",
+      "error": null
+    },
+    {
+      "at": 16.083,
+      "event": "get",
+      "service": "quota",
+      "path": "/api/codex/usage",
+      "account": "fixture-account-a",
+      "websocket": false
+    },
+    {
+      "at": 16.084,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 16.084,
+      "event": "quota_after_listener_loss",
+      "admitted": 1,
+      "quota_available": true
+    }
+  ],
+  "terminal": "",
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n"
+}

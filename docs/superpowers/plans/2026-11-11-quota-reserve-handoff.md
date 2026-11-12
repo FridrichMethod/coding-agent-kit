@@ -39,6 +39,33 @@ scope gate, and native usage may be cached without freshness provenance.
 G0 is a real blocker, not a checkbox that a mock test can satisfy. The goal is
 release readiness only if the evidence supports the agreed product.
 
+### Current execution steering after research wave 1
+
+The reviewed first research wave is integrated at `03f6b99`. Its native
+counterexamples and PA0 proposal are evidence, not implemented functionality.
+The user then approved additional **per-invocation model request gate proxy
+research**, while retaining full A, native UI, owned-descendant coverage,
+monitor-loss protection and verified manual continuation. This supersedes the
+earlier prohibition on exploring a proxy; it does not approve a production
+proxy, new public UX, replacement UI, persistent daemon or weaker behavior.
+
+The user also stated a hard requirement that many accounts have only setup
+tokens and cannot perform full login. Quota protection must not require full
+OAuth conversion or login on each switch. The full-login candidate is frozen,
+not adopted as the release solution. A later question asked whether full login
+can persist; the coordinator explained that native credentials can persist
+per account and asked whether first login is actually unavailable or only
+repeated login is unacceptable. Until the user clarifies, the token-only hard
+requirement remains binding. No question or explanation counts as approval.
+
+The new research nodes are PC2 (request-gate feasibility) and PT (token-only
+startup quota). They extend the research before G0; they do not restart B0 or
+authorize C/X/A/U. HAuth remains required for any future credential-design
+change, but the unadopted full-login branch cannot replace token-only support.
+Read `gate-decisions.md` in the durable ledger for decisions received after
+any frozen checkpoint. Original task text below is historical where this
+explicit steering supersedes it; all protection and publication gates remain.
+
 ## Global constraints
 
 - Five-hour and weekly reserves resolve independently: invocation > account > global.
@@ -47,6 +74,7 @@ release readiness only if the evidence supports the agreed product.
 - Query before model work; stale or missing enabled windows are unavailable. Persistent failures pause; finite retries never extend freshness indefinitely.
 - Keep native UI, stop invocation-owned current/future delegated model work, and require verified manual continuation after a fresh quota check. Never silently substitute process exit.
 - Preserve setup-token behavior when protection is off. No unapproved credential format, account migration, or OAuth refresh implementation.
+- Setup-token-only support is currently a hard requirement for protection too; full login or a first inference cannot substitute for a model-free startup quota source.
 - Python is `python3 -I -B`; modules load by physical path. Only config.py reads launcher HOME, XDG_STATE_HOME, or the kit config file.
 - Linux/macOS, system Bash 3.2 compatibility, POSIX sh for claude-as/install.sh, no native Windows support. Native version floors must follow demonstrated capabilities, not an exact pin or upper bound.
 - Tests use temporary homes, fictitious credentials, and loopback fixtures. A real-account probe requires explicit authorization and user-performed authentication.
@@ -123,9 +151,12 @@ main commands only in the original main checkout.
 | B0 | none | integration metadata, .gitignore, handoff | done; preservation commit and independent review passed |
 | PC | B0 | Codex probe fixtures and own evidence report | blocked-user; reviewed checkpoint 9c660f8 and hooks passed |
 | PA0 | B0 | Claude discovery fixtures and own auth/control proposal | done at 2df1ce5; independent review and hooks passed |
-| HAuth | PA0 | coordinator human credential-design decision record | reviewed candidate schema presented; response pending |
-| PA1 | HAuth | Claude approved-auth quota/control fixtures and evidence | blocked on review and shared device-state boundary |
-| G0 | PC, PA1 | coordinator architecture record and frozen interfaces | blocked; persistent native dispatch gate not established |
+| PC2 | PC, explicit proxy-research authorization | new pc_proxy fixtures and Codex proxy report | reviewed checkpoint 9538f748; full A blocked-user |
+| PT | PA0, setup-token-only requirement | new claude_token fixtures and token-only report | reviewed checkpoint ad8c079; startup source unproved |
+| PTP | PT | offline one-shot permission-probe harness and tests | local preparation running; no real account access authorized |
+| HAuth | any proposed credential-design change | coordinator human credential-design decision record | full-login candidate not adopted; no migration or real-account authorization |
+| PA1 | PT feasibility, applicable human gates | Claude approved token-only quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
+| G0 | PC2, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
 | C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
 | X | C | bin/codex-as, lib/codex-as/*, Codex-specific tests | blocked |
 | A | C | bin/claude-as, lib/claude-as/*, statusline/helper changes, Claude-specific tests | blocked |
@@ -240,6 +271,74 @@ Never overwrite another run's ledger when selecting new branch names.
   behavior has changed. C/X/A/U/I/R/V and both publication/cleanup cycles are
   unstarted. Do not delete implementation evidence or claim release readiness
   while the human and native-capability gates remain open.
+
+### Current ownership and research amendment
+
+- First-wave PC/PA0 worktrees and their merged task branches were removed
+  after clean-tree, ancestry, process and archival checks. Their commits and
+  reports remain in integration and Git history. Twenty exact PC scratch
+  roots and both PA0 roots were removed after evidence retention.
+- PC2 owns `.worktrees/quota-proxy-codex`, branch `task/quota-proxy-codex`,
+  based on `9c660f8`. Its scope is a new Codex proxy research report and
+  `quota-reserve-probes/pc_proxy/`; prior evidence and runtime code are read-only.
+- PT owns `.worktrees/quota-token-claude`, branch `task/quota-token-claude`,
+  based on `2df1ce5`. Its scope is a token-only research report and
+  `quota-reserve-probes/claude_token/`; prior evidence and runtime code are
+  read-only. Check the ledger for its review/commit status after `ad8c079`.
+- PC2 must distinguish subscription auth routing from fake API-key routing,
+  test HTTP/WebSocket fallback and native refresh ownership, and establish
+  the limits of queued work, alternate providers, listener loss and native
+  UI. An admission latch alone cannot prove manual provenance, exhaustive
+  descendant coverage or fail-closed monitor loss. Any new continuation
+  control must be a concrete reviewed proposal before product implementation.
+- PT must distinguish the local profile-scope gate from actual provider
+  permission. It may inspect a zero-generation count endpoint as a hypothesis
+  for subscription response headers, but token counts are never quota and
+  native counting fallbacks must not trigger inference. No real token may be
+  read or sent without a separately reviewed, bounded, named-account probe.
+- Both nodes require focused checks, independent review, incremental commits
+  and all-files hooks. Their outcomes may remain blocked-user; no partial
+  evidence may open G0. The original C-through-Z sequence is unchanged.
+
+### Research wave 2 checkpoint and next permission boundary
+
+- PC2 is committed at `9538f7487bc6b9f82a846786312b9916da31b18f`.
+  [Its report](quota-reserve-codex-proxy-research.md) and bounded fixtures
+  passed independent spec/quality review, six contained native stages, five
+  evidence checks and all-files hooks. Native subscription bearer/account
+  routing, WebSocket-to-HTTP fallback and native refresh attempts are observed
+  with fabricated credentials. A closed admission fixture rejects queued
+  requests; it is not an upstream relay or a monitor-death lease.
+- Subscription TUI bootstrap hits unsupported fixture account discovery;
+  listener loss leaves a queued turn in progress during the observation
+  bound. Trusted new manual continuation, exhaustive descendants/voice/role
+  routing and monitor-loss safety remain unproved. PC2 therefore stays
+  blocked-user. Any continuation-control/HTTP-only restriction proposal needs
+  concrete review; no production proxy or new public UX is approved.
+- PT is committed at `ad8c07924fa90b9a91931e560dfa6f5a9c31b46b`.
+  [Its report](quota-reserve-claude-token-research.md) and fabricated native
+  fixture passed independent spec/quality review, focused checks and all-files
+  hooks. Repeated get_usage calls with both behavior-collection settings give
+  unavailable quota and zero inference. This proves the local gate, not a
+  universal provider permission denial.
+- PT identifies one unverified hypothesis: a direct, documented zero-generation
+  count response might carry subscription-window headers. Input token counts
+  themselves cannot supply quota. The native count helper has a generation
+  fallback and must not be used for this experiment. A successful HTTP Date
+  and two headers would still not prove quota computation age, account UUID,
+  family or safe poll cadence.
+- PTP prepares the small, offline-tested one-request harness needed to make
+  any later permission request concrete and independently reviewable. It owns
+  `.worktrees/quota-token-permission`, branch `task/quota-token-permission`,
+  based on `ad8c079`. No real token may be read or sent while preparing it.
+  Execution requires separate named-account/exact-path/endpoint authorization
+  after review; no permission is inferred from a CLI flag or research scope.
+- The user asked whether full-login credentials can persist across switches.
+  Official documentation confirms separate config directories can retain
+  multiple claude.ai logins. The outstanding clarification is whether some
+  accounts cannot perform even the first login, or whether only repeated
+  login was unacceptable. Until answered, retain the explicit token-only hard
+  constraint and do not revive the full-login proposal by assumption.
 
 ### PC: prove Codex control rather than rediscover interruption
 
@@ -441,7 +540,8 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [x] B0 and PA0 are complete; PC has reviewed blocker evidence. Resume from
-  the durable ledger and current human decisions, not from B0. HAuth and G0
-  have not passed. No runtime implementation is authorized until those gates
-  pass; schema-only approval does not clear the shared-device boundary.
+- [x] B0 and PA0 are complete; PC has reviewed blocker evidence. Resume PC2/PT
+  and pending human decisions from the durable ledger, not from B0. The
+  full-login proposal is not adopted under the current token-only constraint.
+  G0 remains closed; no runtime implementation is authorized. Any future
+  credential-design change or real-account experiment still needs its gate.
