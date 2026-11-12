@@ -6,6 +6,10 @@ This document describes a proposed feature, not existing launcher behavior.
 The user selected a new-session, multi-agent DAG workflow with separate
 worktrees, incremental commits and progress records, manual design gates,
 CI-verified integration into main, push, and cleanup to a release-ready state.
+The exploration session now ends with an adaptable handoff; a new Claude
+session will use ultracode to implement. Internal APIs, node partitioning,
+platform adapters and measured timings may change with test evidence. The
+protection semantics and human gates in this spec remain binding.
 The user also approved exploring native full OAuth login for protected Claude
 accounts while retaining the existing setup-token mode. Credential isolation
 and migration require a separate design review before implementation. These
@@ -31,6 +35,12 @@ the concrete production architecture still needs the required evidence and
 G0 review.
 All startup, freshness, owned-work, native-UI, monitor-loss and manual-resume
 requirements remain unchanged.
+
+The user also accepts optional platform isolation dependencies for protected
+mode, with refusal when the required capability is absent or unproved. This
+is a scoped exception to the existing dependency baseline, not permission to
+install services or modify system firewall policy. The concrete component,
+network compatibility costs and native-refresh composition still need G0.
 
 ## Intent and agreed behavior
 
@@ -155,9 +165,14 @@ can continue until 10%. Consumption outside either session still contributes
 to the shared account percentage. This feature is not an account-wide lock.
 
 Pausing must cover active and future model work delegated by the invocation,
-not merely the top-level prompt. Do not infer ownership from a process name
-or kill every native CLI running under the user. Independent sessions and
-independently launched jobs remain outside the stop scope.
+including shell/tool-launched model clients, native agents, hooks and local
+helpers, detached descendants and explicitly adopted work. Reparenting does
+not remove ownership. Do not infer ownership from a process name or kill every
+native CLI running under the user. Independent sessions and independently
+launched jobs remain outside the stop scope. A local boundary cannot silently
+claim control of existing daemons or remote jobs; unproved delegation/adoption
+modes must refuse before model work. Ordinary shell execution stays available
+subject to the reviewed protected-mode network restrictions.
 
 Cancel in-flight model work where the native interface permits it. Preserve
 already written files and conversation history without promising rollback or
@@ -204,6 +219,11 @@ Independent usage-query compatibility with those credentials remains to be
 verified. Do not assume a full login's capabilities apply to this token.
 The native profile-scope gate blocks the tested setup-token usage query; that
 local rejection alone does not prove every server endpoint rejects the token.
+Two separately authorized one-shot setup-token experiments subsequently ran:
+count returned HTTP 200 without subscription-window headers; the fixed usage
+GET returned HTTP 403 permission_error without either window. Those tested
+paths cannot supply startup quota. These limited results do not establish
+universal impossibility or authorize retries, other endpoints or generation.
 Any alternative must still provide fresh, attributable subscription windows
 without a model request. Token counting, missing data, cached response headers
 or a first inference used to seed usage cannot satisfy startup preflight.
@@ -211,6 +231,15 @@ If no such token-only mechanism can be proved, the permitted fallback is an
 explicit, persistent full-login account mode after its credential design is
 reviewed. It must satisfy the same model-free startup and freshness checks;
 login itself is not evidence of quota capability.
+
+A fresh observation must be correlated with the actual credential and quota
+family admitted by the request gate. Stable local account metadata and a newer
+cache timestamp alone do not close refresh or A-to-B-to-A races. Comparing an
+outgoing bearer to a lease is necessary but does not establish the initial
+quota/account association. No native correlated interface has been established
+by this exploration. Read-only native file/Keychain access-bearer acquisition
+is a separately pending research-boundary choice; existing HAuth does not
+grant it. Native storage and refresh ownership remain required in either case.
 
 Claude hooks can stop an agent loop at documented boundaries. That does not
 establish cancellation of every active subagent or in-flight model request.
@@ -247,7 +276,9 @@ Use isolated homes, fictitious credentials, and local fixtures for probes.
 Real-account permissions cannot be established by those fixtures; label that
 limit explicitly and obtain authorization for any later credential-bearing
 integration experiment. No real-account experiment has been performed during
-this design discussion.
+the original design discussion; the two subsequent one-shot experiments above
+are recorded separately, and both permissions are consumed. A real persistent
+login/quota experiment requires its own reviewed procedure and permission.
 
 Unsupported native versions or launch modes must reject any launch with at
 least one enabled reserve, including an inherited account or global setting.
@@ -261,10 +292,16 @@ retain their current behavior and do not acquire quota-query requirements.
 
 Keep policy resolution and the window/state evaluator separate from native
 quota adapters and session control. Prefer documented native interfaces and
-existing standard-library infrastructure. Do not add a persistent service,
-replacement terminal UI, third-party runtime dependency, or account-global
-coordination protocol. Any additional protocol client must justify its scope
-under the repository's dependency and maintenance rules.
+existing standard-library infrastructure. Optional platform isolation
+dependencies for protected mode are now permitted in principle; choose a
+concrete component only after capability, compatibility and maintenance review.
+Do not add a persistent service, replacement terminal UI or account-global
+coordination protocol. Any additional protocol client must justify its scope.
+Missing isolation must refuse protection, not fall back to plain networking.
+The conditional outer-boundary candidate closes invocation network streams on
+pause/loss and denies unclassified egress. Its effects on git, package tools,
+SSH and native authentication must be tested and disclosed at G0 before adoption;
+dependency approval alone does not approve every such compatibility tradeoff.
 
 Public flags, configuration, completion, and help changes require a minor
 release with matching documentation and CHANGELOG updates. The design document
@@ -285,6 +322,10 @@ Validation for the eventual implementation must cover:
 - Real native control through isolated local fixtures where available:
   interruption, TUI survival, subagents, queued work, tool-command behavior,
   monitor loss, and supported versus rejected modes and versions.
+- Whole-invocation containment on supported platforms: cleared environment,
+  absolute executables, shell/SDK and detached children, inherited descriptors,
+  IPC/remote delegation, existing streams, gate restart and independent jobs.
+  A test-only network guard cannot stand in for product enforcement.
 - Existing stdin/stdout, terminal, credential repair, signal, completion, and
   no-configuration compatibility contracts. Update `tests/COVERAGE.md`, run
   focused suites, the full suite, and `pre-commit run --all-files`.

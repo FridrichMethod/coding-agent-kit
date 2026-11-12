@@ -1,6 +1,11 @@
 # PTU: one-shot setup-token usage permission experiment
 
-This is an offline preparation artifact, not authorization to execute. No real
+Historical preparation artifact. The later separately approved one-shot GET
+is complete and its permission consumed; see the
+[result](quota-reserve-claude-usage-result.md). Do not run this again from the
+example below. The preparation procedure and source remain unchanged.
+
+This artifact was not authorization to execute. During preparation no real
 credential was read, no account was enumerated and no provider was contacted.
 The earlier count-request permission is consumed and cannot authorize this GET.
 Setup-token-only remains a hypothesis; G0 and full-A capability remain unproved.
@@ -156,4 +161,6 @@ check a closed descriptor and never run a provider entrypoint.
 Focused RED/GREEN logs and exit records are in ignored `.cache/ptu/`, alongside
 the all-files hook log. This report is the research coverage matrix; runtime
 test entrypoints and `tests/COVERAGE.md` are unchanged within this node's scope.
-Independent review and concrete named-account permission remain outstanding.
+Independent review and concrete named-account permission were outstanding at
+the preparation freeze. Both subsequently completed; the result report and
+durable ledger record that later execution and its limits.

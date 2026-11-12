@@ -1,877 +1,338 @@
 # Account Quota Reserve Implementation Plan and Handoff
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Follow the user's explicit parallel DAG and separate-worktree workflow instead of the skill's default prohibition on parallel implementers. Keep its independent spec-compliance and code-quality reviews. Steps use checkboxes for tracking.
+> **For the next Claude session:** Use the user's selected ultracode
+> multi-agent workflow with separate worktrees. Discover and read its installed
+> instructions; this session did not establish an ultracode command. The
+> coordinator owns integration and central progress. Independent writers own
+> separate worktrees; each node requires tests, independent review and commits.
 
-**Goal:** Implement separate account-level five-hour and weekly reserves in both launchers, then integrate, validate, push, and clean up to a release-ready main.
+**Goal:** Implement independent five-hour and weekly subscription reserves in
+both launchers, then complete both publication/cleanup cycles below.
 
-**Architecture:** A shared, deterministic policy engine consumes provider-specific quota observations. Provider adapters must prove model-free startup queries and persistent, UI-preserving control of all model work owned by the invocation. No product runtime implementation starts until the native-control and Claude-authentication gates below pass.
+**Architecture:** Shared policy consumes fresh provider observations. Protected
+launches need model-free preflight, credential-bound admission and persistent
+control of all invocation-owned model work while preserving the native UI.
+An outer platform isolation boundary plus per-invocation request gate is the
+conditional direction; G0 must approve a tested composition.
 
-**Tech Stack:** Python 3.11+ standard library, Bash/POSIX sh, existing Node.js 22+ helpers, native Codex/Claude interfaces, unittest and local native fixtures. No new runtime package, persistent service, or replacement terminal UI.
+**Tech Stack:** Existing Python 3.11+ standard library, shells and Node helpers;
+native interfaces and local fixtures. Optional platform isolation dependencies
+are accepted for protected mode. No component is selected or installed here;
+ordinary unprotected dependencies remain unchanged.
 
-**Spec:** [Account quota reserve design](../specs/2026-11-11-account-quota-reserve-design.md).
+**Spec:** [Permanent design](../specs/2026-11-11-account-quota-reserve-design.md).
+**Research:** [Original evidence](quota-reserve-research.md),
+[auth next steps](quota-reserve-auth-next-session.md), and
+[descendant boundary](quota-reserve-descendant-design.md).
 
-**Research:** [Evidence and reproduction instructions](quota-reserve-research.md), including two preserved disposable Codex probes.
+## Current checkpoint and recovery
 
-## Authorization and current state
+The user changed this session's deliverable to completed exploration and an
+adaptable handoff. A NEW Claude session will implement. Product runtime is
+unchanged; G0 is not passed; neither publication cycle has started. Do not
+report the feature implemented or release-ready from research reviews/hooks.
 
-The user requested this document for a NEW session. That session should use
-multiple agents and independent worktrees, commit incremental progress, stop
-or ask at manual decision gates, merge into main only after review and CI,
-push, and remove this task's implementation-only documents. Execution method
-is already chosen; do not ask the user to choose it again. Starting from the
-launch prompt means the user has accepted this handoff for execution.
+- [x] B0 and research nodes in the evidence map are committed and reviewed.
+- [x] HAuth persistence/schema/shared-device design and optional isolation
+  dependency research decisions are accepted.
+- [x] Both individually approved setup-token requests are consumed: count
+  returned 200 without quota headers; usage returned 403 `permission_error`.
+- [ ] Q/N/K feasibility and concrete human G0 acceptance remain before runtime.
+- [ ] C/X/A/U/I/R/V and CI1/M1/D/CI2/M2/Z remain unstarted.
 
-The user approved exploring native full OAuth login for protected Claude
-accounts while retaining setup-token mode. This permits investigation, not
-silent credential migration or using the user's default login for another
-named account. The reviewed credential proposal and shared device-state
-boundary have now been accepted; actual account operations retain their
-explicit scope below.
+Resume `.worktrees/quota-integration`, branch `ci/quota-reserve`. The original
+root intentionally has no duplicate handoff. Run `git worktree list` and
+`git rev-parse --git-common-dir`; inspect `coding-agent-kit-handoffs/quota-reserve/`
+under that common directory. Its `identity.json`, `gate-decisions.md`,
+`latest-checkpoint.json`, `progress.md`, reviews and archives contain exact
+heads, approvals and source/evidence provenance. Reconcile them with Git and
+active processes before writing. Do not initialize B0 again or overwrite a
+concurrent agent's work. Unrelated worktrees are not this task's cleanup targets.
 
-Planning baseline: `ed7e401be12d0972762915f17d86acc0f3ff2629`, main, release
-`0.7.7`. Reinspect before starting; another agent advanced main during this
-conversation. No runtime feature, worktree, implementation commit, or remote
-mutation was created by this planning session. The planning artifacts may be
-untracked in the original checkout and need B0's preservation step.
+The pre-consolidation chronological handoff is preserved at `f0158df` and in
+the durable archive. This file supersedes its stale pending questions and
+rigid internal signatures. Frozen source/evidence remains at its recorded
+commit; corrections add provenance instead of silently rewriting captures.
 
-The latest investigation has NOT proved full option A on either provider.
-Codex current-turn interruption is demonstrated, but controller loss allowed
-another model request. Claude's existing token mode fails the native profile
-scope gate, and native usage may be cached without freshness provenance.
-G0 is a real blocker, not a checkbox that a mock test can satisfy. The goal is
-release readiness only if the evidence supports the agreed product.
+## Authorizations and hard requirements
 
-### Current execution steering
+The user already authorizes incremental commits, ordinary integration,
+`ci/**` pushes, exact-green-commit fast-forward of main and normal pushes,
+and verified task worktree/branch/temporary-file cleanup. Do not repeatedly
+confirm these. No force push, tag creation/publication or existing-tag change.
 
-The reviewed first research wave is integrated at `03f6b99`. Its native
-counterexamples and PA0 proposal are evidence, not implemented functionality.
-The user then approved additional **per-invocation model request gate proxy
-research**, while retaining full A, native UI, owned-descendant coverage,
-monitor-loss protection and verified manual continuation. This supersedes the
-earlier prohibition on exploring a proxy; it does not approve a production
-proxy, new public UX, replacement UI, persistent daemon or weaker behavior.
+- Resolve each window independently: invocation override, selected account,
+  global, then off. CLI: `--reserve-5h VALUE`, `--reserve-weekly VALUE`, before
+  NAME; values are finite 0..100 or `off`. Omitted inherits; duplicate errors;
+  zero is enabled; equality pauses; native tail stays unchanged. The spec pins
+  TOML fields/examples. Do not combine percentages or substitute token budgets.
+- Fresh model-free quota precedes model dispatch. Cache-only, missing, malformed,
+  stale, wrongly attributed or unsupported-family data is unavailable. Repeated
+  failures cannot renew freshness. Independent resets never auto-resume.
+- Full A includes native agents, shell/tool model clients, hooks/local helpers,
+  detached descendants and explicitly adopted work. Independent user sessions
+  remain outside. Environment/PATH pins and process-name killing are inadequate.
+- Stop current/future owned model dispatch on threshold or monitor/control loss;
+  preserve usable native history/UI. New deliberate continuation plus fresh
+  passing quota is required. Old queued input, paste, hooks or recovery cannot
+  unlock. No final inference for a summary/commit. No exact overshoot guarantee.
+- Retain setup-token mode. Prefer token-only protection if proved. Otherwise
+  use one initial user web login per account and persist native credentials;
+  ordinary switching must not login/logout again. Native alone refreshes.
+- Accepted HAuth: `claude-as --enroll-native NAME`,
+  `[claude_auth.accounts.NAME] mode="native-login"`, fixed private
+  `<secrets_dir>/native-claude-accounts/NAME/config/`. Native shared
+  `HOME/.claude/.device-keys.json` effects are accepted. No default OAuth reuse,
+  automatic migration, native lock management or wrapper refresh client.
+- Optional isolation dependencies are accepted for protected mode; unsupported
+  capability refuses protected startup. This is the task-specific exception
+  to AGENTS.md's dependency baseline. It does not authorize installation,
+  privileged services, global firewall changes or weakened protection.
+- Both-off behavior, offline metadata, native arguments, terminal/exit semantics,
+  credential repair and independent sessions retain existing contracts. Unknown
+  versions/modes refuse enabled reserves instead of silently falling back.
+- Preserve the permanent spec and product docs. Both publication cycles are
+  required after implementation, with no release tag.
 
-The user clarified the earlier token-only constraint: prefer setup-token-only
-support; if it cannot satisfy protection, initial web login is allowed with
-persistent credentials per account. Routine switching must not require another
-login. Automatic migration and default-account reuse remain forbidden; the
-subsequent concrete schema/shared-state approval and individually scoped live
-experiment are recorded below. Native refresh remains native-owned; revocation
-or unrefreshable credentials require explicit recovery.
+An access-bearer research-boundary question is pending at this checkpoint:
+whether to explore read-only short-lived access-token acquisition from the
+selected native file/Keychain, in memory, without persistence, refresh or
+default-store copying. Existing HAuth does not grant that access. Check the
+latest ledger/user reply before dependent work; research approval would not
+authorize actual credential reads or an unreviewed live experiment. Continue
+independent isolation/offline work while awaiting it. The exact original
+prohibitions and candidate alternatives are in the auth report.
 
-The new research nodes are PC2 (request-gate feasibility) and PT (token-only
-startup quota). They extend the research before G0; they do not restart B0 or
-authorize C/X/A/U. PTP prepares the offline-reviewed permission probe. PA2
-extends persistent-login isolation evidence; PC3 extends subscription TUI and
-routing evidence independently of the pending continuation-control decision.
-PC4 adds bounded monitor/proxy-loss evidence for owned native streams within
-the already-authorized gate research; it adds no continuation UX or runtime.
-The user subsequently accepted the reviewed HAuth candidate and shared native
-device-state boundary, and authorized HTTP/SSE plus dedicated continuation
-control research. A named-account one-shot count experiment completed with
-HTTP 200 but no quota headers. Its permission is consumed; see the
-[result and limits](quota-reserve-claude-count-result.md). PC5 and PA1F/PA1C
-now extend the unresolved native evidence in separate worktrees. These
-approvals do not waive G0 feasibility or authorize unlisted live experiments.
-Read `gate-decisions.md` in the durable ledger for decisions received after
-any frozen checkpoint. Original task text below is historical where this
-explicit steering supersedes it; all protection and publication gates remain.
+## What implementation may change
 
-## Global constraints
+The implementer may revise internal types/signatures, file splits, adapter or
+library choice, node granularity, fixture structure and measured timeout values
+as evidence develops. Agree a small shared contract before parallel consumers;
+update consumers, tests and central progress together when it changes. Old
+example dataclasses, F12/challenge UX and research timings are not mandatory
+product APIs. Ordinary implementation/refactoring needs no new user approval.
 
-- Five-hour and weekly reserves resolve independently: invocation > account > global.
-- Numbers are remaining percentages from 0 through 100; `off` disables a window; omission inherits. Factory defaults are off.
-- Pause at exact equality as well as below the reserve. Never average windows, round before comparing, or substitute context/token/cost percentages.
-- Query before model work; stale or missing enabled windows are unavailable. Persistent failures pause; finite retries never extend freshness indefinitely.
-- Keep native UI, stop invocation-owned current/future delegated model work, and require verified manual continuation after a fresh quota check. Never silently substitute process exit.
-- Preserve setup-token behavior when protection is off. No unapproved credential format, account migration, or OAuth refresh implementation.
-- Prefer setup-token-only protection. A reviewed persistent-login fallback is permitted if needed; routine switching must not require login. Neither authentication nor a first inference substitutes for a model-free startup quota source.
-- Python is `python3 -I -B`; modules load by physical path. Only config.py reads launcher HOME, XDG_STATE_HOME, or the kit config file.
-- Linux/macOS, system Bash 3.2 compatibility, POSIX sh for claude-as/install.sh, no native Windows support. Native version floors must follow demonstrated capabilities, not an exact pin or upper bound.
-- Tests use temporary homes, fictitious credentials, and loopback fixtures. A real-account probe requires explicit authorization and user-performed authentication.
-- Documentation is printable ASCII English. Never commit secrets, machine-specific absolute paths, or AI attribution.
-- New public flags/config/runtime paths require the next minor release. Expected baseline target is 0.8.0; recompute if main advances.
-- No force push, tag creation, release publication, destructive reset, or broad cleanup. Release-ready does not mean a release has been tagged.
+Evidence contradicting a candidate calls for a bounded adjustment and test,
+not another unbounded exploration program. Raise material auth, ownership,
+platform, dependency or compatibility changes immediately with concrete options;
+continue independent nodes. No flexibility waives HAuth/G0, native UI, full A,
+freshness, manual continuation or the two publication cycles. Do not silently
+ship only one provider/platform or replace persistent pause with process exit.
 
-## Review focus
+## Evidence map: reuse before adding tests
 
-1. A successful RPC returns seeded/cached quota: it must not refresh a watchdog. Test in PA and both adapter tasks.
-2. A monitor disconnects while children or queued work remain: no further owned model dispatch. Prove natively in PC/PA; regress in X/A and R.
-3. A native session changes identity, quota family, or resumed thread: never apply a different account's reserve observation. Test in C/X/A.
-4. One window resets while the other still violates policy, or an old prompt is queued: remain paused until a verified manual action and both checks pass. Test in C/X/A.
-5. A copied/linked install, inherited policy, or changed shell argument position bypasses enforcement: test in U/I, including native arguments after NAME and offline metadata commands.
+All entries are bounded evidence, not a complete production proof. Native
+versions were Codex 0.167.2 and Claude 2.1.322; they are not supported floors.
+Exact binary/source hashes, checks and reviews are in the reports and ledger.
+Re-run only for a changed mechanism/version or unresolved assertion.
 
-## DAG, ownership, and progress
+| Nodes | Accepted result and remaining limit |
+| --- | --- |
+| [PC](quota-reserve-codex-evidence.md), [PC2](quota-reserve-codex-proxy-research.md) | Native interrupt preserves UI; paused goal/controller disconnect do not prevent queued/new requests. HTTP/SSE custom-provider gate is a candidate. |
+| [PC3](quota-reserve-codex-ui-research.md), [PC4](quota-reserve-codex-loss-research.md) | Actual TUI, child/grandchild routing; monitor EOF/death/staleness and gate death close owned streams, independent session survives. No arbitrary-shell containment proof. |
+| [PC5](quota-reserve-codex-continuation-research.md) | Trusted terminal confirmation rejects old input/paste/native output/recovery; fresh two-window check. Local command can finish after turn interruption. |
+| [PA0](quota-reserve-claude-auth-discovery.md), [PA2](quota-reserve-claude-persistence-research.md) | Native persistence schema and fake A/B/A reuse. Real refresh and macOS isolation still need proof. |
+| [PT](quota-reserve-claude-token-research.md), [count result](quota-reserve-claude-count-result.md), [usage result](quota-reserve-claude-usage-result.md) | Native setup-token usage unavailable; live count has no windows; one live usage GET is 403. These paths cannot enable protection; not universal impossibility for every token interface. |
+| [PA1F](quota-reserve-claude-freshness-research.md) | Usage may return old cache after errors/fieldless success. Native fetch timestamp lacks bearer/organization binding. |
+| [PA1C](quota-reserve-claude-control-research.md), [PA1T](quota-reserve-claude-tools-research.md) | Claude native UI/agents/loss/continuation tested with fake OAuth. Gate-only lets Bash finish; Ctrl-C interrupts the measured shell. No universal tool termination guarantee. |
+| [PR](quota-reserve-routing-audit.md), [PC6](quota-reserve-codex-realtime-research.md) | Claude inline settings close tested URL reload escape; Codex two realtime paths reach a denying gate. Not audio/voice-UI support or arbitrary-client containment. |
+| [PN](quota-reserve-auth-next-session.md), [PO](quota-reserve-descendant-design.md) | Reviewed finite auth and outer-boundary directions; no native correlated quota/bearer interface or cross-platform composition established. |
 
-```text
-B0 inventory / isolated integration / durable progress
- |----------------------------|
-PC Codex control + quota      PA0 Claude auth/control discovery
- |                            |
- |                            HAuth human credential-design review
- |                            |
- |                            PA1 approved-auth quota + control proof
- |----------------------------|
-G0 human architecture review + native feasibility + interface freeze
- |
-C shared configuration / prefix parser / policy and state
- |---------------------|----------------------|
-X Codex integration    A Claude integration    U shell completions
- |---------------------|----------------------|
-I packaging / cross-provider tests / permanent docs / minor version
- |
-R independent whole-branch review and fixes
- |
-V full local validation and frozen candidate
- |
-CI1 ci/** push -> exact-SHA Linux + macOS success
- |
-M1 ff-only main -> push -> main CI success
- |
-D implementation-document cleanup commit
- |
-CI2 fresh checks -> ci/** push -> exact-SHA success
- |
-M2 ff-only main -> push -> main CI success
- |
-Z worktree/branch cleanup and release-ready report
-```
+PC6's offline path-redaction provenance is separate from capture provenance.
+PA1T's earlier failed guard attempt stopped before native TUI launch; a guarded
+version-helper fork may have occurred. Failed runs and test-only network guards
+do not prove the eventual product mechanism.
 
-Four slots permit one coordinator plus three workers. PC and PA0 run together;
-PA1 follows HAuth in the Claude probe worktree. PA below means this ordered
-Claude research sequence, not a cyclic dependency on its own approval.
-X, A, and U run together only after C is integrated. Reviews may require
-waiting for a slot. Each write-capable worker has one checkout; reviewers are
-read-only. The coordinator alone writes this handoff and integrates branches.
-
-All worktree paths are relative to the ORIGINAL project root, not a worker's
-checkout: `.worktrees/quota-integration`, `quota-probe-codex`,
-`quota-probe-claude`, `quota-policy`, `quota-codex`, `quota-claude`, and
-`quota-completion`, each under `.worktrees/`. Use `ci/quota-reserve` for the
-integration branch and `task/quota-*` for task branches. If these names exist,
-inspect and resume the matching task or choose a fresh suffix; never replace
-someone else's worktree or branch.
-Record the actual original root, integration branch/worktree, per-node paths,
-and ledger directory in B0. Every later command uses these recorded values;
-the default names above are not permission to operate an existing unrelated
-branch. Run integration commands in the recorded integration worktree and
-main commands only in the original main checkout.
-
-| Node | Dependencies | Exclusive write ownership | Initial status |
-| --- | --- | --- | --- |
-| B0 | none | integration metadata, .gitignore, handoff | done; preservation commit and independent review passed |
-| PC | B0 | Codex probe fixtures and own evidence report | blocked-user; reviewed checkpoint 9c660f8 and hooks passed |
-| PA0 | B0 | Claude discovery fixtures and own auth/control proposal | done at 2df1ce5; independent review and hooks passed |
-| PC2 | PC, explicit proxy-research authorization | new pc_proxy fixtures and Codex proxy report | reviewed checkpoint 9538f748; full A blocked-user |
-| PT | PA0, setup-token preference | new claude_token fixtures and token-only report | reviewed checkpoint ad8c079; startup source unproved |
-| PTP | PT | offline one-shot permission-probe harness and tests | done at d6ce140; 21 offline tests, hooks and independent review passed; no live authorization |
-| PA2 | PA0, persistent-login fallback direction | new claude_persistence fixtures and report | done at 950948d; isolated matrix, hooks and independent review passed |
-| PC3 | PC2 | new pc_ui fixtures and report | done at ab41738; native matrix, hooks and independent review passed |
-| PC4 | reviewed PC3, existing gate-research authorization | new pc_loss fixtures and report | done at fe8c4a2; native matrix, hooks and independent review passed; no continuation UX |
-| PTLive | reviewed PTP, explicit named-account permission | coordinator sanitized result and private audit | done; HTTP 200, quota headers missing; result independently reviewed at 098ad2d |
-| PC5 | reviewed PC4, continuation-control research approval | new pc_continue fixtures and report | done at 517a2a7; native evidence, 18 focused tests, hooks and independent review passed |
-| HAuth | reviewed PA0/PA2 candidate, explicit human decision | coordinator human credential-design decision record | approved design and native shared-device boundary; no automatic migration or unlisted live experiment |
-| PA1F | HAuth | new claude_freshness fixtures and report | done at d45e72f; 19 native cases, evidence checks, hooks and independent review passed |
-| PA1C | HAuth, request-gate research approval, reviewed PC5 fixture | new claude_control fixtures and report | done at 3453dbb; 9 native cases, 10 focused tests, hooks and independent review passed |
-| PTU | reviewed PA1F, consumed count permission | new claude_usage_permission fixture and report | done at 22490bc; 22 offline tests, hooks and independent review passed; distinct usage GET permission pending |
-| PR | reviewed PC5, PA1F and PA1C | new routing audit report and fixtures | done at 49c529a; two native reload cases, focused checks, final hooks and independent review passed |
-| PC6 | reviewed PC5 and PR's concrete realtime route candidate | new pc_realtime fixtures and report | done at 845a6a5; native core routing, 13 focused tests, final hooks and independent fix review passed |
-| PA1T | reviewed PA1C, spec local-tool evidence requirement | new claude_tools fixtures and report | done at a231874; two native cases, 3 tests with 26 mutations, hooks and independent review passed |
-| PA1 | PT or reviewed fallback feasibility, applicable human gates | Claude approved quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
-| G0 | Codex/Claude research, startup quota and routing evidence | coordinator architecture record and frozen interfaces | blocked; native default paths do not establish complete routing or real quota permission |
-| C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
-| X | C | bin/codex-as, lib/codex-as/*, Codex-specific tests | blocked |
-| A | C | bin/claude-as, lib/claude-as/*, statusline/helper changes, Claude-specific tests | blocked |
-| U | C | four completion files, new completion-only tests | blocked |
-| I | X, A, U | installer, shared test registration/fixtures, contract, coverage, product docs, coordinated version edits | blocked |
-| R/V | I | coordinator fixes; reviewers read-only | blocked |
-| CI1/M1 | V | coordinator Git/CI operations | blocked |
-| D/CI2/M2/Z | M1 | exact task-doc cleanup, Git/CI operations | blocked |
-
-For each node record: status (`pending`, `running`, `awaiting-review`,
-`blocked-user`, `done`), owner, branch/worktree, base and head SHA, completed
-checkboxes, test command/results, review verdicts, open questions, and next
-action. A worker reports these fields to the coordinator instead of editing
-central progress. The coordinator updates and commits this handoff after each
-integrated node/wave and before yielding for user input.
-
-Use an additional durable local ledger beneath the resolved Git COMMON dir,
-`coding-agent-kit-handoffs/quota-reserve/`. Store sanitized logs, decisions,
-review packages, candidate SHAs and CI run IDs there. This survives worktree
-removal and does not make CI's source checkout dirty. Only the coordinator
-writes it. Never use /tmp as the only copy of unfinished work or evidence.
-After a candidate is frozen, record status here rather than committing more
-handoff updates and invalidating the candidate SHA.
-Inspect any existing ledger's task/run identity before writing. Resume only
-the matching run; otherwise choose and record a separate suffixed directory.
-Never overwrite another run's ledger when selecting new branch names.
-
-### B0: preserve planning and create isolated ownership
-
-- [x] Read AGENTS.md, this handoff, spec and research; inspect status, diffs, worktrees, branches, current local/remote refs, and active agent ownership. Record the actual base SHA.
-- [x] Ensure `/.worktrees/` is ignored BEFORE creating it. Because main cannot receive an untested bootstrap commit, first add that exact entry to the shared `.git/info/exclude` if needed; record whether it was already present. Verify with `git check-ignore`.
-- [x] Create `.worktrees/quota-integration` on a new `ci/quota-reserve` branch from current main. Add `/.worktrees/` to tracked .gitignore in that worktree. Leave the original main checkout on main.
-- [x] Copy only the known spec, handoff, research and two probe files into integration. Compare bytes, stage explicit paths, run required hooks, and commit `docs: preserve quota reserve implementation handoff` with the ignore change.
-- [x] Only after those copies are committed, remove identical untracked originals from the main checkout so a later fast-forward is not blocked. Preserve anything different or unexplained. Record the integration document path for subsequent resumes.
-- [x] Initialize the identity-checked durable ledger and node records, including all actual branch/path selections. Create probe worktrees from the committed integration SHA. Each worker receives the original root, its exact worktree, dependency SHAs, allowed files, and its node's acceptance checks.
-
-### Execution checkpoint: B0 preservation and probe dispatch
-
-- Actual base remains `ed7e401be12d0972762915f17d86acc0f3ff2629`;
-  local main and freshly fetched origin/main agree. Preservation commit:
-  `0a79911` on `ci/quota-reserve` in `.worktrees/quota-integration`.
-- The Git common directory contains the identity-checked durable ledger at
-  `coding-agent-kit-handoffs/quota-reserve/`. Its `identity.json` records
-  resolved local paths; `progress.md`, original byte-for-byte artifacts,
-  hook logs, node briefs and independent review are preserved there.
-- A pre-existing `.worktrees/` entry in `.git/info/exclude` covered bootstrap;
-  this task did not add it. The committed ignore uses `/.worktrees/`.
-- `pre-commit run --all-files` and staged `git diff --check` passed.
-  Independent B0 spec-compliance and quality/security review both passed.
-  No runtime implementation or native-account experiment was performed.
-- PC owns `.worktrees/quota-probe-codex`, branch
-  `task/quota-probe-codex`; PA0 owns `.worktrees/quota-probe-claude`, branch
-  `task/quota-probe-claude`. Both start at `0a79911`. Workers only write
-  provider-specific evidence and fixtures; coordinator owns this handoff.
-- Automatic approval review rejected removal of the five untracked original
-  duplicates twice, interpreting it as deletion of the retained spec.
-  Separate checks proved all originals equal committed and archived copies.
-  The user then explicitly approved removing exactly these five duplicates
-  while retaining the committed spec. Removal succeeded, empty task-only
-  directories were removed, and original main is now clean.
-- B0 review identified proxy-only network containment and early-startup
-  process cleanup hazards in the supplied disposable scripts. PC must use
-  bounded supervision and establish containment before reproducing them.
-- HAuth and G0 remain unapproved. No runtime node may start. The next task
-  checkpoints are reviewed PC evidence and the reviewed PA0 auth proposal.
-
-### Execution checkpoint: reviewed research and unresolved human gates
-
-- PA0 is committed at `2df1ce5d4f95a42dacae3e2675897c26c258a4a5`.
-  Its [auth discovery and proposal](quota-reserve-claude-auth-discovery.md)
-  passed independent spec-compliance and quality/security review after one
-  fix round. Two isolated native runs showed unavailable quota and zero
-  inference; final `pre-commit run --all-files` passed on the reviewed tree.
-- The proposal preserves setup-token and adds explicit native-login selection
-  with native-owned credentials/refresh. Its root is
-  `<secrets_dir>/native-claude-accounts/NAME/config`, outside every legacy
-  `claude-NAME` or `codex-NAME` token pathname. The initial colliding proposal
-  was rejected by review and corrected before requesting HAuth.
-- The native shared `~/.claude/.device-keys.json` contains credential-bearing
-  device identity outside `CLAUDE_CONFIG_DIR`. Static inspection found no
-  independent supported path override; ordinary login/logout/usage and
-  concurrency effects remain unverified. Candidate schema approval alone
-  does not authorize access to it. Real-HOME enrollment stays blocked pending
-  evidence or a separately reviewed human shared-state decision. There is
-  no implicit switch to an isolated HOME and no real-account authorization.
-- HAuth was asked to approve only this concrete schema candidate or request
-  changes. Consult the durable `gate-decisions.md` for the latest response;
-  approval cannot waive shared-state review, authenticated freshness or G0.
-- PC's [native evidence report](quota-reserve-codex-evidence.md) has an
-  independently accepted blocker conclusion, committed at
-  `9c660f8af4ad98c79d3c01d4f74b14bb1d40b29e`. After goal pause and root
-  interruption, controller loss leaves the backend available; starting old
-  queued input increases model request count from 2 to 3, and programmatic
-  continuation increases it from 3 to 4. Those are new dispatches. Native UI
-  current-turn interruption is demonstrated, not a persistent reserve gate.
-- PC also demonstrates a local model-free quota query, visible account
-  mismatch, failure on HTTP 503, and native integer-only percentage parsing.
-  These fixtures do not prove real account permissions, universal freshness,
-  all quota families, active descendant control or manual-resume provenance.
-- Independent PC review found and resolved failed-probe status propagation,
-  timeout ownership, unqualified stream attribution, and local-path hygiene.
-  Three supervision regressions and five evidence checks passed; the updated
-  native suite reproduced the dispatch counterexample. Final hooks passed on
-  the exact reviewed tree; logs, exit codes and cleanup inventory are archived
-  in the durable ledger. No capability pass is inferred from those checks.
-- PC's scope question is pending: retain current architecture restrictions
-  and block dependent nodes, or explicitly permit additional research on a
-  per-invocation request gate without weakening full A. That question grants
-  no implementation permission. The two disjoint research branches are
-  integrated as one ordinary merge wave preserving both commit ancestries.
-- No runtime source, public interface, release version or permanent product
-  behavior has changed. C/X/A/U/I/R/V and both publication/cleanup cycles are
-  unstarted. Do not delete implementation evidence or claim release readiness
-  while the human and native-capability gates remain open.
-
-### Current ownership and research amendment
-
-- First-wave PC/PA0 worktrees and their merged task branches were removed
-  after clean-tree, ancestry, process and archival checks. Their commits and
-  reports remain in integration and Git history. Twenty exact PC scratch
-  roots and both PA0 roots were removed after evidence retention.
-- PC2 owns `.worktrees/quota-proxy-codex`, branch `task/quota-proxy-codex`,
-  based on `9c660f8`. Its scope is a new Codex proxy research report and
-  `quota-reserve-probes/pc_proxy/`; prior evidence and runtime code are read-only.
-- PT owns `.worktrees/quota-token-claude`, branch `task/quota-token-claude`,
-  based on `2df1ce5`. Its scope is a token-only research report and
-  `quota-reserve-probes/claude_token/`; prior evidence and runtime code are
-  read-only. Check the ledger for its review/commit status after `ad8c079`.
-- PC2 must distinguish subscription auth routing from fake API-key routing,
-  test HTTP/WebSocket fallback and native refresh ownership, and establish
-  the limits of queued work, alternate providers, listener loss and native
-  UI. An admission latch alone cannot prove manual provenance, exhaustive
-  descendant coverage or fail-closed monitor loss. Any new continuation
-  control must be a concrete reviewed proposal before product implementation.
-- PT must distinguish the local profile-scope gate from actual provider
-  permission. It may inspect a zero-generation count endpoint as a hypothesis
-  for subscription response headers, but token counts are never quota and
-  native counting fallbacks must not trigger inference. No real token may be
-  read or sent without a separately reviewed, bounded, named-account probe.
-- Both nodes require focused checks, independent review, incremental commits
-  and all-files hooks. Their outcomes may remain blocked-user; no partial
-  evidence may open G0. The original C-through-Z sequence is unchanged.
-
-### Research wave 2 checkpoint and next permission boundary
-
-- PC2 is committed at `9538f7487bc6b9f82a846786312b9916da31b18f`.
-  [Its report](quota-reserve-codex-proxy-research.md) and bounded fixtures
-  passed independent spec/quality review, six contained native stages, five
-  evidence checks and all-files hooks. Native subscription bearer/account
-  routing, WebSocket-to-HTTP fallback and native refresh attempts are observed
-  with fabricated credentials. A closed admission fixture rejects queued
-  requests; it is not an upstream relay or a monitor-death lease.
-- Subscription TUI bootstrap hits unsupported fixture account discovery;
-  listener loss leaves a queued turn in progress during the observation
-  bound. Trusted new manual continuation, exhaustive descendants/voice/role
-  routing and monitor-loss safety remain unproved. PC2 therefore stays
-  blocked-user. Any continuation-control/HTTP-only restriction proposal needs
-  concrete review; no production proxy or new public UX is approved.
-- PT is committed at `ad8c07924fa90b9a91931e560dfa6f5a9c31b46b`.
-  [Its report](quota-reserve-claude-token-research.md) and fabricated native
-  fixture passed independent spec/quality review, focused checks and all-files
-  hooks. Repeated get_usage calls with both behavior-collection settings give
-  unavailable quota and zero inference. This proves the local gate, not a
-  universal provider permission denial.
-- PT identifies one unverified hypothesis: a direct, documented zero-generation
-  count response might carry subscription-window headers. Input token counts
-  themselves cannot supply quota. The native count helper has a generation
-  fallback and must not be used for this experiment. A successful HTTP Date
-  and two headers would still not prove quota computation age, account UUID,
-  family or safe poll cadence.
-- PTP prepares the small, offline-tested one-request harness needed to make
-  any later permission request concrete and independently reviewable. It owns
-  `.worktrees/quota-token-permission`, branch `task/quota-token-permission`,
-  based on `ad8c079`. No real token may be read or sent while preparing it.
-  Execution requires separate named-account/exact-path/endpoint authorization
-  after review; no permission is inferred from a CLI flag or research scope.
-- The subsequent user clarification permits initial web login as fallback,
-  with credentials retained per account and no repeated login during routine
-  switching. This supersedes the former hard token-only constraint. The exact
-  HAuth design, shared device-state effects and live probes remain gated.
-
-### Execution checkpoint: permission-probe preparation and auth clarification
-
-- PTP is committed at `d6ce140b6526e479cbb707e4a2400049f85dd29a`, following
-  the initial `36c608a` checkpoint. Its [reviewable command and limits](quota-reserve-claude-permission-probe.md)
-  describe one fixed count request, no generation or retry, explicit account
-  and token path, strict credential handling and sanitized output. Twenty-one
-  fabricated offline tests and all-files hooks passed. Independent review
-  accepted the three bounded fixes: independent test network denial, accurate
-  metadata-line limits and disclosed abrupt-parent-death limitations.
-- This completes preparation only. No real token was read, no provider was
-  contacted and no live request is authorized. A named account, exact configured
-  token file and direct first-party HTTPS permission are still needed before
-  the reviewed experiment. Syntactically complete headers would not themselves
-  prove freshness, quota family, account identity or a polling policy.
-- PC2/PT evidence was integrated at `796847a`. Their logs and temporary-root
-  inventories were archived before verified cleanup of their worktrees and
-  merged branches. The integration and PTP worktrees preserve ongoing work.
-- PA2 and PC3 are independent bounded research extensions in separate new
-  worktrees. PA2 checks persistent native-login and device-state isolation
-  using fabricated records and denied network. PC3 investigates a sourced
-  subscription TUI account-discovery fixture and native routing. Neither may
-  read real credentials or change runtime behavior.
-- A concrete G0 scope question is pending: permit research of HTTP/SSE-only
-  protected routing plus a dedicated continuation key outside the native UI,
-  or retain current interaction and wait for a native primitive. No new key,
-  production proxy or weaker stop semantics is approved by asking. Continue
-  independent research while awaiting that decision.
-
-### Execution checkpoint: persistent selection and native delegated routing
-
-- PA2 is committed at `950948d73574f4b2f9228f9e3906c0c7b614c5d5`.
-  Its [persistence and device-state report](quota-reserve-claude-persistence-research.md)
-  passed independent spec/security review and final all-files hooks. Fifteen
-  native operations across three fabricated device-state cases preserve A/B
-  credential separation; A logout clears A OAuth but preserves its legacy
-  device record and B credentials. No shared device-key path was accessed in
-  those status/logout cases. Fabricated logged-in status is not authentication
-  proof, and these operations do not test real login or refresh.
-- Static inspection finds account-indexed shared device keys, legacy migration,
-  corrupt-file quarantine and native registration/reenrollment updates. Even
-  a denied network call need not prevent a local device-key write. HAuth must
-  review this specific shared-state exposure before real-HOME enrollment;
-  ordinary per-account config separation cannot prove universal isolation.
-  macOS, real account binding, refresh concurrency and quota freshness remain
-  unproved. No actual credential or default-account file was read.
-- PC3 is committed at `ab417382602dd09142b7048ba4743c49b4ed2472`.
-  Its [subscription TUI and delegation report](quota-reserve-codex-ui-research.md)
-  passed independent spec/security review, native fixture/evidence checks and
-  all-files hooks. The account-discovery fixture comes from the matching
-  official source. The native subscription TUI starts, root/title requests
-  reach the configured gate, and root interruption leaves UI/history available.
-  This resolves PC2's local discovery-503 fixture blocker, not real subscription
-  permission, every UI interaction or workspace-policy compatibility.
-- Native spawn history proves actual default root/child/grandchild delegation
-  under fabricated SSE responses. All requests use the root session header;
-  separate thread IDs and the native spawn graph establish ancestry. Root
-  interruption leaves the title stream open at one second and descendant
-  streams at two seconds. Individually interrupting descendants closes their
-  local streams; no remote computation-cancellation guarantee follows.
-- PC4 uses a separate worktree and branch `task/quota-loss-codex` from reviewed
-  PC3 to test monitor/proxy-loss admission and owned-stream closure. It may not
-  add a continuation key, product transport restrictions or production proxy.
-  The two pending human questions concern that continuation research scope and
-  one named-account setup-token count experiment; no answer is assumed.
-- Neither research result passes G0. Real quota permissions/freshness,
-  exhaustive routing, trusted new manual continuation, monitor/proxy loss,
-  running tools, macOS and concrete timings/interfaces remain open. No runtime
-  node, remote push or functional/document-cleanup publication cycle has begun.
-
-### Execution checkpoint: loss gate evidence and current manual blockers
-
-- PC4 is committed at `fe8c4a20d45bb4162c143a4d7ecc5127ae2e8bc1`.
-  Its [monitor and gate loss report](quota-reserve-codex-loss-research.md)
-  passed independent spec/security review, four native loopback cases, seven
-  evidence regressions, final all-files hooks and an additional already-started
-  full local suite. The suite's unset release-tag check skipped as expected;
-  this is not hosted CI or validation of a new release version.
-- The research relay starts closed and opens only after fabricated native quota
-  and a monitor pulse. Monitor transport EOF, monitor process death and lease
-  expiry latch it closed and shut all already owned root/title or default
-  descendant streams. Old queued input is automatically consumed by native
-  code but rejected at the closed gate. Passing quota and a later pulse do not
-  unlock it. A separate native fixture session remains active and untouched.
-- Killing the gate process closes its local transports. The attached TUI and
-  history RPC remain available, but queued/new turns are still in progress
-  after three seconds. This is no new upstream admission during the measured
-  interval, not a completed permanent pause. The experiment's socket closure
-  does not prove real provider computation or billing cancellation.
-- Recorded timings describe this run only. A shared lock orders admission and
-  stream closure relative to the loss latch; connect/send under that lock can
-  delay detection, and already admitted bytes may cross the loss boundary.
-  The 0.8-second lease and 20 ms poll are experimental values, not G0's frozen
-  product timings. Restart, backpressure, all alternate routes, real quota,
-  native tools, macOS and verified manual continuation remain unproved.
-- Three concrete human questions are pending in the durable gate record:
-  (1) whether to accept the reviewed persistent-login schema's native shared
-  device-state boundary; (2) a named setup-token account and explicit exact-file,
-  one-request direct HTTPS permission for PTP; and (3) whether to research
-  HTTP/SSE protected routing with a dedicated continuation key outside the
-  native UI. No reply, live operation or approval is inferred from elapsed time.
-  The HAuth question links PA2 and covers design only, not actual enrollment.
-- Resume according to those decisions. PTP may run only after account/path and
-  transport authorization are recorded; its result still needs interpretation
-  for freshness/family. Any full-login experiment needs a separately named
-  account and user-performed authentication. A continuation prototype requires
-  its scope decision, followed by native evidence and G0 review. Do not rerun
-  completed research or start C/X/A/U while these gates remain unresolved.
-- PA2/PC3 were integrated at `d27b266`; their verified temporary outputs,
-  worktrees and merged branches were removed after durable archival. PC4
-  cleanup follows this integration checkpoint. The integration worktree and
-  common-directory ledger remain the recovery entry points. No remote branch
-  push, CI1/M1, implementation-document deletion, CI2/M2 or release tag has
-  occurred. The requested two-cycle release-ready outcome is not achieved.
-
-### Execution checkpoint: approvals and the one-shot count result
-
-- The user explicitly authorized one existing named account for the reviewed
-  no-generation count experiment and accepted the other presented choices:
-  HAuth's persistent native-login/shared-device boundary and HTTP/SSE plus
-  dedicated continuation-control research. Exact user scope and the private
-  account/path are recorded in the durable ledger. No repeated ordinary
-  implementation or integration permission is needed.
-- The one permitted request returned HTTP 200 with an input-token field and
-  no five-hour or weekly quota headers. The observed source is unusable for
-  startup quota; no retry, alternate endpoint or generation request followed.
-  This does not prove all possible setup-token-only interfaces impossible.
-  The selected token was not printed, copied, hashed or committed.
-- HAuth's design decision is complete for the reviewed proposal. It does not
-  prove real refresh, macOS behavior, account binding or quota freshness, and
-  it does not authorize automatic account migration or an unlisted real login.
-  PA1F investigates fresh model-free quota with fabricated native auth/cache
-  state; PA1C investigates actual Claude TUI/delegated work and control.
-- PC5 investigates a new deliberate terminal action distinct from old queued
-  input, native output and background events. Product key/interaction details
-  are not frozen. Native event separation is required; no added claim of
-  physical-human attestation against arbitrary malicious same-UID processes
-  is assumed. Keep terminal trust and experimental limitations explicit.
-- The three research worktrees all start at `bb195717`; each has exclusive
-  new report/fixture paths. PC5 and PA1C coordinate the continuation fixture
-  rather than inventing incompatible interfaces. All native experiments use
-  fabricated credentials and independent external-network denial. Only the
-  coordinator may perform a separately authorized real-account operation.
-- G0 remains closed on missing evidence. C/X/A/U, remote publication and the
-  two required completion cycles have not started. Resume the running research
-  nodes and the result review from the ledger rather than asking the three
-  already answered questions again.
-
-### Execution checkpoint: continuation, freshness and Claude native control
-
-- PC5 at `517a2a7` passed independent SPEC and QUALITY/SECURITY review.
-  Its [continuation report](quota-reserve-codex-continuation-research.md)
-  distinguishes new terminal confirmation from buffered input, native output,
-  bracketed paste, queued prompts and background quota recovery. Every new
-  confirmation checks both windows; failed, stale and equality cases stay
-  closed. Nine PTY tests, nine evidence tests and three native cases passed.
-  F12 and the challenge are research controls; product UX is not frozen.
-- Native Codex `turn/interrupt` does not guarantee termination of an already
-  running local command: the final capture records it finishing after the
-  interrupted turn. Gate closure still blocks its later model request. Do not
-  promise local-tool rollback or termination. The report preserves the earlier
-  differing capture and the final counterexample.
-- PA1F at `d45e72f` passed independent SPEC and QUALITY review. Its
-  [freshness report](quota-reserve-claude-freshness-research.md) covers eleven
-  network-denied and eight loopback TLS cases. Native usage can return the same
-  populated data after 401, 403, 429 or fieldless success. Only a new recognized
-  response advances observed native fetch metadata; repeated cache replies do
-  not. Local cache identity omits organization, persistence can lag, and real
-  refresh and server identity remain unproved. A historical cache cannot
-  authorize startup. Proposed timings are research candidates, not G0 values.
-- PA1C at `3453dbb` passed independent SPEC and QUALITY/SECURITY review. Its
-  [native control report](quota-reserve-claude-control-research.md) proves
-  fabricated persisted full OAuth still routes native Messages through the
-  gate. The native TUI creates actual child/grandchild contexts. Four loss
-  cases close owned streams while an independent TUI keeps streaming. New
-  continuation uses PC5's exact pinned shared files, not a second parser.
-  Nine native cases and ten evidence tests passed. Integration checks the
-  shared dependency and both consumers without changing captured sources.
-- All three workers passed required all-files hooks. Their source/evidence
-  hashes and independent reviews remain in the durable ledger. This checkpoint
-  integrates PC5 before its PA1C consumer and preserves all branch ancestry.
-  No worker used real credentials or live provider endpoints.
-- PTU prepares a separately reviewable single direct usage GET before asking
-  for another real-account permission. The earlier count authorization is
-  consumed and cannot authorize this different request. Default, describe and
-  offline tests read no real credential and reach no provider.
-- PR audits the remaining source/capability routes and ownership transitions:
-  alternate models/profiles, resume and account/session switches, background
-  modes and secondary inference paths. A test network guard is containment,
-  not evidence that a future product routes all owned work through its gate.
-  The audit must identify an enforceable supported configuration or a precise
-  blocker, without reducing full A or adding a replacement UI.
-- G0 remains closed on real attributable startup quota, complete supported
-  routing/ownership, final bounded timings/interfaces and human architecture
-  acceptance. C/X/A/U and both publication cycles remain unstarted.
-
-### Execution checkpoint: usage preparation and finite routing audit
-
-- Wave 6 is integrated at `8c87497`, preserving PC5/PA1F/PA1C ancestry.
-  Independent integration review, combined focused checks and all-files hooks
-  passed. The three clean worker worktrees and merged branches were removed;
-  their logs and 35 exact temporary roots were archived in the durable ledger
-  before scoped cleanup. No task document or permanent spec was removed.
-- PTU is committed at `22490bc`. The
-  [one-shot usage proposal](quota-reserve-claude-usage-permission.md) passed
-  independent SPEC and QUALITY/SECURITY review, 22 offline tests and all-files
-  hooks. It fixes one direct HTTPS GET to the native usage endpoint, has no
-  body, retry, redirect, refresh, login or generation, and retains only typed
-  allowlisted response fields. A separate question names the same selected
-  account and exact existing token path in the private ledger. No answer is
-  assumed; no usage request has executed. The count permission stays consumed.
-- PR is committed at `49c529a`. Its
-  [finite routing audit](quota-reserve-routing-audit.md) passed independent
-  SPEC and QUALITY/SECURITY review after one report-only fix. Native guard and
-  two Claude reload cases, source assertions, three offline tests and final
-  all-files hooks passed. In the same real TUI, user settings redirected the
-  second fake model turn when only the initial environment pinned the URL.
-  An inline `--settings` URL pin kept both turns at the gate. This proves that
-  precise configuration contrast, not all provider or managed-policy behavior.
-- PR distinguishes native TUI reachability from arbitrary RPC capability.
-  Codex TUI request projection does not include arbitrary provider URL
-  definitions; no ordinary-TUI URL override was demonstrated. Do not introduce
-  an RPC filtering layer merely because a different custom client could use
-  the broader API. Role/provider inheritance and several secondary routes have
-  source evidence, with a finite conformance matrix and explicit limits.
-- PC6 tests the concrete pair of Codex realtime endpoint overrides against a
-  denying gate. Its core RPC tests cannot establish actual voice UI or audio
-  behavior. PA1T measures already-running local Bash commands under gate-only
-  closure and closure plus native Ctrl-C. Neither uninterrupted local tools
-  nor termination is assumed; observe and disclose before adopting a pause
-  operation. Native process-tree killing is not a substitute for full A.
-- A second user question clarifies ownership: whether a model client launched
-  by an owned shell/tool counts as delegated invocation work or an independent
-  job. Native Agent descendants and native self-spawned background sessions
-  remain required either way. Do not assume the narrower interpretation while
-  this question is pending. Configuration pinning alone has not proved such
-  subprocess inheritance; a process-wrapper or stronger boundary may require
-  a concrete design decision.
-- PR identifies a separate identity race: metadata can change between its
-  check and model admission. Gate-side bearer/selector binding can reject a
-  changed request, but only a model-free quota source correlated with that
-  same credential can establish its initial lease. No wrapper refresh client
-  or speculative credential-store export is approved. PTU permission alone,
-  even if later granted, would not establish this full binding or G0.
-- Remaining G0 evidence is finite: normal supported route transitions,
-  secondary-mode refusal, local-tool effects, the clarified owned-process
-  boundary, same-credential quota binding, composed loss/continuation behavior
-  and applicable platform acceptance. Final timings/interfaces and human
-  architecture approval remain required. No runtime implementation, push,
-  implementation-document deletion or release-ready claim has occurred.
-
-### Execution checkpoint: realtime refusal and local-tool effects
-
-- Wave 7 is integrated at `5fea1ca`, preserving PTU/PR ancestry. Combined
-  focused checks, independent integration review and all-files hooks passed.
-  PTU's checkout remains available for its pending exact permission question;
-  its preparation and PR's source/evidence archive are durably retained.
-- PC6 is committed at `845a6a5`. Its
-  [realtime route report](quota-reserve-codex-realtime-research.md) passed
-  independent SPEC and QUALITY/SECURITY review after one path-redaction fix.
-  Both startup realtime URL overrides displaced distinct alternate addresses.
-  Actual native core WebRTC and WebSocket requests each reached the gate and
-  received 503 while its ordinary Responses lease was open; the alternate
-  listener saw no request. Native remained alive during the bounded subsequent
-  observation. These are refusal-route observations, not working audio or a
-  voice UI test. No microphone or user audio service was accessed.
-- WebRTC used fabricated subscription auth and synthetic SDP. The direct core
-  WebSocket path required a fabricated provider API key; its earlier keyless
-  refusal sent no request and is not routing success. Preserve that distinction
-  when deciding supported modes. The source-linked RPC tests do not establish
-  all ordinary TUI route transitions or future native-version compatibility.
-- PC6's two committed captures were re-redacted offline to remove machine
-  paths. Independent review reproduced them from private raw data and verified
-  that only the two path strings changed; original capture source and current
-  transform provenance remain separate. Thirteen focused tests and source/
-  evidence checks passed. One final hook process ended without an exit record;
-  it was not counted as passing. A fresh complete all-files run exited zero
-  on the final frozen tree before commit.
-- PA1T is committed at `a231874`. Its
-  [local-tool report](quota-reserve-claude-tools-research.md) passed independent
-  SPEC, QUALITY and SECURITY review. Under gate-only closure, the fixed local
-  Bash command completed after about four seconds. With closure plus one
-  native Ctrl-C, the shell disappeared shortly after the key and native
-  history recorded rejection; no finished marker appeared during five seconds.
-  The recorded child/reaping observations do not establish a universal native
-  termination guarantee or exact terminating signal. Both cases kept history
-  UI usable, exited zero, restored termios and forwarded no post-pause request.
-- PA1T's two native cases, three test methods with 26 evidence mutations and
-  final all-files hooks passed. A nonblocking review precision note concerns
-  an earlier failed guard attempt: "before native launch" means before the
-  native TUI launch; a guarded version-helper fork may have been attempted.
-  That failed run is retained and is not counted as successful native evidence.
-  Neither uninterrupted computation nor automatic termination is a requirement
-  inferred from these observations; adoption must disclose the chosen effect.
-- No answer has arrived for the separately scoped usage GET or ownership of
-  shell/tool-launched model clients. No further real credential request has
-  run, and no narrower ownership boundary is assumed. Resume those decisions
-  from the durable ledger; do not repeat the consumed count experiment or
-  already accepted HAuth design question.
-- G0 still requires an attributable startup quota source, the remaining finite
-  supported-route/ownership checks, same-credential admission binding, composed
-  loss/continuation and applicable platform acceptance, final timings and
-  interfaces, and human architecture review. All runtime and both publication
-  cycles remain blocked. These completed research nodes are not a release-ready
-  implementation and do not authorize deleting the task documents early.
-
-### PC: prove Codex control rather than rediscover interruption
-
-**Files:** read `lib/codex-as/{launch,check,handoff,usage}.py` and
-`tests/test_codex_sharing_native.py`; create isolated conformance experiments
-in the probe worktree and a task-owned research report. Do not edit runtime code.
-
-- [x] Reproduce the three recorded signal/shared-backend outcomes with the supplied scripts against the currently installed binary. Preserve version, binary hash, requests, exit statuses, and terminal evidence; skip clearly if native binary is absent.
-- [ ] Test a private per-launch foreground backend attached to the native TUI. Identify a documented/native mechanism that actually inhibits subsequent model dispatch, including internal subagent and goal continuation. A monitor RPC client or a TUI-only proxy is insufficient.
-- [ ] Exercise root/child/grandchild activity, queued prompts, goals, controller death, backend failure, in-session resume, and session identity changes. A fake SSE request counter must stay unchanged after pause/monitor loss until a verified manual resume; record any in-flight requests separately.
-- [ ] Establish the exact manual-resume signal and prove it differs from queued prompts and background reports. Verify TUI remains usable, and document behavior of already running local tools and terminal restoration.
-- [ ] Prove model-free startup quota parsing and account/family association with native/local fixtures. Do not claim real server permissions from a mocked provider.
-- [x] Report PASS only for the complete capability set in G0. If no dispatch gate can be established after targeted exploration, mark blocked-user, explain the missing mechanism, and ask whether scope should change. Do not implement a speculative proxy or weaken A.
-- [x] Commit repeatable useful fixtures/evidence, with focused checks and required pre-commit; obtain an independent evidence review. Coordinator integrates the report and records its SHA.
-
-### PA0, HAuth, and PA1: Claude authentication, freshness, and control
-
-**Files:** read `lib/claude-as/launch.py`, `helpers/statusline.cjs`, native
-authentication/control interfaces and Claude fixtures. Research only until
-HAuth and G0. Keep the native default login and existing token files untouched.
-
-- [x] **PA0:** reproduce model-free stream-json initialize/get_usage with a fully isolated, network-denied, fabricated-token harness. Assert zero model events/cost; pin `rate_limits_available:false` as an unsupported result rather than treating it as zero usage.
-- [x] **PA0:** investigate native full login with `CLAUDE_CONFIG_DIR`, Linux credential storage, macOS Keychain namespaces, refresh, identity reporting, and session/settings isolation. Prefer native credential management. Do not simply copy the user's default credential or fake OAuth scopes.
-- [x] **PA0:** produce a concrete proposed auth schema, enrollment command, private account paths/modes, same-account concurrency behavior, refresh ownership, compatibility behavior, and migration/recovery procedure that preserves existing setup-token mode. Commit the reviewed discovery report and record PA0 complete before requesting HAuth.
-- [x] **HAuth: human design review.** The user accepted the reviewed persistent-login proposal and native shared device-state boundary. Exact decision is in the durable ledger. Before any further real-account check, separately name its account, command, data and absence of inference; the user performs any login. The one-shot count permission is consumed. No automatic migration is authorized.
-- [ ] **PA1:** prove native quota freshness on the approved path. A cached/seeded get_usage response with no proven age cannot reset the observation deadline. Test unchanged-but-new observations, stale cache, scope failure, missing windows, and endpoint retry/rate limits.
-- [ ] **PA1:** investigate native session attachment/control with the full G0 matrix. Hooks may assist; UserPromptSubmit is not proof of human origin, SubagentStart cannot block creation, and headless control does not control another TUI. Record running-tool effects and monitor death.
-- [ ] **PA1:** if full A or safe credential isolation is unavailable, stop dependent work and raise a specific design question. Otherwise commit evidence/fixtures, run checks, request independent review, and report exact capabilities and supported native versions.
-
-### G0: manual architecture gate and interface freeze
-
-- [ ] Present both probe reports together. Require evidence for startup quota, trustworthy account/family/freshness, interrupting owned active agents, persistent prevention of future dispatch, monitor-loss protection, usable native UI, and verified manual continuation. A mock implementation alone cannot pass this gate.
-- [ ] Obtain human approval for the concrete native-control architecture and the already-reviewed Claude auth design. Any replacement UI, persistent daemon, substantial protocol/request proxy, process-exit fallback, partial-provider release, or weaker enforcement is a scope change requiring a decision, not an implementation shortcut.
-- [ ] Freeze concrete adapter method implementations, capability/version checks, running-tool behavior, authentication paths/schema, and query/poll/retry/max-age timings from measured evidence. Record all values and tests in this handoff before dispatching C/X/A. Do not invent a minimum supported version from the planning binary alone.
-- [ ] Freeze the shared interface contract below. If probe results require a change, revise consumers and spec together before parallel implementation; never let workers guess incompatible interfaces.
-
-The proposed shared contract is deliberately provider-neutral:
+## Remaining DAG
 
 ```text
-config.py:
-  Config.reserves(tool: str, account: str) -> Mapping[str, float | None]
-    normalized global/account defaults; keys five_hour, weekly; None is off
-
-reserve.py:
-  parse_prefix(argv: Sequence[str]) -> (remaining_argv: tuple[str, ...], overrides: Mapping[str, float | None])
-    only separated --reserve-5h VALUE / --reserve-weekly VALUE before NAME
-    omitted keys inherit; duplicate/invalid values fail; native tail untouched
-  resolve(base: Mapping[str, float | None], overrides: Mapping[str, float | None]) -> Policy
-  Policy(five_hour: float | None, weekly: float | None)
-  WindowObservation(used_percent: float, resets_at: int, fresh_at: float | None)
-    fresh_at is a proven observation time on the injected monotonic clock
-  Snapshot(account_key: str, family: str, windows: Mapping[str, WindowObservation])
-  Timing(query_timeout_s: float, poll_s: float, max_age_s: float, retry_backoff_s: tuple[float, ...])
-  Decision(kind: str, windows: tuple[str, ...], reason: str)
-    kind: allow, pause_threshold, pause_unavailable, paused, reject_capability
-  Guard(policy: Policy, account_key: str, family: str, timing: Timing)
-  Guard.observe(snapshot: Snapshot, now: float, wall_time: float) -> Decision
-  Guard.unavailable(reason: str, now: float) -> Decision
-  Guard.resume(snapshot: Snapshot, now: float, wall_time: float) -> Decision
-    called only for an adapter-verified NEW manual continuation action
-  LaunchContext(tool: str, account: str, executable: str,
-    native_env: Mapping[str, str], cwd: Path, native_args: tuple[str, ...],
-    account_home: Path, expected_account_key: str, inherited_fds: tuple[int, ...])
-    caller owns configuration loading, enrollment, leases and post-run repair
-  CapabilityReport(native_version: str, persistent_gate: bool,
-    descendants: bool, manual_resume: bool, monitor_loss_safe: bool,
-    fresh_quota: bool, running_tool_behavior: str)
-
-each provider's quota.py / control.py:
-  read_quota(deadline: float) -> Snapshot
-    a provider adapter instance is bound to LaunchContext
-  capabilities() -> CapabilityReport
-  run_protected(context: LaunchContext, policy: Policy, timing: Timing) -> int
-    preserve caller's native exit semantics and return for post-run repair
+Accepted evidence and current user decisions
+  |-- Q0: offline auth/quota binding harness -- HLogin/Q1: scoped live proof
+  |-- N-L: Linux/WSL2 outer-boundary feasibility
+  |-- N-M: macOS outer-boundary/native-store feasibility
+  Q + N-L + N-M -> K: composed admission/loss/continuation -> human G0
+  G0 -> C: shared policy/config/contract
+  C -> X: Codex adapter -----+
+    -> A: Claude adapter ---+-> I -> R/V -> CI1 -> M1
+    -> U: completions ------+                   -> D -> CI2 -> M2 -> Z
 ```
 
-G0 must confirm that this context supports the proved ownership model or
-revise the contract before those tasks become executable. C defines these
-shared types; X/A instantiate provider adapters bound to LaunchContext and
-implement the three methods above. This research dependency does not permit
-an implementer to silently choose a different architecture.
+Q0/N-L/N-M can run in parallel worktrees. Split or combine nodes where their
+tests justify independent review; preserve dependencies and writer ownership.
+Feasibility prototypes and fake tests are allowed before G0, product runtime
+C/X/A is not. A platform test unavailable on this host is an outstanding gate,
+not a skip that proves support. Choose the smallest next experiment that can
+reject or validate a candidate, then stop or advance on its result.
 
-### C: shared policy, config, and wrapper-prefix parsing
+### Q: attributable quota and persistent auth
 
-**Files:** modify `lib/coding-agent-kit/config.py` and `tests/test_config.py`;
-create `lib/coding-agent-kit/reserve.py` and `tests/test_reserve_policy.py`.
-Consume G0's frozen contract; produce it for X/A/U. Keep config loading in one
-place and avoid importing provider adapters into config.
+Own research fixtures/reports under `docs/superpowers/plans/`, not runtime.
+Follow PN's N0/HLogin/N1 outline; native login is a human node, not a shell
+command silently authorized by this plan. No real request is authorized here.
 
-- [ ] Write failing tests for global 5h=20/weekly=30, account weekly=40, invocation 5h=10 -> 10/40; no invocation override on next launch -> 20/40; cross-provider same-name isolation; explicit off versus omission; 0, 100, fractions, NaN, infinity, booleans and duplicate flags.
-- [ ] Add tests for exact equality, either-window crossing, no rounding, independent resets, stale/missing windows, wrong identity/family, unchanged fresh observation versus cached repeat, bounded repeated failures, pause latch and manual resume. Inject clocks; do not sleep for pure logic tests.
-- [ ] Run `python3 -I -B -m unittest discover -s tests -p test_reserve_policy.py -v` and `tests/config.sh -k Reserve`; verify meaningful failures, then implement the frozen functions and immutable normalized config fields.
-- [ ] Test first-position shell help/version and offline queries unchanged, malformed guard-prefix/query combinations rejected without native calls, and every argument after NAME forwarded without wrapper reinterpretation.
-- [ ] Make focused suites pass, deliberately stage new runtime paths, run `pre-commit run --all-files`, commit `feat: add per-window quota reserve policy`, and obtain independent spec/quality review. Coordinator merges C before creating X/A/U worktrees.
+- [ ] Review one bounded offline harness: secure fixed paths, pending/ready
+  registration, policy preservation, incompatible auth selectors, sanitized
+  output, deadlines, child cleanup and explicitly bounded auxiliary traffic.
+- [ ] Resolve the credential-interface boundary. Prefer a native correlated
+  observation/handle if available. Otherwise present the concrete memory-only
+  access-bearer alternative under its separate permission. Do not send inference
+  to obtain a bearer or assume local UUID/cache polling closes the race.
+- [ ] Only after review, request exact named-account/login/query permission.
+  User performs any first login. Reuse the saved directory without relogin;
+  do not retry consumed setup-token requests or add accounts automatically.
+- [ ] Prove fresh enabled windows before inference, selected account/organization
+  and applicable family association, and same-credential admission. A pending B
+  request after A quota/refresh must never use A's lease; stale cache and A/B/A
+  races refuse. Include concurrent native refresh and unchanged-but-fresh data.
+- [ ] Apply the same attributable preflight/rotation contract to Codex; preserve
+  native auth leases. Fixtures do not prove live permissions. Record actual
+  capability and any separately scoped human acceptance needed.
 
-### X: Codex adapter and protected launch
+### N and K: mandatory boundary and native compatibility
 
-**Files:** `bin/codex-as`, `lib/codex-as/{launch,check}.py`, new
-`lib/codex-as/{quota,control}.py`, `tests/test_codex_reserve.py`, and Codex-only
-native conformance fixtures. Preserve after-exit `usage.py` display behavior.
+PO supplies candidate comparison, platform costs and four finite acceptance
+groups. Existing env/URL routing is not the mandatory boundary. Do not implement
+a Python syscall sandbox or install a service by default.
 
-- [ ] Write failing fake/native tests for model-free preflight, quota family and window duration mapping, startup refusal, native control capability refusal, and disabled-policy equivalence. Use `tests/test_codex_sharing_native.py` patterns; do not treat its stdio client as proof of TUI ownership.
-- [ ] Add the full PC control matrix as regressions, including active descendants, controller death, queued prompts, manual continuation, account/session switching, and running-tool semantics agreed in G0.
-- [ ] Implement only G0's proved quota/control mechanisms. Pass account-scoped CODEX_HOME/file auth, preserve shared leases, signals, credentials refresh/repair, native exit semantics, stdin/stdout and terminal restoration. Keep the existing disabled-policy path intact.
-- [ ] Integrate prefix parsing and update this launcher's help. Retain all legacy options. The internal protected backend must not enable arbitrary user-supplied remote/provider overrides.
-- [ ] Run `python3 -I -B -m unittest discover -s tests -p test_codex_reserve.py -v` and `tests/codex-as.sh`; run required hooks, commit the bounded adapter/integration changes, and obtain independent review before coordinator integration.
+- [ ] Select a reviewable existing platform adapter; test root, shell/SDK/native
+  descendants, cleared env, absolute paths, detached/reparented children,
+  IPv4/IPv6, inherited descriptors and one host-daemon IPC escape. The product
+  boundary must cause denial; an external test guard must not mask an escape.
+- [ ] Prove exactly controlled exits/streams, no direct fallback, and refusal of
+  unproved remote/adopted work. Domain/CONNECT rules cannot distinguish auth
+  and inference on the same TLS host. No unconditional provider-host exception,
+  speculative TLS interception or generic metadata relay.
+- [ ] Prove native refresh/model-free quota can coexist with containment. Native
+  owns refresh; losing that path refuses/pauses instead of bypassing the gate.
+  Test Linux/macOS credential/PTY/IPC needs and actual WSL capability.
+- [ ] K combines Q/N with a queued child request, monitor loss, gate death/restart
+  and port reuse, persistent-stream closure, fresh manual continuation and an
+  independent session. Native history/TTY stays usable. Reuse PC/PA fixtures.
+- [ ] Measure running-tool effects and one ordinary git/package/tool workflow.
+  The conservative candidate closes all invocation egress on pause and denies
+  unclassified clients; disclose this compatibility cost at G0. It is not yet
+  accepted that arbitrary remote tools will work transparently.
 
-### A: Claude full-login path, adapter, and protected launch
+### G0: human review of the concrete composition
 
-**Files:** `bin/claude-as`, `lib/claude-as/launch.py`, new
-`lib/claude-as/{quota,control}.py`, the HAuth-approved credential module if
-needed, `helpers/statusline.cjs` only as required, `tests/test_claude_reserve.py`
-and Claude-only native fixtures. Do not edit shared enrollment tests here.
+- [ ] Present exact tested architecture, auth boundaries, supported/rejected
+  versions/modes/platforms, dependency and network costs, owned-work coverage,
+  tool effects, quota attribution, loss closure and continuation evidence.
+- [ ] Choose bounded query/poll/backoff/max-age values from measurements. Confirm
+  immutable policy semantics and a small shared contract before C/X/A dispatch.
+- [ ] Obtain human architecture acceptance. A missing mechanism is a blocker
+  with concrete alternatives, not permission to weaken A or ship partially.
 
-- [ ] Write failing tests for the approved full-login design and preservation of setup-token mode; identity mismatch, secure paths, refresh, enrollment failure/recovery, and no default-account credential reuse. Use the exact HAuth schema and paths, not newly invented ones.
-- [ ] Test unsupported inference-only quota queries, cached/seeded responses with unknown freshness, missing windows, startup refusal, mode/version capability checks, and all PA pause/manual-resume/monitor-loss cases.
-- [ ] Implement native-managed authentication and the frozen quota/control adapter. Do not implement OAuth refresh yourself. If supervising rather than execing, keep the status line's validated actual-Claude-PID lineage and inherited environment sanitization correct.
-- [ ] Integrate prefix parsing and this launcher's help; preserve unprotected exec behavior and existing public usage metadata. Any new helper needs I's install/contract registration, not a hidden user-global hook mutation.
-- [ ] Run `python3 -I -B -m unittest discover -s tests -p test_claude_reserve.py -v` and `node --test tests/claude-customizations.cjs`; run required hooks, make atomic commits and obtain independent review before integration.
+### C, X, A, U: implementation after G0
 
-### U: complete wrapper flags without consuming native arguments
+Suggested files and test ownership follow existing layout; adjust coherently.
 
-**Files:** four files under `completions/{bash,zsh}/` and
-`tests/test_reserve_completion.py`. X/A own launcher help; I owns shared
-`tests/test_account_enrollment.py` edits to avoid cross-branch write conflicts.
+| Node | Write ownership | Required acceptance |
+| --- | --- | --- |
+| C | `lib/coding-agent-kit/config.py`, new shared reserve module, `tests/test_reserves.py`, config tests | Per-window/provider precedence, off vs omitted, 0/100/equality, invalid bool/nonfinite/range/duplicates; native tail; no persisted overrides. Deterministic freshness/reset/pause/manual-resume evaluator with injected clock. |
+| X | `bin/codex-as`, `lib/codex-as/launch.py`, new quota/control modules, `tests/test_codex_reserve.py`, Codex fixtures | G0 mechanisms, model-free start, account/family/rotation, owned routing/loss/continuation, mode refusal; auth leases/repair, exit/signals/TTY and disabled path unchanged. |
+| A | `bin/claude-as`, `lib/claude-as/launch.py`, approved auth/quota/control modules, `tests/test_claude_reserve.py`, required statusline changes | Persistent enrollment, setup-token compatibility, secure failure/recovery and identity isolation; complete protection matrix; actual Claude PID lineage and unprotected exec preserved. |
+| U | four Bash/zsh completion files, `tests/test_reserve_completion.py` | Both flag orders/values/off/missing values, account completion after prefix, correct native argv/cursor delegation after NAME; offline completion never logs in or queries quota. |
 
-- [ ] Write failing Bash/zsh cases for each flag/value position, both flag orders, account completion after flags, off values, missing values, and native delegation after NAME. Assert account candidates still use offline labels/listing and never start a native client or read a credential.
-- [ ] Implement scanning of the wrapper prefix; reconstruct native completion argv/cursor position after removing every wrapper argument, not only one fixed account position. Keep legacy own-option behavior.
-- [ ] Run `python3 -I -B -m unittest discover -s tests -p test_reserve_completion.py -v` with installed shells and explicit optional skips; format each shell dialect, run hooks, commit and obtain independent review.
+Each node writes focused behavioral tests first, observes the intended failure,
+implements the smallest coherent change, then runs its focused suite and
+`pre-commit run --all-files`. Use isolated unittest discovery; X also runs
+`tests/codex-as.sh`, A relevant Node helper tests, U installed Bash/zsh cases
+with explicit optional skips. No tests that merely mirror prose. Shared
+entrypoint/enrollment/packaging tests belong to I to avoid conflicting writers.
 
-### I: integrate contracts, installation, docs, and release version
+### I and R/V: integration and final local candidate
 
-- [ ] Coordinator serially merges reviewed X/A/U heads into integration using ordinary merge commits when branches diverged. Never squash/cherry-pick away ancestry merely for cleanup; normal ancestry allows safe `git branch -d`. Run affected focused tests after each merge.
-- [ ] Register an executable `tests/reserves.sh` entrypoint that discovers the new `test_*reserve*.py` suites, add it to `tests/run.sh`, and scope a pre-commit hook to all affected modules, helpers and tests. Copy the exact unset statement; synchronize every existing entrypoint and Python setUp if any new kit environment names were introduced.
-- [ ] Add all new public runtime paths/modes to `tests/contract.sh` and deliberately stage them before its index-based check. Update source-to-test rows in `tests/COVERAGE.md`, shared enrollment/config link-farm fixtures, incomplete-install cases, and guarded linked/copied/managed install tests. Audit `install.sh` only where new helper links require it; recursive lib copies alone do not prove runtime loading.
-- [ ] Update permanent README/account-launchers/configuration/codex-as docs with usage, effective policy, auth-mode limitations, supported modes, freshness/failure behavior, manual resume, tool interruption effects, and minimum native/kit versions. Keep machine output contracts stable and document older-kit config-ignore behavior.
-- [ ] Recompute the next minor, expected 0.8.0. Update both launcher version literals and first CHANGELOG heading together, listing added interfaces. Preserve intervening main fixes and release notes.
-- [ ] Run `tests/reserves.sh`, `tests/config.sh`, `tests/account-enrollment.sh`, `tests/account-info.sh`, `tests/contract.sh`, `tests/standalone-e2e.sh` and `tests/managed-install.sh` as applicable; run required hooks, commit integration, and update handoff progress.
+- [ ] Merge reviewed nodes serially, retaining ancestry and testing affected
+  behavior. Register new paths in `tests/contract.sh`, a reserve suite in
+  `tests/run.sh`/hooks, `tests/COVERAGE.md`, config/enrollment/link-farm and
+  incomplete/linked/copied/managed-install fixtures. Synchronize every entrypoint
+  unset list and Python environment sanitization for any new kit variables.
+- [ ] Update permanent docs and applicable AGENTS.md dependency guidance,
+  supported modes/versions, auth limitations, manual recovery and tool effects.
+  Keep machine output stable. Recompute the next minor (expected 0.8.0 from
+  the original base); update both version literals and CHANGELOG together.
+- [ ] Obtain independent whole-feature spec and quality/security review,
+  including concurrency and untrusted inputs. Resolve substantive findings
+  with incremental commits/re-review. Complete required human native/macOS/auth
+  acceptance; skipped tests cannot replace these gates.
+- [ ] Integrate current local/fetched remote main without rewriting. Stage final
+  progress before validation. Run `./tests/run.sh --ci` with Stow/zsh prerequisites,
+  `pre-commit run --all-files`, and `git diff --check`. If local prerequisites
+  are absent, record local-suite/skip results; hosted Linux/macOS CI is mandatory.
+  Commit the validated candidate.
+- [ ] Run `pre-commit run --hook-stage manual gitleaks-history`, clean-tree checks
+  and `KIT_RELEASE_TAG=vNEXT_MINOR tests/config.sh -k ReleaseVersion` against
+  committed HEAD with the actual version. Do not create a tag. Record SHA/results
+  in the ledger; any tracked change creates a new candidate.
 
-### R/V: independent review and the exact local candidate
+## Review focus and node protocol
 
-- [ ] A fresh read-only reviewer checks the entire feature base..head diff for spec compliance and another independent pass checks correctness, security, concurrency and regressions. Supply the native proof reports, auth design approval, test results and Review Focus list. Fix substantive findings in atomic commits and re-review affected code.
-- [ ] Complete any human acceptance check required by HAuth/G0, especially real credential capability, native UI pause/resume, running tools, and macOS auth isolation. If proof is missing, report blocked rather than treating skipped tests as success.
-- [ ] Integrate current local main and fetched origin/main into the integration branch without rewriting history. Preserve unrelated work; new conflicts or changes require fresh relevant tests and review.
-- [ ] Write and deliberately stage the last progress update BEFORE final validation. Run `./tests/run.sh --ci` when prerequisites are present, `pre-commit run --all-files`, and `git diff --check`; verify all remaining source changes are the intended staged candidate. If --ci prerequisites are absent, run the local suite and record the skip; hosted Linux/macOS CI remains mandatory. Contract and Stow coverage cannot be silently waived.
-- [ ] Commit the validated candidate, then run `pre-commit run --hook-stage manual gitleaks-history`, the clean-tree check, and the release check against committed HEAD with command-scoped `KIT_RELEASE_TAG=vNEXT_MINOR tests/config.sh -k ReleaseVersion`, substituting the actual version. Do not create a tag. Record the candidate SHA and outcomes in the durable ledger; a failing check requires a new fixed candidate, not publication.
+Review bypass-prone inputs: inherited enabled policy with unsupported mode
+(C/X/A), account/refresh/family races (Q/K/X/A), detached/IPC/network escape
+(N/K), buffered continuation/background recovery (K/X/A), and missing files
+or changed environment in copied installs (I/R/V).
 
-## Commit, review, and worktree protocol for every node
+Reviewers receive requirements, base/head or frozen tree, full diff, checks and
+limitations. They are not the implementer. Fix important findings before
+integration. Use deliberate staging and atomic commits without AI attribution.
+Only the coordinator writes central handoff/ledger. Update after each accepted
+node; preserve incomplete work as incomplete. Keep a process owner active until
+checks finish and record the exit status; interrupted checks are not PASS.
 
-Tests must fail for the intended behavior before implementation, then pass.
-Run repository-required `pre-commit run --all-files` before each commit;
-stage explicit paths, never `git add .`. Each checkpoint is a coherent,
-reviewable commit with no AI attribution. If work is blocked, commit only a
-coherent partial change or its evidence report and mark the node incomplete;
-never label a placeholder implementation done.
+After integration/validation, confirm no worker/fixture process uses its
+worktree, inspect status/diffs/untracked files, archive useful evidence and prove
+the worker head is an ancestor. Then use `git worktree remove EXACT_PATH` and
+`git branch -d EXACT_BRANCH` from a checkout containing it. Never force cleanup
+or remove another task's checkout. Retain integration until final publication.
 
-Reviewers receive task requirements, frozen interfaces, base/head SHAs, the
-whole task diff, exact tests and unresolved limits. They must not be the
-implementer. Fixes use additional commits, with focused re-review. Only the
-coordinator merges completed node branches and updates central progress.
+## Mandatory two-cycle completion
 
-After integration and validation, confirm worker/fixture processes are gone,
-inspect status/diff/untracked files, and verify the worker head is an ancestor
-of integration. Then promptly `git worktree remove EXACT_PATH` and run
-`git branch -d EXACT_BRANCH` from a checkout that contains it. Do not force
-removal or deletion. Preserve and report unexplained files or unmerged work.
+### CI1/M1: publish the functional candidate
 
-## CI, main integration, and final cleanup
+- [ ] Push the recorded `ci/**` branch normally. Find the exact branch/SHA's
+  `ci.yml` run with GitHub tools or `gh run list --workflow ci.yml --branch
+  BRANCH --commit SHA`. Require every Linux/macOS job, history scan and clean
+  checkout check green. Record URLs/results only in the ledger; recording CI
+  must not itself change the tracked candidate.
+- [ ] Fetch again. Current local main and origin/main must both be ancestors of
+  the candidate. If either advanced, integrate/review/test/CI the new candidate.
+  Check main checkout clean and not owned by another writer; fast-forward main
+  to the exact green SHA and push normally. A push race requires revalidation,
+  never force. Verify main CI for that SHA is green too.
 
-### CI1 and M1: publish the functional candidate
+### D/CI2/M2: remove task documents, validate and publish again
 
-- [ ] Load the actual integration branch and frozen SHA from the ledger as `QUOTA_CI_BRANCH` and `QUOTA_CANDIDATE`. Push only that branch with `git push -u origin "$QUOTA_CI_BRANCH"`. A ci/** push before main is required by AGENTS.md; it is authorized by this execution workflow.
-- [ ] Find the ci.yml run for that exact head SHA and branch. Prefer available GitHub tools; if they cannot list push-triggered runs, use `gh run list --workflow ci.yml --branch "$QUOTA_CI_BRANCH" --commit "$QUOTA_CANDIDATE"`, then inspect/watch the specific run. Require BOTH Linux behavior/lint and macOS jobs to succeed, including history scan and clean checkout checks.
-- [ ] Do not edit tracked handoff to record green CI: that changes the candidate. Store run IDs, URLs and conclusions in the durable ledger. Any tracked change requires a new candidate and CI run.
-- [ ] Fetch origin again. Check that both current local main and origin/main are ancestors of the candidate. If either advanced outside it, merge the new main into integration and repeat review/testing/CI. Never rewrite main or force push.
-- [ ] Confirm the original main checkout is clean and no other writer owns it. Run `git merge --ff-only CANDIDATE_SHA` there, then `git push origin main`. A concurrent push refusal means fetch/integrate/revalidate, not force. Verify main's ci.yml run for that SHA also succeeds.
+- [ ] After M1, ensure lasting behavior/limitations live in permanent docs.
+  Archive research, approvals, reviews and CI links in the common-dir ledger;
+  record the functional SHA for recovery with `git show SHA:PATH`.
+- [ ] Derive exact task-owned deletion targets from the ledger: this handoff,
+  research reports and disposable probe/evidence files. Migrate any required
+  regression fixtures into permanent tests first. Delete exact tracked files
+  with apply_patch; do not delete directories broadly. Keep the permanent
+  design spec/product docs and repair every link/reference.
+- [ ] Review cleanup's entire diff; repeat required local suites/hooks/history
+  and release checks against the new cleanup commit. Push to `ci/**` and require
+  all jobs green for this new SHA. Old functional CI cannot certify deletion.
+  Repeat all M1 fetch/ancestry/clean-checkout/concurrency checks, fast-forward
+  main, push, and verify main CI again. Fixes require another candidate.
 
-### D, CI2, and M2: remove implementation documents AFTER the first push
+### Z: release-ready verification and task cleanup
 
-The user's requested order needs a second validated cleanup candidate. A
-documentation deletion changes HEAD just like code; the previous green SHA
-does not certify it. Keep the integration worktree until this second cycle.
+- [ ] Local main equals origin/main at the final reviewed SHA; all final CI
+  jobs pass, versions match and status including untracked files is empty.
+- [ ] Confirm task worktrees unused/clean/integrated; remove them and merged
+  branches, then only this task's remote ci branch. Remove exact verified task
+  temporary outputs. The preexisting `.worktrees/` local exclude is not ours
+  to delete; retain the durable audit archive and unrelated worktrees.
+- [ ] Report final SHA/version, reviews, tests/skips, CI links, demonstrated
+  capabilities/limitations, approvals and cleanup. No tag was created. Do not
+  claim release-ready with unresolved gates, dirty/unsynced main or one cycle.
 
-- [ ] Migrate lasting behavior, supported versions, limitations and user-facing recovery guidance into the permanent docs if not already done. Archive the final handoff/research, human decisions, reviews and CI URLs in the durable local ledger and record the functional commit containing them in Git history.
-- [ ] Remove only these task-owned implementation files with apply_patch: this handoff; `docs/superpowers/plans/quota-reserve-research.md`; `docs/superpowers/plans/quota-reserve-probes/codex_signal.py`; `docs/superpowers/plans/quota-reserve-probes/codex_same_backend.py`; and additional task evidence files explicitly recorded in the ledger. Do not recursively delete docs directories or unrelated plans. Retain the design spec and permanent product docs; remove any links to deleted artifacts.
-- [ ] Check remaining references, empty task-only directories and temporary outputs; remove exact verified targets only. Commit `docs: remove completed quota reserve implementation handoff` on integration after required hooks. Update progress in the durable ledger from now on; recover old instructions with `git show FUNCTIONAL_SHA:PATH` if needed.
-- [ ] Repeat final local checks, whole-diff cleanup review, CI-branch push and exact-SHA ci.yml verification. Repeat ALL M1 concurrency checks: fresh fetch, local/remote main ancestry, clean main checkout with no other writer, and re-integration/revalidation/new CI if main advanced or push is rejected. Only then fast-forward main to the cleanup candidate and push normally; verify main CI again. Fixes require another candidate, never an untested direct main commit.
+## Next-session entry
 
-### Z: verify release-ready state and remove owned branches
-
-- [ ] Confirm local main equals origin/main at the final reviewed SHA, all required final CI jobs are successful, and `git status --porcelain --untracked-files=all` is empty. Verify committed version literals/CHANGELOG match and the release-tag validation command passes; do not tag or publish.
-- [ ] Confirm no agent/process uses any remaining task worktree. Check clean status and full ancestry, remove the integration and remaining task worktrees with `git worktree remove`, then delete only merged task branches with `git branch -d`. Delete only this task's remote ci branch after final main CI succeeds.
-- [ ] Remove verified task temporary roots/intermediate files and the bootstrap's local exclude entry only if this task added it and the tracked ignore now suffices. Keep the durable local audit archive; it is intentional recovery evidence outside the source tree.
-- [ ] Final report: final main SHA/version, review outcomes, exact test commands and skips, Linux/macOS CI links, native capabilities actually demonstrated, manual approvals, removed worktrees/branches/docs, and tag not created. Do not report release-ready with a failed gate, missing manual check, dirty main, unpushed cleanup, or only one green CI job.
-
-## Session-resume checklist and next action
-
-- [ ] Resolve original root and Git common dir; read current AGENTS.md.
-- [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
-- [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
-- [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [x] B0, PA0, PTP/PTU preparation, PA2, PC3/PC4/PC5/PC6, PA1F/PA1C/PA1T and PR research are complete;
-  capability gaps remain. HAuth and continuation research scope are approved;
-  the one named-account count request completed without quota headers. Resume
-  the pending usage-GET/ownership decisions and remaining finite G0 acceptance
-  from the durable ledger, not B0. Reuse the completed evidence and exact
-  reviewed source commits; do not repeat native matrices without a new reason.
-  Setup-token-only is preferred; persistent
-  initial login is permitted as fallback, with no routine repeated login.
-  G0 remains closed; no runtime implementation is authorized. Concrete
-  credential design and real-account experiments retain their gates.
+Read AGENTS.md, recover integration/ledger, then read spec, PN and PO. Reconcile
+the pending access-bearer reply and dispatch independent Q0/N nodes under
+ultracode. Reuse accepted evidence; raise specific gaps immediately. Ordinary
+implementation choices stay with the implementer; human auth/G0 decisions
+remain with the user.
