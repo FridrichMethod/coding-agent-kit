@@ -98,8 +98,11 @@ class Normalization(unittest.TestCase):
         for plan in ('free', 'unknown', 'self_serve_business_usage_based', 'guest'):
             self.assertEqual(self.reason(usage(plan=plan)), 'unsupported-plan')
         rows = [{'limit_name': 'gpt-fixture-spark', 'metered_feature': 'codex_bengalfox',
+                 'normal_model_slug': 'gpt-fixture-spark-normal',
                  'rate_limit': {'allowed': True, 'limit_reached': False}}]
-        self.assertEqual(self.normal(usage(extra=rows)).other_families, ('gpt-fixture-spark',))
+        # Every name a non-codex row carries counts, so an unproved mapping fails closed.
+        self.assertEqual(self.normal(usage(extra=rows)).other_families,
+                         ('codex_bengalfox', 'gpt-fixture-spark', 'gpt-fixture-spark-normal'))
 
     def test_response_headers(self):
         headers = {'X-Codex-Primary-Used-Percent': '12.5', 'x-codex-primary-window-minutes': '300',
@@ -179,8 +182,97 @@ class Sequences(unittest.TestCase):
         self.assertTrue(self.lease.request_continuation(trusted=True))
         self.step(1)
         self.assertEqual(self.lease.observe_usage(TB, B, 200, usage(account=B, user=UB)), 'identity-changed')
+        self.assertIsNone(self.lease.continuation)  # the identity change used it up
         self.assertEqual(self.lease.admit(TB, B, 'gpt-5.4'), (False, 'identity-changed'))
         self.assertEqual(self.lease.paused, 'identity-changed')
+        # Native returns to A an hour later; its passing poll must not resume on the old request.
+        self.step(3600)
+        self.assertEqual(self.bind(), 'fresh')
+        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (False, 'paused:awaiting-continuation'))
+
+    def test_failed_continuation_check_is_used_up(self):
+        self.bind(five=85)
+        self.assertEqual(self.lease.paused, 'threshold:five_hour')
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        self.step(1)
+        self.assertEqual(self.lease.observe_usage(T1, A, 503, b''), 'failure')
+        self.assertIsNone(self.lease.continuation)
+        self.step(1)
+        self.assertEqual(self.lease.observe_usage(T1, A, 200, b'not json'), 'malformed')
+        self.step(600)  # a background poll ten minutes later passes
+        self.assertEqual(self.bind(), 'fresh')
+        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (False, 'paused:awaiting-continuation'))
+        self.assertEqual(self.lease.paused, 'threshold:five_hour')
+
+    def test_stale_then_failed_checks_then_success_stays_paused(self):
+        self.bind()
+        self.step(121)
+        self.assertEqual(self.lease.tick(), 'stale')
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        for _ in range(5):
+            self.step(1)
+            self.assertEqual(self.lease.observe_usage(T1, A, 503, b''), 'failure')
+        self.step(1)
+        self.assertEqual(self.bind(), 'fresh')
+        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (False, 'paused:awaiting-continuation'))
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        self.step(1)
+        self.assertEqual(self.bind(), 'fresh')
+        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (True, 'admitted'))
+
+    def test_continuation_is_answered_only_by_a_read_received_after_it(self):
+        self.bind(five=85)
+        self.step(10)
+        sent_before = self.clock.now
+        self.step(1)
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        self.step(1)
+        # A poll the gate received before the request but answered after it.
+        self.assertEqual(self.lease.observe_usage(T1, A, 200, usage(), started=sent_before), 'fresh')
+        self.assertEqual(self.lease.paused, 'threshold:five_hour')
+        self.assertIsNotNone(self.lease.continuation)  # not the check it asked for, not used up
+        self.step(1)
+        self.assertEqual(self.bind(), 'fresh')
+        self.assertIsNone(self.lease.paused)
+
+    def test_continuation_expires_without_a_prompt_check(self):
+        self.bind(five=85)
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        self.step(31)  # beyond the 30 s window
+        self.assertEqual(self.bind(), 'fresh')
+        self.assertEqual(self.lease.paused, 'threshold:five_hour')
+        self.assertIsNone(self.lease.continuation)
+
+    def test_same_account_rotation_clears_the_continuation(self):
+        self.bind(five=85)
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        self.step(1)
+        self.assertEqual(self.bind(T2), 'fresh')
+        self.assertEqual(self.lease.paused, 'threshold:five_hour')
+
+    def test_blocking_reason_follows_the_current_condition(self):
+        self.bind(five=85)
+        self.assertEqual((self.lease.paused, self.lease.blocking), ('threshold:five_hour', 'threshold:five_hour'))
+        self.step(1)
+        self.assertEqual(self.lease.admit(TB, B, 'gpt-5.4'), (False, 'identity-changed'))
+        self.assertEqual((self.lease.paused, self.lease.blocking), ('threshold:five_hour', 'identity-changed'))
+        self.step(1)
+        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (False, 'paused:identity-changed'))
+        self.step(1)
+        self.bind()  # back on A, data passes: only a continuation is missing
+        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (False, 'paused:awaiting-continuation'))
+        self.step(200)
+        self.assertEqual(self.lease.tick(), 'threshold:five_hour')
+        self.assertEqual(self.lease.blocking, 'stale')
+
+    def test_late_answer_to_an_older_read_is_superseded(self):
+        self.step(10)
+        older = self.clock.now
+        self.step(5)
+        self.assertEqual(self.bind(five=85), 'fresh')
+        self.assertEqual(self.lease.observe_usage(T1, A, 200, usage(), started=older), 'superseded')
+        self.assertEqual(self.lease.observation.windows['five_hour'].used_percent, 85.0)
+        self.assertEqual(self.lease.blocking, 'threshold:five_hour')
 
     def test_two_sessions_share_an_account_with_their_own_leases(self):
         first = lease(self.clock, five=20)
@@ -229,6 +321,15 @@ class Sequences(unittest.TestCase):
         self.bind(extra=rows)
         self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (True, 'admitted'))
         self.assertEqual(self.lease.admit(T1, A, 'gpt-fixture-spark'), (False, 'paused:unsupported-family'))
+        slug = lease(Clock())
+        slug.observe_usage(T1, A, 200, usage(extra=[{'limit_name': 'fixture-family', 'normal_model_slug': 'gpt-x',
+                                                     'metered_feature': 'codex_fixture', 'rate_limit': None}]))
+        self.assertEqual(slug.admit(T1, A, 'gpt-x'), (False, 'paused:unsupported-family'))
+        reviewed = binding.Lease(expected_account=A, expected_user=UA, policy=binding.Policy(20, 30, 120),
+                                 clock=Clock(), wall=lambda: WALL, models={'gpt-5.4'})
+        reviewed.observe_usage(T1, A, 200, usage())
+        self.assertEqual(reviewed.admit(T1, A, 'gpt-5.4'), (True, 'admitted'))
+        self.assertEqual(reviewed.admit(T1, A, 'gpt-unreviewed'), (False, 'paused:unsupported-family'))
         other = lease(Clock())
         self.assertEqual(other.observe_usage(T1, A, 200, usage(plan='free')), 'unsupported-plan')
         self.assertEqual(other.paused, 'unsupported-plan')
@@ -239,7 +340,7 @@ class Sequences(unittest.TestCase):
         self.step(121)
         self.assertEqual(self.lease.tick(), 'stale')
         self.assertEqual(self.bind(), 'fresh')
-        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (False, 'paused:stale'))
+        self.assertEqual(self.lease.admit(T1, A, 'gpt-5.4'), (False, 'paused:awaiting-continuation'))
         self.assertFalse(self.lease.request_continuation(trusted=False))
         self.assertTrue(self.lease.request_continuation(trusted=True))
         self.assertEqual(self.bind(), 'fresh')  # same instant as the request: not newer
@@ -268,15 +369,15 @@ class Sequences(unittest.TestCase):
         self.assertEqual(self.lease.paused, 'threshold:five_hour')
         self.step(1)
         self.bind(five=0, weekly=75)  # five-hour reset; weekly still violated
-        self.assertTrue(self.lease.paused.startswith('threshold:'))
+        self.assertEqual((self.lease.paused, self.lease.blocking), ('threshold:five_hour', 'threshold:weekly'))
         self.lease.request_continuation(trusted=True)
         self.step(1)
         self.bind(five=0, weekly=75)
-        self.assertEqual(self.lease.paused, 'threshold:weekly')
+        self.assertEqual(self.lease.blocking, 'threshold:weekly')
         self.assertIsNone(self.lease.continuation)  # consumed; ask again
         self.step(1)
         self.bind(five=0, weekly=10)
-        self.assertEqual(self.lease.paused, 'threshold:weekly')  # reset alone never resumes
+        self.assertEqual((self.lease.paused, self.lease.blocking), ('threshold:five_hour', None))  # reset alone never resumes
         self.lease.request_continuation(trusted=True)
         self.step(1)
         self.bind(five=0, weekly=10)

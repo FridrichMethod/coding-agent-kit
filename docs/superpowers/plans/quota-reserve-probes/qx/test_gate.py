@@ -162,6 +162,35 @@ class GateTests(unittest.TestCase):
         self.assertFalse(self.lease.ready())
         self.assertEqual(self.model(self.t1)[0], 503)
 
+    def test_unlisted_paths_are_refused_before_upstream(self):
+        self.usage(self.t1)
+        for path in ('/backend-api/codex/memories/trace_summarize', '/backend-api/codex/alpha/search',
+                     '/backend-api/codex/images/generations', '/backend-api/codex/images/edits',
+                     '/backend-api/codex/responses/compact', '/backend-api/wham/unknown'):
+            status, body, _ = self.call('POST', path, self.t1, body={'model': 'gpt-5.4'})
+            self.assertEqual((status, b'unlisted-path' in body), (503, True), path)
+        status, body, _ = self.call('GET', '/backend-api/wham/unknown', self.t1)
+        self.assertEqual((status, b'unlisted-path' in body), (503, True))
+        kinds = {event['kind'] for event in self.upstream.events}
+        self.assertEqual(kinds, {'usage'})  # nothing else reached the upstream
+        self.assertEqual(len([e for e in self.gate.events if e['event'] == 'refused_unlisted']), 7)
+
+    def test_failed_continuation_check_through_the_gate_stays_paused(self):
+        self.upstream.usage_override = lambda identity: (200, fixtures.usage_body(A, UA, five=85))
+        self.usage(self.t1)
+        self.assertEqual(self.lease.paused, 'threshold:five_hour')
+        self.upstream.usage_override = lambda identity: (503, {'error': 'fixture outage'})
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        self.assertEqual(self.usage(self.t1)[0], 503)  # the check it asked for fails: used up
+        self.upstream.usage_override = None
+        self.assertEqual(self.usage(self.t1)[0], 200)
+        status, body, _ = self.model(self.t1)
+        self.assertEqual((status, b'paused:awaiting-continuation' in body), (503, True))
+        self.assertTrue(self.lease.request_continuation(trusted=True))
+        self.assertEqual(self.usage(self.t1)[0], 200)
+        self.assertEqual(self.model(self.t1)[0], 200)
+        self.assertEqual(self.upstream.count('model'), 1)
+
     def test_connect_is_refused(self):
         with socket.create_connection(('127.0.0.1', self.port), timeout=5) as stream:
             stream.sendall(b'CONNECT auth.example.invalid:443 HTTP/1.1\r\nHost: auth.example.invalid:443\r\n\r\n')

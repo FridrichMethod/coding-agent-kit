@@ -3,8 +3,14 @@
 Research fixture only, not a production relay: plain HTTP to a loopback upstream,
 no TLS, no WebSocket. It forwards native usage reads and feeds the exchange to the
 Lease, decides each model request before any upstream byte, passes admitted SSE
-through, and closes registered streams when the lease pauses. CONNECT is refused
-and recorded. Records name credentials only by fixture label, never by value.
+through, and closes registered streams when the lease pauses. Every path outside
+the route table below, and CONNECT, is refused before upstream and recorded.
+Records name credentials only by fixture label, never by value.
+
+Research shortcuts K must not copy as is: the listed non-model GETs are forwarded
+without admission even while paused or for a foreign account; the admission lock
+is released before the upstream request starts (a pause in between closes only
+the downstream socket); nothing calls Lease.tick() on a timer.
 """
 import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,6 +21,11 @@ import time
 from urllib.parse import urlsplit
 
 USAGE_PATHS = ('/backend-api/wham/usage', '/api/codex/usage')
+# Route table. Model work: admitted by the lease. Non-model reads native 0.167.2 sent in the
+# stages: forwarded (usage must flow while paused so recovery and identity can be observed).
+MODEL_POSTS = ('/backend-api/codex/responses',)
+FORWARDED_GETS = USAGE_PATHS + ('/backend-api/wham/rate-limit-reset-credits', '/backend-api/codex/models',
+                                '/backend-api/wham/settings/user', '/backend-api/wham/accounts/check')
 HOP = {'host', 'connection', 'keep-alive', 'proxy-connection', 'proxy-authorization', 'te', 'trailer',
        'transfer-encoding', 'upgrade', 'content-length', 'accept-encoding'}
 # Non-secret header values worth keeping; every other header is recorded by name only.
@@ -114,7 +125,11 @@ class Gate:
                 self.send_error(403)
 
             def do_GET(self):
+                started = gate.lease.clock()  # freshness and continuation order use request receipt
                 bearer, info = self.summary()
+                if info['path'] not in FORWARDED_GETS:
+                    gate.record('refused_unlisted', **info)
+                    return self.refuse('unlisted-path')
                 try:
                     connection, response = self.forward()
                     data = response.read()
@@ -125,7 +140,7 @@ class Gate:
                 if info['path'] in USAGE_PATHS:
                     with gate.lock:
                         outcome = gate.lease.observe_usage(bearer, self.headers.get('ChatGPT-Account-ID'),
-                                                           response.status, data)
+                                                           response.status, data, started=started)
                 gate.record('get', **info, status=response.status, lease=outcome,
                             epoch=gate.lease.epoch, paused=gate.lease.paused)
                 self.relay_head(response, len(data))
@@ -135,14 +150,10 @@ class Gate:
             def do_POST(self):
                 bearer, info = self.summary()
                 body = self.rfile.read(int(self.headers.get('Content-Length', '0')))
-                if not info['path'].endswith('/responses'):
-                    gate.record('post_other', **info)
-                    connection, response = self.forward(body)
-                    data = response.read()
-                    self.relay_head(response, len(data))
-                    self.wfile.write(data)
-                    connection.close()
-                    return
+                if info['path'] not in MODEL_POSTS:
+                    # Default deny: memories, search, images and any other POST may use quota.
+                    gate.record('refused_unlisted', **info)
+                    return self.refuse('unlisted-path')
                 try:
                     model = json.loads(body).get('model')
                 except (ValueError, AttributeError):

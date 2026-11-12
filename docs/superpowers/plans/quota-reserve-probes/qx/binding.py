@@ -121,8 +121,11 @@ def normalize_usage(body, *, request_account, expected_account, expected_user, w
     others = data.get('additional_rate_limits') or []
     if not isinstance(others, list):
         raise Unavailable('malformed')
-    families = tuple(sorted(row['limit_name'] for row in others
-                            if isinstance(row, dict) and isinstance(row.get('limit_name'), str)))
+    # The model -> family mapping is unproved (I/U). Fail closed: a request whose model equals any
+    # name a non-codex row carries (limit_name, normal_model_slug or metered_feature) is refused.
+    families = tuple(sorted({row[key] for row in others if isinstance(row, dict)
+                             for key in ('limit_name', 'normal_model_slug', 'metered_feature')
+                             if isinstance(row.get(key), str)}))
     reached = rate.get('limit_reached') is True or rate.get('allowed') is False
     return Observation(account, user, data['plan_type'], windows, families, reached, 'usage')
 
@@ -157,20 +160,26 @@ def normalize_headers(headers, wall_now):
 class Lease:
     """One invocation's gate binding: (credential epoch, account) -> fresh windows -> admission.
 
-    The lease never refreshes or rewrites credentials and never resumes on its own.
+    The lease never refreshes or rewrites credentials and never resumes on its own. `paused` is
+    the latch (the cause that first paused); `blocking` is the latest blocking condition, or None
+    once a fresh read passes and only a deliberate continuation is missing.
     """
 
     def __init__(self, *, expected_account, expected_user, policy, clock, wall, plans=DEFAULT_PLANS,
-                 on_close=None):
+                 models=None, continuation_window=30.0, on_close=None):
         self.expected_account, self.expected_user = expected_account, expected_user
         self.policy, self.clock, self.wall, self.plans = policy, clock, wall, plans
+        # None: research mode. A set: only these reviewed codex-family model slugs are admitted.
+        self.models = models
+        # A continuation is answered only by a read the gate received within this many seconds.
+        self.continuation_window = continuation_window
         self.on_close = on_close or (lambda reason: None)
         self._key = os.urandom(32)
         self.epoch, self.credential, self.observation, self.observed_at = 0, None, None, None
         # The recovery deadline runs from the last fresh observation of any epoch: a rotation
         # or a run of failures never restarts it.
         self.last_fresh = None
-        self.paused, self.continuation, self.failures = None, None, 0
+        self.paused, self.blocking, self.continuation, self.failures = None, None, None, 0
         self.log = []
 
     def digest(self, bearer):
@@ -180,22 +189,50 @@ class Lease:
         self.log.append({'event': event, 'epoch': self.epoch, **data})
 
     def _rotate(self, credential, cause):
-        # A different credential starts a new epoch; no older observation can authorize it.
+        # A different credential starts a new epoch; no older observation can authorize it, and
+        # no continuation requested under the old epoch carries over.
         self.epoch += 1
         self.credential, self.observation, self.observed_at = credential, None, None
         self._note('epoch', cause=cause)
+        self._disarm('epoch-changed')
+
+    def _disarm(self, outcome):
+        if self.continuation is not None:
+            self.continuation = None
+            self._note('continuation-used', outcome=outcome)
 
     def _pause(self, reason, close=True):
+        # Every blocking condition updates `blocking`; only the first latches and closes streams.
+        self.blocking = reason
         if self.paused is None:
             self.paused = reason
-            self.continuation = None
             self._note('pause', reason=reason)
             if close:
                 self.on_close(reason)
+        else:
+            self._note('blocking', reason=reason)
+
+    def reason(self):
+        """The current condition for a refusal message while paused."""
+        return self.blocking or 'awaiting-continuation'
 
     def _identity(self, cause):
         self._rotate(None, cause)
         self._pause('identity-changed')
+
+    def _answers(self, started):
+        """Whether a read the gate received at `started` is the check a continuation asked for.
+
+        A read received before the request never answers it (and does not use it up). The first
+        read received after it does, whatever its outcome; one received too late only expires it.
+        """
+        if self.continuation is None or started <= self.continuation:
+            return False
+        if started - self.continuation > self.continuation_window:
+            self._disarm('expired')
+            return False
+        self.continuation = None
+        return True
 
     def _verdict(self, observation):
         missing = [name for name in self.policy.enabled() if name not in observation.windows]
@@ -208,15 +245,24 @@ class Lease:
                 return 'threshold:' + name
         return None
 
-    def observe_usage(self, bearer, account_header, status, body):
-        """Record a forwarded native usage exchange; returns the outcome label."""
-        now = self.clock()
+    def observe_usage(self, bearer, account_header, status, body, started=None):
+        """Record a forwarded native usage exchange; returns the outcome label.
+
+        `started` is the lease clock when the gate received the request (default: now). Freshness
+        and the continuation order use it, never the time the response arrived.
+        """
+        started = self.clock() if started is None else started
         if account_header != self.expected_account:
             self._identity('request-account')
             return 'identity-changed'
         credential = self.digest(bearer)
         if credential != self.credential:
             self._rotate(credential, 'usage-credential')
+        if self.observed_at is not None and started < self.observed_at:
+            return 'superseded'  # an older read answered late; it cannot replace newer data
+        answers = self._answers(started)
+        if answers:
+            self._note('continuation-used', outcome='check')
         if status != 200:
             self.failures += 1
             self._note('failure', status=status)
@@ -234,19 +280,17 @@ class Lease:
             elif error.reason in PERMANENT:
                 self._pause(error.reason)
             return error.reason
-        self.observation, self.observed_at, self.last_fresh, self.failures = observation, now, now, 0
+        self.observation, self.observed_at, self.last_fresh, self.failures = observation, started, started, 0
         verdict = self._verdict(observation)
         self._note('fresh', verdict=verdict)
-        if verdict and self.paused:
-            # Still blocked: explain the current condition and consume any continuation.
-            self.paused, self.continuation = verdict, None
-        elif verdict:
+        if verdict:
             self._pause(verdict)
-        elif self.paused and self.continuation is not None and self.continuation < now \
-                and self.observation is not None:
-            # Only a deliberate continuation followed by a newer passing read reopens.
-            self._note('resume', after=self.paused)
-            self.paused, self.continuation = None, None
+        elif self.paused:
+            self.blocking = None
+            if answers:
+                # Only a deliberate continuation answered by this newer passing read reopens.
+                self._note('resume', after=self.paused)
+                self.paused = None
         return 'fresh'
 
     def observe_headers(self, bearer, account_header, headers):
@@ -271,9 +315,10 @@ class Lease:
         return 'fresh'
 
     def tick(self):
-        """Monitor step: an expired observation pauses even with no request pending."""
-        if self.paused is None and self.last_fresh is not None \
-                and self.clock() - self.last_fresh > self.policy.max_age:
+        """Monitor step (K drives it on a timer): an expired observation pauses with no request
+        pending. Staleness replaces a data-derived blocking reason, never an identity or plan one."""
+        if self.last_fresh is not None and self.clock() - self.last_fresh > self.policy.max_age \
+                and self.blocking != 'stale' and self.blocking not in PERMANENT:
             self._pause('stale')
         return self.paused
 
@@ -285,11 +330,11 @@ class Lease:
         credential = self.digest(bearer)
         if credential != self.credential:
             self._rotate(credential, 'model-credential')
-        if self.paused or self.tick():
-            return False, 'paused:' + self.paused
+        if self.tick():
+            return False, 'paused:' + self.reason()
         if self.observation is None:
             return False, 'rebind-required'  # same account, new bearer: fresh same-bearer read first
-        if model in self.observation.other_families:
+        if model in self.observation.other_families or (self.models is not None and model not in self.models):
             self._pause('unsupported-family')
             return False, 'paused:unsupported-family'
         verdict = self._verdict(self.observation)
@@ -300,11 +345,15 @@ class Lease:
 
     def ready(self):
         """Startup preflight: True only with a fresh passing observation for this epoch."""
-        return (self.paused is None and self.observation is not None and self.tick() is None
+        return (self.tick() is None and self.observation is not None
                 and self._verdict(self.observation) is None)
 
     def request_continuation(self, trusted):
-        """A deliberate action from the trusted control; never from model traffic or a timer."""
+        """A deliberate action from the trusted control; never from model traffic or a timer.
+
+        It arms one check: the first usage read the gate receives after this call, within
+        `continuation_window`, resumes only if it passes; any other outcome uses it up.
+        """
         if not trusted or self.paused is None:
             return False
         self.continuation = self.clock()
