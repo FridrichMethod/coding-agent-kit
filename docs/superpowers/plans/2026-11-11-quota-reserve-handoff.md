@@ -168,13 +168,15 @@ main commands only in the original main checkout.
 | PA2 | PA0, persistent-login fallback direction | new claude_persistence fixtures and report | done at 950948d; isolated matrix, hooks and independent review passed |
 | PC3 | PC2 | new pc_ui fixtures and report | done at ab41738; native matrix, hooks and independent review passed |
 | PC4 | reviewed PC3, existing gate-research authorization | new pc_loss fixtures and report | done at fe8c4a2; native matrix, hooks and independent review passed; no continuation UX |
-| PTLive | reviewed PTP, explicit named-account permission | coordinator sanitized result and private audit | one count request completed; HTTP 200, quota headers missing; independent result review pending |
-| PC5 | reviewed PC4, continuation-control research approval | new pc_continue fixtures and report | running in quota-continue-codex from bb195717 |
+| PTLive | reviewed PTP, explicit named-account permission | coordinator sanitized result and private audit | done; HTTP 200, quota headers missing; result independently reviewed at 098ad2d |
+| PC5 | reviewed PC4, continuation-control research approval | new pc_continue fixtures and report | done at 517a2a7; native evidence, 18 focused tests, hooks and independent review passed |
 | HAuth | reviewed PA0/PA2 candidate, explicit human decision | coordinator human credential-design decision record | approved design and native shared-device boundary; no automatic migration or unlisted live experiment |
-| PA1F | HAuth | new claude_freshness fixtures and report | running in quota-freshness-claude from bb195717; fake accounts only |
-| PA1C | HAuth, request-gate research approval | new claude_control fixtures and report | running in quota-control-claude from bb195717; fake accounts only |
+| PA1F | HAuth | new claude_freshness fixtures and report | done at d45e72f; 19 native cases, evidence checks, hooks and independent review passed |
+| PA1C | HAuth, request-gate research approval, reviewed PC5 fixture | new claude_control fixtures and report | done at 3453dbb; 9 native cases, 10 focused tests, hooks and independent review passed |
+| PTU | reviewed PA1F, consumed count permission | new claude_usage_permission fixture and report | offline preparation in quota-usage-permission; no usage GET authorization |
+| PR | reviewed PC5, PA1F and PA1C | new routing audit report and optional fixtures | bounded source/capability audit in quota-routing-audit; no real accounts or runtime changes |
 | PA1 | PT or reviewed fallback feasibility, applicable human gates | Claude approved quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
-| G0 | PC2/PC3/PC4, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
+| G0 | Codex/Claude research, startup quota and routing evidence | coordinator architecture record and frozen interfaces | blocked; native default paths do not establish complete routing or real quota permission |
 | C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
 | X | C | bin/codex-as, lib/codex-as/*, Codex-specific tests | blocked |
 | A | C | bin/claude-as, lib/claude-as/*, statusline/helper changes, Claude-specific tests | blocked |
@@ -503,6 +505,54 @@ Never overwrite another run's ledger when selecting new branch names.
   nodes and the result review from the ledger rather than asking the three
   already answered questions again.
 
+### Execution checkpoint: continuation, freshness and Claude native control
+
+- PC5 at `517a2a7` passed independent SPEC and QUALITY/SECURITY review.
+  Its [continuation report](quota-reserve-codex-continuation-research.md)
+  distinguishes new terminal confirmation from buffered input, native output,
+  bracketed paste, queued prompts and background quota recovery. Every new
+  confirmation checks both windows; failed, stale and equality cases stay
+  closed. Nine PTY tests, nine evidence tests and three native cases passed.
+  F12 and the challenge are research controls; product UX is not frozen.
+- Native Codex `turn/interrupt` does not guarantee termination of an already
+  running local command: the final capture records it finishing after the
+  interrupted turn. Gate closure still blocks its later model request. Do not
+  promise local-tool rollback or termination. The report preserves the earlier
+  differing capture and the final counterexample.
+- PA1F at `d45e72f` passed independent SPEC and QUALITY review. Its
+  [freshness report](quota-reserve-claude-freshness-research.md) covers eleven
+  network-denied and eight loopback TLS cases. Native usage can return the same
+  populated data after 401, 403, 429 or fieldless success. Only a new recognized
+  response advances observed native fetch metadata; repeated cache replies do
+  not. Local cache identity omits organization, persistence can lag, and real
+  refresh and server identity remain unproved. A historical cache cannot
+  authorize startup. Proposed timings are research candidates, not G0 values.
+- PA1C at `3453dbb` passed independent SPEC and QUALITY/SECURITY review. Its
+  [native control report](quota-reserve-claude-control-research.md) proves
+  fabricated persisted full OAuth still routes native Messages through the
+  gate. The native TUI creates actual child/grandchild contexts. Four loss
+  cases close owned streams while an independent TUI keeps streaming. New
+  continuation uses PC5's exact pinned shared files, not a second parser.
+  Nine native cases and ten evidence tests passed. Integration checks the
+  shared dependency and both consumers without changing captured sources.
+- All three workers passed required all-files hooks. Their source/evidence
+  hashes and independent reviews remain in the durable ledger. This checkpoint
+  integrates PC5 before its PA1C consumer and preserves all branch ancestry.
+  No worker used real credentials or live provider endpoints.
+- PTU prepares a separately reviewable single direct usage GET before asking
+  for another real-account permission. The earlier count authorization is
+  consumed and cannot authorize this different request. Default, describe and
+  offline tests read no real credential and reach no provider.
+- PR audits the remaining source/capability routes and ownership transitions:
+  alternate models/profiles, resume and account/session switches, background
+  modes and secondary inference paths. A test network guard is containment,
+  not evidence that a future product routes all owned work through its gate.
+  The audit must identify an enforceable supported configuration or a precise
+  blocker, without reducing full A or adding a replacement UI.
+- G0 remains closed on real attributable startup quota, complete supported
+  routing/ownership, final bounded timings/interfaces and human architecture
+  acceptance. C/X/A/U and both publication cycles remain unstarted.
+
 ### PC: prove Codex control rather than rediscover interruption
 
 **Files:** read `lib/codex-as/{launch,check,handoff,usage}.py` and
@@ -703,10 +753,10 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [x] B0, PA0, PTP preparation, PA2, PC3 and PC4 research are complete;
+- [x] B0, PA0, PTP preparation, PA2, PC3/PC4/PC5, PA1F and PA1C research are complete;
   capability gaps remain. HAuth and continuation research scope are approved;
   the one named-account count request completed without quota headers. Resume
-  PC5, PA1F/PA1C and the result review from the durable ledger, not B0.
+  PTU preparation and PR routing evidence from the durable ledger, not B0.
   Setup-token-only is preferred; persistent
   initial login is permitted as fallback, with no routine repeated login.
   G0 remains closed; no runtime implementation is authorized. Concrete

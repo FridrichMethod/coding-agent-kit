@@ -1,0 +1,732 @@
+{
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "probe_sha256": "75a924f4a8d14aee77e2ba990a40c2299d01473ff3bbc68946dbc5b38325eabb",
+  "offline_probe_sha256": "6fea6e7d20737c09802a4cf7033e940dfa7ffa8320d8f0400a69f6e45016a992",
+  "guard_sha256": "b1ced01775b5b1e23dc845c68f68faf856133356e38c6a75624be035a72ceee4",
+  "runner_sha256": "f4eb8231cd7a4430ec66e476dd5271b1e9de353224066a66d94fcf4db006a5a7",
+  "classification": "loopback_fixture_not_real_provider_authorization",
+  "cases": [
+    {
+      "case": "fresh",
+      "fixture_status": 200,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139313.789448081
+        }
+      ],
+      "rejected_connects": 0,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 0,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": true,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        },
+        "seven_day": {
+          "utilization": 35.5,
+          "resets_at": "2100-01-02T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139313.605724491,
+          "cache_before_send_ms": null,
+          "received_monotonic": 139313.770826725,
+          "cache_fetched_at_ms": null
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139313.770900656,
+          "cache_before_send_ms": null,
+          "received_monotonic": 139313.79113059,
+          "cache_fetched_at_ms": null
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139315.795729406,
+          "cache_before_send_ms": 1794481205359,
+          "received_monotonic": 139315.797820443,
+          "cache_fetched_at_ms": 1794481205359
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "unchanged-new-fetch",
+      "fixture_status": 200,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139316.504364031
+        }
+      ],
+      "rejected_connects": 0,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 0,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": true,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        },
+        "seven_day": {
+          "utilization": 35.5,
+          "resets_at": "2100-01-02T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139316.317860486,
+          "cache_before_send_ms": 1794481087866,
+          "received_monotonic": 139316.485004823,
+          "cache_fetched_at_ms": 1794481087866
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139316.485088296,
+          "cache_before_send_ms": 1794481087866,
+          "received_monotonic": 139316.506046318,
+          "cache_fetched_at_ms": 1794481087866
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139318.511197978,
+          "cache_before_send_ms": 1794481208072,
+          "received_monotonic": 139318.512131003,
+          "cache_fetched_at_ms": 1794481208072
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "missing-weekly",
+      "fixture_status": 200,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139319.216894092
+        }
+      ],
+      "rejected_connects": 0,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 0,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": true,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139319.027203837,
+          "cache_before_send_ms": 1794481090576,
+          "received_monotonic": 139319.197372464,
+          "cache_fetched_at_ms": 1794481090576
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139319.197443363,
+          "cache_before_send_ms": 1794481090576,
+          "received_monotonic": 139319.218576001,
+          "cache_fetched_at_ms": 1794481090576
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139321.223770599,
+          "cache_before_send_ms": 1794481210788,
+          "received_monotonic": 139321.224750101,
+          "cache_fetched_at_ms": 1794481210788
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "forbidden-seed",
+      "fixture_status": 403,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139321.928275221
+        }
+      ],
+      "rejected_connects": 0,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 0,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": false,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        },
+        "seven_day": {
+          "utilization": 35.5,
+          "resets_at": "2100-01-02T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139321.740669286,
+          "cache_before_send_ms": 1794481093289,
+          "received_monotonic": 139321.909352209,
+          "cache_fetched_at_ms": 1794481093289
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139321.909424445,
+          "cache_before_send_ms": 1794481093289,
+          "received_monotonic": 139321.929917724,
+          "cache_fetched_at_ms": 1794481093289
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139323.935894428,
+          "cache_before_send_ms": 1794481093289,
+          "received_monotonic": 139323.93718417,
+          "cache_fetched_at_ms": 1794481093289
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "unauthorized-seed",
+      "fixture_status": 401,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139324.63767886
+        }
+      ],
+      "rejected_connects": 1,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 1,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": false,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        },
+        "seven_day": {
+          "utilization": 35.5,
+          "resets_at": "2100-01-02T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139324.452780603,
+          "cache_before_send_ms": 1794481096001,
+          "received_monotonic": 139324.61882989,
+          "cache_fetched_at_ms": 1794481096001
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139324.61889827,
+          "cache_before_send_ms": 1794481096001,
+          "received_monotonic": 139324.650179138,
+          "cache_fetched_at_ms": 1794481096001
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139326.654265992,
+          "cache_before_send_ms": 1794481096001,
+          "received_monotonic": 139326.656777918,
+          "cache_fetched_at_ms": 1794481096001
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "rate-limited-seed",
+      "fixture_status": 429,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139327.35312941
+        }
+      ],
+      "rejected_connects": 0,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 0,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": false,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        },
+        "seven_day": {
+          "utilization": 35.5,
+          "resets_at": "2100-01-02T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139327.174545993,
+          "cache_before_send_ms": 1794481098722,
+          "received_monotonic": 139327.333624149,
+          "cache_fetched_at_ms": 1794481098722
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139327.333697072,
+          "cache_before_send_ms": 1794481098722,
+          "received_monotonic": 139327.354889809,
+          "cache_fetched_at_ms": 1794481098722
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139329.36024679,
+          "cache_before_send_ms": 1794481098722,
+          "received_monotonic": 139329.361642125,
+          "cache_fetched_at_ms": 1794481098722
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "empty-seed",
+      "fixture_status": 200,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139330.062349283
+        },
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139332.075952794
+        }
+      ],
+      "rejected_connects": 0,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 0,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": false,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        },
+        "seven_day": {
+          "utilization": 35.5,
+          "resets_at": "2100-01-02T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139329.876822448,
+          "cache_before_send_ms": 1794481101425,
+          "received_monotonic": 139330.042999316,
+          "cache_fetched_at_ms": 1794481101425
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139330.043085282,
+          "cache_before_send_ms": 1794481101425,
+          "received_monotonic": 139330.064050901,
+          "cache_fetched_at_ms": 1794481101425
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139332.069689366,
+          "cache_before_send_ms": 1794481101425,
+          "received_monotonic": 139332.077006725,
+          "cache_fetched_at_ms": 1794481101425
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "expired-access",
+      "fixture_status": 200,
+      "usage_requests": [
+        {
+          "method": "GET",
+          "path": "/api/oauth/usage",
+          "fake_bearer_matches": true,
+          "received_monotonic": 139332.794463526
+        }
+      ],
+      "rejected_connects": 3,
+      "rejected_paths": 9,
+      "rejected_refresh_host_connects": 3,
+      "model_attempts": 0,
+      "connection_errors": 0,
+      "cache_timestamp_advanced": true,
+      "cache_utilization": {
+        "five_hour": {
+          "utilization": 12.5,
+          "resets_at": "2100-01-01T00:00:00Z"
+        },
+        "seven_day": {
+          "utilization": 35.5,
+          "resets_at": "2100-01-02T00:00:00Z"
+        }
+      },
+      "credentials_unchanged": true,
+      "model_events": 0,
+      "exit_status": 0,
+      "control_timings": [
+        {
+          "request_id": "init",
+          "sent_monotonic": 139332.592038934,
+          "cache_before_send_ms": null,
+          "received_monotonic": 139332.767589624,
+          "cache_fetched_at_ms": null
+        },
+        {
+          "request_id": "quota-0",
+          "sent_monotonic": 139332.767649125,
+          "cache_before_send_ms": null,
+          "received_monotonic": 139332.796206954,
+          "cache_fetched_at_ms": null
+        },
+        {
+          "request_id": "quota-1",
+          "sent_monotonic": 139334.801788397,
+          "cache_before_send_ms": 1794481224362,
+          "received_monotonic": 139334.803952876,
+          "cache_fetched_at_ms": 1794481224362
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ],
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

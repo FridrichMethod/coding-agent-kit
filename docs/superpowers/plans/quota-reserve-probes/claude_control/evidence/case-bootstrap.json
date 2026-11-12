@@ -1,0 +1,79 @@
+{
+  "native_tui": true,
+  "mode": "bootstrap",
+  "events": [
+    {
+      "at": 0.1107,
+      "event": "auth_status",
+      "name": "owned",
+      "exit": 0,
+      "data": {
+        "loggedIn": true,
+        "authMethod": "oauth_token",
+        "apiProvider": "firstParty",
+        "analyticsDisabled": true,
+        "projectsDirectory": "<PROBE_ROOT>/owned/config/projects",
+        "configDirectory": "<PROBE_ROOT>/owned/config",
+        "loginExpiresAt": null
+      }
+    },
+    {
+      "at": 0.3728,
+      "event": "model_request",
+      "request_id": 1,
+      "kind": "root",
+      "path": "/v1/messages?beta=true",
+      "gate_id": null,
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [],
+      "manually_continued": false
+    },
+    {
+      "at": 0.4124,
+      "event": "bootstrap",
+      "ready": true,
+      "native_alive": true
+    },
+    {
+      "at": 0.4733,
+      "event": "stream_disconnected",
+      "request_id": 1,
+      "kind": "root"
+    },
+    {
+      "at": 2.4125,
+      "event": "after_interrupt",
+      "native_alive": true,
+      "active_kinds": []
+    },
+    {
+      "at": 2.7127,
+      "event": "history_view",
+      "native_alive": true
+    },
+    {
+      "at": 3.3133,
+      "event": "native_exit",
+      "exited": true,
+      "code": 0,
+      "termios_restored": true
+    },
+    {
+      "at": 3.3133,
+      "event": "credential_files",
+      "unchanged": true
+    }
+  ],
+  "terminal": [
+    "\u001b7\u001b[r\u001b8\u001b[?25h\u001b[?2004h\u001b[?2031h\u001b[?1004h\u001b]0;\u2733 Claude Code\u0007\u001b[?1049h\u001b[2J\u001b[H\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b[?25l\u001b[?25l\u001b[H\r\u001b[11C\u001b[1B\u001b[1mClaude Code\u001b[24G\u001b[22m\u001b[38;5;246mv2.1.322\r\u001b[11C\u001b[1BSonnet 4.6 \u00b7 API Usage Billing\r\u001b[11C\u001b[1B<PROBE_ROOT>/owned/workspace\r\u001b[3B\u001b[48;5;237m\u276f \u001b[38;5;231mFixture root\u001b[39m                                                                                                          \r\u001b[28B\u001b[49m\u001b[38;5;174m\u00b7\u001b[3GLeavening\u2026 \r\u001b[102C\u001b[1B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[37B\u001b[38;5;246m\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[>0q\u001b[?u\u001b]7501;?\u0007\u001b[c\u001b[H\r\u001b[2C\u001b[34B\u001b[38;5;174mHonki\u001b[9Gg\u2026 \u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[8B\u001b[38;5;231m\u25cf\u001b[3G\u001b[39mFixture\u001b[11Gheld\u001b[16Gstream.\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[25B\u001b[39m\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u2598\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m\u2597\u259f\u001b[48;5;16m\u259b\u001b[7G\u259b\u2588\u001b[49m\u2584\r\u001b[1C\u001b[1B\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u2598\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B         \r\u001b[1C\u001b[1B\u001b[38;5;174m\u2590\u001b[48;5;16m\u259b\u001b[7G\u259b\u2588\u001b[39m\u001b[49m \r\u001b[1B\u001b[38;5;246m\u00b7\u001b[38;5;174m\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u001b[38;5;246m\u00b7\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[3B\u001b[38;5;246m~\u001b[9G~\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[48;5;16m\u2588\u001b[7G\u2588\u001b[49m\u2588\u2580\r\u001b[1B \u259d\u259d   \u259d\u259d \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;174m\u001b[38;5;16m\u2582\u001b[7G\u2582\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[7G\u259b\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B \u001b[3G       \u001b[11G    \u001b[16G       \u001b[87G\u001b[38;5;246m03:04 AM\u001b[96Gclaude-sonnet-4-6\r\u001b[1B\u001b[38;5;231m\u25cf\u001b[39m Fixture held stream.\u001b[K\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[102C\u001b[25B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[2m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[22m\u001b[38;5;246mShowing detailed\u001b[20Gtransc\u001b[27Gipt \u00b7 \u001b[34Gtrl+o\u001b[40Gto toggl\u001b[49G \u00b7 \u2191\u2193 scroll \u00b7 v to open in code \u00b7 ? for shortcuts\u001b[113Gverbose \u001b[39m\u001b[40;1H\u001b[H\r\u001b[8B\u001b[38;5;231m\u25cf\u001b[3G\u001b[39mFixture\u001b[11Gheld\u001b[16Gstream.\u001b[87G\u001b[K\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[1B\u001b[39m\u001b[K\r\u001b[102C\u001b[25B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on\u001b[20G\u00b7 ? fo\u001b[27G short\u001b[34Guts \u00b7\u001b[40G\u2190 for ag\u001b[49Gnts\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[39B\u001b[38;5;246mPress Ctrl-C again\u001b[22Gto exit\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume 087c21b4-1658-4fd9-9564-60345af2d941\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h"
+  ]
+}

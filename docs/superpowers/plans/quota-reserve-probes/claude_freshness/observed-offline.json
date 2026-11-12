@@ -1,0 +1,472 @@
+{
+  "version": "2.1.322 (Claude Code)",
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "runner_sha256": "f4eb8231cd7a4430ec66e476dd5271b1e9de353224066a66d94fcf4db006a5a7",
+  "probe_sha256": "6fea6e7d20737c09802a4cf7033e940dfa7ffa8320d8f0400a69f6e45016a992",
+  "denied_syscalls": [
+    "socket",
+    "connect",
+    "sendto",
+    "sendmsg",
+    "sendmmsg",
+    "io_uring_setup"
+  ],
+  "version_denials": 0,
+  "classification": "offline_cache_counterexamples_not_fresh_server_quota",
+  "login_invocations": 0,
+  "model_inputs": 0,
+  "cases": [
+    {
+      "case": "recent",
+      "input_age_ms": 0,
+      "elapsed_seconds": 0.923,
+      "exit_status": 0,
+      "denied_network_calls": 30,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 922,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "seed-two-minutes",
+      "input_age_ms": 120000,
+      "elapsed_seconds": 0.789,
+      "exit_status": 0,
+      "denied_network_calls": 36,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 120789,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "seed-fifty-nine-minutes",
+      "input_age_ms": 3540000,
+      "elapsed_seconds": 0.765,
+      "exit_status": 0,
+      "denied_network_calls": 36,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 3540765,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "older-than-hour",
+      "input_age_ms": 3660000,
+      "elapsed_seconds": 0.86,
+      "exit_status": 0,
+      "denied_network_calls": 36,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 3660860,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "future",
+      "input_age_ms": -600000,
+      "elapsed_seconds": 0.876,
+      "exit_status": 0,
+      "denied_network_calls": 36,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": -599124,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "wrong-account",
+      "input_age_ms": 0,
+      "elapsed_seconds": 0.888,
+      "exit_status": 0,
+      "denied_network_calls": 36,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": false,
+      "cache_removed": true,
+      "cache_timestamp_unchanged": false,
+      "age_at_completion_ms": 888,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "same-account-other-org",
+      "input_age_ms": 0,
+      "elapsed_seconds": 0.878,
+      "exit_status": 0,
+      "denied_network_calls": 30,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 878,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2100-01-02T00:00:00Z"
+            }
+          }
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "missing-weekly",
+      "input_age_ms": 0,
+      "elapsed_seconds": 0.866,
+      "exit_status": 0,
+      "denied_network_calls": 30,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 866,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2100-01-01T00:00:00Z"
+            }
+          }
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "past-reset",
+      "input_age_ms": 120000,
+      "elapsed_seconds": 0.875,
+      "exit_status": 0,
+      "denied_network_calls": 36,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 120876,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2000-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2000-01-01T00:00:00Z"
+            }
+          }
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": {
+            "five_hour": {
+              "utilization": 12.5,
+              "resets_at": "2000-01-01T00:00:00Z"
+            },
+            "seven_day": {
+              "utilization": 35.5,
+              "resets_at": "2000-01-01T00:00:00Z"
+            }
+          }
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "no-cache",
+      "input_age_ms": null,
+      "elapsed_seconds": 0.854,
+      "exit_status": 0,
+      "denied_network_calls": 36,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": false,
+      "age_at_completion_ms": null,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": true,
+          "rate_limits": null
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    },
+    {
+      "case": "no-profile-scope",
+      "input_age_ms": 0,
+      "elapsed_seconds": 0.892,
+      "exit_status": 0,
+      "denied_network_calls": 24,
+      "model_events": 0,
+      "credentials_unchanged": true,
+      "cache_unchanged": true,
+      "cache_removed": false,
+      "cache_timestamp_unchanged": true,
+      "age_at_completion_ms": 892,
+      "replies": [
+        {
+          "subscription_type": "max",
+          "rate_limits_available": false,
+          "rate_limits": null
+        },
+        {
+          "subscription_type": "max",
+          "rate_limits_available": false,
+          "rate_limits": null
+        }
+      ],
+      "reply_keys": [
+        "behaviors",
+        "rate_limits",
+        "rate_limits_available",
+        "session",
+        "subscription_type"
+      ]
+    }
+  ]
+}
