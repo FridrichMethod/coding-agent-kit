@@ -56,6 +56,29 @@ HOP = qx_gate.HOP | {'proxy-authenticate'}
 LOSS = ('monitor-eof', 'monitor-stale', 'launcher-eof')
 
 
+def describe(body):
+    """(marker, kind) of a Responses request for evidence only: the latest user turn decides."""
+    try:
+        items = json.loads(body).get('input') or []
+    except (ValueError, AttributeError):
+        return None, None
+    text, kind = '', 'turn'
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        if item.get('role') == 'user':
+            parts = item.get('content')
+            text = ' '.join(part.get('text', '') for part in parts if isinstance(part, dict)) \
+                if isinstance(parts, list) else str(parts)
+            kind = 'turn'
+        elif item.get('type') == 'function_call_output':
+            kind = 'tool_result'
+    if text.startswith('Generate a concise'):
+        kind = 'title'
+    marker = 'KLX-' + text.split('KLX-', 1)[1].split()[0].strip('.,"\'') if 'KLX-' in text else None
+    return marker, kind
+
+
 class KLease(binding.Lease):
     """The QX lease plus a public latch for conditions the gate observes itself."""
 
@@ -351,8 +374,8 @@ class Gate:
                     model = json.loads(body).get('model')
                 except (ValueError, AttributeError):
                     model = None
-                marker = (body.split(b'KLX-', 1)[1][:24].split(b'"')[0].decode(errors='replace')
-                          if b'KLX-' in body else None)
+                marker, kind = describe(body)
+                info['request'] = kind
                 key = 'model-%d' % id(self)
 
                 def decide():

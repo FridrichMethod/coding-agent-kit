@@ -96,6 +96,7 @@ class Backend:
         self.usage = {}  # account -> {'five': percent used, 'weekly': percent used}
         self.usage_override = None  # callable(identity) -> (status, body) or None
         self.tools = {}  # KLX-TOOL-<name> marker -> shell command for exec_command
+        self.tool_yield = {}  # marker -> exec_command yield_time_ms (default 2000)
         self.events = []
         self.on_issue = []  # callbacks(access, label) so a launcher can label credentials at its gate
         self.release = threading.Event()
@@ -258,13 +259,14 @@ class Backend:
                 with backend.lock:
                     backend.counter += 1
                     ident = 'klx-%d' % backend.counter
-                backend.note('model', label=identity and identity['label'], live=live, marker=marker, kind=kind,
+                backend.note('model', label=identity and identity['label'], live=live, marker=marker, request=kind,
                              ident=ident, model=body.get('model'))
                 if not live:
                     return self.send(401, {'error': {'code': 'token_expired', 'message': 'fixture'}})
                 headers = backend.usage_headers(identity['account'])
                 if kind == 'turn' and marker and marker.startswith('KLX-TOOL-') and marker in backend.tools:
-                    return self.send(200, tool_call(backend.tools[marker], ident), 'text/event-stream', headers)
+                    return self.send(200, tool_call(backend.tools[marker], ident, backend.tool_yield.get(marker, 2000)),
+                                     'text/event-stream', headers)
                 if kind == 'turn' and marker and marker.startswith('KLX-HOLD'):
                     return self.held(ident, marker, headers)
                 if kind == 'title' and backend.hold_titles:
