@@ -39,14 +39,18 @@ def root_ok(path):
     return bool(ROOT_PATTERN.match(path or ''))
 
 
-def replacements(root, home, user):
+def replacements(root, home, user, uid=None):
     """Ordered sanitization map; the realpath form of /tmp is /private/tmp."""
     if not root_ok(root) or not home.startswith('/') or not user:
         raise ValueError('refusing incomplete sanitization inputs')
     local_home = os.path.expanduser('~')
     slug = ('/private' + root).replace('/', '-')  # Claude names project dirs after the cwd
-    return {'/private' + root: '<root>', root: '<root>', slug: '-<root-slug>', home: '<home>', user: '<user>',
-            local_home: '<local-home>'}
+    mapping = {'/private' + root: '<root>', root: '<root>', slug: '-<root-slug>', home: '<home>', user: '<user>',
+               local_home: '<local-home>'}
+    if uid and uid.isdigit():
+        mapping['/claude-%s/' % uid] = '/claude-<uid>/'  # Claude's fixed per-uid temp directory
+        mapping['/claude-%s"' % uid] = '/claude-<uid>"'
+    return mapping
 
 
 def load(name, path):
@@ -93,9 +97,9 @@ def parse_discovery(out):
 
 def discover():
     script = ("for t in claude codex; do print -r -- \"$t=$(whence -p $t)\"; done; "
-              "print -r -- \"home=$HOME\"; print -r -- \"user=$(id -un)\"")
+              "print -r -- \"home=$HOME\"; print -r -- \"user=$(id -un)\"; print -r -- \"uid=$(id -u)\"")
     found = parse_discovery(ssh("zsh -lic '%s' 2>/dev/null" % script, 60).stdout)
-    return {k: found[k] for k in ('claude', 'codex')}, found['home'], found['user']
+    return {k: found[k] for k in ('claude', 'codex')}, found['home'], found['user'], found.get('uid')
 
 
 def init():
@@ -122,7 +126,7 @@ def copy(root):
 
 def run_stage(stage, dev=False, only=None):
     root = init()['root']
-    tools, home, user = discover()
+    tools, home, user, uid = discover()
     copy(root)
     ssh('rm -f %s/out/%s.json' % (root, stage), 30)
     prefix = 'KM_ONLY=%s ' % shlex.quote(only) if only else ''
@@ -147,7 +151,7 @@ def run_stage(stage, dev=False, only=None):
     if fetched.returncode != 0:
         raise SystemExit('stage %s produced no evidence (exit %s)' % (stage, code))
     evidence = base / 'evidence' if dev else HERE / 'evidence'
-    clean = sanitize_file(raw / (stage + '.json'), evidence / (stage + '.json'), replacements(root, home, user))
+    clean = sanitize_file(raw / (stage + '.json'), evidence / (stage + '.json'), replacements(root, home, user, uid))
     print(json.dumps({'stage': stage, 'exit': code, 'completed': clean.get('completed'),
                       'cases': {k: ('error' if 'error' in v else 'ok') for k, v in clean.get('cases', {}).items()}}))
 

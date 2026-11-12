@@ -1,0 +1,1257 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "claude-fsrules": {
+   "case_seconds": 16.0,
+   "native_tmp": {
+    "exit": {
+     "launcher_exit": 0,
+     "native_exit": 0
+    },
+    "first_turn_forwarded": true,
+    "inside_written": true,
+    "native_started": true,
+    "outside_written": false,
+    "refused": [],
+    "second_turn": {
+     "decisions": [
+      [
+       true,
+       "admitted",
+       "A"
+      ]
+     ],
+     "expect_ok": true,
+     "forwarded": 1
+    },
+    "summary": {
+     "fetch_ms": 0.642,
+     "gate_rows": [
+      {
+       "cause": "startup",
+       "epoch": 1,
+       "event": "controller",
+       "kind": "lease",
+       "t": 210855.790138666
+      },
+      {
+       "event": "preflight",
+       "ms": 2.851,
+       "reason": "startup_ok",
+       "t": 210855.790156416
+      },
+      {
+       "event": "gate_ready",
+       "listeners": 2,
+       "mode": "startup",
+       "pid": 98137,
+       "port": 51413,
+       "t": 210855.790445541
+      },
+      {
+       "event": "connect",
+       "ok": false,
+       "stream": null,
+       "t": 210856.025366833,
+       "target": "api.anthropic.com:443"
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 1,
+       "t": 210856.158392916
+      },
+      {
+       "admit_ms": 0.308,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-fs-native_tmp",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 1,
+       "t": 210856.158489708
+      },
+      {
+       "bytes": 43325,
+       "event": "forwarded",
+       "gate_ms": 0.533,
+       "label": "A",
+       "stream": 1,
+       "t": 210856.158712166
+      },
+      {
+       "event": "stream_closed",
+       "stream": 1,
+       "t": 210856.159478833
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 2,
+       "t": 210856.199534958
+      },
+      {
+       "admit_ms": 0.257,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-fs-native_tmp",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 2,
+       "t": 210856.199626833
+      },
+      {
+       "bytes": 44080,
+       "event": "forwarded",
+       "gate_ms": 0.445,
+       "label": "A",
+       "stream": 2,
+       "t": 210856.199812125
+      },
+      {
+       "event": "stream_closed",
+       "stream": 2,
+       "t": 210856.200663416
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 3,
+       "t": 210860.392474833
+      },
+      {
+       "admit_ms": 0.239,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-fs-native_tmp-second",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 3,
+       "t": 210860.392548791
+      },
+      {
+       "bytes": 44364,
+       "event": "forwarded",
+       "gate_ms": 0.371,
+       "label": "A",
+       "stream": 3,
+       "t": 210860.3926795
+      },
+      {
+       "event": "stream_closed",
+       "stream": 3,
+       "t": 210860.393183375
+      },
+      {
+       "event": "lost",
+       "reason": "monitor_eof",
+       "t": 210862.614850625
+      },
+      {
+       "closed": 0,
+       "event": "controller",
+       "kind": "latched",
+       "reason": "monitor_eof",
+       "state": "paused",
+       "t": 210862.614890458
+      },
+      {
+       "event": "notify",
+       "op": "latched",
+       "reason": "monitor_eof",
+       "state": "paused",
+       "t": 210862.614904375
+      }
+     ],
+     "gate_stderr_tail": "",
+     "launcher_rows": [
+      {
+       "event": "native_version",
+       "t": 210855.712168291,
+       "text": "2.1.322 (Claude Code)"
+      },
+      {
+       "event": "holder",
+       "failed": [],
+       "mode": "all",
+       "port": 51413,
+       "reserved": 19,
+       "t": 210855.719848833
+      },
+      {
+       "event": "profile",
+       "fs_rules": true,
+       "lines": 26,
+       "t": 210855.725471625
+      },
+      {
+       "event": "monitor_started",
+       "pid": 98136,
+       "t": 210855.72697525
+      },
+      {
+       "event": "gate_started",
+       "mode": "startup",
+       "pid": 98137,
+       "t": 210855.728587
+      },
+      {
+       "event": "self_test",
+       "ms": 32.3,
+       "ok": true,
+       "result": {
+        "bind": "errno:1",
+        "gate": "connected",
+        "other": "errno:1",
+        "tiocsti": "errno:1"
+       },
+       "t": 210855.871357833
+      },
+      {
+       "event": "native_started",
+       "pid": 98140,
+       "t": 210855.876671125
+      },
+      {
+       "code": 0,
+       "event": "native_exit",
+       "t": 210862.614263
+      },
+      {
+       "event": "launcher_exit",
+       "t": 210862.616217958
+      }
+     ],
+     "monitor_rows": [
+      {
+       "event": "monitor_started",
+       "t": 210855.7475715
+      }
+     ],
+     "poll_count": 14,
+     "poll_ms": 1.754,
+     "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-fsrules/workspace \u276f KM-fs-native_tmp start \u00b7 Orchestrating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ echo in > <root>/cases/claude-fsrules/workspace/fs-inside-native_tmp.txt; echo out > <root>/cases/claude-fsrules/outside/fs-escape-native_tmp.txt; echo rc=$? Catapulting\u2026 Ran 1 shell command \u23fa KM fixture reply after tool \u273b Churned for 0s \u00b7 done 12:03 PM \u276f ? for shortcuts \u00b7 \u2190 for agents Turn KM-fs-native_tmp-second \u276f Turn KM-fs-native_tmp-second \u2722 B eboppin'\u2026 \u23bf Tip: Use /theme to change the color theme \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Crunched for 0s \u00b7 done 12:03 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 14e3de88-0c25-474b-8f74-1a68a816ed84 ",
+     "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-fsrules/workspace \u276f KM-fs-native_tmp start \u00b7 Orchestrating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ echo in > <root>/cases/claude-fsrules/workspace/fs-inside-native_tmp.txt; echo out > <root>/cases/claude-fsrules/outside/fs-escape-native_tmp.txt; echo rc=$? Catapulting\u2026 Ran 1 shell command \u23fa KM fixture reply after tool \u273b Churned for 0s \u00b7 done 12:03 PM \u276f ? for shortcuts \u00b7 \u2190 for agents Turn KM-fs-native_tmp-second \u276f Turn KM-fs-native_tmp-second \u2722 B eboppin'\u2026 \u23bf Tip: Use /theme to change the color theme \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Crunched for 0s \u00b7 done 12:03 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 14e3de88-0c25-474b-8f74-1a68a816ed84 "
+    },
+    "tool_results": [
+     {
+      "action": "text",
+      "bytes": 44080,
+      "kind": "tool_result",
+      "label": "A",
+      "main": true,
+      "marker": null,
+      "method": "POST",
+      "model": "claude-sonnet-4-6",
+      "path": "/v1/messages",
+      "provider": "claude",
+      "t": 210856.200513916,
+      "tool_output": "Exit code 1\n/bin/bash: <root>/cases/claude-fsrules/outside/fs-escape-native_tmp.txt: Operation not permitted\nrc=1\n/bin/bash: /tmp/claude-ba84-cwd: Operation not permitted\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>"
+     }
+    ]
+   },
+   "strict": {
+    "exit": {
+     "launcher_exit": 0,
+     "native_exit": 0
+    },
+    "first_turn_forwarded": true,
+    "inside_written": false,
+    "native_started": true,
+    "outside_written": false,
+    "refused": [],
+    "second_turn": {
+     "decisions": [
+      [
+       true,
+       "admitted",
+       "A"
+      ]
+     ],
+     "expect_ok": true,
+     "forwarded": 1
+    },
+    "summary": {
+     "fetch_ms": 2.525,
+     "gate_rows": [
+      {
+       "cause": "startup",
+       "epoch": 1,
+       "event": "controller",
+       "kind": "lease",
+       "t": 210847.98730425
+      },
+      {
+       "event": "preflight",
+       "ms": 3.372,
+       "reason": "startup_ok",
+       "t": 210847.98732075
+      },
+      {
+       "event": "gate_ready",
+       "listeners": 2,
+       "mode": "startup",
+       "pid": 98101,
+       "port": 51362,
+       "t": 210847.987584833
+      },
+      {
+       "event": "connect",
+       "ok": false,
+       "stream": null,
+       "t": 210848.372487208,
+       "target": "api.anthropic.com:443"
+      },
+      {
+       "event": "connect",
+       "ok": false,
+       "stream": null,
+       "t": 210848.5265725,
+       "target": "downloads.claude.ai:443"
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 1,
+       "t": 210848.552892833
+      },
+      {
+       "admit_ms": 0.325,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-fs-strict",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 1,
+       "t": 210848.552971833
+      },
+      {
+       "bytes": 43321,
+       "event": "forwarded",
+       "gate_ms": 0.54,
+       "label": "A",
+       "stream": 1,
+       "t": 210848.55318475
+      },
+      {
+       "event": "stream_closed",
+       "stream": 1,
+       "t": 210848.553810666
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 2,
+       "t": 210848.588193625
+      },
+      {
+       "admit_ms": 0.253,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-fs-strict",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 2,
+       "t": 210848.588273083
+      },
+      {
+       "bytes": 43996,
+       "event": "forwarded",
+       "gate_ms": 0.425,
+       "label": "A",
+       "stream": 2,
+       "t": 210848.588442541
+      },
+      {
+       "event": "stream_closed",
+       "stream": 2,
+       "t": 210848.588935083
+      },
+      {
+       "event": "connect",
+       "ok": false,
+       "stream": null,
+       "t": 210848.60619475,
+       "target": "github.com:443"
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 3,
+       "t": 210852.859890125
+      },
+      {
+       "admit_ms": 0.619,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-fs-strict-second",
+       "ok": true,
+       "path": "/v1/messages",
+       "reason": "admitted",
+       "stream": 3,
+       "t": 210852.860075916
+      },
+      {
+       "bytes": 44276,
+       "event": "forwarded",
+       "gate_ms": 1.083,
+       "label": "A",
+       "stream": 3,
+       "t": 210852.860534458
+      },
+      {
+       "event": "stream_closed",
+       "stream": 3,
+       "t": 210852.861589125
+      },
+      {
+       "event": "lost",
+       "reason": "monitor_eof",
+       "t": 210855.1231755
+      },
+      {
+       "closed": 0,
+       "event": "controller",
+       "kind": "latched",
+       "reason": "monitor_eof",
+       "state": "paused",
+       "t": 210855.123252958
+      },
+      {
+       "event": "notify",
+       "op": "latched",
+       "reason": "monitor_eof",
+       "state": "paused",
+       "t": 210855.123272958
+      }
+     ],
+     "gate_stderr_tail": "",
+     "launcher_rows": [
+      {
+       "event": "native_version",
+       "t": 210847.897258583,
+       "text": "2.1.322 (Claude Code)"
+      },
+      {
+       "event": "holder",
+       "failed": [],
+       "mode": "all",
+       "port": 51362,
+       "reserved": 19,
+       "t": 210847.9062025
+      },
+      {
+       "event": "profile",
+       "fs_rules": true,
+       "lines": 26,
+       "t": 210847.91259375
+      },
+      {
+       "event": "monitor_started",
+       "pid": 98100,
+       "t": 210847.915144583
+      },
+      {
+       "event": "gate_started",
+       "mode": "startup",
+       "pid": 98101,
+       "t": 210847.9170815
+      },
+      {
+       "event": "self_test",
+       "ms": 38.9,
+       "ok": true,
+       "result": {
+        "bind": "errno:1",
+        "gate": "connected",
+        "other": "errno:1",
+        "tiocsti": "errno:1"
+       },
+       "t": 210848.06451275
+      },
+      {
+       "event": "native_started",
+       "pid": 98104,
+       "t": 210848.070732458
+      },
+      {
+       "code": 0,
+       "event": "native_exit",
+       "t": 210855.122261041
+      },
+      {
+       "event": "launcher_exit",
+       "t": 210855.125052958
+      }
+     ],
+     "monitor_rows": [
+      {
+       "event": "monitor_started",
+       "t": 210847.940228
+      }
+     ],
+     "poll_count": 15,
+     "poll_ms": 8.614,
+     "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-fsrules/workspace \u276f KM-fs-strict start \u00b7 Seasoning\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ echo in > <root>/cases/claude-fsrules/workspace/fs-inside-strict.txt; echo out > <root>/cases/claude-fsrules/outside/fs-escape-strict.txt; echo rc=$? Tempering\u2026 Ran 1 shell command \u23fa KM fixture reply after tool \u273b Worked for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259d\u259d \u259d\u259d \u259d\u259d \u259d\u259d \u259d\u259d \u2597\u259f \u2584 \u2598 \u259d\u259d \u2590 \u259d \u2580 Turn KM-fs-strict-second \u276f Turn KM-fs-strict-second \u2722 Bunning\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Saut\u00e9ed for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u2736 Thinking\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume ded88fa6-e691-47e6-a112-8b7453a77835 ",
+     "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-fsrules/workspace \u276f KM-fs-strict start \u00b7 Seasoning\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ echo in > <root>/cases/claude-fsrules/workspace/fs-inside-strict.txt; echo out > <root>/cases/claude-fsrules/outside/fs-escape-strict.txt; echo rc=$? Tempering\u2026 Ran 1 shell command \u23fa KM fixture reply after tool \u273b Worked for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259d\u259d \u259d\u259d \u259d\u259d \u259d\u259d \u259d\u259d \u2597\u259f \u2584 \u2598 \u259d\u259d \u2590 \u259d \u2580 Turn KM-fs-strict-second \u276f Turn KM-fs-strict-second \u2722 Bunning\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents \u23fa KM fixture reply \u273b Saut\u00e9ed for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u276f /exit \u2736 Thinking\u2026 \u23bf Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable. \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume ded88fa6-e691-47e6-a112-8b7453a77835 "
+    },
+    "tool_results": [
+     {
+      "action": "text",
+      "bytes": 43996,
+      "kind": "tool_result",
+      "label": "A",
+      "main": true,
+      "marker": null,
+      "method": "POST",
+      "model": "claude-sonnet-4-6",
+      "path": "/v1/messages",
+      "provider": "claude",
+      "t": 210848.588787916,
+      "tool_output": "EPERM: operation not permitted, mkdir '/private/tmp/claude-<uid>/-<root-slug>-cases-claude-fsrules-workspace'\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>"
+     }
+    ]
+   }
+  },
+  "claude-sandbox": {
+   "case_seconds": 5.7,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "native_started": true,
+   "refused": [],
+   "summary": {
+    "fetch_ms": 2.005,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 210842.268595875
+     },
+     {
+      "event": "preflight",
+      "ms": 3.054,
+      "reason": "startup_ok",
+      "t": 210842.268612291
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 98063,
+      "port": 51326,
+      "t": 210842.268901708
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 210842.61683225,
+      "target": "api.anthropic.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 210842.792688875,
+      "target": "downloads.claude.ai:443"
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 210842.816555083
+     },
+     {
+      "admit_ms": 0.358,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-nsb-first",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 210842.816671708
+     },
+     {
+      "bytes": 53690,
+      "event": "forwarded",
+      "gate_ms": 0.585,
+      "label": "A",
+      "stream": 1,
+      "t": 210842.816896708
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 210842.817832666
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 210842.860727291
+     },
+     {
+      "admit_ms": 0.299,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-nsb-first",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 210842.86082125
+     },
+     {
+      "bytes": 54563,
+      "event": "forwarded",
+      "gate_ms": 0.524,
+      "label": "A",
+      "stream": 2,
+      "t": 210842.861043
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 210842.861585916
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 210842.900362125,
+      "target": "github.com:443"
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 210846.594687875
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 210846.594761125
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "state": "paused",
+      "t": 210846.594779333
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 210842.178754291,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 51326,
+      "reserved": 19,
+      "t": 210842.188170291
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 210842.1951515
+     },
+     {
+      "event": "monitor_started",
+      "pid": 98062,
+      "t": 210842.198035791
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 98063,
+      "t": 210842.200428166
+     },
+     {
+      "event": "self_test",
+      "ms": 39.6,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 210842.347150291
+     },
+     {
+      "event": "native_started",
+      "pid": 98066,
+      "t": 210842.352942875
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 210846.593805208
+     },
+     {
+      "event": "launcher_exit",
+      "t": 210846.596379875
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 210842.222559333
+     }
+    ],
+    "poll_count": 9,
+    "poll_ms": 8.557,
+    "terminal_head": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-sandbox/workspace \u276f KM-nsb-first start \u00b7 Gesticulating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ echo km-nested > <root>/cases/claude-sandbox/workspace/nsb-done.txt; /usr/bin/true Lollygagging\u2026 (0s \u00b7 \u2193 13 tokens) \u2582 Ran 1 shell command \u23fa KM fixture reply after tool \u273b Saut\u00e9ed for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259b \u276f /exit \u00b7 B ooping\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 71f4a4a8-176f-4073-b7bf-87a6bd7ba067 ",
+    "terminal_tail": " \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 Claude Code v2.1.322 \u259d\u259c \u2588\u2588\u2588\u2588\u2588 \u2588\u2580 Sonnet 4.6 \u00b7 Claude Max \u259d\u259d \u259d\u259d <root>/cases/claude-sandbox/workspace \u276f KM-nsb-first start \u00b7 Gesticulating\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ echo km-nested > <root>/cases/claude-sandbox/workspace/nsb-done.txt; /usr/bin/true Lollygagging\u2026 (0s \u00b7 \u2193 13 tokens) \u2582 Ran 1 shell command \u23fa KM fixture reply after tool \u273b Saut\u00e9ed for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259b \u276f /exit \u00b7 B ooping\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f esc to interrupt \u00b7 \u2190 for agents \u000f \u000f Resume this session with: claude --resume 71f4a4a8-176f-4073-b7bf-87a6bd7ba067 "
+   },
+   "tool_effect_file": false,
+   "tool_results": [
+    {
+     "action": "text",
+     "bytes": 54563,
+     "kind": "tool_result",
+     "label": "A",
+     "main": true,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210842.861435958,
+     "tool_output": "Sandbox is enabled but failed to initialize: EPERM: operation not permitted, listen '<root>/cases/claude-sandbox/tmp/srt-mux-98066-2.sock'. Sandboxing is disabled for the rest of this session; restart to retry.\n\n<system-reminder>\nThe command sandbox has been disabled. Commands now run without sandbox restrictions; the earlier sandbox instructions no longer apply.\n</system-reminder>\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>"
+    }
+   ]
+  },
+  "claude-tools": {
+   "bg_after_native_exit": 34,
+   "bg_file": {
+    "after": 29,
+    "at_latch": 11
+   },
+   "bg_started": true,
+   "case_seconds": 17.7,
+   "decisions_after_latch": [],
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "fg_loop": {
+    "at_latch": 3,
+    "five_s_later": 6,
+    "interrupt_t": 210832.549986791,
+    "one_s_after_esc": 6
+   },
+   "latch_t": 210829.468231625,
+   "model_posts_after_latch": 0,
+   "native_alive": true,
+   "native_started": true,
+   "summary": {
+    "fetch_ms": 2.838,
+    "gate_rows": [
+     {
+      "cause": "startup",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 210824.46844275
+     },
+     {
+      "event": "preflight",
+      "ms": 2.666,
+      "reason": "startup_ok",
+      "t": 210824.468457958
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 97983,
+      "port": 51237,
+      "t": 210824.468722875
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 210824.723856625,
+      "target": "api.anthropic.com:443"
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 210824.87720525,
+      "target": "downloads.claude.ai:443"
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 210824.905430958
+     },
+     {
+      "admit_ms": 0.294,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-tools-first",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 210824.905516333
+     },
+     {
+      "bytes": 43317,
+      "event": "forwarded",
+      "gate_ms": 0.459,
+      "label": "A",
+      "stream": 1,
+      "t": 210824.905678791
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 210824.906258958
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 210824.976593083,
+      "target": "github.com:443"
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 210824.989098791
+     },
+     {
+      "admit_ms": 0.252,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-tools-first",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 210824.989171541
+     },
+     {
+      "bytes": 43996,
+      "event": "forwarded",
+      "gate_ms": 0.681,
+      "label": "A",
+      "stream": 2,
+      "t": 210824.9895995
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 210824.990135791
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "http://127.0.0.1:51253/simple/kmfixture/",
+      "t": 210825.57949725
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "/",
+      "t": 210826.475308125
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 3,
+      "t": 210827.081505583
+     },
+     {
+      "admit_ms": 0.496,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-tools-fg",
+      "ok": true,
+      "path": "/v1/messages",
+      "reason": "admitted",
+      "stream": 3,
+      "t": 210827.081673916
+     },
+     {
+      "bytes": 44271,
+      "event": "forwarded",
+      "gate_ms": 0.934,
+      "label": "A",
+      "stream": 3,
+      "t": 210827.082108
+     },
+     {
+      "event": "stream_closed",
+      "stream": 3,
+      "t": 210827.083328916
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "/",
+      "t": 210828.483255
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 210829.468231625
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "threshold_five_hour",
+      "state": "paused",
+      "t": 210829.468301333
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "/",
+      "t": 210830.491199625
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "/",
+      "t": 210832.498859916
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "/",
+      "t": 210834.506601333
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "/",
+      "t": 210836.51574325
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "/",
+      "t": 210838.52609625
+     },
+     {
+      "event": "route_refused",
+      "method": "GET",
+      "path": "http://127.0.0.1:51253/simple/kmfixture/",
+      "t": 210839.027292333
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 210839.708296125
+     }
+    ],
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 210824.389917041,
+      "text": "2.1.322 (Claude Code)"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 51237,
+      "reserved": 19,
+      "t": 210824.396773208
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 210824.4026875
+     },
+     {
+      "event": "monitor_started",
+      "pid": 97982,
+      "t": 210824.4043065
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 97983,
+      "t": 210824.405676916
+     },
+     {
+      "event": "self_test",
+      "ms": 38.7,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 210824.554711666
+     },
+     {
+      "event": "native_started",
+      "pid": 97986,
+      "t": 210824.561128333
+     },
+     {
+      "event": "said",
+      "t": 210829.469025958,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 210829.469106625,
+      "text": "quota reserve paused (threshold_five_hour); press F12 to request a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 210839.707273083
+     },
+     {
+      "event": "launcher_exit",
+      "t": 210839.710698583
+     }
+    ],
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 210824.423982333
+     }
+    ],
+    "poll_count": 31,
+    "poll_ms": 3.741,
+    "terminal_head": " Claude Code v2.1.322 Sonnet 4.6 \u00b7 Claude Max <root>/cases/claude-tools/workspace \u276f KM-tools-first start \u00b7 Synthesizing\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' -I -B '<root>/km/child.py' '<root>/cases/claude-tools/child-tools.json' tools '<root>/cases/claude-tools/out/tools.jsonl'; echo km-b\u2026 Determining\u2026 (0s \u00b7 \u2193 25 tokens) Ran 1 shell command \u23fa KM fixture reply after tool \u273b Crunched for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259b\u2588 \u2584 \u2588 \u2588\u2598 \u259d\u259d \u2580 \u259b\u2588 \u2588 \u2588\u2580 \u2588\u2588\u2588\u259b\u2588 \u2584 \u2588 \u2588\u2588 \u2588\u2598 \u259d\u259d \u2580 \u259b\u2588 \u2588\u2588\u2588\u2588 \u2588\u2580 \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d Run KM-tools-fg now \u276f Run KM-tools-fg now \u2722 Onionin g\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents NM fixture egress probe \u23bf $ for i in $(seq 1 25); do echo $i >> <root>/cases/claude-tools/workspace/fg-loop.txt; sleep 1; done; echo km-fg-done \u23fa KM fixture reply after tool \u273b Crunched for 0s \u00b7 done 12:02 PM \u276f Run KM-tools-fg now Onionin (0s \u00b7 \u2193 19 tokens) \u23fa \u2733 2 \u2736 36 \u273b 9 \u273d 41 Onioning\u2026 3 4 6 \u273b Onioning\u2026 8 1 50 \u2736 1 \u2733 3 \u23fa \u2722 \u00b7 Onioning\u2026 Onioning\u2026 \u2722 2 \u2733 \u2736 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check \u273b \u273d \u23fa Onioning\u2026 \u00b7 2s \u273b Onioning\u2026 3 (3s) \u2736 \u2733 \u2722 \u00b7 Onioning\u2026 3 \u23fa Onioning\u2026 \u2722 4 4 \u2733 \u2736 \u273b \u273d Onioning\u2026 4 \u23fa \u273b Onioning\u2026 5 5 \u2736 \u2733 \u2722 \u000f \u00b7 Onioning\u2026 Runn ng 1 shell command \u2026 \u276f ? for shortcuts \u00b7 \u2190 for agents Ran 1 shell command Inte rupted \u00b7 What shoul Claude do instead? \u23fa KM fixture reply after tool \u273b Crunched for 0s \u00b7 done 12:02 PM \u276f Run KM-tools-fg now \u000f \u000f \u000f Resume this session with: claude --resume 1322c2d5-c6e7-43c8-b727-7167159c8212 ",
+    "terminal_tail": " Claude Code v2.1.322 Sonnet 4.6 \u00b7 Claude Max <root>/cases/claude-tools/workspace \u276f KM-tools-first start \u00b7 Synthesizing\u2026 \u25cf high \u00b7 /effort \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u276f \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents \u276f esc to interrupt \u00b7 \u2190 for agents \u23fa NM fixture egress probe \u23bf $ '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/bin/python3.15' -I -B '<root>/km/child.py' '<root>/cases/claude-tools/child-tools.json' tools '<root>/cases/claude-tools/out/tools.jsonl'; echo km-b\u2026 Determining\u2026 (0s \u00b7 \u2193 25 tokens) Ran 1 shell command \u23fa KM fixture reply after tool \u273b Crunched for 0s \u00b7 done 12:02 PM \u276f ? for shortcuts \u00b7 \u2190 for agents \u259b\u2588 \u2584 \u2588 \u2588\u2598 \u259d\u259d \u2580 \u259b\u2588 \u2588 \u2588\u2580 \u2588\u2588\u2588\u259b\u2588 \u2584 \u2588 \u2588\u2588 \u2588\u2598 \u259d\u259d \u2580 \u259b\u2588 \u2588\u2588\u2588\u2588 \u2588\u2580 \u2597\u259f \u259b\u2588\u2588\u2588\u259b\u2588 \u2584 \u259c \u2588 \u2588\u2588 \u2588\u2598 \u259d\u259d \u259d\u259d \u2590 \u259b \u259b\u2588 \u00b7 \u259c \u2588\u2588\u2588\u2588\u2588 \u2588 \u00b7 ~ ~ \u2590 \u259b\u2588\u2588\u2588\u259b\u2588 \u259d\u259c \u2588 \u2588 \u2588\u2580 \u259d\u259d \u259d\u259d Run KM-tools-fg now \u276f Run KM-tools-fg now \u2722 Onionin g\u2026 \u23bf Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits \u276f \u00b7 esc to interrupt \u00b7 \u2190 for agents NM fixture egress probe \u23bf $ for i in $(seq 1 25); do echo $i >> <root>/cases/claude-tools/workspace/fg-loop.txt; sleep 1; done; echo km-fg-done \u23fa KM fixture reply after tool \u273b Crunched for 0s \u00b7 done 12:02 PM \u276f Run KM-tools-fg now Onionin (0s \u00b7 \u2193 19 tokens) \u23fa \u2733 2 \u2736 36 \u273b 9 \u273d 41 Onioning\u2026 3 4 6 \u273b Onioning\u2026 8 1 50 \u2736 1 \u2733 3 \u23fa \u2722 \u00b7 Onioning\u2026 Onioning\u2026 \u2722 2 \u2733 \u2736 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold_five_hour); press F12 to request a fresh check \u273b \u273d \u23fa Onioning\u2026 \u00b7 2s \u273b Onioning\u2026 3 (3s) \u2736 \u2733 \u2722 \u00b7 Onioning\u2026 3 \u23fa Onioning\u2026 \u2722 4 4 \u2733 \u2736 \u273b \u273d Onioning\u2026 4 \u23fa \u273b Onioning\u2026 5 5 \u2736 \u2733 \u2722 \u000f \u00b7 Onioning\u2026 Runn ng 1 shell command \u2026 \u276f ? for shortcuts \u00b7 \u2190 for agents Ran 1 shell command Inte rupted \u00b7 What shoul Claude do instead? \u23fa KM fixture reply after tool \u273b Crunched for 0s \u00b7 done 12:02 PM \u276f Run KM-tools-fg now \u000f \u000f \u000f Resume this session with: claude --resume 1322c2d5-c6e7-43c8-b727-7167159c8212 "
+   },
+   "tool_net_rows": [
+    {
+     "action": "tools_parent_exit",
+     "pid": 98011,
+     "t": 210824.969093916
+    },
+    {
+     "action": "tool_net",
+     "gate": "connected",
+     "n": 4,
+     "pid": 98015,
+     "result": "errno:1",
+     "t": 210826.474880208
+    },
+    {
+     "action": "tool_net",
+     "gate": "connected",
+     "n": 8,
+     "pid": 98015,
+     "result": "errno:1",
+     "t": 210828.48285275
+    },
+    {
+     "action": "tool_net",
+     "gate": "connected",
+     "n": 12,
+     "pid": 98015,
+     "result": "errno:1",
+     "t": 210830.490985375
+    },
+    {
+     "action": "tool_net",
+     "gate": "connected",
+     "n": 16,
+     "pid": 98015,
+     "result": "errno:1",
+     "t": 210832.498483583
+    },
+    {
+     "action": "tool_net",
+     "gate": "connected",
+     "n": 20,
+     "pid": 98015,
+     "result": "errno:1",
+     "t": 210834.506208625
+    },
+    {
+     "action": "tool_net",
+     "gate": "connected",
+     "n": 24,
+     "pid": 98015,
+     "result": "errno:1",
+     "t": 210836.515166666
+    },
+    {
+     "action": "tool_net",
+     "gate": "connected",
+     "n": 28,
+     "pid": 98015,
+     "result": "errno:1",
+     "t": 210838.524711375
+    }
+   ],
+   "upstream": [
+    {
+     "action": "tool",
+     "bytes": 43317,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-tools-first",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210824.906104416,
+     "tool_output": null
+    },
+    {
+     "action": "text",
+     "bytes": 43996,
+     "kind": "tool_result",
+     "label": "A",
+     "main": true,
+     "marker": null,
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210824.989977125,
+     "tool_output": "km-bg-started\n\n<system-reminder>\n<total_tokens>14999980 tokens left</total_tokens>\n</system-reminder>"
+    },
+    {
+     "action": "tool",
+     "bytes": 44271,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-tools-fg",
+     "method": "POST",
+     "model": "claude-sonnet-4-6",
+     "path": "/v1/messages",
+     "provider": "claude",
+     "t": 210827.083041375,
+     "tool_output": null
+    }
+   ],
+   "workflow_paused": {
+    "git_confined": {
+     "code": 128,
+     "stderr_tail": "fatal: unable to access 'http://127.0.0.1:51253/repo.git/': Failed to connect to 127.0.0.1 port 51253 after 0 ms: Couldn't connect to server\n",
+     "timed_out": false
+    },
+    "pip_confined": {
+     "code": 1,
+     "stderr_tail": "ERROR: Could not find a version that satisfies the requirement kmfixture (from versions: none)\nERROR: No matching distribution found for kmfixture\n",
+     "timed_out": false
+    },
+    "pip_via_gate_proxy": {
+     "code": 1,
+     "stderr_tail": "ERROR: Could not find a version that satisfies the requirement kmfixture (from versions: none)\nERROR: No matching distribution found for kmfixture\n",
+     "timed_out": false
+    }
+   },
+   "workflow_running": {
+    "git_confined": {
+     "code": 128,
+     "stderr_tail": "fatal: unable to access 'http://127.0.0.1:51253/repo.git/': Failed to connect to 127.0.0.1 port 51253 after 0 ms: Couldn't connect to server\n",
+     "timed_out": false
+    },
+    "git_control_outside": {
+     "code": 0,
+     "stderr_tail": "",
+     "timed_out": false
+    },
+    "pip_confined": {
+     "code": 1,
+     "stderr_tail": "ERROR: Could not find a version that satisfies the requirement kmfixture (from versions: none)\nERROR: No matching distribution found for kmfixture\n",
+     "timed_out": false
+    },
+    "pip_control_outside": {
+     "code": 0,
+     "stderr_tail": "tp://127.0.0.1:51253/simple\nCollecting kmfixture\n  Downloading kmfixture-1.0-py3-none-any.whl (660 bytes)\nSaved <root>/cases/claude-tools/wf-pip-control/kmfixture-1.0-py3-none-any.whl\nSuccessfully downloaded kmfixture\n",
+     "timed_out": false
+    },
+    "pip_via_gate_proxy": {
+     "code": 1,
+     "stderr_tail": "ERROR: Could not find a version that satisfies the requirement kmfixture (from versions: none)\nERROR: No matching distribution found for kmfixture\n",
+     "timed_out": false
+    }
+   }
+  }
+ },
+ "completed": true,
+ "deadline_seconds": 600,
+ "finished": "2026-11-12T20:03:08Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [
+  {
+   "command": "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python -I -B <root>/",
+   "pid": 98015
+  }
+ ],
+ "stage": "claude-tools",
+ "started": "2026-11-12T20:02:27Z"
+}

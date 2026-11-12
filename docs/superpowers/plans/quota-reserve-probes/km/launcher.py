@@ -167,8 +167,8 @@ def fs_rules(writable, denied_after):
     every write denied except the listed subpaths and the character devices natives need."""
     quote = lambda p: '"' + p + '"'  # noqa: E731 - paths are already resolved and checked by the renderer
     lines = ['(deny file-write* (subpath "/"))',
-             '(allow file-write* %s (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$")'
-             ' (literal "/dev/dtracehelper") (regex #"^/dev/fd/"))' % ' '.join(
+             '(allow file-write* %s (literal "/dev/null") (literal "/dev/tty") (literal "/dev/ptmx")'
+             ' (regex #"^/dev/ttys[0-9]+$") (literal "/dev/dtracehelper") (regex #"^/dev/fd/"))' % ' '.join(
                  '(subpath %s)' % quote(p) for p in writable)]
     if denied_after:
         lines.append('(deny file-write* %s)' % ' '.join('(subpath %s)' % quote(p) for p in denied_after))

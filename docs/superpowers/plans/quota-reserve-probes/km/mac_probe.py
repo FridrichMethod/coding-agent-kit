@@ -1231,13 +1231,13 @@ class WorkflowFixtures:
                str(case.dir / ('wf-pip-' + phase)), 'kmfixture']
         out['pip_confined'] = _brief(case.run_confined(inv, pip, env=env, timeout=40))
         proxy = dict(env, HTTPS_PROXY='http://127.0.0.1:%d' % inv.port(), HTTP_PROXY='http://127.0.0.1:%d' % inv.port())
-        out['pip_via_gate_proxy'] = _brief(case.run_confined(inv, pip[:-3] + [
+        out['pip_via_gate_proxy'] = _brief(case.run_confined(inv, pip[:-2] + [
             str(case.dir / ('wf-pip-proxy-' + phase)), 'kmfixture'], env=proxy, timeout=40))
         if phase == 'running':
             control = case.ctx.run(['/usr/bin/git', 'clone', '-q', url + '/repo.git', str(case.dir / 'wf-control')],
                                    env=env, timeout=30)
             out['git_control_outside'] = _brief(control)
-            out['pip_control_outside'] = _brief(case.ctx.run(pip[:-3] + [str(case.dir / 'wf-pip-control'),
+            out['pip_control_outside'] = _brief(case.ctx.run(pip[:-2] + [str(case.dir / 'wf-pip-control'),
                                                                         'kmfixture'], env=env, timeout=40))
         return out
 
@@ -1285,24 +1285,33 @@ def case_sandbox(case):
 
 
 def case_fsrules(case):
-    """Outer write rules (workspace, account, home and temp writable; the rest read-only)."""
+    """Outer write rules replacing native filesystem confinement: workspace, account, home and temp
+    writable, the rest read-only; then the same plus the native's fixed temp directory."""
     case.setup()
-    writable = [str(case.dir / p) for p in ('home', 'tmp', 'xdg', 'cache', 'state', 'data', 'workspace', 'accounts',
-                                            'codex', 'out')]
-    inv = case.invocation(prompt='KM-fs-first start', fs_rules=writable)
-    outside = case.dir / 'outside' / 'fs-escape.txt'
-    inside = case.workspace / 'fs-inside.txt'
-    case.script('KM-fs-first', ('tool', 'echo in > %s; echo out > %s; echo rc=$?' % (inside, outside)))
-    result = start(case, inv, 'KM-fs-first')
-    if result['native_started']:
-        FX.wait_for(lambda: any(r.get('kind') == 'tool_result' for r in case.upstream.snapshot()), 45)
-        time.sleep(1)
-        result['second_turn'] = later_turn(case, inv, 'KM-fs-second', expect_ok=True)
-    result['inside_written'] = inside.exists()
-    result['outside_written'] = outside.exists()
-    result['tool_results'] = [r for r in case.upstream.snapshot() if r.get('kind') == 'tool_result']
-    result['exit'] = inv.exit() if result['native_started'] else None
-    result['summary'] = inv.summary()
+    base = [str(case.dir / p) for p in ('home', 'tmp', 'xdg', 'cache', 'state', 'data', 'workspace', 'accounts',
+                                        'codex', 'out')]
+    fixed_tmp = '/private/tmp/claude-%d' % os.getuid()
+    result = {}
+    for variant, writable in (('strict', base), ('native_tmp', base + [fixed_tmp])):
+        inv = case.invocation(variant, fs_rules=writable, prompt='KM-fs-%s start' % variant)
+        outside = case.dir / 'outside' / ('fs-escape-%s.txt' % variant)
+        inside = case.workspace / ('fs-inside-%s.txt' % variant)
+        case.script('KM-fs-%s' % variant, ('tool', 'echo in > %s; echo out > %s; echo rc=$?' % (inside, outside)))
+        row = start(case, inv, 'KM-fs-%s' % variant)
+        if row['native_started']:
+            FX.wait_for(lambda: any(r.get('kind') == 'tool_result' and r['t'] > inv.started
+                                    for r in case.upstream.snapshot()), 45)
+            time.sleep(1)
+            row['second_turn'] = later_turn(case, inv, 'KM-fs-%s-second' % variant, expect_ok=True)
+        row['inside_written'] = inside.exists()
+        row['outside_written'] = outside.exists()
+        row['tool_results'] = [r for r in case.upstream.snapshot() if r.get('kind') == 'tool_result'
+                               and r['t'] > inv.started]
+        row['exit'] = inv.exit() if row['native_started'] else None
+        row['summary'] = inv.summary()
+        result[variant] = row
+        if case.provider == 'codex' and row.get('inside_written'):
+            break  # the strict rules already suffice for this native
     return result
 
 

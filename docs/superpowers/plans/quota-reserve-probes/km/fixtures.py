@@ -272,7 +272,8 @@ class Upstream:
                         if queue:
                             action = queue.pop(0)
                 self.note(size, provider=provider, kind=kind, marker=marker, main=main,
-                          model=body.get('model'), action=(action or ('text',))[0])
+                          model=body.get('model'), action=(action or ('text',))[0],
+                          tool_output=NMGATE.last_tool_output(body) if kind == 'tool_result' else None)
                 if action and action[0] == 'hold':
                     return self.hold(provider, marker)
                 if action and action[0] == 'tool':
