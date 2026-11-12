@@ -190,8 +190,8 @@
       "tool_result_returned": true,
       "transcript_files_with_marker": [
         "history.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/239f3e88-ce56-46d3-b7d0-5f4304d83008.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/5669b5ac-ebfc-4973-8f5e-409d615efca4.jsonl"
+        "projects/-<root-slug>-workspace/239f3e88-ce56-46d3-b7d0-5f4304d83008.jsonl",
+        "projects/-<root-slug>-workspace/5669b5ac-ebfc-4973-8f5e-409d615efca4.jsonl"
       ]
     },
     "codex-enforced-native-sandbox": {

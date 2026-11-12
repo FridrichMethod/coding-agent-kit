@@ -235,7 +235,7 @@
       "tool_result_returned": true,
       "transcript_files_with_marker": [
         "history.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/b140299f-cd1e-41e2-b15d-98075b89fbc7.jsonl"
+        "projects/-<root-slug>-workspace/b140299f-cd1e-41e2-b15d-98075b89fbc7.jsonl"
       ]
     },
     "claude-enforced-setup-token": {
@@ -445,7 +445,7 @@
       "tool_result_returned": true,
       "transcript_files_with_marker": [
         "history.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/b7b8f953-120a-4b27-afb7-f87876949a8f.jsonl"
+        "projects/-<root-slug>-workspace/b7b8f953-120a-4b27-afb7-f87876949a8f.jsonl"
       ]
     }
   },

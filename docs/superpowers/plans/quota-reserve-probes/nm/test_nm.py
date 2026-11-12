@@ -137,9 +137,11 @@ class Sanitize(unittest.TestCase):
     def test_longest_first_and_leak_check(self):
         mapping = RUN.replacements('/tmp/quota-nm-AbC123', '/Users/someone', 'someone')
         data = {'a': '/private/tmp/quota-nm-AbC123/x and /tmp/quota-nm-AbC123/y',
-                'b': ['/Users/someone/Library', 'user someone'], '/Users/someone': 1}
+                'b': ['/Users/someone/Library', 'user someone'], '/Users/someone': 1,
+                'c': 'projects/-private-tmp-quota-nm-AbC123-workspace/s.jsonl'}
         clean = SBPL.sanitize(data, mapping)
         self.assertEqual(clean['a'], '<root>/x and <root>/y')
+        self.assertEqual(clean['c'], 'projects/-<root-slug>-workspace/s.jsonl')
         self.assertEqual(clean['b'], ['<home>/Library', 'user <user>'])
         self.assertIn('<home>', clean)
         self.assertEqual(SBPL.leaks(clean, list(mapping)), [])
@@ -175,6 +177,11 @@ class Evidence(unittest.TestCase):
         for stage in CHECK.CHECKS:
             with self.subTest(stage=stage):
                 CHECK.check_stage(stage, self.load(stage))
+
+    def test_unsanitized_root_name_rejected(self):
+        def leak(d):
+            d['note'] = 'projects/-private-tmp-quota-nm-AbC123-workspace'
+        self.reject('nested', leak)
 
     def test_observed_keychain_name_matches_source_rule(self):
         names = self.load('keychain')['claude_names_for_probe_config']

@@ -38,7 +38,9 @@ def replacements(root, home, user):
     if not root_ok(root) or not home.startswith('/') or not user:
         raise ValueError('refusing incomplete sanitization inputs')
     local_home = os.path.expanduser('~')
-    return {'/private' + root: '<root>', root: '<root>', home: '<home>', user: '<user>',
+    # Claude names project directories after the cwd with '/' turned into '-'.
+    slug = ('/private' + root).replace('/', '-')
+    return {'/private' + root: '<root>', root: '<root>', slug: '-<root-slug>', home: '<home>', user: '<user>',
             local_home: '<local-home>'}
 
 

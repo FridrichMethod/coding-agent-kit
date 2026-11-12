@@ -289,8 +289,8 @@
       },
       "transcript_files_with_marker": [
         "history.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/aca42f8b-8720-4a7e-9dde-b5c450672b78.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/b8f5fc77-3092-4cbc-bc58-61a3de6d560f.jsonl"
+        "projects/-<root-slug>-workspace/aca42f8b-8720-4a7e-9dde-b5c450672b78.jsonl",
+        "projects/-<root-slug>-workspace/b8f5fc77-3092-4cbc-bc58-61a3de6d560f.jsonl"
       ]
     },
     "claude-enforced-refresh-proxy": {
@@ -610,8 +610,8 @@
       },
       "transcript_files_with_marker": [
         "history.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/89821ea9-bd05-4e68-aad9-2554af68ac56.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/ec323625-f863-414a-bc37-31bfff2c57a2.jsonl"
+        "projects/-<root-slug>-workspace/89821ea9-bd05-4e68-aad9-2554af68ac56.jsonl",
+        "projects/-<root-slug>-workspace/ec323625-f863-414a-bc37-31bfff2c57a2.jsonl"
       ]
     },
     "codex-enforced-refresh-override": {

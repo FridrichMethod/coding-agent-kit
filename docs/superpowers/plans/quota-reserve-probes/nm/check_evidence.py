@@ -20,6 +20,7 @@ def _common(data):
     text = json.dumps(data)
     for needle in SENSITIVE:
         assert needle not in text, 'unsanitized path prefix %s' % needle
+    assert not re.search(r'quota-nm-[A-Za-z0-9]{6}(?![A-Za-z0-9])', text), 'unsanitized remote root name'
 
 
 def _denies(log, operation, target=None, process=None):

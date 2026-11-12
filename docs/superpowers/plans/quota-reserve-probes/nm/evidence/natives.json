@@ -474,11 +474,11 @@
       "tool_result_returned": true,
       "transcript_files_with_marker": [
         "history.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/253b2b6d-36d4-4bef-9bf2-e2b4d8b57ac5.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/6583c58b-9996-49d3-b98c-8a45260ae38f.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/aad39b8e-4b8f-47e4-9993-111b68cecf85.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/ac9d0f19-139b-4dfa-98da-2a03b9e22015.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/d2eb6fc4-5a65-46fa-823a-a28306de2d74.jsonl"
+        "projects/-<root-slug>-workspace/253b2b6d-36d4-4bef-9bf2-e2b4d8b57ac5.jsonl",
+        "projects/-<root-slug>-workspace/6583c58b-9996-49d3-b98c-8a45260ae38f.jsonl",
+        "projects/-<root-slug>-workspace/aad39b8e-4b8f-47e4-9993-111b68cecf85.jsonl",
+        "projects/-<root-slug>-workspace/ac9d0f19-139b-4dfa-98da-2a03b9e22015.jsonl",
+        "projects/-<root-slug>-workspace/d2eb6fc4-5a65-46fa-823a-a28306de2d74.jsonl"
       ]
     },
     "claude-enforced-oauth-file": {
@@ -725,11 +725,11 @@
       "tool_result_returned": true,
       "transcript_files_with_marker": [
         "history.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/4cd49f60-5241-4f74-b01b-0d850607b267.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/7a4553e3-eb4d-435b-9582-06039b6b88fe.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/893042ab-40a0-4aa1-8c8b-6377c5d03933.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/aff4d8e2-f1f8-4be6-a1c9-3763cd4e94fd.jsonl",
-        "projects/-private-tmp-quota-nm-Raq7wP-workspace/f1e3bffc-1ce9-4979-87aa-a8bf6f83c2c9.jsonl"
+        "projects/-<root-slug>-workspace/4cd49f60-5241-4f74-b01b-0d850607b267.jsonl",
+        "projects/-<root-slug>-workspace/7a4553e3-eb4d-435b-9582-06039b6b88fe.jsonl",
+        "projects/-<root-slug>-workspace/893042ab-40a0-4aa1-8c8b-6377c5d03933.jsonl",
+        "projects/-<root-slug>-workspace/aff4d8e2-f1f8-4be6-a1c9-3763cd4e94fd.jsonl",
+        "projects/-<root-slug>-workspace/f1e3bffc-1ce9-4979-87aa-a8bf6f83c2c9.jsonl"
       ]
     },
     "codex-census-plain": {
