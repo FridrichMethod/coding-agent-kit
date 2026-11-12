@@ -910,7 +910,7 @@ def case_tools(case):
     if not launch(case, inv):
         return {'launched': False}
     count = lambda path: len(path.read_text().splitlines()) if path.exists() else 0
-    fixtures.wait_for(lambda: count(fg_ticks) >= 3, 60)
+    fixtures.wait_for(lambda: count(fg_ticks) >= 5, 60)
     account.body = fake.windows(85, 30)
     case.record('trigger', what='usage_crosses_reserve')
     fixtures.wait_for(lambda: case.latch(inv), 6)

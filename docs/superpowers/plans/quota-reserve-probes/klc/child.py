@@ -113,7 +113,7 @@ def ticks(spec, out):
         n += 1
         with path.open('a') as handle:
             handle.write('%d %.4f\n' % (n, time.monotonic()))
-        if n % 4 == 0:
+        if n % 4 == 1:
             try:
                 status = post(spec['gate_port'], bearer(spec['config_dir']), 'KLC sdk ticks %d' % n, timeout=2)
             except OSError as error:

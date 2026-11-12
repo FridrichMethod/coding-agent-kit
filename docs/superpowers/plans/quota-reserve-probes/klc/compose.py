@@ -344,20 +344,20 @@ class Invocation:
     def native_alive(self):
         return self.native is not None and self.native.poll() is None
 
-    def exit_native(self, keys=(b'\x18\x0b', b'\x18\x0b', b'\x03', b'\x03', b'\x04', b'\x03', b'\x03')):
+    def exit_native(self, keys=(b'\x18\x0b', b'\x18\x0b', b'\x03', b'\x03', b'\x04')):
         """Stop native agents, then exit; confirm native's 'Exit and stop tasks' dialog if shown."""
-        dialog = False
-        for key in keys:
+        dialog, began = False, time.monotonic()
+        for step in range(16):
             if self.native.poll() is not None:
                 break
-            if 'Exitandstoptasks' in re.sub(r'\s', '', self.visible()[-900:]):
+            if 'Exitandstoptasks' in re.sub(r'\s', '', self.visible()[-900:]) and not dialog:
                 dialog = True
                 self.write(b'\r')
-                time.sleep(0.8)
+                time.sleep(1.5)
                 continue
-            self.write(key)
-            time.sleep(0.5)
-        end = time.monotonic() + 6
+            self.write(keys[step % len(keys)])
+            time.sleep(0.6)
+        end = time.monotonic() + 45
         while time.monotonic() < end and self.native.poll() is None:
             time.sleep(0.05)
         try:
@@ -365,7 +365,7 @@ class Invocation:
         except termios.error:
             restored = None
         return {'exited': self.native.poll() is not None, 'termios_restored': restored,
-                'stop_tasks_dialog': dialog}
+                'stop_tasks_dialog': dialog, 'seconds': round(time.monotonic() - began, 1)}
 
     # cleanup ------------------------------------------------------------------------------------
     def close(self, natives_module, since):
