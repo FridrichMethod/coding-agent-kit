@@ -5,8 +5,9 @@ select chatgpt_base_url, account/rateLimits/read reads the linked auth.json and
 sends one GET to <chatgpt_base_url>wham/usage with the bearer and account
 header, and the RPC result mirrors native's shape (including accountId and an
 error message that quotes the response body, which the probe must not keep).
-FAKE_CODEX_MODE (comma separated) adds misbehavior for tests; FAKE_CODEX_REPORT
-names a JSON-lines file for what it saw. Loopback only.
+Like native, it builds the User-Agent it sends upstream from the initialize
+clientInfo name. FAKE_CODEX_MODE (comma separated) adds misbehavior for tests;
+FAKE_CODEX_REPORT names a JSON-lines file for what it saw. Loopback only.
 """
 import base64
 import http.client
@@ -22,6 +23,8 @@ from urllib.parse import urlsplit
 
 MODES = set(filter(None, os.environ.get('FAKE_CODEX_MODE', '').split(',')))
 REPORT = os.environ.get('FAKE_CODEX_REPORT')
+CLIENT = {'name': 'fake-unset'}  # replaced by the initialize clientInfo
+FOREIGN_ACCOUNT, FOREIGN_USER = 'fixture-account-lx-b', 'fixture-user-lx-b'
 
 
 def report(event, **data):
@@ -82,12 +85,23 @@ def rewrite_credential(home):
     os.replace(staged, target)
 
 
+def unsigned(payload):
+    encode = lambda value: base64.urlsafe_b64encode(json.dumps(value).encode()).rstrip(b'=').decode()
+    return encode({'alg': 'none'}) + '.' + encode(payload) + '.fixture-signature'
+
+
 def usage_read(config, home, index):
     data = json.loads((Path(home) / 'auth.json').read_text())
     tokens = data['tokens']
     base = config['chatgpt_base_url'].strip('"')
-    headers = {'Authorization': 'Bearer ' + tokens['access_token'], 'ChatGPT-Account-ID': tokens['account_id'],
-               'Accept': 'application/json', 'User-Agent': 'coding-agent-kit-lx-probe/0.167.2 (fake)'}
+    bearer, header_account = tokens['access_token'], tokens['account_id']
+    if 'foreign-bearer' in MODES:  # a bearer of another login (account claim B), header of the owner
+        bearer = unsigned({'exp': int(time.time()) + 3600, 'https://api.openai.com/auth': {
+            'chatgpt_account_id': FOREIGN_ACCOUNT, 'chatgpt_user_id': FOREIGN_USER}})
+    if 'foreign-header' in MODES:  # the owner's bearer, a workspace header for another account
+        header_account = FOREIGN_ACCOUNT
+    headers = {'Authorization': 'Bearer ' + bearer, 'ChatGPT-Account-ID': header_account,
+               'Accept': 'application/json', 'User-Agent': '%s/0.167.2 (fake; linux)' % CLIENT['name']}
     path = urlsplit(base).path + 'wham/usage'
     status, body = request(base, 'GET', path, headers)
     report('usage_get', index=index, status=status)
@@ -160,9 +174,14 @@ def app_server(argv):
         message = json.loads(line)
         method = message.get('method')
         if method == 'initialize':
+            info = (message.get('params') or {}).get('clientInfo')
+            report('initialize', client_info=info)
+            if isinstance(info, dict) and isinstance(info.get('name'), str):
+                CLIENT['name'] = info['name']
             if 'crash-init' in MODES:
                 os._exit(7)
-            send({'id': message['id'], 'result': {'userAgent': 'coding-agent-kit-lx-probe/0.167.2 (fake; %s)' % socket.gethostname(),
+            # Native's reply to the client only: the host name here tests that the probe keeps nothing of it.
+            send({'id': message['id'], 'result': {'userAgent': '%s/0.167.2 (fake; %s)' % (CLIENT['name'], socket.gethostname()),
                                                   'codexHome': home, 'platformFamily': 'unix', 'platformOs': 'linux'}})
             # Native notifications can carry the host name and an installation id.
             send({'method': 'remoteControl/status/changed', 'params': {

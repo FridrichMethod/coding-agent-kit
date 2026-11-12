@@ -6,15 +6,20 @@
   "link_intact_before": true,
   "still_private_regular_file": true
  },
- "elapsed_s": 0.9,
- "finished_utc": "2026-11-12T20:39:44Z",
+ "elapsed_s": 0.8,
+ "finished_utc": "2026-11-12T22:01:24Z",
  "fixture": {
+  "runtime_dir_left": [],
   "sink_dialed": [
    "auth.openai.com:443",
    "auth.openai.com:443",
    "auth.openai.com:443"
   ],
-  "upstream_requests": 1
+  "upstream_identifier_findings": [],
+  "upstream_requests": 1,
+  "upstream_user_agent_products": [
+   "usage-probe"
+  ]
  },
  "freshness": {
   "comparable": false
@@ -67,8 +72,8 @@
     "outcome": "relayed",
     "phase": "done",
     "qx_lease_verdict": "observation:five_hour+weekly",
-    "received_ms": 403,
-    "received_wall": 1794515984,
+    "received_ms": 299,
+    "received_wall": 1794520884,
     "request_header_names": [
      "accept",
      "authorization",
@@ -103,7 +108,7 @@
        "limit_window_seconds": 18000,
        "minutes": 300,
        "reset_after_seconds": 9000,
-       "reset_at": 1794524984,
+       "reset_at": 1794529884,
        "used_percent": 25,
        "used_percent_is_integer": true
       },
@@ -111,7 +116,7 @@
        "limit_window_seconds": 604800,
        "minutes": 10080,
        "reset_after_seconds": 302400,
-       "reset_at": 1794818384,
+       "reset_at": 1794823284,
        "used_percent": 60,
        "used_percent_is_integer": true
       }
@@ -157,8 +162,8 @@
  "outcome": "completed",
  "platform": {
   "machine": "x86_64",
-  "openssl": "OpenSSL 4.1.0 23 Oct 2026",
-  "python": "3.15.2",
+  "openssl": "OpenSSL 3.0.13 30 Jan 2024",
+  "python": "3.12.3",
   "system": "linux"
  },
  "probe": "lx-live-codex",
@@ -176,7 +181,7 @@
   "output_overflow": false,
   "reads": [
    {
-    "elapsed_ms": 34,
+    "elapsed_ms": 32,
     "forwards_during_read": 1,
     "index": 1,
     "native": {
@@ -194,13 +199,13 @@
       "normal_model_slug_present": false,
       "plan_type": "pro",
       "primary": {
-       "resetsAt": 1794524984,
+       "resetsAt": 1794529884,
        "usedPercent": 25,
        "windowDurationMins": 300
       },
       "rate_limit_reached_type": null,
       "secondary": {
-       "resetsAt": 1794818384,
+       "resetsAt": 1794823284,
        "usedPercent": 60,
        "windowDurationMins": 10080
       },
@@ -217,5 +222,10 @@
   "unparsed_lines": 0
  },
  "schema": 1,
- "started_utc": "2026-11-12T20:39:43Z"
+ "started_utc": "2026-11-12T22:01:23Z",
+ "workspace": {
+  "ancestor_codex_found": false,
+  "ancestors_closed_to_other_writers": false,
+  "parent": "xdg-runtime-dir"
+ }
 }

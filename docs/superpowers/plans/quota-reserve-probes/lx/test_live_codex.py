@@ -1,12 +1,16 @@
 """LX probe orchestration tests with a fake app-server, a temporary HOME and loopback TLS.
 
 Covers the one-shot guard, lease-held and layout refusals (nothing written, nothing
-repaired), the private out directory, the read sequence and second-read rule, model
-POST refusal, unarmed extra reads, refresh detection, TLS failure without fallback,
-process-group cleanup, main()'s production wiring, and a leak scan of every output.
+repaired), the private out directory, the workspace under a private XDG_RUNTIME_DIR
+with no .codex ancestor, the version and binary pins, the owner account claim and the
+gate's account scope, the read sequence and second-read rule, model POST refusal,
+unarmed extra reads, refresh detection, TLS failure without fallback, process-group
+cleanup, main()'s production wiring, no project, user or host name in what native
+is given or sends upstream, and a leak scan of every output.
 """
 import fcntl
 import importlib.util
+import inspect
 import io
 import json
 import os
@@ -43,18 +47,27 @@ class ProbeTests(unittest.TestCase):
         self.server = kit.TlsUsageServer(*self.certs['leaf'])
         self.addCleanup(self.server.close)
         self.out = self.root / 'out'
+        self.runtime = self.root / 'run'  # stands in for the caller's private XDG_RUNTIME_DIR
+        self.runtime.mkdir(mode=0o700)
 
     def make_home(self, modes='', version='0.167.2', **home):
+        self.home = kit.Home(self.root, self.set_fake(modes, version), **home)
+        return self.home
+
+    def set_fake(self, modes='', version='0.167.2'):
+        """(Re)write the fake codex the kit configuration names; returns its path."""
         bindir = self.root / 'bin'
         bindir.mkdir(exist_ok=True)
         codex = kit.fake_codex(bindir, FAKE_CODEX_MODE=modes, FAKE_CODEX_REPORT=self.report,
                                FAKE_CODEX_VERSION=version)
-        self.home = kit.Home(self.root, codex, **home)
-        return self.home
+        self.fake_sha = live.sha256(codex)
+        return codex
 
     def run_probe(self, upstream=None, tunnel=None, guard_command=None, delay=0.2, second=True, environ=None, **kw):
         out, err = io.StringIO(), io.StringIO()
-        with self.home.environment(**(environ or {})) as env:
+        kw.setdefault('expect_sha256', self.fake_sha)  # the fake is not the reviewed binary
+        environ = dict({'XDG_RUNTIME_DIR': str(self.runtime)}, **(environ or {}))
+        with self.home.environment(**{key: value for key, value in environ.items() if value is not None}) as env:
             code = live.run_probe(self.home.alias, self.out, config=self.home.config,
                                   upstream=upstream or kit.test_upstream(self.server, self.certs['ca']),
                                   tunnel=tunnel, guard_command=guard_command, delay=delay, second=second,
@@ -79,6 +92,19 @@ class ProbeTests(unittest.TestCase):
 
     def assert_untouched(self):
         self.assertEqual(self.home.secret.read_bytes(), self.home.raw.encode())
+
+    def assert_refused_before_spawn(self, reason):
+        self.assertIn('refused before spawn: ' + reason, self.stderr)
+        self.assertEqual(self.events(), [])  # nothing spawned
+        self.assertEqual(self.server.count(), 0)
+        self.assertFalse(self.out.exists() and os.listdir(self.out))
+
+    def rewrite_secret(self, raw):
+        """Replace the codex-as secret the account link points at (0600, single link)."""
+        staged = self.home.secret.with_name('.staged-fixture')
+        staged.write_bytes(raw.encode())
+        staged.chmod(0o600)
+        os.replace(staged, self.home.secret)
 
     def test_full_run_reads_twice_and_retains_only_sanitized_fields(self):
         self.make_home()
@@ -113,7 +139,24 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(result['native']['user_agent_version'], '0.167.2')
         self.assertTrue(result['native']['reap']['process_group_empty'])
         self.assertEqual(self.server.count(gates.USAGE_PATH), 2)
+        # Privacy: the client name native builds its User-Agent from, and every header that reached
+        # the upstream (Authorization excluded), carry no project, user, host or home identifier.
+        self.assertEqual([row['client_info'] for row in self.events('initialize')], [live.CLIENT_INFO])
+        self.assertEqual(kit.identifier_findings(json.dumps(live.CLIENT_INFO), self.root), [])
+        self.assertEqual(len(self.server.sent), 2)
+        for headers in self.server.sent:
+            self.assertEqual([value for name, value in headers if name.lower() == 'user-agent'],
+                             ['usage-probe/0.167.2 (fake; linux)'])
+            self.assertEqual(kit.identifier_findings(kit.header_text(headers), self.home.home, self.root), [])
+        # The workspace (cwd and TMPDIR) lived in the private runtime directory and is gone.
+        self.assertEqual(result['workspace'], {  # under the system temporary directory an ancestor is open
+            'parent': 'xdg-runtime-dir', 'ancestor_codex_found': False,
+            'ancestors_closed_to_other_writers': live.check_workspace_ancestors(self.runtime / 'probe')})
         start = self.events('start')[0]
+        self.assertEqual(Path(start['cwd']).parent, self.runtime)
+        self.assertTrue(Path(start['cwd']).name.startswith(live.WORKSPACE_PREFIX))
+        self.assertEqual(start['tmpdir'], start['cwd'])
+        self.assertEqual(os.listdir(self.runtime), [])
         self.assertEqual(start['codex_home'], str(self.home.config.codex_home / 'accounts' / kit.ALIAS))
         self.assertEqual(len(start['lock_fds']), 1)  # the account lease fd is inherited
         self.assertTrue(start['lock_fds'][0].endswith('/accounts/.locks/%s.lock' % kit.ALIAS))
@@ -338,6 +381,86 @@ class ProbeTests(unittest.TestCase):
         self.assertIn('version-mismatch', self.stderr)
         self.assertEqual(os.listdir(self.out), [])
 
+    def test_prerelease_of_the_reviewed_version_refuses(self):
+        self.make_home()
+        for version in ('0.167.2-alpha.1', '0.167.2-rc1'):
+            with self.subTest(version):
+                self.set_fake(version=version)
+                self.assertEqual(self.run_probe(), 2)
+                self.assert_refused_before_spawn('version-prerelease')
+                self.assertFalse(self.events('start'))
+
+    def test_binary_other_than_the_reviewed_file_refuses(self):
+        self.make_home()
+        self.assertEqual(self.run_probe(expect_sha256=live.EXPECTED_SHA256), 2)  # the live pin; the fake differs
+        self.assert_refused_before_spawn('binary-unreviewed')
+
+    def test_workspace_needs_a_private_runtime_directory(self):
+        self.make_home()
+        loose = self.root / 'loose-run'
+        loose.mkdir(mode=0o755)
+        os.chmod(loose, 0o755)
+        link = self.root / 'link-run'
+        os.symlink(self.runtime, link)
+        for value in (None, '', 'relative/run', str(self.root / 'absent'), str(loose), str(link),
+                      str(self.home.secret)):
+            with self.subTest(value):
+                self.assertEqual(self.run_probe(environ={'XDG_RUNTIME_DIR': value}), 2)
+                self.assert_refused_before_spawn('xdg-runtime-dir-not-private')
+                self.assertFalse(self.out.exists())  # refused before the out directory is made
+        self.assert_untouched()
+
+    def test_codex_entry_in_any_workspace_ancestor_refuses(self):
+        self.make_home()
+        project = self.root / 'project'
+        (project / 'run').mkdir(parents=True, mode=0o700)
+        link = self.root / 'via-link'
+        os.symlink(project, link)
+        for marker, runtime in (('dir', project / 'run'), ('file', project / 'run'), ('dir', link / 'run')):
+            with self.subTest(marker=marker, runtime=str(runtime)):
+                entry = project / '.codex'
+                entry.mkdir() if marker == 'dir' else entry.write_text('')
+                try:
+                    self.assertEqual(self.run_probe(environ={'XDG_RUNTIME_DIR': str(runtime)}), 2)
+                finally:
+                    entry.rmdir() if marker == 'dir' else entry.unlink()
+                self.assert_refused_before_spawn('workspace-ancestor-codex')
+                self.assertFalse(self.out.exists())
+        self.assertEqual(self.run_probe(environ={'XDG_RUNTIME_DIR': str(project / 'run')}), 0, self.stderr)
+
+    def test_owner_auth_json_account_claim_is_checked_at_preflight(self):
+        self.make_home()
+        data = json.loads(self.home.raw)
+        cases = (('owner-account-claim-inconsistent', qx.token(kit.OTHER_ACCOUNT, kit.USER)),
+                 ('owner-account-claim-missing', qx.jwt({'sub': kit.USER, 'https://api.openai.com/auth': {
+                     'chatgpt_user_id': kit.USER}})))
+        for reason, id_token in cases:
+            with self.subTest(reason):
+                data['tokens']['id_token'] = id_token
+                self.rewrite_secret(json.dumps(data))
+                self.assertEqual(self.run_probe(), 2)
+                self.assert_refused_before_spawn(reason)
+
+    def test_bearer_or_header_for_another_account_is_refused_before_any_upstream_byte(self):
+        self.make_home()
+        for mode, reason in (('foreign-bearer', 'bearer-account-mismatch'),
+                             ('foreign-header', 'account-header-mismatch')):
+            with self.subTest(mode):
+                self.set_fake(modes=mode)
+                self.assertEqual(self.run_probe(), 0, self.stderr)
+                result = self.result()
+                self.assertEqual(self.server.count(), 0)
+                gate = result['gate']
+                self.assertEqual((gate['forwarded'], gate['refused_by_reason'], gate['exchanges']),
+                                 (0, {reason: 1}, []))
+                read = result['rpc']['reads'][0]
+                self.assertEqual((read['state'], read['error']['http_status']), ('error', 503))
+                self.assertEqual(result['rpc']['second_read'], 'skipped:first-read-did-not-succeed')
+                self.assert_no_leak(result)
+                self.assert_untouched()
+                shutil.rmtree(self.out)
+                self.report.unlink()
+
     @unittest.skipUnless(os.uname().sysname == 'Linux' and os.uname().machine == 'x86_64', 'guard is Linux x86_64')
     def test_full_run_under_the_network_guard(self):
         if not live.guard_self_check(live.GUARD_COMMAND):
@@ -385,11 +508,27 @@ class MainWiring(unittest.TestCase):
         with mock.patch.object(live.settings, 'load', side_effect=AssertionError('read')) as load, \
                 mock.patch.object(live, 'run_probe', side_effect=AssertionError('ran')):
             for argv in (['--account', 'other', '--out', '/x'], ['--account', 'stanford-2', '--out', '/x'],
-                         ['--account', 'stanford', '--out', '/x', '--delay', '0'],
-                         ['--account', 'stanford', '--out', '/x', '--expect-version', 'latest']):
+                         ['--account', 'stanford', '--out', '/x', '--delay', '0']):
                 with self.subTest(argv), mock.patch('sys.stderr', io.StringIO()):
                     self.assertEqual(live.main(argv), 2)
             load.assert_not_called()
+
+    def test_no_version_or_binary_override_reaches_the_live_entry_point(self):
+        with mock.patch.object(live.settings, 'load', side_effect=AssertionError('read')), \
+                mock.patch.object(live, 'run_probe', side_effect=AssertionError('ran')):
+            for extra in (['--expect-version', '0.168.0'], ['--expect-sha256', '0' * 64]):
+                with self.subTest(extra), mock.patch('sys.stderr', io.StringIO()) as err, \
+                        self.assertRaises(SystemExit) as caught:
+                    live.main(['--account', 'stanford', '--out', '/x', *extra])
+                self.assertEqual(caught.exception.code, 2)
+                self.assertIn('unrecognized arguments', err.getvalue())
+        self.assertEqual(inspect.signature(live.run_probe).parameters['expect_sha256'].default,
+                         'a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b')
+        self.assertEqual(live.EXPECTED_VERSION, '0.167.2')
+
+    def test_client_name_names_no_project_user_or_host(self):
+        self.assertEqual(live.CLIENT_INFO, {'name': 'usage-probe', 'version': '1'})
+        self.assertEqual(kit.identifier_findings(json.dumps(live.CLIENT_INFO)), [])
 
     def test_main_uses_the_production_upstream_tunnel_and_guard(self):
         captured = {}
@@ -409,7 +548,8 @@ class MainWiring(unittest.TestCase):
         self.assertIs(upstream.context_factory, gates.production_context)
         self.assertIs(captured['tunnel'], gates.production_tunnel)
         self.assertEqual(captured['guard_command'], live.GUARD_COMMAND)
-        self.assertEqual((captured['delay'], captured['second'], captured['expect_version']), (30.0, True, '0.167.2'))
+        self.assertEqual((captured['delay'], captured['second']), (30.0, True))
+        self.assertNotIn('expect_sha256', captured)  # the live path keeps the reviewed pin
         self.assertIs(captured['config'], config)
         context = upstream.context_factory()
         self.assertEqual((context.verify_mode, context.check_hostname), (ssl.CERT_REQUIRED, True))

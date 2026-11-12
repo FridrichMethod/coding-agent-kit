@@ -16,8 +16,13 @@ forced model provider of one owned `codex app-server`.
 - CONNECT (native's proxy route) is tunnelled only to TUNNEL_HOSTS, the refresh
   host the live approval allows, as an opaque byte relay counted in bytes; every
   other destination is refused and recorded by host:port.
-- The gate decodes the in-transit bearer's JWT claims in memory only, to compute
-  identity booleans. It records no token, id, raw body or header value.
+- Account scope: before any upstream byte, a usage read is refused locally unless
+  the in-transit bearer's account claim is present and equals the codex-as owner's
+  account (from the owner auth.json, read at preflight), and any ChatGPT-Account-ID
+  header equals it too. The refusal reason is recorded; the read's arm is cleared.
+- The gate decodes the in-transit bearer's JWT claims in memory only, to enforce the
+  account scope and compute identity booleans. It records no token, id, raw body or
+  header value.
 
 Only live_codex.main builds production_upstream() and production_tunnel. Tests
 pass a loopback Upstream whose context trusts a temporary CA (the test-only
@@ -441,6 +446,21 @@ class Gate:
                                 'allowlist': list(TUNNEL_HOSTS) if self.tunnel else []},
                     'exchanges': [dict(item) for item in self.exchanges]}
 
+    def scope_refusal(self, claims, header_account):
+        """None when this read stays within the codex-as owner's account, else a fixed reason.
+        Compares in memory only; nothing about the values is recorded."""
+        owner = self.expected[1] if self.expected else None
+        if not (isinstance(owner, str) and owner):
+            return 'owner-account-unknown'
+        account = (claims or {}).get('account')
+        if account is None:
+            return 'bearer-account-absent'
+        if not _same(account, owner):
+            return 'bearer-account-mismatch'
+        if header_account is not None and not _same(header_account, owner):
+            return 'account-header-mismatch'
+        return None
+
     def _note_secret(self, *values):
         for value in values:
             if isinstance(value, str) and len(value) >= 4:
@@ -502,6 +522,14 @@ class Gate:
                 bearer = value[7:] if value.startswith('Bearer ') and len(value) > 7 else None
                 if bearer is None:
                     return self.refuse('missing-bearer')
+                header_account = self.headers.get('ChatGPT-Account-ID')
+                claims = bearer_claims(bearer)
+                scope = gate.scope_refusal(claims, header_account)
+                if scope:  # before the cap, the arm and any upstream byte
+                    with gate.lock:
+                        gate.armed = 0
+                        gate._note_secret(*((claims or {}).get(key) for key in ('account', 'user')), header_account)
+                    return self.refuse(scope)
                 with gate.lock:
                     if gate.forwards >= MAX_FORWARDS:
                         reason = 'forward-cap'
@@ -514,9 +542,7 @@ class Gate:
                         index = gate.forwards
                 if reason:
                     return self.refuse(reason)
-                header_account = self.headers.get('ChatGPT-Account-ID')
                 headers = {name: value for name, value in self.headers.items() if name.lower() in FORWARD_HEADERS}
-                claims = bearer_claims(bearer)
                 digest = hmac.new(gate.key, bearer.encode('utf-8', 'replace'), hashlib.sha256).digest()
                 with gate.lock:
                     if gate.first_bearer is None:
