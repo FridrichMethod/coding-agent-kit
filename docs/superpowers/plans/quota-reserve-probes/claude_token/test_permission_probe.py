@@ -21,6 +21,38 @@ SPEC.loader.exec_module(probe)
 TOKEN = "sk-ant-oat01-" + "fabricated_offline_only_" * 3
 
 
+# Test-only instrumentation runs before the unchanged isolated child entry.
+# The backstop keeps guard-removal RED/mutation runs offline as well.
+CHILD_GUARD = r"""
+import runpy, sys
+blocked_events = []
+backstop_events = []
+def offline_guard(event, args):
+    if event.startswith("socket."):
+        blocked_events.append(event)
+        raise PermissionError("offline fixture")
+def offline_backstop(event, args):
+    if event.startswith("socket."):
+        backstop_events.append(event)
+        raise PermissionError("offline fixture backstop")
+sys.addaudithook(offline_guard)
+sys.addaudithook(offline_backstop)
+original_run_path = runpy.run_path
+def guarded_run_path(path):
+    module = original_run_path(path)
+    namespace = module["main"].__globals__
+    original_worker = namespace["_worker"]
+    def tracked_worker(account, path):
+        result = original_worker(account, path)
+        result["offline_guard_events"] = blocked_events
+        result["offline_backstop_events"] = backstop_events
+        return result
+    namespace["_worker"] = tracked_worker
+    return module
+runpy.run_path = guarded_run_path
+"""
+
+
 class FakeResponse:
     status = 200
     headers = []
@@ -73,6 +105,32 @@ class PermissionProbeTests(unittest.TestCase):
     def request(self):
         with mock.patch.object(probe.http.client, "HTTPSConnection", FakeConnection):
             return probe._request_once(TOKEN)
+
+    def guarded_child(self):
+        original_popen = subprocess.Popen
+
+        def launch(command, **kwargs):
+            self.assertEqual(command[:4], [sys.executable, "-I", "-B", "-c"])
+            guarded = list(command)
+            guarded[4] = CHILD_GUARD + "\n" + command[4]
+            return original_popen(guarded, **kwargs)
+
+        with mock.patch.object(probe.subprocess, "Popen", side_effect=launch):
+            return probe._run_owned("fixture", str(self.path))
+
+    def test_actual_child_accepted_fabricated_token_cannot_network(self):
+        result = self.guarded_child()
+        self.assertEqual(result["outcome"], "transport_error")
+        self.assertEqual(result["offline_guard_events"], ["socket.getaddrinfo"])
+        self.assertEqual(result["offline_backstop_events"], [])
+        self.assertNotIn(TOKEN, json.dumps(result))
+
+    def test_guard_removal_is_detected_without_network_escape(self):
+        with mock.patch.dict(globals(), {"CHILD_GUARD": CHILD_GUARD.replace("sys.addaudithook(offline_guard)\n", "")}):
+            result = self.guarded_child()
+        self.assertEqual(result["outcome"], "transport_error")
+        self.assertEqual(result["offline_guard_events"], [])
+        self.assertEqual(result["offline_backstop_events"], ["socket.getaddrinfo"])
 
     def test_defaults_describe_help_never_read_or_connect(self):
         for args in ([], ["--describe"], ["--help"], ["--account", "fixture"]):
@@ -218,6 +276,16 @@ class PermissionProbeTests(unittest.TestCase):
         with self.assertRaises(probe.ProbeError):
             response.read(65537)
 
+    def test_chunk_data_crlf_is_outside_line_metadata_budget(self):
+        # The header/size-line/trailer bound does not count each data CRLF.
+        wire = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n" + b"1\r\nx\r\n" * 16000 + b"0\r\n\r\n"
+        fake_socket = mock.Mock()
+        fake_socket.makefile.return_value = io.BytesIO(wire)
+        response = probe._BoundedResponse(fake_socket)
+        response.begin()
+        self.assertEqual(response.read(65537), b"x" * 16000)
+        self.assertGreater(len(wire) - 16000, 65536)
+
     def test_valid_wire_response_keeps_body_read_bounded(self):
         wire = b'HTTP/1.1 200 OK\r\nContent-Length: 18\r\n\r\n{"input_tokens":1}'
         fake_socket = mock.Mock()
@@ -285,8 +353,10 @@ class PermissionProbeTests(unittest.TestCase):
         self.assertNotIn(TOKEN, json.dumps(result))
         # Exercise the actual isolated interpreter without any valid credential.
         self.path.write_text("fabricated-invalid", encoding="ascii")
-        result = probe._run_owned("fixture", str(self.path))
+        result = self.guarded_child()
         self.assertEqual(result["outcome"], "probe_failed")
+        self.assertEqual(result["offline_guard_events"], [])
+        self.assertEqual(result["offline_backstop_events"], [])
 
 
 if __name__ == "__main__":

@@ -95,8 +95,8 @@ class _HeaderBudget:
 
 class _BoundedResponse(http.client.HTTPResponse):
     def begin(self):
-        # Keep the readline budget through chunk framing/trailers as well.
-        # Body reads delegate to the stream and have their separate LIMIT.
+        # Bound header, chunk-size and trailer lines together. Chunk-data
+        # CRLF uses read(2), outside this budget. Decoded body has its own LIMIT.
         if not isinstance(self.fp, _HeaderBudget):
             self.fp = _HeaderBudget(self.fp)
         super().begin()

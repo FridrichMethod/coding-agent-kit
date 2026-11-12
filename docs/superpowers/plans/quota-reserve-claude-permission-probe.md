@@ -63,12 +63,16 @@ organization's policy; approval must resolve that separately.
 
 The socket timeout is five seconds. A parent deadline of ten seconds includes
 worker startup, credential validation, DNS, connection and response handling.
-On timeout or interruption, the parent kills and waits only its owned child.
-The parent does not kill process groups or unrelated processes. There is an
-aggregate 64 KiB wire-metadata budget, including interim headers, chunk framing
-and trailers, and a separate 64 KiB decoded-body limit (one extra byte is read
-to detect overflow). The parent receives only bounded sanitized JSON. This is a
-small cooperative research process, not a hostile-child execution sandbox.
+The deadline requires a living parent. On timeout or Python exception unwinding
+(including KeyboardInterrupt), the parent kills and waits only its owned child.
+Abrupt parent termination, including default SIGTERM or SIGKILL, bypasses this
+cleanup and removes the parent deadline; the child may continue. The parent
+does not kill process groups or unrelated processes. Header, chunk-size and
+trailer lines share a 64 KiB budget, including interim headers. Each chunk-data
+trailing CRLF is outside that budget, so total wire metadata can exceed 64 KiB.
+The separate decoded-body limit is 64 KiB (one extra byte is read to detect
+overflow). The parent receives only bounded sanitized JSON. This is a small
+cooperative research process, not a hostile-child execution sandbox.
 
 Retained JSON contains HTTP status; local UTC request-start/receive times and
 monotonic elapsed duration; validated Date, Age, Cache-Control, request-id and
@@ -98,16 +102,21 @@ Run only the fabricated test suite:
 python3 -I -B docs/superpowers/plans/quota-reserve-probes/claude_token/test_permission_probe.py
 ```
 
-The 18 tests pass. Behavioral RED evidence was captured against inert
+The 21 tests pass. Behavioral RED evidence was captured against inert
 placeholders; additional RED/GREEN cycles cover cumulative chunk-trailer
 limits and rejection of abbreviated execution flags. Transport fakes verify exactly one count call, fixed payload/headers,
 verified TLS, no generation, redirects/errors/501, redaction and malformed data.
 Temporary fabricated files cover unsafe ownership/modes, symlinks, hard links,
 FIFOs, size, syntax, account/path association and one-read behavior. Real local
 subprocess tests cover timeout/reaping, preservation of an unrelated child,
-and a threaded parent with an inheritable loopback listener. The actual child
-entry is exercised only with an invalid fabricated credential, so it cannot
-reach a provider. Fixture temporary directories are automatically removed.
+and a threaded parent with an inheritable loopback listener. The unchanged actual child
+entry is exercised with both syntactically valid and invalid fabricated tokens under
+a test-only bootstrap audit guard that denies every socket event, including
+DNS and connect. A second fail-closed guard keeps the primary-guard-removal
+RED/mutation test offline. The valid fixture proves that network denial is
+independent of token validation. A small-chunk wire fixture pins the documented
+exclusion of chunk-data CRLF from line accounting. Fixture temporary directories
+are automatically removed.
 
 Ignored `permission-*.log` files beside the probe retain focused RED/GREEN and
 all-files hook logs with matching exit records. This standalone research test
