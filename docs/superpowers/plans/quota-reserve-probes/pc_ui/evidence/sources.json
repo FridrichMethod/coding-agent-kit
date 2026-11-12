@@ -1,0 +1,31 @@
+{
+  "tag": "rust-v0.167.2",
+  "tag_object": "08a3b12b3298577534a28b62ed976acf8de66eda",
+  "resolved_commit": "ce21072c90d32c40af7a55b60b2fb35c84a43a6a",
+  "files": [
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.167.2/codex-rs/backend-client/src/client.rs",
+      "sha256": "6dbf760c5461b687815f46ea2d02ec4be3d3ae82bba288df1f7aa5caa2f68319"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.167.2/codex-rs/backend-client/src/types.rs",
+      "sha256": "7229112d0d8ee7d1ff3f23457ccd13868cbba024d3a7b4fca74aa3e288ea0eac"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.167.2/codex-rs/app-server/src/request_processors/account_processor/workspace_routing.rs",
+      "sha256": "57acc17ad35148162bf349dcb5663adaf3e7a5bfc3b4adef7f20be9fd7d1b846"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.167.2/codex-rs/app-server/src/request_processors/account_processor/workspace_routing_tests.rs",
+      "sha256": "4ce66d146714dc53ee63f087ef2ed72a0889682e9dd68496efe0b48145a0e25b"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.167.2/codex-rs/core/tests/common/responses.rs",
+      "sha256": "197d8af315de0496e636d8dc50dcb4a8f3fe3dba69f12d548b36216178136f96"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/openai/codex/rust-v0.167.2/codex-rs/core/tests/suite/guardian_subagent_authorization.rs",
+      "sha256": "49d7e266a8a87dd9ca4d9e95fb31acc0bc025d2539594c157cb8e585cb66c400"
+    }
+  ]
+}
