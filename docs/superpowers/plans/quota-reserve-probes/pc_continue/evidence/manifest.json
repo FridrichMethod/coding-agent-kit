@@ -1,0 +1,40 @@
+{
+  "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
+  "runs": [
+    {
+      "label": "guard",
+      "exit": 0,
+      "stdout": "loopback TCP: allowed\nnon-loopback or unsupported socket: blocked before network 2 1 101\nnon-loopback or unsupported socket: blocked before network 10 1 101\nnon-loopback or unsupported socket: blocked before network 2 2 101\nUnix socket pair: allowed\nexec descendant in new session: blocked\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"42\": 2, \"41\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "delegation",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\nrpc\nquota_http\nrpc\nfresh_check\ngate_grant\nexternal_connect_denied\nquota_http\nquota_http\ngate_forward\nupstream_request\ngate_forward\nupstream_request\ngate_forward\nupstream_request\ngate_forward\nupstream_request\ngate_forward\nupstream_request\ngate_forward\nupstream_request\nrpc\nrpc\nrpc\nrpc\nrpc\nnative_delegation\nrpc\ngate_pause\ncontrol_display\ngate_reject\nprebuffer_discarded\ngate_reject\nupstream_disconnected\nupstream_disconnected\nupstream_disconnected\nupstream_disconnected\nquota_http\nrpc\nquota_recovery_no_grant\ncontrol_display\nheld_and_paste_no_grant\ncontrol_display\nquota_http\nrpc_error_wire\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ngate_grant\ncontrol_display\ncontinuation_case\nrpc\ngate_forward\nupstream_request\ngate_pause\ncontrol_display\nold_confirmation_no_replay\ngate_reject\nupstream_disconnected\nquota_http\nnative_status_ui\nresize\nrpc\nhistory_after_pause\nterminal_exit\nalternate_rejected\nalternate_route_probe\nalternate_rejected\nalternate_route_probe\nalternate_rejected\nalternate_route_probe\nowned_process_exit\nowned_process_exit\ngate_pause\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"46\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "tool",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\nrpc\nquota_http\nrpc\nfresh_check\ngate_grant\nexternal_connect_denied\nquota_http\nquota_http\ngate_forward\nupstream_request\noffered_tools\ngate_forward\nupstream_request\nrpc\nrpc\ngate_pause\ncontrol_display\nprebuffer_discarded\nupstream_disconnected\ngate_reject\ngate_reject\ngate_reject\nlocal_tool_after_gate_pause\nquota_http\nrpc\nquota_recovery_no_grant\ncontrol_display\nheld_and_paste_no_grant\ncontrol_display\nquota_http\nrpc_error_wire\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ngate_grant\ncontrol_display\ncontinuation_case\nrpc\ngate_forward\nupstream_request\ngate_pause\ncontrol_display\nold_confirmation_no_replay\ngate_reject\nupstream_disconnected\nquota_http\nnative_status_ui\nresize\nrpc\nhistory_after_pause\nterminal_exit\nalternate_rejected\nalternate_route_probe\nalternate_rejected\nalternate_route_probe\nalternate_rejected\nalternate_route_probe\nowned_process_exit\nowned_process_exit\ngate_pause\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"46\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "tool_interrupt",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\nrpc\nquota_http\nrpc\nfresh_check\ngate_grant\nexternal_connect_denied\nquota_http\nquota_http\nupstream_request\ngate_forward\noffered_tools\ngate_forward\nupstream_request\nrpc\nrpc\ngate_pause\ncontrol_display\nprebuffer_discarded\nupstream_disconnected\nrpc\nrpc\nlocal_tool_interrupt\nlocal_tool_after_gate_pause\nrpc\ninterrupted_tool_history\nrpc\nexplicit_old_queue_start\ngate_reject\nquota_http\nrpc\nquota_recovery_no_grant\ncontrol_display\nheld_and_paste_no_grant\ncontrol_display\nquota_http\nrpc_error_wire\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ngate_reject\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ncontrol_display\ncontinuation_case\ncontrol_display\nquota_http\nrpc\nfresh_check\ngate_grant\ncontrol_display\ncontinuation_case\nrpc\ngate_forward\nupstream_request\ngate_pause\ncontrol_display\nold_confirmation_no_replay\ngate_reject\nupstream_disconnected\nquota_http\nnative_status_ui\nresize\nrpc\nhistory_after_pause\nterminal_exit\nalternate_rejected\nalternate_route_probe\nalternate_rejected\nalternate_route_probe\nalternate_rejected\nalternate_route_probe\nowned_process_exit\nowned_process_exit\ngate_pause\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"46\": 2}, \"root_exit\": 0}\n"
+    }
+  ],
+  "fixture_sha256": {
+    "control.py": "8b98eee39bd83b7769356db3fb49bcfefe8423da28cb4942430a9bad5e218dad",
+    "gate.py": "045fafde6a9472e044fb747a8a81fabc40a31df79710216ee6d47c6912a6e8cb",
+    "probe.py": "51f3f8811d2464b4ad1ba31e70b218bf4bc8c1bf9b089ce4ea93c5f02475e410",
+    "run.py": "fb8e6fa0de1067745467bad90be2e98e18094fc4cb733d19a3600d422b901f4b"
+  },
+  "evidence_sha256": {
+    "delegation.json": "4c8229ab3430185f98b06457f753bec4c160330075679210d8ccbabf30faadd2",
+    "tool.json": "5ab06ba5c390e98e02e5f0821d097a56e88c93f3f4dd141fca778d5a42a180bc",
+    "tool_interrupt.json": "3dc8cd9ae7c5bde9e45772e6b9d2500106dacdff291a2faac7407f231bba2c41"
+  }
+}
