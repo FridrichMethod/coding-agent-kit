@@ -62,7 +62,7 @@ startup quota). They extend the research before G0; they do not restart B0 or
 authorize C/X/A/U. PTP prepares the offline-reviewed permission probe. PA2
 extends persistent-login isolation evidence; PC3 extends subscription TUI and
 routing evidence independently of the pending continuation-control decision.
-PC4 now investigates monitor/proxy loss across owned native streams within
+PC4 adds bounded monitor/proxy-loss evidence for owned native streams within
 the already-authorized gate research; it adds no continuation UX or runtime.
 HAuth remains required for the concrete credential design.
 Read `gate-decisions.md` in the durable ledger for decisions received after
@@ -159,7 +159,7 @@ main commands only in the original main checkout.
 | PTP | PT | offline one-shot permission-probe harness and tests | done at d6ce140; 21 offline tests, hooks and independent review passed; no live authorization |
 | PA2 | PA0, persistent-login fallback direction | new claude_persistence fixtures and report | done at 950948d; isolated matrix, hooks and independent review passed |
 | PC3 | PC2 | new pc_ui fixtures and report | done at ab41738; native matrix, hooks and independent review passed |
-| PC4 | reviewed PC3, existing gate-research authorization | new pc_loss fixtures and report | running in quota-loss-codex from ab41738; no continuation UX |
+| PC4 | reviewed PC3, existing gate-research authorization | new pc_loss fixtures and report | done at fe8c4a2; native matrix, hooks and independent review passed; no continuation UX |
 | HAuth | any proposed credential-design change | coordinator human credential-design decision record | persistent fallback allowed in principle; concrete isolation/schema unresolved |
 | PA1 | PT or reviewed fallback feasibility, applicable human gates | Claude approved quota/control fixtures and evidence | blocked on startup source, control proof and any real-account authorization |
 | G0 | PC2/PC3/PC4, PA1 | coordinator architecture record and frozen interfaces | blocked; proxy routing alone does not prove full A |
@@ -413,6 +413,51 @@ Never overwrite another run's ledger when selecting new branch names.
   running tools, macOS and concrete timings/interfaces remain open. No runtime
   node, remote push or functional/document-cleanup publication cycle has begun.
 
+### Execution checkpoint: loss gate evidence and current manual blockers
+
+- PC4 is committed at `fe8c4a20d45bb4162c143a4d7ecc5127ae2e8bc1`.
+  Its [monitor and gate loss report](quota-reserve-codex-loss-research.md)
+  passed independent spec/security review, four native loopback cases, seven
+  evidence regressions, final all-files hooks and an additional already-started
+  full local suite. The suite's unset release-tag check skipped as expected;
+  this is not hosted CI or validation of a new release version.
+- The research relay starts closed and opens only after fabricated native quota
+  and a monitor pulse. Monitor transport EOF, monitor process death and lease
+  expiry latch it closed and shut all already owned root/title or default
+  descendant streams. Old queued input is automatically consumed by native
+  code but rejected at the closed gate. Passing quota and a later pulse do not
+  unlock it. A separate native fixture session remains active and untouched.
+- Killing the gate process closes its local transports. The attached TUI and
+  history RPC remain available, but queued/new turns are still in progress
+  after three seconds. This is no new upstream admission during the measured
+  interval, not a completed permanent pause. The experiment's socket closure
+  does not prove real provider computation or billing cancellation.
+- Recorded timings describe this run only. A shared lock orders admission and
+  stream closure relative to the loss latch; connect/send under that lock can
+  delay detection, and already admitted bytes may cross the loss boundary.
+  The 0.8-second lease and 20 ms poll are experimental values, not G0's frozen
+  product timings. Restart, backpressure, all alternate routes, real quota,
+  native tools, macOS and verified manual continuation remain unproved.
+- Three concrete human questions are pending in the durable gate record:
+  (1) whether to accept the reviewed persistent-login schema's native shared
+  device-state boundary; (2) a named setup-token account and explicit exact-file,
+  one-request direct HTTPS permission for PTP; and (3) whether to research
+  HTTP/SSE protected routing with a dedicated continuation key outside the
+  native UI. No reply, live operation or approval is inferred from elapsed time.
+  The HAuth question links PA2 and covers design only, not actual enrollment.
+- Resume according to those decisions. PTP may run only after account/path and
+  transport authorization are recorded; its result still needs interpretation
+  for freshness/family. Any full-login experiment needs a separately named
+  account and user-performed authentication. A continuation prototype requires
+  its scope decision, followed by native evidence and G0 review. Do not rerun
+  completed research or start C/X/A/U while these gates remain unresolved.
+- PA2/PC3 were integrated at `d27b266`; their verified temporary outputs,
+  worktrees and merged branches were removed after durable archival. PC4
+  cleanup follows this integration checkpoint. The integration worktree and
+  common-directory ledger remain the recovery entry points. No remote branch
+  push, CI1/M1, implementation-document deletion, CI2/M2 or release tag has
+  occurred. The requested two-cycle release-ready outcome is not achieved.
+
 ### PC: prove Codex control rather than rediscover interruption
 
 **Files:** read `lib/codex-as/{launch,check,handoff,usage}.py` and
@@ -613,9 +658,10 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [x] B0, PA0, PTP preparation, PA2 and PC3 research are complete; capability
-  gaps remain. Resume PC4 and pending human decisions from the durable ledger,
-  not B0. Setup-token-only is preferred; persistent
+- [x] B0, PA0, PTP preparation, PA2, PC3 and PC4 research are complete;
+  capability gaps remain. Resume the pending HAuth, named-account experiment
+  and continuation-scope decisions from the durable ledger, not B0.
+  Setup-token-only is preferred; persistent
   initial login is permitted as fallback, with no routine repeated login.
   G0 remains closed; no runtime implementation is authorized. Concrete
   credential design and real-account experiments retain their gates.

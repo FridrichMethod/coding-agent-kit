@@ -1,0 +1,46 @@
+{
+  "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
+  "runs": [
+    {
+      "label": "guard",
+      "exit": 0,
+      "stdout": "loopback TCP: allowed\nnon-loopback or unsupported socket: blocked before network 2 1 101\nnon-loopback or unsupported socket: blocked before network 10 1 101\nnon-loopback or unsupported socket: blocked before network 2 2 101\nUnix socket pair: allowed\nexec descendant in new session: blocked\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"42\": 2, \"41\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "eof",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\ngate_ready\ngate_reject\ninitial_closed_probe\nrpc\nrpc\npreflight\ngate_open\nrpc\nrpc\nrpc\nunrelated_request\nconnect_rejected\nupstream_request\ngate_forward\nupstream_request\ngate_forward\nrpc\nbefore_loss\nrpc\nqueue_before_loss\nloss_trigger\ngate_latched\ngate_stream_closed\ngate_stream_closed\ngate_reject\ngate_reject\nupstream_disconnected\nupstream_disconnected\nall_owned_closed\nrpc\nquota_recovery\nrpc_error_wire\nrpc\nqueued_after_loss\nrpc\nrpc\ngate_reject\nrpc\nrpc\nafter_loss\nrpc\nunrelated\nui_exit\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 3, \"46\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "monitor_death",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\ngate_ready\ngate_reject\ninitial_closed_probe\nrpc\nrpc\npreflight\ngate_open\nrpc\nrpc\nrpc\nunrelated_request\nrpc\nrpc\ngate_forward\nupstream_request\ngate_stream_closed\ngate_forward\nupstream_request\ngate_forward\nupstream_request\ngate_stream_closed\ngate_forward\nupstream_request\ngate_forward\nupstream_request\nrpc\nrpc\nnative_delegation\nbefore_loss\nrpc\nqueue_before_loss\nloss_trigger\nmonitor_exit\ngate_latched\ngate_stream_closed\ngate_stream_closed\ngate_stream_closed\ngate_reject\nupstream_disconnected\nupstream_disconnected\nupstream_disconnected\nall_owned_closed\nrpc\nquota_recovery\nrpc_error_wire\nrpc\nqueued_after_loss\nrpc\nrpc\ngate_reject\nrpc\nrpc\nafter_loss\nrpc\nunrelated\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "lease",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\ngate_ready\ngate_reject\ninitial_closed_probe\nrpc\nrpc\npreflight\ngate_open\nrpc\nrpc\nrpc\nunrelated_request\nrpc\nrpc\ngate_forward\nupstream_request\ngate_stream_closed\ngate_forward\nupstream_request\ngate_forward\nupstream_request\ngate_stream_closed\ngate_forward\nupstream_request\ngate_forward\nupstream_request\nrpc\nrpc\nnative_delegation\nbefore_loss\nrpc\nqueue_before_loss\nloss_trigger\ngate_latched\ngate_stream_closed\ngate_stream_closed\ngate_stream_closed\ngate_reject\nupstream_disconnected\nupstream_disconnected\nupstream_disconnected\nall_owned_closed\nheartbeat_after_latch\nrpc\nquota_recovery\nrpc_error_wire\nrpc\nqueued_after_loss\nrpc\nrpc\ngate_reject\nrpc\nrpc\nafter_loss\nrpc\nunrelated\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "proxy_death",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\ngate_ready\ngate_reject\ninitial_closed_probe\nrpc\nrpc\npreflight\ngate_open\nrpc\nrpc\nrpc\nunrelated_request\nconnect_rejected\ngate_forward\nupstream_request\ngate_forward\nupstream_request\nrpc\nbefore_loss\nrpc\nqueue_before_loss\nloss_trigger\nproxy_exit\nupstream_disconnected\nupstream_disconnected\nall_owned_closed\nrpc\nquota_recovery\nrpc_error_wire\nrpc\nqueued_after_loss\nrpc\nrpc\nrpc\nrpc\nafter_loss\nrpc\nunrelated\nui_exit\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 3, \"46\": 2}, \"root_exit\": 0}\n"
+    }
+  ],
+  "fixture_sha256": {
+    "gate.py": "9fa9a5282db2cec35339e958680ea988311133b06acf7772686c36056dd35811",
+    "probe.py": "76dbb746c294cc09ac59b17755ac211d14c470f455acbd741a523823f2cd69eb",
+    "run.py": "80bb94cbe74f6e86262b45d14d45ebba7d5b4a28bae7e11a1ccaa487c14e2274"
+  },
+  "evidence_sha256": {
+    "eof.json": "b03a3e566d4090004da9eda356d25096a14da4f0a165e8aaa13c89cc8b583ee4",
+    "lease.json": "b8a6c4db7f0745792097fe81a6b37471b897e12fb1fa92af21ae26ab02d94079",
+    "monitor_death.json": "ecce50947c08ca63e17daa238989686dca6d75192e8c2b6f140ffb29f746ff84",
+    "proxy_death.json": "799100575a4894c7b40e5fbb4acba14d14410463a93ec5e59dd1604518b9c6cf"
+  }
+}

@@ -1,0 +1,1564 @@
+{
+  "mode": "monitor_death",
+  "events": [
+    {
+      "at": 0.1562,
+      "event": "gate_ready",
+      "port": 39875,
+      "admission": "closed"
+    },
+    {
+      "at": 0.1617,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": false
+    },
+    {
+      "at": 0.1621,
+      "event": "initial_closed_probe",
+      "synthetic": true,
+      "status": 503,
+      "upstream_requests": 0
+    },
+    {
+      "at": 0.9244,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/owned/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.9309,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 0.9309,
+      "event": "preflight",
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      },
+      "model_requests": 0
+    },
+    {
+      "at": 1.1702,
+      "event": "gate_open",
+      "lease_seconds": 0.8
+    },
+    {
+      "at": 1.8739,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/unrelated/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 1.8819,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/unrelated/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-bfd6-74a2-9423-c608dc730f33",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/unrelated/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/unrelated/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-bfd6-74a2-9423-c608dc730f33",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/unrelated/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-bfd6-74a2-9423-c608dc730f33.jsonl",
+          "cwd": "<PROBE_ROOT>/unrelated/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/unrelated/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/unrelated/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 1.8854,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cf02-bfd6-74a2-9423-c608dc730f33",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture unrelated session"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cf02-bfdf-73d0-8881-7da46e8c3ec2",
+          "rootTurnId": "01a1cf02-bfdf-73d0-8881-7da46e8c3ec2",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 2.0223,
+      "event": "unrelated_request",
+      "request_id": 0,
+      "work_kind": "root",
+      "session_id": "01a1cf02-bfd6-74a2-9423-c608dc730f33",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true
+    },
+    {
+      "at": 2.0479,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/owned/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/owned/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/owned/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/owned/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-c07b-7d81-bc9b-abe902a65761.jsonl",
+          "cwd": "<PROBE_ROOT>/owned/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/owned/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/owned/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 2.0514,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture delegation root"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cf02-c085-7373-96a4-0e46291bac92",
+          "rootTurnId": "01a1cf02-c085-7373-96a4-0e46291bac92",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 2.2131,
+      "event": "gate_forward",
+      "request_id": 1
+    },
+    {
+      "at": 2.2137,
+      "event": "upstream_request",
+      "request_id": 1,
+      "work_kind": "Fixture delegation root",
+      "session_id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true
+    },
+    {
+      "at": 2.2141,
+      "event": "gate_stream_closed",
+      "request_id": 1
+    },
+    {
+      "at": 2.2353,
+      "event": "gate_forward",
+      "request_id": 2
+    },
+    {
+      "at": 2.2357,
+      "event": "upstream_request",
+      "request_id": 2,
+      "work_kind": "Fixture delegation root",
+      "session_id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true
+    },
+    {
+      "at": 2.2467,
+      "event": "gate_forward",
+      "request_id": 3
+    },
+    {
+      "at": 2.2471,
+      "event": "upstream_request",
+      "request_id": 3,
+      "work_kind": "Fixture delegation child",
+      "session_id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true
+    },
+    {
+      "at": 2.2476,
+      "event": "gate_stream_closed",
+      "request_id": 3
+    },
+    {
+      "at": 2.2657,
+      "event": "gate_forward",
+      "request_id": 4
+    },
+    {
+      "at": 2.2661,
+      "event": "upstream_request",
+      "request_id": 4,
+      "work_kind": "Fixture delegation child",
+      "session_id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true
+    },
+    {
+      "at": 2.2773,
+      "event": "gate_forward",
+      "request_id": 5
+    },
+    {
+      "at": 2.2776,
+      "event": "upstream_request",
+      "request_id": 5,
+      "work_kind": "Fixture delegation grandchild",
+      "session_id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+      "account": "fixture-account-a",
+      "bearer_matches_fixture": true
+    },
+    {
+      "at": 2.2953,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/owned/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/owned/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture delegation root",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/owned/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-c07b-7d81-bc9b-abe902a65761.jsonl",
+          "cwd": "<PROBE_ROOT>/owned/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cf02-c085-7373-96a4-0e46291bac92",
+              "rootTurnId": "01a1cf02-c085-7373-96a4-0e46291bac92",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cf02-c11d-7aa2-b39b-8b72f613d75c",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture delegation root",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794474426653,
+                  "completedAtMs": 1794474426653
+                },
+                {
+                  "type": "collabAgentToolCall",
+                  "id": "spawn-root",
+                  "tool": "spawnAgent",
+                  "status": "completed",
+                  "senderThreadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+                  "receiverThreadIds": [
+                    "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9"
+                  ],
+                  "prompt": "Fixture delegation child",
+                  "model": "gpt-5.4",
+                  "reasoningEffort": "medium",
+                  "agentsStates": {
+                    "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9": {
+                      "status": "pendingInit",
+                      "message": null
+                    }
+                  },
+                  "startedAtMs": 1794474426668,
+                  "completedAtMs": 1794474426672
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794474426,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cf02-c07b-7d81-bc9b-abe902a65761"
+        }
+      }
+    },
+    {
+      "at": 2.297,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/owned/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/owned/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "forkedFromId": null,
+          "parentThreadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "preview": "Fixture delegation child",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/owned/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-c12d-72b1-be92-9ed48dc1a9b9.jsonl",
+          "cwd": "<PROBE_ROOT>/owned/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": {
+            "subAgent": {
+              "thread_spawn": {
+                "parent_thread_id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+                "depth": 1,
+                "agent_path": null,
+                "agent_nickname": "Tesla",
+                "agent_role": null
+              }
+            }
+          },
+          "canAcceptDirectInput": true,
+          "threadSource": "subagent",
+          "agentNickname": "Tesla",
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cf02-c12f-7bd1-9cd5-20f6e76087fb",
+              "rootTurnId": "01a1cf02-c085-7373-96a4-0e46291bac92",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cf02-c141-7971-8878-70fa2fb652e8",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture delegation child",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794474426689,
+                  "completedAtMs": 1794474426689
+                },
+                {
+                  "type": "collabAgentToolCall",
+                  "id": "spawn-child",
+                  "tool": "spawnAgent",
+                  "status": "completed",
+                  "senderThreadId": "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9",
+                  "receiverThreadIds": [
+                    "01a1cf02-c14d-7cd0-a223-c3abedff405b"
+                  ],
+                  "prompt": "Fixture delegation grandchild",
+                  "model": "gpt-5.4",
+                  "reasoningEffort": "medium",
+                  "agentsStates": {
+                    "01a1cf02-c14d-7cd0-a223-c3abedff405b": {
+                      "status": "pendingInit",
+                      "message": null
+                    }
+                  },
+                  "startedAtMs": 1794474426701,
+                  "completedAtMs": 1794474426704
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794474426,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": null
+      }
+    },
+    {
+      "at": 2.297,
+      "event": "native_delegation",
+      "root_id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+      "child_id": "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9",
+      "grandchild_id": "01a1cf02-c14d-7cd0-a223-c3abedff405b",
+      "root_spawn": {
+        "type": "collabAgentToolCall",
+        "id": "spawn-root",
+        "tool": "spawnAgent",
+        "status": "completed",
+        "senderThreadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+        "receiverThreadIds": [
+          "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9"
+        ],
+        "prompt": "Fixture delegation child",
+        "model": "gpt-5.4",
+        "reasoningEffort": "medium",
+        "agentsStates": {
+          "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9": {
+            "status": "pendingInit",
+            "message": null
+          }
+        },
+        "startedAtMs": 1794474426668,
+        "completedAtMs": 1794474426672
+      },
+      "child_spawn": {
+        "type": "collabAgentToolCall",
+        "id": "spawn-child",
+        "tool": "spawnAgent",
+        "status": "completed",
+        "senderThreadId": "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9",
+        "receiverThreadIds": [
+          "01a1cf02-c14d-7cd0-a223-c3abedff405b"
+        ],
+        "prompt": "Fixture delegation grandchild",
+        "model": "gpt-5.4",
+        "reasoningEffort": "medium",
+        "agentsStates": {
+          "01a1cf02-c14d-7cd0-a223-c3abedff405b": {
+            "status": "pendingInit",
+            "message": null
+          }
+        },
+        "startedAtMs": 1794474426701,
+        "completedAtMs": 1794474426704
+      }
+    },
+    {
+      "at": 2.297,
+      "event": "before_loss",
+      "active_ids": [
+        2,
+        4,
+        5
+      ],
+      "upstream_requests": 5
+    },
+    {
+      "at": 2.298,
+      "event": "rpc",
+      "method": "thread/queue/add",
+      "params": {
+        "threadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+        "clientUserMessageId": "pc4-old",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture previously queued prompt"
+          }
+        ]
+      },
+      "result": {
+        "queuedSubmission": {
+          "id": "01a1cf02-c17c-73f0-af9c-41df465931f7",
+          "input": [
+            {
+              "type": "text",
+              "text": "Fixture previously queued prompt",
+              "text_elements": []
+            }
+          ],
+          "clientUserMessageId": "pc4-old"
+        }
+      }
+    },
+    {
+      "at": 2.298,
+      "event": "queue_before_loss",
+      "result": {
+        "queuedSubmission": {
+          "id": "01a1cf02-c17c-73f0-af9c-41df465931f7",
+          "input": [
+            {
+              "type": "text",
+              "text": "Fixture previously queued prompt",
+              "text_elements": []
+            }
+          ],
+          "clientUserMessageId": "pc4-old"
+        }
+      }
+    },
+    {
+      "at": 2.298,
+      "event": "loss_trigger",
+      "mode": "monitor_death"
+    },
+    {
+      "at": 2.2991,
+      "event": "monitor_exit",
+      "exit": -9
+    },
+    {
+      "at": 2.2991,
+      "event": "gate_latched",
+      "reason": "monitor_eof",
+      "active_ids": [
+        2,
+        4,
+        5
+      ]
+    },
+    {
+      "at": 2.2992,
+      "event": "gate_stream_closed",
+      "request_id": 4
+    },
+    {
+      "at": 2.2993,
+      "event": "gate_stream_closed",
+      "request_id": 5
+    },
+    {
+      "at": 2.2994,
+      "event": "gate_stream_closed",
+      "request_id": 2
+    },
+    {
+      "at": 2.3241,
+      "event": "gate_reject",
+      "old_queue": true,
+      "programmatic": false
+    },
+    {
+      "at": 2.3666,
+      "event": "upstream_disconnected",
+      "request_id": 4
+    },
+    {
+      "at": 2.3782,
+      "event": "upstream_disconnected",
+      "request_id": 5
+    },
+    {
+      "at": 2.3866,
+      "event": "upstream_disconnected",
+      "request_id": 2
+    },
+    {
+      "at": 2.3896,
+      "event": "all_owned_closed",
+      "closed_ids": [
+        2,
+        4,
+        5
+      ]
+    },
+    {
+      "at": 2.3953,
+      "event": "rpc",
+      "method": "account/rateLimits/read",
+      "params": {
+        "excludeResetCreditDetails": true
+      },
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 2.3953,
+      "event": "quota_recovery",
+      "result": {
+        "ordinaryUsageAllowed": null,
+        "rateLimits": {
+          "limitId": "codex",
+          "limitName": null,
+          "normalModelSlug": null,
+          "primary": {
+            "usedPercent": 25,
+            "windowDurationMins": 300,
+            "resetsAt": 2000000000
+          },
+          "secondary": {
+            "usedPercent": 60,
+            "windowDurationMins": 10080,
+            "resetsAt": 2000400000
+          },
+          "credits": null,
+          "individualLimit": null,
+          "spendControlReached": null,
+          "planType": "pro",
+          "rateLimitReachedType": null
+        },
+        "rateLimitsByLimitId": {
+          "codex": {
+            "limitId": "codex",
+            "limitName": null,
+            "normalModelSlug": null,
+            "primary": {
+              "usedPercent": 25,
+              "windowDurationMins": 300,
+              "resetsAt": 2000000000
+            },
+            "secondary": {
+              "usedPercent": 60,
+              "windowDurationMins": 10080,
+              "resetsAt": 2000400000
+            },
+            "credits": null,
+            "individualLimit": null,
+            "spendControlReached": null,
+            "planType": "pro",
+            "rateLimitReachedType": null
+          }
+        },
+        "rateLimitResetCredits": null,
+        "accountId": "fixture-account-a",
+        "rateLimitUpsell": null
+      }
+    },
+    {
+      "at": 2.3992,
+      "event": "rpc_error_wire",
+      "message": {
+        "error": {
+          "code": -32600,
+          "message": "queue is empty"
+        },
+        "id": 9
+      }
+    },
+    {
+      "at": 2.3992,
+      "event": "rpc",
+      "method": "thread/queue/start",
+      "params": {
+        "threadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761"
+      },
+      "error": "daemon thread/queue/start refused (-32600)."
+    },
+    {
+      "at": 2.3992,
+      "event": "queued_after_loss",
+      "result": {
+        "probe_error": "daemon thread/queue/start refused (-32600)."
+      }
+    },
+    {
+      "at": 2.405,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/owned/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/owned/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/owned/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/owned/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-c1e5-7b22-9f21-8255a93c5e7b.jsonl",
+          "cwd": "<PROBE_ROOT>/owned/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/owned/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/owned/workspace"
+        ],
+        "instructionSources": [],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 2.4082,
+      "event": "rpc",
+      "method": "turn/start",
+      "params": {
+        "threadId": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+        "input": [
+          {
+            "type": "text",
+            "text": "Fixture programmatic continuation after loss"
+          }
+        ]
+      },
+      "result": {
+        "turn": {
+          "id": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2",
+          "rootTurnId": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2",
+          "items": [],
+          "itemsView": "notLoaded",
+          "status": "inProgress",
+          "error": null,
+          "startedAt": null,
+          "completedAt": null,
+          "durationMs": null
+        }
+      }
+    },
+    {
+      "at": 2.4282,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": true
+    },
+    {
+      "at": 5.4165,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/owned/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/owned/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture delegation root",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "systemError"
+          },
+          "path": "<PROBE_ROOT>/owned/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-c07b-7d81-bc9b-abe902a65761.jsonl",
+          "cwd": "<PROBE_ROOT>/owned/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cf02-c085-7373-96a4-0e46291bac92",
+              "rootTurnId": "01a1cf02-c085-7373-96a4-0e46291bac92",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cf02-c11d-7aa2-b39b-8b72f613d75c",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture delegation root",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794474426653,
+                  "completedAtMs": 1794474426653
+                },
+                {
+                  "type": "collabAgentToolCall",
+                  "id": "spawn-root",
+                  "tool": "spawnAgent",
+                  "status": "completed",
+                  "senderThreadId": "01a1cf02-c07b-7d81-bc9b-abe902a65761",
+                  "receiverThreadIds": [
+                    "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9"
+                  ],
+                  "prompt": "Fixture delegation child",
+                  "model": "gpt-5.4",
+                  "reasoningEffort": "medium",
+                  "agentsStates": {
+                    "01a1cf02-c12d-72b1-be92-9ed48dc1a9b9": {
+                      "status": "pendingInit",
+                      "message": null
+                    }
+                  },
+                  "startedAtMs": 1794474426668,
+                  "completedAtMs": 1794474426672
+                }
+              ],
+              "itemsView": "full",
+              "status": "failed",
+              "error": {
+                "message": "stream disconnected before completion: stream closed before response.completed",
+                "codexErrorInfo": "other",
+                "additionalDetails": null,
+                "misalignment": null
+              },
+              "startedAt": 1794474426,
+              "completedAt": 1794474426,
+              "durationMs": 250
+            },
+            {
+              "id": "01a1cf02-c181-7303-9485-80829dd304bd",
+              "rootTurnId": "01a1cf02-c181-7303-9485-80829dd304bd",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cf02-c18f-7272-ad64-c54e605e0e7c",
+                  "clientId": "pc4-old",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture previously queued prompt",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794474426767,
+                  "completedAtMs": 1794474426767
+                }
+              ],
+              "itemsView": "full",
+              "status": "failed",
+              "error": {
+                "message": "unexpected status 503 Service Unavailable: <!DOCTYPE HTML>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"utf-8\">\n        <style type=\"text/css\">\n            :root {\n                color-scheme: light dark;\n            }\n        </style>\n        <title>Error response</title>\n    </head>\n    <body>\n        <h1>Error response</h1>\n        <p>Error code: 503</p>\n        <p>Message: Service Unavailable.</p>\n        <p>Error code explanation: 503 - The server cannot process the request due to a high load.</p>\n    </body>\n</html>, url: <GATE_URL>/backend-api/codex/responses",
+                "codexErrorInfo": {
+                  "httpConnectionFailed": {
+                    "httpStatusCode": 503
+                  }
+                },
+                "additionalDetails": null,
+                "misalignment": null
+              },
+              "startedAt": 1794474426,
+              "completedAt": 1794474426,
+              "durationMs": 22
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": {
+            "type": "turn",
+            "turnId": "01a1cf02-c085-7373-96a4-0e46291bac92"
+          },
+          "revision": "a5412964-0b9d-428c-bf77-1f571e3142be"
+        }
+      }
+    },
+    {
+      "at": 5.4198,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/owned/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/owned/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture programmatic continuation after loss",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "systemError"
+          },
+          "path": "<PROBE_ROOT>/owned/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-c1e5-7b22-9f21-8255a93c5e7b.jsonl",
+          "cwd": "<PROBE_ROOT>/owned/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2",
+              "rootTurnId": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cf02-c1f7-7e90-8b22-2e6e0cae9251",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture programmatic continuation after loss",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794474426872,
+                  "completedAtMs": 1794474426872
+                }
+              ],
+              "itemsView": "full",
+              "status": "failed",
+              "error": {
+                "message": "unexpected status 503 Service Unavailable: <!DOCTYPE HTML>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"utf-8\">\n        <style type=\"text/css\">\n            :root {\n                color-scheme: light dark;\n            }\n        </style>\n        <title>Error response</title>\n    </head>\n    <body>\n        <h1>Error response</h1>\n        <p>Error code: 503</p>\n        <p>Message: Service Unavailable.</p>\n        <p>Error code explanation: 503 - The server cannot process the request due to a high load.</p>\n    </body>\n</html>, url: <GATE_URL>/backend-api/codex/responses",
+                "codexErrorInfo": {
+                  "httpConnectionFailed": {
+                    "httpStatusCode": 503
+                  }
+                },
+                "additionalDetails": null,
+                "misalignment": null
+              },
+              "startedAt": 1794474426,
+              "completedAt": 1794474426,
+              "durationMs": 21
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": {
+            "type": "turn",
+            "turnId": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2"
+          },
+          "revision": "b83ca9e9-913c-4314-8aa7-bf3e1ad18012"
+        }
+      }
+    },
+    {
+      "at": 5.4199,
+      "event": "after_loss",
+      "upstream_unchanged": true,
+      "history_available": true,
+      "ui_alive": null,
+      "root_status": "failed",
+      "programmatic_turn": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2",
+      "programmatic_history": {
+        "thread": {
+          "id": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/owned/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/owned/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-c1e5-7b22-9f21-8255a93c5e7b",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture programmatic continuation after loss",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "systemError"
+          },
+          "path": "<PROBE_ROOT>/owned/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-c1e5-7b22-9f21-8255a93c5e7b.jsonl",
+          "cwd": "<PROBE_ROOT>/owned/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2",
+              "rootTurnId": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cf02-c1f7-7e90-8b22-2e6e0cae9251",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture programmatic continuation after loss",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794474426872,
+                  "completedAtMs": 1794474426872
+                }
+              ],
+              "itemsView": "full",
+              "status": "failed",
+              "error": {
+                "message": "unexpected status 503 Service Unavailable: <!DOCTYPE HTML>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"utf-8\">\n        <style type=\"text/css\">\n            :root {\n                color-scheme: light dark;\n            }\n        </style>\n        <title>Error response</title>\n    </head>\n    <body>\n        <h1>Error response</h1>\n        <p>Error code: 503</p>\n        <p>Message: Service Unavailable.</p>\n        <p>Error code explanation: 503 - The server cannot process the request due to a high load.</p>\n    </body>\n</html>, url: <GATE_URL>/backend-api/codex/responses",
+                "codexErrorInfo": {
+                  "httpConnectionFailed": {
+                    "httpStatusCode": 503
+                  }
+                },
+                "additionalDetails": null,
+                "misalignment": null
+              },
+              "startedAt": 1794474426,
+              "completedAt": 1794474426,
+              "durationMs": 21
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": {
+            "type": "turn",
+            "turnId": "01a1cf02-c1ea-7d91-970f-540deb3ebcd2"
+          },
+          "revision": "b83ca9e9-913c-4314-8aa7-bf3e1ad18012"
+        }
+      },
+      "observation_seconds": 3,
+      "monitor_alive": false
+    },
+    {
+      "at": 5.4237,
+      "event": "rpc",
+      "method": "thread/read",
+      "params": {
+        "threadId": "01a1cf02-bfd6-74a2-9423-c608dc730f33",
+        "includeTurns": true
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf02-bfd6-74a2-9423-c608dc730f33",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/unrelated/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/unrelated/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf02-bfd6-74a2-9423-c608dc730f33",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Fixture unrelated session",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794474426,
+          "updatedAt": 1794474426,
+          "recencyAt": 1794474426,
+          "status": {
+            "type": "active",
+            "activeFlags": []
+          },
+          "path": "<PROBE_ROOT>/unrelated/codex/sessions/2026/11/12/rollout-2026-11-12T01-07-06-01a1cf02-bfd6-74a2-9423-c608dc730f33.jsonl",
+          "cwd": "<PROBE_ROOT>/unrelated/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": [
+            {
+              "id": "01a1cf02-bfdf-73d0-8881-7da46e8c3ec2",
+              "rootTurnId": "01a1cf02-bfdf-73d0-8881-7da46e8c3ec2",
+              "items": [
+                {
+                  "type": "userMessage",
+                  "id": "01a1cf02-c05e-7b31-9977-d3ce9e1eae9d",
+                  "clientId": null,
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Fixture unrelated session",
+                      "text_elements": []
+                    }
+                  ],
+                  "startedAtMs": 1794474426462,
+                  "completedAtMs": 1794474426462
+                }
+              ],
+              "itemsView": "full",
+              "status": "inProgress",
+              "error": null,
+              "startedAt": 1794474426,
+              "completedAt": null,
+              "durationMs": null
+            }
+          ]
+        },
+        "readState": {
+          "firstUnread": null,
+          "revision": "initial:01a1cf02-bfd6-74a2-9423-c608dc730f33"
+        }
+      }
+    },
+    {
+      "at": 5.4237,
+      "event": "unrelated",
+      "alive": true,
+      "stream_active": true,
+      "turn_status": "inProgress"
+    }
+  ],
+  "terminal": "",
+  "stderr": {
+    "owned.stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/owned/codex\"))\n",
+    "unrelated.stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/unrelated/codex\"))\n",
+    "monitor.stderr": "",
+    "gate.stderr": ""
+  }
+}
