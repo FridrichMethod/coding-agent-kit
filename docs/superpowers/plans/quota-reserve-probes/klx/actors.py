@@ -140,6 +140,7 @@ def main(argv):
     parser.add_argument('--seconds', type=float, default=10)
     parser.add_argument('--wait', default=None)
     parser.add_argument('--out', default=None)
+    parser.add_argument('--reread', action='store_true')
     options = parser.parse_args(argv)
     spec = json.loads(Path(options.spec).read_text())
     out = Out(options.out or str(Path(spec['outdir']) / (options.actor + '.jsonl')), options.actor)
@@ -149,8 +150,10 @@ def main(argv):
         bearer, account = credential(spec['codex_home'])
         model_request(spec, options.marker, out, 'model_before_latch', bearer, account)
         if options.wait and wait_for(options.wait, options.seconds):
-            model_request(spec, options.marker + '-again', out, 'model_after_signal', bearer, account)
-            if spec.get('sdk_reread'):
+            if not options.reread:
+                model_request(spec, options.marker + '-again', out, 'model_after_signal', bearer, account)
+            # A client that re-reads the credential file adopts whatever the file holds now.
+            if options.reread or spec.get('sdk_reread'):
                 model_request(spec, options.marker + '-reread', out, 'model_after_signal_reread')
     elif options.actor == 'grandchild':
         if not wait_for(options.wait or spec['paused_file'], options.seconds):
@@ -214,11 +217,18 @@ def main(argv):
             sock.close()
     elif options.actor == 'tunnel':
         context = ssl.create_default_context(cafile=spec['ca'])
+        context.verify_flags &= ~getattr(ssl, 'VERIFY_X509_STRICT', 0)  # fixture CA; hostname still checked
         for path in ('/oauth/revoke', '/backend-api/codex/responses'):
             try:
                 sock = socket.create_connection(('127.0.0.1', spec['gate_port']), timeout=5)
                 sock.sendall(b'CONNECT auth.openai.com:443 HTTP/1.1\r\nHost: auth.openai.com:443\r\n\r\n')
-                head = sock.recv(256).decode(errors='replace').split('\r\n')[0]
+                raw = b''
+                while b'\r\n\r\n' not in raw:
+                    data = sock.recv(1)
+                    if not data:
+                        break
+                    raw += data
+                head = raw.decode(errors='replace').split('\r\n')[0]
                 if ' 200 ' not in head + ' ':
                     out('connect_' + path, head[:40])
                     sock.close()
@@ -229,6 +239,8 @@ def main(argv):
                 reply = tls.recv(256).decode(errors='replace').split('\r\n')[0]
                 out('connect_' + path, 'tunnel', reply=reply[:40])
                 tls.close()
+            except ssl.SSLError as error:
+                out('connect_' + path, 'ssl-error', reason=str(error.reason))
             except OSError as error:
                 out('connect_' + path, code(error))
     elif options.actor == 'direct':

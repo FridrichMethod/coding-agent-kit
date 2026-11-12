@@ -110,18 +110,23 @@ def connect_allowed(target, allow, *, paused, lost):
 
 class Gate:
     def __init__(self, lease, upstream, listener, *, record, labels=None, connect_allow=None,
-                 upstream_proxy=None, hold=0.0, rebind=None, hb_max=None, tick=0.05, timeout=15, notify=None):
+                 upstream_proxy=None, hold=0.0, rebind=None, hb_max=None, tick=0.05, timeout=15, notify=None,
+                 self_read=False):
         self.lease, self.record_sink, self.timeout = lease, record, timeout
         self.notify = notify  # callable(message) to the launcher channel, or None
         self.upstream = upstream  # (host, port) of the fake backend
         self.upstream_proxy = upstream_proxy  # (host, port) captured once at startup, or None
         self.connect_allow = dict(connect_allow or {})  # 'host:port' -> (host, port) fixture target
         self.hold, self.rebind = hold, rebind
+        # Variant (QX alternative 3): on a new same-account bearer the gate itself sends one usage
+        # GET upstream with the held request's own Authorization and account headers.
+        self.self_read = self_read
         self.hb_max = hb_max
         self.labels = dict(labels or {})
         self.lock = threading.RLock()  # admission lock: decision, first byte and registration
         self.streams = {}
         self.lost = None
+        self.last_outcome = None  # the lease outcome of the latest forwarded usage read
         self.last_hb = time.monotonic()
         self.done = threading.Event()
         lease.on_close = self._on_pause
@@ -185,7 +190,7 @@ class Gate:
             return {'paused': self.lease.paused, 'blocking': self.lease.blocking, 'lost': self.lost,
                     'epoch': self.lease.epoch, 'ready': self.lease.observation is not None
                     and self.lease.paused is None and self.lost is None and self.lease.ready(),
-                    'streams': len(self.streams)}
+                    'streams': len(self.streams), 'last_outcome': self.last_outcome}
 
     def request_continuation(self):
         with self.lock:
@@ -215,6 +220,29 @@ class Gate:
         self.server.shutdown()
 
     # -- upstream ------------------------------------------------------------------------------
+    def read_with(self, headers):
+        """One usage GET with the held request's own credential headers, fed to the lease."""
+        started = self.lease.clock()
+        bearer = (headers.get('Authorization') or '')[7:]
+        account = headers.get('ChatGPT-Account-ID')
+        try:
+            connection = self.open_upstream()
+            connection.request('GET', USAGE_PATHS[0], headers={'Authorization': headers.get('Authorization'),
+                                                               'ChatGPT-Account-ID': account,
+                                                               'Accept': 'application/json'})
+            response = connection.getresponse()
+            data = response.read()
+            connection.close()
+        except OSError as error:
+            self.record('self_read_error', error=type(error).__name__)
+            return None
+        with self.lock:
+            outcome = self.lease.observe_usage(bearer, account, response.status, data, started=started)
+            self.last_outcome = outcome
+            self.record('self_read', credential=self.label(bearer), status=response.status, lease=outcome,
+                        epoch=self.lease.epoch, seconds=round(time.monotonic() - started, 4))
+        return outcome
+
     def open_upstream(self):
         if self.upstream_proxy:
             connection = http.client.HTTPConnection(*self.upstream_proxy, timeout=self.timeout)
@@ -347,6 +375,7 @@ class Gate:
                     if action == 'usage':
                         outcome = gate.lease.observe_usage(bearer, info['account'], response.status, data,
                                                            started=started)
+                        gate.last_outcome = outcome
                     gate.record('get', **info, status=response.status, lease=outcome,
                                 epoch=gate.lease.epoch, paused=gate.lease.paused,
                                 blocking=gate.lease.blocking, received=started,
@@ -385,7 +414,14 @@ class Gate:
                         return gate.lease.admit(bearer, info['account'], model)
 
                 admitted, reason = decide()
-                if reason == 'rebind-required' and gate.rebind is not None and gate.hold > 0:
+                if reason == 'rebind-required' and gate.self_read:
+                    began = time.monotonic()
+                    gate.record('rebind_hold', **info, marker=marker, mode='gate-read')
+                    gate.read_with(self.headers)
+                    gate.record('rebind_hold_ended', credential=info['credential'], mode='gate-read',
+                                seconds=round(time.monotonic() - began, 3))
+                    admitted, reason = decide()
+                elif reason == 'rebind-required' and gate.rebind is not None and gate.hold > 0:
                     digest = gate.lease.digest(bearer)
                     began = time.monotonic()
                     gate.record('rebind_hold', **info, marker=marker)
@@ -505,7 +541,8 @@ def main(config_path):
                 connect_allow={key: tuple(value) for key, value in (config.get('connect_allow') or {}).items()},
                 upstream_proxy=tuple(config['upstream_proxy']) if config.get('upstream_proxy') else None,
                 hold=config.get('hold', 0.0), rebind=rebind if config.get('hold') else None,
-                hb_max=config.get('hb_max'), notify=lambda message: launcher.send(message))
+                hb_max=config.get('hb_max'), notify=lambda message: launcher.send(message),
+                self_read=bool(config.get('self_read')))
 
     def on_launcher(message):
         command = message.get('cmd')

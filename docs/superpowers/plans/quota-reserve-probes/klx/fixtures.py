@@ -101,6 +101,8 @@ class Backend:
         self.on_issue = []  # callbacks(access, label) so a launcher can label credentials at its gate
         self.release = threading.Event()
         self.hold_titles = False  # True: native title requests stay open like a long stream
+        self.consume = 0.0  # percent of the five-hour window each live model request uses
+        self.refresh_count = 0
         self.counter = 0
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), self._handler())
         self.server.daemon_threads = True
@@ -168,8 +170,8 @@ class Backend:
         account, user, label = owner
         base = label.split('r')[0]
         with self.lock:
-            self.counter += 1
-            new_label = '%sr%d' % (base, self.counter)
+            self.refresh_count += 1
+            new_label = '%sr%d' % (base, self.refresh_count)
         access, refresh = self.issue(account, user, new_label)
         return 200, {'access_token': access, 'refresh_token': refresh, 'id_token': token(account, user),
                      'expires_in': 3600, 'token_type': 'Bearer'}, new_label
@@ -263,6 +265,10 @@ class Backend:
                              ident=ident, model=body.get('model'))
                 if not live:
                     return self.send(401, {'error': {'code': 'token_expired', 'message': 'fixture'}})
+                if backend.consume:
+                    with backend.lock:
+                        state = backend.usage[identity['account']]
+                        state['five'] = min(100, state['five'] + backend.consume)
                 headers = backend.usage_headers(identity['account'])
                 if kind == 'turn' and marker and marker.startswith('KLX-TOOL-') and marker in backend.tools:
                     return self.send(200, tool_call(backend.tools[marker], ident, backend.tool_yield.get(marker, 2000)),
@@ -309,7 +315,8 @@ def make_ca(root, host='auth.openai.com'):
     root.mkdir(mode=0o700, exist_ok=True)
     ext = root / 'leaf.ext'
     ext.write_text('basicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\n'
-                   'extendedKeyUsage=serverAuth\nsubjectAltName=DNS:%s\n' % host)
+                   'extendedKeyUsage=serverAuth\nsubjectAltName=DNS:%s\n'
+                   'subjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n' % host)
     steps = [
         [openssl, 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '2', '-subj', '/CN=KLX fixture CA',
          '-keyout', str(root / 'ca.key'), '-out', str(root / 'ca.pem'),

@@ -10,6 +10,7 @@ evidence/<stage>.json; run only through run.py.
 
     python3 -I -B compose.py BINARY STAGE
 """
+import errno
 import fcntl
 import importlib.util
 import json
@@ -214,11 +215,12 @@ class Invocation:
 
     def __init__(self, h, name, *, account=A, user=UA, label='A1', five=20, weekly=30, max_age=60, hold=5.0,
                  hb_max=2.0, hb_interval=0.25, poll=None, refresh='none', link=None, lifetime=3600,
-                 upstream_proxy=None, strace=True):
+                 upstream_proxy=None, strace=True, self_read=False):
         self.h, self.name, self.account, self.user = h, name, account, user
         self.policy = {'five_hour': five, 'weekly': weekly, 'max_age': max_age}
         self.hold, self.hb_max, self.hb_interval, self.poll = hold, hb_max, hb_interval, poll
         self.refresh, self.upstream_proxy, self.use_strace = refresh, upstream_proxy, strace
+        self.self_read = self_read
         self.base = h.root / name
         for part in ('codex', 'home', 'workspace', 'tmp', 'out'):
             (self.base / part).mkdir(parents=True, mode=0o700)
@@ -304,7 +306,8 @@ class Invocation:
                   'hb_max': self.hb_max, 'restart': restart,
                   'connect_allow': ({'auth.openai.com:443': ['127.0.0.1', self.tls.port]}
                                     if self.refresh == 'connect' else {}),
-                  'upstream_proxy': list(self.upstream_proxy) if self.upstream_proxy else None}
+                  'upstream_proxy': list(self.upstream_proxy) if self.upstream_proxy else None,
+                  'self_read': self.self_read}
         path = self.base / ('gate-%d.json' % index)
         path.write_text(json.dumps(config))
         ready = threading.Event()
@@ -473,6 +476,9 @@ class Invocation:
                 return
 
     def continuation_check(self):
+        # A binding read first: after an identity latch the lease holds no credential, so the
+        # check's own read would start a new epoch and use the continuation up (QX rule).
+        self.read('continuation-bind')
         reply = self.control.call('continue')
         accepted = bool(reply and reply.get('accepted'))
         row = self.read('continuation') if accepted else None
@@ -525,6 +531,46 @@ class Invocation:
             restored = None
         self.h.record('tui_exit', invocation=self.name, exited=exited, exit=self.tui.poll(), termios_restored=restored)
         return exited
+
+
+    def restart(self, kill=False):
+        """Replace this invocation's gate (and monitor) on the same held port; the new gate starts
+        latched and needs a trusted continuation plus a fresh passing read."""
+        if self.gate_process is not None and self.gate_process.poll() is None:
+            if kill:
+                self.kill_gate()
+            else:
+                self.control.call('shutdown', timeout=1)
+                try:
+                    self.gate_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    self.kill_gate()
+        if self.monitor_process is not None and self.monitor_process.poll() is None:
+            self.monitor_command('exit')
+            try:
+                self.monitor_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.monitor_process.kill()
+                self.monitor_process.wait(timeout=3)
+        self.start_gate(restart=True)
+        self.start_monitor()
+
+    def held(self, count=1, timeout=15):
+        return self.h.wait(lambda: (self.status() or {}).get('streams', 0) >= count, timeout)
+
+    def status_card(self):
+        self.press(b'\x7f' * 80, .3)
+        mark = len(self.output)
+        self.user_text('/status')
+        shown = self.h.wait(lambda: 'Context window' in self.screen(mark), 6)
+        self.press(b'\x1b', .3)
+        return shown
+
+    def turn(self, text, expect, timeout=12):
+        """Type a prompt and wait until `expect` appears on the native screen."""
+        mark = len(self.output)
+        self.user_text(text)
+        return self.h.wait(lambda: expect in self.screen(mark), timeout)
 
     # -- teardown and evidence -------------------------------------------------------------------
     def traced(self):
@@ -596,7 +642,9 @@ class Invocation:
                                                    self.h.backend.port),
                      'native_main_exit': parsed['exits'].get(roots[0]) if len(roots) == 1 else None}
         loop = self.workspace / 'loop.txt'
-        return {'name': self.name, 'port': self.port, 'policy': self.policy, 'refresh': self.refresh,
+        refresh_failures = sum(path.read_text(errors='replace').count('Failed to refresh token')
+                               for path in self.base.glob('*reader*.stderr'))
+        return {'reader_refresh_failures': refresh_failures, 'name': self.name, 'port': self.port, 'policy': self.policy, 'refresh': self.refresh,
                 'gates': [{'pid': gate['pid'], 'restart': gate['restart'], 'events': lines(gate['events'])}
                           for gate in self.gates],
                 'monitors': [{'pid': monitor['pid'], 'events': lines(monitor['events'])} for monitor in self.monitors],
@@ -699,7 +747,360 @@ def stage_pause(h):
     inv.exit_tui()
 
 
-STAGES = {'pause': stage_pause}
+def stage_loss(h):
+    """Case 3: monitor EOF, monitor SIGKILL and a stalled monitor each latch the gate closed."""
+    inv = Invocation(h, 'a', hb_max=1.5, poll=None)
+    inv.start_gate()
+    assert inv.preflight() is None
+    inv.start_monitor()
+    inv.start_tui('KLX-START a first turn')
+    assert h.wait(lambda: 'KLX fixture reply KLX-START' in inv.screen(), 30), 'first turn did not complete'
+    results = []
+    for case in ('eof', 'kill', 'stall'):
+        before = len(inv.paused_events)
+        marker = 'KLX-HOLD-' + case
+        inv.user_text(marker + ' a long native stream')
+        assert inv.held(1), 'no held stream for ' + case
+        trigger = time.monotonic()
+        if case == 'eof':
+            inv.monitor_command('close')
+        elif case == 'kill':
+            inv.monitor_process.kill()
+            inv.monitor_process.wait(timeout=5)
+            h.record('monitor_killed', invocation=inv.name, pid=inv.monitor_process.pid)
+        else:
+            inv.monitor_command('stall')
+        assert h.wait(lambda: len(inv.paused_events) > before, 6), 'loss did not latch for ' + case
+        latch = inv.paused_events[-1]
+        h.wait(lambda: any(b['kind'] == 'stream_lost' and b.get('marker') == marker for b in h.backend.events), 4)
+        refused = inv.turn('KLX-AFTER-' + case + ' typed after the loss', 'quota reserve gate refused')
+        card = inv.status_card()
+        results.append({'case': case, 'trigger': trigger, 'latch_at': latch['at'], 'reason': latch['reason'],
+                        'refusal_visible': refused, 'status_card': card, 'tui_alive': inv.tui_alive(),
+                        'monitor_alive': inv.monitor_process.poll() is None, 'status': inv.status()})
+        h.record('loss_case', **results[-1])
+        inv.restart()
+        refused_restart = inv.turn('KLX-RESTARTED-' + case + ' before continuation', 'quota reserve gate refused')
+        resumed = inv.confirm()
+        completed = inv.turn('KLX-RECOVERED-' + case + ' after continuation', 'KLX fixture reply KLX-RECOVERED-' + case)
+        h.record('loss_recovery', case=case, refused_before_continuation=refused_restart, resumed=resumed,
+                 completed=completed, gate_pid=inv.gate_process.pid, tui_pid=inv.tui.pid)
+    h.extra['loss_cases'] = results
+    inv.exit_tui()
+
+
+def stage_restart(h):
+    """Case 4: gate death and port reuse; a restarted gate needs a fresh verified continuation."""
+    inv = Invocation(h, 'a', poll=2.0)
+    inv.start_gate()
+    assert inv.preflight() is None
+    inv.start_monitor()
+    inv.start_tui('KLX-START a first turn')
+    assert h.wait(lambda: 'KLX fixture reply KLX-START' in inv.screen(), 30)
+
+    def outside_bind(tag):
+        rows = []
+        for name, address in (('loopback', '127.0.0.1'), ('wildcard', '0.0.0.0'), ('other', '127.0.0.2')):
+            sock = socket.socket()
+            try:
+                sock.bind((address, inv.port))
+                rows.append((name, 'bound'))
+            except OSError as error:
+                rows.append((name, errno.errorcode.get(error.errno, str(error.errno))))
+            finally:
+                sock.close()
+        h.record('outside_bind', tag=tag, results=rows)
+        return rows
+
+    h.extra['bind_while_alive'] = outside_bind('gate-alive')
+    inv.user_text('KLX-HOLD-gate a long native stream')
+    assert inv.held(1)
+    models_before = h.backend.count('model')
+    kill_at = time.monotonic()
+    inv.kill_gate()
+    h.extra['gate_killed_at'] = kill_at
+    h.wait(lambda: any(b['kind'] == 'stream_lost' and b.get('marker') == 'KLX-HOLD-gate' for b in h.backend.events), 4)
+    h.extra['bind_while_dead'] = outside_bind('gate-dead')
+    code = h.run_inside(inv, 'bind', '--out', str(inv.base / 'out' / 'bind-dead.jsonl'))
+    h.record('inside_bind', exit=code)
+    inv.user_text('KLX-WHILE-DEAD typed while the gate is dead')
+    time.sleep(2.0)
+    h.extra['models_while_dead'] = h.backend.count('model') - models_before
+    inv.restart()
+    time.sleep(4.5)  # monitor polls pass while latched
+    h.record('restarted_latched', status=inv.status(), screen_refusal='gate-restarted' in inv.screen())
+    refused = inv.turn('KLX-BEFORE-CONTINUE after the restart', 'quota reserve gate refused')
+    resumed = inv.confirm()
+    completed = inv.turn('KLX-AFTER-CONTINUE after the restart', 'KLX fixture reply KLX-AFTER-CONTINUE')
+    h.record('restart_continuation', refused_before=refused, resumed=resumed, completed=completed,
+             gate_pid=inv.gate_process.pid, tui_pid=inv.tui.pid, status=inv.status())
+    h.extra['bind_after_restart'] = outside_bind('gate-restarted')
+    inv.exit_tui()
+
+
+def stage_sessions(h):
+    """Case 6: two protected invocations of one account, different reserves; outside use counts.
+    The second gate reaches the backend through a loopback CONNECT proxy captured at startup."""
+    secrets = h.root / 'secrets'
+    secrets.mkdir(mode=0o700)
+    access, refresh = h.backend.issue(A, UA, 'A1')
+    secret = secrets / 'codex-fixture.json'
+    fd = os.open(secret, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    os.write(fd, fixtures.auth_json(access, refresh, A, UA).encode())
+    os.close(fd)
+    proxy = fixtures.ConnectProxy({'127.0.0.1:%d' % h.backend.port})
+    one = Invocation(h, 's1', five=20, poll=1.5, link=str(secret))
+    two = Invocation(h, 's2', five=10, poll=1.5, link=str(secret), upstream_proxy=('127.0.0.1', proxy.port))
+    for inv in (one, two):
+        inv.start_gate()
+        assert inv.preflight() is None
+        inv.start_monitor()
+    one.start_tui('KLX-S1-START first session')
+    two.start_tui('KLX-S2-START second session')
+    assert h.wait(lambda: 'KLX fixture reply KLX-S1-START' in one.screen()
+                  and 'KLX fixture reply KLX-S2-START' in two.screen(), 40), 'sessions did not start'
+
+    def outside(count, consume):
+        h.backend.consume = consume
+        for index in range(count):
+            fixtures_request(h.backend.port, access, A, 'KLX-OUTSIDE-%d' % index)
+        h.backend.consume = 0.0
+        h.record('outside_consumption', requests=count, usage=dict(h.backend.usage[A]))
+
+    outside(10, 6.0)  # 25 -> 85 percent used: 15 remaining
+    assert h.wait(lambda: one.paused_events, 8), 'first session did not pause'
+    time.sleep(2.0)
+    first = one.turn('KLX-S1-AFTER outside use', 'quota reserve gate refused')
+    second = two.turn('KLX-S2-AFTER outside use', 'KLX fixture reply KLX-S2-AFTER')
+    h.record('independent_sessions', s1_refused=first, s2_completed=second, s1=one.status(), s2=two.status())
+    outside(2, 3.5)  # 85 -> 92 percent used: 8 remaining, below the second reserve too
+    assert h.wait(lambda: two.paused_events, 8), 'second session did not pause'
+    late = two.turn('KLX-S2-LATE after more outside use', 'quota reserve gate refused')
+    h.record('second_paused', s2_refused=late, s2=two.status())
+    h.extra['proxy_tunnels'] = proxy.events
+    for inv in (one, two):
+        inv.exit_tui()
+    proxy.close()
+
+
+def fixtures_request(port, access, account, marker):
+    """An unprotected client using the same account directly (outside every invocation)."""
+    import http.client
+    body = json.dumps({'model': 'gpt-5.4', 'stream': True,
+                       'input': [{'type': 'message', 'role': 'user',
+                                  'content': [{'type': 'input_text', 'text': marker}]}]})
+    connection = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
+    connection.request('POST', '/backend-api/codex/responses', body=body,
+                       headers={'Authorization': 'Bearer ' + access, 'ChatGPT-Account-ID': account})
+    connection.getresponse().read()
+    connection.close()
+
+
+def stage_rotation(h, self_read=False):
+    """Case 7: native refresh A -> A' and a disk switch A -> B while child requests are queued.
+    With self_read the gate binds a held bearer by its own usage GET with that bearer (variant)."""
+    h.extra['rebind_mode'] = 'gate-read' if self_read else 'controller-reader'
+    inv = Invocation(h, 'a', refresh='connect', hold=5.0, poll=None, self_read=self_read)
+    inv.start_gate()
+    assert inv.preflight() is None
+    inv.start_monitor()
+    long_lived = reader.Session(inv.reader_config('long-lived'))
+    assert long_lived.initialize()
+    first = long_lived.read()
+    h.record('long_lived_read', phase='before', result=first['result'], disk_label=inv.stored_label())
+    signals = {name: inv.workspace / ('SIGNAL-' + name) for name in ('old', 'new', 'b')}
+    h.backend.tools['KLX-TOOL-children'] = tool_command(h, inv, [
+        'setsid -f ACT sdk --marker KLX-C-OLD --wait %s --seconds 90 </dev/null >/dev/null 2>&1' % signals['old'],
+        'setsid -f ACT sdk --marker KLX-C-NEW --wait %s --seconds 90 --reread --out %s </dev/null >/dev/null 2>&1'
+        % (signals['new'], inv.base / 'out' / 'sdk-new.jsonl'),
+        'setsid -f ACT sdk --marker KLX-C-B --wait %s --seconds 90 --reread --out %s </dev/null >/dev/null 2>&1'
+        % (signals['b'], inv.base / 'out' / 'sdk-b.jsonl')])
+    inv.start_tui('KLX-TOOL-children start the SDK-like children')
+    assert h.wait(lambda: any(b['kind'] == 'model' and b.get('request') == 'tool_result' for b in h.backend.events), 40), \
+        'children turn did not finish'
+    assert h.wait(lambda: sum(r['attempt'] == 'model_before_latch' for r in inv.actor_rows()) >= 3, 10)
+    old_label = inv.stored_label()
+    queued = {'armed': True}
+    original = inv.read
+
+    def read_with_queue(why):
+        if why == 'rebind' and queued['armed']:
+            queued['armed'] = False
+            signals['old'].write_text('go')  # the old-bearer child request arrives during the hold
+            h.record('child_released_during_hold')
+        return original(why)
+    inv.read = read_with_queue
+    if self_read:  # no controller round trip: release the old-bearer child right at the refresh
+        h.backend.on_issue.append(lambda access, label: label.startswith('A1r') and queued.pop('armed', None)
+                                  and signals['old'].write_text('go'))
+    h.backend.revoke(next(a for a, label in h.issued if label == old_label))
+    rotated = inv.turn('KLX-ROT-1 after the server revoked the bearer', 'KLX fixture reply KLX-ROT-1', 20)
+    h.record('native_refresh', completed=rotated, disk_label=inv.stored_label(), status=inv.status())
+    h.wait(lambda: any(r['attempt'] == 'model_after_signal' and r['marker'].startswith('KLX-C-OLD')
+                       for r in inv.actor_rows()), 10)
+    signals['new'].write_text('go')
+    h.wait(lambda: any(r['marker'].startswith('KLX-C-NEW') and r['attempt'] == 'model_after_signal_reread'
+                       for r in inv.actor_rows() if 'marker' in r), 15)
+    stale = long_lived.read()
+    h.record('long_lived_read', phase='after-refresh', result=stale['result'], disk_label=inv.stored_label())
+    h.extra['long_lived_exit'] = long_lived.close()
+    recovered = inv.turn('KLX-ROT-2 after the long-lived read', 'KLX fixture reply KLX-ROT-2', 15)
+    h.record('after_long_lived', completed=recovered, status=inv.status())
+    # A -> B on disk (another terminal logs in as B); the TUI keeps A' in memory.
+    a_text = (inv.codex_home / 'auth.json').read_text()
+    access_b, refresh_b = h.backend.issue(B, UB, 'B1')
+    inv.write_auth(fixtures.auth_json(access_b, refresh_b, B, UB))
+    signals['b'].write_text('go')
+    h.wait(lambda: any(r.get('marker', '').startswith('KLX-C-B') and r['attempt'] == 'model_after_signal_reread'
+                       for r in inv.actor_rows()), 10)
+    refused = inv.turn('KLX-ROT-B after the disk switch', 'quota reserve gate refused')
+    resumed_b = inv.confirm()
+    h.record('switch_to_b', refused=refused, resumed_with_b_on_disk=resumed_b, status=inv.status())
+    inv.write_auth(a_text)
+    resumed_a = inv.confirm()
+    completed = inv.turn('KLX-ROT-A after switching back', 'KLX fixture reply KLX-ROT-A')
+    h.record('switch_back', resumed=resumed_a, completed=completed, status=inv.status())
+    inv.exit_tui()
+
+
+def stage_refresh(h):
+    """Case 8: native refresh through the gate's CONNECT allowlist (a), and no refresh path (b)."""
+    inv = Invocation(h, 'a', refresh='connect', hold=5.0, poll=2.0, lifetime=120)
+    inv.start_gate()
+    assert inv.preflight() is None
+    h.record('reader_refresh_attempts', refreshes=h.backend.count('refresh'))
+    inv.start_monitor()
+    inv.start_tui('KLX-REFRESH-A first turn')
+    completed = h.wait(lambda: 'KLX fixture reply KLX-REFRESH-A' in inv.screen(), 30)
+    h.record('connect_refresh', completed=completed, refreshes=h.backend.count('refresh'),
+             disk_label=inv.stored_label(), status=inv.status())
+    inv.spec['ca'] = inv.ca['ca']
+    inv.spec_path.write_text(json.dumps(inv.spec))
+    h.record('tunnel_running', exit=h.run_inside(inv, 'tunnel', '--out', str(inv.base / 'out' / 'tunnel-running.jsonl')))
+    h.backend.set_usage(A, 85, 40)
+    assert h.wait(lambda: inv.paused_events, 8)
+    h.record('tunnel_paused', exit=h.run_inside(inv, 'tunnel', '--out', str(inv.base / 'out' / 'tunnel-paused.jsonl')))
+    inv.exit_tui()
+    h.backend.set_usage(A, 25, 40)
+    nr = Invocation(h, 'b', refresh='none', hold=5.0, poll=2.0, lifetime=120, max_age=8, label='A5')
+    nr.start_gate()
+    assert nr.preflight() is None
+    nr.start_monitor()
+    nr.start_tui('KLX-NOREFRESH-1 first turn')
+    first = h.wait(lambda: 'KLX fixture reply KLX-NOREFRESH-1' in nr.screen(), 30)
+    h.record('no_refresh_first', completed=first, disk_label=nr.stored_label(), status=nr.status())
+    expired_at = time.monotonic()
+    h.backend.revoke(next(a for a, label in h.issued if label == 'A5'))
+    h.extra['expired_at'] = expired_at
+    stale = h.wait(lambda: nr.paused_events, 20)
+    h.record('no_refresh_stale', paused=stale, status=nr.status(),
+             seconds=round(time.monotonic() - expired_at, 2))
+    refused = nr.turn('KLX-NOREFRESH-2 after expiry', 'quota reserve gate refused')
+    h.record('no_refresh_refused', refused=refused, status=nr.status())
+    nr.exit_tui()
+
+
+def stage_startup(h):
+    """Case 11: every startup refusal happens before any model request; the TUI never starts."""
+    rows = []
+
+    def refusal(name, check):
+        try:
+            check()
+            rows.append({'case': name, 'refused': False})
+        except launcher.Refusal as error:
+            rows.append({'case': name, 'refused': True, 'message': str(error)})
+        h.record('startup_check', **rows[-1])
+
+    fake = h.root / 'old-codex'
+    fake.write_text('#!/bin/sh\necho "codex-cli 0.150.0"\n')
+    fake.chmod(0o700)
+    scratch = {'PATH': '/usr/bin:/bin', 'HOME': str(h.root), 'CODEX_HOME': str(h.root / 'version-home')}
+    (h.root / 'version-home').mkdir()
+
+    def version_of(binary):
+        return subprocess.run([binary, '--version'], env=scratch, capture_output=True, text=True, timeout=15,
+                              stdin=subprocess.DEVNULL).stdout
+    refusal('version-old', lambda: launcher.check_version(version_of(str(fake))))
+    refusal('version-real', lambda: launcher.check_version(version_of(h.binary)))
+    for argv in (['--remote', 'ws://127.0.0.1:9'], ['resume', '--last'], ['fork'], ['remote-control'],
+                 ['-c', 'chatgpt_base_url="https://example.invalid"'], ['--profile', 'other'],
+                 ['-c', 'model_providers.x.base_url="http://127.0.0.1:9"']):
+        refusal('args ' + ' '.join(argv), lambda argv=argv: launcher.check_args(argv))
+    refusal('args plain prompt', lambda: launcher.check_args(['KLX prompt']))
+    refusal('env refresh override', lambda: launcher.check_env({'CODEX_REFRESH_TOKEN_URL_OVERRIDE': 'x'}))
+    abi = None
+    try:
+        import ctypes
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.syscall.restype = ctypes.c_long
+        abi = libc.syscall(444, None, 0, 1)
+        abi = abi if abi > 0 else None
+    except OSError:
+        abi = None
+    host = {'system': platform.system(), 'machine': platform.machine(), 'landlock_abi': abi,
+            'legacy_tiocsti': launcher.read_legacy_tiocsti(), 'socket_stdio': []}
+    h.extra['host_probe'] = host
+    refusal('host actual', lambda: launcher.check_host(**host))
+    for name, change in (('host abi3', {'landlock_abi': 3}), ('host no landlock', {'landlock_abi': None}),
+                         ('host tiocsti', {'legacy_tiocsti': 1}), ('host arm64', {'machine': 'aarch64'}),
+                         ('host socket stdio', {'socket_stdio': [0]})):
+        refusal(name, lambda change=change: launcher.check_host(**{**host, **change}))
+    # Native boundary refusal with a socket on stdin: no native starts.
+    left, right = socket.socketpair()
+    result = subprocess.run(h.boundary(9, ['/bin/sh', '-c', 'echo native-started']), stdin=left,
+                            capture_output=True, text=True, timeout=15)
+    left.close()
+    right.close()
+    h.extra['socket_stdio_boundary'] = {'exit': result.returncode, 'stderr': result.stderr.strip()[-160:],
+                                        'native_started': 'native-started' in result.stdout}
+    h.record('socket_stdio_boundary', **h.extra['socket_stdio_boundary'])
+    wall = int(time.time())
+    win = fixtures.usage_body(A, UA, wall=wall)['rate_limit']
+    five, week = win['primary_window'], win['secondary_window']
+
+    def body(**changes):
+        value = fixtures.usage_body(A, UA, wall=wall)
+        for key, change in changes.items():
+            if key == 'rate':
+                value['rate_limit'].update(change)
+            else:
+                value[key] = change
+        return value
+
+    def slow(identity):
+        time.sleep(1.0)
+        return 200, body()
+    cases = [('missing-503', lambda identity: (503, {'error': 'fixture outage'}), {}),
+             ('malformed-non-json', lambda identity: (200, b'not json'), {}),
+             ('unsupported-family', lambda identity: (200, body(rate_limit=None)), {}),
+             ('unsupported-plan', lambda identity: (200, body(plan_type='fixture_unknown_plan')), {}),
+             ('weekly-missing', lambda identity: (200, body(rate={'secondary_window': None})), {}),
+             ('reset-in-past', lambda identity: (200, body(rate={'primary_window': dict(five, reset_at=wall - 7200)})), {}),
+             ('identity-mismatch', lambda identity: (200, body(account_id=B)), {}),
+             ('below-reserve', lambda identity: (200, body(rate={'primary_window': dict(five, used_percent=85)})), {}),
+             ('stale', slow, {'max_age': 0.5}),
+             ('passing-control', None, {})]
+    verdicts = []
+    for name, override, options in cases:
+        before = h.backend.count('model')
+        inv = Invocation(h, 'q-' + name, **options)
+        inv.start_gate()
+        h.backend.usage_override = override
+        verdict = inv.preflight()
+        h.backend.usage_override = None
+        verdicts.append({'case': name, 'verdict': verdict, 'model_requests': h.backend.count('model') - before,
+                         'tui_started': inv.tui is not None})
+        h.record('preflight_case', **verdicts[-1])
+        inv.stop()
+    h.extra['startup_checks'] = rows
+    h.extra['preflight_cases'] = verdicts
+    _ = week
+
+
+STAGES = {'pause': stage_pause, 'loss': stage_loss, 'restart': stage_restart, 'sessions': stage_sessions,
+          'rotation': stage_rotation, 'rotation_gate': lambda h: stage_rotation(h, self_read=True),
+          'refresh': stage_refresh, 'startup': stage_startup}
 
 
 def main(binary, stage):

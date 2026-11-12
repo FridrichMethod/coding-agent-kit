@@ -111,7 +111,8 @@ def preflight_verdict(status):
     if status.get('paused'):
         return 'quota:' + str(status.get('blocking') or status['paused'])
     if not status.get('ready'):
-        return 'quota:no-fresh-passing-observation'
+        outcome = status.get('last_outcome')
+        return 'quota:' + (outcome if outcome and outcome != 'fresh' else 'no-fresh-passing-observation')
     return None
 
 
