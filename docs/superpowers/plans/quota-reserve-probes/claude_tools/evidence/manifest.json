@@ -1,0 +1,41 @@
+{
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "stages": [
+    {
+      "mode": "guard",
+      "exit": 0,
+      "stdout": "loopback TCP: allowed\nnon-loopback or unsupported socket: blocked before network 2 1 101\nnon-loopback or unsupported socket: blocked before network 10 1 101\nnon-loopback or unsupported socket: blocked before network 2 2 101\nUnix socket pair: allowed\nexec descendant in new session: blocked\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"42\": 2, \"41\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "mode": "gate",
+      "exit": 0,
+      "stdout": "scratch <LOCAL>\ngate_ready {\"when\": 142653.329439445}\ngate_open {\"when\": 142653.330413595}\nversion {\"code\": 0, \"output\": \"2.1.322 (Claude Code)\"}\nauth_status {\"code\": 0, \"output\": \"{\\n  \\\"loggedIn\\\": true,\\n  \\\"authMethod\\\": \\\"claude.ai\\\",\\n  \\\"apiProvider\\\": \\\"firstParty\\\",\\n  \\\"analyticsDisabled\\\": true,\\n  \\\"projectsDirectory\\\": \\\"<LOCAL>/config/projects\\\",\\n  \\\"configDirectory\\\": \\\"<LOCAL>/config\\\",\\n  \\\"loginExpiresAt\\\": null,\\n  \\\"email\\\": \\\"tools@example.invalid\\\",\\n  \\\"orgId\\\": \\\"fixture-org\\\",\\n  \\\"orgName\\\": null,\\n  \\\"subscriptionType\\\": \\\"max\\\",\\n  \\\"storedClaudeAiLogin\\\": true,\\n  \\\"planTier\\\": \\\"max_5x\\\"\\n}\"}\nmodel_request {\"path\": \"/v1/messages?beta=true\", \"fixture_auth\": true, \"bash_available\": true}\ngate_forward {\"when\": 142653.737233231, \"request_id\": 1}\nfixed_tool_sent {\"command\": \"printf \\\"%s\\\\n\\\" \\\"$$\\\" > tool.pid; printf \\\"started\\\\n\\\" > started; sleep 4; printf \\\"finished\\\\n\\\" > finished; printf \\\"PA1T command finished\\\\n\\\"\"}\ngate_stream_closed {\"when\": 142653.738218867, \"request_id\": 1}\ntool_started {\"marker\": \"started\\n\", \"identity\": {\"pid\": 3270921, \"state\": \"S\", \"parent\": 3270801, \"group\": 3270921, \"session\": 3270921, \"start_ticks\": 14265376}, \"native_alive\": true, \"finished_present\": false}\ntool_children {\"identities\": [{\"pid\": 3270922, \"state\": \"S\", \"parent\": 3270921, \"group\": 3270921, \"session\": 3270921, \"start_ticks\": 14265377}]}\npause_requested {\"mode\": \"gate\"}\ngate_latched {\"when\": 142653.778596614, \"reason\": \"monitor_eof\", \"active_ids\": []}\ntool_shell_gone {\"identity\": null}\ntool_finished {\"marker\": \"finished\\n\", \"marker_elapsed_seconds\": 4.001021207}\ngate_reject {\"when\": 142657.789301156, \"old_queue\": false, \"later_prompt\": false}\ngate_reject {\"when\": 142658.336336381, \"old_queue\": false, \"later_prompt\": false}\ntool_observed {\"finished\": \"finished\\n\", \"identity\": null, \"same_identity_alive\": false, \"native_alive\": true, \"children\": [null]}\ntool_history {\"results\": [{\"content\": {\"tool_use_id\": \"tool_pa1t\", \"type\": \"tool_result\", \"content\": \"PA1T command finished\", \"is_error\": false}, \"toolUseResult\": {\"stdout\": \"PA1T command finished\", \"stderr\": \"\", \"interrupted\": false, \"isImage\": false, \"noOutputExpected\": false}}, {\"content\": {\"tool_use_id\": \"tool_pa1t\", \"type\": \"tool_result\", \"content\": \"PA1T command finished\\n\\n<system-reminder>\\n<total_tokens>14999980 tokens left</total_tokens>\\n</system-reminder>\", \"is_error\": false}, \"toolUseResult\": nu\ngate_reject {\"when\": 142659.141464898, \"old_queue\": false, \"later_prompt\": true}\nlater_prompt {\"native_alive\": true}\nhistory_view {\"native_alive\": true}\nnative_exit {\"exited\": true, \"code\": 0, \"termios_restored\": true}\ncredential_files {\"unchanged\": true}\nowned_cleanup {\"pid\": 3270782}\nfinal_tool_identity {\"identity\": null}\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 16}, \"root_exit\": 0}\n"
+    },
+    {
+      "mode": "interrupt",
+      "exit": 0,
+      "stdout": "scratch <LOCAL>\ngate_ready {\"when\": 142661.231087755}\ngate_open {\"when\": 142661.231976355}\nversion {\"code\": 0, \"output\": \"2.1.322 (Claude Code)\"}\nauth_status {\"code\": 0, \"output\": \"{\\n  \\\"loggedIn\\\": true,\\n  \\\"authMethod\\\": \\\"claude.ai\\\",\\n  \\\"apiProvider\\\": \\\"firstParty\\\",\\n  \\\"analyticsDisabled\\\": true,\\n  \\\"projectsDirectory\\\": \\\"<LOCAL>/config/projects\\\",\\n  \\\"configDirectory\\\": \\\"<LOCAL>/config\\\",\\n  \\\"loginExpiresAt\\\": null,\\n  \\\"email\\\": \\\"tools@example.invalid\\\",\\n  \\\"orgId\\\": \\\"fixture-org\\\",\\n  \\\"orgName\\\": null,\\n  \\\"subscriptionType\\\": \\\"max\\\",\\n  \\\"storedClaudeAiLogin\\\": true,\\n  \\\"planTier\\\": \\\"max_5x\\\"\\n}\"}\ngate_forward {\"when\": 142661.622435039, \"request_id\": 1}\nmodel_request {\"path\": \"/v1/messages?beta=true\", \"fixture_auth\": true, \"bash_available\": true}\nfixed_tool_sent {\"command\": \"printf \\\"%s\\\\n\\\" \\\"$$\\\" > tool.pid; printf \\\"started\\\\n\\\" > started; sleep 4; printf \\\"finished\\\\n\\\" > finished; printf \\\"PA1T command finished\\\\n\\\"\"}\ngate_stream_closed {\"when\": 142661.624498318, \"request_id\": 1}\ntool_started {\"marker\": \"started\\n\", \"identity\": {\"pid\": 3271778, \"state\": \"S\", \"parent\": 3271653, \"group\": 3271778, \"session\": 3271778, \"start_ticks\": 14266165}, \"native_alive\": true, \"finished_present\": false}\ntool_children {\"identities\": [{\"pid\": 3271780, \"state\": \"S\", \"parent\": 3271778, \"group\": 3271778, \"session\": 3271778, \"start_ticks\": 14266165}]}\npause_requested {\"mode\": \"interrupt\"}\ngate_latched {\"when\": 142661.669405875, \"reason\": \"monitor_eof\", \"active_ids\": []}\nnative_interrupt {\"key\": \"Ctrl-C\", \"identity\": {\"pid\": 3271778, \"state\": \"S\", \"parent\": 3271653, \"group\": 3271778, \"session\": 3271778, \"start_ticks\": 14266165}}\ntool_shell_gone {\"identity\": null}\ntool_observed {\"finished\": null, \"identity\": null, \"same_identity_alive\": false, \"native_alive\": true, \"children\": [{\"pid\": 3271780, \"state\": \"Z\", \"parent\": 3270693, \"group\": 3271778, \"session\": 3271778, \"start_ticks\": 14266165}]}\ntool_history {\"results\": [{\"content\": {\"type\": \"tool_result\", \"content\": \"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.\", \"is_error\": true, \"tool_use_id\": \"tool_pa1t\"}, \"toolUseResult\": \"User rejected tool use\"}]}\ngate_reject {\"when\": 142667.027556651, \"old_queue\": false, \"later_prompt\": true}\nlater_prompt {\"native_alive\": true}\nhistory_view {\"native_alive\": true}\nnative_exit {\"exited\": true, \"code\": 0, \"termios_restored\": true}\ncredential_files {\"unchanged\": true}\nowned_cleanup {\"pid\": 3271626}\nfinal_tool_identity {\"identity\": null}\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 16}, \"root_exit\": 0}\n"
+    }
+  ],
+  "sources": {
+    "claude_tools/run.py": "18c779289b66dc38caaef7456b95dd8f89fea7e895eb3e7c62a99dbd97d49715",
+    "claude_tools/probe.py": "e5e96ec43b136ebcfb7bc429dfe6d300dacb60948bd993777dbdb539872b2a30",
+    "pc/network_guard.py": "b1ced01775b5b1e23dc845c68f68faf856133356e38c6a75624be035a72ceee4",
+    "pc/guard_check.py": "0051902fd2d72e14c26d4522c37cdeb2c579a6feb84729663ce16de47944fb72",
+    "claude_control/gate.py": "174d04410113627799358e80f46bf2c9e60076339d09034c3de54d5d21475956",
+    "pc_loss/gate.py": "9fa9a5282db2cec35339e958680ea988311133b06acf7772686c36056dd35811"
+  },
+  "evidence_sha256": [
+    {
+      "file": "gate.json",
+      "sha256": "c8953b80387364f980e75f938a1e0cfc27a319d005a0f0f22f15f82e49540532"
+    },
+    {
+      "file": "interrupt.json",
+      "sha256": "998899b2cd0519deaa4a0359cc552337582253a508350cb644bbfb5fba461d86"
+    }
+  ]
+}

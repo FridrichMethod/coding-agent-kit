@@ -1,0 +1,191 @@
+{
+  "native_tui": true,
+  "mode": "interrupt",
+  "command": "printf \"%s\\n\" \"$$\" > tool.pid; printf \"started\\n\" > started; sleep 4; printf \"finished\\n\" > finished; printf \"PA1T command finished\\n\"",
+  "events": [
+    {
+      "at": 0.21056,
+      "event": "gate_ready",
+      "when": 142661.231087755
+    },
+    {
+      "at": 0.21141,
+      "event": "gate_open",
+      "when": 142661.231976355
+    },
+    {
+      "at": 0.24121,
+      "event": "version",
+      "code": 0,
+      "output": "2.1.322 (Claude Code)"
+    },
+    {
+      "at": 0.3457,
+      "event": "auth_status",
+      "code": 0,
+      "output": "{\n  \"loggedIn\": true,\n  \"authMethod\": \"claude.ai\",\n  \"apiProvider\": \"firstParty\",\n  \"analyticsDisabled\": true,\n  \"projectsDirectory\": \"<PROBE_ROOT>/config/projects\",\n  \"configDirectory\": \"<PROBE_ROOT>/config\",\n  \"loginExpiresAt\": null,\n  \"email\": \"tools@example.invalid\",\n  \"orgId\": \"fixture-org\",\n  \"orgName\": null,\n  \"subscriptionType\": \"max\",\n  \"storedClaudeAiLogin\": true,\n  \"planTier\": \"max_5x\"\n}"
+    },
+    {
+      "at": 0.60194,
+      "event": "gate_forward",
+      "when": 142661.622435039,
+      "request_id": 1
+    },
+    {
+      "at": 0.60242,
+      "event": "model_request",
+      "path": "/v1/messages?beta=true",
+      "fixture_auth": true,
+      "bash_available": true
+    },
+    {
+      "at": 0.6036,
+      "event": "fixed_tool_sent",
+      "command": "printf \"%s\\n\" \"$$\" > tool.pid; printf \"started\\n\" > started; sleep 4; printf \"finished\\n\" > finished; printf \"PA1T command finished\\n\""
+    },
+    {
+      "at": 0.60384,
+      "event": "gate_stream_closed",
+      "when": 142661.624498318,
+      "request_id": 1
+    },
+    {
+      "at": 0.64852,
+      "event": "tool_started",
+      "marker": "started\n",
+      "identity": {
+        "pid": 3271778,
+        "state": "S",
+        "parent": 3271653,
+        "group": 3271778,
+        "session": 3271778,
+        "start_ticks": 14266165
+      },
+      "native_alive": true,
+      "finished_present": false
+    },
+    {
+      "at": 0.64859,
+      "event": "tool_children",
+      "identities": [
+        {
+          "pid": 3271780,
+          "state": "S",
+          "parent": 3271778,
+          "group": 3271778,
+          "session": 3271778,
+          "start_ticks": 14266165
+        }
+      ]
+    },
+    {
+      "at": 0.6486,
+      "event": "pause_requested",
+      "mode": "interrupt"
+    },
+    {
+      "at": 0.64878,
+      "event": "gate_latched",
+      "when": 142661.669405875,
+      "reason": "monitor_eof",
+      "active_ids": []
+    },
+    {
+      "at": 0.67387,
+      "event": "native_interrupt",
+      "key": "Ctrl-C",
+      "identity": {
+        "pid": 3271778,
+        "state": "S",
+        "parent": 3271653,
+        "group": 3271778,
+        "session": 3271778,
+        "start_ticks": 14266165
+      }
+    },
+    {
+      "at": 0.69907,
+      "event": "tool_shell_gone",
+      "identity": null
+    },
+    {
+      "at": 5.68193,
+      "event": "tool_observed",
+      "finished": null,
+      "identity": null,
+      "same_identity_alive": false,
+      "native_alive": true,
+      "children": [
+        {
+          "pid": 3271780,
+          "state": "Z",
+          "parent": 3270693,
+          "group": 3271778,
+          "session": 3271778,
+          "start_ticks": 14266165
+        }
+      ]
+    },
+    {
+      "at": 5.68539,
+      "event": "tool_history",
+      "results": [
+        {
+          "content": {
+            "type": "tool_result",
+            "content": "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.",
+            "is_error": true,
+            "tool_use_id": "tool_pa1t"
+          },
+          "toolUseResult": "User rejected tool use"
+        }
+      ]
+    },
+    {
+      "at": 6.00696,
+      "event": "gate_reject",
+      "when": 142667.027556651,
+      "old_queue": false,
+      "later_prompt": true
+    },
+    {
+      "at": 6.18568,
+      "event": "later_prompt",
+      "native_alive": true
+    },
+    {
+      "at": 6.78599,
+      "event": "history_view",
+      "native_alive": true
+    },
+    {
+      "at": 7.38667,
+      "event": "native_exit",
+      "exited": true,
+      "code": 0,
+      "termios_restored": true
+    },
+    {
+      "at": 7.38676,
+      "event": "credential_files",
+      "unchanged": true
+    },
+    {
+      "at": 7.3868,
+      "event": "owned_cleanup",
+      "pid": 3271626
+    },
+    {
+      "at": 7.38896,
+      "event": "final_tool_identity",
+      "identity": null
+    }
+  ],
+  "outcome": {
+    "completed": false,
+    "ended_without_completion": true,
+    "terminated": false,
+    "cleanup_before_observation": false
+  },
+  "terminal": "\u001b7\u001b[r\u001b8\u001b[?25h\u001b[?2004h\u001b[?2031h\u001b[?1004h\u001b]0;\u2733 Claude Code\u0007\u001b[?1049h\u001b[2J\u001b[H\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b[?25l\u001b[?25l\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\u001b[12G\u001b[39m\u001b[49m\u001b[1mClaude Code\u001b[24G\u001b[22m\u001b[38;5;246mv2.1.322\r\u001b[1B\u001b[38;5;174m\u259d\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u2580\u001b[12G\u001b[38;5;246mSonnet 4.6 \u00b7 Claude Max\r\u001b[1B\u001b[38;5;174m \u259d\u259d   \u259d\u259d \u001b[12G\u001b[38;5;246m<PROBE_ROOT>/workspace\r\u001b[3B\u001b[48;5;237m\u276f \u001b[38;5;231mFixture local tool\u001b[39m                                                                                                    \r\u001b[28B\u001b[49m\u001b[38;5;174m\u00b7\u001b[3GHyperspacing\u2026 \r\u001b[102C\u001b[1B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[37B\u001b[38;5;246m\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[>0q\u001b[?u\u001b]7501;?\u0007\u001b[c\u001b[H\r\u001b[8B\u001b[38;5;246m\u25cf\u001b[3G\u001b[39mFixed\u001b[9Gprivate\u001b[17Gfixture\u001b[25Gmarkers\u001b[33Gand\u001b[37Gfour-second\u001b[49Gsleep\r\u001b[1B\u001b[38;5;246m  \u23bf  $ printf \"%s\\n\" \"$$\" > tool.pid; printf \"started\\n\" > started; sleep 4; printf \"finished\\n\" > finished; printf \r\u001b[5C\u001b[1B\"PA1T command finished\\n\"\r\u001b[2C\u001b[24B\u001b[38;5;180mDiscombobulating\u2026\u001b[38;5;174m \u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[20C\u001b[34B\u001b[38;5;246m(0s \u00b7 \u2193\u001b[29G25 tokens)\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u259f\u001b[7G\u2588\u259f\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[4C\u001b[1B\u001b[38;5;246m\u00a0Interrupted \u00b7 What should Clau\u001b[37Ge\u001b[39Gdo instead?\u001b[39m\u001b[K\r\u001b[5C\u001b[1B\u001b[K\r\u001b[24B\u001b[K\r\u001b[3B\u276f\u00a0\r\u001b[21C\u001b[2B\u001b[38;5;246m? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259f\u2588\u001b[7G\u259f\u2588\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[7G\u259b\u001b[39m\u001b[49m\u001b[40;1H\u001b[38;3H\u001b(B\u000f\u001b[?2004h\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b[H\r\u001b[2C\u001b[39B\u001b[38;5;246mPress Ctrl-C again\u001b[22Gto exit\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[8B\u001b[38;5;246m\u25cf\u001b[3G\u001b[39mRunning \u001b[1m1\u001b[22m shell command\u2026\r\u001b[2B\u001b[38;5;246m  \u23bf  $ printf \"%s\\n\" \"$$\" > tool.pid; printf \"started\\n\" > started; sleep 4; printf \"finished\\n\" > finished; printf \r\u001b[5C\u001b[1B\"PA1T command finished\\n\"\r\u001b[2B\u001b[48;5;237m\u276f \u001b[38;5;231mFixture later prompt\u001b[39m                                                                                                  \r\u001b[20B\u001b[49m\u001b[38;5;174m\u2736\u001b[3GDilly-dallying\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits\r\u001b[3B\u276f\u00a0\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[2B\u001b[K\r\u001b[1B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231mFixture later prompt\u001b[39m                                                                                                  \r\u001b[2B\u001b[49m\u001b[K\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[33B\u001b[K\r\u001b[1B\u001b[38;5;211m\u273b\u001b[39m \u001b[38;5;211mAPI error\u001b[38;5;246m \u00b7 Retrying in 1s \u00b7 attempt\u001b[40G1/10\u001b[39m\u001b[K\u001b[40;1H\u001b[38;3H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[34B\u001b[K\r\u001b[3B\u276f\u00a0\u001b[40;1H\u001b[38;3H\u001b[H\r\u001b[11B\u001b[K\r\u001b[2C\u001b[26BFixture\u001b[11Glater\u001b[17Gprompt\u001b[7m \u001b[27m\u001b[40;1H\u001b[38;23H\u001b[H\r\u001b[8B\u001b[38;5;211m\u25cf\u001b[3G\u001b[39m\u001b[1mBash\u001b[22m(printf \"%s\\n\" \"$$\"\u001b[27G>\u001b[29Gtool.pid;\u001b[39Gprintf\u001b[46G\"started\\n\"\u001b[58G>\u001b[60Gstarted;\u001b[69Gsleep\u001b[75G4;\u001b[78Gprintf\u001b[85G\"finished\\n\"\u001b[98G>\u001b[100Gfinished;\u001b[110Gprintf\r\u001b[1B      \"PA1T command finished\\n\")\u001b[K\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[102C\u001b[25B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[2m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[22m\u001b[38;5;246mShowing detailed transcr\u001b[28Gpt \u00b7 ctrl+o to toggle \u00b7 \u2191\u2193 scroll \u00b7 v to open in code \u00b7 ? for shortcuts\u001b[113Gverbose \u001b[39m\u001b[40;1H\u001b[H\r\u001b[8B \u001b[3G\u001b[38;5;246mRan \u001b[1m1\u001b[22m shell command \u001b[39m\u001b[K\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[1B\u001b[39m\u001b[K\r\u001b[102C\u001b[25B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0Fixture\u001b[11Glater\u001b[17Gprompt\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on\u001b[39m\u001b[K\u001b[40;1H\u001b[38;23H\u001b[H\r\u001b[2C\u001b[37B\u001b[7m \u001b[27m\u001b[K\r\u001b[2C\u001b[2B\u001b[38;5;246mPress Ctrl-C again to exit\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume 64fcbcec-b479-4a70-b3e1-cfd9467cc89b\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h"
+}
