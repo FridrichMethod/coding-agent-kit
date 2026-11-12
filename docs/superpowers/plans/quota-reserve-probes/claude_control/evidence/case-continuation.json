@@ -1,0 +1,570 @@
+{
+  "native_tui": true,
+  "mode": "continuation",
+  "events": [
+    {
+      "at": 0.009,
+      "event": "shared_source",
+      "name": "control",
+      "sha256": "8b98eee39bd83b7769356db3fb49bcfefe8423da28cb4942430a9bad5e218dad"
+    },
+    {
+      "at": 0.0099,
+      "event": "shared_source",
+      "name": "gate",
+      "sha256": "045fafde6a9472e044fb747a8a81fabc40a31df79710216ee6d47c6912a6e8cb"
+    },
+    {
+      "at": 0.0117,
+      "event": "fake_quota_request",
+      "account": "fixture-owned",
+      "remaining": [
+        80,
+        80
+      ],
+      "sequence": 1,
+      "server_at": 139636.035183227
+    },
+    {
+      "at": 0.0121,
+      "event": "fake_quota_check",
+      "passed": true,
+      "sequence": 1
+    },
+    {
+      "at": 0.0122,
+      "event": "gate_grant",
+      "grant": 1,
+      "seconds": 20
+    },
+    {
+      "at": 0.2284,
+      "event": "auth_status",
+      "name": "owned",
+      "exit": 0,
+      "data": {
+        "loggedIn": true,
+        "authMethod": "claude.ai",
+        "apiProvider": "firstParty",
+        "analyticsDisabled": true,
+        "projectsDirectory": "<PROBE_ROOT>/owned/config/projects",
+        "configDirectory": "<PROBE_ROOT>/owned/config",
+        "loginExpiresAt": null,
+        "email": "owned@example.invalid",
+        "orgId": "fixture-org-owned",
+        "orgName": null,
+        "subscriptionType": "max",
+        "storedClaudeAiLogin": true,
+        "planTier": "max_5x"
+      }
+    },
+    {
+      "at": 0.5468,
+      "event": "gate_forward",
+      "request_id": 1,
+      "grant": 1
+    },
+    {
+      "at": 0.5478,
+      "event": "model_request",
+      "request_id": 1,
+      "kind": "root",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "1",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [],
+      "manually_continued": false
+    },
+    {
+      "at": 0.548,
+      "event": "fabricated_tool",
+      "kind": "root",
+      "name": "Agent",
+      "arguments": {
+        "description": "Fixture child",
+        "prompt": "Fixture child",
+        "subagent_type": "general-purpose"
+      }
+    },
+    {
+      "at": 0.5764,
+      "event": "gate_forward",
+      "request_id": 2,
+      "grant": 1
+    },
+    {
+      "at": 0.5769,
+      "event": "model_request",
+      "request_id": 2,
+      "kind": "child",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "2",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [],
+      "manually_continued": false
+    },
+    {
+      "at": 0.577,
+      "event": "fabricated_tool",
+      "kind": "child",
+      "name": "Agent",
+      "arguments": {
+        "description": "Fixture grandchild",
+        "prompt": "Fixture grandchild",
+        "subagent_type": "general-purpose"
+      }
+    },
+    {
+      "at": 0.5798,
+      "event": "bootstrap",
+      "ready": true,
+      "native_alive": true
+    },
+    {
+      "at": 0.6049,
+      "event": "gate_forward",
+      "request_id": 3,
+      "grant": 1
+    },
+    {
+      "at": 0.606,
+      "event": "model_request",
+      "request_id": 3,
+      "kind": "child",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "3",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [
+        {
+          "tool_use_id": "tool_fixture_child",
+          "agent_ids": [
+            "a4353d940d35b80e9"
+          ],
+          "background": true
+        }
+      ],
+      "manually_continued": false
+    },
+    {
+      "at": 0.6061,
+      "event": "gate_forward",
+      "request_id": 4,
+      "grant": 1
+    },
+    {
+      "at": 0.607,
+      "event": "model_request",
+      "request_id": 4,
+      "kind": "grandchild",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "4",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [],
+      "manually_continued": false
+    },
+    {
+      "at": 0.6175,
+      "event": "gate_forward",
+      "request_id": 5,
+      "grant": 1
+    },
+    {
+      "at": 0.6212,
+      "event": "model_request",
+      "request_id": 5,
+      "kind": "root",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "5",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [
+        {
+          "tool_use_id": "tool_fixture_root",
+          "agent_ids": [
+            "a02537ba28d47391c"
+          ],
+          "background": true
+        }
+      ],
+      "manually_continued": false
+    },
+    {
+      "at": 0.6299,
+      "event": "nested",
+      "observed": true
+    },
+    {
+      "at": 0.8301,
+      "event": "gate_pause",
+      "reason": "quota",
+      "active_ids": [
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "at": 0.8302,
+      "event": "control_display",
+      "message": "Paused. Research F12 control requires a new typed confirmation."
+    },
+    {
+      "at": 0.8305,
+      "event": "control_display",
+      "message": "Type e4f4854b then Enter to request a fresh quota check."
+    },
+    {
+      "at": 0.8308,
+      "event": "control_display",
+      "message": "Type 0a364214 then Enter to request a fresh quota check."
+    },
+    {
+      "at": 0.8315,
+      "event": "fake_quota_request",
+      "account": "fixture-owned",
+      "remaining": [
+        10,
+        10
+      ],
+      "sequence": 2,
+      "server_at": 139636.854987537
+    },
+    {
+      "at": 0.832,
+      "event": "fake_quota_check",
+      "passed": false,
+      "sequence": 2
+    },
+    {
+      "at": 0.832,
+      "event": "control_display",
+      "message": "Still paused; request a new confirmation to retry."
+    },
+    {
+      "at": 1.0079,
+      "event": "stream_disconnected",
+      "request_id": 3,
+      "kind": "child"
+    },
+    {
+      "at": 1.0086,
+      "event": "stream_disconnected",
+      "request_id": 4,
+      "kind": "grandchild"
+    },
+    {
+      "at": 1.0225,
+      "event": "stream_disconnected",
+      "request_id": 5,
+      "kind": "root"
+    },
+    {
+      "at": 1.1751,
+      "event": "gate_reject",
+      "old_queue": true,
+      "programmatic": false
+    },
+    {
+      "at": 1.1825,
+      "event": "manual_negative_controls",
+      "stale_buffer_ignored": true,
+      "paste_ignored": true,
+      "bad_quota_denied": true,
+      "recovery_did_not_grant": true,
+      "old_queue_rejected": true
+    },
+    {
+      "at": 1.1827,
+      "event": "control_display",
+      "message": "Type 4bf7c069 then Enter to request a fresh quota check."
+    },
+    {
+      "at": 1.1836,
+      "event": "fake_quota_request",
+      "account": "fixture-owned",
+      "remaining": [
+        80,
+        80
+      ],
+      "sequence": 3,
+      "server_at": 139637.20708107
+    },
+    {
+      "at": 1.184,
+      "event": "fake_quota_check",
+      "passed": true,
+      "sequence": 3
+    },
+    {
+      "at": 1.184,
+      "event": "gate_grant",
+      "grant": 2,
+      "seconds": 20
+    },
+    {
+      "at": 1.184,
+      "event": "control_display",
+      "message": "Fresh quota check passed; one healthy lease granted."
+    },
+    {
+      "at": 1.3579,
+      "event": "gate_forward",
+      "request_id": 6,
+      "grant": 2
+    },
+    {
+      "at": 1.3585,
+      "event": "model_request",
+      "request_id": 6,
+      "kind": "child",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "6",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [
+        {
+          "tool_use_id": "tool_fixture_child",
+          "agent_ids": [
+            "a4353d940d35b80e9"
+          ],
+          "background": true
+        }
+      ],
+      "manually_continued": false
+    },
+    {
+      "at": 1.4078,
+      "event": "gate_forward",
+      "request_id": 7,
+      "grant": 2
+    },
+    {
+      "at": 1.4085,
+      "event": "model_request",
+      "request_id": 7,
+      "kind": "root",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "7",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [
+        {
+          "tool_use_id": "tool_fixture_root",
+          "agent_ids": [
+            "a02537ba28d47391c"
+          ],
+          "background": true
+        }
+      ],
+      "manually_continued": true
+    },
+    {
+      "at": 1.4178,
+      "event": "gate_forward",
+      "request_id": 8,
+      "grant": 2
+    },
+    {
+      "at": 1.4184,
+      "event": "model_request",
+      "request_id": 8,
+      "kind": "grandchild",
+      "path": "/v1/messages?beta=true",
+      "gate_id": "8",
+      "model": "claude-sonnet-4-6",
+      "agent_fields": [
+        "description",
+        "effort",
+        "isolation",
+        "model",
+        "prompt",
+        "subagent_type"
+      ],
+      "fixture_auth": true,
+      "tool_results": [],
+      "manually_continued": false
+    },
+    {
+      "at": 1.5847,
+      "event": "manual_continuation",
+      "native_alive": true,
+      "grants": 2,
+      "fake_quota_only": true,
+      "physical_human_verified": false
+    },
+    {
+      "at": 1.5848,
+      "event": "gate_pause",
+      "reason": "second_pause",
+      "active_ids": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "at": 1.585,
+      "event": "control_display",
+      "message": "Paused. Research F12 control requires a new typed confirmation."
+    },
+    {
+      "at": 1.592,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": false
+    },
+    {
+      "at": 1.5923,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": false
+    },
+    {
+      "at": 1.6852,
+      "event": "outer_terminal",
+      "native_output_visible": true,
+      "notice_visible": true,
+      "confirmation_visible": true
+    },
+    {
+      "at": 1.7101,
+      "event": "stream_disconnected",
+      "request_id": 7,
+      "kind": "root"
+    },
+    {
+      "at": 1.7203,
+      "event": "stream_disconnected",
+      "request_id": 8,
+      "kind": "grandchild"
+    },
+    {
+      "at": 1.7602,
+      "event": "stream_disconnected",
+      "request_id": 6,
+      "kind": "child"
+    },
+    {
+      "at": 2.1116,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": false
+    },
+    {
+      "at": 2.1866,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": false
+    },
+    {
+      "at": 3.2468,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": false
+    },
+    {
+      "at": 3.2865,
+      "event": "gate_reject",
+      "old_queue": false,
+      "programmatic": false
+    },
+    {
+      "at": 3.6854,
+      "event": "after_interrupt",
+      "native_alive": true,
+      "active_kinds": []
+    },
+    {
+      "at": 3.9857,
+      "event": "history_view",
+      "native_alive": true
+    },
+    {
+      "at": 4.3141,
+      "event": "gate_reject",
+      "old_queue": true,
+      "programmatic": false
+    },
+    {
+      "at": 5.1865,
+      "event": "native_exit",
+      "exited": true,
+      "code": 0,
+      "termios_restored": true
+    },
+    {
+      "at": 5.1867,
+      "event": "credential_files",
+      "unchanged": true
+    },
+    {
+      "at": 5.4233,
+      "event": "gate_pause",
+      "reason": "cleanup",
+      "active_ids": []
+    }
+  ],
+  "terminal": [
+    "\u001b7\u001b[r\u001b8\u001b[?25h\u001b[?2004h\u001b[?2031h\u001b[?1004h\u001b]0;\u2733 Claude Code\u0007\u001b[?1049h\u001b[2J\u001b[H\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b[?25l\u001b[?25l\u001b[H\r\u001b[1B\u001b[38;5;174m \u2590\u001b[48;5;16m\u259b\u2588\u2588\u2588\u259b\u2588\u001b[12G\u001b[39m\u001b[49m\u001b[1mClaude Code\u001b[24G\u001b[22m\u001b[38;5;246mv2.1.322\r\u001b[1B\u001b[38;5;174m\u259d\u259c\u001b[48;5;16m\u2588\u2588\u2588\u2588\u2588\u001b[49m\u2588\u2580\u001b[12G\u001b[38;5;246mSonnet 4.6 \u00b7 Claude Max\r\u001b[1B\u001b[38;5;174m \u259d\u259d   \u259d\u259d \u001b[12G\u001b[38;5;246m<PROBE_ROOT>/owned/workspace\r\u001b[3B\u001b[48;5;237m\u276f \u001b[38;5;231mFixture root\u001b[39m                                                                                                          \r\u001b[28B\u001b[49m\u001b[38;5;174m\u00b7\u001b[3GInferring\u2026 \r\u001b[102C\u001b[1B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on \u00b7 ? for shortcuts \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[37B\u001b[38;5;246m\u276f\u00a0\r\u001b[21C\u001b[2Besc to interrupt \u00b7 \u2190 for agents\u001b[39m\u001b[40;1H\u001b[38;3H\u001b[>0q\u001b[?u\u001b]7501;?\u0007\u001b[c\u001b[H\r\u001b[8B\u001b[38;5;114m\u25cf\u001b[3G\u001b[39m\u001b[1mAgent\u001b[22m(Fixture\u001b[17Gchild)\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0\u001b[39mBackgrounded\u001b[19Gagent\u001b[38;5;246m (\u2193 to manage \u00b7 ctrl+o to expand)\r\u001b[22B\u001b[38;5;174m\u00b7\u001b[3G\u001b[38;5;180mSprouting\u2026\u001b[38;5;174m \u001b[38;5;246m(0s \u00b7 \u2193\u001b[22G7 tokens)\r\u001b[102C\u001b[1B\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[38;5;246m\u276f\u00a0\u001b[39m\u001b[7m \u001b[27m\u001b[K\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m  \u001b[38;5;246m\u23f8 manual mode on \u00b7 esc to interrupt \u00b7 \u2190 for agents \u00b7 \u2193 to manage\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[1m  \u25cf main\u001b[22m\u001b[K\r\u001b[1B\u001b[38;5;246m  \u25ef\u001b[5Gge\u001b[8Geral-purp\u001b[18Gse\u001b[39m  \u001b[38;5;246mFixture child\u001b[39m                  \u001b[117G\u001b[38;5;246m0s\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u259c\u001b[9G\u001b[49m \r\u001b[19C\u001b[38B\u001b[38;5;246m (+1)\u001b[39m  \u001b[38;5;246mFixture child\u001b[103G0s \u00b7 \u2193 36 token\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[31B\u001b[38;5;174mSprouting\u2026\r\u001b[109C\u001b[8B\u001b[38;5;246m41\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[11B\u001b[48;5;237m\u001b[38;5;246m\u276f Fixture previously queued prompt\u001b[39m                                                                                      \r\u001b[2C\u001b[23B\u001b[49m\u001b[7mP\u001b[27m\u001b[2mress up to edit queued messages\u001b[22m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[12B\u001b[38;5;246mctrl+x ctrl+s to send now\r\u001b[19B\u001b[38;5;174m\u2722\u001b[22G\u001b[38;5;246m9\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m \u001b[4G\u001b[48;5;16m\u259b\u001b[8G\u001b[49m\u258c\r\u001b[1B \u259d\u001b[8G\u259b \r\u001b[1C\u001b[1B \u2598\u2598\u001b[7G\u2598\u2598\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[11B\u001b[38;5;231m\u25cf\u001b[39m\u001b[K\r\u001b[2C\u001b[1B\u001b[K\r\u001b[1B\u001b[48;5;237m\u001b[38;5;246m\u276f Fixture previously queued prompt\u001b[39m                                                                                      \r\u001b[2C\u001b[1B\u001b[49m\u001b[38;5;246mctrl+x ctrl+s to send now\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[48;5;16m\u2588\u259b\u001b[7G\u259c\u001b[49m \r\u001b[1C\u001b[1B \u2590\u001b[8G \r\u001b[2C\u001b[1B\u259d\u259d\u001b[6G\u259d\u259d \u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[21C\u001b[31B\u001b[38;5;246m10 tokens)\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m \u001b[5G\u001b[48;5;16m\u2588\u259b\u001b[49m\u258c\r\u001b[2C\u001b[1B \u001b[7G\u258c\r\u001b[2C\u001b[1B \u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[11B\u001b[48;5;237m\u001b[38;5;246m\u276f Fixture previously queued prompt\u001b[39m                                                                                      \r\u001b[2C\u001b[1B\u001b[49m\u001b[38;5;246mctrl+x ctrl+s to send now\r\u001b[1B\u001b[39m\u001b[K\r\u001b[2C\u001b[1B\u001b[K\r\u001b[17B\u001b[38;5;211m\u273b\u001b[3GAPI error\u001b[38;5;246m \u00b7 Retrying in 1s \u00b7 attempt 1/10\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[30B\u001b[38;5;211m\u273b\u001b[3GAPI error\u001b[38;5;246m \u00b7 Retrying in 1s \u00b7 attempt 1/10\r\u001b[1B\u001b[39m \u001b[3G                                         \u001b[94G\u001b[38;5;246mctrl+g to edit in VS Code\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[38;5;246m\u276f\u00a0\u001b[39me4f4854b\u001b[K\r\u001b[1B  \u001b[7m \u001b[27m\u001b[K\r\u001b[18C\u001b[2B\u001b[K\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[38;5;174m\u2590\u001b[6G\u001b[48;5;16m\u2588\u001b[49m \r\u001b[3C\u001b[1B\u2590\u001b[7G \r\u001b[3C\u001b[1B\u259d\u001b[6G\u259d \u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u001b[48;5;16m\u2588\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[7G\u001b[48;5;16m\u2588\r\u001b[2C\u001b[1B\u001b[49m\u2590\u001b[7G\u001b[48;5;16m\u2588\r\u001b[2C\u001b[1B\u001b[49m\u259d\u259d\u001b[6G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u2588\u001b[8G\u001b[49m\u258c\r\u001b[1C\u001b[1B\u259d\u001b[48;5;16m\u2588\u001b[8G\u001b[49m\u259b\r\u001b[2C\u001b[1B\u2598\u2598\u001b[6G \u2598\u2598\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m\u2590\u001b[8G\u001b[48;5;16m\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[8G\u2588\u2580\r\u001b[1C\u001b[1B\u259d\u259d \u001b[7G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[10B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[1B\u001b[39m\u001b[K\r\u001b[1B\u001b[48;5;237m\u001b[38;5;246m\u276f Fixture previously queued prompt\u001b[39m                                                                                      \r\u001b[18B\u001b[49m\u001b[38;5;174m\u273b\u001b[3GFrolicking\u2026 \u001b[38;5;246m(0s \u00b7 \u2193\u001b[39m \u001b[38;5;246m15 tokens)\u001b[39m\u001b[K\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[30B\u001b[38;5;211m\u273b\u001b[3GAPI error\u001b[38;5;246m \u00b7 Retrying in 1s \u00b7 attempt 1/10\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[12B\u001b[48;5;237m\u001b[38;5;231mFixture previously queued prompt\r\u001b[1B\u001b[49m\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[17B\u001b[39m\u001b[K\r\u001b[3B\u276f\u00a0\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m \u001b[8G\u258c\r\u001b[1B \u259d\u001b[8G\u259b \r\u001b[1C\u001b[1B \u2598\u2598\u001b[7G\u2598\u2598\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[8G \r\u001b[1C\u001b[1B \u2590\u001b[8G \r\u001b[2C\u001b[1B\u259d\u259d\u001b[6G\u259d\u259d \u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m \u001b[7G\u258c\r\u001b[2C\u001b[1B \u001b[7G\u258c\r\u001b[2C\u001b[1B \u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[110C\u001b[39B\u001b[38;5;246m6\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[15B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231me4f4854bFixture manually continued\u001b[39m                                                                                    \r\u001b[15B\u001b[49m\u001b[38;5;174m\u273d\u001b[3GMustering\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its su\u001b[100Ggest\u001b[106G ed\u001b[110Gts\u001b[39m\u001b[K\r\u001b[1B                                                                                                      \u001b[38;5;246m\u25cf high \u00b7 /effort\u001b[39m\u001b[K\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[38;5;246m\u276f\u00a0\r\u001b[18C\u001b[2B \u00b7 esc to interrupt \u00b7 \u2190 for agents \u00b7 \u2193 to manage\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[38;5;174m\u2590\u001b[7G \r\u001b[3C\u001b[1B\u2590\u001b[7G \r\u001b[3C\u001b[1B\u259d\u001b[6G\u259d \u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[13C\u001b[30B\u001b[38;5;246m(0s \u00b7 \u2193\u001b[22G2 tokens)\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[3C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u001b[48;5;16m\u2588\u001b[7G\u001b[49m\u258c\r\u001b[3C\u001b[1B\u2598\u001b[6G \u2598\u001b[39m\u001b[40;1H\u001b[35;3H\u001b]0;\u25d1 Claude Code\u0007\u001b[H\r\u001b[17B\u001b[38;5;231m\u25cf\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[38;5;174m\u2590\u001b[48;5;16m\u259c\u259b\u001b[7G\u2588\r\u001b[2C\u001b[1B\u001b[49m\u2590\u001b[7G\u001b[48;5;16m\u2588\r\u001b[2C\u001b[1B\u001b[49m\u259d\u259d\u001b[6G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[21C\u001b[30B\u001b[38;5;246m3\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[102C\u001b[39B\u001b[38;5;246m1\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[2C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u2588\u2588\u259b\u001b[8G\u001b[49m\u258c\r\u001b[1C\u001b[1B\u259d\u001b[48;5;16m\u2588\u001b[8G\u001b[49m\u259b\r\u001b[2C\u001b[1B\u2598\u2598\u001b[6G \u2598\u2598\r\u001b[14B\u001b[39m\u001b[K\r\u001b[13B\u001b[K\r\u001b[1B\u001b[38;5;211m\u273b\u001b[39m \u001b[38;5;211mAPI error\u001b[38;5;246m \u00b7 Retrying in 1s \u00b7 attempt\u001b[40G1/10\u001b[39m\u001b[K\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[1C\u001b[1B\u001b[38;5;174m\u2590\u001b[6G\u001b[48;5;16m\u2588\u259c\u2588\r\u001b[1B\u001b[49m\u259d\u259c\u001b[8G\u2588\u2580\r\u001b[1C\u001b[1B\u259d\u259d \u001b[7G\u259d\u259d\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[H\r\u001b[15B\u001b[K\r\u001b[16B\u001b[K\r\u001b[3B\u276f\u00a0e4f4854bFixture\u001b[19Gmanually\u001b[28Gcontinued\u001b[7m \r\u001b[18C\u001b[2B\u001b[27m\u001b[K\u001b[40;1H\u001b[35;37H\u001b[H\r\u001b[6C\u001b[1B\u001b[48;5;16m\u001b[38;5;174m\u259b\u001b[9G\u001b[39m\u001b[49m \u001b[40;1H\u001b[35;37H\u001b]0;\u25d0 Claude Code\u0007\u001b[H\r\u001b[102C\u001b[39B\u001b[38;5;246m2\u001b[39m\u001b[40;1H\u001b[35;37H\u001b]0;\u25d1 Claude Code\u0007\u001b[H\r\u001b[102C\u001b[39B\u001b[38;5;246m3\u001b[39m\u001b[40;1H\u001b[35;37H\u001b[H\r\u001b[23C\u001b[9B\u001b[K\r\u001b[5C\u001b[1B\u001b[38;5;114m\u001b[1mPrompt:\u001b[22m\u001b[39m\u001b[K\r\u001b[7C\u001b[1BFixture\u001b[16Gchild\r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231mFixture previously queued prompt\u001b[39m                                                                                      \r\u001b[1B\u001b[49m\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[102C\u001b[17B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[K\r\u001b[1B\u001b[K\r\u001b[2C\u001b[1B\u001b[K\r\u001b[2B\u001b[2m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[22m  \u001b[38;5;246mShowing detailed transcript \u00b7 ctrl+o to toggle \u00b7 \u2191\u2193 scroll \u00b7 v to open in code \u00b7 ? for shortcuts\u001b[103G\u001b[39m          \u001b[38;5;246mverbo\u001b[119Ge \u001b[39m\u001b[40;1H\u001b[H\r\u001b[23C\u001b[9B\u001b[38;5;246m (\u2193 to manage \u00b7 ctrl+o to expand)\r\u001b[5C\u001b[1BInterrupted \u00b7 What should Claude do instead?\r\u001b[7C\u001b[1B\u001b[39m\u001b[K\r\u001b[1B\u001b[48;5;237m\u001b[38;5;246m\u276f \u001b[38;5;231mFixture previously queued prompt\u001b[39m                                                                                      \r\u001b[1B\u001b[49m\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[1B\u001b[39m\u001b[K\r\u001b[1B\u001b[K\r\u001b[102C\u001b[17B\u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[1B\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[1B\u001b[39m\u276f\u00a0e4f4854bFixture\u001b[19Gmanually\u001b[28Gcontinued\u001b[7m \r\u001b[1B\u001b[27m\u001b[38;5;244m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\u001b[2C\u001b[1B\u001b[38;5;246m\u23f8 manual mode on\r\u001b[2B\u001b[39m\u001b[1m  \u25cf main\u001b[22m\u001b[K\r\u001b[1B\u001b[38;5;246m  \u25ef general-purpose (+1)\u001b[39m  \u001b[38;5;246mFixture child\u001b[39m                                                           \u001b[103G\u001b[38;5;246m3s \u00b7 \u2193 46 token\u001b[119G\u001b[39m\u001b[K\u001b[40;1H\u001b[35;37H\u001b[H\r\u001b[67C\u001b[32B\u001b[38;5;246mPress ctrl+x ctrl+k again to stop background agents\u001b[39m\u001b[40;1H\u001b[35;37H\u001b]0;\u2733 Claude Code\u0007\u001b]0;\u25d1 Claude Code\u0007\u001b[H\r\u001b[15B\u001b[38;5;211m\u25cf\u001b[3G\u001b[38;5;246mAll background agents stopped\r\u001b[15B\u001b[38;5;174m\u00b7\u001b[3GShen\u001b[38;5;216mani\u001b[38;5;174mganing\u2026 \r\u001b[1B\u001b[38;5;246m  \u23bf \u00a0Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable.\r\u001b[67C\u001b[1B\u001b[39m                                   \u001b[38;5;246m\u25cf high \u00b7 /effort\r\u001b[2B\u276f\u00a0\r\u001b[2C\u001b[5B\u001b[38;5;211m\u25ef \u001b[39m\u001b[40;1H\u001b[35;37H\u001b[H\r\u001b[17B\u001b[48;5;237m\u001b[38;5;246m\u276f 2 background agents were stopped by the user: \"Fixture child\", \"Fixture grandchild\".\u001b[39m                                  \u001b[49m\u001b[40;1H\u001b[35;37H\u001b[H\r\u001b[30B\u001b[K\r\u001b[1B\u001b[38;5;211m\u273b\u001b[39m \u001b[38;5;211mAPI error\u001b[38;5;246m \u00b7\u001b[15GRetrying in 1s \u00b7 \u001b[33Gttempt\u001b[40G1/10\u001b[39m\u001b[K\u001b[40;1H\u001b[35;37H\u001b]0;\u2733 Claude Code\u0007\u001b[H\r\u001b[2C\u001b[17B\u001b[48;5;237m\u001b[38;5;231m2 background agents were stopped by the user: \"Fixture child\", \"Fixture grandchild\".\r\u001b[1B\u001b[49m\u001b[38;5;246m  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead?\r\u001b[13B\u001b[39m\u001b[K\r\u001b[3B\u276f\u00a0\u001b[40;1H\u001b[35;37H\u001b[H\r\u001b[2C\u001b[34B\u001b[7m \u001b[27m\u001b[K\r\u001b[2C\u001b[2B\u001b[38;5;246mPress Ctrl-C again to exit\u001b[39m\u001b[40;1H\u001b[35;3H\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b[?1004l\u001b[?1049l\u001b[>4m\u001b[>4m\u001b[?2031l\u001b[?2004l\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[?25h\u001b7\u001b[r\u001b8\u001b[?25h\u001b(B\u000f\u001b[?1016l\u001b[?1006l\u001b[?1003l\u001b[?1002l\u001b[?1000l\u001b[>4m\u001b[?1004l\u001b[?2031l\u001b[?2004l\u001b[?25h\u001b7\u001b[r\u001b8\u001b]0;\u0007\u001b[2m\u001b[22m\r\n\u001b[2mResume this session with:\u001b[22m\r\n\u001b[2mclaude --resume 6e481483-6a8a-4dc6-95a0-f02a6ebafea2\u001b[22m\r\n\u001b[2m\u001b[22m\u001b[?25h"
+  ]
+}
