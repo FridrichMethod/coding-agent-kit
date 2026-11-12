@@ -444,23 +444,23 @@ class NativeSharingTests(unittest.TestCase):
             time.sleep(0.01)
         self.fail("native thread history did not persist within five seconds")
 
+    @staticmethod
+    def management(server, handoff):
+        """SERVER as the takeover helpers' daemon client, refusing with their RpcError."""
+        class Daemon:
+            def request(self, method, params, timeout=20):
+                try:
+                    return server.request(method, params, timeout)
+                except RpcError as error:
+                    raise handoff.RpcError(str(error)) from None
+        return Daemon()
+
     def test_deleted_sessions_leave_no_rollout_for_takeover_recovery(self):
         # Takeover recovery drops a record only when the daemon refuses to read its session
         # and no rollout of it is left in shared storage; native delete must remove them.
         handoff = load_helper("handoff")
-
-        class Daemon:
-            def __init__(self, server):
-                self.server = server
-
-            def request(self, method, params, timeout=20):
-                try:
-                    return self.server.request(method, params, timeout)
-                except RpcError as error:
-                    raise handoff.RpcError(str(error)) from None
-
         server = self.server("a")
-        client = Daemon(server)
+        client = self.management(server, handoff)
         threads = []
         for mode in ("legacy", "paginated"):
             thread = self.start_thread(server, mode)
@@ -487,6 +487,82 @@ class NativeSharingTests(unittest.TestCase):
             self.assertEqual([path for place in ("sessions", "archived_sessions")
                               for path in (self.root / place).rglob("*" + thread + "*")], [])
             self.assertTrue(handoff.deleted(client, self.root, thread))
+            # Recovery then lists no agents of it: native delete takes them along.
+            self.assertEqual(handoff.descendants(client, thread, True) | handoff.descendants(client, thread, False), set())
+
+    def test_takeover_recovery_passes_over_history_removed_by_hand(self):
+        # A rollout removed by hand, or by a native delete interrupted after removing it, leaves
+        # metadata behind: the subtree listing still names the thread, and archive and unarchive
+        # refuse it. Recovery must neither stay pending nor drop a session that is still saved.
+        handoff = load_helper("handoff")
+        server = self.server("a")
+        made = {}
+        for name in ("session", "visible agent", "restored agent", "archived agent", "lone"):
+            thread = self.start_thread(server, "legacy")
+            server.request("thread/inject_items", {"threadId": thread["id"], "items": [{
+                "type": "message", "role": "user",
+                "content": [{"type": "input_text", "text": "fictional " + name}],
+            }]})
+            self.wait_for_persisted_rollout(thread)
+            made[name] = thread
+        server.close()
+        session = made["session"]["id"]
+        for name in made:
+            self.seed_completed_turn(made[name], "fictional " + name)
+        for name in ("visible agent", "restored agent", "archived agent"):
+            path = Path(made[name]["path"])
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+            source = {"subagent": {"thread_spawn": {"parent_thread_id": session, "depth": 1}}}
+            records[0]["payload"]["source"] = source
+            path.write_text("".join(json.dumps(record) + "\n" for record in records))
+            with closing(sqlite3.connect(self.root / "state_5.sqlite")) as connection:
+                with connection:
+                    connection.execute("UPDATE threads SET source = ? WHERE id = ?",
+                                       (json.dumps(source), made[name]["id"]))
+                    connection.execute("INSERT INTO thread_spawn_edges VALUES (?, ?, ?)",
+                                       (session, made[name]["id"], "closed"))
+        server = self.server("a")
+        client = self.management(server, handoff)
+        visible, archived = made["visible agent"]["id"], made["archived agent"]["id"]
+        restored = made["restored agent"]["id"]
+        server.request("thread/archive", {"threadId": archived})
+        server.request("thread/archive", {"threadId": session})  # the takeover; visible agents follow
+        self.assertEqual(handoff.descendants(client, session, True), {visible, restored, archived})
+        for thread in (visible, made["lone"]["id"]):
+            for place in ("sessions", "archived_sessions"):
+                for path in (self.root / place).rglob("*" + thread + "*"):
+                    path.unlink()
+        self.assertEqual(handoff.descendants(client, session, True), {visible, restored, archived}, "still listed")
+        with self.assertRaises(handoff.RpcError):
+            client.request("thread/unarchive", {"threadId": visible})
+        self.assertTrue(handoff.deleted(client, self.root, made["lone"]["id"]))
+        self.assertFalse(handoff.deleted(client, self.root, session), "its rollout is archived")
+        self.assertEqual(handoff.restore(client, self.root, session, {archived}), (set(), {visible}))
+        self.assertFalse(handoff.root_archived(client, self.root, session))
+        self.assertEqual(handoff.descendants(client, session, True), {visible, archived})
+        self.assertEqual(handoff.descendants(client, session, False), {restored})
+        # Taken over again, then the session's own rollout is removed by hand: its record goes,
+        # and the agent that still has history is visible again.
+        server.request("thread/archive", {"threadId": session})
+        self.assertEqual(handoff.descendants(client, session, False), set())
+        for place in ("sessions", "archived_sessions"):
+            for path in (self.root / place).rglob("*" + session + "*"):
+                path.unlink()
+        self.assertTrue(handoff.deleted(client, self.root, session))
+        journal = self.root / "accounts/.locks" / (session + ".handoff.json")
+        journal.parent.mkdir(parents=True, mode=0o700)
+        fd = os.open(journal, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            stream.write(json.dumps({"version": 1, "thread": session, "archived": [archived]}) + "\n")
+        warnings = []
+        guard = SimpleNamespace(private_metadata=load_helper("check").private_metadata, warn=warnings.append)
+        handoff.finish(guard, self.root, client, session, journal)
+        self.assertFalse(journal.exists())
+        self.assertEqual(len(warnings), 2, warnings)
+        self.assertIn(f"session {session} was deleted or has no saved history left", warnings[0])
+        self.assertIn(f"spawned agent {visible} has no saved history left", warnings[1])
+        self.assertEqual(handoff.descendants(client, session, False), {restored})
+        self.assertEqual(handoff.descendants(client, session, True), {visible, archived})
 
     def test_paginated_uuid_resume_and_shared_discovery(self):
         first = self.server("a")

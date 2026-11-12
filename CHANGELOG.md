@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.7
+
+- `codex-as` takeover recovery no longer stays pending when a thread's rollout is
+  gone but its metadata is left, as after removing a rollout by hand or a native
+  delete interrupted after removing it. The daemon still reads such a thread and
+  lists it under its session, but refuses to archive or unarchive it, because
+  both move the rollout. A record whose session is in that state is removed with
+  a warning, as for a deleted session (`session UUID was deleted or has no saved
+  history left`), after the spawned agents still listed under the session get
+  their saved visibility back. A spawned agent in that state is left as it is,
+  with a warning, and recovery completes. The deletion test still needs no
+  rollout of the thread left in shared storage, now searched through linked
+  folders too, and also accepts a daemon that reads the thread from metadata
+  whose rollout path no longer exists. A refusal for any other reason, or a path
+  that cannot be checked, still keeps the record.
+- A pending takeover's message now includes its reason when codex-as wrote it,
+  such as a refused daemon request or a folder of shared storage that cannot be
+  searched, named by its path. Other errors still show no text of their own.
+
 ## 0.7.6
 
 - `codex-as` takeover recovery no longer stays pending after a deletion. A saved

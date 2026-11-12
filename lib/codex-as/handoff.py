@@ -25,6 +25,11 @@ class Pending(ValueError):
     own_message = True
 
 
+class Unchecked(ValueError):
+    """Shared storage that could not be checked for a saved session; names the path."""
+    own_message = True
+
+
 # Client construction and replies can fail in these ways; none is a credential problem.
 FAILURES = (OSError, ValueError, KeyError, TypeError, AttributeError, UnicodeError, RecursionError, RuntimeError)
 # Restoring archive visibility takes at most one pass per level of spawned agents.
@@ -229,16 +234,30 @@ def root_archived(client, root, thread):
 
 
 def deleted(client, root, thread):
-    """Whether THREAD was deleted. The daemon refuses to read it, and no rollout of it is left in
-    shared storage: native delete removes them before it succeeds. Its refusals all use one
-    error code, so a refusal alone, a timeout or an unreadable folder never counts."""
+    """Whether THREAD's saved history was deleted: no rollout of it is left in shared storage,
+    and the daemon either refuses to read it (native delete removes the rollouts before it
+    succeeds) or reads it from metadata whose rollout path no longer exists (a rollout
+    removed by hand, or a native delete interrupted after removing it). Native refusals all
+    use one error code, so a refusal alone, a timeout or an unreadable folder never counts."""
     try:
-        client.request("thread/read", {"threadId": thread, "includeTurns": False})
-        return False
+        value = client.request("thread/read", {"threadId": thread, "includeTurns": False})["thread"]
+        path = value.get("path") if isinstance(value, dict) else None
+        if not isinstance(path, str) or not os.path.isabs(path):
+            return False
+        try:
+            os.lstat(path)
+            return False
+        except FileNotFoundError:
+            pass
+        except OSError as error:  # the answer is unknown
+            raise Unchecked(f"cannot check saved session {path}: {error.strerror or 'unreadable'}") from error
     except RpcError:
         pass
+
     def fail(error):
-        raise error  # pathlib's glob would skip an unreadable folder silently.
+        # pathlib's glob would skip an unreadable folder silently.
+        raise Unchecked(f"cannot search {error.filename} for saved sessions: "
+                        f"{error.strerror or 'unreadable'}") from error
 
     # Archive and unarchive move a rollout by one rename; searching sessions again after
     # archived_sessions also finds one that a concurrent unarchive moved back meanwhile.
@@ -246,7 +265,17 @@ def deleted(client, root, thread):
         folder = root / place
         if not os.path.lexists(folder):
             continue
-        for _, _, names in os.walk(folder, onerror=fail):
+        seen = set()
+        # A linked folder may hold rollouts too; each folder is searched once, so a cycle ends.
+        for top, folders, names in os.walk(folder, onerror=fail, followlinks=True):
+            try:
+                info = os.stat(top)
+            except OSError as error:
+                fail(error)
+            if (info.st_dev, info.st_ino) in seen:
+                folders.clear()
+                continue
+            seen.add((info.st_dev, info.st_ino))
             if any(thread in name for name in names):
                 return False
     return True
@@ -258,15 +287,19 @@ def loaded_below(client, item):
     return bool(loaded & ({item} | descendants(client, item, False)))
 
 
-def restore(client, root, thread, original_archived):
-    """Bring the subtree's archive visibility back to ORIGINAL_ARCHIVED.
+def restore(client, root, thread, original_archived, gone=False):
+    """Bring the subtree's archive visibility back to ORIGINAL_ARCHIVED. When THREAD itself
+    is GONE (deleted() holds for it), only its remaining spawned agents are restored.
 
-    Returns the spawned agents left visible because the root daemon has them, or one of
-    their agents, loaded: a stale journal must never end work by archiving them."""
+    Returns two sets of spawned agents left as they are. KEPT are visible because the root
+    daemon has them, or one of their agents, loaded: a stale journal must never end work by
+    archiving them. LOST have no saved history left, which native archive and unarchive both
+    need: they move the rollout."""
     # Unlike thread/list/read, native unarchive takes the lifecycle permit
     # shared with archive. Restore root first, waiting behind an older archive.
     try:
-        client.request("thread/unarchive", {"threadId": thread}, timeout=30)
+        if not gone:
+            client.request("thread/unarchive", {"threadId": thread}, timeout=30)
     except RpcError:
         # A partial archive can leave root unarchived. Verify that state;
         # never interpret a timeout/disconnect as an already-unarchived reply.
@@ -281,28 +314,44 @@ def restore(client, root, thread, original_archived):
     # the subtree. Correct each agent whose state differs, re-reading before every
     # request because an earlier one may have moved it. A pass leaves every agent whose
     # ancestors were already right correct for good, so the spawn depth bounds the passes.
-    kept = set()
+    kept, lost = set(), set()
     for _ in range(RESTORE_PASSES):
-        if (descendants(client, thread, True) ^ original_archived) <= kept:
+        if (descendants(client, thread, True) ^ original_archived) <= kept | lost:
             break
-        for item in sorted((descendants(client, thread, True) ^ original_archived) - kept):
+        for item in sorted((descendants(client, thread, True) ^ original_archived) - kept - lost):
             if (item in descendants(client, thread, True)) == (item in original_archived):
                 continue
-            if item not in original_archived:
-                client.request("thread/unarchive", {"threadId": item}, timeout=30)
-            elif loaded_below(client, item):
+            if item in original_archived and loaded_below(client, item):
                 kept.add(item)
-            else:
-                client.request("thread/archive", {"threadId": item}, timeout=30)
-    if root_archived(client, root, thread) or not (descendants(client, thread, True) ^ original_archived) <= kept:
+                continue
+            try:
+                client.request("thread/archive" if item in original_archived else "thread/unarchive",
+                               {"threadId": item}, timeout=30)
+            except RpcError:
+                # Native refuses to move a rollout that is gone, though the metadata still
+                # lists the agent. Any other refusal keeps the record.
+                if not deleted(client, root, item):
+                    raise
+                lost.add(item)
+    if ((not gone and root_archived(client, root, thread))
+            or not (descendants(client, thread, True) ^ original_archived) <= kept | lost):
         raise ValueError("saved archive visibility was not fully restored.")
-    return kept
+    return kept, lost
 
 
-def report_kept(guard, kept):
+def report_left(guard, kept, lost):
     for item in sorted(kept):
         guard.warn(f"left spawned agent {item} visible: the root daemon has it or one of its agents "
                    "loaded, so takeover recovery did not archive it again.")
+    for item in sorted(lost):
+        guard.warn(f"spawned agent {item} has no saved history left, so takeover recovery "
+                   "left its archive visibility as it was.")
+
+
+def because(error):
+    """ERROR's reason for a recovery message, only when marked as written by codex-as: any
+    other, even a plain ValueError such as uuid's, may quote file or daemon contents."""
+    return f" ({str(error).rstrip('.')})" if getattr(error, "own_message", False) else ""
 
 
 def sync_directory(path):
@@ -408,13 +457,16 @@ def finish(guard, root, client, thread, journal):
         raise ValueError("unrecognized takeover recovery record; preserve it.")
     try:
         gone = deleted(client, root, thread)
-        kept = set() if gone else restore(client, root, thread, {str(uuid.UUID(item)) for item in value["archived"]})
+        # Native delete takes the spawned agents along; a rollout removed by hand need not.
+        kept, lost = restore(client, root, thread, {str(uuid.UUID(item)) for item in value["archived"]}, gone)
     except FAILURES as error:
-        raise Pending(f"takeover recovery failed; preserve {journal} and retry the same command.") from error
+        raise Pending(f"takeover recovery failed{because(error)}; "
+                      f"preserve {journal} and retry the same command.") from error
     journal.unlink()
     if gone:
-        guard.warn(f"session {thread} no longer exists; removed its takeover recovery record.")
-    report_kept(guard, kept)
+        guard.warn(f"session {thread} was deleted or has no saved history left; "
+                   "removed its takeover recovery record.")
+    report_left(guard, kept, lost)
 
 
 def take_over(guard, root, client, account, thread, ask):
@@ -457,11 +509,12 @@ def take_over(guard, root, client, account, thread, ask):
         finally:
             if completed:
                 try:
-                    kept = restore(client, root, thread, original_archived)
+                    kept, lost = restore(client, root, thread, original_archived)
                 except FAILURES as error:
-                    raise Pending(f"takeover restore failed; preserve {journal} and retry the same command.") from error
+                    raise Pending(f"takeover restore failed{because(error)}; "
+                                  f"preserve {journal} and retry the same command.") from error
                 journal.unlink()
-                report_kept(guard, kept)
+                report_left(guard, kept, lost)
         deadline = time.monotonic() + 5
         while locked(root, thread):
             if time.monotonic() > deadline:

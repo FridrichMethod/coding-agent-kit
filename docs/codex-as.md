@@ -255,13 +255,21 @@ root daemon has loaded, together with any of its agents. A stale record must not
 end running work, so that agent stays visible and the launcher warns. Native delete
 removes a thread together with its spawned subtree. A saved agent that has left the
 session's subtree and passes the deletion test below has nothing to restore, so
-recovery skips it. One merely missing from the listing keeps the record. A record
-whose session was deleted is removed with a warning. That happens only when the daemon
-refuses to read the session and no rollout of it is left under `sessions/` or
-`archived_sessions/`, which native delete removes before it succeeds. Its refusals
-all share one error code, so a refusal alone keeps the record, and so does a
-folder that cannot be searched. The search covers `sessions/` both before and after
-`archived_sessions/`, so a rollout that a concurrent unarchive moves is still found.
+recovery skips it. One merely missing from the listing keeps the record. A rollout
+removed by hand, or by a native delete interrupted after removing it, leaves the
+thread's metadata behind: the subtree listing still names the thread, and archive and
+unarchive, which move the rollout, refuse it. When one of them refuses an agent that
+passes the deletion test, recovery leaves that agent as it is and warns. A record
+whose session passes the test is removed with a warning, after the spawned agents
+still listed under it (a rollout removed by hand leaves them) get their saved
+visibility back. The test needs no rollout of the thread left under `sessions/` or
+`archived_sessions/`, linked folders below them included, and a daemon that
+either refuses to read it (native delete removes the rollouts before it succeeds) or
+reads it from metadata whose rollout path no longer exists. Native refusals all
+share one error code, so a refusal alone keeps the record, and so does a path or
+folder that cannot be checked, which the recovery message then names. The
+search covers `sessions/` both before and after `archived_sessions/`, so a rollout
+that a concurrent unarchive moves is still found.
 A fresh helper
 cannot force unsubscribe another client. The takeover's Unix WebSocket management
 client uses the native management identity and does not modify daemon login.
