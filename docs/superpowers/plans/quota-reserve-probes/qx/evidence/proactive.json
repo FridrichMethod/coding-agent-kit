@@ -13,12 +13,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510062
+      "resetsAt": 1794511713
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803462
+      "resetsAt": 1794805113
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -32,12 +32,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510062
+       "resetsAt": 1794511713
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803462
+       "resetsAt": 1794805113
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -51,10 +51,9 @@
    "variant": "hooked",
    "upstream_order": [
     "refresh",
-    "models",
     "other_get",
-    "usage",
-    "other_get"
+    "models",
+    "usage"
    ],
    "connects": [],
    "usage_credentials": [
@@ -62,7 +61,7 @@
    ]
   },
   {
-   "at": 0.648,
+   "at": 0.646,
    "event": "rate_limits_read",
    "label": "production-host",
    "result": {
@@ -72,12 +71,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510063
+      "resetsAt": 1794511713
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803463
+      "resetsAt": 1794805113
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -91,12 +90,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510063
+       "resetsAt": 1794511713
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803463
+       "resetsAt": 1794805113
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -105,10 +104,11 @@
    }
   },
   {
-   "at": 0.648,
+   "at": 0.646,
    "event": "proactive",
    "variant": "production-host",
    "upstream_order": [
+    "other_get",
     "other_get",
     "models",
     "other_get",
@@ -134,6 +134,30 @@
     {
      "event": "get",
      "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T2",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
      "path": "/backend-api/codex/models",
      "query": true,
      "credential": "T2",
@@ -153,30 +177,6 @@
       "accept": "*/*"
      },
      "status": 200,
-     "lease": null,
-     "epoch": 0,
-     "paused": null
-    },
-    {
-     "event": "get",
-     "method": "GET",
-     "path": "/backend-api/wham/accounts/check",
-     "query": false,
-     "credential": "T2",
-     "authorization_scheme": "Bearer",
-     "user_agent_product": "codex_cli_rs/0.167.2",
-     "headers": [
-      "accept",
-      "authorization",
-      "chatgpt-account-id",
-      "host",
-      "user-agent"
-     ],
-     "shown": {
-      "chatgpt-account-id": "fixture-account-a",
-      "accept": "*/*"
-     },
-     "status": 503,
      "lease": null,
      "epoch": 0,
      "paused": null
@@ -263,6 +263,10 @@
      "destination": "auth.openai.com:443"
     },
     {
+     "event": "connect_refused",
+     "destination": "auth.openai.com:443"
+    },
+    {
      "event": "get",
      "method": "GET",
      "path": "/backend-api/wham/accounts/check",
@@ -285,10 +289,6 @@
      "lease": null,
      "epoch": 0,
      "paused": null
-    },
-    {
-     "event": "connect_refused",
-     "destination": "auth.openai.com:443"
     },
     {
      "event": "connect_refused",
@@ -403,12 +403,12 @@
    "accepted": true
   },
   {
-   "kind": "models",
-   "path": "/backend-api/codex/models?client_version=0.167.2"
-  },
-  {
    "kind": "other_get",
    "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
   },
   {
    "kind": "usage",
@@ -439,6 +439,6 @@
  ],
  "backend_stderr_tail": {
   "hooked": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/hooked\"))\n",
-  "production-host": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/production-host\"))\n\u001b[2m2026-11-12T16:31:03.193783Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:31:03.198651Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:31:03.203108Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:31:03.240522Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:31:03.251679Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n"
+  "production-host": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/production-host\"))\n\u001b[2m2026-11-12T16:58:33.594439Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.601643Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.607663Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.644795Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n\u001b[2m2026-11-12T16:58:33.655033Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_login::auth::manager\u001b[0m\u001b[2m:\u001b[0m Failed to refresh token: error sending request for url (https://auth.openai.com/oauth/token)\n"
  }
 }

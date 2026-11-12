@@ -3,7 +3,7 @@
  "ok": true,
  "timeline": [
   {
-   "at": 0.726,
+   "at": 0.527,
    "event": "rate_limits_read",
    "label": "preflight-session1",
    "result": {
@@ -13,12 +13,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510066
+      "resetsAt": 1794511716
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803466
+      "resetsAt": 1794805116
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -32,12 +32,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510066
+       "resetsAt": 1794511716
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803466
+       "resetsAt": 1794805116
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -46,7 +46,7 @@
    }
   },
   {
-   "at": 0.736,
+   "at": 0.535,
    "event": "rate_limits_read",
    "label": "preflight-session2",
    "result": {
@@ -56,12 +56,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510066
+      "resetsAt": 1794511716
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803466
+      "resetsAt": 1794805116
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -75,12 +75,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510066
+       "resetsAt": 1794511716
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803466
+       "resetsAt": 1794805116
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -89,7 +89,7 @@
    }
   },
   {
-   "at": 0.76,
+   "at": 0.546,
    "event": "session1_forced_refresh",
    "rpc_error": null,
    "refreshes": 1,
@@ -105,7 +105,7 @@
    "secret_links": 1
   },
   {
-   "at": 0.987,
+   "at": 0.626,
    "event": "turn",
    "text": "Fixture session two with its cached bearer",
    "status": "completed",
@@ -114,7 +114,7 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 1.019,
+   "at": 0.662,
    "event": "turn",
    "text": "Fixture session two after T1 revocation",
    "status": "failed",
@@ -125,14 +125,14 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 1.019,
+   "at": 0.662,
    "event": "session2_after_adoption",
    "refreshes": 1,
    "lease2": null,
    "epoch2": 2
   },
   {
-   "at": 1.02,
+   "at": 0.663,
    "event": "get_auth_status_include_token",
    "exported": true,
    "matches": {
@@ -143,7 +143,7 @@
    "rpc_error": null
   },
   {
-   "at": 1.027,
+   "at": 0.669,
    "event": "rate_limits_read",
    "label": "session2-rebind",
    "result": {
@@ -153,12 +153,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510067
+      "resetsAt": 1794511717
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803467
+      "resetsAt": 1794805117
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -172,12 +172,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510067
+       "resetsAt": 1794511717
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803467
+       "resetsAt": 1794805117
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -186,7 +186,7 @@
    }
   },
   {
-   "at": 1.053,
+   "at": 0.702,
    "event": "turn",
    "text": "Fixture session two after rebind",
    "status": "completed",
@@ -195,7 +195,7 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 1.355,
+   "at": 0.775,
    "event": "turn",
    "text": "Fixture session one before its own rebind",
    "status": "failed",
@@ -206,7 +206,7 @@
    "upstream_model_requests": 0
   },
   {
-   "at": 1.362,
+   "at": 0.782,
    "event": "rate_limits_read",
    "label": "session1-rebind",
    "result": {
@@ -216,12 +216,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510067
+      "resetsAt": 1794511717
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803467
+      "resetsAt": 1794805117
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -235,12 +235,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510067
+       "resetsAt": 1794511717
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803467
+       "resetsAt": 1794805117
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -249,7 +249,7 @@
    }
   },
   {
-   "at": 1.393,
+   "at": 0.813,
    "event": "turn",
    "text": "Fixture session one after rebind",
    "status": "completed",
@@ -258,7 +258,7 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 1.393,
+   "at": 0.813,
    "event": "final",
    "refreshes": 1,
    "secret": {
@@ -551,11 +551,37 @@
     {
      "event": "get",
      "method": "GET",
+     "path": "/backend-api/codex/models",
+     "query": true,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "originator",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "originator": "codex_cli_rs",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
      "path": "/backend-api/wham/accounts/check",
      "query": false,
      "credential": "T1",
      "authorization_scheme": "Bearer",
-     "user_agent_product": "qx-native-research/0.167.2",
+     "user_agent_product": "codex_cli_rs/0.167.2",
      "headers": [
       "accept",
       "authorization",
@@ -575,8 +601,8 @@
     {
      "event": "get",
      "method": "GET",
-     "path": "/backend-api/codex/models",
-     "query": true,
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
      "credential": "T1",
      "authorization_scheme": "Bearer",
      "user_agent_product": "qx-native-research/0.167.2",
@@ -585,15 +611,13 @@
       "authorization",
       "chatgpt-account-id",
       "host",
-      "originator",
       "user-agent"
      ],
      "shown": {
       "chatgpt-account-id": "fixture-account-a",
-      "originator": "qx-native-research",
       "accept": "*/*"
      },
-     "status": 200,
+     "status": 503,
      "lease": null,
      "epoch": 0,
      "paused": null
@@ -619,30 +643,6 @@
      },
      "status": 200,
      "lease": "fresh",
-     "epoch": 1,
-     "paused": null
-    },
-    {
-     "event": "get",
-     "method": "GET",
-     "path": "/backend-api/wham/accounts/check",
-     "query": false,
-     "credential": "T1",
-     "authorization_scheme": "Bearer",
-     "user_agent_product": "qx-native-research/0.167.2",
-     "headers": [
-      "accept",
-      "authorization",
-      "chatgpt-account-id",
-      "host",
-      "user-agent"
-     ],
-     "shown": {
-      "chatgpt-account-id": "fixture-account-a",
-      "accept": "*/*"
-     },
-     "status": 503,
-     "lease": null,
      "epoch": 1,
      "paused": null
     },
@@ -944,19 +944,14 @@
    "path": "/backend-api/wham/accounts/check"
   },
   {
-   "kind": "usage",
-   "path": "/backend-api/wham/usage",
-   "live": true
-  },
-  {
-   "kind": "other_get",
-   "path": "/backend-api/wham/accounts/check"
-  },
-  {
    "kind": "models",
    "path": "/backend-api/codex/models?client_version=0.167.2"
   },
   {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
+  },
+  {
    "kind": "usage",
    "path": "/backend-api/wham/usage",
    "live": true
@@ -964,6 +959,11 @@
   {
    "kind": "other_get",
    "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "usage",
+   "path": "/backend-api/wham/usage",
+   "live": true
   },
   {
    "kind": "refresh",

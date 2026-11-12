@@ -3,7 +3,7 @@
  "ok": true,
  "timeline": [
   {
-   "at": 0.271,
+   "at": 0.27,
    "event": "rate_limits_read",
    "label": "preflight",
    "result": {
@@ -13,12 +13,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510060
+      "resetsAt": 1794511710
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803460
+      "resetsAt": 1794805110
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -32,12 +32,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510060
+       "resetsAt": 1794511710
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803460
+       "resetsAt": 1794805110
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -46,13 +46,13 @@
    }
   },
   {
-   "at": 0.271,
+   "at": 0.27,
    "event": "preflight_ready",
    "ready": true,
    "epoch": 1
   },
   {
-   "at": 0.346,
+   "at": 0.347,
    "event": "turn",
    "text": "Fixture turn one",
    "status": "completed",
@@ -61,7 +61,7 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 0.393,
+   "at": 0.398,
    "event": "turn",
    "text": "Fixture turn after server revocation",
    "status": "failed",
@@ -72,7 +72,7 @@
    "upstream_model_requests": 2
   },
   {
-   "at": 0.393,
+   "at": 0.398,
    "event": "after_native_refresh",
    "refreshes": 1,
    "stored": {
@@ -86,7 +86,7 @@
    ]
   },
   {
-   "at": 0.395,
+   "at": 0.4,
    "event": "get_auth_status_include_token",
    "exported": true,
    "matches": {
@@ -97,7 +97,7 @@
    "rpc_error": null
   },
   {
-   "at": 0.404,
+   "at": 0.408,
    "event": "rate_limits_read",
    "label": "rebind",
    "result": {
@@ -107,12 +107,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510060
+      "resetsAt": 1794511710
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803460
+      "resetsAt": 1794805110
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -126,12 +126,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510060
+       "resetsAt": 1794511710
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803460
+       "resetsAt": 1794805110
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -140,13 +140,13 @@
    }
   },
   {
-   "at": 0.404,
+   "at": 0.408,
    "event": "rebound",
    "ready": true,
    "epoch": 2
   },
   {
-   "at": 0.435,
+   "at": 0.437,
    "event": "turn",
    "text": "Fixture turn after rebind",
    "status": "completed",
@@ -155,7 +155,7 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 0.442,
+   "at": 0.444,
    "event": "rate_limits_read",
    "label": "stale-old-bearer-check",
    "result": {
@@ -165,12 +165,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510060
+      "resetsAt": 1794511711
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803460
+      "resetsAt": 1794805111
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -184,12 +184,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510060
+       "resetsAt": 1794511711
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803460
+       "resetsAt": 1794805111
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -201,30 +201,6 @@
  "gates": [
   {
    "events": [
-    {
-     "event": "get",
-     "method": "GET",
-     "path": "/backend-api/wham/accounts/check",
-     "query": false,
-     "credential": "T1",
-     "authorization_scheme": "Bearer",
-     "user_agent_product": "codex_cli_rs/0.167.2",
-     "headers": [
-      "accept",
-      "authorization",
-      "chatgpt-account-id",
-      "host",
-      "user-agent"
-     ],
-     "shown": {
-      "chatgpt-account-id": "fixture-account-a",
-      "accept": "*/*"
-     },
-     "status": 503,
-     "lease": null,
-     "epoch": 0,
-     "paused": null
-    },
     {
      "event": "get",
      "method": "GET",
@@ -258,7 +234,7 @@
      "query": false,
      "credential": "T1",
      "authorization_scheme": "Bearer",
-     "user_agent_product": "qx-native-research/0.167.2",
+     "user_agent_product": "codex_cli_rs/0.167.2",
      "headers": [
       "accept",
       "authorization",
@@ -296,6 +272,30 @@
      },
      "status": 200,
      "lease": "fresh",
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
      "epoch": 1,
      "paused": null
     },
@@ -654,10 +654,6 @@
  ],
  "upstream": [
   {
-   "kind": "other_get",
-   "path": "/backend-api/wham/accounts/check"
-  },
-  {
    "kind": "models",
    "path": "/backend-api/codex/models?client_version=0.167.2"
   },
@@ -669,6 +665,10 @@
    "kind": "usage",
    "path": "/backend-api/wham/usage",
    "live": true
+  },
+  {
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
   },
   {
    "kind": "other_get",

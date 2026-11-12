@@ -3,8 +3,8 @@
 Linux x86_64 only for native stages (it reuses PC's research network guard).
 Each stage runs under the guard with an outer timeout; a timeout or failure is
 recorded and is never behavioral evidence. Temporary roots (quota-qx-*) are
-archived under .cache/qx/ and then removed; only roots this run printed are
-touched. Without a native binary the runner says SKIP and proves nothing.
+archived under .cache/qx/ and then removed wherever they are; only roots this
+run's probes printed are touched. Without a native binary the runner says SKIP and proves nothing.
 """
 import hashlib
 import json
@@ -46,7 +46,9 @@ def archive(roots):
     kept = []
     for root in roots:
         path = Path(root)
-        if not path.name.startswith('quota-qx-') or path.parent != Path('/tmp') or not path.is_dir():
+        # Only roots a probe of this run printed, by their prefix, wherever the base was.
+        if not path.name.startswith('quota-qx-') or not path.is_absolute() or path.is_symlink() \
+                or not path.is_dir():
             continue
         target = CACHE / 'roots' / (path.name + '.tar.gz')
         target.parent.mkdir(parents=True, exist_ok=True)

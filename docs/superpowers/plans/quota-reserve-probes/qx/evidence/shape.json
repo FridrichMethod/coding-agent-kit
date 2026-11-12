@@ -3,12 +3,21 @@
  "ok": true,
  "timeline": [
   {
-   "at": 0.259,
+   "at": 0.309,
    "event": "startup_requests",
-   "gate": []
+   "gate": [
+    [
+     "get",
+     "/backend-api/wham/accounts/check"
+    ],
+    [
+     "get",
+     "/backend-api/codex/models"
+    ]
+   ]
   },
   {
-   "at": 0.269,
+   "at": 0.323,
    "event": "rate_limits_read",
    "label": "baseline",
    "result": {
@@ -18,12 +27,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -37,12 +46,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -51,7 +60,7 @@
    }
   },
   {
-   "at": 0.275,
+   "at": 0.328,
    "event": "rate_limits_read",
    "label": "baseline-repeat",
    "result": {
@@ -61,12 +70,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -80,12 +89,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -94,7 +103,7 @@
    }
   },
   {
-   "at": 0.283,
+   "at": 0.336,
    "event": "rate_limits_read",
    "label": "with-reset-credit-details",
    "result": {
@@ -104,12 +113,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -123,12 +132,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -137,7 +146,7 @@
    }
   },
   {
-   "at": 0.284,
+   "at": 0.337,
    "event": "get_auth_status_include_token",
    "exported": true,
    "matches": {
@@ -147,7 +156,7 @@
    "rpc_error": null
   },
   {
-   "at": 0.291,
+   "at": 0.345,
    "event": "rate_limits_read",
    "label": "swapped-slots",
    "result": {
@@ -157,12 +166,12 @@
      "primary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "secondary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -176,12 +185,12 @@
       "primary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "secondary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -190,7 +199,7 @@
    }
   },
   {
-   "at": 0.291,
+   "at": 0.346,
    "event": "case",
    "name": "swapped-slots",
    "native_ok": true,
@@ -198,7 +207,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.299,
+   "at": 0.351,
    "event": "rate_limits_read",
    "label": "other-family-row",
    "result": {
@@ -208,12 +217,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -227,12 +236,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -243,7 +252,7 @@
       "primary": {
        "usedPercent": 90,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": null,
       "planType": "pro",
@@ -253,7 +262,7 @@
    }
   },
   {
-   "at": 0.299,
+   "at": 0.351,
    "event": "case",
    "name": "other-family-row",
    "native_ok": true,
@@ -261,7 +270,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.306,
+   "at": 0.357,
    "event": "rate_limits_read",
    "label": "missing-secondary",
    "result": {
@@ -271,7 +280,7 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": null,
      "planType": "pro",
@@ -286,7 +295,7 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": null,
       "planType": "pro",
@@ -296,7 +305,7 @@
    }
   },
   {
-   "at": 0.306,
+   "at": 0.357,
    "event": "case",
    "name": "missing-secondary",
    "native_ok": true,
@@ -304,7 +313,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.312,
+   "at": 0.365,
    "event": "rate_limits_read",
    "label": "rate-limit-null",
    "result": {
@@ -331,7 +340,7 @@
    }
   },
   {
-   "at": 0.312,
+   "at": 0.365,
    "event": "case",
    "name": "rate-limit-null",
    "native_ok": true,
@@ -339,15 +348,15 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.318,
+   "at": 0.371,
    "event": "rate_limits_read",
    "label": "fractional-percent",
    "result": {
-    "rpc_error": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro\", \"rate_limit\": {\"allowed\": true, \"limit_reached\": false, \"primary_window\": {\"used_percent\": 25.5, \"limit_window_seconds\": 18000, \"reset_after_seconds\": 9000, \"reset_at\": 1794510059}, \"secondary_window\": {\"used_percent\": 60, \"limit_window_seconds\": 604800, \"reset_after_seconds\": 302400, \"reset_at\": 1794803459}}}"
+    "rpc_error": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro\", \"rate_limit\": {\"allowed\": true, \"limit_reached\": false, \"primary_window\": {\"used_percent\": 25.5, \"limit_window_seconds\": 18000, \"reset_after_seconds\": 9000, \"reset_at\": 1794511709}, \"secondary_window\": {\"used_percent\": 60, \"limit_window_seconds\": 604800, \"reset_after_seconds\": 302400, \"reset_at\": 1794805109}}}"
    }
   },
   {
-   "at": 0.318,
+   "at": 0.371,
    "event": "case",
    "name": "fractional-percent",
    "native_ok": false,
@@ -355,7 +364,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.325,
+   "at": 0.379,
    "event": "rate_limits_read",
    "label": "percent-over-100",
    "result": {
@@ -365,12 +374,12 @@
      "primary": {
       "usedPercent": 150,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -384,12 +393,12 @@
       "primary": {
        "usedPercent": 150,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -398,7 +407,7 @@
    }
   },
   {
-   "at": 0.325,
+   "at": 0.379,
    "event": "case",
    "name": "percent-over-100",
    "native_ok": true,
@@ -406,7 +415,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.33,
+   "at": 0.384,
    "event": "rate_limits_read",
    "label": "percent-negative",
    "result": {
@@ -416,12 +425,12 @@
      "primary": {
       "usedPercent": -5,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -435,12 +444,12 @@
       "primary": {
        "usedPercent": -5,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -449,7 +458,7 @@
    }
   },
   {
-   "at": 0.33,
+   "at": 0.384,
    "event": "case",
    "name": "percent-negative",
    "native_ok": true,
@@ -457,7 +466,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.336,
+   "at": 0.39,
    "event": "rate_limits_read",
    "label": "zero-window-seconds",
    "result": {
@@ -467,12 +476,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": null,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -486,12 +495,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": null,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -500,7 +509,7 @@
    }
   },
   {
-   "at": 0.336,
+   "at": 0.39,
    "event": "case",
    "name": "zero-window-seconds",
    "native_ok": true,
@@ -508,7 +517,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.342,
+   "at": 0.397,
    "event": "rate_limits_read",
    "label": "reset-in-past",
    "result": {
@@ -518,12 +527,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794493859
+      "resetsAt": 1794495509
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -537,12 +546,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794493859
+       "resetsAt": 1794495509
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -551,7 +560,7 @@
    }
   },
   {
-   "at": 0.342,
+   "at": 0.397,
    "event": "case",
    "name": "reset-in-past",
    "native_ok": true,
@@ -559,7 +568,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.347,
+   "at": 0.403,
    "event": "rate_limits_read",
    "label": "limit-reached",
    "result": {
@@ -569,12 +578,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -588,12 +597,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -602,7 +611,7 @@
    }
   },
   {
-   "at": 0.347,
+   "at": 0.403,
    "event": "case",
    "name": "limit-reached",
    "native_ok": true,
@@ -610,7 +619,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.354,
+   "at": 0.411,
    "event": "rate_limits_read",
    "label": "unknown-plan",
    "result": {
@@ -620,12 +629,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "unknown",
      "rateLimitReachedType": null
@@ -639,12 +648,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "unknown",
       "rateLimitReachedType": null
@@ -653,7 +662,7 @@
    }
   },
   {
-   "at": 0.355,
+   "at": 0.411,
    "event": "case",
    "name": "unknown-plan",
    "native_ok": true,
@@ -661,7 +670,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.36,
+   "at": 0.417,
    "event": "rate_limits_read",
    "label": "usage-based-plan",
    "result": {
@@ -671,12 +680,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "self_serve_business_usage_based",
      "rateLimitReachedType": null
@@ -690,12 +699,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "self_serve_business_usage_based",
       "rateLimitReachedType": null
@@ -704,7 +713,7 @@
    }
   },
   {
-   "at": 0.36,
+   "at": 0.417,
    "event": "case",
    "name": "usage-based-plan",
    "native_ok": true,
@@ -712,15 +721,15 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.365,
+   "at": 0.423,
    "event": "rate_limits_read",
    "label": "missing-plan",
    "result": {
-    "rpc_error": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: missing field `plan_type` at line 1 column 374; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"rate_limit\": {\"allowed\": true, \"limit_reached\": false, \"primary_window\": {\"used_percent\": 25, \"limit_window_seconds\": 18000, \"reset_after_seconds\": 9000, \"reset_at\": 1794510059}, \"secondary_window\": {\"used_percent\": 60, \"limit_window_seconds\": 604800, \"reset_after_seconds\": 302400, \"reset_at\": 1794803459}}}"
+    "rpc_error": "failed to fetch codex rate limits: Decode error for http://127.0.0.1:<PORT>/backend-api/wham/usage: missing field `plan_type` at line 1 column 374; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"rate_limit\": {\"allowed\": true, \"limit_reached\": false, \"primary_window\": {\"used_percent\": 25, \"limit_window_seconds\": 18000, \"reset_after_seconds\": 9000, \"reset_at\": 1794511709}, \"secondary_window\": {\"used_percent\": 60, \"limit_window_seconds\": 604800, \"reset_after_seconds\": 302400, \"reset_at\": 1794805109}}}"
    }
   },
   {
-   "at": 0.365,
+   "at": 0.423,
    "event": "case",
    "name": "missing-plan",
    "native_ok": false,
@@ -728,7 +737,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.37,
+   "at": 0.428,
    "event": "rate_limits_read",
    "label": "account-mismatch",
    "result": {
@@ -738,12 +747,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -757,12 +766,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -771,7 +780,7 @@
    }
   },
   {
-   "at": 0.37,
+   "at": 0.428,
    "event": "case",
    "name": "account-mismatch",
    "native_ok": true,
@@ -779,7 +788,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.376,
+   "at": 0.434,
    "event": "rate_limits_read",
    "label": "user-mismatch",
    "result": {
@@ -789,12 +798,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -808,12 +817,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -822,7 +831,7 @@
    }
   },
   {
-   "at": 0.376,
+   "at": 0.434,
    "event": "case",
    "name": "user-mismatch",
    "native_ok": true,
@@ -830,7 +839,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.383,
+   "at": 0.44,
    "event": "rate_limits_read",
    "label": "identity-absent",
    "result": {
@@ -840,12 +849,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794510059
+      "resetsAt": 1794511709
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803459
+      "resetsAt": 1794805109
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -859,12 +868,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794510059
+       "resetsAt": 1794511709
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803459
+       "resetsAt": 1794805109
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -873,7 +882,7 @@
    }
   },
   {
-   "at": 0.383,
+   "at": 0.44,
    "event": "case",
    "name": "identity-absent",
    "native_ok": true,
@@ -881,7 +890,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.388,
+   "at": 0.446,
    "event": "rate_limits_read",
    "label": "http-401",
    "result": {
@@ -889,7 +898,7 @@
    }
   },
   {
-   "at": 0.388,
+   "at": 0.446,
    "event": "case",
    "name": "http-401",
    "native_ok": false,
@@ -897,7 +906,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.394,
+   "at": 0.452,
    "event": "rate_limits_read",
    "label": "http-503",
    "result": {
@@ -905,7 +914,7 @@
    }
   },
   {
-   "at": 0.394,
+   "at": 0.452,
    "event": "case",
    "name": "http-503",
    "native_ok": false,
@@ -913,7 +922,7 @@
    "refresh_connects": 0
   },
   {
-   "at": 0.399,
+   "at": 0.458,
    "event": "rate_limits_read",
    "label": "non-json",
    "result": {
@@ -921,7 +930,7 @@
    }
   },
   {
-   "at": 0.399,
+   "at": 0.458,
    "event": "case",
    "name": "non-json",
    "native_ok": false,
@@ -985,30 +994,6 @@
     {
      "event": "get",
      "method": "GET",
-     "path": "/backend-api/wham/usage",
-     "query": false,
-     "credential": "T1",
-     "authorization_scheme": "Bearer",
-     "user_agent_product": "qx-native-research/0.167.2",
-     "headers": [
-      "accept",
-      "authorization",
-      "chatgpt-account-id",
-      "host",
-      "user-agent"
-     ],
-     "shown": {
-      "chatgpt-account-id": "fixture-account-a",
-      "accept": "*/*"
-     },
-     "status": 200,
-     "lease": "fresh",
-     "epoch": 1,
-     "paused": null
-    },
-    {
-     "event": "get",
-     "method": "GET",
      "path": "/backend-api/wham/accounts/check",
      "query": false,
      "credential": "T1",
@@ -1027,7 +1012,7 @@
      },
      "status": 503,
      "lease": null,
-     "epoch": 1,
+     "epoch": 0,
      "paused": null
     },
     {
@@ -1099,6 +1084,30 @@
      },
      "status": 503,
      "lease": null,
+     "epoch": 1,
+     "paused": null
+    },
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "query": false,
+     "credential": "T1",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "qx-native-research/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 200,
+     "lease": "fresh",
      "epoch": 1,
      "paused": null
     },
@@ -1345,7 +1354,7 @@
      "status": 200,
      "lease": "fresh",
      "epoch": 1,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1369,7 +1378,7 @@
      "status": 200,
      "lease": "unsupported-plan",
      "epoch": 1,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1393,7 +1402,7 @@
      "status": 200,
      "lease": "unsupported-plan",
      "epoch": 1,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1417,7 +1426,7 @@
      "status": 200,
      "lease": "malformed",
      "epoch": 1,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1441,7 +1450,7 @@
      "status": 200,
      "lease": "account-mismatch",
      "epoch": 2,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1465,7 +1474,7 @@
      "status": 200,
      "lease": "user-mismatch",
      "epoch": 4,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1489,7 +1498,7 @@
      "status": 200,
      "lease": "account-mismatch",
      "epoch": 6,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1513,7 +1522,7 @@
      "status": 401,
      "lease": "failure",
      "epoch": 7,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1537,7 +1546,7 @@
      "status": 503,
      "lease": "failure",
      "epoch": 7,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "get",
@@ -1561,7 +1570,7 @@
      "status": 200,
      "lease": "malformed",
      "epoch": 7,
-     "paused": "limit-reached"
+     "paused": "window-missing:weekly"
     },
     {
      "event": "streams_closed",
@@ -1646,12 +1655,27 @@
      "verdict": "limit-reached"
     },
     {
+     "event": "blocking",
+     "epoch": 1,
+     "reason": "limit-reached"
+    },
+    {
      "event": "unavailable",
      "epoch": 1,
      "reason": "unsupported-plan"
     },
     {
+     "event": "blocking",
+     "epoch": 1,
+     "reason": "unsupported-plan"
+    },
+    {
      "event": "unavailable",
+     "epoch": 1,
+     "reason": "unsupported-plan"
+    },
+    {
+     "event": "blocking",
      "epoch": 1,
      "reason": "unsupported-plan"
     },
@@ -1671,6 +1695,11 @@
      "cause": "account-mismatch"
     },
     {
+     "event": "blocking",
+     "epoch": 2,
+     "reason": "identity-changed"
+    },
+    {
      "event": "epoch",
      "epoch": 3,
      "cause": "usage-credential"
@@ -1686,6 +1715,11 @@
      "cause": "user-mismatch"
     },
     {
+     "event": "blocking",
+     "epoch": 4,
+     "reason": "identity-changed"
+    },
+    {
      "event": "epoch",
      "epoch": 5,
      "cause": "usage-credential"
@@ -1699,6 +1733,11 @@
      "event": "epoch",
      "epoch": 6,
      "cause": "account-mismatch"
+    },
+    {
+     "event": "blocking",
+     "epoch": 6,
+     "reason": "identity-changed"
     },
     {
      "event": "epoch",
@@ -1725,21 +1764,21 @@
  ],
  "upstream": [
   {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
+  },
+  {
    "kind": "other_get",
    "path": "/backend-api/wham/accounts/check"
   },
   {
-   "kind": "models",
-   "path": "/backend-api/codex/models?client_version=0.167.2"
+   "kind": "other_get",
+   "path": "/backend-api/wham/accounts/check"
   },
   {
    "kind": "usage",
    "path": "/backend-api/wham/usage",
    "live": true
-  },
-  {
-   "kind": "other_get",
-   "path": "/backend-api/wham/accounts/check"
   },
   {
    "kind": "usage",

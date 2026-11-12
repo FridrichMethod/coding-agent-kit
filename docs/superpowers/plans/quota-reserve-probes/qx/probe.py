@@ -114,7 +114,8 @@ def windows(result):
 class Harness:
     def __init__(self, binary, stage):
         self.binary, self.stage = binary, stage
-        self.root = Path(tempfile.mkdtemp(prefix='quota-qx-' + stage + '-'))
+        # A short dedicated base keeps backend.sock under the AF_UNIX path limit whatever TMPDIR is.
+        self.root = Path(tempfile.mkdtemp(prefix='quota-qx-' + stage + '-', dir='/tmp'))
         print('scratch', self.root, flush=True)
         self.upstream = fixtures.Upstream()
         self.timeline, self.processes, self.clients, self.gates = [], [], [], []
@@ -441,7 +442,16 @@ def stage_identity(h):
     third = h.thread(rpc, home)
     h.turn(rpc, third, 'Fixture new thread back on A before continuation')
     h.read(rpc, 'fresh-a-without-continuation')
-    h.record('lease_after_fresh_a', paused=gate.lease.paused, epoch=gate.lease.epoch)
+    h.record('lease_after_fresh_a', paused=gate.lease.paused, blocking=gate.lease.blocking, epoch=gate.lease.epoch)
+    # A continuation whose check fails is used up: a later passing read alone does not resume.
+    h.record('continuation_for_failed_check', accepted=gate.lease.request_continuation(trusted=True))
+    time.sleep(.05)
+    h.upstream.usage_override = lambda identity: (503, {'error': 'fixture outage'})
+    h.read(rpc, 'continuation-check-fails')
+    h.upstream.usage_override = None
+    h.read(rpc, 'passing-after-failed-check')
+    h.record('lease_after_failed_check', paused=gate.lease.paused, blocking=gate.lease.blocking,
+             continuation_armed=gate.lease.continuation is not None, epoch=gate.lease.epoch)
     h.record('continuation', accepted=gate.lease.request_continuation(trusted=True))
     time.sleep(.05)
     h.read(rpc, 'fresh-a-after-continuation')

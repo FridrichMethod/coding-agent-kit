@@ -118,6 +118,18 @@ def main():
                          ('TA', A, True, 'admitted')], 'identity admissions', failures)
     check(timeline(identity, 'lease_after_fresh_a')[0]['paused'] == 'identity-changed'
           and timeline(identity, 'lease_after_continuation')[0]['paused'] is None, 'continuation gate', failures)
+    failed = timeline(identity, 'lease_after_failed_check')
+    check(failed and (failed[0]['paused'], failed[0]['blocking'], failed[0]['continuation_armed'])
+          == ('identity-changed', None, False), 'failed check uses up the continuation', failures)
+    outcomes = [e['lease'] for e in events if e['event'] == 'get' and e['path'].endswith('/usage')]
+    check(outcomes[-4:] == ['fresh', 'failure', 'fresh', 'fresh'], 'identity continuation reads', failures)
+    used = [e.get('outcome') for e in identity['gates'][0]['lease_log'] if e['event'] == 'continuation-used']
+    check(used == ['check', 'check'], 'each continuation used by its own check', failures)
+
+    for name in ('shape', 'rotation', 'hold', 'proactive', 'identity', 'concurrent'):
+        data = load(name)
+        check(not [e for g in data['gates'] for e in g['events'] if e['event'] == 'refused_unlisted'],
+              name + ': native sent a path outside the route table', failures)
 
     concurrent = load('concurrent')
     forced = timeline(concurrent, 'session1_forced_refresh')[0]
