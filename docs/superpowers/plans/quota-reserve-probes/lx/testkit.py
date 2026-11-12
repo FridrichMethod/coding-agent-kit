@@ -12,6 +12,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import pwd
 import shlex
 import shutil
 import socket
@@ -100,6 +101,7 @@ class TlsUsageServer:
     def __init__(self, cert, key):
         self.lock = threading.Lock()
         self.requests = []  # (method, path, sorted header names, bearer) - test memory only
+        self.sent = []  # per request: [(name, value)] of every header but Authorization - test memory only
         self.handshake_failures = 0
         self.respond = None  # callable(bearer) -> (status, [(name, value)], body bytes)
         self.delay = 0.0
@@ -150,6 +152,7 @@ class TlsUsageServer:
                 bearer = value[7:] if value.startswith('Bearer ') else None
                 with upstream.lock:
                     upstream.requests.append(('GET', self.path, sorted(k.lower() for k in self.headers.keys()), bearer))
+                    upstream.sent.append([(k, v) for k, v in self.headers.items() if k.lower() != 'authorization'])
                 if upstream.delay:
                     threading.Event().wait(upstream.delay)
                 if upstream.respond is not None:
@@ -230,6 +233,34 @@ def fake_codex(directory, name='codex', **env):
     path.write_text('\n'.join(lines) + '\n')
     path.chmod(0o700)
     return path
+
+
+# Host names that are also OS or distribution words a User-Agent may carry; never treated as identifiers.
+GENERIC_HOSTS = ('localhost', 'linux', 'ubuntu', 'debian', 'fedora', 'unknown')
+
+
+def identifiers(*paths):
+    """Label -> value for what no outgoing provider request may carry: the project name, this
+    user's name and home, the host name and the given (temporary) paths."""
+    account = pwd.getpwuid(os.getuid())
+    found = {'project-name': ['coding-agent-kit'], 'home-path': [account.pw_dir] + [str(p) for p in paths]}
+    if len(account.pw_name) >= 3:
+        found['user-name'] = [account.pw_name]
+    host = os.uname().nodename
+    if len(host) >= 3 and host.lower() not in GENERIC_HOSTS:
+        found['host-name'] = [host]
+    return found
+
+
+def identifier_findings(text, *paths):
+    """The labels of identifiers() found in text (case-insensitive); empty when clean."""
+    lowered = text.lower()
+    return sorted(label for label, values in identifiers(*paths).items()
+                  if any(value and value.lower() in lowered for value in values))
+
+
+def header_text(headers):
+    return '\n'.join('%s: %s' % item for item in headers)
 
 
 def scan(texts, secrets, allowed=()):

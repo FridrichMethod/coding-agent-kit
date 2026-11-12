@@ -9,20 +9,27 @@ context and the refresh tunnel.
 
 Sequence:
 1. Refusals before anything is spawned or written (exit 2): the approved account
-   name, platform, TLS-relevant environment, the private out directory (absolute,
-   0700, empty, outside every Git work tree and the account state), the codex-as
-   preflight and layout through lib/codex-as (validated read-only, never repaired),
-   the account lease (exclusive and non-blocking, so a running codex-as client of
-   the account refuses), the PC network guard self-check and the Codex version.
+   name, platform, TLS-relevant environment, the workspace parent (the caller's
+   private XDG_RUNTIME_DIR, never the shared temporary directory), no .codex in
+   any ancestor of the workspace up to / and every ancestor closed to other users'
+   writes, the private out directory (absolute, 0700, empty, outside every Git
+   work tree and the account state), the binary's SHA-256 (the reviewed 0.167.2
+   file, compared before anything executes it), the codex-as preflight and layout
+   through lib/codex-as (validated read-only, never repaired), the account lease
+   (exclusive and non-blocking, so a running codex-as client of the account
+   refuses), the owner auth.json's account claim, the PC network guard
+   self-check and the Codex version (exactly 0.167.2, no prerelease).
 2. One-shot attempt file (0600, O_EXCL) in the out directory, written before spawn.
 3. One owned `codex app-server` (stdio) under the network guard, with the account's
    CODEX_HOME and shared SQLite home exactly as codex-as passes them, the account
    lease fd inherited (shared, as codex-as's run_native does), and configuration
    overrides on the command line only: chatgpt_base_url and a forced custom model
-   provider both point at the LX gate, which refuses every model request.
-4. JSON-RPC: initialize, then account/rateLimits/read once; a second read only
-   after a fixed delay and only if the first succeeded. No thread, turn, login or
-   model request; no retry.
+   provider both point at the LX gate, which refuses every model request, every
+   duplicated forwarded header and every bearer whose account claim is not the
+   codex-as owner's account.
+4. JSON-RPC: initialize (client name "usage-probe": no project, user or host name),
+   then account/rateLimits/read once; a second read only after a fixed delay and
+   only if the first succeeded. No thread, turn, login or model request; no retry.
 5. Reap the process group, check (read-only) whether native refreshed the credential
    and whether the account link is intact, scan the sanitized result for anything
    token- or id-shaped and write it (0600, O_EXCL). codex-as's post-run repair is
@@ -70,6 +77,8 @@ gates = load('gate', HERE / 'gate.py')
 
 APPROVED_ACCOUNT = 'stanford'  # live-permissions-approval.json, codex section
 EXPECTED_VERSION = '0.167.2'
+# The reviewed codex-cli 0.167.2 binary (QX, PC, PR and LX evidence manifests).
+EXPECTED_SHA256 = 'a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b'
 DEFAULT_DELAY = 30.0
 MAX_DELAY = 120.0
 INIT_TIMEOUT = 20.0
@@ -79,7 +88,7 @@ CHECK_TIMEOUT = 20.0
 LINE_LIMIT = 1 << 20
 OUTPUT_LIMIT = 16 << 20
 NAME = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_-]*')
-VERSION = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+')
+RELEASE = re.compile(r'codex-cli [0-9]+\.[0-9]+\.[0-9]+')  # a release; no prerelease or build suffix
 METHOD = re.compile(r'[A-Za-z0-9/_.-]{1,80}')
 ENUM = re.compile(r'[A-Za-z0-9_]{1,48}')
 ENV_ALLOW = ('HOME', 'USER', 'LOGNAME', 'PATH', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ')
@@ -89,8 +98,10 @@ REFUSED_ENV = ('SSL_CERT_FILE', 'SSL_CERT_DIR', 'SSLKEYLOGFILE', 'OPENSSL_CONF',
                'OPENSSL_ENGINES')
 GUARD_COMMAND = (sys.executable, '-I', '-B', str(HERE.parent / 'pc/network_guard.py'))
 GUARD_CHECK = HERE.parent / 'pc/guard_check.py'
-ATTEMPT, RESULT, WORKSPACE = 'lx-attempt.json', 'lx-result.json', 'workspace'
-CLIENT_INFO = {'name': 'coding-agent-kit-lx-probe', 'version': '1'}
+ATTEMPT, RESULT = 'lx-attempt.json', 'lx-result.json'
+WORKSPACE_PREFIX = 'quota-lx-ws-'
+# Native builds the User-Agent it sends upstream from this name: it must name no project, user or host.
+CLIENT_INFO = {'name': 'usage-probe', 'version': '1'}
 READ_PARAMS = {'excludeResetCreditDetails': True}
 
 
@@ -152,6 +163,49 @@ def check_environment(environ):
         raise Refused('tls-environment', ', '.join(present) + ' set (values hidden)')
 
 
+def workspace_parent(environ, uid=None):
+    """The caller's XDG_RUNTIME_DIR when it is a private directory of this user (absolute, not a
+    symlink, owned, no group or other bits). There is no fallback to the shared temporary directory."""
+    uid = os.getuid() if uid is None else uid
+    path = environ.get('XDG_RUNTIME_DIR', '')
+    if not path.startswith('/'):
+        raise Refused('xdg-runtime-dir-not-private')
+    try:
+        info = os.lstat(path)
+    except OSError:
+        raise Refused('xdg-runtime-dir-not-private') from None
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != uid or stat.S_IMODE(info.st_mode) & 0o077:
+        raise Refused('xdg-runtime-dir-not-private')
+    return Path(path)
+
+
+def check_workspace_ancestors(workspace, uid=None):
+    """Refuse when any ancestor of the workspace, lexical or resolved, up to /, holds a .codex entry:
+    native and codex-as's checks treat <ancestor>/.codex/config.toml as a project configuration layer.
+    Returns whether every ancestor is closed to other users' writes (owned by this user or root, no
+    group or other write bit); an open one could gain a .codex after this check, so the live path
+    refuses it (run_probe, workspace-ancestor-open)."""
+    uid = os.getuid() if uid is None else uid
+    closed = True
+    for start in (workspace.parent, Path(os.path.realpath(workspace.parent))):
+        for directory in (start, *start.parents):
+            try:
+                os.lstat(directory / '.codex')
+            except (FileNotFoundError, NotADirectoryError):
+                pass
+            except OSError:
+                raise Refused('workspace-ancestor-unreadable') from None
+            else:
+                raise Refused('workspace-ancestor-codex')
+            try:
+                info = os.stat(directory)
+            except OSError:
+                raise Refused('workspace-ancestor-unreadable') from None
+            if info.st_uid not in (uid, 0) or info.st_mode & 0o022:
+                closed = False
+    return closed
+
+
 def _git_ancestor(path):
     return any(os.path.lexists(parent / '.git') for parent in (path, *path.parents))
 
@@ -197,7 +251,9 @@ def prepare_out(out, config, uid=None):
 
 
 class Account:
-    """The codex-as account, validated read-only, with its lease fd held."""
+    """The codex-as account, validated read-only, with its lease fd held. owner is codex-as's
+    (user, account) for the login; its account equals the owner auth.json's id_token account claim
+    (checked at preflight) and is what the gate requires of every bearer. Memory only."""
 
     def __init__(self, layout, fd, owner, sqlite):
         self.layout, self.fd, self.owner, self.sqlite = layout, fd, owner, sqlite
@@ -219,6 +275,17 @@ class Account:
         info = os.stat(self.layout.target, follow_symlinks=False)
         return (stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid() and info.st_nlink == 1
                 and stat.S_IMODE(info.st_mode) == 0o600)
+
+
+def owner_account_claim(raw):
+    """The chatgpt_account_id claim of the owner auth.json's id_token (decoded, never verified,
+    never kept), or None."""
+    try:
+        auth = storage.claims(json.loads(raw)).get(gates.AUTH_CLAIMS)
+        value = auth.get('chatgpt_account_id') if isinstance(auth, dict) else None
+    except (ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError):
+        return None
+    return value if isinstance(value, str) and value else None
 
 
 def open_account(alias, config, cwd):
@@ -255,9 +322,17 @@ def open_account(alias, config, cwd):
         try:
             if layout.setup_pending():
                 raise Refused('setup-pending')
-            owner = storage.owner(layout.validate())
+            raw = layout.validate()
+            owner = storage.owner(raw)
             if owner is None:
                 raise Refused('not-chatgpt-login')
+            claim = owner_account_claim(raw)
+            raw = None
+            if claim is None:
+                raise Refused('owner-account-claim-missing')
+            if not gates._same(claim, owner[1]):
+                raise Refused('owner-account-claim-inconsistent')
+            claim = None
             # As codex-as does before native starts: shared, then revalidate (EX->SH is not atomic).
             fcntl.flock(fd, fcntl.LOCK_SH)
             if storage.owner(layout.validate()) != owner:
@@ -294,6 +369,8 @@ def native_version(command, binary, environ):
         version = guard.codex_version(result.stdout)
     except ValueError as error:
         raise Refused('version-unrecognized', str(error)) from None
+    if not RELEASE.fullmatch(result.stdout.strip()):  # codex-as accepts 0.167.2-foo as 0.167.2; the probe does not
+        raise Refused('version-prerelease')
     return '%d.%d.%d' % version
 
 
@@ -606,26 +683,37 @@ def say(stream, text):
 
 
 def run_probe(alias, out, *, config, upstream, tunnel, guard_command, delay=DEFAULT_DELAY, second=True,
-              expect_version=EXPECTED_VERSION, environ=None, stdout=None, stderr=None, read_timeout=READ_TIMEOUT):
+              expect_sha256=EXPECTED_SHA256, require_closed_ancestors=True, environ=None, stdout=None, stderr=None,
+              read_timeout=READ_TIMEOUT):
     """Returns 0 when the planned reads ran and the result was written, 2 when refused before
-    spawn (nothing written), 3 when the attempt was used but did not complete."""
+    spawn (nothing written), 3 when the attempt was used but did not complete.
+
+    expect_sha256 and require_closed_ancestors exist for the offline tests only (a fake codex; temporary
+    roots under the shared temporary directory, whose ancestors are open); main() never passes them, so
+    the live path always requires the reviewed binary and a workspace no other user can add a .codex above."""
     environ = os.environ if environ is None else environ
     stdout, stderr = stdout or sys.stdout, stderr or sys.stderr
     account = None
     try:
         check_environment(environ)
+        workspace = workspace_parent(environ) / (WORKSPACE_PREFIX + os.urandom(6).hex())
+        closed = check_workspace_ancestors(workspace)
+        if require_closed_ancestors and not closed:
+            raise Refused('workspace-ancestor-open')
         out = prepare_out(Path(out), config)
         binary = config.which('codex')
         if binary is None:
             raise Refused('codex-not-found')
-        workspace = out / WORKSPACE
+        binary = os.path.realpath(binary)  # hash, version-check and spawn this path
+        binary_sha = sha256(binary)  # before anything executes it: an unreviewed file is never run
+        if binary_sha != expect_sha256:
+            raise Refused('binary-unreviewed', 'SHA-256 %s..., reviewed %s...' % (binary_sha[:8], expect_sha256[:8]))
         account = open_account(alias, config, workspace)
         if guard_command and not guard_self_check(guard_command):
             raise Refused('guard-self-check-failed')
         version = native_version(guard_command or (), binary, environ)
-        if version != expect_version:
-            raise Refused('version-mismatch', 'found %s, reviewed %s' % (version, expect_version))
-        binary_sha = sha256(binary)
+        if version != EXPECTED_VERSION:
+            raise Refused('version-mismatch', 'found %s, reviewed %s' % (version, EXPECTED_VERSION))
     except Refused as error:
         if account is not None:
             account.close()
@@ -637,20 +725,21 @@ def run_probe(alias, out, *, config, upstream, tunnel, guard_command, delay=DEFA
         raise
     return attempt(alias, out, account, binary, binary_sha, version, config=config, upstream=upstream, tunnel=tunnel,
                    guard_command=guard_command, delay=delay, second=second, environ=environ, stdout=stdout,
-                   stderr=stderr, read_timeout=read_timeout)
+                   stderr=stderr, read_timeout=read_timeout, workspace=workspace, ancestors_closed=closed)
 
 
 class Attempt:
     """The one-shot part: everything after the attempt file exists. finish() always runs."""
 
     def __init__(self, alias, out, account, binary, binary_sha, version, *, config, upstream, tunnel,
-                 guard_command, delay, second, environ, read_timeout):
+                 guard_command, delay, second, environ, read_timeout, workspace, ancestors_closed):
         self.alias, self.out, self.account, self.binary = alias, out, account, binary
         self.binary_sha, self.config, self.upstream, self.tunnel = binary_sha, config, upstream, tunnel
         self.guard_command, self.delay, self.second, self.environ = guard_command, delay, second, environ
         self.read_timeout = read_timeout
-        self.workspace = out / WORKSPACE
+        self.workspace = workspace
         self.gate = self.process = self.errors = self.rpc = self.before = None
+        self.workspace_created = False
         self.started = time.monotonic()
         self.deadline = self.started + TOTAL_DEADLINE
         self.result = {'schema': 1, 'probe': 'lx-live-codex', 'account': alias, 'started_utc': utc(),
@@ -658,6 +747,8 @@ class Attempt:
                                     'python': platform.python_version(), 'openssl': ssl.OPENSSL_VERSION},
                        'native': {'version': version, 'binary_sha256': binary_sha, 'guarded': bool(guard_command)},
                        'lease': {'exclusive_at_start': True, 'shared_during_run': True, 'inherited_by_native': True},
+                       'workspace': {'parent': 'xdg-runtime-dir', 'ancestor_codex_found': False,
+                                     'ancestors_closed_to_other_writers': ancestors_closed},
                        'credential': {}, 'rpc': {'reads': [], 'delay_seconds': delay}, 'outcome': 'started'}
 
     def left(self, cap):
@@ -668,7 +759,8 @@ class Attempt:
         write_private(self.out / ATTEMPT, json.dumps({'schema': 1, 'probe': 'lx-live-codex', 'account': self.alias,
                                                       'state': 'spawning', 'started_utc': result['started_utc']},
                                                      indent=1) + '\n')
-        os.mkdir(self.workspace, 0o700)
+        os.mkdir(self.workspace, 0o700)  # new: an existing path fails here and is never removed below
+        self.workspace_created = True
         result['credential']['link_intact_before'] = account.link_intact()
         self.before = account.credential_stat()
         self.gate = gate = gates.Gate(self.upstream, tunnel=self.tunnel, expected=account.owner,
@@ -768,10 +860,12 @@ class Attempt:
                 'still_private_regular_file': account.credential_private()})
         except OSError:
             result['credential']['post_check_failed'] = True
-        shutil.rmtree(self.workspace, ignore_errors=True)
+        if self.workspace_created:
+            shutil.rmtree(self.workspace, ignore_errors=True)
         result['finished_utc'] = utc()
         result['elapsed_s'] = round(time.monotonic() - self.started, 1)
-        secrets |= {value for value in (str(self.config.home), str(self.out)) if len(value) >= 8}
+        secrets |= {value for value in (str(self.config.home), str(self.out), str(self.workspace),
+                                        str(self.workspace.parent)) if len(value) >= 8}
         text, findings = sanitize(result, secrets, allowed=(self.binary_sha,))
         secrets.clear()
         write_private(self.out / RESULT, text)
@@ -808,10 +902,10 @@ def sanitize(result, secrets, allowed=()):
 
 
 def attempt(alias, out, account, binary, binary_sha, version, *, config, upstream, tunnel, guard_command, delay,
-            second, environ, stdout, stderr, read_timeout):
+            second, environ, stdout, stderr, read_timeout, workspace, ancestors_closed):
     run = Attempt(alias, out, account, binary, binary_sha, version, config=config, upstream=upstream, tunnel=tunnel,
                   guard_command=guard_command, delay=delay, second=second, environ=environ,
-                  read_timeout=read_timeout)
+                  read_timeout=read_timeout, workspace=workspace, ancestors_closed=ancestors_closed)
     findings = []
     status = 3
     try:
@@ -839,15 +933,12 @@ def main(argv=None):
     parser.add_argument('--out', required=True, help='new or empty private directory outside any Git work tree')
     parser.add_argument('--delay', type=float, default=DEFAULT_DELAY, help='seconds before the second read')
     parser.add_argument('--single-read', action='store_true')
-    parser.add_argument('--expect-version', default=EXPECTED_VERSION)
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv)  # no version or binary override: the reviewed 0.167.2 file only
     try:
         if args.account != APPROVED_ACCOUNT:
             raise Refused('account-not-approved')
         if not 0 < args.delay <= MAX_DELAY:
             raise Refused('delay-out-of-range')
-        if not VERSION.fullmatch(args.expect_version):
-            raise Refused('expect-version-malformed')
         if sys.platform != 'linux' or platform.machine() != 'x86_64':
             raise Refused('platform-unsupported')  # the network guard is Linux x86_64 only
         if not trust_store_loaded():
@@ -861,7 +952,7 @@ def main(argv=None):
         return 2
     return run_probe(args.account, Path(args.out), config=config, upstream=gates.production_upstream(),
                      tunnel=gates.production_tunnel, guard_command=GUARD_COMMAND, delay=args.delay,
-                     second=not args.single_read, expect_version=args.expect_version)
+                     second=not args.single_read)
 
 
 if __name__ == '__main__':

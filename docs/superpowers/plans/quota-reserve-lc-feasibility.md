@@ -1,6 +1,6 @@
 # LC: live driver for Claude HLogin and N1 (one named alias)
 
-Node LC, base `afffc23`. Research only: no launcher, completion, helper,
+Nodes LC and LF (pre-live fixes), base `87aa145`. Research only: no launcher, completion, helper,
 installer or suite change. Code and tests live in
 [quota-reserve-probes/lc/](quota-reserve-probes/lc/). G0 is not passed;
 nothing here is production capability or release evidence.
@@ -139,6 +139,22 @@ before writing the result. An expired or near-expiry token refuses
 (`expired_native_refresh_required`) without any request; the wrapper never
 refreshes.
 
+Both bearer requests carry the neutral `User-Agent: quota-probe/1`
+(`Wiring.user_agent`, passed to `usage.py` through its `user_agent`
+parameter), so no project, user or host name reaches the provider. The other
+headers are fixed by `usage.py`: `Authorization`, `Accept`, `anthropic-beta`,
+`Cache-Control`, `Connection` and `Host` (`api.anthropic.com`). `usage.py`
+keeps its own research default (`coding-agent-kit-quota-research`) for its
+offline fixture callers and is unchanged, because the KLC evidence manifest
+binds its digest; any other live caller of `usage.py` must pass a neutral
+value the same way (I).
+
+That property covers the two bearer requests only. N1-native traffic is
+native's own: it goes through the opaque tunnel (`--tunnel`) or directly
+(`--no-tunnel`), and native runs with the allowlisted `HOME`, `USER` and
+`LOGNAME` in its environment. Its request content was never observed, so
+whether it carries a project, user or host name is unproved (U).
+
 `verified` (bearer exit 0) is a probe outcome: valid general windows and both
 profile UUIDs equal to the registration. It is not an admission decision;
 unproved rows, model-family association and A/B/A rotation are outside it.
@@ -161,6 +177,14 @@ worktree) and lie outside `secrets_dir`. Files are written by descriptor,
   registration (`<secrets_dir>/native-claude-accounts/NAME/`), then
   `n1.attempt` and `bearer.attempt` in DIR. Each holds only the schema, step
   and creation time. Any existing marker or result file refuses (exit 4).
+- The two alias markers are an addition to the reviewed HLogin registration
+  layout, which names only `account.json` and `config/` in the alias
+  directory. They hold no identity or secret, so the approval's "kit keeps
+  only accountUuid and organizationUuid" still holds. They persist until the
+  registration itself is removed. The coordinator must never delete one:
+  deleting it reopens that step on the registration, which is a retry and
+  needs a new human decision. K and any later loader of the registration
+  layout must tolerate them, or remove them only by a recorded decision.
 - `n1.result.json`, `bearer.result.json`: written only when this run created
   an attempt marker, including after an interruption or internal error.
   Preflight refusals write no file.
@@ -185,7 +209,7 @@ or raw body. stderr is empty except for argument errors.
 | 1 | ran but not success; for n1 and bearer the attempt is consumed; also interruption |
 | 2 | usage error |
 | 3 | refused before any account effect: no attempt consumed, no registration change, nothing spawned or sent; pending and ready still record the refusal in their result or rerun file |
-| 4 | an attempt marker or result file for the step already exists (in DIR or beside the registration) |
+| 4 | an attempt marker or result file for the step already exists (in DIR or beside the registration); bearer checks this right after the registration state, before any exit-3 refusal, so a rerun after a success exits 4 even when its n1 result is now stale |
 | 5 | internal error (class name only) |
 
 Signals. During n1 and bearer the driver installs a handler for SIGINT,
@@ -197,7 +221,13 @@ read), and between the bearer read and each request. Inside `run_n1` the
 injected `monotonic` jumps past every deadline once the flag is set, so the
 request in progress ends at its next bound check (at most 0.2 s,
 `operation_deadline`), and the injected `sleep` raises the harness's own
-refusal (`interrupted`) inside `run_n1`'s try block. `run_n1` then runs its
+refusal (`interrupted`) inside `run_n1`'s try block. The clock's first
+reading is `run_n1`'s `start`, the base of every deadline `run_n1`
+computes, and it is always real time, even when the flag is already set. A
+signal that lands after the driver's last check but before `run_n1` takes
+`start` therefore still ends the run at the first bound check (tested: no
+`get_usage`, harness reason `operation_deadline`); it can no longer shift
+the base and leave the reviewed bounds running in full. `run_n1` then runs its
 whole cleanup as written: stdin close, the 5 s wait, process-group TERM and
 KILL, tunnel exit and workspace removal. The driver records `interrupted`
 (exit 1), keeps the harness result and replaces `run_n1`'s `elapsed_s`,
@@ -231,7 +261,7 @@ Residuals, all disclosed:
 | pending | `registration_state`, `config_directory_trailing_slash`; stdout only: `user_commands`, `user_notes` |
 | ready | three presence booleans, `registration_state`, `marked_ready` |
 | n1 | `alias`, `enrollment_tag`, `attempt_created_utc`, `tunnel`, `requery_allowed`, `bounds`, `native_sha256_matches`, and the `run_n1` sanitized result as reviewed (classification, identity and cache booleans, normalized windows, subscription type from a fixed list, reaping, event and byte counts, binary SHA-256) |
-| bearer | `n1_classification`, `n1_gate`, `n1_age_s`, `identity_matches_local`, `bounds`, credential `read` and refusal code; usage `outcome`, `http_status`, `error_type` (fixed list, else `other`), `fresh`, `valid_general`, normalized general windows, window states, row names only from native's known list with counts for any other name, `unknown_rows`; profile `available` and the two UUID equality booleans |
+| bearer | `n1_classification`, `n1_gate`, `n1_age_s`, `identity_matches_local`, `user_agent` (the fixed neutral value sent), `bounds`, credential `read` and refusal code; usage `outcome`, `http_status`, `error_type` (fixed list, else `other`), `fresh`, `valid_general`, normalized general windows, window states, row names only from native's known list with counts for any other name, `unknown_rows`; profile `available` and the two UUID equality booleans |
 
 ## 4. Exact coordinator procedure
 
@@ -282,6 +312,20 @@ process it waits for, never under a 120 s default; a tool that escalates to
 SIGKILL too early leaves the SIGKILL residual of section 2. bearer's worst
 case is about 20 s (two 10 s request deadlines) plus the credential read.
 
+n1 and bearer run in one sitting. bearer accepts an n1 result only while
+its attempt is at most 1 h old (`N1_MAX_AGE_S`, no override flag), and n1
+cannot run again, so a stop or account switch longer than an hour between
+the two steps blocks N1-bearer for good (it refuses `n1_result_stale` and
+consumes nothing); running it then needs a new human decision. The
+coordinator starts n1 only when bearer can follow at once.
+
+Coordinator-tool preconditions (U): the live steps run without a
+network-filtering or filesystem-restricting tool sandbox. The `env -i` form
+strips any proxy variables such a sandbox injects, so under one, native and
+the wrapper requests would fail after the attempt is consumed, or the marker
+and result writes would fail. This sits next to the timeout delivery above
+as a condition the coordinator checks before n1.
+
 Checks before and between steps: the config directory in `user_commands`
 must match `claude-as --show-config` in the user's shell (the driver reports
 `config_source`); if `ready` reports `server_policy_present` true, stop (n1
@@ -302,7 +346,7 @@ records them in `bounds`):
 
 ## 5. Offline evidence
 
-[test_live_claude.py](quota-reserve-probes/lc/test_live_claude.py): 65
+[test_live_claude.py](quota-reserve-probes/lc/test_live_claude.py): 72
 tests, all OK, none skipped (N). Each runs in a temporary HOME with
 temporary secrets, config, result and runtime directories, the reviewed QC
 fake native ([fake_claude.py](quota-reserve-probes/qc/fake_claude.py)) behind
@@ -328,7 +372,7 @@ over TLS with a disposable certificate.
   a server-managed cache; with no registration, ready, n1 and bearer refuse
   `path_component_unusable`, spawn nothing and create no registration or
   marker (only ready's refusal record).
-- n1 (15): happy path through the tunnel (allowed host counted, other host
+- n1 (16): happy path through the tunnel (allowed host counted, other host
   refused); attempt file present at spawn; one-shot by result, by DIR marker
   and, after both are deleted, by the alias marker, native not spawned; a
   second DIR refuses `alias_attempt_exists`; `--tunnel` or `--no-tunnel` is
@@ -346,15 +390,25 @@ over TLS with a disposable certificate.
   cleanup finish (`elapsed_s` at least 5 s, group signalled and empty, native
   and grandchild gone, workspace removed), the case the previous handler cut
   short; a signal during the cache-shortcut wait ends the run with harness
-  reason `interrupted` and one query (no second `get_usage`); a signal before
-  the markers refuses and consumes nothing; a signal right after them records
-  `interrupted` and never spawns native.
+  reason `interrupted` and one query (no second `get_usage`); a signal set
+  after the driver's last check but before `run_n1` takes its start ends the
+  run at the first bound check with zero queries (against the clock without
+  the real-time base this run ends `fresh_windows` with one query); a signal
+  before the markers refuses and consumes nothing; a signal right after them
+  records `interrupted` and never spawns native. The pin test skips, instead
+  of failing with another reason, on a host whose own policy sources refuse
+  before the hash check.
 - Live wiring (2): the CLI path uses 5 s, 10 s, 64 KiB, the system resolver,
-  production endpoints and TLS context, the 2.1.322 hash and the module
-  deadlines; the live tunnel connector refuses unlisted hosts before any
-  connect.
-- bearer (15, plus the same 15 and one more over TLS): verified happy path
-  with exactly one usage and one profile request; attempt file present at
+  production endpoints and TLS context, the 2.1.322 hash, the module
+  deadlines and the `quota-probe/1` User-Agent; the live tunnel connector
+  refuses unlisted hosts before any connect.
+- bearer (18, plus the same 18 and one more over TLS): verified happy path
+  with exactly one usage and one profile request; the headers the fixture
+  received on both requests (Authorization excluded) carry `User-Agent:
+  quota-probe/1` and contain no `coding-agent-kit`, user name, host name or
+  home path; a pending registration refuses `registration_pending` with zero
+  requests; a rerun after a success whose n1 result is now stale exits 4
+  `result_exists`; attempt file present at
   both resolutions; one-shot by result, DIR marker and alias marker; a
   second DIR with a copied n1 result refuses `alias_attempt_exists` with zero
   requests; refusal before the attempt for a missing, failed, refused,
@@ -392,13 +446,15 @@ pre-commit run --all-files
 
 - **N (fixtures):** config resolution identical to the launcher in three
   cases; every refusal above happens before any attempt marker, spawn,
-  credential read or request; attempt markers precede spawn and network; the
+  credential read or request; the bearer requests carry only the neutral
+  User-Agent and no project, user, host or home identifier (the bearer
+  requests only; native's N1 traffic is U below); attempt markers precede spawn and network; the
   one-shot guard holds per DIR and, through the alias markers, across DIRs;
   bounds propagate; outputs are allowlisted and free of the fabricated
   secrets; a signal before the markers consumes nothing, and a signal after
-  them, including one inside `run_n1`'s cleanup, still ends with native and
-  its grandchild reaped and the workspace removed (for the request, wait and
-  cleanup windows tested above).
+  them, including one inside `run_n1`'s cleanup or before its start reading,
+  still ends with native and its grandchild reaped and the workspace removed
+  (for the request, wait, cleanup and pre-start windows tested above).
 - **S:** the composed modules and their bounds as reviewed in QC; the
   harness code paths behind the signal residuals of section 2.
 - **I:** `claude auth login` with the printed `CLAUDE_CONFIG_DIR` stores the
@@ -407,9 +463,11 @@ pre-commit run --all-files
   the hash-to-spawn gap is negligible; the broader bearer gate is safe given
   its extra checks.
 - **U:** everything live: login behavior, server-managed policy for the
-  account, native traffic and refresh on a real account, live usage and
+  account, native traffic and refresh on a real account (including whether
+  native's N1 requests name a project, user or host), live usage and
   profile responses for a full-login bearer, real timing, and how the
-  coordinator's tool delivers a timeout (signal and grace period). The QC
+  coordinator's tool delivers a timeout (signal and grace period) and whether
+  it runs the steps outside any network or filesystem sandbox. The QC
   section 5 limits stay as stated (Linux only, setsid escape, proxy-only
   tunnel accounting, 2.1.322 key review, unobserved server-side feature
   defaults).

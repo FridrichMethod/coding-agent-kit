@@ -1,5 +1,6 @@
-"""LX gate tests: allowlist, arming and the 2-forward cap, model POST refusal, identity booleans,
-TLS verification (no fallback), redirects, limits, CONNECT allowlist, and no secret in records.
+"""LX gate tests: allowlist, arming and the 2-forward cap, model POST refusal, the account scope,
+identity booleans, TLS verification (no fallback), redirects, limits, CONNECT allowlist, no identifier
+added to what reaches the upstream, and no secret in records.
 
 Loopback only: a TLS usage server with a temporary CA (the test-only context hook) and an
 in-process client standing in for native.
@@ -82,6 +83,10 @@ class GateTests(unittest.TestCase):
         self.assertEqual((method, path, bearer == self.bearer), ('GET', gates.USAGE_PATH, True))
         self.assertEqual(names, ['accept', 'accept-encoding', 'authorization', 'chatgpt-account-id', 'connection',
                                  'host', 'user-agent'])
+        sent = {name.lower(): value for name, value in self.server.sent[0]}
+        self.assertEqual((sent['user-agent'], sent['accept-encoding'], sent['connection']),
+                         ('lx-test/0.167.2', 'identity', 'close'))  # the client's own User-Agent, nothing added
+        self.assertEqual(kit.identifier_findings(kit.header_text(self.server.sent[0]), self.root), [])
         record = self.gate.summary()['exchanges'][0]
         self.assertEqual((record['outcome'], record['status'], record['index']), ('relayed', 200, 1))
         self.assertIn('x-extra', record['request_header_names'])
@@ -171,19 +176,93 @@ class GateTests(unittest.TestCase):
         self.assertTrue(identity['response_account_id_equals_bearer_account'])
         self.assertFalse(identity['response_user_id_equals_bearer_user'])
 
-    def test_bearer_of_another_login_and_header_mismatch(self):
+    def test_bearer_or_header_outside_the_owner_account_is_refused_before_upstream(self):
+        other, opaque = qx.token(B, V), 'opaque-fixture-bearer-not-a-jwt'
+        cases = (('bearer-account-mismatch', other, A), ('bearer-account-mismatch', other, B),
+                 ('bearer-account-mismatch', other, None),
+                 ('bearer-account-absent', qx.jwt({'sub': U, 'exp': int(time.time()) + 600}), A),
+                 ('bearer-account-absent', opaque, A), ('account-header-mismatch', self.bearer, B))
+        for index, (reason, bearer, account) in enumerate(cases):
+            with self.subTest(reason=reason, index=index):
+                self.assertTrue(self.gate.arm())
+                status, data, _ = self.usage(bearer, account)
+                self.assertEqual((status, json.loads(data)['error']['message'].rsplit(': ', 1)[1]), (503, reason))
+                self.assertEqual(self.gate.armed, 0)  # the read's arm is cleared
+        self.assertEqual((self.server.count(), self.gate.forwards), (0, 0))
+        summary = self.gate.summary()
+        self.assertEqual(summary['refused_by_reason'], {'account-header-mismatch': 1, 'bearer-account-absent': 2,
+                                                        'bearer-account-mismatch': 3})
+        self.assertEqual((summary['refused_by_category'], summary['exchanges']), ({'GET usage': 6}, []))
+        for value in (other, B, V, opaque):
+            self.assertNotIn(value, json.dumps(summary))
+        self.assertLessEqual({B, V}, self.gate.secrets)  # memory only, for the output scan
+        self.gate.arm()  # the owner's bearer with no header is still forwarded
+        self.assertEqual(self.usage(self.bearer, None)[0], 200)
+        self.assertEqual(self.server.count(), 1)
+
+    def raw_usage(self, pairs):
+        """A usage GET whose headers go out exactly as listed: duplicates, casing and folding kept."""
+        connection = http.client.HTTPConnection('127.0.0.1', self.gate.server.server_port, timeout=20)
+        connection.putrequest('GET', gates.USAGE_PATH, skip_accept_encoding=True)
+        for name, value in pairs:
+            connection.putheader(name, value)
+        connection.endheaders()
+        response = connection.getresponse()
+        data = response.read()
+        connection.close()
+        return response.status, data
+
+    def test_duplicated_or_folded_scope_headers_are_refused_before_upstream(self):
+        # The scope check reads one bearer and one account header. A second copy (in any casing), a
+        # folded continuation line, a second token or extra JWT parts could otherwise carry a value the
+        # check never read to the upstream.
         other = qx.token(B, V)
-        identity = self.identity_for(qx.usage_body(B, V), bearer=other, account=B)
-        self.assertTrue(identity['response_account_id_equals_bearer_account'])
-        self.assertFalse(identity['bearer_account_equals_codex_as_account'])
-        self.assertFalse(identity['response_account_id_equals_codex_as_account'])
-        identity = self.identity_for(qx.usage_body(A, U), account=B)
-        self.assertFalse(identity['request_account_header_equals_bearer_account'])
-        self.assertFalse(identity['response_account_id_equals_request_header'])
-        record = self.gate.summary()['exchanges'][-1]
-        self.assertFalse(record['bearer_same_as_first_forward'])
+        owner, foreign = 'Bearer ' + self.bearer, 'Bearer ' + other
+        base = [('Accept', 'application/json'), ('User-Agent', 'lx-test/0.167.2')]
+        cases = (
+            ('duplicate-authorization', [('Authorization', owner), ('Authorization', foreign), ('ChatGPT-Account-ID', A)]),
+            ('duplicate-authorization', [('Authorization', owner), ('authorization', foreign), ('ChatGPT-Account-ID', A)]),
+            ('duplicate-authorization', [('Authorization', owner), ('AUTHORIZATION', owner)]),
+            ('duplicate-account-header', [('Authorization', owner), ('ChatGPT-Account-ID', A),
+                                          ('ChatGPT-Account-ID', B)]),
+            ('duplicate-account-header', [('Authorization', owner), ('chatgpt-account-id', A),
+                                          ('ChatGPT-Account-ID', A)]),
+            ('duplicate-forwarded-header', [('Authorization', owner), ('ChatGPT-Account-ID', A),
+                                            ('user-agent', 'second/1')]),
+            ('malformed-bearer', [('Authorization', owner + '\r\n ' + other), ('ChatGPT-Account-ID', A)]),
+            ('malformed-bearer', [('Authorization', owner + ' ' + other), ('ChatGPT-Account-ID', A)]),
+            ('bearer-account-absent', [('Authorization', owner + '.' + other), ('ChatGPT-Account-ID', A)]),
+        )
+        for index, (reason, pairs) in enumerate(cases):
+            with self.subTest(reason=reason, index=index):
+                self.assertTrue(self.gate.arm())
+                status, data = self.raw_usage(base + pairs)
+                self.assertEqual((status, json.loads(data)['error']['message'].rsplit(': ', 1)[1]), (503, reason))
+                self.assertEqual(self.gate.armed, 0)  # the read's arm is cleared
+        self.assertEqual((self.server.count(), self.gate.forwards), (0, 0))
+        summary = self.gate.summary()
+        self.assertEqual(summary['refused_by_reason'], {'bearer-account-absent': 1, 'duplicate-account-header': 2,
+                                                        'duplicate-authorization': 3, 'duplicate-forwarded-header': 1,
+                                                        'malformed-bearer': 2})
+        self.assertEqual((summary['refused_by_category'], summary['exchanges']), ({'GET usage': 9}, []))
         for value in (other, B, V):
-            self.assertNotIn(value, json.dumps(self.gate.summary()))
+            self.assertNotIn(value, json.dumps(summary))
+        self.assertLessEqual({B, V}, self.gate.secrets)  # memory only, for the output scan
+        self.assert_clean()
+        self.gate.arm()  # one owner bearer and one owner header are still forwarded, unchanged
+        self.assertEqual(self.raw_usage(base + [('Authorization', owner), ('ChatGPT-Account-ID', A)])[0], 200)
+        self.assertEqual(self.server.count(), 1)
+        self.assertEqual(self.server.requests[0][3], self.bearer)
+
+    def test_a_gate_without_the_owner_account_refuses_every_read(self):
+        for expected in (None, (U, None), (U, '')):
+            with self.subTest(expected=expected):
+                gate = gates.Gate(kit.test_upstream(self.server, self.certs['ca']), expected=expected)
+                self.addCleanup(gate.close)
+                gate.arm()
+                status, data, _ = self.usage(gate=gate)
+                self.assertEqual((status, json.loads(data)['error']['message'][-21:]), (503, 'owner-account-unknown'))
+        self.assertEqual(self.server.count(), 0)
 
     def test_expiring_bearer_is_flagged(self):
         self.bearer = qx.token(A, U, lifetime=120)

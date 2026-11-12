@@ -16,8 +16,16 @@ forced model provider of one owned `codex app-server`.
 - CONNECT (native's proxy route) is tunnelled only to TUNNEL_HOSTS, the refresh
   host the live approval allows, as an opaque byte relay counted in bytes; every
   other destination is refused and recorded by host:port.
-- The gate decodes the in-transit bearer's JWT claims in memory only, to compute
-  identity booleans. It records no token, id, raw body or header value.
+- Account scope: before any upstream byte, a usage read is refused locally unless
+  it carries exactly one Authorization header holding one bearer token, at most one
+  of each other forwarded header, and the bearer's account claim is present and
+  equals the codex-as owner's account (from the owner auth.json, read at
+  preflight), and any ChatGPT-Account-ID header equals it too. So the bearer and
+  account header the check reads are the ones forwarded. The refusal reason is
+  recorded; the read's arm is cleared.
+- The gate decodes the in-transit bearer's JWT claims in memory only, to enforce the
+  account scope and compute identity booleans. It records no token, id, raw body or
+  header value.
 
 Only live_codex.main builds production_upstream() and production_tunnel. Tests
 pass a loopback Upstream whose context trusts a temporary CA (the test-only
@@ -49,6 +57,11 @@ BODY_LIMIT = 64 * 1024
 MAX_ADDRESSES = 2
 # Request headers a forward may carry; native 0.167.2 sends exactly these on usage (QX section 1).
 FORWARD_HEADERS = ('authorization', 'chatgpt-account-id', 'accept', 'user-agent')
+# Each forwarded name may occur once: headers.get() reads the first occurrence, a forward would carry
+# every one, so a duplicate could pass one value to the scope check and send another upstream.
+DUPLICATE_REASONS = {'authorization': 'duplicate-authorization', 'chatgpt-account-id': 'duplicate-account-header'}
+# RFC 6750 b64token: one token, so no space or folded continuation line can carry a second one.
+BEARER = re.compile(r'[A-Za-z0-9._~+/-]+=*')
 HOP = {'connection', 'keep-alive', 'proxy-connection', 'proxy-authenticate', 'proxy-authorization', 'te',
        'trailer', 'transfer-encoding', 'upgrade', 'content-length'}
 TUNNEL_HOSTS = ('auth.openai.com:443',)
@@ -269,9 +282,13 @@ def category(method, path):
 
 
 def bearer_claims(bearer):
-    """Claims of the in-transit JWT bearer (decoded, never verified) or None. Memory only."""
+    """Claims of the in-transit JWT bearer (decoded, never verified) or None. Memory only.
+    Only a three-part JWS compact token counts, so no trailing parts ride along the checked payload."""
     try:
-        part = bearer.split('.')[1]
+        parts = bearer.split('.')
+        if len(parts) != 3:
+            return None
+        part = parts[1]
         payload = json.loads(base64.urlsafe_b64decode(part + '=' * (-len(part) % 4)))
     except (IndexError, ValueError, UnicodeError, AttributeError, RecursionError):
         return None
@@ -441,6 +458,21 @@ class Gate:
                                 'allowlist': list(TUNNEL_HOSTS) if self.tunnel else []},
                     'exchanges': [dict(item) for item in self.exchanges]}
 
+    def scope_refusal(self, claims, header_account):
+        """None when this read stays within the codex-as owner's account, else a fixed reason.
+        Compares in memory only; nothing about the values is recorded."""
+        owner = self.expected[1] if self.expected else None
+        if not (isinstance(owner, str) and owner):
+            return 'owner-account-unknown'
+        account = (claims or {}).get('account')
+        if account is None:
+            return 'bearer-account-absent'
+        if not _same(account, owner):
+            return 'bearer-account-mismatch'
+        if header_account is not None and not _same(header_account, owner):
+            return 'account-header-mismatch'
+        return None
+
     def _note_secret(self, *values):
         for value in values:
             if isinstance(value, str) and len(value) >= 4:
@@ -475,6 +507,18 @@ class Gate:
                 if self.command != 'HEAD':
                     self.wfile.write(data)
 
+            def refuse_scope(self, reason):
+                """A read the gate cannot keep within the owner's account: its arm is cleared, the ids of
+                every bearer and account header it carried stay in memory for the output scan only, and
+                nothing reaches the upstream."""
+                with gate.lock:
+                    gate.armed = 0
+                    for raw in self.headers.get_all('Authorization') or []:
+                        claims = bearer_claims(raw[7:]) if raw.startswith('Bearer ') else None
+                        gate._note_secret(*((claims or {}).get(key) for key in ('account', 'user')))
+                    gate._note_secret(*(self.headers.get_all('ChatGPT-Account-ID') or []))
+                return self.refuse(reason)
+
             def drain(self):
                 length = self.headers.get('Content-Length')
                 if length and length.isdigit() and int(length) <= 1 << 20:
@@ -498,10 +542,22 @@ class Gate:
                 if (query or self.headers.get('Content-Length') not in (None, '0')
                         or self.headers.get('Transfer-Encoding') or self.headers.get('Upgrade')):
                     return self.refuse('unexpected-request-shape')
+                # Scope checks, all before the cap, the arm and any upstream byte.
+                counts = Counter(name.lower() for name in self.headers.keys())
+                duplicate = next((name for name in FORWARD_HEADERS if counts[name] > 1), None)
+                if duplicate:
+                    return self.refuse_scope(DUPLICATE_REASONS.get(duplicate, 'duplicate-forwarded-header'))
                 value = self.headers.get('Authorization') or ''
                 bearer = value[7:] if value.startswith('Bearer ') and len(value) > 7 else None
                 if bearer is None:
                     return self.refuse('missing-bearer')
+                if not BEARER.fullmatch(bearer):
+                    return self.refuse_scope('malformed-bearer')
+                header_account = self.headers.get('ChatGPT-Account-ID')
+                claims = bearer_claims(bearer)
+                scope = gate.scope_refusal(claims, header_account)
+                if scope:
+                    return self.refuse_scope(scope)
                 with gate.lock:
                     if gate.forwards >= MAX_FORWARDS:
                         reason = 'forward-cap'
@@ -514,9 +570,9 @@ class Gate:
                         index = gate.forwards
                 if reason:
                     return self.refuse(reason)
-                header_account = self.headers.get('ChatGPT-Account-ID')
+                # Each forwarded name occurs at most once (refused above otherwise), so the forwarded bearer
+                # and account header are exactly the values the scope check read.
                 headers = {name: value for name, value in self.headers.items() if name.lower() in FORWARD_HEADERS}
-                claims = bearer_claims(bearer)
                 digest = hmac.new(gate.key, bearer.encode('utf-8', 'replace'), hashlib.sha256).digest()
                 with gate.lock:
                     if gate.first_bearer is None:

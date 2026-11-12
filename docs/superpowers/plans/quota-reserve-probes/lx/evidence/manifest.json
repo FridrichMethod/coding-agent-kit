@@ -42,7 +42,7 @@
    "name": "test_gate",
    "skip_reasons": [],
    "summary": [
-    "Ran 21 tests in 15.635s",
+    "Ran 23 tests in 17.657s",
     "OK"
    ]
   },
@@ -51,7 +51,7 @@
    "name": "test_live_codex",
    "skip_reasons": [],
    "summary": [
-    "Ran 25 tests in 30.208s",
+    "Ran 34 tests in 31.180s",
     "OK"
    ]
   },
@@ -60,7 +60,7 @@
    "name": "test_native",
    "skip_reasons": [],
    "summary": [
-    "Ran 5 tests in 15.762s",
+    "Ran 5 tests in 8.402s",
     "OK"
    ]
   }

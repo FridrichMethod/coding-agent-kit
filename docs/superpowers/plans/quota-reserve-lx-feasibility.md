@@ -10,10 +10,18 @@ nothing against a real account, credential, login, backend or network. No
 product runtime changed. This is not a G0 pass, a live result or production
 capability.
 
-Base `afffc23`. Linux x86_64, Python 3.15.2 with OpenSSL 4.1.0, `codex-cli
-0.167.2`, binary SHA-256
+Nodes LX and LF (pre-live fixes), base `87aa145`. Linux x86_64,
+`codex-cli 0.167.2`, binary SHA-256
 `a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b` (the binary
-QX, PC and PR used). macOS was not tested; the probe refuses there.
+QX, PC and PR used; the probe refuses any other file). macOS was not tested; the
+probe refuses there.
+
+Interpreter: the committed evidence was produced by the distribution's
+`/usr/bin/python3`, Python 3.12.3 with OpenSSL 3.0.13 (each `native-*.json`
+records it under `platform`), and the live command in section 6 names that
+interpreter by path, because `python3` resolves by `PATH` and the TLS stack is
+part of the live path. The three suites also pass under Python 3.15.2 with
+OpenSSL 4.1.0 (N); that build wrote no committed evidence.
 
 Labels: **N** native observation in this node, **S** inspected source or
 documentation, **I** inference, **U** unproved.
@@ -36,13 +44,16 @@ documentation, **I** inference, **U** unproved.
   unknown (U).
 - Every output file and stream is scanned for each fabricated secret, the
   temporary home, the host name, and JWT-, UUID- or token-shaped text. The
-  scan found nothing. Temporary roots (`quota-lx-*`) are listed in
+  scan found nothing. Every header that reached the loopback upstream
+  (Authorization excluded) is checked for the project name, the user name,
+  the host name and the real and temporary home paths, with the fake and with
+  the real native; none appears. Temporary roots (`quota-lx-*`) are listed in
   `.cache/lx/temp-roots.txt` and removed, and none was left.
 
 ## 2. The probe: `lx/live_codex.py`
 
 ```sh
-python3 -I -B docs/superpowers/plans/quota-reserve-probes/lx/live_codex.py \
+/usr/bin/python3 -I -B docs/superpowers/plans/quota-reserve-probes/lx/live_codex.py \
     --account stanford --out DIR [--delay SECONDS] [--single-read]
 ```
 
@@ -53,22 +64,50 @@ written. `2` means the probe refused before spawn and the attempt was not used.
 `3` means the attempt was used but did not complete. `130` means it was
 interrupted after the attempt file existed.
 
-**Refusals before spawn (exit 2).** Each prints a fixed reason code:
+There is no version or binary override: `--expect-version` does not exist, and
+any other option is a usage error (exit 2 from argument parsing).
+
+**Refusals before spawn (exit 2).** Each prints a fixed reason code, in this
+order (the order of the checks in `main`, `run_probe` and `open_account`):
 
 | Check | Reason code |
 | --- | --- |
 | Account other than `stanford`; `--delay` outside (0, 120]; not Linux x86_64 | `account-not-approved`, `delay-out-of-range`, `platform-unsupported` |
 | System trust store holds no CA | `system-trust-store-empty` |
+| The kit configuration does not load | `configuration` |
 | `SSL_CERT_FILE`, `SSL_CERT_DIR`, `SSLKEYLOGFILE`, `OPENSSL_CONF`, `OPENSSL_MODULES`, `OPENSSL_ENGINES` set | `tls-environment` |
+| `XDG_RUNTIME_DIR` unset, relative, missing, a symlink, not a directory, not owned by the caller or with any group or other bit | `xdg-runtime-dir-not-private` |
+| Any ancestor of the workspace, lexical or resolved, up to `/`, holds a `.codex` entry; an ancestor cannot be checked | `workspace-ancestor-codex`, `workspace-ancestor-unreadable` |
+| Any such ancestor is open to other users' writes: owned by neither the caller nor root, or with a group or other write bit | `workspace-ancestor-open` |
 | `--out` not absolute; inside a Git work tree; inside `codex_home`, `secrets_dir` or the repository; existing but not a 0700 directory owned by the caller, or not empty; unsafe parent | `out-*` |
-| codex-as preflight (endpoint and auth variables, `CODEX_HOME`, config sources) | `codex-as-preflight` |
-| Account unknown, setup pending, layout or link not as codex-as left it, not a ChatGPT login | `account-unknown`, `setup-pending`, `layout-unexpected`, `not-chatgpt-login` |
-| Account lease cannot be taken exclusively without blocking, so a codex-as client is running | `lease-held` |
-| Guard self-check fails; `codex --version` is not 0.167.2 | `guard-self-check-failed`, `version-mismatch` |
+| No `codex` in the kit configuration or on `PATH` | `codex-not-found` |
+| SHA-256 of the resolved binary is not the reviewed `a9672d0f...` above (compared before anything executes the file) | `binary-unreviewed` |
+| Account name not a codex-as name; codex-as preflight (endpoint and auth variables, `CODEX_HOME`, config sources) | `invalid-account-name`, `codex-as-preflight` |
+| Account unknown; account root not as codex-as left it | `account-unknown`, `layout-unexpected` |
+| Lease file absent or not a private regular file; lease cannot be taken exclusively without blocking (a codex-as client is running) | `lease-file-missing`, `lease-file-unsafe`, `lease-held` |
+| Setup pending, layout or link not as codex-as left it, not a ChatGPT login | `setup-pending`, `layout-unexpected`, `not-chatgpt-login` |
+| The owner auth.json's id_token has no `chatgpt_account_id` claim, or it differs from `tokens.account_id` | `owner-account-claim-missing`, `owner-account-claim-inconsistent` |
+| Owner changed between the exclusive and the shared lock | `identity-changed-during-preflight` |
+| Guard self-check fails | `guard-self-check-failed` |
+| `codex --version` fails, is not `codex-cli X.Y.Z`, is below codex-as's minimum, has a prerelease or build suffix (`0.167.2-alpha` is refused, although codex-as accepts it as 0.167.2), or is not 0.167.2 | `version-unavailable`, `version-unrecognized`, `version-prerelease`, `version-mismatch` |
 
 The probe never repairs, imports, copies or edits anything. Layout damage is
 refused as found. Like codex-as, it downgrades the lease to shared after
-validation and validates the owner again.
+validation and validates the owner again. The out directory is created (empty,
+0700) when the out checks pass, so a refusal later in the table leaves that
+empty directory, which the next run accepts; every refusal before the out
+checks leaves nothing.
+
+**Binary.** The probe resolves the configured `codex` to its real file once
+and hashes that file before anything executes it. Only a file with the
+reviewed SHA-256 is run, first as `--version` and then as the app-server, so
+an unreviewed file is refused without being executed (N: the fake records
+every execution, and under the live pin it records none). The path is opened
+again for `--version` and for the spawn, and a same-user replacement of the
+file between the hash and the spawn is not detected (I: the hash-to-spawn
+residual, as in the LC driver). The test-only `expect_sha256` and
+`require_closed_ancestors` arguments of `run_probe` let the offline suites use
+the fake and temporary roots under `/tmp`; `main()` passes neither (tested).
 
 **One attempt.** Before spawning, the probe creates `DIR/lx-attempt.json`
 (0600, `O_EXCL`). A non-empty `DIR` refuses, so each out directory allows one
@@ -81,8 +120,20 @@ guard in a new process group. The child gets this environment:
   and `TZ`);
 - `CODEX_HOME` and `CODEX_SQLITE_HOME`, set exactly as codex-as sets them;
 - every proxy variable pointing at the gate, with `NO_PROXY` for loopback;
-- `TMPDIR` and the working directory set to a private workspace inside `DIR`,
-  so no project config layer applies (I).
+- `TMPDIR` and the working directory set to a new workspace
+  `quota-lx-ws-<random>` (0700) in the caller's private `XDG_RUNTIME_DIR`,
+  never under the shared temporary directory. The probe refused above if any
+  ancestor of it, up to `/`, holds `.codex`, so no `<ancestor>/.codex/config.toml`
+  project layer exists when native starts. It also refused if any ancestor is
+  open to other users' writes (`workspace-ancestor-open`), so no other user
+  can add one after the check (N, both refusals tested); only the caller's
+  own processes still could (I, the same-user boundary). On this host
+  `/run/user/UID` is 0700 and owned by the caller, and its ancestors are
+  root-owned 0755 (N, `stat` only), so that layout passes. The result records
+  `ancestors_closed_to_other_writers`; it is true on the live path, which
+  refuses otherwise. The offline suites keep their runtime directories under
+  `/tmp`, whose ancestors are open, so they pass `require_closed_ancestors=False`
+  and record false.
 
 The account lease fd is inherited (shared), as codex-as's `run_native` passes
 it. The probe edits no file. Its `-c` overrides keep codex-as's fixed keys
@@ -92,8 +143,12 @@ forced provider `lxgate` (`requires_openai_auth`, no WebSockets, zero retries)
 at the gate. They also turn off analytics, OTel export, web search, plugins,
 apps, MCP apps, memories, the network proxy feature and the code-mode prewarm.
 
-**RPC.** The probe sends `initialize` (client `coding-agent-kit-lx-probe/1`),
-then `initialized`. It then calls `account/rateLimits/read` once with
+**RPC.** The probe sends `initialize` with `clientInfo` `usage-probe`, version
+`1`, then `initialized`. Native builds the User-Agent of its upstream requests
+from that name. With the real 0.167.2 the usage request carried (N, fixtures)
+`User-Agent: usage-probe/0.167.2 (<OS> <OS version>; <arch>) dumb (usage-probe;
+1)`, where `dumb` is the probe's `TERM`: the platform is named coarsely, and
+no project, user, host or path appears. It then calls `account/rateLimits/read` once with
 `excludeResetCreditDetails: true`, which skips the reset-credits GET (QX
 section 1). It makes a second read only after `--delay` (default 30 s), and
 only if the first returned `ok` and its single forward came back 200. The probe
@@ -144,6 +199,29 @@ launch of the account runs it.
   total. Every other destination gets a 403 and is recorded by host:port. The
   gate cannot see the path inside a tunnel, so it admits whatever native sends
   to that host (I, as QX section 5 notes).
+- **Account scope:** before the cap, the arm or any upstream byte, the gate
+  refuses a usage read (503) unless all of these hold:
+  - each forwarded header name (`Authorization`, `ChatGPT-Account-ID`,
+    `Accept`, `User-Agent`, counted without regard to case) occurs at most
+    once, and `Authorization` exactly once;
+  - the `Authorization` value is `Bearer`, a space and one token of RFC 6750
+    token characters, so no space or folded continuation line carries a
+    second token;
+  - the token is a three-part JWT whose `chatgpt_account_id` claim is present
+    and equals the codex-as owner's account;
+  - any `ChatGPT-Account-ID` header equals that account too.
+
+  Because each forwarded name occurs once, the bearer and account header the
+  check reads are exactly the ones forwarded. The owner's account is
+  `tokens.account_id` of the owner auth.json, read once at preflight, kept in
+  memory only and required there to equal that file's own id_token claim.
+  Reasons: `duplicate-authorization`, `duplicate-account-header`,
+  `duplicate-forwarded-header`, `malformed-bearer`, `bearer-account-absent`,
+  `bearer-account-mismatch`, `account-header-mismatch`, and
+  `owner-account-unknown` for a gate built without an owner. A refusal clears
+  the read's arm and is counted in `refused_by_reason`; the ids in every copy
+  of the refused headers stay in memory only, for the output scan. The second
+  read then does not happen (its condition is a relayed 200).
 - **Identity:** the gate decodes the bearer's JWT claims in memory. It compares
   them with the request header, codex-as's expected owner (from the login
   record), and the response `account_id`/`user_id`, keeping only booleans.
@@ -170,6 +248,7 @@ The result keeps the following:
 - forwarded and refused counts, and CONNECT counts and bytes;
 - the native version, SHA-256, user-agent version, guard summary and reap
   record;
+- the workspace parent kind (`xdg-runtime-dir`) and the two ancestor booleans;
 - the credential booleans and platform versions.
 
 It never keeps tokens, ids, emails, raw bodies, header values, error message
@@ -177,10 +256,12 @@ text, native stderr or paths.
 
 ## 5. Offline results
 
-`run_offline.py` exited 0. `test_gate` ran 21 tests, OK; `test_live_codex` ran
-25, OK; `test_native` ran 5 with the real 0.167.2, OK. All five native cases
-completed with no leak findings, and no temporary root was left
-(`lx/evidence/manifest.json`).
+`run_offline.py` (run by `/usr/bin/python3`) exited 0. `test_gate` ran 23
+tests, OK; `test_live_codex` ran 34, OK; `test_native` ran 5 with the real
+0.167.2 (the reviewed file), OK. All
+five native cases completed with no leak findings, no identifier in any header
+that reached the upstream, and no temporary root or workspace was left
+(`lx/evidence/manifest.json`, `fixture` in each `native-*.json`).
 
 | Brief requirement | Covered by |
 | --- | --- |
@@ -194,16 +275,28 @@ completed with no leak findings, and no temporary root was left
 | Process-group cleanup | fake that ignores EOF and SIGTERM and spawns a grandchild: SIGTERM, then SIGKILL, group empty, grandchild gone |
 | TLS failure refuses, no fallback | untrusted CA, hostname mismatch, unverified context refused before connect; native `tls-failure`: 0 requests reach the server, TLS or plain |
 | Live path uses the system store | `main()` passes `production_upstream()` (`chatgpt.com:443`, `CERT_REQUIRED`, hostname check), `production_tunnel` and the guard; an empty store refuses before configuration is read |
+| No project, user or host name sent | `CLIENT_INFO` names none; the fake reports the `clientInfo` it received and builds its User-Agent from it; every header at the upstream is checked (fake and real native); the gate adds only `Host`, `Accept-Encoding` and `Connection` and passes native's own User-Agent |
+| Version and binary pin | `--expect-version` and any override are usage errors; `main()` passes no `expect_sha256`; `0.167.2-alpha.1` and `0.167.2-rc1` refuse `version-prerelease`; `0.168.0` refuses `version-mismatch`; the live pin refuses the fake binary (`binary-unreviewed`) without executing it, not even `--version` |
+| Account scope | gate: another login's bearer (with the owner's, another or no header), a bearer without the claim, an opaque bearer, a foreign header, a gate without an owner: 503, 0 upstream requests, arm cleared, no value in the summary; gate, headers sent raw: an owner bearer followed by a foreign one (`Authorization` twice, also as `authorization`), the owner bearer twice in different case, `ChatGPT-Account-ID` twice (different values; equal values in different case), `User-Agent` twice, a second token after a space or on a folded line, extra JWT parts: 503 with the fixed reason, 0 upstream requests, arm cleared, no foreign value in the summary, and a single owner bearer is then forwarded unchanged; probe: fake native with a foreign bearer or header gets 503, 0 forwards, second read skipped; owner auth.json with a missing or inconsistent claim refuses before spawn |
+| Workspace precondition | workspace is in the private runtime directory and removed after the run (fake and real native); unset, empty, relative, missing, 0755, symlinked or non-directory `XDG_RUNTIME_DIR` refuses before the out directory exists; a `.codex` directory or file in an ancestor, also through a symlinked ancestor, refuses; on the live path an ancestor open to other users' writes refuses `workspace-ancestor-open` before the out directory exists, and a closed layout proceeds |
 
 Native 0.167.2 behavior seen through the gate (N, fixtures):
 
 - At startup the app-server sends `GET /backend-api/wham/accounts/check`
-  twice and `GET /backend-api/codex/models` once before any read. The gate
-  refuses all three (503) and the reads still succeed. In a live run these
-  requests never leave the host.
+  (twice in four of the five cases, once in one; which case varies between
+  runs, so the second call races the probe's exit) and
+  `GET /backend-api/codex/models` once. The gate refuses them (503) and the
+  reads still succeed. In a live run these requests never leave the host.
+  In one run native had already closed the connection when the gate wrote
+  such a 503, and the gate's server thread printed a `BrokenPipeError`
+  traceback to the runner's stderr; nothing was forwarded and the result was
+  unaffected. A live run can print the same on the probe's stderr, which is
+  not retained.
 - A usage request carries exactly `accept`, `authorization`,
   `chatgpt-account-id`, `host` and `user-agent`. The initialize `userAgent`
-  names 0.167.2.
+  names 0.167.2. The forwarded User-Agent's product token is the
+  `clientInfo` name, `usage-probe`, and no header holds the project name,
+  the user or host name or a home path.
 - Each RPC caused one upstream GET. The second read, 1 s later, returned the
   new fixture response (`reset_at` delta 1), so native did not cache it.
 - When the response omits `account_id` and `user_id`, native still succeeds,
@@ -224,17 +317,29 @@ Native 0.167.2 behavior seen through the gate (N, fixtures):
 
 Preconditions:
 
-- Linux x86_64, with the kit-configured `codex` at 0.167.2.
+- Linux x86_64, with the kit-configured `codex` resolving to the reviewed
+  0.167.2 file (SHA-256 above).
 - No codex-as session of `stanford` running.
 - The TLS and endpoint variables above unset.
+- `XDG_RUNTIME_DIR` set to the caller's private runtime directory (normally
+  `/run/user/UID`), with no `.codex` in it or above it, and every directory
+  above it owned by root or the caller with no group or other write bit (the
+  probe refuses otherwise, before the attempt).
+- The interpreter is the distribution's `/usr/bin/python3`, the one that
+  produced the evidence: `/usr/bin/python3 -c 'import sys, ssl;
+  print(sys.version, ssl.OPENSSL_VERSION)'` prints Python 3.12.3 and
+  OpenSSL 3.0.13. Another interpreter changes the TLS stack and trust store
+  of the live forward.
 - The run uses the same HOME and kit configuration that codex-as uses for the
   account.
 
-From the root of a checkout of this branch:
+From the root of a checkout of this branch (OUT is durable and private, not
+tmpfs, created once):
 
 ```sh
-OUT="$(mktemp -d /tmp/quota-lx-live-XXXXXX)"
-python3 -I -B docs/superpowers/plans/quota-reserve-probes/lx/live_codex.py --account stanford --out "$OUT"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}"
+mkdir -p "$STATE" && OUT="$(mktemp -d "$STATE/quota-reserve-lx-live-XXXXXX")"
+/usr/bin/python3 -I -B docs/superpowers/plans/quota-reserve-probes/lx/live_codex.py --account stanford --out "$OUT"
 ```
 
 - Exit 2 refused before spawn and used nothing. Fix the named condition and run
@@ -251,14 +356,24 @@ Check in `lx-result.json`:
 - `gate.forwarded` <= 2.
 - `rpc.methods_sent` contains only `initialize`, `initialized` and
   `account/rateLimits/read`.
-- `gate.refused_by_category` lists what native tried and the gate refused.
+- `gate.refused_by_category` lists what native tried and the gate refused;
+  `gate.refused_by_reason` holds no `bearer-account-*`,
+  `account-header-mismatch`, `duplicate-*` or `malformed-bearer` (one there
+  means native presented a bearer or workspace outside the owner's account,
+  or headers the check could not read unambiguously, and nothing was
+  forwarded). `bearer-account-absent` there means the real bearer carries no
+  account claim (section 7): the attempt is used and holds no usage data.
+- `workspace.ancestors_closed_to_other_writers` is true (the live path
+  refuses before the attempt otherwise).
 - `gate.connect` shows refresh tunnels and any refused destinations.
 - `native.reap.process_group_empty` is true.
 - `credential.link_intact_after` and `credential.still_private_regular_file`
   are true.
 - `credential.changed_during_run` says whether native refreshed.
 
-Then archive only the sanitized result and remove the out directory.
+Then copy the sanitized result and the attempt file into the ledger at once.
+Keep the out directory: its attempt file is the one-shot record, and the
+workspace in the runtime directory is already removed.
 
 The run answers QX's open questions for one real bearer:
 
@@ -273,8 +388,22 @@ The run answers QX's open questions for one real bearer:
 ## 7. Proved, inferred, unproved
 
 **Proved (N; Linux x86_64, 0.167.2, fixtures only):** everything in section 5.
-The probe refuses every listed precondition before spawning and writes nothing
-for it. One owned app-server with command-line overrides only performs model-free
+The probe refuses the listed preconditions before spawning: tested for the
+account, delay, trust store, TLS variables, runtime directory, `.codex`
+ancestors, open ancestors, out directory, preflight, unknown account, pending
+setup, layout, owner claim, lease, version, prerelease and binary rows; not
+tested for `platform-unsupported`, `configuration`, `not-chatgpt-login`,
+`guard-self-check-failed`,
+`codex-not-found`, `lease-file-*`, `version-unavailable`,
+`version-unrecognized` and `identity-changed-during-preflight` (S, code
+inspection). Apart from the empty out directory noted in section 2, a refusal
+writes nothing. An unreviewed binary is refused without being executed. A
+bearer or workspace header outside the owner's account is refused before any
+upstream byte, and so is a read with a duplicated forwarded header (in any
+case) or an `Authorization` value that is not one bearer token, so the values
+checked are the values forwarded. Neither the initialize client name nor any
+header that reaches the upstream carries the project name, a user or host
+name or a home path. One owned app-server with command-line overrides only performs model-free
 reads at the gate. Only the usage GET is forwarded, at most twice, over
 verified TLS with no fallback. All startup and model requests are refused
 locally. Identity booleans are correct for present, absent and mismatched
@@ -283,6 +412,10 @@ reaped.
 
 **Inferred (I):** the live path verifies with the system store, because the
 unit test checks what `main()` passes and the gate refuses a weaker context.
+Only the caller's own processes can add a `.codex` above the workspace
+between the check and native's start, because the live path refuses an
+ancestor open to other users. The file spawned is the file hashed unless the
+same user replaces it in between (the hash-to-spawn residual of section 2).
 `chatgpt.com` is the backend host (QX section 5). Native's refresh can only
 use the `auth.openai.com:443` tunnel. No descendant can reach the network,
 because the guard follows forks.
@@ -290,11 +423,37 @@ because the guard follows forks.
 **Unproved (U):** everything a real server does (status, fields, identity,
 caching); whether this host reaches `chatgpt.com` and gets the API rather than
 an HTML challenge page (that would show up as a non-JSON 403 and a failed
-read); real refresh traffic inside the tunnel; the family of the denied
-socket; macOS.
+read); whether the real 0.167.2 access token is a three-part JWT carrying
+the `https://api.openai.com/auth` `chatgpt_account_id` claim (the fixture
+tokens do; nothing in this project's evidence shows that the real one does);
+real refresh traffic inside the tunnel; the family of the denied socket;
+macOS.
 
 **Risks to weigh before the live run:**
 
+- An interrupted refresh can cost a relogin. If native's startup refresh is
+  cut by the tunnel limits (3 tunnels, 30 s idle, 60 s total) or by the reap
+  after the server has rotated the refresh token but before native has
+  persisted the new one, the stored refresh token is spent and the account
+  needs a new login (I; not observed, the fixture sink cannot rotate). Native
+  exited gracefully on stdin close, with no signal needed, in every observed
+  case, which keeps the reap from cutting a write short (N, fixtures).
+- The scope check depends on a claim the real bearer may lack (U above). If
+  the real access token is not a three-part JWT or has no
+  `chatgpt_account_id` claim, the gate refuses the first read
+  `bearer-account-absent` before any upstream byte, the second read is
+  skipped, and the one approved attempt is consumed with no usage data. That
+  fails closed (no approval breach), but another attempt needs a new human
+  decision.
+- The account scope rests on the owner auth.json read at preflight: a bearer
+  native obtains for the same account through a refresh still passes; a
+  bearer for any other account claim is refused. A native that sends no
+  `ChatGPT-Account-ID` header is not refused (the bearer claim then selects
+  the account); 0.167.2 always sent it (N, fixtures).
+- The User-Agent names the OS distribution and version, the architecture and
+  `TERM`, as native's default does with its own client name (N, fixtures). It
+  identifies no user or host, but it is not native's own product name, and
+  the edge may treat an unfamiliar client name differently (U).
 - The account shares the user's real `config.toml`. The `-c` overrides win for
   every routing key, and codex-as's `config_sources` check runs. MCP servers
   and hooks are session-scoped and the probe starts no thread (I). This was not
@@ -308,18 +467,28 @@ socket; macOS.
 - A real 401 does not make native refresh (QX, S). The probe records HTTP 401
   and skips the second read.
 
+**Remaining gates.** A successful live run observes one bearer once. It does
+not establish attributable admission under refresh or A-B-A races, a
+measured maximum observation age, poll and backoff behavior, server-side
+freshness (a `usage_equal: false` can come from the `reset_after_seconds`
+countdown alone), the product boundary (the PC guard is test-only
+containment), macOS, K composition or human G0.
+
 ## 8. Reproduction
 
-From the worktree root, on Linux x86_64 with `codex` 0.167.2 on PATH (or
-`LX_NATIVE_CODEX`):
+From the worktree root, on Linux x86_64 with the reviewed `codex` 0.167.2 on
+PATH (or `LX_NATIVE_CODEX`), and `TMPDIR` (default `/tmp`) outside any directory
+with a `.codex` above it, because the tests' runtime directories live there:
 
 ```sh
-python3 -I -B docs/superpowers/plans/quota-reserve-probes/lx/run_offline.py
+/usr/bin/python3 -I -B docs/superpowers/plans/quota-reserve-probes/lx/run_offline.py
 pre-commit run --all-files
 ```
 
 `run_offline.py` runs each suite in its own process with an outer timeout of
-300 s or 600 s. A timeout or failure is recorded and is never evidence. Then,
+300 s or 600 s. It rewrites the tracked `evidence/` files (timestamps change on
+every run), so a reproduction leaves them modified until restored or
+committed. A timeout or failure is recorded and is never evidence. Then,
 with the guard and the reviewed native present, it runs the five native cases
 and scans each result again. It writes `evidence/native-*.json` and
 `evidence/manifest.json`. It exits 0 only when every suite passed, the native

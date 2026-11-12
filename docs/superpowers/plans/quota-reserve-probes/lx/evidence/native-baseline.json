@@ -6,11 +6,16 @@
   "link_intact_before": true,
   "still_private_regular_file": true
  },
- "elapsed_s": 2.6,
- "finished_utc": "2026-11-12T20:39:34Z",
+ "elapsed_s": 1.8,
+ "finished_utc": "2026-11-12T22:37:14Z",
  "fixture": {
+  "runtime_dir_left": [],
   "sink_dialed": [],
-  "upstream_requests": 2
+  "upstream_identifier_findings": [],
+  "upstream_requests": 2,
+  "upstream_user_agent_products": [
+   "usage-probe"
+  ]
  },
  "freshness": {
   "comparable": true,
@@ -75,8 +80,8 @@
     "outcome": "relayed",
     "phase": "done",
     "qx_lease_verdict": "observation:five_hour+weekly",
-    "received_ms": 1103,
-    "received_wall": 1794515972,
+    "received_ms": 274,
+    "received_wall": 1794523032,
     "request_header_names": [
      "accept",
      "authorization",
@@ -111,7 +116,7 @@
        "limit_window_seconds": 18000,
        "minutes": 300,
        "reset_after_seconds": 9000,
-       "reset_at": 1794524972,
+       "reset_at": 1794532032,
        "used_percent": 25,
        "used_percent_is_integer": true
       },
@@ -119,7 +124,7 @@
        "limit_window_seconds": 604800,
        "minutes": 10080,
        "reset_after_seconds": 302400,
-       "reset_at": 1794818372,
+       "reset_at": 1794825432,
        "used_percent": 60,
        "used_percent_is_integer": true
       }
@@ -130,7 +135,7 @@
     "bearer_same_as_first_forward": true,
     "body_json": true,
     "content_type_is_json": true,
-    "elapsed_ms": 2,
+    "elapsed_ms": 3,
     "forwarded_header_names": [
      "accept",
      "authorization",
@@ -160,8 +165,8 @@
     "outcome": "relayed",
     "phase": "done",
     "qx_lease_verdict": "observation:five_hour+weekly",
-    "received_ms": 2114,
-    "received_wall": 1794515973,
+    "received_ms": 1285,
+    "received_wall": 1794523033,
     "request_header_names": [
      "accept",
      "authorization",
@@ -196,7 +201,7 @@
        "limit_window_seconds": 18000,
        "minutes": 300,
        "reset_after_seconds": 9000,
-       "reset_at": 1794524973,
+       "reset_at": 1794532033,
        "used_percent": 25,
        "used_percent_is_integer": true
       },
@@ -204,7 +209,7 @@
        "limit_window_seconds": 604800,
        "minutes": 10080,
        "reset_after_seconds": 302400,
-       "reset_at": 1794818373,
+       "reset_at": 1794825433,
        "used_percent": 60,
        "used_percent_is_integer": true
       }
@@ -250,8 +255,8 @@
  "outcome": "completed",
  "platform": {
   "machine": "x86_64",
-  "openssl": "OpenSSL 4.1.0 23 Oct 2026",
-  "python": "3.15.2",
+  "openssl": "OpenSSL 3.0.13 30 Jan 2024",
+  "python": "3.12.3",
   "system": "linux"
  },
  "probe": "lx-live-codex",
@@ -270,7 +275,7 @@
   "output_overflow": false,
   "reads": [
    {
-    "elapsed_ms": 15,
+    "elapsed_ms": 19,
     "forwards_during_read": 1,
     "index": 1,
     "native": {
@@ -288,13 +293,13 @@
       "normal_model_slug_present": false,
       "plan_type": "pro",
       "primary": {
-       "resetsAt": 1794524972,
+       "resetsAt": 1794532032,
        "usedPercent": 25,
        "windowDurationMins": 300
       },
       "rate_limit_reached_type": null,
       "secondary": {
-       "resetsAt": 1794818372,
+       "resetsAt": 1794825432,
        "usedPercent": 60,
        "windowDurationMins": 10080
       },
@@ -306,7 +311,7 @@
     "state": "ok"
    },
    {
-    "elapsed_ms": 10,
+    "elapsed_ms": 11,
     "forwards_during_read": 1,
     "index": 2,
     "native": {
@@ -324,13 +329,13 @@
       "normal_model_slug_present": false,
       "plan_type": "pro",
       "primary": {
-       "resetsAt": 1794524973,
+       "resetsAt": 1794532033,
        "usedPercent": 25,
        "windowDurationMins": 300
       },
       "rate_limit_reached_type": null,
       "secondary": {
-       "resetsAt": 1794818373,
+       "resetsAt": 1794825433,
        "usedPercent": 60,
        "windowDurationMins": 10080
       },
@@ -347,5 +352,10 @@
   "unparsed_lines": 0
  },
  "schema": 1,
- "started_utc": "2026-11-12T20:39:31Z"
+ "started_utc": "2026-11-12T22:37:12Z",
+ "workspace": {
+  "ancestor_codex_found": false,
+  "ancestors_closed_to_other_writers": false,
+  "parent": "xdg-runtime-dir"
+ }
 }

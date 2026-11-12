@@ -6,11 +6,14 @@
   "link_intact_before": true,
   "still_private_regular_file": true
  },
- "elapsed_s": 0.9,
- "finished_utc": "2026-11-12T20:39:42Z",
+ "elapsed_s": 0.8,
+ "finished_utc": "2026-11-12T22:37:18Z",
  "fixture": {
+  "runtime_dir_left": [],
   "sink_dialed": [],
-  "upstream_requests": 0
+  "upstream_identifier_findings": [],
+  "upstream_requests": 0,
+  "upstream_user_agent_products": []
  },
  "freshness": {
   "comparable": false
@@ -27,7 +30,7 @@
   "exchanges": [
    {
     "bearer_same_as_first_forward": true,
-    "elapsed_ms": 6,
+    "elapsed_ms": 14,
     "forwarded_header_names": [
      "accept",
      "authorization",
@@ -37,8 +40,8 @@
     "index": 1,
     "outcome": "tls_verification_failed",
     "phase": "tls",
-    "received_ms": 367,
-    "received_wall": 1794515982,
+    "received_ms": 265,
+    "received_wall": 1794523038,
     "request_header_names": [
      "accept",
      "authorization",
@@ -89,8 +92,8 @@
  "outcome": "completed",
  "platform": {
   "machine": "x86_64",
-  "openssl": "OpenSSL 4.1.0 23 Oct 2026",
-  "python": "3.15.2",
+  "openssl": "OpenSSL 3.0.13 30 Jan 2024",
+  "python": "3.12.3",
   "system": "linux"
  },
  "probe": "lx-live-codex",
@@ -108,7 +111,7 @@
   "output_overflow": false,
   "reads": [
    {
-    "elapsed_ms": 21,
+    "elapsed_ms": 27,
     "error": {
      "code": -32603,
      "decode_error": false,
@@ -125,5 +128,10 @@
   "unparsed_lines": 0
  },
  "schema": 1,
- "started_utc": "2026-11-12T20:39:41Z"
+ "started_utc": "2026-11-12T22:37:17Z",
+ "workspace": {
+  "ancestor_codex_found": false,
+  "ancestors_closed_to_other_writers": false,
+  "parent": "xdg-runtime-dir"
+ }
 }

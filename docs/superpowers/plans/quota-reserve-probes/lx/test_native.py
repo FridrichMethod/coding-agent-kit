@@ -1,11 +1,14 @@
 """LX with the real `codex app-server` 0.167.2 under the PC network guard (fixtures only).
 
 Skips cleanly unless a native Codex binary (LX_NATIVE_CODEX, else `codex` on PATH)
-reports the reviewed version and the guard self-check passes. Native gets a
-temporary HOME with a codex-as account made by lib/codex-as and fabricated
-credentials; the gate forwards to a loopback TLS server trusted through the
+reports the reviewed version, is the reviewed file (SHA-256) and the guard
+self-check passes. Native gets a temporary HOME with a codex-as account made by
+lib/codex-as and fabricated credentials, and a private runtime directory for its
+workspace; the gate forwards to a loopback TLS server trusted through the
 test-only context hook; refresh CONNECTs go to a loopback sink or are refused.
-Nothing reaches a real account, credential or network.
+Every header native sends that reaches the server is checked for the project
+name, the user and host name and home paths. Nothing reaches a real account,
+credential or network.
 """
 import importlib.util
 import io
@@ -52,6 +55,8 @@ def available():
         shutil.rmtree(root, ignore_errors=True)
     if version != live.EXPECTED_VERSION:
         return None, 'native codex %s is not the reviewed %s' % (version, live.EXPECTED_VERSION)
+    if live.sha256(binary) != live.EXPECTED_SHA256:
+        return None, 'native codex %s is not the reviewed binary (SHA-256)' % version
     return binary, None
 
 
@@ -113,15 +118,24 @@ def run_case(case, binary, certs, root):
         elif case == 'expiring':
             tunnel = sink.tunnel
         out, err = io.StringIO(), io.StringIO()
-        with home.environment() as env:
+        runtime = root / 'run'
+        runtime.mkdir(mode=0o700)
+        with home.environment(XDG_RUNTIME_DIR=str(runtime)) as env:
             code = live.run_probe(home.alias, root / 'out', config=home.config, upstream=upstream, tunnel=tunnel,
                                   guard_command=live.GUARD_COMMAND, delay=delay, second=second, environ=env,
-                                  stdout=out, stderr=err)
+                                  stdout=out, stderr=err, require_closed_ancestors=False)  # root may be in /tmp
         path = root / 'out' / live.RESULT
         result = json.loads(path.read_text()) if path.exists() else None
         if result is not None:
             result.setdefault('fixture', {})['sink_dialed'] = list(sink.dialed)
             result['fixture']['upstream_requests'] = server.count()
+            # What native sent upstream, reduced to the User-Agent product token and identifier labels.
+            agents = [value for headers in server.sent for name, value in headers if name.lower() == 'user-agent']
+            result['fixture']['upstream_user_agent_products'] = sorted({value.split('/', 1)[0] for value in agents})
+            result['fixture']['upstream_identifier_findings'] = sorted({
+                label for headers in server.sent
+                for label in kit.identifier_findings(kit.header_text(headers), home.home, root)})
+            result['fixture']['runtime_dir_left'] = sorted(os.listdir(runtime))
         return code, result, out.getvalue(), err.getvalue(), home
     finally:
         sink.close()
@@ -159,6 +173,11 @@ class NativeProbe(unittest.TestCase):
         self.assertTrue(result['credential']['still_private_regular_file'])
         self.assertEqual(result['rpc']['initialize'], 'ok')
         self.assertEqual(result['native']['user_agent_version'], '0.167.2')
+        self.assertEqual(result['native']['binary_sha256'], live.EXPECTED_SHA256)
+        self.assertEqual(result['fixture']['upstream_identifier_findings'], [])
+        self.assertEqual(result['fixture']['runtime_dir_left'], [])  # the workspace is removed
+        if result['fixture']['upstream_requests']:
+            self.assertEqual(result['fixture']['upstream_user_agent_products'], ['usage-probe'])
         gate = result['gate']
         self.assertNotIn('POST model-request', gate['refused_by_category'])
         self.assertEqual(gate['refused_by_reason'].get('unarmed', 0), 0)  # no unsolicited usage read
