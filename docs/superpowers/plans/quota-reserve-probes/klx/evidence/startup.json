@@ -1,0 +1,2392 @@
+{
+ "backend": [
+  {
+   "at": 166523.369081722,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166523.369472987,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166523.369688017,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166523.885844304,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166523.88601681,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166523.886273753,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166524.405574513,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166524.405941785,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166524.40631127,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166524.923379974,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166524.923555703,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166524.923865441,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166525.451369692,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166525.451545134,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166525.451784671,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166525.976863361,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166525.977113362,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166525.977464978,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166526.490490552,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166526.491126062,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166526.491427282,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166527.015354178,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166527.0158167,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166527.016437973,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166527.554418728,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166527.554573828,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166527.554742606,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 166529.070712611,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 166529.070996522,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 166529.071476385,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  }
+ ],
+ "error": null,
+ "extra": {
+  "host_probe": {
+   "landlock_abi": 8,
+   "legacy_tiocsti": 0,
+   "machine": "x86_64",
+   "socket_stdio": [],
+   "system": "Linux"
+  },
+  "preflight_cases": [
+   {
+    "case": "missing-503",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:failure"
+   },
+   {
+    "case": "malformed-non-json",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:malformed"
+   },
+   {
+    "case": "unsupported-family",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:no-codex-family"
+   },
+   {
+    "case": "unsupported-plan",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:unsupported-plan"
+   },
+   {
+    "case": "weekly-missing",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:window-missing:weekly"
+   },
+   {
+    "case": "reset-in-past",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:reset-anomaly"
+   },
+   {
+    "case": "identity-mismatch",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:identity-changed"
+   },
+   {
+    "case": "below-reserve",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:threshold:five_hour"
+   },
+   {
+    "case": "stale",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": "quota:stale"
+   },
+   {
+    "case": "passing-control",
+    "model_requests": 0,
+    "tui_started": false,
+    "verdict": null
+   }
+  ],
+  "socket_stdio_boundary": {
+   "exit": 2,
+   "native_started": false,
+   "stderr": "boundary: refused: stdio descriptor [0] is a socket"
+  },
+  "startup_checks": [
+   {
+    "case": "version-old",
+    "message": "native 0.150.0 is older than the protected-mode minimum 0.167.2",
+    "refused": true
+   },
+   {
+    "case": "version-real",
+    "refused": false
+   },
+   {
+    "case": "args --remote ws://127.0.0.1:9",
+    "message": "protected mode refuses --remote",
+    "refused": true
+   },
+   {
+    "case": "args resume --last",
+    "message": "protected mode refuses the resume subcommand",
+    "refused": true
+   },
+   {
+    "case": "args fork",
+    "message": "protected mode refuses the fork subcommand",
+    "refused": true
+   },
+   {
+    "case": "args remote-control",
+    "message": "protected mode refuses the remote-control subcommand",
+    "refused": true
+   },
+   {
+    "case": "args -c chatgpt_base_url=\"https://example.invalid\"",
+    "message": "protected mode refuses a user override of chatgpt_base_url",
+    "refused": true
+   },
+   {
+    "case": "args --profile other",
+    "message": "protected mode refuses --profile",
+    "refused": true
+   },
+   {
+    "case": "args -c model_providers.x.base_url=\"http://127.0.0.1:9\"",
+    "message": "protected mode refuses a user override of model_providers.x.base_url",
+    "refused": true
+   },
+   {
+    "case": "args plain prompt",
+    "refused": false
+   },
+   {
+    "case": "env refresh override",
+    "message": "protected mode refuses CODEX_REFRESH_TOKEN_URL_OVERRIDE",
+    "refused": true
+   },
+   {
+    "case": "host actual",
+    "refused": false
+   },
+   {
+    "case": "host abi3",
+    "message": "Landlock ABI 3 lacks TCP port rules (needs 4)",
+    "refused": true
+   },
+   {
+    "case": "host no landlock",
+    "message": "Landlock unavailable",
+    "refused": true
+   },
+   {
+    "case": "host tiocsti",
+    "message": "terminal injection (legacy TIOCSTI) is not disabled on this host",
+    "refused": true
+   },
+   {
+    "case": "host arm64",
+    "message": "seccomp table not validated on aarch64",
+    "refused": true
+   },
+   {
+    "case": "host socket stdio",
+    "message": "stdio descriptor [0] is a socket",
+    "refused": true
+   }
+  ]
+ },
+ "host": {
+  "kernel": "7.0.0-42-generic",
+  "machine": "x86_64"
+ },
+ "invocations": [
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166523.074530121,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2437548,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166523.369308399,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166523.358645011,
+       "seconds": 0.0107,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166523.369681366,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166523.358287476,
+       "seconds": 0.0114,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166523.369902018,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "failure",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 166523.361825104,
+       "seconds": 0.0081,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "at": 166523.383225092,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166523.383333489,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166523.412049105,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2437548,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-missing-503",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 49525,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2653,
+     "read_seconds": 0.0303,
+     "result": {
+      "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: GET http://127.0.0.1:49525/backend-api/wham/usage failed: 503 Service Unavailable; content-type=application/json; body={\"error\": \"fixture outage\"}'}"
+     },
+     "started": 166523.075203773,
+     "total_seconds": 0.3076,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166523.59428586,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2437646,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166523.886321434,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166523.885523033,
+       "seconds": 0.0008,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166523.886500465,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166523.876971198,
+       "seconds": 0.0095,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166523.886630383,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "malformed",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 166523.885948052,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166523.900466918,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166523.900564699,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166523.936155484,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2437646,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-malformed-non-json",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 50237,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2654,
+     "read_seconds": 0.0271,
+     "result": {
+      "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:50237/backend-api/wham/usage: expected ident at line 1 column 2; content-type=application/json; body=not json'}"
+     },
+     "started": 166523.595067842,
+     "total_seconds": 0.3051,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166524.114875189,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2437745,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166524.40582211,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "no-codex-family",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 166524.398015442,
+       "seconds": 0.0078,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166524.406138334,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166524.397802636,
+       "seconds": 0.0083,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166524.406493015,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166524.394535822,
+       "seconds": 0.012,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166524.418524238,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166524.418624163,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166524.448176731,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2437745,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-unsupported-family",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 33051,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2604,
+     "read_seconds": 0.0304,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": null,
+      "plan": "pro",
+      "windows": {}
+     },
+     "started": 166524.115900729,
+     "total_seconds": 0.3023,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166524.637221603,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2437844,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166524.923770639,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166524.915350742,
+       "seconds": 0.0084,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166524.923883554,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166524.917617482,
+       "seconds": 0.0063,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166524.924217281,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "unsupported-plan",
+       "streams": []
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166524.924285886,
+       "blocking": "unsupported-plan",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "unsupported-plan",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "unsupported-plan",
+       "received": 166524.923102049,
+       "seconds": 0.0012,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166524.936530219,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166524.936633761,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166524.973272967,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2437844,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-unsupported-plan",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 42833,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2632,
+     "read_seconds": 0.0242,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "unknown",
+      "windows": {
+       "10080": 60,
+       "300": 25
+      }
+     },
+     "started": 166524.638284393,
+     "total_seconds": 0.2979,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166525.156875659,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2437945,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166525.451738628,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166525.442405301,
+       "seconds": 0.0093,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166525.451938849,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "window-missing:weekly",
+       "streams": []
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166525.452069128,
+       "blocking": "window-missing:weekly",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "window-missing:weekly",
+       "received": 166525.445465743,
+       "seconds": 0.0066,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166525.452186067,
+       "blocking": "window-missing:weekly",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": "window-missing:weekly",
+       "received": 166525.441926298,
+       "seconds": 0.0103,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166525.46467982,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166525.464784235,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166525.495596172,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2437945,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-weekly-missing",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 55189,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2661,
+     "read_seconds": 0.0292,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "pro",
+      "windows": {
+       "300": 25
+      }
+     },
+     "started": 166525.157900591,
+     "total_seconds": 0.3065,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166525.679343163,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2438043,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166525.977142868,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "reset-anomaly",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 166525.97646047,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166525.977347604,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166525.968266478,
+       "seconds": 0.0091,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166525.977637287,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166525.967773252,
+       "seconds": 0.0099,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166525.989870588,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166525.990022162,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166526.026584011,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2438043,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-reset-in-past",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 59253,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2704,
+     "read_seconds": 0.0268,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "pro",
+      "windows": {
+       "10080": 60,
+       "300": 25
+      }
+     },
+     "started": 166525.680977299,
+     "total_seconds": 0.3086,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166526.208453427,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2438140,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "at": 166526.490755371,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "identity-changed",
+       "streams": []
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166526.490819064,
+       "blocking": "identity-changed",
+       "credential": "A1",
+       "epoch": 2,
+       "event": "get",
+       "lease": "account-mismatch",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "identity-changed",
+       "received": 166526.489333886,
+       "seconds": 0.0015,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166526.491342699,
+       "blocking": "identity-changed",
+       "credential": "A1",
+       "epoch": 2,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": "identity-changed",
+       "received": 166526.482709716,
+       "seconds": 0.0086,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166526.491598889,
+       "blocking": "identity-changed",
+       "credential": "A1",
+       "epoch": 2,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": "identity-changed",
+       "received": 166526.479508957,
+       "seconds": 0.0121,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166526.503933999,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166526.504062243,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166526.539494624,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2438140,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-identity-mismatch",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 37037,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2572,
+     "read_seconds": 0.0245,
+     "result": {
+      "accountId": "fixture-account-b",
+      "ordinaryUsageAllowed": null,
+      "plan": "pro",
+      "windows": {
+       "10080": 60,
+       "300": 25
+      }
+     },
+     "started": 166526.210141926,
+     "total_seconds": 0.2935,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166526.726327932,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2438353,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166527.01574118,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166527.006979777,
+       "seconds": 0.0088,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166527.016158765,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166527.015447842,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166527.016709604,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "threshold:five_hour",
+       "streams": []
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166527.016753686,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 166527.015885902,
+       "seconds": 0.0009,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166527.027932543,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166527.028153366,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166527.066120974,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2438353,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-below-reserve",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 50177,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2648,
+     "read_seconds": 0.0249,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "pro",
+      "windows": {
+       "10080": 60,
+       "300": 85
+      }
+     },
+     "started": 166526.727933031,
+     "total_seconds": 0.2997,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166527.255645247,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2438459,
+       "policy": [
+        20,
+        30,
+        0.5
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166527.554771016,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166527.54469382,
+       "seconds": 0.0101,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166527.55486295,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166527.545151532,
+       "seconds": 0.0097,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166528.55562032,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 166527.548147328,
+       "seconds": 1.0075,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166528.560693176,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "stale",
+       "streams": []
+      },
+      {
+       "at": 166528.570081289,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166528.570201459,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166528.602489463,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2438459,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-stale",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 0.5,
+    "weekly": 30
+   },
+   "port": 47117,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.269,
+     "read_seconds": 1.0321,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "pro",
+      "windows": {
+       "10080": 60,
+       "300": 25
+      }
+     },
+     "started": 166527.256292548,
+     "total_seconds": 1.3135,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 166528.782817534,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 2438632,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166529.070970754,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 166529.062067281,
+       "seconds": 0.0089,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166529.071298774,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 166529.07042184,
+       "seconds": 0.0009,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 166529.071768202,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 166529.071070273,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 166529.080676958,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 166529.080750238,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 166529.121162131,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 2438632,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [],
+   "name": "q-passing-control",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 33353,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2589,
+     "read_seconds": 0.0298,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "pro",
+      "windows": {
+       "10080": 40,
+       "300": 25
+      }
+     },
+     "started": 166528.784454096,
+     "total_seconds": 0.296,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "",
+   "trace": null,
+   "tui_exit": null
+  }
+ ],
+ "lingering_after_kill": 0,
+ "lingering_killed": 0,
+ "ok": true,
+ "stage": "startup",
+ "static": [],
+ "timeline": [
+  {
+   "at": 0.0183,
+   "case": "version-old",
+   "event": "startup_check",
+   "message": "native 0.150.0 is older than the protected-mode minimum 0.167.2",
+   "mono": 166522.821144408,
+   "refused": true
+  },
+  {
+   "at": 0.0259,
+   "case": "version-real",
+   "event": "startup_check",
+   "mono": 166522.828716181,
+   "refused": false
+  },
+  {
+   "at": 0.026,
+   "case": "args --remote ws://127.0.0.1:9",
+   "event": "startup_check",
+   "message": "protected mode refuses --remote",
+   "mono": 166522.828757382,
+   "refused": true
+  },
+  {
+   "at": 0.026,
+   "case": "args resume --last",
+   "event": "startup_check",
+   "message": "protected mode refuses the resume subcommand",
+   "mono": 166522.82878135,
+   "refused": true
+  },
+  {
+   "at": 0.026,
+   "case": "args fork",
+   "event": "startup_check",
+   "message": "protected mode refuses the fork subcommand",
+   "mono": 166522.828799351,
+   "refused": true
+  },
+  {
+   "at": 0.026,
+   "case": "args remote-control",
+   "event": "startup_check",
+   "message": "protected mode refuses the remote-control subcommand",
+   "mono": 166522.828815056,
+   "refused": true
+  },
+  {
+   "at": 0.026,
+   "case": "args -c chatgpt_base_url=\"https://example.invalid\"",
+   "event": "startup_check",
+   "message": "protected mode refuses a user override of chatgpt_base_url",
+   "mono": 166522.828834344,
+   "refused": true
+  },
+  {
+   "at": 0.026,
+   "case": "args --profile other",
+   "event": "startup_check",
+   "message": "protected mode refuses --profile",
+   "mono": 166522.828849066,
+   "refused": true
+  },
+  {
+   "at": 0.0261,
+   "case": "args -c model_providers.x.base_url=\"http://127.0.0.1:9\"",
+   "event": "startup_check",
+   "message": "protected mode refuses a user override of model_providers.x.base_url",
+   "mono": 166522.828865314,
+   "refused": true
+  },
+  {
+   "at": 0.0261,
+   "case": "args plain prompt",
+   "event": "startup_check",
+   "mono": 166522.828880599,
+   "refused": false
+  },
+  {
+   "at": 0.0261,
+   "case": "env refresh override",
+   "event": "startup_check",
+   "message": "protected mode refuses CODEX_REFRESH_TOKEN_URL_OVERRIDE",
+   "mono": 166522.828898865,
+   "refused": true
+  },
+  {
+   "at": 0.0318,
+   "case": "host actual",
+   "event": "startup_check",
+   "mono": 166522.834572372,
+   "refused": false
+  },
+  {
+   "at": 0.0318,
+   "case": "host abi3",
+   "event": "startup_check",
+   "message": "Landlock ABI 3 lacks TCP port rules (needs 4)",
+   "mono": 166522.834598631,
+   "refused": true
+  },
+  {
+   "at": 0.0318,
+   "case": "host no landlock",
+   "event": "startup_check",
+   "message": "Landlock unavailable",
+   "mono": 166522.83461629,
+   "refused": true
+  },
+  {
+   "at": 0.0318,
+   "case": "host tiocsti",
+   "event": "startup_check",
+   "message": "terminal injection (legacy TIOCSTI) is not disabled on this host",
+   "mono": 166522.834631116,
+   "refused": true
+  },
+  {
+   "at": 0.0318,
+   "case": "host arm64",
+   "event": "startup_check",
+   "message": "seccomp table not validated on aarch64",
+   "mono": 166522.83464474,
+   "refused": true
+  },
+  {
+   "at": 0.0319,
+   "case": "host socket stdio",
+   "event": "startup_check",
+   "message": "stdio descriptor [0] is a socket",
+   "mono": 166522.834662234,
+   "refused": true
+  },
+  {
+   "at": 0.0978,
+   "event": "socket_stdio_boundary",
+   "exit": 2,
+   "mono": 166522.900624998,
+   "native_started": false,
+   "stderr": "boundary: refused: stdio descriptor [0] is a socket"
+  },
+  {
+   "at": 0.2723,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-missing-503",
+   "mono": 166523.075115236,
+   "pid": 2437548,
+   "restart": false
+  },
+  {
+   "at": 0.5801,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2653,
+   "invocation": "q-missing-503",
+   "mono": 166523.382917616,
+   "read_seconds": 0.0303,
+   "result": {
+    "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: GET http://127.0.0.1:49525/backend-api/wham/usage failed: 503 Service Unavailable; content-type=application/json; body={\"error\": \"fixture outage\"}'}"
+   },
+   "started": 166523.075203773,
+   "total_seconds": 0.3076,
+   "why": "preflight"
+  },
+  {
+   "at": 0.5803,
+   "event": "preflight",
+   "invocation": "q-missing-503",
+   "model_requests": 0,
+   "mono": 166523.383151049,
+   "status": {
+    "blocking": null,
+    "epoch": 1,
+    "id": 2,
+    "last_outcome": "failure",
+    "lost": null,
+    "paused": null,
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:failure"
+  },
+  {
+   "at": 0.5804,
+   "case": "missing-503",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166523.383173892,
+   "tui_started": false,
+   "verdict": "quota:failure"
+  },
+  {
+   "at": 0.7922,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-malformed-non-json",
+   "mono": 166523.59497559,
+   "pid": 2437646,
+   "restart": false
+  },
+  {
+   "at": 1.0975,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2654,
+   "invocation": "q-malformed-non-json",
+   "mono": 166523.900262472,
+   "read_seconds": 0.0271,
+   "result": {
+    "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:50237/backend-api/wham/usage: expected ident at line 1 column 2; content-type=application/json; body=not json'}"
+   },
+   "started": 166523.595067842,
+   "total_seconds": 0.3051,
+   "why": "preflight"
+  },
+  {
+   "at": 1.0976,
+   "event": "preflight",
+   "invocation": "q-malformed-non-json",
+   "model_requests": 0,
+   "mono": 166523.900399423,
+   "status": {
+    "blocking": null,
+    "epoch": 1,
+    "id": 3,
+    "last_outcome": "malformed",
+    "lost": null,
+    "paused": null,
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:malformed"
+  },
+  {
+   "at": 1.0976,
+   "case": "malformed-non-json",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166523.900422056,
+   "tui_started": false,
+   "verdict": "quota:malformed"
+  },
+  {
+   "at": 1.313,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-unsupported-family",
+   "mono": 166524.115821066,
+   "pid": 2437745,
+   "restart": false
+  },
+  {
+   "at": 1.6155,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2604,
+   "invocation": "q-unsupported-family",
+   "mono": 166524.418332039,
+   "read_seconds": 0.0304,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": null,
+    "plan": "pro",
+    "windows": {}
+   },
+   "started": 166524.115900729,
+   "total_seconds": 0.3023,
+   "why": "preflight"
+  },
+  {
+   "at": 1.6157,
+   "event": "preflight",
+   "invocation": "q-unsupported-family",
+   "model_requests": 0,
+   "mono": 166524.418465385,
+   "status": {
+    "blocking": null,
+    "epoch": 1,
+    "id": 4,
+    "last_outcome": "no-codex-family",
+    "lost": null,
+    "paused": null,
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:no-codex-family"
+  },
+  {
+   "at": 1.6157,
+   "case": "unsupported-family",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166524.418486957,
+   "tui_started": false,
+   "verdict": "quota:no-codex-family"
+  },
+  {
+   "at": 1.8354,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-unsupported-plan",
+   "mono": 166524.638201922,
+   "pid": 2437844,
+   "restart": false
+  },
+  {
+   "at": 2.1215,
+   "event": "gate_paused",
+   "gate_at": 166524.924243381,
+   "invocation": "q-unsupported-plan",
+   "mono": 166524.924295273,
+   "reason": "unsupported-plan"
+  },
+  {
+   "at": 2.1335,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2632,
+   "invocation": "q-unsupported-plan",
+   "mono": 166524.936340976,
+   "read_seconds": 0.0242,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "unknown",
+    "windows": {
+     "10080": 60,
+     "300": 25
+    }
+   },
+   "started": 166524.638284393,
+   "total_seconds": 0.2979,
+   "why": "preflight"
+  },
+  {
+   "at": 2.1337,
+   "event": "preflight",
+   "invocation": "q-unsupported-plan",
+   "model_requests": 0,
+   "mono": 166524.936470737,
+   "status": {
+    "blocking": "unsupported-plan",
+    "epoch": 1,
+    "id": 5,
+    "last_outcome": "unsupported-plan",
+    "lost": null,
+    "paused": "unsupported-plan",
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:unsupported-plan"
+  },
+  {
+   "at": 2.1337,
+   "case": "unsupported-plan",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166524.936492832,
+   "tui_started": false,
+   "verdict": "quota:unsupported-plan"
+  },
+  {
+   "at": 2.355,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-weekly-missing",
+   "mono": 166525.157837916,
+   "pid": 2437945,
+   "restart": false
+  },
+  {
+   "at": 2.6492,
+   "event": "gate_paused",
+   "gate_at": 166525.451963285,
+   "invocation": "q-weekly-missing",
+   "mono": 166525.452019726,
+   "reason": "window-missing:weekly"
+  },
+  {
+   "at": 2.6617,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2661,
+   "invocation": "q-weekly-missing",
+   "mono": 166525.464488366,
+   "read_seconds": 0.0292,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "pro",
+    "windows": {
+     "300": 25
+    }
+   },
+   "started": 166525.157900591,
+   "total_seconds": 0.3065,
+   "why": "preflight"
+  },
+  {
+   "at": 2.6618,
+   "event": "preflight",
+   "invocation": "q-weekly-missing",
+   "model_requests": 0,
+   "mono": 166525.464619013,
+   "status": {
+    "blocking": "window-missing:weekly",
+    "epoch": 1,
+    "id": 6,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": "window-missing:weekly",
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:window-missing:weekly"
+  },
+  {
+   "at": 2.6618,
+   "case": "weekly-missing",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166525.46464134,
+   "tui_started": false,
+   "verdict": "quota:window-missing:weekly"
+  },
+  {
+   "at": 2.8781,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-reset-in-past",
+   "mono": 166525.680894918,
+   "pid": 2438043,
+   "restart": false
+  },
+  {
+   "at": 3.1869,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2704,
+   "invocation": "q-reset-in-past",
+   "mono": 166525.98966905,
+   "read_seconds": 0.0268,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "pro",
+    "windows": {
+     "10080": 60,
+     "300": 25
+    }
+   },
+   "started": 166525.680977299,
+   "total_seconds": 0.3086,
+   "why": "preflight"
+  },
+  {
+   "at": 3.187,
+   "event": "preflight",
+   "invocation": "q-reset-in-past",
+   "model_requests": 0,
+   "mono": 166525.989809212,
+   "status": {
+    "blocking": null,
+    "epoch": 1,
+    "id": 7,
+    "last_outcome": "reset-anomaly",
+    "lost": null,
+    "paused": null,
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:reset-anomaly"
+  },
+  {
+   "at": 3.187,
+   "case": "reset-in-past",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166525.989831867,
+   "tui_started": false,
+   "verdict": "quota:reset-anomaly"
+  },
+  {
+   "at": 3.4072,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-identity-mismatch",
+   "mono": 166526.2099922,
+   "pid": 2438140,
+   "restart": false
+  },
+  {
+   "at": 3.6884,
+   "event": "gate_paused",
+   "gate_at": 166526.490792854,
+   "invocation": "q-identity-mismatch",
+   "mono": 166526.491205206,
+   "reason": "identity-changed"
+  },
+  {
+   "at": 3.7009,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2572,
+   "invocation": "q-identity-mismatch",
+   "mono": 166526.503726608,
+   "read_seconds": 0.0245,
+   "result": {
+    "accountId": "fixture-account-b",
+    "ordinaryUsageAllowed": null,
+    "plan": "pro",
+    "windows": {
+     "10080": 60,
+     "300": 25
+    }
+   },
+   "started": 166526.210141926,
+   "total_seconds": 0.2935,
+   "why": "preflight"
+  },
+  {
+   "at": 3.7011,
+   "event": "preflight",
+   "invocation": "q-identity-mismatch",
+   "model_requests": 0,
+   "mono": 166526.503874503,
+   "status": {
+    "blocking": "identity-changed",
+    "epoch": 2,
+    "id": 8,
+    "last_outcome": "account-mismatch",
+    "lost": null,
+    "paused": "identity-changed",
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:identity-changed"
+  },
+  {
+   "at": 3.7011,
+   "case": "identity-mismatch",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166526.503895795,
+   "tui_started": false,
+   "verdict": "quota:identity-changed"
+  },
+  {
+   "at": 3.925,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-below-reserve",
+   "mono": 166526.727840414,
+   "pid": 2438353,
+   "restart": false
+  },
+  {
+   "at": 4.214,
+   "event": "gate_paused",
+   "gate_at": 166527.016732083,
+   "invocation": "q-below-reserve",
+   "mono": 166527.016783768,
+   "reason": "threshold:five_hour"
+  },
+  {
+   "at": 4.2249,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2648,
+   "invocation": "q-below-reserve",
+   "mono": 166527.027742256,
+   "read_seconds": 0.0249,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "pro",
+    "windows": {
+     "10080": 60,
+     "300": 85
+    }
+   },
+   "started": 166526.727933031,
+   "total_seconds": 0.2997,
+   "why": "preflight"
+  },
+  {
+   "at": 4.2251,
+   "event": "preflight",
+   "invocation": "q-below-reserve",
+   "model_requests": 0,
+   "mono": 166527.02787197,
+   "status": {
+    "blocking": "threshold:five_hour",
+    "epoch": 1,
+    "id": 9,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": "threshold:five_hour",
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:threshold:five_hour"
+  },
+  {
+   "at": 4.2251,
+   "case": "below-reserve",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166527.027894592,
+   "tui_started": false,
+   "verdict": "quota:threshold:five_hour"
+  },
+  {
+   "at": 4.4534,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-stale",
+   "mono": 166527.256237945,
+   "pid": 2438459,
+   "restart": false
+  },
+  {
+   "at": 5.758,
+   "event": "gate_paused",
+   "gate_at": 166528.56071928,
+   "invocation": "q-stale",
+   "mono": 166528.560803091,
+   "reason": "stale"
+  },
+  {
+   "at": 5.7671,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.269,
+   "invocation": "q-stale",
+   "mono": 166528.56987517,
+   "read_seconds": 1.0321,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "pro",
+    "windows": {
+     "10080": 60,
+     "300": 25
+    }
+   },
+   "started": 166527.256292548,
+   "total_seconds": 1.3135,
+   "why": "preflight"
+  },
+  {
+   "at": 5.7672,
+   "event": "preflight",
+   "invocation": "q-stale",
+   "model_requests": 0,
+   "mono": 166528.570021575,
+   "status": {
+    "blocking": "stale",
+    "epoch": 1,
+    "id": 10,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": "stale",
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": "quota:stale"
+  },
+  {
+   "at": 5.7672,
+   "case": "stale",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166528.570043278,
+   "tui_started": false,
+   "verdict": "quota:stale"
+  },
+  {
+   "at": 5.9816,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "q-passing-control",
+   "mono": 166528.784385981,
+   "pid": 2438632,
+   "restart": false
+  },
+  {
+   "at": 6.2778,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2589,
+   "invocation": "q-passing-control",
+   "mono": 166529.080556777,
+   "read_seconds": 0.0298,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "pro",
+    "windows": {
+     "10080": 40,
+     "300": 25
+    }
+   },
+   "started": 166528.784454096,
+   "total_seconds": 0.296,
+   "why": "preflight"
+  },
+  {
+   "at": 6.2778,
+   "event": "preflight",
+   "invocation": "q-passing-control",
+   "model_requests": 0,
+   "mono": 166529.080649313,
+   "status": {
+    "blocking": null,
+    "epoch": 1,
+    "id": 11,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": null,
+    "ready": true,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": null
+  },
+  {
+   "at": 6.2779,
+   "case": "passing-control",
+   "event": "preflight_case",
+   "model_requests": 0,
+   "mono": 166529.080659684,
+   "tui_started": false,
+   "verdict": null
+  }
+ ]
+}
