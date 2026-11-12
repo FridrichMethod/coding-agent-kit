@@ -1,0 +1,74 @@
+{
+  "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
+  "source": {
+    "commit": "ce21072c90d32c40af7a55b60b2fb35c84a43a6a",
+    "files": {
+      "codex-rs/core/src/realtime_conversation.rs": "ee7b72decc2c41695a8c6610668c5000251cb753818cf189d4361e5579fe05bc",
+      "codex-rs/core/src/client.rs": "662cf64d10f4b0d7eaf3ad046e53b1eb6dcf8dfb3cb5a425a3c8c222adc05da5",
+      "codex-rs/tui/src/chatwidget/session_flow.rs": "ae99739b757a0c1b339e1b61ae2a1f3e0cbc4aa097bea4ff26ae64cd6c931f6b",
+      "codex-rs/tui/src/chatwidget/realtime.rs": "19dc82f1f44b5e3ef2f6b097739427d5f775777f679e64785be35819f349c973",
+      "codex-rs/tui/src/app_server_session/realtime.rs": "b5d2269b64c4edfa0e4b5e6deeeb2a71917d801c3f2a194a51514de4037401c9",
+      "codex-rs/app-server-protocol/src/protocol/v2/realtime.rs": "a9e62779fa91f49926342a502f2a9058a02fe327734f46753feb6c5c005a8575",
+      "codex-rs/realtime-webrtc/src/session.rs": "e747d53929cc243059685f640ab16668b8162dcf3ed29df25441291f3dec5cf9",
+      "codex-rs/realtime-webrtc/src/client.rs": "2cf33f6b77917adec87b6f6b3a2d66fa4826e882f743d769897d5b84ce0ecb51",
+      "codex-rs/codex-api/src/endpoint/realtime_call.rs": "c9a987c05dadabb620dfaea38e8b739735efaf3f931daeec7c59d69f56788252",
+      "codex-rs/codex-api/src/endpoint/realtime_websocket/methods.rs": "baa6a2961a8610286018b8cfcdff24f6d325cd93d43cd32f522fd6046e4f781a"
+    }
+  },
+  "runs": [
+    {
+      "label": "guard",
+      "exit": 0,
+      "stdout": "loopback TCP: allowed\nnon-loopback or unsupported socket: blocked before network 2 1 101\nnon-loopback or unsupported socket: blocked before network 10 1 101\nnon-loopback or unsupported socket: blocked before network 2 2 101\nUnix socket pair: allowed\nexec descendant in new session: blocked\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"42\": 2, \"41\": 2}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "websocket",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\ngate_grant\nbackend_command\ndiscovery\nrpc\nrpc\nstart_requested\nrpc\nalternate_rejected\nhttp_response\nnative_failure\nobservation_complete\ngate_pause\ncleanup\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 1}, \"root_exit\": 0}\n"
+    },
+    {
+      "label": "webrtc",
+      "exit": 0,
+      "stdout": "scratch <PROBE_ROOT>\ngate_grant\nbackend_command\nhttp_response\ndiscovery\nrpc\nrpc\nstart_requested\nrpc\nalternate_rejected\nhttp_response\nnative_failure\nobservation_complete\ngate_pause\ncleanup\n",
+      "stderr": "{\"guard_denied_syscalls\": {\"41\": 1}, \"root_exit\": 0}\n"
+    }
+  ],
+  "fixture_sha256": {
+    "run.py": "055495a03263a217e58ddeb1abe3f292877fa0262964748ed3f0cd4173a2d2a1",
+    "probe.py": "f30801778b015c361c3b452e8baa47fdb8d55c7fe4b2acc193eb2258479b075d",
+    "source-lock.json": "06dd0ef790b82e852a920fb502b4234753498a739f12bde35d91e0e93b222547",
+    "../pc/network_guard.py": "b1ced01775b5b1e23dc845c68f68faf856133356e38c6a75624be035a72ceee4",
+    "../pc/guard_check.py": "0051902fd2d72e14c26d4522c37cdeb2c579a6feb84729663ce16de47944fb72",
+    "../pc/targeted.py": "e9b418772ffb689226cf001e98cca7264684d1a20d2a497689d9c923dfd42a71",
+    "../pc_continue/gate.py": "045fafde6a9472e044fb747a8a81fabc40a31df79710216ee6d47c6912a6e8cb",
+    "resanitize.py": "bbf8a5017e4efbeeefcfcf848e4f5cb6fabcfcb0bd35bbb30ea1c812a2658b7c"
+  },
+  "evidence_sha256": {
+    "evidence/websocket.json": "e880699eb8da8b32da4c33686f5f7b747e377af26ed5ff680d3b79eb77ff446d",
+    "evidence/webrtc.json": "f0cdf62f6b549cab6b5002c92c40821c17ca4262592fd657400455fecde2e36a"
+  },
+  "capture_fixture_sha256": {
+    "run.py": "055495a03263a217e58ddeb1abe3f292877fa0262964748ed3f0cd4173a2d2a1",
+    "probe.py": "8a8277b94bf19efefcd4ed347e2d2112d68119929240f6ec7b785898135aa21d",
+    "source-lock.json": "06dd0ef790b82e852a920fb502b4234753498a739f12bde35d91e0e93b222547",
+    "../pc/network_guard.py": "b1ced01775b5b1e23dc845c68f68faf856133356e38c6a75624be035a72ceee4",
+    "../pc/guard_check.py": "0051902fd2d72e14c26d4522c37cdeb2c579a6feb84729663ce16de47944fb72",
+    "../pc/targeted.py": "e9b418772ffb689226cf001e98cca7264684d1a20d2a497689d9c923dfd42a71",
+    "../pc_continue/gate.py": "045fafde6a9472e044fb747a8a81fabc40a31df79710216ee6d47c6912a6e8cb"
+  },
+  "resanitization": {
+    "kind": "offline-only; no native rerun",
+    "capture_source_tree": "f2c66bddeff5f410086897420df17b6e5e69a64b",
+    "original_manifest_sha256": "4521c329c34eaf8eace69c5b4a710db330c3d0eea45f07e2c3ebc969f4caf884",
+    "raw_sha256": {
+      "websocket/raw.json": "677d46ade31482833482c5bfa8fddec7fa3b4ef6767f63349df90436c756da1f",
+      "webrtc/raw.json": "3248f6ca9f534bb39013cdc7239adbe590c73ed7b391001b414d3a5312b986a8"
+    },
+    "transform_sha256": {
+      "resanitize.py": "bbf8a5017e4efbeeefcfcf848e4f5cb6fabcfcb0bd35bbb30ea1c812a2658b7c",
+      "probe.py": "f30801778b015c361c3b452e8baa47fdb8d55c7fe4b2acc193eb2258479b075d"
+    }
+  }
+}

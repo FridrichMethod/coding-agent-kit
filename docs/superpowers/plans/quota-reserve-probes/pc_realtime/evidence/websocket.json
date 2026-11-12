@@ -1,0 +1,210 @@
+{
+  "mode": "websocket",
+  "version": "codex-cli 0.167.2",
+  "events": [
+    {
+      "at": 0.0081,
+      "event": "gate_grant",
+      "grant": 1,
+      "seconds": 20
+    },
+    {
+      "at": 0.0175,
+      "event": "backend_command",
+      "command": [
+        "<NATIVE_BINARY>",
+        "-c",
+        "experimental_realtime_ws_base_url=\"<GATE_URL>\"",
+        "-c",
+        "experimental_realtime_webrtc_call_base_url=\"<GATE_URL>\"",
+        "app-server",
+        "--listen",
+        "unix://../backend.sock"
+      ]
+    },
+    {
+      "at": 0.2709,
+      "event": "discovery",
+      "service": "quota"
+    },
+    {
+      "at": 0.2956,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.3103,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf95-1bf9-7453-9c33-8a389ebab3fb",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf95-1bf9-7453-9c33-8a389ebab3fb",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794484018,
+          "updatedAt": 1794484018,
+          "recencyAt": 1794484018,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/12/rollout-2026-11-12T03-46-58-01a1cf95-1bf9-7453-9c33-8a389ebab3fb.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [
+          "<WORKTREE>/AGENTS.md"
+        ],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 0.3103,
+      "event": "start_requested",
+      "transport": "websocket",
+      "params": {
+        "threadId": "01a1cf95-1bf9-7453-9c33-8a389ebab3fb",
+        "clientManagedHandoffs": true,
+        "outputModality": "audio",
+        "includeStartupContext": false,
+        "version": "v3",
+        "transport": {
+          "type": "websocket"
+        }
+      }
+    },
+    {
+      "at": 0.3121,
+      "event": "rpc",
+      "method": "thread/realtime/start",
+      "params": {
+        "threadId": "01a1cf95-1bf9-7453-9c33-8a389ebab3fb",
+        "clientManagedHandoffs": true,
+        "outputModality": "audio",
+        "includeStartupContext": false,
+        "version": "v3",
+        "transport": {
+          "type": "websocket"
+        }
+      },
+      "result": {}
+    },
+    {
+      "at": 0.3129,
+      "event": "alternate_rejected",
+      "method": "GET",
+      "path": "/v1/live?model=gpt-live-1-codex"
+    },
+    {
+      "at": 0.313,
+      "event": "http_response",
+      "service": "gate",
+      "method": "GET",
+      "path": "/v1/live?model=gpt-live-1-codex",
+      "upgrade": true,
+      "status": 503
+    },
+    {
+      "at": 0.3133,
+      "event": "native_failure",
+      "threadId": "01a1cf95-1bf9-7453-9c33-8a389ebab3fb",
+      "message": "unexpected status 503 Service Unavailable: realtime websocket handshake failed"
+    },
+    {
+      "at": 3.3134,
+      "event": "observation_complete",
+      "backend_alive": true
+    },
+    {
+      "at": 3.3262,
+      "event": "gate_pause",
+      "reason": "cleanup",
+      "active_ids": []
+    },
+    {
+      "at": 4.5134,
+      "event": "cleanup",
+      "all_reaped": true
+    }
+  ],
+  "auth_fixture": "chatgpt-with-fake-provider-key",
+  "configured_endpoints": {
+    "websocket": "<ALTERNATE_URL>",
+    "webrtc": "<ALTERNATE_URL>"
+  },
+  "forced_endpoints": {
+    "websocket": "<GATE_URL>",
+    "webrtc": "<GATE_URL>"
+  },
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n\u001b[2m2026-11-12T11:46:58.185083Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_core::realtime_conversation\u001b[0m\u001b[2m:\u001b[0m failed to start realtime conversation: unexpected status 503 Service Unavailable: realtime websocket handshake failed\n",
+  "scope": "core RPC routing only; TUI and audio devices not exercised"
+}

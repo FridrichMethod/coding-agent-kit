@@ -1,0 +1,221 @@
+{
+  "mode": "webrtc",
+  "version": "codex-cli 0.167.2",
+  "events": [
+    {
+      "at": 0.0073,
+      "event": "gate_grant",
+      "grant": 1,
+      "seconds": 20
+    },
+    {
+      "at": 0.0173,
+      "event": "backend_command",
+      "command": [
+        "<NATIVE_BINARY>",
+        "-c",
+        "experimental_realtime_ws_base_url=\"<GATE_URL>\"",
+        "-c",
+        "experimental_realtime_webrtc_call_base_url=\"<GATE_URL>\"",
+        "app-server",
+        "--listen",
+        "unix://../backend.sock"
+      ]
+    },
+    {
+      "at": 0.2818,
+      "event": "http_response",
+      "service": "gate",
+      "method": "GET",
+      "path": "/backend-api/codex/models?client_version=0.167.2",
+      "upgrade": false,
+      "status": 200
+    },
+    {
+      "at": 0.2828,
+      "event": "discovery",
+      "service": "quota"
+    },
+    {
+      "at": 0.2965,
+      "event": "rpc",
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "pc-native-research",
+          "version": "1"
+        },
+        "capabilities": {
+          "experimentalApi": true
+        }
+      },
+      "result": {
+        "userAgent": "pc-native-research/0.167.2 (Ubuntu 24.4.0; x86_64) xterm-256color (pc-native-research; 1)",
+        "codexHome": "<PROBE_ROOT>/codex",
+        "platformFamily": "unix",
+        "platformOs": "linux"
+      }
+    },
+    {
+      "at": 0.3078,
+      "event": "rpc",
+      "method": "thread/start",
+      "params": {
+        "cwd": "<PROBE_ROOT>/workspace"
+      },
+      "result": {
+        "thread": {
+          "id": "01a1cf95-2eb5-78a0-a007-fb98630ea9af",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "<PROBE_ROOT>/workspace",
+              "runtimeWorkspaceRoots": [
+                "<PROBE_ROOT>/workspace"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a1cf95-2eb5-78a0-a007-fb98630ea9af",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "gate",
+          "model": "gpt-5.4",
+          "reasoningEffort": null,
+          "createdAt": 1794484022,
+          "updatedAt": 1794484022,
+          "recencyAt": 1794484022,
+          "status": {
+            "type": "idle"
+          },
+          "path": "<PROBE_ROOT>/codex/sessions/2026/11/12/rollout-2026-11-12T03-47-02-01a1cf95-2eb5-78a0-a007-fb98630ea9af.jsonl",
+          "cwd": "<PROBE_ROOT>/workspace",
+          "cliVersion": "0.167.2",
+          "originator": "pc-native-research",
+          "source": "vscode",
+          "canAcceptDirectInput": true,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        },
+        "model": "gpt-5.4",
+        "modelProvider": "gate",
+        "serviceTier": null,
+        "disabledPluginIds": [],
+        "cwd": "<PROBE_ROOT>/workspace",
+        "runtimeWorkspaceRoots": [
+          "<PROBE_ROOT>/workspace"
+        ],
+        "instructionSources": [
+          "<WORKTREE>/AGENTS.md"
+        ],
+        "approvalPolicy": "never",
+        "approvalsReviewer": "user",
+        "sandbox": {
+          "type": "workspaceWrite",
+          "writableRoots": [],
+          "networkAccess": false,
+          "excludeTmpdirEnvVar": false,
+          "excludeSlashTmp": false
+        },
+        "activePermissionProfile": {
+          "id": ":workspace",
+          "extends": null
+        },
+        "reasoningEffort": null,
+        "multiAgentMode": "explicitRequestOnly"
+      }
+    },
+    {
+      "at": 0.3078,
+      "event": "start_requested",
+      "transport": "webrtc",
+      "params": {
+        "threadId": "01a1cf95-2eb5-78a0-a007-fb98630ea9af",
+        "clientManagedHandoffs": true,
+        "outputModality": "audio",
+        "includeStartupContext": false,
+        "version": "v3",
+        "transport": {
+          "type": "webrtc",
+          "sdp": "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=PC6-fixture\r\nt=0 0\r\n"
+        }
+      }
+    },
+    {
+      "at": 0.3088,
+      "event": "rpc",
+      "method": "thread/realtime/start",
+      "params": {
+        "threadId": "01a1cf95-2eb5-78a0-a007-fb98630ea9af",
+        "clientManagedHandoffs": true,
+        "outputModality": "audio",
+        "includeStartupContext": false,
+        "version": "v3",
+        "transport": {
+          "type": "webrtc",
+          "sdp": "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=PC6-fixture\r\nt=0 0\r\n"
+        }
+      },
+      "result": {}
+    },
+    {
+      "at": 0.3151,
+      "event": "alternate_rejected",
+      "method": "POST",
+      "path": "/live"
+    },
+    {
+      "at": 0.3151,
+      "event": "http_response",
+      "service": "gate",
+      "method": "POST",
+      "path": "/live",
+      "upgrade": false,
+      "status": 503
+    },
+    {
+      "at": 0.3161,
+      "event": "native_failure",
+      "threadId": "01a1cf95-2eb5-78a0-a007-fb98630ea9af",
+      "message": "unexpected status 503 Service Unavailable: <!DOCTYPE HTML>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"utf-8\">\n        <style type=\"text/css\">\n            :root {\n                color-scheme: light dark;\n            }\n        </style>\n        <title>Error response</title>\n    </head>\n    <body>\n        <h1>Error response</h1>\n        <p>Error code: 503</p>\n        <p>Message: Service Unavailable.</p>\n        <p>Error code explanation: 503 - The server cannot process the request due to a high load.</p>\n    </body>\n</html>, url: <GATE_URL>/live"
+    },
+    {
+      "at": 3.3163,
+      "event": "observation_complete",
+      "backend_alive": true
+    },
+    {
+      "at": 3.3319,
+      "event": "gate_pause",
+      "reason": "cleanup",
+      "active_ids": []
+    },
+    {
+      "at": 4.5113,
+      "event": "cleanup",
+      "all_reaped": true
+    }
+  ],
+  "auth_fixture": "chatgpt",
+  "configured_endpoints": {
+    "websocket": "<ALTERNATE_URL>",
+    "webrtc": "<ALTERNATE_URL>"
+  },
+  "forced_endpoints": {
+    "websocket": "<GATE_URL>",
+    "webrtc": "<GATE_URL>"
+  },
+  "backend_stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"<PROBE_ROOT>\" (codex_home: AbsolutePathBuf(\"<PROBE_ROOT>/codex\"))\n\u001b[2m2026-11-12T11:47:02.982556Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_core::realtime_conversation\u001b[0m\u001b[2m:\u001b[0m failed to start realtime conversation: unexpected status 503 Service Unavailable: <!DOCTYPE HTML>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"utf-8\">\n        <style type=\"text/css\">\n            :root {\n                color-scheme: light dark;\n            }\n        </style>\n        <title>Error response</title>\n    </head>\n    <body>\n        <h1>Error response</h1>\n        <p>Error code: 503</p>\n        <p>Message: Service Unavailable.</p>\n        <p>Error code explanation: 503 - The server cannot process the request due to a high load.</p>\n    </body>\n</html>, url: <GATE_URL>/live\n",
+  "scope": "core RPC routing only; TUI and audio devices not exercised"
+}
