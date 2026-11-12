@@ -11,12 +11,23 @@ Design points (PN N0/HLogin/N1):
   of the displayed identity. Existing or pending directories refuse.
 - Caller selectors that would change auth/provider/storage/endpoint refuse;
   managed policy is preserved (no settings-source override, real HOME kept).
+- Every file policy source native 2.1.322 reads on this platform is inspected
+  per document: <config>/settings.json, managed-settings.json and the
+  managed-settings.d/*.json drop-ins (WSL adds the Windows-side managed
+  directory). Sources the harness cannot evaluate refuse: cached server-managed
+  policy (remote-settings.json, policy-limits.json), policy helpers, macOS
+  managed preferences and the WSL Windows registry. Server-managed policy
+  fetched during the run is detected afterwards by its cache file and voids the
+  result; it cannot be prevented before it applies.
 - The native child gets an allowlisted environment, closed inherited fds, its
   own session/process group, bounded output/time, and is reaped with its group.
+  Limit: a descendant that calls setsid() leaves the group and is not reaped.
 - Output is a sanitized allowlist: no token, raw record, whole metadata file
   or raw response is retained; stderr is counted and discarded.
 - Auxiliary traffic is accounted by an optional loopback CONNECT tunnel that
-  records host:port and byte counts only and refuses unlisted hosts.
+  records host:port and byte counts only and refuses unlisted hosts. Limit: it
+  sees only traffic that honors HTTPS_PROXY; direct egress is neither counted
+  nor blocked.
 """
 
 import hashlib
@@ -31,6 +42,7 @@ import signal
 import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -69,8 +81,24 @@ REFUSED_ENV = tuple(bearer_mod.STORE_SELECTORS) + (
     "ANTHROPIC_BASE_URL", "ANTHROPIC_CONFIG_DIR", "ANTHROPIC_PROFILE", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
     "CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST", "CLAUDE_CODE_ENTRYPOINT", "HTTPS_PROXY", "https_proxy",
     "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy", "NODE_EXTRA_CA_CERTS",
-    "NODE_TLS_REJECT_UNAUTHORIZED", "SSL_CERT_FILE", "SSL_CERT_DIR", "CLAUDE_CODE_PROCESS_WRAPPER")
-SETTINGS_REFUSED = ("apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "gcpAuthRefresh")
+    "NODE_TLS_REJECT_UNAUTHORIZED", "SSL_CERT_FILE", "SSL_CERT_DIR", "CLAUDE_CODE_PROCESS_WRAPPER",
+    "CLAUDE_CODE_HTTP_PROXY", "CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_UNIX_SOCKET")
+# Command settings that change auth or transport (native lists them with the helpers).
+SETTINGS_REFUSED = ("apiKeyHelper", "awsAuthRefresh", "awsCredentialExport", "gcpAuthRefresh",
+                    "proxyAuthHelper", "processWrapper")
+# A settings `env` may set anything; refuse whole families, not only known names.
+SETTINGS_ENV_REFUSED = re.compile(r"(?:ANTHROPIC_|CLAUDE_|AWS_|GOOGLE_|VERTEX_|CLOUD_ML_|NODE_|SSL_|BUN_|"
+                                  r"NPM_CONFIG_).*|.*(?:PROXY|CERT|_CA_).*", re.IGNORECASE)
+# File policy sources of native 2.1.322 (S): managed-settings.json plus the
+# managed-settings.d drop-ins in each managed directory; WSL reads the
+# Windows-side directory first.
+MANAGED_DIRS = {"linux": ("/etc/claude-code",), "darwin": ("/Library/Application Support/ClaudeCode",),
+                "wsl": ("/mnt/c/Program Files/ClaudeCode", "/etc/claude-code")}
+# Signed server-managed policy caches in the config directory (S). Present
+# means the account has server-managed policy the harness cannot evaluate.
+SERVER_MANAGED = ("remote-settings.json", "policy-limits.json")
+# OS policy sources the harness cannot read: refuse on those platforms.
+UNINSPECTABLE_OS_SOURCES = {"darwin": "managed preferences", "wsl": "Windows policy registry"}
 
 
 class HarnessRefused(Exception):
@@ -270,7 +298,12 @@ def check_environment(caller_env):
 
 
 def check_policy(settings_paths, registration):
-    """Inspect (never rewrite) user and managed settings for incompatible selectors."""
+    """Inspect (never rewrite) each policy document for incompatible selectors.
+
+    The checks are per document and refuse on any incompatible value, so the
+    native merge order and composition mode cannot turn refused documents into
+    an accepted effective policy.
+    """
     for path in settings_paths:
         try:
             with open(path, "rb") as handle:
@@ -286,8 +319,11 @@ def check_policy(settings_paths, registration):
         if not isinstance(settings, dict):
             raise HarnessRefused("policy_malformed")
         env = settings.get("env") or {}
-        if not isinstance(env, dict) or any(name in env for name in REFUSED_ENV):
+        if not isinstance(env, dict) or any(name in REFUSED_ENV or SETTINGS_ENV_REFUSED.fullmatch(name)
+                                            for name in env):
             raise HarnessRefused("policy_conflicting_env")
+        if "policyHelpers" in settings:
+            raise HarnessRefused("policy_helper_unevaluable")
         if any(key in settings for key in SETTINGS_REFUSED):
             raise HarnessRefused("policy_conflicting_auth")
         method = settings.get("forceLoginMethod")
@@ -300,10 +336,74 @@ def check_policy(settings_paths, registration):
                 raise HarnessRefused("policy_organization_mismatch")
 
 
-def default_policy_paths(config_dir, platform):
-    managed = ("/Library/Application Support/ClaudeCode/managed-settings.json" if platform == "darwin"
-               else "/etc/claude-code/managed-settings.json")
-    return [config_dir + "/settings.json", managed]
+def detect_platform(environ=None, proc_version="/proc/version"):
+    """darwin, wsl or linux, with native's WSL test (WSL_DISTRO_NAME or /proc/version)."""
+    environ = os.environ if environ is None else environ
+    if sys.platform == "darwin":
+        return "darwin"
+    if environ.get("WSL_DISTRO_NAME"):
+        return "wsl"
+    try:
+        with open(proc_version, "r", encoding="utf-8", errors="replace") as handle:
+            text = handle.read(4096).lower()
+    except OSError:
+        return "linux"
+    return "wsl" if "microsoft" in text or "wsl" in text else "linux"
+
+
+def managed_documents(directory):
+    """managed-settings.json, then managed-settings.d/*.json in native order.
+
+    Native 2.1.322 (S) lists the drop-in directory, keeps regular files and
+    symlinks named *.json that do not start with a dot, and sorts the names by
+    UTF-16 code units. A missing directory is no source; any other listing
+    error refuses.
+    """
+    documents = [directory + "/managed-settings.json"]
+    dropin = directory + "/managed-settings.d"
+    try:
+        with os.scandir(dropin) as listing:
+            names = [entry.name for entry in listing
+                     if entry.name.endswith(".json") and not entry.name.startswith(".")
+                     and (entry.is_symlink() or entry.is_file(follow_symlinks=False))]
+    except (FileNotFoundError, NotADirectoryError):
+        return documents
+    except OSError:
+        raise HarnessRefused("policy_unreadable") from None
+    names.sort(key=lambda name: name.encode("utf-16-be", "surrogatepass"))
+    return documents + [dropin + "/" + name for name in names]
+
+
+def server_managed_present(config_dir):
+    """True if any signed server-managed policy cache exists; refuses if it cannot tell."""
+    for name in SERVER_MANAGED:
+        try:
+            os.lstat(config_dir + "/" + name)
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+        except OSError:
+            raise HarnessRefused("policy_unreadable") from None
+        return True
+    return False
+
+
+def check_effective_policy(config_dir, registration, platform, managed_dirs=None):
+    """Refuse unless every policy source native would apply can be inspected and is compatible.
+
+    Returns the inspected document paths. Server-managed policy fetched during
+    a run is outside this pre-spawn check (see run_n1).
+    """
+    if platform in UNINSPECTABLE_OS_SOURCES:
+        raise HarnessRefused("policy_os_source_uninspectable")
+    if platform not in MANAGED_DIRS:
+        raise HarnessRefused("platform_unsupported")
+    if server_managed_present(config_dir):
+        raise HarnessRefused("policy_server_managed_present")
+    documents = [config_dir + "/settings.json"]
+    for directory in MANAGED_DIRS[platform] if managed_dirs is None else managed_dirs:
+        documents += managed_documents(directory)
+    check_policy(documents, registration)
+    return documents
 
 
 def build_child_env(caller_env, paths, proxy_port=None):
@@ -486,15 +586,21 @@ class _Native:
                         self.events["model"] += 1
                         raise HarnessRefused("model_event")
                     if kind == "control_response":
-                        response = event.get("response") or {}
+                        response = event.get("response")
+                        if not isinstance(response, dict):
+                            raise HarnessRefused("protocol_malformed")
                         if response.get("request_id") != request_id:
                             self.events["other"] += 1
                             continue
                         if response.get("subtype") != "success":
                             self.events["control_error"] += 1
                             raise HarnessRefused("control_error")
+                        reply = response.get("response")
+                        reply = {} if reply is None else reply
+                        if not isinstance(reply, dict):
+                            raise HarnessRefused("protocol_malformed")
                         self.events["control_ok"] += 1
-                        return response.get("response") or {}
+                        return reply
                     self.events["other"] += 1
 
     def close(self):
@@ -517,7 +623,10 @@ class _Native:
 
 def _sanitize_reply(reply, received_wall_ms):
     rate_limits = reply.get("rate_limits")
-    session = reply.get("session") or {}
+    session = reply.get("session")
+    session = {} if session is None else session
+    if not isinstance(session, dict):
+        raise HarnessRefused("protocol_malformed")
     out = {"rate_limits_available": reply.get("rate_limits_available") is True,
            "subscription_type": reply.get("subscription_type") if reply.get("subscription_type")
            in SUBSCRIPTION_TYPES else None,
@@ -535,12 +644,14 @@ def _sanitize_reply(reply, received_wall_ms):
     return out
 
 
-def run_n1(binary, paths, caller_env, *, policy_paths=None, platform="linux", allow_requery=False,
+def run_n1(binary, paths, caller_env, *, managed_dirs=None, platform=None, allow_requery=False,
            tunnel_connector=None, workspace_parent=None, monotonic=time.monotonic,
            wall_ms=lambda: int(time.time() * 1000), sleep=time.sleep, deadlines=None):
     """One bounded inference-free quota observation in the registered directory.
 
-    Returns a sanitized dict; never raises for expected refusals.
+    Returns a sanitized dict; never raises for expected refusals. A
+    server-managed policy cache that appears during the run voids the result
+    (server_policy_fetched): native already applied that policy.
     """
     limits = {"total": TOTAL_DEADLINE, "operation": OPERATION_DEADLINE, "persistence": PERSISTENCE_WAIT,
               "shortcut": CACHE_SHORTCUT_WAIT}
@@ -554,8 +665,8 @@ def run_n1(binary, paths, caller_env, *, policy_paths=None, platform="linux", al
         if registration["state"] != "ready":
             raise HarnessRefused("registration_pending")
         check_environment(caller_env)
-        check_policy(policy_paths if policy_paths is not None else default_policy_paths(paths.config, platform),
-                     registration)
+        result["policy_documents"] = len(check_effective_policy(
+            paths.config, registration, detect_platform() if platform is None else platform, managed_dirs))
         if not os.path.isabs(binary) or not os.path.isfile(binary) or not os.access(binary, os.X_OK):
             raise HarnessRefused("native_binary_unusable")
         with open(os.path.realpath(binary), "rb") as handle:
@@ -623,6 +734,13 @@ def run_n1(binary, paths, caller_env, *, policy_paths=None, platform="linux", al
             result["native"] = native.close()
             result["model_events"] = native.events["model"]
             result["events"] = dict(native.events)
+            try:
+                written = server_managed_present(paths.config)
+            except HarnessRefused:
+                written = None  # cannot tell: treat as written
+            result["server_policy_written"] = written
+            if written is not False and result["classification"] != "failed":
+                result.update(classification="refused", reason="server_policy_fetched")
         if tunnel is not None:
             tunnel.__exit__(None, None, None)
             result["traffic"] = tunnel.summary()

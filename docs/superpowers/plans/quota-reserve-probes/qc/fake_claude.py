@@ -66,6 +66,20 @@ def main():
             emit({"type": "control_response", "response": {"subtype": "error", "request_id": request_id,
                                                             "error": "fabricated"}})
             continue
+        if mode == "bad-response":
+            emit({"type": "control_response", "response": ["fabricated"]})
+            continue
+        if mode == "bad-reply":
+            emit({"type": "control_response", "response": {"subtype": "success", "request_id": request_id,
+                                                            "response": "fabricated"}})
+            continue
+        if mode == "bad-session":
+            emit({"type": "control_response", "response": {"subtype": "success", "request_id": request_id,
+                                                            "response": {"session": ["fabricated"]}}})
+            continue
+        if behavior.get("write_server_policy"):
+            # Simulates native caching server-managed policy fetched during the run.
+            (config / "remote-settings.json").write_text("{}")
         for target in behavior.get("connect", []):
             proxy = os.environ.get("HTTPS_PROXY", "")
             result = "no_proxy"

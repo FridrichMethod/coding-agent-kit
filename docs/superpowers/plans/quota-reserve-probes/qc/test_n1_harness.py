@@ -64,7 +64,8 @@ class Base(unittest.TestCase):
         n1.mark_ready(self.paths, IDENT)
 
     def run_n1(self, **kwargs):
-        kwargs.setdefault("policy_paths", [])
+        kwargs.setdefault("managed_dirs", [str(self.root / "managed")])
+        kwargs.setdefault("platform", "linux")
         kwargs.setdefault("deadlines", {"persistence": 1.0, "operation": 10.0, "total": 30.0, "shortcut": 0.2})
         kwargs.setdefault("workspace_parent", str(self.root))
         return n1.run_n1(str(self.native), self.paths, self.env, **kwargs)
@@ -155,10 +156,91 @@ class SelectorAndPolicyTests(Base):
             with self.subTest(reason=reason):
                 policy.write_text(json.dumps(document))
                 self.assertRefused(reason, n1.check_policy, [str(policy)], registration)
+        more = [({"policyHelpers": {"linux": {"command": "/bin/true"}}}, "policy_helper_unevaluable"),
+                ({"proxyAuthHelper": "/bin/true"}, "policy_conflicting_auth"),
+                ({"processWrapper": "/bin/true"}, "policy_conflicting_auth")]
+        for name in ("CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_UNIX_SOCKET", "NODE_OPTIONS", "ANTHROPIC_FUTURE_KNOB",
+                     "CLAUDE_CODE_SOMETHING_NEW", "https_proxy", "REQUESTS_CA_BUNDLE", "AWS_PROFILE"):
+            more.append(({"env": {name: "x"}}, "policy_conflicting_env"))
+        for document, reason in more:
+            with self.subTest(reason=reason, document=document):
+                policy.write_text(json.dumps(document))
+                self.assertRefused(reason, n1.check_policy, [str(policy)], registration)
         policy.write_text(json.dumps({"forceLoginMethod": "claudeai", "forceLoginOrgUUID": ["org-a"],
-                                      "permissions": {"deny": ["Bash"]}}))
+                                      "permissions": {"deny": ["Bash"]}, "env": {"EDITOR": "vi"}}))
         n1.check_policy([str(policy), str(self.root / "absent.json")], registration)
-        self.assertEqual(n1.default_policy_paths("/c", "linux")[1], "/etc/claude-code/managed-settings.json")
+        self.assertEqual(n1.MANAGED_DIRS["linux"], ("/etc/claude-code",))
+        self.assertEqual(n1.MANAGED_DIRS["wsl"], ("/mnt/c/Program Files/ClaudeCode", "/etc/claude-code"))
+
+    def test_dropins_in_native_order_and_refused_per_document(self):
+        registration = {"identity": IDENT}
+        managed = self.root / "managed"
+        dropin = managed / "managed-settings.d"
+        dropin.mkdir(parents=True)
+        names = ["b.json", "a.json", "\uff21.json", "\U0001f600.json"]
+        for name in names:
+            (dropin / name).write_text("{}")
+        (dropin / ".hidden.json").write_text(json.dumps({"apiKeyHelper": "/bin/true"}))  # native skips it
+        (dropin / "notes.txt").write_text("not json")
+        (dropin / "dir.json").mkdir()
+        os.symlink(self.root / "absent-target.json", dropin / "dangling.json")
+        documents = n1.managed_documents(str(managed))
+        # UTF-16 code-unit order (native sort), not code-point order.
+        self.assertEqual([Path(d).name for d in documents],
+                         ["managed-settings.json", "a.json", "b.json", "dangling.json", "\U0001f600.json",
+                          "\uff21.json"])
+        n1.check_effective_policy(self.paths.config, registration, "linux", [str(managed)])
+        (dropin / "b.json").write_text(json.dumps({"env": {"HTTPS_PROXY": "http://corp.example:3128"}}))
+        self.assertRefused("policy_conflicting_env", n1.check_effective_policy, self.paths.config,
+                           registration, "linux", [str(managed)])
+        (dropin / "b.json").write_text("{}")
+        target = self.root / "linked.json"
+        target.write_text(json.dumps({"forceLoginMethod": "console"}))
+        os.symlink(target, dropin / "c.json")
+        self.assertRefused("policy_login_method_incompatible", n1.check_effective_policy, self.paths.config,
+                           registration, "linux", [str(managed)])
+        os.unlink(dropin / "c.json")
+        (managed / "managed-settings.json").write_text(json.dumps({"forceLoginOrgUUID": "org-other"}))
+        self.assertRefused("policy_organization_mismatch", n1.check_effective_policy, self.paths.config,
+                           registration, "linux", [str(managed)])
+
+    @unittest.skipIf(os.geteuid() == 0, "root ignores directory permissions")
+    def test_unlistable_dropin_directory_refuses(self):
+        dropin = self.root / "managed" / "managed-settings.d"
+        dropin.mkdir(parents=True)
+        dropin.chmod(0)
+        self.addCleanup(dropin.chmod, 0o700)
+        self.assertRefused("policy_unreadable", n1.managed_documents, str(self.root / "managed"))
+
+    def test_uninspectable_sources_refuse(self):
+        registration = {"identity": IDENT}
+        n1.create_pending(self.paths)
+        empty = [str(self.root / "managed")]
+        for platform in ("darwin", "wsl"):
+            with self.subTest(platform=platform):
+                self.assertRefused("policy_os_source_uninspectable", n1.check_effective_policy,
+                                   self.paths.config, registration, platform, empty)
+        self.assertRefused("platform_unsupported", n1.check_effective_policy, self.paths.config,
+                           registration, "freebsd", empty)
+        for name in n1.SERVER_MANAGED:
+            with self.subTest(cache=name):
+                path = Path(self.paths.config) / name
+                os.symlink(self.root / "nowhere", path)  # even a dangling entry counts
+                self.assertRefused("policy_server_managed_present", n1.check_effective_policy,
+                                   self.paths.config, registration, "linux", empty)
+                path.unlink()
+        self.assertEqual(n1.check_effective_policy(self.paths.config, registration, "linux", empty),
+                         [self.paths.config + "/settings.json", empty[0] + "/managed-settings.json"])
+
+    def test_platform_detection(self):
+        version = self.root / "version"
+        version.write_text("Linux version 6.8.0-generic (buildd@lcy02)")
+        self.assertEqual(n1.detect_platform({}, str(version)), "darwin" if sys.platform == "darwin" else "linux")
+        if sys.platform != "darwin":
+            self.assertEqual(n1.detect_platform({"WSL_DISTRO_NAME": "Ubuntu"}, str(version)), "wsl")
+            version.write_text("Linux version 5.15.153.1-microsoft-standard-WSL2")
+            self.assertEqual(n1.detect_platform({}, str(version)), "wsl")
+            self.assertEqual(n1.detect_platform({}, str(self.root / "absent")), "linux")
 
     def test_child_environment_is_allowlisted(self):
         env = n1.build_child_env(self.env, self.paths, 4242)
@@ -179,6 +261,7 @@ class RunTests(Base):
         result = self.run_n1()
         self.assertEqual(result["classification"], "fresh_windows", result)
         self.assertEqual(result["queries"], 1)
+        self.assertEqual((result["policy_documents"], result["server_policy_written"]), (2, False))
         self.assertTrue(result["cache"]["advanced"] and result["cache"]["account_matches"])
         self.assertEqual(result["replies"][0]["windows"]["five_hour"]["utilization"], 12.5)
         text = json.dumps(result)
@@ -202,12 +285,29 @@ class RunTests(Base):
         self.env["HTTPS_PROXY"] = "http://corp.example:3128"
         self.assertEqual(self.run_n1()["reason"], "conflicting_environment")
         del self.env["HTTPS_PROXY"]
-        policy = self.root / "managed.json"
-        policy.write_text(json.dumps({"apiKeyHelper": "/bin/echo"}))
-        self.assertEqual(self.run_n1(policy_paths=[str(policy)])["reason"], "policy_conflicting_auth")
+        managed = self.root / "managed" / "managed-settings.d"
+        managed.mkdir(parents=True)
+        (managed / "50-helper.json").write_text(json.dumps({"apiKeyHelper": "/bin/echo"}))
+        self.assertEqual(self.run_n1()["reason"], "policy_conflicting_auth")
+        (managed / "50-helper.json").unlink()
+        (Path(self.paths.config) / "settings.json").write_text(json.dumps({"env": {"ANTHROPIC_BASE_URL": "x"}}))
+        self.assertEqual(self.run_n1()["reason"], "policy_conflicting_env")
+        (Path(self.paths.config) / "settings.json").unlink()
+        (Path(self.paths.config) / "policy-limits.json").write_text("{}")
+        self.assertEqual(self.run_n1()["reason"], "policy_server_managed_present")
+        (Path(self.paths.config) / "policy-limits.json").unlink()
+        self.assertEqual(self.run_n1(platform="darwin")["reason"], "policy_os_source_uninspectable")
         self.native = Path("claude")
         self.assertEqual(self.run_n1()["reason"], "native_binary_unusable")
         self.assertFalse((self.bin / "env.json").exists())
+
+    def test_server_policy_fetched_during_run_voids_result(self):
+        self.ready()
+        self.behave(write_cache=True, rate_limits=windows(), write_server_policy=True)
+        result = self.run_n1()
+        self.assertEqual((result["classification"], result["reason"]), ("refused", "server_policy_fetched"))
+        self.assertTrue(result["server_policy_written"])
+        self.assertEqual(self.run_n1()["reason"], "policy_server_managed_present")  # and every later run refuses
 
     def test_cache_shortcut_inconclusive_unless_requery_approved(self):
         self.ready()
@@ -244,7 +344,8 @@ class RunTests(Base):
     def test_failures_are_bounded_and_reaped(self):
         self.ready()
         for mode, reason in (("model", "model_event"), ("error", "control_error"), ("flood", "output_limit"),
-                             ("early-exit", "native_exited_early")):
+                             ("early-exit", "native_exited_early"), ("bad-response", "protocol_malformed"),
+                             ("bad-reply", "protocol_malformed"), ("bad-session", "protocol_malformed")):
             with self.subTest(mode=mode):
                 self.behave(mode=mode, rate_limits=windows())
                 result = self.run_n1()
