@@ -1,0 +1,2723 @@
+{
+ "backend": [
+  {
+   "at": 170467.823217786,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170467.823533905,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170467.823803852,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170468.498877874,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170468.500441358,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170468.500580721,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170468.99045553,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170468.991883142,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170468.993984234,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170468.995767324,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170469.046873616,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170469.048593646,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170469.048909693,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/rate-limit-reset-credits"
+  },
+  {
+   "at": 170469.050354785,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/rate-limit-reset-credits"
+  },
+  {
+   "at": 170469.050579215,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170469.051982926,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170469.102529568,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170469.105858408,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170469.106905409,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170469.741494488,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170469.74177361,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170469.744153754,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170470.137709307,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "at": 170470.152628411,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "at": 170470.167415762,
+   "ident": "klx-1",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-S2-START",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170470.185482363,
+   "ident": "klx-2",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-S1-START",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170470.201691696,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "at": 170470.215528747,
+   "ident": "klx-3",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-S2-START",
+   "model": "gpt-5.4",
+   "request": "title"
+  },
+  {
+   "at": 170470.219318665,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "at": 170470.230121414,
+   "ident": "klx-4",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-S1-START",
+   "model": "gpt-5.4",
+   "request": "title"
+  },
+  {
+   "at": 170470.582409456,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170470.582631855,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170470.583447575,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170471.239588121,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170471.240256004,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170471.241674331,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170471.721854754,
+   "ident": "klx-5",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-0",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.72255481,
+   "ident": "klx-6",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-1",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.723203139,
+   "ident": "klx-7",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-2",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.723799184,
+   "ident": "klx-8",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-3",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.724271079,
+   "ident": "klx-9",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-4",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.724796233,
+   "ident": "klx-10",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-5",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.725404908,
+   "ident": "klx-11",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-6",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.726319256,
+   "ident": "klx-12",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-7",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.726872871,
+   "ident": "klx-13",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-8",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170471.727560681,
+   "ident": "klx-14",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-9",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170472.087699693,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170472.088518244,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170472.090634632,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170472.779336331,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170472.77980393,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170472.780226138,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170473.611207472,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170474.308996615,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170474.309814151,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170474.3106468,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170475.119592886,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170475.744031579,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "at": 170475.770383622,
+   "ident": "klx-15",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-S2-AFTER",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170475.778411851,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170475.780027827,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170475.78168072,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170475.801053608,
+   "kind": "other_get",
+   "label": "A1",
+   "path": "/backend-api/wham/settings/user"
+  },
+  {
+   "at": 170475.816018516,
+   "ident": "klx-16",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-S2-AFTER",
+   "model": "gpt-5.4",
+   "request": "title"
+  },
+  {
+   "at": 170476.011092864,
+   "ident": "klx-17",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-0",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170476.011786332,
+   "ident": "klx-18",
+   "kind": "model",
+   "label": "A1",
+   "live": true,
+   "marker": "KLX-OUTSIDE-1",
+   "model": "gpt-5.4",
+   "request": "turn"
+  },
+  {
+   "at": 170476.631845464,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170477.296174136,
+   "kind": "accounts_check",
+   "label": "A1"
+  },
+  {
+   "at": 170477.298163653,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170477.298476981,
+   "kind": "models",
+   "label": "A1"
+  },
+  {
+   "at": 170478.135845579,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  },
+  {
+   "at": 170478.805231246,
+   "kind": "usage",
+   "label": "A1",
+   "live": true
+  }
+ ],
+ "error": null,
+ "extra": {
+  "proxy_tunnels": [
+   {
+    "allowed": true,
+    "at": 170468.498243275,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170468.499242913,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170468.499431196,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170468.990079811,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170468.991576184,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170469.046459329,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170469.048013731,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170469.048205592,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170469.740845639,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170469.741107095,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170469.743857085,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170470.137342818,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170470.166671324,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170470.201315901,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170470.215022064,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170471.239151518,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170471.239812442,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170471.241354573,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170472.778711875,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170472.778887907,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170472.779597178,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170474.308448367,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170474.308771918,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170474.309939992,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170475.74359666,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170475.769692551,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170475.778046886,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170475.779695384,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170475.78134863,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170475.800664348,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170475.815455448,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170477.295794081,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170477.297627121,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170477.297809133,
+    "destination": "127.0.0.1:40403"
+   },
+   {
+    "allowed": true,
+    "at": 170478.804846413,
+    "destination": "127.0.0.1:40403"
+   }
+  ]
+ },
+ "host": {
+  "kernel": "7.0.0-42-generic",
+  "machine": "x86_64"
+ },
+ "invocations": [
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "work for near-Astra performance at a lower cost.\r\n\r\n\r\n\u203a KLX-S1-START first session\r\n  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s1/workspace \u00b7 \u2190 for agents\u001b[0 q \u26a01 warning\u00b7f2toview \u2022 Booting MCP server: codex_tui (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s1/workspace \u00b7 \u2190 for agents               \u26a0 1 warning \u00b7 f2 to view\u001b[0 q \u25e61\u001bM\u001bM\r\n\r\n\u2022 KLX fixture reply KLX-S1-START  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s1/workspace \u00b7 \u2190 for agents               \u26a0 1 warning \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\r\n\r\n  Worked for 1s \u2022 11:39\u001b[0 q \u26a0 2 warnings\r\n[quota-research] Paused. Research F12 control requires a new typed confirmation.\r\nKLX-S1-AFTER outside use           \u001bM\u001bM\u001bM\u001bM\r\n\r\n\r\n\u203a KLX-S1-AFTER outside use\r\nAsk Codex to do anything\u00b7\u2190foragents\u001b[0 q  \u2022 Working (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s1/workspace \u00b7 \u2190 for agents              \u26a0 2 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\u001bM\r\n\r\n\u25a0 unexpected status 503 Service Unavailable: quota reserve gate refused: paused:threshold:five_hour, url:\r\nhttp://127.0.0.1:50295/backend-api/codex/responses  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s1/workspace \u00b7 \u2190 for agents              \u26a0 2 warnings \u00b7 f2 to view\u001b[0 q   \u203a Shutting down... \u001b[0 q\u001b[0 qTo continue this session, run:\r\n  codex resume 01a1d145-9478-75d2-a3f9-bef72b21eaae\r\n",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 170467.348690076,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 3309227,
+       "policy": [
+        20,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170467.823786542,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170467.811778186,
+       "seconds": 0.012,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170467.823997649,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170467.821656499,
+       "seconds": 0.0023,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170467.824193998,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170467.812145239,
+       "seconds": 0.012,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 170468.990619448,
+       "destination": "raw.githubusercontent.com:443",
+       "event": "connect_refused",
+       "lost": null,
+       "paused": null
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170468.994180847,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170468.993677624,
+       "seconds": 0.0005,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170468.995938354,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170468.995493781,
+       "seconds": 0.0004,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.050536176,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/rate-limit-reset-credits",
+       "paused": null,
+       "received": 170469.049895506,
+       "seconds": 0.0006,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.050837545,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170469.050043786,
+       "seconds": 0.0008,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.05223247,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170469.051683423,
+       "seconds": 0.0005,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.102767023,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170469.102115656,
+       "seconds": 0.0006,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.106034611,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170469.105574184,
+       "seconds": 0.0005,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.107175214,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170469.106649571,
+       "seconds": 0.0005,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170470.152806738,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "paused": null,
+       "received": 170470.152234684,
+       "seconds": 0.0006,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": true,
+       "at": 170470.184936843,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S1-START",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "received": 170470.184143821,
+       "request": "turn",
+       "sent": 170470.184932238,
+       "stream": "model-129093717401552",
+       "upgrade": false
+      },
+      {
+       "at": 170470.185764069,
+       "credential": "A1",
+       "event": "model_upstream",
+       "marker": "KLX-S1-START",
+       "status": 200,
+       "stream": "model-129093717401552"
+      },
+      {
+       "at": 170470.185918134,
+       "event": "stream_completed",
+       "marker": "KLX-S1-START",
+       "stream": "model-129093717401552"
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170470.219512367,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "paused": null,
+       "received": 170470.218929303,
+       "seconds": 0.0006,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": true,
+       "at": 170470.229792199,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S1-START",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "received": 170470.229537315,
+       "request": "title",
+       "sent": 170470.229789186,
+       "stream": "model-129093717401552",
+       "upgrade": false
+      },
+      {
+       "at": 170470.230343565,
+       "credential": "A1",
+       "event": "model_upstream",
+       "marker": "KLX-S1-START",
+       "status": 200,
+       "stream": "model-129093717401552"
+      },
+      {
+       "at": 170470.230475234,
+       "event": "stream_completed",
+       "marker": "KLX-S1-START",
+       "stream": "model-129093717401552"
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170470.582618307,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170470.581835673,
+       "seconds": 0.0008,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170470.582837768,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170470.582053775,
+       "seconds": 0.0008,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170470.58369659,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170470.583164692,
+       "seconds": 0.0005,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170472.08797399,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170472.087287382,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170472.088695309,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170472.088164223,
+       "seconds": 0.0005,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 170472.090894983,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "threshold:five_hour",
+       "streams": []
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170472.09094299,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 170472.09036,
+       "seconds": 0.0006,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170473.610250372,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170473.610451984,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170473.611496391,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 170473.61078971,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170474.797429641,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": false,
+       "at": 170474.823047181,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S1-AFTER",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "request": "turn",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170474.857056855,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": false,
+       "at": 170474.868644718,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S1-AFTER",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "request": "title",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.115321281,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.116681747,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.119884404,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 170475.119208082,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170476.630691522,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170476.631877245,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170476.63215341,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 170476.631453883,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.131323182,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.134117444,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.13613737,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 170478.135436293,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 170479.607608587,
+       "event": "loss",
+       "reason": "monitor-eof"
+      },
+      {
+       "at": 170479.607663595,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "monitor-eof",
+       "streams": []
+      },
+      {
+       "at": 170479.613313886,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 170479.613429768,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 170479.6399425,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 3309227,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [
+    {
+     "events": [
+      {
+       "at": 170467.457227152,
+       "event": "monitor_started",
+       "hb_interval": 0.25,
+       "pid": 3309232,
+       "poll_interval": 1.5
+      },
+      {
+       "at": 170469.113162682,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "accountId": "fixture-account-a",
+        "ordinaryUsageAllowed": true,
+        "plan": "pro",
+        "windows": {
+         "10080": 40,
+         "300": 25
+        }
+       },
+       "total_seconds": 0.1469
+      },
+      {
+       "at": 170470.589688276,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "accountId": "fixture-account-a",
+        "ordinaryUsageAllowed": true,
+        "plan": "pro",
+        "windows": {
+         "10080": 40,
+         "300": 25
+        }
+       },
+       "total_seconds": 0.1164
+      },
+      {
+       "at": 170472.096762116,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:50295/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.115
+      },
+      {
+       "at": 170473.621195665,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:50295/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1296
+      },
+      {
+       "at": 170475.126009071,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:50295/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1231
+      },
+      {
+       "at": 170476.642848314,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:50295/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1302
+      },
+      {
+       "at": 170478.14405726,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:50295/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1213
+      },
+      {
+       "at": 170479.607491637,
+       "command": "exit",
+       "event": "command"
+      }
+     ],
+     "pid": 3309232
+    }
+   ],
+   "name": "s1",
+   "policy": {
+    "five_hour": 20,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 50295,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.2928,
+     "read_seconds": 0.0314,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "pro",
+      "windows": {
+       "10080": 40,
+       "300": 25
+      }
+     },
+     "started": 170467.501156216,
+     "total_seconds": 0.3357,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 50295}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42}\r\n   >_ OpenAI Codex (v0.167.2)     loading  \u203a Ask Codex to do anything  \u001b[0 q <PATH>   >_ OpenAI Codex (v0.167.2)     <PATH>  permissions: YOLO mode  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents\u001b[0 q \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\r\n\r\n  >_ OpenAI Codex (v0.167.2)\r\n     <PATH>\r\n  permissions: YOLO mode\r\n\r\n  Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost.\r\n\r\n\r\n\u203a KLX-S1-START first session\r\n  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents\u001b[0 q \u26a01 warning\u00b7f2toview \u2022 Booting MCP server: codex_tui (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents               \u26a0 1 warning \u00b7 f2 to view\u001b[0 q \u25e61\u001bM\u001bM\r\n\r\n\u2022 KLX fixture reply KLX-S1-START  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents               \u26a0 1 warning \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\r\n\r\n  Worked for 1s \u2022 11:39\u001b[0 q \u26a0 2 warningsKLX-S1-AFTER outside use           \u001bM\u001bM\u001bM\u001bM\r\n\r\n\r\n\u203a KLX-S1-AFTER outside use\r\nAsk Codex to do anything\u00b7\u2190foragents\u001b[0 q  \u2022 Working (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents              \u26a0 2 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\u001bM\r\n\r\n\u25a0 unexpected status 503 Service Unavailable: quota reserve gate refused: paused:threshold:five_hour, url:\r\n<PATH>  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents              \u26a0 2 warnings \u00b7 f2 to view\u001b[0 q   \u203a Shutting down... \u001b[0 q\u001b[0 qTo continue this session, run:\r\n  codex resume 01a1d145-9478-75d2-a3f9-bef72b21eaae\r\n",
+   "trace": {
+    "executables": [
+     "codex",
+     "cut",
+     "getconf",
+     "getopt",
+     "lsb_release",
+     "tr"
+    ],
+    "native_main_exit": 0,
+    "processes": 107,
+    "syscalls": {
+     "inet_connect": [
+      {
+       "call": "connect",
+       "exe": "codex",
+       "result": "EINPROGRESS",
+       "target": "gate"
+      },
+      {
+       "address": "127.0.0.1",
+       "call": "connect",
+       "exe": "codex",
+       "port": 38209,
+       "result": "EACCES",
+       "target": "other_loopback"
+      }
+     ],
+     "socket_allowed": {
+      "codex AF_INET/SOCK_STREAM/IPPROTO_IP": 1,
+      "codex AF_INET/SOCK_STREAM/IPPROTO_TCP": 17,
+      "codex pair AF_UNIX/SOCK_STREAM/0": 2
+     },
+     "socket_denied": {
+      "codex AF_UNIX/SOCK_STREAM/0": 2
+     },
+     "unix_connect": {}
+    }
+   },
+   "tui_exit": 0
+  },
+  {
+   "actors": [],
+   "checks": [],
+   "control_visible_tail": "1:39\u001b[0 q \u26a0 2 warningsKLX-S2-AFTER outside use           \u001bM\u001bM\u001bM\u001bM\r\n\r\n\r\n\u203a KLX-S2-AFTER outside use\r\nAsk Codex to do anything\u00b7\u2190foragents\u001b[0 q  \u2022 Working (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s2/workspace \u00b7 \u2190 for agents              \u26a0 2 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\u001bM\u001bM\r\n\r\n\u2022 KLX fixture reply KLX-S2-AFTER\r\n\r\n\u26a0 Heads up, you have less than 25% of your 5h limit left. Run /status for a breakdown.  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s2/workspace \u00b7 \u2190 for agents              \u26a0 3 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\r\n\r\n  Worked for <1s \u2022 11:39\u001b[0 q \r\n[quota-research] Paused. Research F12 control requires a new typed confirmation.\r\nKLX-S2-LATE after more outsideuse           \u001bM\u001bM\u001bM\u001bM\r\n\r\n\r\n\u203a KLX-S2-LATE after more outside use\r\nAsk Codex to do anything\u00b7\u2190foragents\u001b[0 q  \u2022 Working (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s2/workspace \u00b7 \u2190 for agents              \u26a0 3 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\u001bM\r\n\r\n\u25a0 unexpected status 503 Service Unavailable: quota reserve gate refused: paused:threshold:five_hour, url:\r\nhttp://127.0.0.1:58285/backend-api/codex/responses  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PROBE_ROOT>/s2/workspace \u00b7 \u2190 for agents              \u26a0 3 warnings \u00b7 f2 to view\u001b[0 q   \u203a Shutting down... \u001b[0 q\u001b[0 qTo continue this session, run:\r\n  codex resume 01a1d145-946f-7bb3-b54c-1ed8d9aff995\r\n",
+   "gates": [
+    {
+     "events": [
+      {
+       "at": 170468.022491413,
+       "connect_allow": [],
+       "event": "gate_started",
+       "hb_max": 2.0,
+       "hold": 5.0,
+       "pid": 3309335,
+       "policy": [
+        10,
+        30,
+        60
+       ],
+       "restart": false,
+       "upstream_proxy": true
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170468.499966499,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170468.488132422,
+       "seconds": 0.0118,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170468.50099071,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 0,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170468.491405981,
+       "seconds": 0.0096,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170468.501212659,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170468.491742762,
+       "seconds": 0.0095,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 170468.980901216,
+       "destination": "raw.githubusercontent.com:443",
+       "event": "connect_refused",
+       "lost": null,
+       "paused": null
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170468.990704687,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170468.989674406,
+       "seconds": 0.001,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170468.992103125,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170468.991350089,
+       "seconds": 0.0007,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.047357442,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170469.046038421,
+       "seconds": 0.0013,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.048957877,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170469.047506884,
+       "seconds": 0.0014,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.049215195,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/rate-limit-reset-credits",
+       "paused": null,
+       "received": 170469.04760704,
+       "seconds": 0.0016,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.741982724,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170469.740613626,
+       "seconds": 0.0014,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.742090287,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170469.740360911,
+       "seconds": 0.0017,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170469.744405767,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170469.743623211,
+       "seconds": 0.0008,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170470.137920064,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "paused": null,
+       "received": 170470.136928615,
+       "seconds": 0.001,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": true,
+       "at": 170470.166983117,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S2-START",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "received": 170470.165914279,
+       "request": "turn",
+       "sent": 170470.166978726,
+       "stream": "model-127637557813200",
+       "upgrade": false
+      },
+      {
+       "at": 170470.16765991,
+       "credential": "A1",
+       "event": "model_upstream",
+       "marker": "KLX-S2-START",
+       "status": 200,
+       "stream": "model-127637557813200"
+      },
+      {
+       "at": 170470.167788865,
+       "event": "stream_completed",
+       "marker": "KLX-S2-START",
+       "stream": "model-127637557813200"
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170470.201901785,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "paused": null,
+       "received": 170470.200905971,
+       "seconds": 0.001,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": true,
+       "at": 170470.215318283,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S2-START",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "received": 170470.214451865,
+       "request": "title",
+       "sent": 170470.215313502,
+       "stream": "model-127637557813200",
+       "upgrade": false
+      },
+      {
+       "at": 170470.215753969,
+       "credential": "A1",
+       "event": "model_upstream",
+       "marker": "KLX-S2-START",
+       "status": 200,
+       "stream": "model-127637557813200"
+      },
+      {
+       "at": 170470.215882322,
+       "event": "stream_completed",
+       "marker": "KLX-S2-START",
+       "stream": "model-127637557813200"
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170471.240202448,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170471.238720768,
+       "seconds": 0.0015,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170471.240478869,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170471.239348425,
+       "seconds": 0.0011,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170471.24194164,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170471.241117801,
+       "seconds": 0.0008,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170472.779800191,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170472.778258807,
+       "seconds": 0.0015,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170472.780195042,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170472.778565315,
+       "seconds": 0.0016,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170472.780510379,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170472.779257153,
+       "seconds": 0.0012,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170474.309619614,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170474.307872389,
+       "seconds": 0.0017,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170474.310288965,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170474.308096039,
+       "seconds": 0.0022,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170474.310935799,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170474.309083893,
+       "seconds": 0.0018,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.744285563,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "paused": null,
+       "received": 170475.743190373,
+       "seconds": 0.0011,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": true,
+       "at": 170475.769985588,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S2-AFTER",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "received": 170475.768864893,
+       "request": "turn",
+       "sent": 170475.769980915,
+       "stream": "model-127637557806704",
+       "upgrade": false
+      },
+      {
+       "at": 170475.770630169,
+       "credential": "A1",
+       "event": "model_upstream",
+       "marker": "KLX-S2-AFTER",
+       "status": 200,
+       "stream": "model-127637557806704"
+      },
+      {
+       "at": 170475.770753132,
+       "event": "stream_completed",
+       "marker": "KLX-S2-AFTER",
+       "stream": "model-127637557806704"
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.778623477,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": null,
+       "received": 170475.777685419,
+       "seconds": 0.0009,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.780234325,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170475.779429544,
+       "seconds": 0.0008,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.781938291,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": null,
+       "received": 170475.78105052,
+       "seconds": 0.0009,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170475.801336394,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "paused": null,
+       "received": 170475.800228693,
+       "seconds": 0.0011,
+       "status": 503,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": true,
+       "at": 170475.815788576,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S2-AFTER",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "received": 170475.814850665,
+       "request": "title",
+       "sent": 170475.815783615,
+       "stream": "model-127637557806704",
+       "upgrade": false
+      },
+      {
+       "at": 170475.816255227,
+       "credential": "A1",
+       "event": "model_upstream",
+       "marker": "KLX-S2-AFTER",
+       "status": 200,
+       "stream": "model-127637557806704"
+      },
+      {
+       "at": 170475.816388803,
+       "event": "stream_completed",
+       "marker": "KLX-S2-AFTER",
+       "stream": "model-127637557806704"
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170477.296393144,
+       "blocking": null,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "paused": null,
+       "received": 170477.295369473,
+       "seconds": 0.001,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 170477.29870786,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "threshold:five_hour",
+       "streams": []
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170477.298758197,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 170477.297252167,
+       "seconds": 0.0015,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170477.298824108,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": null,
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "paused": "threshold:five_hour",
+       "received": 170477.297473424,
+       "seconds": 0.0013,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.108215747,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": false,
+       "at": 170478.132289205,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S2-LATE",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "request": "turn",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.165061919,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/settings/user",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "admitted": false,
+       "at": 170478.175387631,
+       "credential": "A1",
+       "epoch": 1,
+       "event": "admission",
+       "marker": "KLX-S2-LATE",
+       "method": "POST",
+       "model": "gpt-5.4",
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "request": "title",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.803770157,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/codex/models",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.804079857,
+       "credential": "A1",
+       "event": "refused",
+       "method": "GET",
+       "path": "/backend-api/wham/accounts/check",
+       "reason": "paused-non-usage",
+       "upgrade": false
+      },
+      {
+       "account": "fixture-account-a",
+       "at": 170478.805557188,
+       "blocking": "threshold:five_hour",
+       "credential": "A1",
+       "epoch": 1,
+       "event": "get",
+       "lease": "fresh",
+       "method": "GET",
+       "path": "/backend-api/wham/usage",
+       "paused": "threshold:five_hour",
+       "received": 170478.804468396,
+       "seconds": 0.0011,
+       "status": 200,
+       "upgrade": false
+      },
+      {
+       "at": 170479.665034824,
+       "event": "loss",
+       "reason": "monitor-eof"
+      },
+      {
+       "at": 170479.665071898,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "monitor-eof",
+       "streams": []
+      },
+      {
+       "at": 170479.668704325,
+       "event": "shutdown_requested"
+      },
+      {
+       "at": 170479.668809069,
+       "count": 0,
+       "event": "streams_closed",
+       "reason": "gate-shutdown",
+       "streams": []
+      },
+      {
+       "at": 170479.707165918,
+       "event": "gate_stopped"
+      }
+     ],
+     "pid": 3309335,
+     "restart": false
+    }
+   ],
+   "loop": [],
+   "loop_finished": false,
+   "monitors": [
+    {
+     "events": [
+      {
+       "at": 170468.118963827,
+       "event": "monitor_started",
+       "hb_interval": 0.25,
+       "pid": 3309360,
+       "poll_interval": 1.5
+      },
+      {
+       "at": 170469.750268011,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "accountId": "fixture-account-a",
+        "ordinaryUsageAllowed": true,
+        "plan": "pro",
+        "windows": {
+         "10080": 40,
+         "300": 25
+        }
+       },
+       "total_seconds": 0.1245
+      },
+      {
+       "at": 170471.247509518,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "accountId": "fixture-account-a",
+        "ordinaryUsageAllowed": true,
+        "plan": "pro",
+        "windows": {
+         "10080": 40,
+         "300": 25
+        }
+       },
+       "total_seconds": 0.1143
+      },
+      {
+       "at": 170472.786743039,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:58285/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1441
+      },
+      {
+       "at": 170474.317381252,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:58285/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1624
+      },
+      {
+       "at": 170475.787838063,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:58285/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1221
+      },
+      {
+       "at": 170477.305251007,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:58285/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1278
+      },
+      {
+       "at": 170478.814639052,
+       "error": null,
+       "event": "poll",
+       "exit": 0,
+       "result": {
+        "rpc_error": "{'code': -32603, 'message': 'failed to fetch codex rate limits: Decode error for http://127.0.0.1:58285/backend-api/wham/usage: invalid type: map, expected i32 at line 1 column 396; content-type=application/json; body={\"account_id\": \"fixture-account-a\", \"user_id\": \"fixture-user-a\", \"plan_type\": \"pro"
+       },
+       "total_seconds": 0.1265
+      },
+      {
+       "at": 170479.664949615,
+       "command": "exit",
+       "event": "command"
+      }
+     ],
+     "pid": 3309360
+    }
+   ],
+   "name": "s2",
+   "policy": {
+    "five_hour": 10,
+    "max_age": 60,
+    "weekly": 30
+   },
+   "port": 58285,
+   "reader_refresh_failures": 0,
+   "readers": [
+    {
+     "disk_label": "A1",
+     "error": null,
+     "exit": 0,
+     "init_seconds": 0.3466,
+     "read_seconds": 0.031,
+     "result": {
+      "accountId": "fixture-account-a",
+      "ordinaryUsageAllowed": true,
+      "plan": "pro",
+      "windows": {
+       "10080": 40,
+       "300": 25
+      }
+     },
+     "started": 170468.124870842,
+     "total_seconds": 0.3881,
+     "why": "preflight"
+    }
+   ],
+   "refresh": "none",
+   "screen_tail": "boundary-applied {\"abi\": 8, \"errata\": 15, \"handled_access_net\": 2, \"kept_fds\": [], \"restrict_flags\": 8, \"rules\": [{\"allowed_access\": 2, \"port\": 58285}], \"scoped\": 3, \"seccomp\": \"inet\", \"seccomp_instructions\": 42}\r\n   >_ OpenAI Codex (v0.167.2)     loading  \u203a Ask Codex to do anything  \u001b[0 q <PATH>   >_ OpenAI Codex (v0.167.2)     <PATH>  permissions: YOLO mode  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents\u001b[0 q \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\r\n\r\n  >_ OpenAI Codex (v0.167.2)\r\n     <PATH>\r\n  permissions: YOLO mode\r\n\r\n  Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost.\r\n\r\n\r\n\u203a KLX-S2-START second session\r\n  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents\u001b[0 q \u26a01 warning\u00b7f2toview \u2022 Booting MCP server: codex_tui (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents               \u26a0 1 warning \u00b7 f2 to view\u001b[0 q \u25e61\u001bM\u001bM\r\n\r\n\u2022 KLX fixture reply KLX-S2-START  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents               \u26a0 1 warning \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\r\n\r\n  Worked for 1s \u2022 11:39\u001b[0 q \u26a0 2 warningsKLX-S2-AFTER outside use           \u001bM\u001bM\u001bM\u001bM\r\n\r\n\r\n\u203a KLX-S2-AFTER outside use\r\nAsk Codex to do anything\u00b7\u2190foragents\u001b[0 q  \u2022 Working (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents              \u26a0 2 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\u001bM\u001bM\r\n\r\n\u2022 KLX fixture reply KLX-S2-AFTER\r\n\r\n\u26a0 Heads up, you have less than 25% of your 5h limit left. Run <PATH> for a breakdown.  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents              \u26a0 3 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\r\n\r\n  Worked for <1s \u2022 11:39\u001b[0 q KLX-S2-LATE after more outsideuse           \u001bM\u001bM\u001bM\u001bM\r\n\r\n\r\n\u203a KLX-S2-LATE after more outside use\r\nAsk Codex to do anything\u00b7\u2190foragents\u001b[0 q  \u2022 Working (0s \u2022 esc to interrupt)  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents              \u26a0 3 warnings \u00b7 f2 to view\u001b[0 q \u001bM\u001bM\u001bM\r\n\r\n\u25a0 unexpected status 503 Service Unavailable: quota reserve gate refused: paused:threshold:five_hour, url:\r\n<PATH>  \u203a Ask Codex to do anything   gpt-5.4 default \u00b7 <PATH> \u00b7 \u2190 for agents              \u26a0 3 warnings \u00b7 f2 to view\u001b[0 q   \u203a Shutting down... \u001b[0 q\u001b[0 qTo continue this session, run:\r\n  codex resume 01a1d145-946f-7bb3-b54c-1ed8d9aff995\r\n",
+   "trace": {
+    "executables": [
+     "codex",
+     "cut",
+     "getconf",
+     "getopt",
+     "lsb_release",
+     "tr"
+    ],
+    "native_main_exit": 0,
+    "processes": 114,
+    "syscalls": {
+     "inet_connect": [
+      {
+       "call": "connect",
+       "exe": "codex",
+       "result": "EINPROGRESS",
+       "target": "gate"
+      },
+      {
+       "address": "127.0.0.1",
+       "call": "connect",
+       "exe": "codex",
+       "port": 37533,
+       "result": "EACCES",
+       "target": "other_loopback"
+      }
+     ],
+     "socket_allowed": {
+      "codex AF_INET/SOCK_STREAM/IPPROTO_IP": 1,
+      "codex AF_INET/SOCK_STREAM/IPPROTO_TCP": 21,
+      "codex pair AF_UNIX/SOCK_STREAM/0": 2
+     },
+     "socket_denied": {
+      "codex AF_UNIX/SOCK_STREAM/0": 2
+     },
+     "unix_connect": {}
+    }
+   },
+   "tui_exit": 0
+  }
+ ],
+ "lingering_after_kill": 0,
+ "lingering_killed": 0,
+ "ok": true,
+ "stage": "sessions",
+ "static": [],
+ "timeline": [
+  {
+   "at": 0.2031,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "s1",
+   "mono": 170467.34920794,
+   "pid": 3309227,
+   "restart": false
+  },
+  {
+   "at": 0.2037,
+   "event": "monitor_started",
+   "invocation": "s1",
+   "mono": 170467.349821661,
+   "pid": 3309232
+  },
+  {
+   "at": 0.6909,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.2928,
+   "invocation": "s1",
+   "mono": 170467.836983957,
+   "read_seconds": 0.0314,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "pro",
+    "windows": {
+     "10080": 40,
+     "300": 25
+    }
+   },
+   "started": 170467.501156216,
+   "total_seconds": 0.3357,
+   "why": "preflight"
+  },
+  {
+   "at": 0.6911,
+   "event": "preflight",
+   "invocation": "s1",
+   "model_requests": 0,
+   "mono": 170467.837193441,
+   "status": {
+    "blocking": null,
+    "epoch": 1,
+    "heartbeat": true,
+    "id": 6,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": null,
+    "ready": true,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": null
+  },
+  {
+   "at": 0.8769,
+   "event": "gate_started",
+   "index": 0,
+   "invocation": "s2",
+   "mono": 170468.023017153,
+   "pid": 3309335,
+   "restart": false
+  },
+  {
+   "at": 0.8776,
+   "event": "monitor_started",
+   "invocation": "s2",
+   "mono": 170468.02367263,
+   "pid": 3309360
+  },
+  {
+   "at": 1.367,
+   "disk_label": "A1",
+   "error": null,
+   "event": "controller_read",
+   "exit": 0,
+   "init_seconds": 0.3466,
+   "invocation": "s2",
+   "mono": 170468.513109031,
+   "read_seconds": 0.031,
+   "result": {
+    "accountId": "fixture-account-a",
+    "ordinaryUsageAllowed": true,
+    "plan": "pro",
+    "windows": {
+     "10080": 40,
+     "300": 25
+    }
+   },
+   "started": 170468.124870842,
+   "total_seconds": 0.3881,
+   "why": "preflight"
+  },
+  {
+   "at": 1.3672,
+   "event": "preflight",
+   "invocation": "s2",
+   "model_requests": 0,
+   "mono": 170468.513312194,
+   "status": {
+    "blocking": null,
+    "epoch": 1,
+    "heartbeat": true,
+    "id": 5,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": null,
+    "ready": true,
+    "reply": "status",
+    "streams": 0
+   },
+   "verdict": null
+  },
+  {
+   "argv_head": [
+    "--no-daemon"
+   ],
+   "at": 1.3679,
+   "event": "tui_started",
+   "invocation": "s1",
+   "mono": 170468.513955485,
+   "observer": true,
+   "pid": 3309502
+  },
+  {
+   "argv_head": [
+    "--no-daemon"
+   ],
+   "at": 1.3686,
+   "event": "tui_started",
+   "invocation": "s2",
+   "mono": 170468.514707094,
+   "observer": true,
+   "pid": 3309506
+  },
+  {
+   "at": 4.5817,
+   "event": "outside_consumption",
+   "mono": 170471.72776222,
+   "requests": 10,
+   "usage": {
+    "five": 85.0,
+    "weekly": 40
+   }
+  },
+  {
+   "at": 4.9449,
+   "event": "gate_paused",
+   "gate_at": 170472.090920782,
+   "invocation": "s1",
+   "mono": 170472.090975969,
+   "reason": "threshold:five_hour"
+  },
+  {
+   "at": 4.9505,
+   "event": "control_display",
+   "invocation": "s1",
+   "message": "Paused. Research F12 control requires a new typed confirmation.",
+   "mono": 170472.096604313
+  },
+  {
+   "at": 4.9505,
+   "event": "terminal_paused",
+   "invocation": "s1",
+   "mono": 170472.096638634,
+   "reason": "threshold:five_hour"
+  },
+  {
+   "at": 7.9236,
+   "event": "user_typed",
+   "invocation": "s1",
+   "mono": 170475.06971984,
+   "text": "KLX-S1-AFTER outside use"
+  },
+  {
+   "at": 8.8637,
+   "event": "user_typed",
+   "invocation": "s2",
+   "mono": 170476.009821138,
+   "text": "KLX-S2-AFTER outside use"
+  },
+  {
+   "at": 8.8643,
+   "event": "independent_sessions",
+   "mono": 170476.010405303,
+   "s1": {
+    "blocking": "threshold:five_hour",
+    "epoch": 1,
+    "heartbeat": true,
+    "id": 7,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": "threshold:five_hour",
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "s1_refused": true,
+   "s2": {
+    "blocking": null,
+    "epoch": 1,
+    "heartbeat": true,
+    "id": 6,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": null,
+    "ready": true,
+    "reply": "status",
+    "streams": 0
+   },
+   "s2_completed": true
+  },
+  {
+   "at": 8.866,
+   "event": "outside_consumption",
+   "mono": 170476.012064374,
+   "requests": 2,
+   "usage": {
+    "five": 92.0,
+    "weekly": 40
+   }
+  },
+  {
+   "at": 10.1527,
+   "event": "gate_paused",
+   "gate_at": 170477.298735626,
+   "invocation": "s2",
+   "mono": 170477.298790997,
+   "reason": "threshold:five_hour"
+  },
+  {
+   "at": 10.1602,
+   "event": "control_display",
+   "invocation": "s2",
+   "message": "Paused. Research F12 control requires a new typed confirmation.",
+   "mono": 170477.306324641
+  },
+  {
+   "at": 10.1603,
+   "event": "terminal_paused",
+   "invocation": "s2",
+   "mono": 170477.30636582,
+   "reason": "threshold:five_hour"
+  },
+  {
+   "at": 11.2313,
+   "event": "user_typed",
+   "invocation": "s2",
+   "mono": 170478.377399583,
+   "text": "KLX-S2-LATE after more outside use"
+  },
+  {
+   "at": 11.2316,
+   "event": "second_paused",
+   "mono": 170478.377654325,
+   "s2": {
+    "blocking": "threshold:five_hour",
+    "epoch": 1,
+    "heartbeat": true,
+    "id": 7,
+    "last_outcome": "fresh",
+    "lost": null,
+    "paused": "threshold:five_hour",
+    "ready": false,
+    "reply": "status",
+    "streams": 0
+   },
+   "s2_refused": true
+  },
+  {
+   "at": 11.8318,
+   "event": "tui_exit",
+   "exit": 0,
+   "exited": true,
+   "invocation": "s1",
+   "mono": 170478.977921682,
+   "termios_restored": true
+  },
+  {
+   "at": 12.4321,
+   "event": "tui_exit",
+   "exit": 0,
+   "exited": true,
+   "invocation": "s2",
+   "mono": 170479.578177908,
+   "termios_restored": true
+  },
+  {
+   "at": 12.4614,
+   "command": "exit",
+   "event": "monitor_command",
+   "invocation": "s1",
+   "mono": 170479.607461477
+  },
+  {
+   "at": 12.5188,
+   "command": "exit",
+   "event": "monitor_command",
+   "invocation": "s2",
+   "mono": 170479.664937414
+  }
+ ]
+}

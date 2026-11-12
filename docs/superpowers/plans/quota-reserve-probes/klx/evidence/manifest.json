@@ -1,0 +1,177 @@
+{
+ "archived_roots": [
+  ".cache/klx/roots/quota-klx-startup-yv9r6h49.tar.gz",
+  ".cache/klx/roots/quota-klx-pause-s5eov25e.tar.gz",
+  ".cache/klx/roots/quota-klx-loss-qtpcoi4k.tar.gz",
+  ".cache/klx/roots/quota-klx-restart-dah_oo92.tar.gz",
+  ".cache/klx/roots/quota-klx-sessions-39mpmkdd.tar.gz",
+  ".cache/klx/roots/quota-klx-rotation-3as0cdss.tar.gz",
+  ".cache/klx/roots/quota-klx-rotation_gate-czmfc7qn.tar.gz",
+  ".cache/klx/roots/quota-klx-refresh-7kee27gg.tar.gz",
+  ".cache/klx/roots/quota-klx-confine-5g9pgrrw.tar.gz"
+ ],
+ "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
+ "evidence": {
+  "confine.json": "522b53452112652412d575e6121554fcabf9bd4de5fc65ceebe249044cb6399c",
+  "loss.json": "329d60d4591f6c36ed8915cab4f3c2ed7f3fa899ccbe72e4cb08a2c691be295a",
+  "pause.json": "66bb213257328d7dec736b4e57667f8683ebd2e76ca3adf16b0ec6fba0965ed6",
+  "refresh.json": "31268a8e254766ea4955973fa72817f924de01991ba6688a9d428d73d4488b43",
+  "restart.json": "274cfdb6b6dbd262908f97e0b4b6823707b9d786263479a020a6dd097db388b1",
+  "rotation.json": "e96d6d09a5427aed70fbedcea9b96fc55831530c74e0357453b012aba6c572ae",
+  "rotation_gate.json": "94f7206ee7683f5b12059f7e49f5ff2b7ee45b3bde13b3a1d66939a538962369",
+  "sessions.json": "5dda06e60ef3963ee985aadf22ef0fffb5ab31eead41ccb5b2dcbb7506524d8d",
+  "startup.json": "c42db2c4453b1d0a90711cb2da17da3f9e6421e0943ddf652f7f1f8eb515c982"
+ },
+ "exit": 0,
+ "leftover_roots": [],
+ "metrics": {
+  "admission_overhead": {
+   "max_ms": 1.8,
+   "median_ms": 0.9,
+   "n": 78
+  },
+  "controller_rebind_hold": {
+   "max_ms": 5017.0,
+   "median_ms": 120.5,
+   "n": 6
+  },
+  "gate_read_rebind_hold": {
+   "max_ms": 0.9,
+   "median_ms": 0.8,
+   "n": 3
+  },
+  "latch_to_upstream_close": {
+   "max_ms": 97.4,
+   "median_ms": 69.6,
+   "n": 4
+  },
+  "monitor_loss_to_latch_ms": {
+   "eof": 0.2,
+   "kill": 1.4,
+   "stall": 1523.8
+  },
+  "preflight_reader": {
+   "max_ms": 1776.0,
+   "median_ms": 703.7,
+   "n": 12
+  },
+  "prelaunch_refresh": {
+   "max_ms": 1210.2,
+   "median_ms": 1210.2,
+   "n": 1
+  },
+  "usage_get_at_gate": {
+   "max_ms": 12.3,
+   "median_ms": 0.7,
+   "n": 127
+  }
+ },
+ "runs": [
+  {
+   "exit": 0,
+   "label": "test_launcher",
+   "tail": "..........\n----------------------------------------------------------------------\nRan 10 tests in 0.000s\n\nOK\n"
+  },
+  {
+   "exit": 0,
+   "label": "test_gate",
+   "tail": "................\n----------------------------------------------------------------------\nRan 16 tests in 2.831s\n\nOK\n"
+  },
+  {
+   "exit": 0,
+   "label": "test_fsrules",
+   "tail": "....\n----------------------------------------------------------------------\nRan 4 tests in 0.188s\n\nOK\n"
+  },
+  {
+   "exit": 0,
+   "label": "startup",
+   "seconds": 9.8,
+   "stderr_tail": "",
+   "stdout_tail": ", \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": fal\npreflight_case {\"case\": \"monitor-missing\", \"verdict\": \"monitor-not-started\", \"model_requests\": 0, \"tui_started\": false}\ngate_started {\"invocation\": \"q-passing-control\", \"index\": 0, \"restart\": false, \"pid\": 3292568}\nmonitor_started {\"invocation\": \"q-passing-control\", \"pid\": 3292574}\ncontroller_read {\"invocation\": \"q-passing-control\", \"why\": \"preflight\", \"result\": {\"windows\": {\"300\": 25, \"10080\": 40}, \"plan\": \"pro\", \"accountId\": \"fixture-account-a\", \"ordinaryUsageAllowed\": true}, \"init_seconds\": 0.2719, \"read_seconds\": 0.0275, \"total_s\npreflight {\"invocation\": \"q-passing-control\", \"verdict\": null, \"status\": {\"reply\": \"status\", \"id\": 15, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}, \"model_reques\npreflight_case {\"case\": \"passing-control\", \"verdict\": null, \"model_requests\": 0, \"tui_started\": false}\nmonitor_command {\"invocation\": \"q-passing-control\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"q-passing-control\", \"reason\": \"monitor-eof\", \"gate_at\": 170393.002668186}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "pause",
+   "seconds": 30.1,
+   "stderr_tail": "",
+   "stdout_tail": "continuation_granted {\"invocation\": \"a\"}\ncontrol_display {\"invocation\": \"a\", \"message\": \"Fresh quota check passed; one healthy lease granted.\"}\ntools_alive {\"phase\": \"after-continuation\", \"alive\": {\"testlike\": true, \"loop\": true}, \"ended_at\": {}}\nuser_typed {\"invocation\": \"a\", \"text\": \"KLX-RESUMED after a fresh passing check\"}\nresumed_same_invocation {\"resumed\": true, \"reply_visible\": true, \"gate_pid\": 3292805, \"tui_pid\": 3292919, \"tui_alive\": true, \"status\": {\"reply\": \"status\", \"id\": 16, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 1, \"last_outc\ntools_alive {\"phase\": \"after-next-turn\", \"alive\": {\"testlike\": true, \"loop\": true}, \"ended_at\": {}}\ntools_alive {\"phase\": \"next-turn-plus-6s\", \"alive\": {\"testlike\": true, \"loop\": true}, \"ended_at\": {}}\nbackground_terminal_listed {\"listed\": true}\ntui_exit {\"invocation\": \"a\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\ntools_alive {\"phase\": \"after-tui-exit\", \"alive\": {\"testlike\": false, \"loop\": false}, \"ended_at\": {\"testlike\": 27.9482, \"loop\": 27.9482}}\nmonitor_command {\"invocation\": \"a\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"a\", \"reason\": \"monitor-eof\", \"gate_at\": 170423.321341312}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "loss",
+   "seconds": 25.5,
+   "stderr_tail": "",
+   "stdout_tail": "nt-a\", \"ordinaryUsageAllowed\": true}, \"init_seconds\": 0.0989, \"read_seconds\": 0.0308, \"total_seconds\":\ncontroller_read {\"invocation\": \"a\", \"why\": \"continuation\", \"result\": {\"windows\": {\"300\": 25, \"10080\": 40}, \"plan\": \"pro\", \"accountId\": \"fixture-account-a\", \"ordinaryUsageAllowed\": true}, \"init_seconds\": 0.0994, \"read_seconds\": 0.015, \"total_seconds\": 0.121\ncontinuation_check {\"invocation\": \"a\", \"accepted\": true, \"resumed\": true, \"status\": {\"reply\": \"status\", \"id\": 3, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ncontinuation_granted {\"invocation\": \"a\"}\ncontrol_display {\"invocation\": \"a\", \"message\": \"Fresh quota check passed; one healthy lease granted.\"}\nuser_typed {\"invocation\": \"a\", \"text\": \"KLX-RECOVERED-stall after continuation\"}\nloss_recovery {\"case\": \"stall\", \"refused_before_continuation\": true, \"resumed\": true, \"completed\": true, \"gate_pid\": 3305182, \"tui_pid\": 3300734}\ntui_exit {\"invocation\": \"a\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\nmonitor_command {\"invocation\": \"a\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"a\", \"reason\": \"monitor-eof\", \"gate_at\": 170448.82726188}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "restart",
+   "seconds": 17.5,
+   "stderr_tail": "",
+   "stdout_tail": "ure-account-a\", \"ordinaryUsageAllowed\": true}, \"init_seconds\": 0.1018, \"read_seconds\": 0.0222, \"total_seconds\": 0.12\ncontinuation_check {\"invocation\": \"a\", \"accepted\": true, \"resumed\": true, \"status\": {\"reply\": \"status\", \"id\": 4, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ncontinuation_granted {\"invocation\": \"a\"}\ncontrol_display {\"invocation\": \"a\", \"message\": \"Fresh quota check passed; one healthy lease granted.\"}\nuser_typed {\"invocation\": \"a\", \"text\": \"KLX-AFTER-CONTINUE after the restart\"}\nrestart_continuation {\"refused_before\": true, \"resumed\": true, \"completed\": true, \"gate_pid\": 3307264, \"tui_pid\": 3306290, \"status\": {\"reply\": \"status\", \"id\": 5, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outc\noutside_bind {\"tag\": \"gate-restarted\", \"results\": [[\"loopback\", \"EADDRINUSE\"], [\"wildcard\", \"EADDRINUSE\"], [\"other\", \"bound\"]]}\ntui_exit {\"invocation\": \"a\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\nmonitor_command {\"invocation\": \"a\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"a\", \"reason\": \"monitor-eof\", \"gate_at\": 170466.399498267}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "sessions",
+   "seconds": 13.3,
+   "stderr_tail": "",
+   "stdout_tail": "sessions {\"s1_refused\": true, \"s2_completed\": true, \"s1\": {\"reply\": \"status\", \"id\": 7, \"paused\": \"threshold:five_hour\", \"blocking\": \"threshold:five_hour\", \"lost\": null, \"epoch\": 1, \"ready\": false, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": \noutside_consumption {\"requests\": 2, \"usage\": {\"five\": 92.0, \"weekly\": 40}}\ngate_paused {\"invocation\": \"s2\", \"reason\": \"threshold:five_hour\", \"gate_at\": 170477.298735626}\ncontrol_display {\"invocation\": \"s2\", \"message\": \"Paused. Research F12 control requires a new typed confirmation.\"}\nterminal_paused {\"invocation\": \"s2\", \"reason\": \"threshold:five_hour\"}\nuser_typed {\"invocation\": \"s2\", \"text\": \"KLX-S2-LATE after more outside use\"}\nsecond_paused {\"s2_refused\": true, \"s2\": {\"reply\": \"status\", \"id\": 7, \"paused\": \"threshold:five_hour\", \"blocking\": \"threshold:five_hour\", \"lost\": null, \"epoch\": 1, \"ready\": false, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ntui_exit {\"invocation\": \"s1\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\ntui_exit {\"invocation\": \"s2\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\nmonitor_command {\"invocation\": \"s1\", \"command\": \"exit\"}\nmonitor_command {\"invocation\": \"s2\", \"command\": \"exit\"}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "rotation",
+   "seconds": 31.1,
+   "stderr_tail": "",
+   "stdout_tail": "ds\": 0.0204, \"total_seconds\":\ncontroller_read {\"invocation\": \"a\", \"why\": \"continuation\", \"result\": {\"windows\": {\"300\": 25, \"10080\": 40}, \"plan\": \"pro\", \"accountId\": \"fixture-account-a\", \"ordinaryUsageAllowed\": true}, \"init_seconds\": 0.0922, \"read_seconds\": 0.0171, \"total_seconds\": 0.13\ncontinuation_check {\"invocation\": \"a\", \"accepted\": true, \"resumed\": true, \"status\": {\"reply\": \"status\", \"id\": 17, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 14, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ncontinuation_granted {\"invocation\": \"a\"}\ncontrol_display {\"invocation\": \"a\", \"message\": \"Fresh quota check passed; one healthy lease granted.\"}\nuser_typed {\"invocation\": \"a\", \"text\": \"KLX-ROT-A after switching back\"}\nswitch_back {\"resumed\": true, \"completed\": true, \"status\": {\"reply\": \"status\", \"id\": 18, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 14, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ntui_exit {\"invocation\": \"a\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\nmonitor_command {\"invocation\": \"a\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"a\", \"reason\": \"monitor-eof\", \"gate_at\": 170510.817534861}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "rotation_gate",
+   "seconds": 11.2,
+   "stderr_tail": "",
+   "stdout_tail": "ds\": 0.02, \"total_seconds\": 0\ncontroller_read {\"invocation\": \"a\", \"why\": \"continuation\", \"result\": {\"windows\": {\"300\": 25, \"10080\": 40}, \"plan\": \"pro\", \"accountId\": \"fixture-account-a\", \"ordinaryUsageAllowed\": true}, \"init_seconds\": 0.0916, \"read_seconds\": 0.0158, \"total_seconds\": 0.12\ncontinuation_check {\"invocation\": \"a\", \"accepted\": true, \"resumed\": true, \"status\": {\"reply\": \"status\", \"id\": 17, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 10, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ncontinuation_granted {\"invocation\": \"a\"}\ncontrol_display {\"invocation\": \"a\", \"message\": \"Fresh quota check passed; one healthy lease granted.\"}\nuser_typed {\"invocation\": \"a\", \"text\": \"KLX-ROT-A after switching back\"}\nswitch_back {\"resumed\": true, \"completed\": true, \"status\": {\"reply\": \"status\", \"id\": 18, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 10, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ntui_exit {\"invocation\": \"a\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\nmonitor_command {\"invocation\": \"a\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"a\", \"reason\": \"monitor-eof\", \"gate_at\": 170522.009810136}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "refresh",
+   "seconds": 31.0,
+   "stderr_tail": "",
+   "stdout_tail": "aused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}, \"model_requests\": 0}\ntui_started {\"invocation\": \"c\", \"pid\": 3328098, \"argv_head\": [\"--no-daemon\"], \"observer\": true}\nprelaunch_run {\"completed\": true, \"refreshes_during_run\": 0, \"status\": {\"reply\": \"status\", \"id\": 12, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}}\ntui_exit {\"invocation\": \"c\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\nprelaunch_refresh {\"invocation\": \"d\", \"result\": {\"type\": null, \"planType\": null}, \"init_seconds\": 1.1518, \"refresh_seconds\": 0.0013, \"total_seconds\": 1.1648, \"exit\": 0, \"error\": null, \"refreshes\": 2, \"changed\": false, \"verdict\": \"prelaunch-refresh:failed\", \"\nprelaunch_refused {\"verdict\": \"prelaunch-refresh:failed\", \"gate_started\": false, \"tui_started\": false, \"model_requests\": 0}\nmonitor_command {\"invocation\": \"a\", \"command\": \"exit\"}\nmonitor_command {\"invocation\": \"b\", \"command\": \"exit\"}\nmonitor_command {\"invocation\": \"c\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"c\", \"reason\": \"monitor-eof\", \"gate_at\": 170553.071792933}\n",
+   "swept_processes": 0
+  },
+  {
+   "exit": 0,
+   "label": "confine",
+   "seconds": 12.4,
+   "stderr_tail": "",
+   "stdout_tail": "\"ordinaryUsageAllowed\": true}, \"init_seconds\": 0.9655, \"read_seconds\": 0.0279, \"total_seconds\": 0.9982\npreflight {\"invocation\": \"fs\", \"verdict\": null, \"status\": {\"reply\": \"status\", \"id\": 6, \"paused\": null, \"blocking\": null, \"lost\": null, \"epoch\": 1, \"ready\": true, \"streams\": 0, \"last_outcome\": \"fresh\", \"heartbeat\": true}, \"model_requests\": 0}\ntui_started {\"invocation\": \"fs\", \"pid\": 3333101, \"argv_head\": [\"--no-daemon\"], \"observer\": true}\nuser_typed {\"invocation\": \"fs\", \"text\": \"KLX-FS-2 a turn after the confined tool call\"}\nuser_typed {\"invocation\": \"fs\", \"text\": \"/status\"}\nfs_rules {\"tool_result_sent\": true, \"reply_visible\": true, \"second_turn\": true, \"status_card\": true, \"tui_alive\": true, \"codex_home_entries\": [\".sandbox_migration\", \"auth.json\", \"config.toml\", \"goals_1.sqlite\", \"goals_1.sqlite-shm\", \"goals_1.sqlite-\ntui_exit {\"invocation\": \"fs\", \"exited\": true, \"exit\": 0, \"termios_restored\": true}\nmonitor_command {\"invocation\": \"ns\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"ns\", \"reason\": \"monitor-eof\", \"gate_at\": 170565.552832555}\nmonitor_command {\"invocation\": \"fs\", \"command\": \"exit\"}\ngate_paused {\"invocation\": \"fs\", \"reason\": \"monitor-eof\", \"gate_at\": 170565.573384549}\n",
+   "swept_processes": 0
+  }
+ ],
+ "sources": {
+  "klx/actors.py": "8e77ab999cb32fd55760b473775cb26e4d3c6e949ddfd52ebff0c60429200225",
+  "klx/compose.py": "ef03b8a4189a4df61da79d8cb82d7cb818befb14e5d7a84f798ccccfac4c91b8",
+  "klx/fixtures.py": "220e3765fe9bd9e552ebbef38c1839d38871f839ec52c05ccc68e3b72089feb3",
+  "klx/fsrules.py": "6aca00ce2479101d701ea9146ebe1d1db59921d53323ee86396293e07a165f16",
+  "klx/gate.py": "b1829ff3a5a11b58adec1144da5b83cd89dbaa5ee0771b1c62ef209b28833968",
+  "klx/launcher.py": "d39a677c46f54f58a235ec98a3a6a922e90da5412e4e6196dbe5ff995c4c3628",
+  "klx/monitor.py": "9b45f837c72ceb7e3e8bb7b40e8cc69c99e5f569892f0730c81ad779dc3dde28",
+  "klx/reader.py": "ee6723a6459c5638b3be1d8f7d46bcc3fb70463885fe67393c9346db1fbb2c97",
+  "klx/run.py": "e9804395b6fde60bf593e7b2a6f839ad9775c5dc34a7c8c7862e710e46ed2697",
+  "nl/boundary.py": "54c49a3a0f67313fbc26d3da62d51dd0069d9eb2a94c35ae4f32e1bb7488941c",
+  "nl/natives.py": "7cbc0da3865f6f86168e82b20f75a0a81c780e87f0d1f67172906723ce504dd9",
+  "nl/probe.py": "71632d27aec64eeb186afa67937da0cdeed4348638ff9d3e0ceed54add0788ff",
+  "pc_continue/control.py": "8b98eee39bd83b7769356db3fb49bcfefe8423da28cb4942430a9bad5e218dad",
+  "qx/binding.py": "c21a8c22512ce47a8add7963115b87ba4060c024b8b0ba768c28e023cc321fe7",
+  "qx/fixtures.py": "cb7cf5ef25a78b96c610f163c76d54563db8b7e7a155ed6c35b02b350dc212c1",
+  "qx/gate.py": "bc22ee2432e5525916b5ceab1195271788b187516eb54a02f8601d170ae0ac79"
+ },
+ "version": "codex-cli 0.167.2"
+}
