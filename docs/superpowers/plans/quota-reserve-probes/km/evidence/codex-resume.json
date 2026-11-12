@@ -1,0 +1,4003 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "codex-continuation": {
+   "case_seconds": 23.5,
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "latch_t": 215210.036612416,
+   "model_posts_paused": [],
+   "native_started": true,
+   "refused": [],
+   "steps": {
+    "after": {
+     "decisions": [
+      [
+       true,
+       "admitted",
+       "A"
+      ],
+      [
+       true,
+       "admitted",
+       "A"
+      ]
+     ],
+     "expect_ok": true,
+     "forwarded": 2
+    },
+    "background_wakeup": {
+     "granted": false,
+     "polls_during_pause": 22,
+     "status": {
+      "last_status": {
+       "epoch": 1,
+       "event": "control",
+       "lost": null,
+       "op": "reply:status",
+       "paused": null,
+       "ready": true,
+       "reason": null,
+       "state": "open",
+       "streams": 0,
+       "t": 215207.209696625
+      },
+      "latched": 1,
+      "resumed": 0
+     }
+    },
+    "failing_check": {
+     "challenge_shown": true,
+     "check_ms": 403.8,
+     "expected": false,
+     "granted": false,
+     "messages": [
+      "Type 9f8f87b4 then Enter to request a fresh quota check. ",
+      "still paused: threshold:five_hour ",
+      "Still paused; request a new confirmation to retry. "
+     ],
+     "still_paused": true
+    },
+    "failing_status": {
+     "last_status": {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": "threshold:five_hour",
+      "ready": false,
+      "reason": "threshold:five_hour",
+      "state": "paused",
+      "streams": 0,
+      "t": 215225.835796583
+     },
+     "latched": 1,
+     "resumed": 0
+    },
+    "native_output": {
+     "alive": true,
+     "granted": false,
+     "output_bytes": 2094
+    },
+    "passing_check": {
+     "challenge_shown": true,
+     "check_ms": 408.7,
+     "expected": true,
+     "granted": true,
+     "messages": [
+      "Type a9c33f80 then Enter to request a fresh quota check. ",
+      "Fresh quota check passed; one healthy lease granted. ",
+      "quota reserve resumed after a fresh check "
+     ],
+     "still_paused": false
+    },
+    "paste": {
+     "challenge": true,
+     "granted": false,
+     "status": {
+      "last_status": {
+       "epoch": 1,
+       "event": "control",
+       "lost": null,
+       "op": "reply:status",
+       "paused": null,
+       "ready": true,
+       "reason": null,
+       "state": "open",
+       "streams": 0,
+       "t": 215207.209696625
+      },
+      "latched": 1,
+      "resumed": 0
+     }
+    },
+    "same_invocation": {
+     "gate": true,
+     "native": true
+    },
+    "stale_answer": {
+     "challenge_shown": true,
+     "check_ms": 408.8,
+     "expected": false,
+     "granted": false,
+     "messages": [
+      "Type 4c2466b1 then Enter to request a fresh quota check. ",
+      "Still paused; request a new confirmation to retry. "
+     ],
+     "still_paused": true
+    },
+    "typed_without_f12": {
+     "challenge": false,
+     "granted": false
+    }
+   },
+   "summary": {
+    "fetch_ms": 2.112,
+    "gate_rows": [
+     {
+      "event": "preflight",
+      "ms": 0.001,
+      "reason": "awaiting_read",
+      "t": 215207.050260833
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 6065,
+      "port": 61990,
+      "t": 215207.050651291
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215207.206797541
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215207.206915583
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215207.206935291
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 215207.209696625
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215207.536579541,
+      "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215207.542139458
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215207.543351875
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215207.558877583
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215207.558984916
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215207.559224333
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215207.594023875
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 215207.60013025
+     },
+     {
+      "admit_ms": 0.309,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-first",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 215207.600214333
+     },
+     {
+      "bytes": 43842,
+      "event": "forwarded",
+      "gate_ms": 0.511,
+      "label": "A",
+      "stream": 1,
+      "t": 215207.60041325
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 215207.600988666
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215207.632398083
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 215207.6340635
+     },
+     {
+      "admit_ms": 0.182,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-first",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 215207.634127416
+     },
+     {
+      "bytes": 20412,
+      "event": "forwarded",
+      "gate_ms": 0.335,
+      "label": "A",
+      "stream": 2,
+      "t": 215207.634277208
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 215207.634634333
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "threshold:five_hour",
+      "t": 215210.036612416
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "threshold:five_hour",
+      "t": 215210.036782708
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 215211.643641
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 215211.655194875
+     },
+     {
+      "admit_ms": 0.509,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-first",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 215211.655354416
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 215211.690512875
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:threshold:five_hour",
+      "t": 215211.693167625
+     },
+     {
+      "admit_ms": 0.308,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:threshold:five_hour",
+      "stream": null,
+      "t": 215211.693318
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 215221.871424125
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:awaiting-continuation",
+      "t": 215221.880545708
+     },
+     {
+      "admit_ms": 0.64,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-first",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:awaiting-continuation",
+      "stream": null,
+      "t": 215221.880721708
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 215221.916871708
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:awaiting-continuation",
+      "t": 215221.919078375
+     },
+     {
+      "admit_ms": 0.202,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:awaiting-continuation",
+      "stream": null,
+      "t": 215221.919169875
+     },
+     {
+      "event": "control",
+      "needs_read": true,
+      "ok": true,
+      "op": "reply:continue",
+      "reason": "armed",
+      "t": 215225.770861166
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/accounts/check",
+      "paused": true,
+      "t": 215225.8315455
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/codex/models",
+      "paused": true,
+      "t": 215225.831793583
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/accounts/check",
+      "paused": true,
+      "t": 215225.832256666
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215225.832447666
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": "threshold:five_hour",
+      "ready": false,
+      "reason": "threshold:five_hour",
+      "state": "paused",
+      "streams": 0,
+      "t": 215225.835796583
+     },
+     {
+      "event": "control",
+      "needs_read": true,
+      "ok": true,
+      "op": "reply:continue",
+      "reason": "armed",
+      "t": 215226.281672666
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/codex/models",
+      "paused": true,
+      "t": 215226.349012916
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/accounts/check",
+      "paused": true,
+      "t": 215226.349382666
+     },
+     {
+      "cause": "manual_continuation",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 215226.349764125
+     },
+     {
+      "event": "notify",
+      "op": "resumed",
+      "t": 215226.349790625
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215226.349817958
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215226.350750791
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 215226.353710125
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215227.615451791
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 3,
+      "t": 215227.626145625
+     },
+     {
+      "admit_ms": 0.596,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-resumed",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 3,
+      "t": 215227.626337833
+     },
+     {
+      "bytes": 44359,
+      "event": "forwarded",
+      "gate_ms": 0.95,
+      "label": "A",
+      "stream": 3,
+      "t": 215227.626686208
+     },
+     {
+      "event": "stream_closed",
+      "stream": 3,
+      "t": 215227.627999708
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215227.665822375
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 4,
+      "t": 215227.66876225
+     },
+     {
+      "admit_ms": 0.23,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-cont-resumed",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 4,
+      "t": 215227.668842833
+     },
+     {
+      "bytes": 20413,
+      "event": "forwarded",
+      "gate_ms": 0.453,
+      "label": "A",
+      "stream": 4,
+      "t": 215227.669063208
+     },
+     {
+      "event": "stream_closed",
+      "stream": 4,
+      "t": 215227.669703625
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 215229.229044375
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "t": 215229.229191833
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "t": 215229.229235083
+     }
+    ],
+    "gate_rows_total": 63,
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 215206.96599175,
+      "text": "codex-cli 0.166.0"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 61990,
+      "reserved": 21,
+      "t": 215206.97534725
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 215206.982008333
+     },
+     {
+      "event": "monitor_started",
+      "pid": 6064,
+      "t": 215206.984081083
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 6065,
+      "t": 215206.985975291
+     },
+     {
+      "event": "self_test",
+      "ms": 37.8,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 215207.134270916
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.075,
+      "t": 215207.209560666
+     },
+     {
+      "event": "native_started",
+      "pid": 6070,
+      "t": 215207.21640325
+     },
+     {
+      "event": "said",
+      "t": 215210.037277916,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 215210.037402833,
+      "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
+     },
+     {
+      "event": "said",
+      "t": 215213.626606375,
+      "text": "Type 93d80405 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 215214.2317335,
+      "text": "Type 4c2466b1 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 215214.638090291,
+      "text": "Still paused; request a new confirmation to retry."
+     },
+     {
+      "event": "said",
+      "t": 215214.743393458,
+      "text": "Type 5620080b then Enter to request a fresh quota check."
+     },
+     {
+      "event": "said",
+      "t": 215225.363856333,
+      "text": "Type 9f8f87b4 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "continue_reply",
+      "ms": 0.7,
+      "needs_read": true,
+      "ok": true,
+      "reason": "armed",
+      "t": 215225.771328
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.064,
+      "t": 215225.835618583
+     },
+     {
+      "event": "continue_status",
+      "ms": 65.3,
+      "ok": false,
+      "reason": "threshold:five_hour",
+      "t": 215225.835879375
+     },
+     {
+      "event": "said",
+      "t": 215225.835911291,
+      "text": "still paused: threshold:five_hour"
+     },
+     {
+      "event": "said",
+      "t": 215225.835933541,
+      "text": "Still paused; request a new confirmation to retry."
+     },
+     {
+      "event": "said",
+      "t": 215225.872323875,
+      "text": "Type a9c33f80 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "continue_reply",
+      "ms": 0.5,
+      "needs_read": true,
+      "ok": true,
+      "reason": "armed",
+      "t": 215226.28201675
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.071,
+      "t": 215226.353527958
+     },
+     {
+      "event": "continue_status",
+      "ms": 72.3,
+      "ok": true,
+      "reason": null,
+      "t": 215226.353784291
+     },
+     {
+      "event": "granted",
+      "t": 215226.353817458
+     },
+     {
+      "event": "said",
+      "t": 215226.353853375,
+      "text": "Fresh quota check passed; one healthy lease granted."
+     },
+     {
+      "event": "said",
+      "t": 215226.353894875,
+      "text": "quota reserve resumed after a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 215229.227066625
+     },
+     {
+      "event": "launcher_exit",
+      "t": 215229.233760541
+     }
+    ],
+    "launcher_rows_total": 29,
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 215207.010579083
+     }
+    ],
+    "poll_count": 45,
+    "poll_ms": 2.286,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-continuation/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-continuation/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-continuation/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-cont-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 13:18 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check deadbeef \u001bM\u001bM\u001bM\u001bM \u203a deadbeef Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61990/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 93d80405 then Enter to request a fresh quota check. [coding-agent-kit] Type 4c2466b1 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 5620080b then Enter to request a fresh quota check. \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view /status \u001bM\u001bM\u001bM\u001bM \u203a 5620080b/status Ask Codex to do anything \u2022 Working (0s \u2022 esc to",
+    "terminal_tail": "n/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61990/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 93d80405 then Enter to request a fresh quota check. [coding-agent-kit] Type 4c2466b1 then Enter to request a fresh quota check. [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type 5620080b then Enter to request a fresh quota check. \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u203a 5620080b gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view /status \u001bM\u001bM\u001bM\u001bM \u203a 5620080b/status Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:awaiting-continuation); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61990/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type 9f8f87b4 then Enter to request a fresh quota check. [coding-agent-kit] still paused: threshold:five_hour [coding-agent-kit] Still paused; request a new confirmation to retry. [coding-agent-kit] Type a9c33f80 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-cont-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-cont-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-continuation/workspace \u26a0 1 warning \u00b7 f2 to view Worked for <1s \u2022 13:19 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-8875-78f0-ade1-197fd5a2115b "
+   },
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215207.206498833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215207.206736375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215207.206834
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215207.517601
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215207.541821333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215207.54312375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 215207.558543541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215207.558676291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215207.558955291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215207.593898083
+    },
+    {
+     "action": "text",
+     "bytes": 43842,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-cont-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215207.600815958,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215207.632277833
+    },
+    {
+     "action": "text",
+     "bytes": 20412,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-cont-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215207.634498916,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215208.022738083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215208.527651958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215209.030608
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215209.535104791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215210.036126
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215210.540913541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215211.042266708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215211.545629583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215212.051105666
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215212.551707291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215213.05614
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215213.560976375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215214.064145
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215214.565436708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215215.070572583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215215.575467208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215216.081850333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215216.582187041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215217.085854333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215217.590759916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215218.096672708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215218.597695458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215219.097674125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215219.599903166
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215220.102057208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215220.604585541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215221.1088875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215221.612434958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215222.116278791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215222.61788425
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215223.11922275
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215223.623970458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215224.126497541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215224.626942208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215225.131037208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215225.634334291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215225.832281541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215226.136998583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215226.349374416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215226.350637458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215226.642256291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215227.147345125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215227.615205625
+    },
+    {
+     "action": "text",
+     "bytes": 44359,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-cont-resumed",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215227.627692625,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215227.651321041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215227.665533125
+    },
+    {
+     "action": "text",
+     "bytes": 20413,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-cont-resumed",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215227.669522416,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215228.156819958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215228.66162175
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215229.165331208
+    }
+   ]
+  },
+  "codex-gate-death": {
+   "after_continue": {
+    "decisions": [
+     [
+      true,
+      "admitted",
+      "A"
+     ],
+     [
+      true,
+      "admitted",
+      "A"
+     ]
+    ],
+    "expect_ok": true,
+    "forwarded": 2
+   },
+   "bind_rows": [
+    {
+     "action": "bind_gate_port",
+     "host": "127.0.0.1",
+     "pid": 6050,
+     "result": "errno:1",
+     "t": 215189.313037125
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::1",
+     "pid": 6050,
+     "result": "errno:1",
+     "t": 215189.313233708
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "0.0.0.0",
+     "pid": 6050,
+     "result": "errno:1",
+     "t": 215189.313303458
+    },
+    {
+     "action": "bind_gate_port",
+     "host": "::",
+     "pid": 6050,
+     "result": "errno:1",
+     "t": 215189.313410875
+    }
+   ],
+   "case_seconds": 24.5,
+   "confined_bind": {
+    "code": 0,
+    "seconds": 0.08,
+    "stderr": "",
+    "stdout": "",
+    "timed_out": false
+   },
+   "confined_direct": {
+    "code": 0,
+    "seconds": 0.05,
+    "stderr": "",
+    "stdout": "",
+    "timed_out": false
+   },
+   "continuation": {
+    "challenge_shown": true,
+    "check_ms": 406.5,
+    "expected": true,
+    "granted": true,
+    "messages": [
+     "Type a8046ff3 then Enter to request a fresh quota check. ",
+     "Fresh quota check passed; one healthy lease granted. ",
+     "quota reserve resumed after a fresh check "
+    ],
+    "still_paused": false
+   },
+   "direct_rows": [
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 6051,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 215189.3590225
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 6051,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 215189.359204666
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 6051,
+     "port_role": "upstream",
+     "result": "errno:1",
+     "t": 215189.359343958
+    },
+    {
+     "action": "direct",
+     "host": "::1",
+     "pid": 6051,
+     "port_role": "usage",
+     "result": "errno:1",
+     "t": 215189.3593995
+    },
+    {
+     "action": "direct",
+     "host": "127.0.0.1",
+     "pid": 6051,
+     "port_role": "gate_udp",
+     "result": "errno:1",
+     "t": 215189.359459875
+    }
+   ],
+   "exit": {
+    "launcher_exit": 0,
+    "native_exit": 0
+   },
+   "first_turn_forwarded": true,
+   "killed_t": 215185.023118541,
+   "model_posts_after_kill": 0,
+   "model_posts_after_kill_before_continue": 0,
+   "model_posts_between_kill_and_continuation": null,
+   "native_alive": true,
+   "native_started": true,
+   "queued_turn_decisions": [
+    [
+     false,
+     "paused:gate_restart",
+     "KM-gd-queued",
+     10.17
+    ],
+    [
+     false,
+     "paused:gate_restart",
+     "KM-gd-queued",
+     10.17
+    ]
+   ],
+   "queued_turn_visible": true,
+   "refused": [],
+   "restart_seen": true,
+   "restart_t": 215195.208536875,
+   "sdk_after_restart": [
+    {
+     "action": "sdk",
+     "ms": 2.5,
+     "n": 1,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215198.38575
+    },
+    {
+     "action": "sdk",
+     "ms": 2.4,
+     "n": 2,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215198.893519541
+    },
+    {
+     "action": "sdk",
+     "ms": 2.9,
+     "n": 3,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215199.398049083
+    },
+    {
+     "action": "sdk",
+     "ms": 3.9,
+     "n": 4,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215199.905815541
+    },
+    {
+     "action": "sdk",
+     "ms": 2.0,
+     "n": 5,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215200.412253166
+    },
+    {
+     "action": "sdk",
+     "ms": 3.5,
+     "n": 6,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215200.919169083
+    },
+    {
+     "action": "sdk",
+     "ms": 3.8,
+     "n": 7,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215201.428577625
+    },
+    {
+     "action": "sdk",
+     "ms": 3.7,
+     "n": 8,
+     "pid": 6055,
+     "role": "direct",
+     "status": 503,
+     "t": 215201.936483166
+    }
+   ],
+   "sdk_exit": 0,
+   "squat_after_restart": {
+    "any4_plain": "errno:48",
+    "any4_reuseaddr": "errno:48",
+    "any6_reuseaddr": "errno:48",
+    "host4_plain": "errno:48",
+    "host4_reuseaddr": "errno:48",
+    "host4_reuseport": "errno:48",
+    "lo4_plain": "errno:48",
+    "lo4_reuseaddr": "errno:48",
+    "lo4_reuseport": "errno:48",
+    "lo6_reuseaddr": "errno:48"
+   },
+   "squat_during_death": {
+    "any4_plain": "errno:48",
+    "any4_reuseaddr": "errno:48",
+    "any6_reuseaddr": "errno:48",
+    "host4_plain": "errno:48",
+    "host4_reuseaddr": "errno:48",
+    "host4_reuseport": "errno:48",
+    "lo4_plain": "errno:48",
+    "lo4_reuseaddr": "errno:48",
+    "lo4_reuseport": "errno:48",
+    "lo6_reuseaddr": "errno:48"
+   },
+   "summary": {
+    "fetch_ms": 2.086,
+    "gate_rows": [
+     {
+      "event": "preflight",
+      "ms": 0.001,
+      "reason": "awaiting_read",
+      "t": 215182.416342083
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "startup",
+      "pid": 6041,
+      "port": 61915,
+      "t": 215182.416756625
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215182.597522666
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215182.597689166
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215182.597723541
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 215182.6025845
+     },
+     {
+      "event": "connect",
+      "ok": false,
+      "stream": null,
+      "t": 215182.927598708,
+      "target": "raw.githubusercontent.com:443"
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/accounts/check",
+      "t": 215182.931463166
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/codex/models",
+      "t": 215182.931494583
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/rate-limit-reset-credits",
+      "t": 215182.957824333
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215182.95802075
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215182.958280083
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215182.989595
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 215182.99686175
+     },
+     {
+      "admit_ms": 0.285,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-first",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 215182.99693175
+     },
+     {
+      "bytes": 43834,
+      "event": "forwarded",
+      "gate_ms": 0.465,
+      "label": "A",
+      "stream": 1,
+      "t": 215182.99710975
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 215182.997652541
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215183.028353416
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 215183.02976625
+     },
+     {
+      "admit_ms": 0.178,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-first",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 215183.029832666
+     },
+     {
+      "bytes": 20410,
+      "event": "forwarded",
+      "gate_ms": 0.381,
+      "label": "A",
+      "stream": 2,
+      "t": 215183.030033833
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 215183.030356166
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "gate_restart",
+      "t": 215195.193778333
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "gate_restart",
+      "t": 215195.193857333
+     },
+     {
+      "event": "gate_ready",
+      "listeners": 2,
+      "mode": "restart",
+      "pid": 6054,
+      "port": 61915,
+      "t": 215195.194328333
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 215195.194639291
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215195.195318208
+     },
+     {
+      "admit_ms": 0.278,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-queued",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215195.19540925
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/settings/user",
+      "paused": true,
+      "t": 215195.195544916
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215195.197913875
+     },
+     {
+      "admit_ms": 0.172,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-queued",
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215195.197971166
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215198.385356791
+     },
+     {
+      "admit_ms": 0.152,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215198.385429
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215198.892847291
+     },
+     {
+      "admit_ms": 0.338,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215198.893078
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215199.397199041
+     },
+     {
+      "admit_ms": 0.347,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215199.397414333
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215199.904699958
+     },
+     {
+      "admit_ms": 0.442,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215199.904968416
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215200.411690041
+     },
+     {
+      "admit_ms": 0.16,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215200.411791291
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215200.918057083
+     },
+     {
+      "admit_ms": 0.448,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215200.91829475
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215201.427498041
+     },
+     {
+      "admit_ms": 0.399,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215201.427738333
+     },
+     {
+      "event": "controller",
+      "kind": "refused",
+      "reason": "paused:gate_restart",
+      "t": 215201.935286708
+     },
+     {
+      "admit_ms": 0.448,
+      "child": true,
+      "event": "decision",
+      "label": "A",
+      "marker": null,
+      "ok": false,
+      "path": "/backend-api/codex/responses",
+      "reason": "paused:gate_restart",
+      "stream": null,
+      "t": 215201.935568791
+     },
+     {
+      "event": "control",
+      "needs_read": true,
+      "ok": true,
+      "op": "reply:continue",
+      "reason": "armed",
+      "t": 215202.861090958
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/codex/models",
+      "paused": true,
+      "t": 215202.918993875
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/accounts/check",
+      "paused": true,
+      "t": 215202.919340666
+     },
+     {
+      "event": "read_refused",
+      "kind": "read",
+      "lost": null,
+      "path": "/backend-api/wham/accounts/check",
+      "paused": true,
+      "t": 215202.921406583
+     },
+     {
+      "cause": "manual_continuation",
+      "epoch": 1,
+      "event": "controller",
+      "kind": "lease",
+      "t": 215202.921845125
+     },
+     {
+      "event": "notify",
+      "op": "resumed",
+      "t": 215202.921869791
+     },
+     {
+      "event": "read",
+      "kind": "usage",
+      "label": "A",
+      "outcome": "fresh",
+      "path": "/backend-api/wham/usage",
+      "t": 215202.921890083
+     },
+     {
+      "epoch": 1,
+      "event": "control",
+      "lost": null,
+      "op": "reply:status",
+      "paused": null,
+      "ready": true,
+      "reason": null,
+      "state": "open",
+      "streams": 0,
+      "t": 215202.925073291
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 1,
+      "t": 215204.197018583
+     },
+     {
+      "admit_ms": 0.69,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-resumed",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 1,
+      "t": 215204.197207625
+     },
+     {
+      "bytes": 44225,
+      "event": "forwarded",
+      "gate_ms": 1.08,
+      "label": "A",
+      "stream": 1,
+      "t": 215204.197595625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 1,
+      "t": 215204.198715916
+     },
+     {
+      "event": "read",
+      "kind": "read",
+      "label": "A",
+      "outcome": null,
+      "path": "/backend-api/wham/settings/user",
+      "t": 215204.2365235
+     },
+     {
+      "epoch": 1,
+      "event": "controller",
+      "kind": "admitted",
+      "stream": 2,
+      "t": 215204.239384666
+     },
+     {
+      "admit_ms": 0.196,
+      "child": false,
+      "event": "decision",
+      "label": "A",
+      "marker": "KM-gd-resumed",
+      "ok": true,
+      "path": "/backend-api/codex/responses",
+      "reason": "admitted",
+      "stream": 2,
+      "t": 215204.239458791
+     },
+     {
+      "bytes": 20411,
+      "event": "forwarded",
+      "gate_ms": 0.394,
+      "label": "A",
+      "stream": 2,
+      "t": 215204.239653625
+     },
+     {
+      "event": "stream_closed",
+      "stream": 2,
+      "t": 215204.240032958
+     },
+     {
+      "event": "lost",
+      "reason": "monitor_eof",
+      "t": 215205.8129785
+     },
+     {
+      "closed": 0,
+      "event": "controller",
+      "kind": "latched",
+      "reason": "monitor_eof",
+      "t": 215205.8131215
+     },
+     {
+      "event": "notify",
+      "op": "latched",
+      "reason": "monitor_eof",
+      "t": 215205.8131465
+     }
+    ],
+    "gate_rows_total": 67,
+    "gate_stderr_tail": "",
+    "launcher_rows": [
+     {
+      "event": "native_version",
+      "t": 215182.34448,
+      "text": "codex-cli 0.166.0"
+     },
+     {
+      "event": "holder",
+      "failed": [],
+      "mode": "all",
+      "port": 61915,
+      "reserved": 21,
+      "t": 215182.353353083
+     },
+     {
+      "event": "profile",
+      "fs_rules": false,
+      "lines": 23,
+      "t": 215182.358951666
+     },
+     {
+      "event": "monitor_started",
+      "pid": 6040,
+      "t": 215182.361057041
+     },
+     {
+      "event": "gate_started",
+      "mode": "startup",
+      "pid": 6041,
+      "t": 215182.362548541
+     },
+     {
+      "event": "self_test",
+      "ms": 39.2,
+      "ok": true,
+      "result": {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      },
+      "t": 215182.509725916
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.093,
+      "t": 215182.60246
+     },
+     {
+      "event": "native_started",
+      "pid": 6045,
+      "t": 215182.609066708
+     },
+     {
+      "code": -9,
+      "event": "gate_exited",
+      "t": 215185.081019166
+     },
+     {
+      "event": "said",
+      "t": 215185.081611958,
+      "text": "Paused. Research F12 control requires a new typed confirmation."
+     },
+     {
+      "event": "said",
+      "t": 215185.08222175,
+      "text": "gate stopped; requests are refused until a restarted gate gets a fresh check"
+     },
+     {
+      "event": "monitor_started",
+      "pid": 6053,
+      "t": 215195.097205708
+     },
+     {
+      "event": "gate_started",
+      "mode": "restart",
+      "pid": 6054,
+      "t": 215195.103624708
+     },
+     {
+      "event": "gate_restarted",
+      "ok": true,
+      "reason": null,
+      "t": 215195.208536875
+     },
+     {
+      "event": "said",
+      "t": 215195.208616541,
+      "text": "gate restarted paused; press F12 to request a fresh check"
+     },
+     {
+      "event": "said",
+      "t": 215202.45724625,
+      "text": "Type a8046ff3 then Enter to request a fresh quota check."
+     },
+     {
+      "event": "continue_reply",
+      "ms": 0.8,
+      "needs_read": true,
+      "ok": true,
+      "reason": "armed",
+      "t": 215202.861601166
+     },
+     {
+      "event": "reader",
+      "ok": true,
+      "seconds": 0.063,
+      "t": 215202.924908041
+     },
+     {
+      "event": "continue_status",
+      "ms": 64.4,
+      "ok": true,
+      "reason": null,
+      "t": 215202.925120208
+     },
+     {
+      "event": "granted",
+      "t": 215202.925140875
+     },
+     {
+      "event": "said",
+      "t": 215202.925164708,
+      "text": "Fresh quota check passed; one healthy lease granted."
+     },
+     {
+      "event": "said",
+      "t": 215202.925198291,
+      "text": "quota reserve resumed after a fresh check"
+     },
+     {
+      "code": 0,
+      "event": "native_exit",
+      "t": 215205.810866583
+     },
+     {
+      "event": "launcher_exit",
+      "t": 215205.815548041
+     }
+    ],
+    "launcher_rows_total": 24,
+    "monitor_rows": [
+     {
+      "event": "monitor_started",
+      "t": 215182.381860291
+     },
+     {
+      "event": "monitor_started",
+      "t": 215195.14968575
+     }
+    ],
+    "poll_count": 28,
+    "poll_ms": 0.004,
+    "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-gate-death/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-gd-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:18 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u001bM\u001bM\u001bM\u001bM \u203a Queued turn KM-gd-queued Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u2022 6 \u25e6 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:gate_restart); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61915/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type a8046ff3 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-gd-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-gd-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt",
+    "terminal_tail": "O mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-gate-death/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-gd-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:18 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] gate stopped; requests are refused until a restarted gate gets a fresh check Queued turn KM-gd-queued \u001bM\u001bM\u001bM\u001bM \u203a Queued turn KM-gd-queued Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u25e6 1 \u2022 \u25e6 2 \u2022 \u25e6 3 \u2022 4 \u25e6 \u2022 5 \u25e6 \u2022 6 \u25e6 [coding-agent-kit] gate restarted paused; press F12 to request a fresh check \u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:gate_restart); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:61915/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view [coding-agent-kit] Type a8046ff3 then Enter to request a fresh quota check. [coding-agent-kit] Fresh quota check passed; one healthy lease granted. [coding-agent-kit] quota reserve resumed after a fresh check Turn KM-gd-resumed \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-gd-resumed Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-gate-death/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:18 \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-2858-7791-92e8-cdc9cf1ceeb3 "
+   },
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215182.597203625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215182.597444083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215182.597614458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215182.889280791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215182.931267125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215182.931401833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 215182.957457625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215182.957761708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215182.958176375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215182.98947775
+    },
+    {
+     "action": "text",
+     "bytes": 43834,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-gd-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215182.997491583,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215183.028252958
+    },
+    {
+     "action": "text",
+     "bytes": 20410,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-gd-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215183.030255375,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215183.394572125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215183.896303541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215184.427768208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215184.904693
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215202.921652416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215203.214787875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215203.718644
+    },
+    {
+     "action": "text",
+     "bytes": 44225,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-gd-resumed",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215204.198388666,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215204.222270541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215204.236353875
+    },
+    {
+     "action": "text",
+     "bytes": 20411,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-gd-resumed",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215204.239894916,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215204.723364125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215205.22754725
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215205.730932958
+    }
+   ]
+  },
+  "codex-independent": {
+   "case_seconds": 18.5,
+   "exit": {
+    "first": {
+     "launcher_exit": 0,
+     "native_exit": 0
+    },
+    "second": {
+     "launcher_exit": 0,
+     "native_exit": 0
+    }
+   },
+   "first": {
+    "first_turn_forwarded": true,
+    "native_started": true,
+    "refused": []
+   },
+   "first_latch_t": 215236.118643625,
+   "first_turn": {
+    "decisions": [
+     [
+      false,
+      "paused:threshold:five_hour",
+      "A"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour",
+      "A"
+     ]
+    ],
+    "expect_ok": false,
+    "forwarded": 0
+   },
+   "outside_t": 215243.8410815,
+   "second": {
+    "first_turn_forwarded": true,
+    "native_started": true,
+    "refused": []
+   },
+   "second_after": {
+    "decisions": [
+     [
+      false,
+      "paused:threshold:five_hour",
+      "A"
+     ],
+     [
+      false,
+      "paused:threshold:five_hour",
+      "A"
+     ]
+    ],
+    "expect_ok": false,
+    "forwarded": 0
+   },
+   "second_latch_t": 215243.975920916,
+   "second_latched_at_80": null,
+   "second_turn": {
+    "decisions": [
+     [
+      true,
+      "admitted",
+      "A"
+     ],
+     [
+      true,
+      "admitted",
+      "A"
+     ]
+    ],
+    "expect_ok": true,
+    "forwarded": 2
+   },
+   "summary": {
+    "first": {
+     "fetch_ms": 2.377,
+     "gate_rows": [
+      {
+       "event": "preflight",
+       "ms": 0.001,
+       "reason": "awaiting_read",
+       "t": 215230.622796875
+      },
+      {
+       "event": "gate_ready",
+       "listeners": 2,
+       "mode": "startup",
+       "pid": 6084,
+       "port": 62102,
+       "t": 215230.623269375
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215230.7855815
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215230.785702166
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215230.785799125
+      },
+      {
+       "epoch": 1,
+       "event": "control",
+       "lost": null,
+       "op": "reply:status",
+       "paused": null,
+       "ready": true,
+       "reason": null,
+       "state": "open",
+       "streams": 0,
+       "t": 215230.789319666
+      },
+      {
+       "event": "connect",
+       "ok": false,
+       "stream": null,
+       "t": 215231.126848791,
+       "target": "raw.githubusercontent.com:443"
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215231.132686541
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215231.133352708
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/rate-limit-reset-credits",
+       "t": 215231.156119416
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215231.156384125
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215231.156579875
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215231.182003333
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 1,
+       "t": 215231.189107
+      },
+      {
+       "admit_ms": 0.424,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind1-first",
+       "ok": true,
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "stream": 1,
+       "t": 215231.189227416
+      },
+      {
+       "bytes": 43839,
+       "event": "forwarded",
+       "gate_ms": 0.799,
+       "label": "A",
+       "stream": 1,
+       "t": 215231.189599791
+      },
+      {
+       "event": "stream_closed",
+       "stream": 1,
+       "t": 215231.190379208
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215231.223648333
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 2,
+       "t": 215231.225776833
+      },
+      {
+       "admit_ms": 0.211,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind1-first",
+       "ok": true,
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "stream": 2,
+       "t": 215231.225849958
+      },
+      {
+       "bytes": 20412,
+       "event": "forwarded",
+       "gate_ms": 0.462,
+       "label": "A",
+       "stream": 2,
+       "t": 215231.226094958
+      },
+      {
+       "event": "stream_closed",
+       "stream": 2,
+       "t": 215231.22645325
+      },
+      {
+       "closed": 0,
+       "event": "controller",
+       "kind": "latched",
+       "reason": "threshold:five_hour",
+       "t": 215236.118643625
+      },
+      {
+       "event": "notify",
+       "op": "latched",
+       "reason": "threshold:five_hour",
+       "t": 215236.118875875
+      },
+      {
+       "event": "read_refused",
+       "kind": "read",
+       "lost": null,
+       "path": "/backend-api/wham/settings/user",
+       "paused": true,
+       "t": 215242.252535333
+      },
+      {
+       "event": "controller",
+       "kind": "refused",
+       "reason": "paused:threshold:five_hour",
+       "t": 215242.265378083
+      },
+      {
+       "admit_ms": 0.723,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind1-refused",
+       "ok": false,
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "stream": null,
+       "t": 215242.265567041
+      },
+      {
+       "event": "read_refused",
+       "kind": "read",
+       "lost": null,
+       "path": "/backend-api/codex/models",
+       "paused": true,
+       "t": 215242.2718475
+      },
+      {
+       "event": "read_refused",
+       "kind": "read",
+       "lost": null,
+       "path": "/backend-api/wham/settings/user",
+       "paused": true,
+       "t": 215242.306771166
+      },
+      {
+       "event": "controller",
+       "kind": "refused",
+       "reason": "paused:threshold:five_hour",
+       "t": 215242.310150708
+      },
+      {
+       "admit_ms": 0.324,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind1-refused",
+       "ok": false,
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "stream": null,
+       "t": 215242.310279083
+      },
+      {
+       "event": "lost",
+       "reason": "monitor_eof",
+       "t": 215246.898674333
+      }
+     ],
+     "gate_rows_total": 32,
+     "gate_stderr_tail": "",
+     "launcher_rows": [
+      {
+       "event": "native_version",
+       "t": 215230.534003041,
+       "text": "codex-cli 0.166.0"
+      },
+      {
+       "event": "holder",
+       "failed": [],
+       "mode": "all",
+       "port": 62102,
+       "reserved": 21,
+       "t": 215230.543799458
+      },
+      {
+       "event": "profile",
+       "fs_rules": false,
+       "lines": 23,
+       "t": 215230.551029041
+      },
+      {
+       "event": "monitor_started",
+       "pid": 6083,
+       "t": 215230.553693375
+      },
+      {
+       "event": "gate_started",
+       "mode": "startup",
+       "pid": 6084,
+       "t": 215230.555912166
+      },
+      {
+       "event": "self_test",
+       "ms": 43.4,
+       "ok": true,
+       "result": {
+        "bind": "errno:1",
+        "gate": "connected",
+        "other": "errno:1",
+        "tiocsti": "errno:1"
+       },
+       "t": 215230.710040708
+      },
+      {
+       "event": "reader",
+       "ok": true,
+       "seconds": 0.079,
+       "t": 215230.789137291
+      },
+      {
+       "event": "native_started",
+       "pid": 6088,
+       "t": 215230.797009833
+      },
+      {
+       "event": "said",
+       "t": 215236.119849583,
+       "text": "Paused. Research F12 control requires a new typed confirmation."
+      },
+      {
+       "event": "said",
+       "t": 215236.119966125,
+       "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
+      },
+      {
+       "code": 0,
+       "event": "native_exit",
+       "t": 215246.896986958
+      },
+      {
+       "event": "launcher_exit",
+       "t": 215246.903576541
+      }
+     ],
+     "launcher_rows_total": 12,
+     "monitor_rows": [
+      {
+       "event": "monitor_started",
+       "t": 215230.578852958
+      }
+     ],
+     "poll_count": 33,
+     "poll_ms": 2.622,
+     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind1-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind1-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind1-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62102/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-e4a0-75a2-b130-0aad23bbed21 ",
+     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind1-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind1-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind1-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62102/backend-api/codex/responses \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-e4a0-75a2-b130-0aad23bbed21 "
+    },
+    "second": {
+     "fetch_ms": 2.319,
+     "gate_rows": [
+      {
+       "event": "preflight",
+       "ms": 0.001,
+       "reason": "awaiting_read",
+       "t": 215233.438540291
+      },
+      {
+       "event": "gate_ready",
+       "listeners": 2,
+       "mode": "startup",
+       "pid": 6093,
+       "port": 62136,
+       "t": 215233.439098708
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215233.581114791
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215233.581168625
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215233.581190416
+      },
+      {
+       "epoch": 1,
+       "event": "control",
+       "lost": null,
+       "op": "reply:status",
+       "paused": null,
+       "ready": true,
+       "reason": null,
+       "state": "open",
+       "streams": 0,
+       "t": 215233.585169791
+      },
+      {
+       "event": "connect",
+       "ok": false,
+       "stream": null,
+       "t": 215233.91718,
+       "target": "raw.githubusercontent.com:443"
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/codex/models",
+       "t": 215233.924353583
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/accounts/check",
+       "t": 215233.924697708
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/rate-limit-reset-credits",
+       "t": 215233.9470835
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "fresh",
+       "path": "/backend-api/wham/usage",
+       "t": 215233.947502083
+      },
+      {
+       "event": "read",
+       "kind": "usage",
+       "label": "A",
+       "outcome": "superseded",
+       "path": "/backend-api/wham/usage",
+       "t": 215233.94756775
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215233.970291375
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 1,
+       "t": 215233.977142958
+      },
+      {
+       "admit_ms": 0.321,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-first",
+       "ok": true,
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "stream": 1,
+       "t": 215233.977234458
+      },
+      {
+       "bytes": 43839,
+       "event": "forwarded",
+       "gate_ms": 0.597,
+       "label": "A",
+       "stream": 1,
+       "t": 215233.977505791
+      },
+      {
+       "event": "stream_closed",
+       "stream": 1,
+       "t": 215233.978135625
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215234.009821833
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 2,
+       "t": 215234.011867708
+      },
+      {
+       "admit_ms": 0.21,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-first",
+       "ok": true,
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "stream": 2,
+       "t": 215234.011942708
+      },
+      {
+       "bytes": 20412,
+       "event": "forwarded",
+       "gate_ms": 0.443,
+       "label": "A",
+       "stream": 2,
+       "t": 215234.012173333
+      },
+      {
+       "event": "stream_closed",
+       "stream": 2,
+       "t": 215234.012591
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215239.435332916
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 3,
+       "t": 215239.4478325
+      },
+      {
+       "admit_ms": 0.794,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-works",
+       "ok": true,
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "stream": 3,
+       "t": 215239.448095291
+      },
+      {
+       "bytes": 44081,
+       "event": "forwarded",
+       "gate_ms": 1.392,
+       "label": "A",
+       "stream": 3,
+       "t": 215239.448689583
+      },
+      {
+       "event": "stream_closed",
+       "stream": 3,
+       "t": 215239.450314875
+      },
+      {
+       "event": "read",
+       "kind": "read",
+       "label": "A",
+       "outcome": null,
+       "path": "/backend-api/wham/settings/user",
+       "t": 215239.490322541
+      },
+      {
+       "epoch": 1,
+       "event": "controller",
+       "kind": "admitted",
+       "stream": 4,
+       "t": 215239.493712916
+      },
+      {
+       "admit_ms": 0.289,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-works",
+       "ok": true,
+       "path": "/backend-api/codex/responses",
+       "reason": "admitted",
+       "stream": 4,
+       "t": 215239.493799458
+      },
+      {
+       "bytes": 20411,
+       "event": "forwarded",
+       "gate_ms": 0.535,
+       "label": "A",
+       "stream": 4,
+       "t": 215239.494040583
+      },
+      {
+       "event": "stream_closed",
+       "stream": 4,
+       "t": 215239.494541041
+      },
+      {
+       "closed": 0,
+       "event": "controller",
+       "kind": "latched",
+       "reason": "threshold:five_hour",
+       "t": 215243.975920916
+      },
+      {
+       "event": "notify",
+       "op": "latched",
+       "reason": "threshold:five_hour",
+       "t": 215243.976106166
+      },
+      {
+       "event": "read_refused",
+       "kind": "read",
+       "lost": null,
+       "path": "/backend-api/wham/settings/user",
+       "paused": true,
+       "t": 215245.281009291
+      },
+      {
+       "event": "controller",
+       "kind": "refused",
+       "reason": "paused:threshold:five_hour",
+       "t": 215245.293407708
+      },
+      {
+       "admit_ms": 0.655,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-refused",
+       "ok": false,
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "stream": null,
+       "t": 215245.293595583
+      },
+      {
+       "event": "read_refused",
+       "kind": "read",
+       "lost": null,
+       "path": "/backend-api/wham/settings/user",
+       "paused": true,
+       "t": 215245.334236791
+      },
+      {
+       "event": "controller",
+       "kind": "refused",
+       "reason": "paused:threshold:five_hour",
+       "t": 215245.337511958
+      },
+      {
+       "admit_ms": 0.333,
+       "child": false,
+       "event": "decision",
+       "label": "A",
+       "marker": "KM-ind2-refused",
+       "ok": false,
+       "path": "/backend-api/codex/responses",
+       "reason": "paused:threshold:five_hour",
+       "stream": null,
+       "t": 215245.337635208
+      },
+      {
+       "event": "lost",
+       "reason": "monitor_eof",
+       "t": 215247.482809875
+      }
+     ],
+     "gate_rows_total": 41,
+     "gate_stderr_tail": "",
+     "launcher_rows": [
+      {
+       "event": "native_version",
+       "t": 215233.360101041,
+       "text": "codex-cli 0.166.0"
+      },
+      {
+       "event": "holder",
+       "failed": [],
+       "mode": "all",
+       "port": 62136,
+       "reserved": 21,
+       "t": 215233.369421
+      },
+      {
+       "event": "profile",
+       "fs_rules": false,
+       "lines": 23,
+       "t": 215233.3761845
+      },
+      {
+       "event": "monitor_started",
+       "pid": 6092,
+       "t": 215233.378338291
+      },
+      {
+       "event": "gate_started",
+       "mode": "startup",
+       "pid": 6093,
+       "t": 215233.380308416
+      },
+      {
+       "event": "self_test",
+       "ms": 45.3,
+       "ok": true,
+       "result": {
+        "bind": "errno:1",
+        "gate": "connected",
+        "other": "errno:1",
+        "tiocsti": "errno:1"
+       },
+       "t": 215233.536364541
+      },
+      {
+       "event": "reader",
+       "ok": true,
+       "seconds": 0.048,
+       "t": 215233.584958416
+      },
+      {
+       "event": "native_started",
+       "pid": 6097,
+       "t": 215233.592470666
+      },
+      {
+       "event": "said",
+       "t": 215243.976844541,
+       "text": "Paused. Research F12 control requires a new typed confirmation."
+      },
+      {
+       "event": "said",
+       "t": 215243.976955625,
+       "text": "quota reserve paused (threshold:five_hour); press F12 to request a fresh check"
+      },
+      {
+       "code": 0,
+       "event": "native_exit",
+       "t": 215247.482121416
+      },
+      {
+       "event": "launcher_exit",
+       "t": 215247.484585291
+      }
+     ],
+     "launcher_rows_total": 12,
+     "monitor_rows": [
+      {
+       "event": "monitor_started",
+       "t": 215233.403529
+      }
+     ],
+     "poll_count": 28,
+     "poll_ms": 2.587,
+     "terminal_head": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind2-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 13:19 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-ind2-works \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-works Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62136/backend-api/codex/responses \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-ef88-7162-8e41-57b81b59e357 ",
+     "terminal_tail": " >_ OpenAI Codex (v0.166.0) loading \u203a Ask Codex to do anything <root>/cases/codex-independent/workspace >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM\u001bM >_ OpenAI Codex (v0.166.0) <root>/cases/codex-independent/workspace permissions: YOLO mode Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost. \u203a KM-ind2-first start \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u2022 KM fixture reply Worked for <1s \u2022 13:19 \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view Turn KM-ind2-works \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-works Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM \u2022 KM fixture reply \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM Worked for <1s \u2022 13:19 [coding-agent-kit] Paused. Research F12 control requires a new typed confirmation. [coding-agent-kit] quota reserve paused (threshold:five_hour); press F12 to request a fresh check Turn KM-ind2-refused \u001bM\u001bM\u001bM\u001bM \u203a Turn KM-ind2-refused Ask Codex to do anything \u2022 Working (0s \u2022 esc to interrupt) \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u203a Ask Codex to do anything gpt-5.4 default \u00b7 <root>/cases/codex-independent/workspace \u26a0 1 warning \u00b7 f2 to view \u001bM\u001bM\u001bM\u001bM \u25a0 unexpected status 503 Service Unavailable: coding-agent-kit quota gate: paused or refused (paused:threshold:five_hour); continue only from the trusted terminal after a fresh check, url: http://127.0.0.1:62136/backend-api/codex/responses \u203a Shutting down... To continue this session, run: codex resume 01a1d1a0-ef88-7162-8e41-57b81b59e357 "
+    }
+   },
+   "upstream": [
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215230.785310291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215230.78555425
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215230.785710708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215231.086609833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215231.1323505
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215231.133220333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215231.155778625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 215231.156000833
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215231.156403958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215231.181857791
+    },
+    {
+     "action": "text",
+     "bytes": 43839,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-ind1-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215231.190144166,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215231.223544666
+    },
+    {
+     "action": "text",
+     "bytes": 20412,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-ind1-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215231.226334083,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215231.5889795
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215232.093461083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215232.596680458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.099034875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.580555083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215233.580770791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215233.580998416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.597721541
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.909931291
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/codex/models",
+     "t": 215233.924040583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "t": 215233.924536666
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/rate-limit-reset-credits",
+     "t": 215233.9467445
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.946959208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215233.947091166
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215233.970138625
+    },
+    {
+     "action": "text",
+     "bytes": 43839,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-ind2-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215233.97793575,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215234.009700958
+    },
+    {
+     "action": "text",
+     "bytes": 20412,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-ind2-first",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215234.012448666,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215234.099857708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215234.414996208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215234.605767208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215234.920316375
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215235.10962825
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215235.422847625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215235.614695875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215235.926743708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215236.117838333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215236.432368916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215236.622235916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215236.937622458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215237.12371425
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215237.43754025
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215237.626081333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215237.94091275
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215238.128474916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215238.444633041
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215238.630391875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215238.9456425
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215239.136081958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215239.435097083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215239.449026875
+    },
+    {
+     "action": "text",
+     "bytes": 44081,
+     "kind": "turn",
+     "label": "A",
+     "main": true,
+     "marker": "KM-ind2-works",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215239.449977916,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/settings/user",
+     "t": 215239.490061166
+    },
+    {
+     "action": "text",
+     "bytes": 20411,
+     "kind": "turn",
+     "label": "A",
+     "main": false,
+     "marker": "KM-ind2-works",
+     "method": "POST",
+     "model": "gpt-5.4",
+     "path": "/backend-api/codex/responses",
+     "provider": "codex",
+     "t": 215239.494372666,
+     "tool_output": null
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215239.640057416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215239.95058225
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215240.144589416
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215240.452538125
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215240.646118875
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215240.956208333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215241.150021
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215241.46016325
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215241.652185625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215241.960428708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215242.155206333
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215242.464694458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215242.655430458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215242.967161958
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215243.159336583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215243.470982791
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215243.663935458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215243.975502625
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215244.166750458
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215244.476614708
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215244.670803208
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215244.982407083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215245.17507025
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215245.487506583
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215245.67678075
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215245.99221975
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215246.181157083
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215246.49641
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215246.682438916
+    },
+    {
+     "bytes": 0,
+     "label": "A",
+     "method": "GET",
+     "path": "/backend-api/wham/usage",
+     "t": 215246.995956125
+    }
+   ]
+  }
+ },
+ "clock": {
+  "mono_end": 215249.606714791,
+  "mono_start": 215181.725331416,
+  "wall_end": 1794518363.321695,
+  "wall_start": 1794518295.4401631
+ },
+ "completed": true,
+ "deadline_seconds": 700,
+ "finished": "2026-11-12T21:19:23Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [],
+ "stage": "codex-resume",
+ "started": "2026-11-12T21:18:15Z"
+}

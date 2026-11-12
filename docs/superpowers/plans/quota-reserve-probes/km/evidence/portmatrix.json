@@ -1,0 +1,137 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "none-portmatrix": {
+   "all": {
+    "reach": {
+     "confined_connects": "{\"lo4\": \"connected\", \"any4\": \"connected\", \"host4\": \"errno:None\"}",
+     "host4_reuseaddr_squatter": "errno:48",
+     "squatter_accepted": []
+    },
+    "reserved": 21,
+    "squats": {
+     "any4_plain": "errno:48",
+     "any4_reuseaddr": "errno:48",
+     "any6_reuseaddr": "errno:48",
+     "host4_plain": "errno:48",
+     "host4_reuseaddr": "errno:48",
+     "host4_reuseport": "errno:48",
+     "lo4_plain": "errno:48",
+     "lo4_reuseaddr": "errno:48",
+     "lo4_reuseport": "errno:48",
+     "lo6_reuseaddr": "errno:48"
+    }
+   },
+   "case_seconds": 2.5,
+   "host_ipv4_found": true,
+   "loopback": {
+    "reach": {
+     "confined_connects": "{\"lo4\": \"connected\", \"any4\": \"connected\", \"host4\": \"connected\"}",
+     "host4_reuseaddr_squatter": "bound",
+     "squatter_accepted": [
+      "host4"
+     ]
+    },
+    "reserved": 0,
+    "squats": {
+     "any4_plain": "errno:48",
+     "any4_reuseaddr": "bound",
+     "any6_reuseaddr": "bound",
+     "host4_plain": "bound",
+     "host4_reuseaddr": "bound",
+     "host4_reuseport": "bound",
+     "lo4_plain": "errno:48",
+     "lo4_reuseaddr": "errno:48",
+     "lo4_reuseport": "errno:48",
+     "lo6_reuseaddr": "errno:48"
+    }
+   },
+   "sbpl_forms": {
+    "ip4_literal": {
+     "exit": 65,
+     "stderr": "sandbox-exec: host must be * or localhost in network address\n\nBacktrace: \n<input string>:4:26:\n\t(remote tcp \"127.0.0.1:63779\")\n\n"
+    },
+    "localhost": {
+     "any4": "connected",
+     "bind": "errno:1",
+     "host4": "errno:61",
+     "ll6": "errno:65",
+     "lo4": "connected",
+     "lo6": "connected"
+    },
+    "star": {
+     "any4": "connected",
+     "bind": "errno:1",
+     "host4": "errno:61",
+     "ll6": "errno:65",
+     "lo4": "connected",
+     "lo6": "connected"
+    },
+    "tcp4_localhost": {
+     "any4": "connected",
+     "bind": "errno:1",
+     "host4": "errno:61",
+     "ll6": "errno:1",
+     "lo4": "connected",
+     "lo6": "errno:1"
+    },
+    "tcp6_localhost": {
+     "any4": "errno:1",
+     "bind": "errno:1",
+     "host4": "errno:1",
+     "ll6": "errno:65",
+     "lo4": "errno:1",
+     "lo6": "connected"
+    }
+   },
+   "wildcard": {
+    "reach": {
+     "confined_connects": "{\"lo4\": \"connected\", \"any4\": \"connected\", \"host4\": \"connected\"}",
+     "host4_reuseaddr_squatter": "bound",
+     "squatter_accepted": [
+      "host4"
+     ]
+    },
+    "reserved": 2,
+    "squats": {
+     "any4_plain": "errno:48",
+     "any4_reuseaddr": "errno:48",
+     "any6_reuseaddr": "errno:48",
+     "host4_plain": "errno:48",
+     "host4_reuseaddr": "bound",
+     "host4_reuseport": "bound",
+     "lo4_plain": "errno:48",
+     "lo4_reuseaddr": "errno:48",
+     "lo4_reuseport": "errno:48",
+     "lo6_reuseaddr": "errno:48"
+    }
+   }
+  }
+ },
+ "clock": {
+  "mono_end": 215558.844675291,
+  "mono_start": 215555.300126666,
+  "wall_end": 1794518672.5603478,
+  "wall_start": 1794518669.0157921
+ },
+ "completed": true,
+ "deadline_seconds": 180,
+ "finished": "2026-11-12T21:24:32Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [],
+ "stage": "portmatrix",
+ "started": "2026-11-12T21:24:29Z"
+}

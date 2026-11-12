@@ -1,0 +1,407 @@
+{
+ "binaries": {
+  "claude": {
+   "sha256": "a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+   "version": "2.1.322 (Claude Code)"
+  },
+  "codex": {
+   "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+   "version": "codex-cli 0.166.0"
+  }
+ },
+ "cases": {
+  "claude-refusals": {
+   "case_seconds": 11.5,
+   "variants": {
+    "conflicting_env": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "protected mode refuses the environment variable ANTHROPIC_API_KEY"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: protected mode refuses the environment variable ANTHROPIC_API_KEY (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "malformed_quota": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "quota_200"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: quota_200 (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "missing_quota": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "server_identity_unavailable"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: server_identity_unavailable (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "missing_sandbox_exec": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "boundary precondition missing: /private/var/empty/no-sandbox-exec is not an executable file"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: boundary precondition missing: /private/var/empty/no-sandbox-exec is not an executable file (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "old_version": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "native 2.1.300 is older than the protected-mode minimum 2.1.322"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: native 2.1.300 is older than the protected-mode minimum 2.1.322 (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "self_test_fails": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "boundary self-test failed"
+     ],
+     "self_test": [
+      {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "connected",
+       "tiocsti": "errno:1"
+      }
+     ],
+     "terminal": [
+      "protected mode refused: boundary self-test failed (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "stale_quota": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "clock_anomaly"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: clock_anomaly (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "threshold_at_start": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "threshold_five_hour"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: threshold_five_hour (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "unsupported_family": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "unsupported quota family"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: unsupported quota family (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "unsupported_mode": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "protected mode refuses -p"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: protected mode refuses -p (no model request was sent) "
+     ],
+     "upstream_gets": []
+    }
+   }
+  },
+  "codex-refusals": {
+   "case_seconds": 13.0,
+   "variants": {
+    "conflicting_env": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "protected mode refuses the environment variable OPENAI_API_KEY"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: protected mode refuses the environment variable OPENAI_API_KEY (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "malformed_quota": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [
+      false
+     ],
+     "refused": [
+      "preflight: no fresh passing usage read"
+     ],
+     "self_test": [
+      {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      }
+     ],
+     "terminal": [
+      "protected mode refused: preflight: no fresh passing usage read (no model request was sent) "
+     ],
+     "upstream_gets": [
+      "/backend-api/codex/models",
+      "/backend-api/wham/accounts/check",
+      "/backend-api/wham/usage"
+     ]
+    },
+    "missing_quota": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [
+      false
+     ],
+     "refused": [
+      "preflight: no fresh passing usage read"
+     ],
+     "self_test": [
+      {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      }
+     ],
+     "terminal": [
+      "protected mode refused: preflight: no fresh passing usage read (no model request was sent) "
+     ],
+     "upstream_gets": [
+      "/backend-api/codex/models",
+      "/backend-api/wham/accounts/check",
+      "/backend-api/wham/usage"
+     ]
+    },
+    "missing_sandbox_exec": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "boundary precondition missing: /private/var/empty/no-sandbox-exec is not an executable file"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: boundary precondition missing: /private/var/empty/no-sandbox-exec is not an executable file (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "old_version": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "native 0.150.0 is older than the protected-mode minimum 0.166.0"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: native 0.150.0 is older than the protected-mode minimum 0.166.0 (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "self_test_fails": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "boundary self-test failed"
+     ],
+     "self_test": [
+      {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "connected",
+       "tiocsti": "errno:1"
+      }
+     ],
+     "terminal": [
+      "protected mode refused: boundary self-test failed (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "stale_quota": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [
+      true
+     ],
+     "refused": [
+      "preflight: no fresh passing usage read"
+     ],
+     "self_test": [
+      {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      }
+     ],
+     "terminal": [
+      "protected mode refused: preflight: no fresh passing usage read (no model request was sent) "
+     ],
+     "upstream_gets": [
+      "/backend-api/codex/models",
+      "/backend-api/wham/accounts/check",
+      "/backend-api/wham/usage"
+     ]
+    },
+    "threshold_at_start": {
+     "gate_started": true,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [
+      true
+     ],
+     "refused": [
+      "preflight: threshold:five_hour"
+     ],
+     "self_test": [
+      {
+       "bind": "errno:1",
+       "gate": "connected",
+       "other": "errno:1",
+       "tiocsti": "errno:1"
+      }
+     ],
+     "terminal": [
+      "protected mode refused: preflight: threshold:five_hour (no model request was sent) "
+     ],
+     "upstream_gets": [
+      "/backend-api/codex/models",
+      "/backend-api/wham/accounts/check",
+      "/backend-api/wham/usage"
+     ]
+    },
+    "unsupported_family": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "unsupported quota family"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: unsupported quota family (no model request was sent) "
+     ],
+     "upstream_gets": []
+    },
+    "unsupported_mode": {
+     "gate_started": false,
+     "launcher_exit": 3,
+     "model_posts": 0,
+     "native_started": false,
+     "reader": [],
+     "refused": [
+      "protected mode refuses the resume subcommand"
+     ],
+     "self_test": [],
+     "terminal": [
+      "protected mode refused: protected mode refuses the resume subcommand (no model request was sent) "
+     ],
+     "upstream_gets": []
+    }
+   }
+  }
+ },
+ "clock": {
+  "mono_end": 215542.803079708,
+  "mono_start": 215517.157199041,
+  "wall_end": 1794518656.5187159,
+  "wall_start": 1794518630.872778
+ },
+ "completed": true,
+ "deadline_seconds": 900,
+ "finished": "2026-11-12T21:24:16Z",
+ "host": {
+  "arch": "arm64",
+  "macos": "27.2"
+ },
+ "leftover_processes_after": [],
+ "leftover_processes_killed": [],
+ "stage": "refusals",
+ "started": "2026-11-12T21:23:50Z"
+}
