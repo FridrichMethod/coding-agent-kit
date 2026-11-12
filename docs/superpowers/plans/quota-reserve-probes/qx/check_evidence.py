@@ -37,7 +37,7 @@ def main():
     check(all(run['exit'] == 0 for run in manifest['runs']), 'a run failed', failures)
     check([run['label'] for run in manifest['runs']] ==
           ['test_binding', 'test_gate', 'test_lease_coexistence', 'guard-self-check', 'shape', 'rotation',
-           'proactive', 'identity', 'concurrent'], 'run list', failures)
+           'hold', 'proactive', 'identity', 'concurrent'], 'run list', failures)
 
     shape = load('shape')
     usage = [e for e in gate_events(shape, kind='get') if e['path'] == '/backend-api/wham/usage']
@@ -89,6 +89,16 @@ def main():
     check(after['refreshes'] == 1 and after['stored'] == {'T1': False, 'T2': True}, 'native refresh persisted', failures)
     turns = [entry['status'] for entry in timeline(rotation, 'turn')]
     check(turns == ['completed', 'failed', 'completed'], 'rotation turns', failures)
+
+    hold = load('hold')
+    result = timeline(hold, 'hold_result')[0]
+    check(result['status'] == 'completed' and result['refreshes'] == 1 and result['controller_read_ok'] == [True]
+          and result['model_upstream'][-1] == ['T2', 200], 'hold-and-rebind turn', failures)
+    events = gate_events(hold)
+    order = [(e['event'], e.get('credential'), e.get('admitted')) for e in events
+             if e['event'] in ('admission', 'model_upstream') or (e['event'] == 'get' and e['path'].endswith('/usage'))]
+    check(order[-4:] == [('admission', 'T2', False), ('get', 'T2', None), ('admission', 'T2', True),
+                         ('model_upstream', 'T2', None)], 'hold order', failures)
 
     proactive = {entry['variant']: entry for entry in timeline(load('proactive'), 'proactive')}
     hooked, host = proactive['hooked'], proactive['production-host']

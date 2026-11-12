@@ -96,6 +96,26 @@ class GateTests(unittest.TestCase):
         labels = [e['credential'] for e in self.gate.events if e['event'] == 'admission']
         self.assertEqual(labels, ['T2', 'T2'])
 
+    def test_hold_and_rebind_admits_only_after_a_same_bearer_read(self):
+        self.usage(self.t1)
+        t2 = self.rotate()
+        self.gate.rebind = lambda: threading.Thread(target=self.usage, args=(t2,)).start()
+        self.gate.hold = 3
+        status, body, _ = self.model(t2)
+        self.assertEqual(status, 200)
+        order = [(e['event'], e.get('credential'), e.get('admitted')) for e in self.gate.events
+                 if e['event'] in ('admission', 'get', 'model_upstream')]
+        self.assertEqual(order, [('get', 'T1', None), ('admission', 'T2', False), ('get', 'T2', None),
+                                 ('admission', 'T2', True), ('model_upstream', 'T2', None)])
+
+    def test_hold_expires_without_a_read(self):
+        self.usage(self.t1)
+        t2 = self.rotate()
+        self.gate.rebind, self.gate.hold = (lambda: None), .3
+        status, body, _ = self.model(t2)
+        self.assertEqual((status, b'rebind-required' in body), (503, True))
+        self.assertEqual(self.upstream.count('model'), 0)
+
     def test_identity_change_is_refused_before_upstream(self):
         self.usage(self.t1)
         tb, _ = self.upstream.issue(B, UB)

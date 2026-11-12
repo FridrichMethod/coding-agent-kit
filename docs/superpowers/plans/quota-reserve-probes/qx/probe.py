@@ -18,6 +18,7 @@ import base64
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 HERE = Path(__file__).resolve().parent
@@ -357,6 +358,41 @@ def stage_rotation(h):
     h.read(rpc, 'stale-old-bearer-check')
 
 
+def stage_hold(h):
+    """Hold-and-rebind: the gate holds the first request of a refreshed bearer while a second
+    controller connection asks native for a usage read; no upstream byte before that read."""
+    gate = h.gate()
+    t1, r1 = h.upstream.issue(A, UA)
+    label(gate, T1=t1)
+    home = h.home('codex', gate, fixtures.auth_json(t1, r1, A, UA))
+    rpc = h.start(home, gate, refresh_hook=True)
+    controller = Rpc(home / 'backend.sock', h.record)
+    h.clients.append(controller)
+    reads = []
+
+    def rebind():
+        def run():
+            reads.append(windows(controller.request('account/rateLimits/read', {'excludeResetCreditDetails': True})))
+        threading.Thread(target=run, daemon=True).start()
+    gate.rebind, gate.hold = rebind, 5
+    h.read(rpc, 'preflight')
+    thread = h.thread(rpc, home)
+    assert h.turn(rpc, thread, 'Fixture turn one') == 'completed'
+    h.upstream.revoke(t1)
+    original_issue = h.upstream.issue
+
+    def issue(*args, **kwargs):
+        access, refresh = original_issue(*args, **kwargs)
+        label(gate, T2=access)
+        return access, refresh
+    h.upstream.issue = issue
+    status = h.turn(rpc, thread, 'Fixture turn across a native refresh with hold')
+    h.record('hold_result', status=status, controller_reads=len(reads),
+             controller_read_ok=[('rpc_error' not in read) for read in reads],
+             refreshes=h.upstream.count('refresh'),
+             model_upstream=[(e['credential'], e['status']) for e in gate.events if e['event'] == 'model_upstream'])
+
+
 def stage_proactive(h):
     for hooked in (True, False):
         gate = h.gate()
@@ -463,7 +499,7 @@ def stage_concurrent(h):
     h.record('final', refreshes=h.upstream.count('refresh'), secret=h.stored(secret, T1=t1, T2=t2))
 
 
-STAGES = {'shape': stage_shape, 'rotation': stage_rotation, 'proactive': stage_proactive,
+STAGES = {'shape': stage_shape, 'rotation': stage_rotation, 'hold': stage_hold, 'proactive': stage_proactive,
           'identity': stage_identity, 'concurrent': stage_concurrent}
 
 

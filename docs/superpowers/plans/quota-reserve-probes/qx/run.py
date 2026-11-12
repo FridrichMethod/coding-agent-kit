@@ -19,7 +19,8 @@ import time
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[4]
 CACHE = REPO / '.cache/qx'
-STAGES = (('shape', 60), ('rotation', 60), ('proactive', 60), ('identity', 75), ('concurrent', 75))
+STAGES = (('shape', 60), ('rotation', 60), ('hold', 60), ('proactive', 60), ('identity', 75),
+          ('concurrent', 75))
 
 
 def sanitize(text, binary, roots):

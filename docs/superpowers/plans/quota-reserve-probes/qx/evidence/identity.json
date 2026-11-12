@@ -3,7 +3,7 @@
  "ok": true,
  "timeline": [
   {
-   "at": 0.273,
+   "at": 0.325,
    "event": "rate_limits_read",
    "label": "preflight-a",
    "result": {
@@ -13,12 +13,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509849
+      "resetsAt": 1794510064
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803249
+      "resetsAt": 1794803464
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -32,12 +32,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509849
+       "resetsAt": 1794510064
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803249
+       "resetsAt": 1794803464
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -46,7 +46,7 @@
    }
   },
   {
-   "at": 0.355,
+   "at": 0.395,
    "event": "turn",
    "text": "Fixture turn as A",
    "status": "completed",
@@ -55,14 +55,14 @@
    "upstream_model_requests": 1
   },
   {
-   "at": 0.36,
+   "at": 0.401,
    "event": "login_b",
    "result": {
     "type": "chatgptAuthTokens"
    }
   },
   {
-   "at": 0.398,
+   "at": 0.439,
    "event": "turn",
    "text": "Fixture existing thread after switch to B",
    "status": "failed",
@@ -73,7 +73,7 @@
    "upstream_model_requests": 0
   },
   {
-   "at": 0.428,
+   "at": 0.474,
    "event": "turn",
    "text": "Fixture new thread after switch to B",
    "status": "failed",
@@ -84,7 +84,7 @@
    "upstream_model_requests": 0
   },
   {
-   "at": 0.436,
+   "at": 0.48,
    "event": "rate_limits_read",
    "label": "read-as-b",
    "result": {
@@ -94,12 +94,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509849
+      "resetsAt": 1794510065
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803249
+      "resetsAt": 1794803465
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -113,12 +113,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509849
+       "resetsAt": 1794510065
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803249
+       "resetsAt": 1794803465
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -127,14 +127,14 @@
    }
   },
   {
-   "at": 0.443,
+   "at": 0.488,
    "event": "login_a_again",
    "result": {
     "type": "chatgptAuthTokens"
    }
   },
   {
-   "at": 0.48,
+   "at": 0.528,
    "event": "turn",
    "text": "Fixture new thread back on A before continuation",
    "status": "failed",
@@ -145,7 +145,7 @@
    "upstream_model_requests": 0
   },
   {
-   "at": 0.486,
+   "at": 0.534,
    "event": "rate_limits_read",
    "label": "fresh-a-without-continuation",
    "result": {
@@ -155,12 +155,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509849
+      "resetsAt": 1794510065
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803249
+      "resetsAt": 1794803465
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -174,12 +174,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509849
+       "resetsAt": 1794510065
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803249
+       "resetsAt": 1794803465
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -188,18 +188,18 @@
    }
   },
   {
-   "at": 0.486,
+   "at": 0.534,
    "event": "lease_after_fresh_a",
    "paused": "identity-changed",
    "epoch": 5
   },
   {
-   "at": 0.486,
+   "at": 0.534,
    "event": "continuation",
    "accepted": true
   },
   {
-   "at": 0.543,
+   "at": 0.592,
    "event": "rate_limits_read",
    "label": "fresh-a-after-continuation",
    "result": {
@@ -209,12 +209,12 @@
      "primary": {
       "usedPercent": 25,
       "windowDurationMins": 300,
-      "resetsAt": 1794509849
+      "resetsAt": 1794510065
      },
      "secondary": {
       "usedPercent": 60,
       "windowDurationMins": 10080,
-      "resetsAt": 1794803249
+      "resetsAt": 1794803465
      },
      "planType": "pro",
      "rateLimitReachedType": null
@@ -228,12 +228,12 @@
       "primary": {
        "usedPercent": 25,
        "windowDurationMins": 300,
-       "resetsAt": 1794509849
+       "resetsAt": 1794510065
       },
       "secondary": {
        "usedPercent": 60,
        "windowDurationMins": 10080,
-       "resetsAt": 1794803249
+       "resetsAt": 1794803465
       },
       "planType": "pro",
       "rateLimitReachedType": null
@@ -242,13 +242,13 @@
    }
   },
   {
-   "at": 0.543,
+   "at": 0.592,
    "event": "lease_after_continuation",
    "paused": null,
    "epoch": 5
   },
   {
-   "at": 0.57,
+   "at": 0.624,
    "event": "turn",
    "text": "Fixture turn after deliberate continuation",
    "status": "completed",
@@ -260,6 +260,30 @@
  "gates": [
   {
    "events": [
+    {
+     "event": "get",
+     "method": "GET",
+     "path": "/backend-api/wham/accounts/check",
+     "query": false,
+     "credential": "TA",
+     "authorization_scheme": "Bearer",
+     "user_agent_product": "codex_cli_rs/0.167.2",
+     "headers": [
+      "accept",
+      "authorization",
+      "chatgpt-account-id",
+      "host",
+      "user-agent"
+     ],
+     "shown": {
+      "chatgpt-account-id": "fixture-account-a",
+      "accept": "*/*"
+     },
+     "status": 503,
+     "lease": null,
+     "epoch": 0,
+     "paused": null
+    },
     {
      "event": "get",
      "method": "GET",
@@ -282,30 +306,6 @@
       "accept": "*/*"
      },
      "status": 200,
-     "lease": null,
-     "epoch": 0,
-     "paused": null
-    },
-    {
-     "event": "get",
-     "method": "GET",
-     "path": "/backend-api/wham/accounts/check",
-     "query": false,
-     "credential": "TA",
-     "authorization_scheme": "Bearer",
-     "user_agent_product": "codex_cli_rs/0.167.2",
-     "headers": [
-      "accept",
-      "authorization",
-      "chatgpt-account-id",
-      "host",
-      "user-agent"
-     ],
-     "shown": {
-      "chatgpt-account-id": "fixture-account-a",
-      "accept": "*/*"
-     },
-     "status": 503,
      "lease": null,
      "epoch": 0,
      "paused": null
@@ -911,12 +911,12 @@
  ],
  "upstream": [
   {
-   "kind": "models",
-   "path": "/backend-api/codex/models?client_version=0.167.2"
-  },
-  {
    "kind": "other_get",
    "path": "/backend-api/wham/accounts/check"
+  },
+  {
+   "kind": "models",
+   "path": "/backend-api/codex/models?client_version=0.167.2"
   },
   {
    "kind": "usage",

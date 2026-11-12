@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import socket
 import threading
+import time
 from urllib.parse import urlsplit
 
 USAGE_PATHS = ('/backend-api/wham/usage', '/api/codex/usage')
@@ -21,8 +22,11 @@ SHOWN = {'chatgpt-account-id', 'x-openai-fedramp', 'originator', 'openai-beta', 
 
 
 class Gate:
-    def __init__(self, lease, upstream, labels=None, timeout=10):
+    def __init__(self, lease, upstream, labels=None, timeout=10, rebind=None, hold=0.0):
         self.lease, self.timeout = lease, timeout
+        # Optional hold-and-rebind: on a new same-account bearer, ask the controller for a native
+        # usage read and hold the request (no upstream byte) for at most `hold` seconds.
+        self.rebind, self.hold = rebind, hold
         target = urlsplit(upstream)
         self.upstream = (target.hostname, target.port)
         self.labels = dict(labels or {})  # credential digest -> fixture label
@@ -144,13 +148,29 @@ class Gate:
                 except (ValueError, AttributeError):
                     model = None
                 account = self.headers.get('ChatGPT-Account-ID')
-                with gate.lock:
-                    admitted, reason = gate.lease.admit(bearer, account, model)
-                    gate.events.append({'event': 'admission', **info, 'model': model, 'admitted': admitted,
-                                        'reason': reason, 'epoch': gate.lease.epoch})
-                    if admitted:
-                        key = object()
-                        gate.streams[key] = self.connection
+                key = object()
+
+                def decide():
+                    with gate.lock:
+                        admitted, reason = gate.lease.admit(bearer, account, model)
+                        gate.events.append({'event': 'admission', **info, 'model': model, 'admitted': admitted,
+                                            'reason': reason, 'epoch': gate.lease.epoch})
+                        if admitted:
+                            gate.streams[key] = self.connection
+                    return admitted, reason
+                admitted, reason = decide()
+                if reason == 'rebind-required' and gate.rebind is not None and gate.hold > 0:
+                    digest = gate.lease.digest(bearer)
+                    gate.rebind()
+                    deadline = time.monotonic() + gate.hold
+                    while time.monotonic() < deadline:
+                        time.sleep(.02)
+                        with gate.lock:
+                            lease = gate.lease
+                            if lease.paused or (lease.credential == digest and lease.observation is not None):
+                                break
+                    gate.record('rebind_hold_ended', credential=info['credential'])
+                    admitted, reason = decide()
                 if not admitted:
                     return self.refuse(reason)  # never 401: that would start native refresh
                 try:
