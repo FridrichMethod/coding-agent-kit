@@ -121,11 +121,11 @@ main commands only in the original main checkout.
 | Node | Dependencies | Exclusive write ownership | Initial status |
 | --- | --- | --- | --- |
 | B0 | none | integration metadata, .gitignore, handoff | done; preservation commit and independent review passed |
-| PC | B0 | Codex probe fixtures and own evidence report | running in isolated probe worktree |
-| PA0 | B0 | Claude discovery fixtures and own auth/control proposal | running in isolated probe worktree |
-| HAuth | PA0 | coordinator human credential-design decision record | awaiting concrete proposal |
-| PA1 | HAuth | Claude approved-auth quota/control fixtures and evidence | blocked on review |
-| G0 | PC, PA1 | coordinator architecture record and frozen interfaces | blocked on proof |
+| PC | B0 | Codex probe fixtures and own evidence report | blocked-user; reviewed checkpoint 9c660f8 and hooks passed |
+| PA0 | B0 | Claude discovery fixtures and own auth/control proposal | done at 2df1ce5; independent review and hooks passed |
+| HAuth | PA0 | coordinator human credential-design decision record | reviewed candidate schema presented; response pending |
+| PA1 | HAuth | Claude approved-auth quota/control fixtures and evidence | blocked on review and shared device-state boundary |
+| G0 | PC, PA1 | coordinator architecture record and frozen interfaces | blocked; persistent native dispatch gate not established |
 | C | G0 | config.py, shared reserve.py, test_config.py, pure reserve tests | blocked |
 | X | C | bin/codex-as, lib/codex-as/*, Codex-specific tests | blocked |
 | A | C | bin/claude-as, lib/claude-as/*, statusline/helper changes, Claude-specific tests | blocked |
@@ -192,19 +192,68 @@ Never overwrite another run's ledger when selecting new branch names.
 - HAuth and G0 remain unapproved. No runtime node may start. The next task
   checkpoints are reviewed PC evidence and the reviewed PA0 auth proposal.
 
+### Execution checkpoint: reviewed research and unresolved human gates
+
+- PA0 is committed at `2df1ce5d4f95a42dacae3e2675897c26c258a4a5`.
+  Its [auth discovery and proposal](quota-reserve-claude-auth-discovery.md)
+  passed independent spec-compliance and quality/security review after one
+  fix round. Two isolated native runs showed unavailable quota and zero
+  inference; final `pre-commit run --all-files` passed on the reviewed tree.
+- The proposal preserves setup-token and adds explicit native-login selection
+  with native-owned credentials/refresh. Its root is
+  `<secrets_dir>/native-claude-accounts/NAME/config`, outside every legacy
+  `claude-NAME` or `codex-NAME` token pathname. The initial colliding proposal
+  was rejected by review and corrected before requesting HAuth.
+- The native shared `~/.claude/.device-keys.json` contains credential-bearing
+  device identity outside `CLAUDE_CONFIG_DIR`. Static inspection found no
+  independent supported path override; ordinary login/logout/usage and
+  concurrency effects remain unverified. Candidate schema approval alone
+  does not authorize access to it. Real-HOME enrollment stays blocked pending
+  evidence or a separately reviewed human shared-state decision. There is
+  no implicit switch to an isolated HOME and no real-account authorization.
+- HAuth was asked to approve only this concrete schema candidate or request
+  changes. Consult the durable `gate-decisions.md` for the latest response;
+  approval cannot waive shared-state review, authenticated freshness or G0.
+- PC's [native evidence report](quota-reserve-codex-evidence.md) has an
+  independently accepted blocker conclusion, committed at
+  `9c660f8af4ad98c79d3c01d4f74b14bb1d40b29e`. After goal pause and root
+  interruption, controller loss leaves the backend available; starting old
+  queued input increases model request count from 2 to 3, and programmatic
+  continuation increases it from 3 to 4. Those are new dispatches. Native UI
+  current-turn interruption is demonstrated, not a persistent reserve gate.
+- PC also demonstrates a local model-free quota query, visible account
+  mismatch, failure on HTTP 503, and native integer-only percentage parsing.
+  These fixtures do not prove real account permissions, universal freshness,
+  all quota families, active descendant control or manual-resume provenance.
+- Independent PC review found and resolved failed-probe status propagation,
+  timeout ownership, unqualified stream attribution, and local-path hygiene.
+  Three supervision regressions and five evidence checks passed; the updated
+  native suite reproduced the dispatch counterexample. Final hooks passed on
+  the exact reviewed tree; logs, exit codes and cleanup inventory are archived
+  in the durable ledger. No capability pass is inferred from those checks.
+- PC's scope question is pending: retain current architecture restrictions
+  and block dependent nodes, or explicitly permit additional research on a
+  per-invocation request gate without weakening full A. That question grants
+  no implementation permission. The two disjoint research branches are
+  integrated as one ordinary merge wave preserving both commit ancestries.
+- No runtime source, public interface, release version or permanent product
+  behavior has changed. C/X/A/U/I/R/V and both publication/cleanup cycles are
+  unstarted. Do not delete implementation evidence or claim release readiness
+  while the human and native-capability gates remain open.
+
 ### PC: prove Codex control rather than rediscover interruption
 
 **Files:** read `lib/codex-as/{launch,check,handoff,usage}.py` and
 `tests/test_codex_sharing_native.py`; create isolated conformance experiments
 in the probe worktree and a task-owned research report. Do not edit runtime code.
 
-- [ ] Reproduce the three recorded signal/shared-backend outcomes with the supplied scripts against the currently installed binary. Preserve version, binary hash, requests, exit statuses, and terminal evidence; skip clearly if native binary is absent.
+- [x] Reproduce the three recorded signal/shared-backend outcomes with the supplied scripts against the currently installed binary. Preserve version, binary hash, requests, exit statuses, and terminal evidence; skip clearly if native binary is absent.
 - [ ] Test a private per-launch foreground backend attached to the native TUI. Identify a documented/native mechanism that actually inhibits subsequent model dispatch, including internal subagent and goal continuation. A monitor RPC client or a TUI-only proxy is insufficient.
 - [ ] Exercise root/child/grandchild activity, queued prompts, goals, controller death, backend failure, in-session resume, and session identity changes. A fake SSE request counter must stay unchanged after pause/monitor loss until a verified manual resume; record any in-flight requests separately.
 - [ ] Establish the exact manual-resume signal and prove it differs from queued prompts and background reports. Verify TUI remains usable, and document behavior of already running local tools and terminal restoration.
 - [ ] Prove model-free startup quota parsing and account/family association with native/local fixtures. Do not claim real server permissions from a mocked provider.
-- [ ] Report PASS only for the complete capability set in G0. If no dispatch gate can be established after targeted exploration, mark blocked-user, explain the missing mechanism, and ask whether scope should change. Do not implement a speculative proxy or weaken A.
-- [ ] Commit repeatable useful fixtures/evidence, with focused checks and required pre-commit; obtain an independent evidence review. Coordinator integrates the report and records its SHA.
+- [x] Report PASS only for the complete capability set in G0. If no dispatch gate can be established after targeted exploration, mark blocked-user, explain the missing mechanism, and ask whether scope should change. Do not implement a speculative proxy or weaken A.
+- [x] Commit repeatable useful fixtures/evidence, with focused checks and required pre-commit; obtain an independent evidence review. Coordinator integrates the report and records its SHA.
 
 ### PA0, HAuth, and PA1: Claude authentication, freshness, and control
 
@@ -212,9 +261,9 @@ in the probe worktree and a task-owned research report. Do not edit runtime code
 authentication/control interfaces and Claude fixtures. Research only until
 HAuth and G0. Keep the native default login and existing token files untouched.
 
-- [ ] **PA0:** reproduce model-free stream-json initialize/get_usage with a fully isolated, network-denied, fabricated-token harness. Assert zero model events/cost; pin `rate_limits_available:false` as an unsupported result rather than treating it as zero usage.
-- [ ] **PA0:** investigate native full login with `CLAUDE_CONFIG_DIR`, Linux credential storage, macOS Keychain namespaces, refresh, identity reporting, and session/settings isolation. Prefer native credential management. Do not simply copy the user's default credential or fake OAuth scopes.
-- [ ] **PA0:** produce a concrete proposed auth schema, enrollment command, private account paths/modes, same-account concurrency behavior, refresh ownership, compatibility behavior, and migration/recovery procedure that preserves existing setup-token mode. Commit the reviewed discovery report and record PA0 complete before requesting HAuth.
+- [x] **PA0:** reproduce model-free stream-json initialize/get_usage with a fully isolated, network-denied, fabricated-token harness. Assert zero model events/cost; pin `rate_limits_available:false` as an unsupported result rather than treating it as zero usage.
+- [x] **PA0:** investigate native full login with `CLAUDE_CONFIG_DIR`, Linux credential storage, macOS Keychain namespaces, refresh, identity reporting, and session/settings isolation. Prefer native credential management. Do not simply copy the user's default credential or fake OAuth scopes.
+- [x] **PA0:** produce a concrete proposed auth schema, enrollment command, private account paths/modes, same-account concurrency behavior, refresh ownership, compatibility behavior, and migration/recovery procedure that preserves existing setup-token mode. Commit the reviewed discovery report and record PA0 complete before requesting HAuth.
 - [ ] **HAuth: stop for human review of that proposal.** Record the exact approval or requested changes. Before a real-account check, separately name the account, command, data accessed, and absence of model inference; the user performs any login. Authorization to research full login is not authorization to migrate credentials.
 - [ ] **PA1:** prove native quota freshness on the approved path. A cached/seeded get_usage response with no proven age cannot reset the observation deadline. Test unchanged-but-new observations, stale cache, scope failure, missing windows, and endpoint retry/rate limits.
 - [ ] **PA1:** investigate native session attachment/control with the full G0 matrix. Hooks may assist; UserPromptSubmit is not proof of human origin, SubagentStart cannot block creation, and headless control does not control another TUI. Record running-tool effects and monitor death.
@@ -392,4 +441,7 @@ does not certify it. Keep the integration worktree until this second cycle.
 - [ ] Read this handoff/spec/research, or recover their last archived versions if cleanup has begun.
 - [ ] Reconcile ledger node states with actual branches, SHAs, worktrees, active agents and CI. Do not rerun completed nodes just because the chat context is new.
 - [ ] Preserve pending user questions and approval scope. Ask only for the exact blocked design/credential/manual-check decision; continue independent authorized work while waiting.
-- [ ] The initial next action is B0, then PC and PA0 in parallel. HAuth and G0 have not passed. No runtime implementation is authorized by this handoff until those gates pass.
+- [x] B0 and PA0 are complete; PC has reviewed blocker evidence. Resume from
+  the durable ledger and current human decisions, not from B0. HAuth and G0
+  have not passed. No runtime implementation is authorized until those gates
+  pass; schema-only approval does not clear the shared-device boundary.

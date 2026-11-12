@@ -1,0 +1,47 @@
+{
+  "version": "2.1.322 (Claude Code)",
+  "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+  "auth_status": {
+    "loggedIn": true,
+    "authMethod": "oauth_token",
+    "apiProvider": "firstParty",
+    "analyticsDisabled": true,
+    "projectsDirectory": "<PRIVATE_PROBE_ROOT>/config/projects",
+    "configDirectory": "<PRIVATE_PROBE_ROOT>/config",
+    "loginExpiresAt": null
+  },
+  "usage": {
+    "session": {
+      "total_cost_usd": 0,
+      "total_api_duration_ms": 0,
+      "total_duration_ms": 17174,
+      "total_lines_added": 0,
+      "total_lines_removed": 0,
+      "model_usage": {}
+    },
+    "subscription_type": null,
+    "rate_limits_available": false,
+    "rate_limits": null,
+    "behaviors": null
+  },
+  "event_types": [
+    "system",
+    "control_response",
+    "control_response"
+  ],
+  "denied_syscalls": [
+    "socket",
+    "connect",
+    "sendto",
+    "sendmsg",
+    "sendmmsg",
+    "io_uring_setup"
+  ],
+  "injected_denials": {
+    "version": 0,
+    "status": 8,
+    "usage": 36
+  },
+  "model_events": 0,
+  "classification": "unsupported_not_zero_usage"
+}
