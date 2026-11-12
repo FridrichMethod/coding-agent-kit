@@ -1,0 +1,141 @@
+{
+  "audit_date": "2026-11-12",
+  "codex": {
+    "version": "0.167.2",
+    "binary_sha256": "a9672d0fa0dd8fcf8cad136fa0d056b914bc046f5ac3d78f4a5cf390655af56b",
+    "source_commit": "ce21072c90d32c40af7a55b60b2fb35c84a43a6a",
+    "archive_url": "https://codeload.github.com/openai/codex/tar.gz/ce21072c90d32c40af7a55b60b2fb35c84a43a6a",
+    "archive_sha256": "11e3321cd1a158dcfd920f8d24b07a08e896b9eaa7f4800f3042227b56342170",
+    "files": [
+      {
+        "path": "codex-rs/core/src/agent/child_config.rs",
+        "sha256": "e41280fdf7e69dedc98dd1f4f66db56d6ea22cda3525e96e0480dabae3b49f51"
+      },
+      {
+        "path": "codex-rs/core/src/agent/role.rs",
+        "sha256": "7430d319584c0f6ace5a99e7e7a4074f9899e678ddfbc4665fcb215007063914"
+      },
+      {
+        "path": "codex-rs/core/src/client.rs",
+        "sha256": "662cf64d10f4b0d7eaf3ad046e53b1eb6dcf8dfb3cb5a425a3c8c222adc05da5"
+      },
+      {
+        "path": "codex-rs/core/src/compact.rs",
+        "sha256": "abc5cd5d1f2e9e8a415a04f27974dc39809939706ca413059a38dd56571a128f"
+      },
+      {
+        "path": "codex-rs/core/src/compact_remote_v2.rs",
+        "sha256": "29407e61ffd33104695968710dcc948e814ee7276766c37e0cca910b4c9e50b2"
+      },
+      {
+        "path": "codex-rs/core/src/compact_remote_v2_attempt.rs",
+        "sha256": "6713b4190b564c77216e080e7ff9526a6231215fbb5a6e8d0a517945e861b318"
+      },
+      {
+        "path": "codex-rs/core/src/realtime_conversation.rs",
+        "sha256": "ee7b72decc2c41695a8c6610668c5000251cb753818cf189d4361e5579fe05bc"
+      },
+      {
+        "path": "codex-rs/features/src/lib.rs",
+        "sha256": "2ba7074ce16eb6578f0662ab8dfde90a0fb89a16ca04c8b459ae67e398749742"
+      },
+      {
+        "path": "codex-rs/tui/src/app_server_session.rs",
+        "sha256": "5a62e29f5b20a81194a24c796a233194478b6a2a7af27c15168233054f7e3e4b"
+      },
+      {
+        "path": "codex-rs/tui/src/chatwidget/session_flow.rs",
+        "sha256": "ae99739b757a0c1b339e1b61ae2a1f3e0cbc4aa097bea4ff26ae64cd6c931f6b"
+      },
+      {
+        "path": "codex-rs/tui/src/app/thread_title.rs",
+        "sha256": "f06237886e7849919bb592cf5db4c5ed66e809c58c414455c535f237d673e5da"
+      },
+      {
+        "path": "codex-rs/app-server/src/config_manager.rs",
+        "sha256": "64568b07bc395b5fcd8f37a3dc062c81a3fd1657a0f9dad6a59db163af5e0a5e"
+      },
+      {
+        "path": "codex-rs/app-server/src/message_processor.rs",
+        "sha256": "de79b843e440610da5b0b6abb31a97f9d6c6e30bc60e6d5f7a45d4f69cf6fedc"
+      },
+      {
+        "path": "codex-rs/app-server/src/request_processors/turn_processor.rs",
+        "sha256": "63293d7e2073442d9d5df8c2c146041b28f8ab363c28a4304057ded7c179afb5"
+      },
+      {
+        "path": "codex-rs/model-provider/src/provider.rs",
+        "sha256": "3ce7977eb5901c7c703855c42f0dcacdd98f585e8346057f1745a239f12c7c9c"
+      },
+      {
+        "path": "codex-rs/model-provider-info/src/lib.rs",
+        "sha256": "7a9eb4b69e85fd79c590245fca24b013c24652db3a81c41a2266293495f5ff85"
+      },
+      {
+        "path": "codex-rs/ext/goal/src/runtime.rs",
+        "sha256": "9fd31e79fd06f68e192b799631cfd544b8e685dd7aa4b98b96a02da9e8ff9ea8"
+      },
+      {
+        "path": "codex-rs/ext/image-generation/src/backend.rs",
+        "sha256": "57b45a1280ec860420fe331ab275ddbc7c601ff02153d943eb8c58ae7e6d723f"
+      },
+      {
+        "path": "codex-rs/ext/image-generation/src/extension.rs",
+        "sha256": "18d276854dc851daffeaf6e33374997675c27bcb78f9b8765c5c3b01f5f480c9"
+      },
+      {
+        "path": "codex-rs/config/src/loader/mod.rs",
+        "sha256": "a5a6a601eb2f7c1352106caa1904a7ff336937b73643e5831d52bfd21044d4b2"
+      }
+    ]
+  },
+  "claude": {
+    "version": "2.1.322",
+    "binary_sha256": "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478",
+    "byte_ranges": [
+      {
+        "label": "provider_selection",
+        "start": 283497514,
+        "end_exclusive": 283498180,
+        "sha256": "77dcfe1c53dee1053e183d2ca06e18f5e68ae1367af279fb2d8767619d3dd103"
+      },
+      {
+        "label": "stored_login_pin",
+        "start": 284518915,
+        "end_exclusive": 284519220,
+        "sha256": "f99e2107e707687a6686c0c9c26103348caafcc61a89516a1fa62de5b6008c63"
+      },
+      {
+        "label": "settings_environment",
+        "start": 288447157,
+        "end_exclusive": 288478780,
+        "sha256": "bfa4d312afaf4bd928f0125d076fe7d48e5da2596474e4ad36d3944ca6c46edd"
+      },
+      {
+        "label": "client_builder",
+        "start": 288823562,
+        "end_exclusive": 288833780,
+        "sha256": "f489217db9e90db464949a4b0959bd065b528809c427187b2c7d00a3743057bd"
+      },
+      {
+        "label": "voice_availability",
+        "start": 292097800,
+        "end_exclusive": 292098180,
+        "sha256": "4a6ace0b669a00a44c23744b6c8668d2323a297c541a8dd2332dbb3673f7483f"
+      },
+      {
+        "label": "background_tasks",
+        "start": 291195800,
+        "end_exclusive": 291196700,
+        "sha256": "0cf750c0d8a96159c7456962fa3f6ee33d094038ffaea59baa6ffcbffd38ab85"
+      },
+      {
+        "label": "cron_switch",
+        "start": 298734200,
+        "end_exclusive": 298734650,
+        "sha256": "426c34c6b17b3ebf296acceb82d41a0ed9012a3310884fa0ecfa691c82f5a60d"
+      }
+    ]
+  },
+  "static_checks": "PASS: inheritance, role allowlist, compaction, goal dispatch, image provider, removed voice flag, TUI projection, RPC merge, Claude env precedence and client construction; source assertions only"
+}
