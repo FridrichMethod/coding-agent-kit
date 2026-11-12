@@ -10,6 +10,7 @@ import io
 import json
 import os
 from pathlib import Path
+import pwd
 import shutil
 import signal
 import socket
@@ -588,6 +589,12 @@ class N1Tests(Base):
         self.assertNothingConsumed()
 
     def test_cli_pins_the_reviewed_native(self):
+        n1 = live._Modules().n1
+        try:  # the CLI checks the host's real policy sources before the hash
+            n1.check_effective_policy(str(self.config), n1.load_registration(n1.AccountPaths(str(self.secrets), "alpha")),
+                                      n1.detect_platform())
+        except n1.HarnessRefused as error:
+            self.skipTest("this host's policy refuses before the hash check: " + error.reason)
         code, document, stderr = self.run_cli("n1", "--alias", "alpha", "--out", self.out, "--binary", self.native,
                                               "--tunnel")
         self.assertEqual((code, document["reason"], stderr), (3, "native_version_unreviewed", ""))
@@ -683,6 +690,27 @@ class N1Tests(Base):
         self.assertEqual((code, document["reason"], document["attempt_consumed"]), (3, "interrupted", False))
         self.assertNothingConsumed()
 
+    def test_signal_before_run_n1_takes_its_start_still_ends_the_run(self):
+        """A flag set after the driver's last check but before run_n1's first clock reading."""
+        self.behave(write_cache=True, rate_limits=windows(), cache_account=ACCOUNT, record_env=True)
+        original = live._Clock.__init__
+
+        def init(clock, refused):
+            original(clock, refused)
+            live._on_signal(signal.SIGTERM, None)
+
+        start = time.monotonic()
+        with mock.patch.object(live._Clock, "__init__", init):
+            code, document = self.n1()
+        self.assertLess(time.monotonic() - start, 15)
+        harness = document["harness"]
+        self.assertEqual((code, document["status"], document["attempt_consumed"]), (1, "interrupted", True))
+        # start was real time, so every deadline had passed: no get_usage was sent
+        self.assertEqual((harness["classification"], harness["reason"], harness["queries"]),
+                         ("failed", "operation_deadline", 0))
+        self.assertTrue(harness["native"]["group_empty"])
+        self.assertEqual(os.listdir(self.root / "run"), [])
+
     def test_signal_after_the_attempt_spawns_nothing(self):
         self.behave(write_cache=True, rate_limits=windows(), cache_account=ACCOUNT, record_env=True)
         original = live.Run.create_attempt
@@ -709,6 +737,7 @@ class LiveWiringTests(unittest.TestCase):
         wiring = live.Wiring
         self.assertEqual(wiring.expected_native_sha256,
                          "bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478")
+        self.assertEqual(wiring.user_agent, "quota-probe/1")
         self.assertEqual((wiring.socket_timeout, wiring.total_deadline), (5.0, 10.0))
         self.assertEqual(modules.usage.BODY_LIMIT, 65536)
         self.assertIs(wiring.resolver, socket.getaddrinfo)
@@ -737,6 +766,14 @@ class LiveWiringTests(unittest.TestCase):
 class BearerTests(Base):
     def setUp(self):
         super().setUp()
+        self.sent_headers = []  # every request's headers except Authorization (test memory only)
+        original, sent = fake_usage._Handler.do_GET, self.sent_headers
+
+        def do_get(handler):
+            sent.append([(name, value) for name, value in handler.headers.items() if name.lower() != "authorization"])
+            return original(handler)
+
+        self.enterContext(mock.patch.object(fake_usage._Handler, "do_GET", do_get))
         self.server = fake_usage.FakeUsageServer()
         self.server.__enter__()
         self.addCleanup(self.server.__exit__, None, None, None)
@@ -779,6 +816,44 @@ class BearerTests(Base):
         for path in (self.out / "bearer.attempt", self.out / "bearer.result.json", self.alias_marker("bearer")):
             self.assertEqual(self.mode(path), 0o600)
         self.assertClean()
+
+    def test_requests_carry_no_project_user_or_host_identifier(self):
+        self.n1_done()
+        code, document = self.bearer()
+        self.assertEqual((code, document["user_agent"]), (0, "quota-probe/1"))
+        self.assertEqual(len(self.sent_headers), 2)  # usage and profile
+        account = pwd.getpwuid(os.getuid())
+        forbidden = ["coding-agent-kit", os.uname().nodename, account.pw_dir, str(self.home), str(self.root)]
+        forbidden += [account.pw_name] if len(account.pw_name) >= 3 else []
+        for headers in self.sent_headers:
+            self.assertEqual([value for name, value in headers if name.lower() == "user-agent"], ["quota-probe/1"])
+            text = "\n".join("%s: %s" % item for item in headers).lower()
+            for value in forbidden:
+                self.assertNotIn(value.lower(), text)
+        self.assertClean()
+
+    def test_pending_registration_refuses(self):
+        shutil.rmtree(self.config.parent)
+        self.assertEqual(self.step("pending")[0], 0)
+        self.native_login()
+        self.credential()
+        code, document = self.bearer()
+        self.assertEqual((code, document["reason"], document["attempt_consumed"]), (3, "registration_pending", False))
+        self.assertFalse((self.out / "bearer.attempt").exists())
+        self.assertEqual(self.server.requests, [])
+
+    def test_rerun_after_success_reports_the_result_before_a_stale_n1(self):
+        self.n1_done()
+        self.assertEqual(self.bearer()[0], 0)
+        stale = json.loads((self.out / "n1.result.json").read_text())
+        stale["attempt_created_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                                     time.gmtime(time.time() - 2 * live.N1_MAX_AGE_S))
+        (self.out / "n1.result.json").unlink()
+        (self.out / "n1.result.json").write_text(json.dumps(stale))
+        (self.out / "n1.result.json").chmod(0o600)
+        code, document = self.bearer()
+        self.assertEqual((code, document["reason"], document["attempt_consumed"]), (4, "result_exists", False))
+        self.assertEqual(len(self.server.requests), 2)
 
     def test_attempt_exists_before_any_network(self):
         self.n1_done()

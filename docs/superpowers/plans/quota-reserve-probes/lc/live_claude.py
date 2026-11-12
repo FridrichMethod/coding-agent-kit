@@ -43,8 +43,9 @@ bearer   One-shot, only after an n1 result in DIR for the same alias and
          and no server-managed policy. The attempt markers are created before
          the credential read; then one memory-only access bearer read,
          exactly one usage GET and one profile GET (5 s socket, 10 s total,
-         64 KiB, no retry, redirect or refresh). The bearer is dropped before
-         the result is written. "verified" is a probe outcome (general windows
+         64 KiB, no retry, redirect or refresh), each with the neutral
+         User-Agent "quota-probe/1" (no project, user or host name). The
+         bearer is dropped before the result is written. "verified" is a probe outcome (general windows
          valid, both profile UUIDs equal to the registration), not an
          admission decision.
 
@@ -65,9 +66,11 @@ authority on registration state.
 Signals: SIGINT, SIGTERM and SIGHUP during n1 or bearer only set a flag; they
 never raise. A step checks the flag before its attempt markers (refused,
 nothing consumed), after them, and between bearer requests. run_n1 gets a
-clock whose deadlines all pass once the flag is set and whose waits end
-there, so its own cleanup (stdin close, group reaping, tunnel exit, workspace
-removal) always runs to its end. SIGKILL cannot be handled.
+clock whose first reading (run_n1's start, the base of every deadline) is
+always real time and whose later readings jump past every deadline once the
+flag is set, and whose waits end there, so its own cleanup (stdin close,
+group reaping, tunnel exit, workspace removal) always runs to its end.
+SIGKILL cannot be handled.
 
 Output: one JSON document on stdout (sorted keys, ASCII), the same document
 as the result file except that pending adds user_commands and user_notes.
@@ -116,6 +119,9 @@ EXIT_OK, EXIT_NOT_OK, EXIT_USAGE, EXIT_REFUSED, EXIT_ATTEMPTED, EXIT_INTERNAL = 
 N1_COMPLETED = ("fresh_windows", "inconclusive", "unavailable")
 N1_MAX_AGE_S = 3600
 N1_CLOCK_SKEW_S = 300
+# Sent on both bearer requests instead of usage.py's research default: no
+# project, user or host name may reach the provider.
+USER_AGENT = "quota-probe/1"
 ALIAS_MARKER = "lc-%s.attempt"
 RERUN_LIMIT = 99
 ERROR_TYPES = ("authentication_error", "permission_error", "rate_limit_error", "not_found_error",
@@ -183,6 +189,7 @@ class Wiring:
     socket_timeout = 5.0
     total_deadline = 10.0
     resolver = staticmethod(socket.getaddrinfo)
+    user_agent = USER_AGENT
 
 
 # --- signals -----------------------------------------------------------------
@@ -202,21 +209,28 @@ SIGNALS = ("SIGINT", "SIGTERM", "SIGHUP")
 class _Clock:
     """run_n1's injectable monotonic and sleep: real time until a signal arrives.
 
-    After it, every deadline run_n1 computes has passed (the next bound check
-    ends the operation) and a wait raises the harness's own refusal, which
-    run_n1 handles in its try block. Bounds only ever get shorter.
+    The first reading is run_n1's start, the base of every deadline it
+    computes; it is always real time, even when the flag is already set, so
+    a signal can never move that base. Every later reading after the signal
+    has passed every deadline (the next bound check ends the operation), and
+    a wait raises the harness's own refusal, which run_n1 handles in its try
+    block. Bounds only ever get shorter.
     """
 
     JUMP = 1.0e6
 
     def __init__(self, refused):
-        self.refused, self.jumped = refused, False
+        self.refused, self.jumped, self.based = refused, False, False
 
     def monotonic(self):
+        now = time.monotonic()
+        if not self.based:  # run_n1's start: never on the jumped clock
+            self.based = True
+            return now
         if _Signals.received:
             self.jumped = True
-            return time.monotonic() + self.JUMP
-        return time.monotonic()
+            return now + self.JUMP
+        return now
 
     def sleep(self, seconds):
         end = time.monotonic() + seconds
@@ -599,6 +613,7 @@ def step_bearer(modules, config, paths, run, args, wiring):
     registration = n1.load_registration(paths)
     if registration["state"] != "ready":
         raise Refused("registration_pending")
+    run.check_unused(modules, paths, "bearer")  # exit 4 before any exit-3 refusal, as for n1 reruns
     expected = registration["identity"]
     try:
         n1.check_environment(os.environ)
@@ -626,13 +641,12 @@ def step_bearer(modules, config, paths, run, args, wiring):
     local = None
     if not matches:
         raise Refused("identity_mismatch_before")
-    run.check_unused(modules, paths, "bearer")
     if _Signals.received:
         raise Refused("interrupted")
     run.create_attempt(modules, paths, "bearer")
     document = {"attempt_consumed": True, "n1_classification": n1_classification, "n1_age_s": n1_age,
                 "n1_gate": "completed" if args.accept_incomplete_n1 else "fresh_windows",
-                "identity_matches_local": True,
+                "identity_matches_local": True, "user_agent": wiring.user_agent,
                 "bounds": {"socket_timeout_s": wiring.socket_timeout, "total_deadline_s": wiring.total_deadline,
                            "body_limit_bytes": usage.BODY_LIMIT, "usage_requests_max": 1,
                            "profile_requests_max": 1, "retries": 0, "redirects": 0, "refresh": False},
@@ -652,7 +666,7 @@ def step_bearer(modules, config, paths, run, args, wiring):
         if _Signals.received:
             return EXIT_NOT_OK, "interrupted", document, {}
         common = dict(context=wiring.tls_context, socket_timeout=wiring.socket_timeout,
-                      total_deadline=wiring.total_deadline, resolver=wiring.resolver)
+                      total_deadline=wiring.total_deadline, resolver=wiring.resolver, user_agent=wiring.user_agent)
         observation = usage.fetch(held, usage_endpoint, **common)
         document["usage"] = _usage_summary(modules, observation)
         if _Signals.received:
