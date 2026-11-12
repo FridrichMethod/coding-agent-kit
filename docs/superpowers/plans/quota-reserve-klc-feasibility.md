@@ -125,12 +125,12 @@ latch got 403. Ctrl-O history view, a new prompt via native send-now
 slow in this case only: native confirmed `Exit and stop tasks` and printed
 its resume hint promptly, but its process ended 39 s after the first exit
 key, against 4 s in every other case (N); the cause (subagent or background
-shell teardown, or flushing refused telemetry) is U. Native renders the refusal as
-`Please run /login - API Error: 403 <gate message>` (N; native's separator
-is a non-ASCII middle dot, written `-` here): the login hint is misleading.
-A scratch run (not in the evidence set) showed 400 renders without the hint
-and 429 makes native retry with backoff up to 10 attempts; the refusal
-status is a G0 UX item.
+shell teardown, or flushing refused telemetry) is U. Native renders the
+refusal as `Please run /login - API Error: 403 <gate message>` (N; native's
+separator is a non-ASCII middle dot, written `-` here): the login hint is
+misleading. A scratch run (not in the evidence set) showed 400 renders
+without the hint and 429 makes native retry with backoff up to 10 attempts;
+the refusal status is a G0 UX item.
 
 **2 Queued child.** The child and grandchild report 200 before and 403 after
 the latch, never 200 after; gate ground truth agrees; their direct attempts
@@ -259,11 +259,11 @@ they arrive as CONNECT and are refused: `api.anthropic.com:443` eight or
 nine times within 0.5 s of startup, then every 0.5 to 5 s (10 to 17 per
 invocation in these 6 to 48 s runs), plus one each to
 `raw.githubusercontent.com`, `downloads.claude.ai` and `github.com` (a
-`git-remote-https` helper). Without
-a proxy they fail at resolution. Native showed no user-visible error and kept
-working (N). Startup also sends two model requests before the user's turn: a
-non-streaming `max_tokens: 1` request and a title request (N); both are
-admitted and counted like any other.
+`git-remote-https` helper). Without a proxy they fail at resolution. Native
+showed no user-visible error and kept working (N). Startup also sends two
+model requests before the user's turn: a non-streaming `max_tokens: 1`
+request and a title request (N); both are admitted and counted like any
+other.
 
 **Native sandbox inside L2a.** With `sandbox.enabled`, native started
 `bwrap`, then reported `Sandbox is enabled but failed to initialize:
@@ -371,10 +371,11 @@ latch; control socketpair carrying JSON `{"op":"continue"}` and
 ## 8. Proved, inferred, unproved
 
 - **N (fixtures, this host, 2.1.322):** all verdicts above; the admission
-  invariant across the 12 native stages (13 invocations); native refresh through the tunnel and model-free
-  pre-launch refresh; native keeps using an expired token without a refresh
-  path; background tool children lack a controlling terminal; native sandbox
-  failure inside L2a; the outer write rule works for a short session.
+  invariant across the 12 native stages (13 invocations); native refresh
+  through the tunnel and model-free pre-launch refresh; native keeps using
+  an expired token without a refresh path; background tool children lack a
+  controlling terminal; native sandbox failure inside L2a; the outer write
+  rule works for a short session.
 - **S:** native refresh threshold `now + 300000 >= expiresAt` (binary offset
   286681302); `platform.claude.com` used only for the token endpoint and
   links; option list from `--help`.
