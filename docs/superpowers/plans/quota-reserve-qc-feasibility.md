@@ -1,6 +1,8 @@
 # QC: attributable model-free Claude quota and credential binding
 
-Feasibility node QC, research date November 12, 2026, base `0c5b492`.
+Feasibility node QC, research date November 12, 2026, base `0c5b492`;
+revised after independent review round 1 (findings I1, M1-M5; see the last
+section).
 Research only: no launcher, completion, helper, installer or suite change.
 Code and tests live in [quota-reserve-probes/qc/](quota-reserve-probes/qc/).
 G0 is not passed; nothing here is production capability or release evidence.
@@ -111,15 +113,25 @@ and harness refuse any other spelling.
 ## 2. Same-bearer quota
 
 [usage.py](quota-reserve-probes/qc/usage.py) and the loopback
-[fake](quota-reserve-probes/qc/fake_usage.py), 15 tests:
+[fake](quota-reserve-probes/qc/fake_usage.py), 21 tests (one loopback TLS
+case needs `/usr/bin/openssl` and skips without it):
 
 - Production target `https://api.anthropic.com/api/oauth/usage`, verifying
   default TLS context, `Authorization: Bearer`, `anthropic-beta:
   oauth-2025-04-20`, `Cache-Control: no-cache`, `Connection: close`, neutral
   User-Agent (whether the server accepts a non-native agent is U).
-- 5 s per socket operation, 10 s total enforced by a watchdog that shuts the
-  socket down (slow-drip peers cannot extend it), 64 KiB headers and body,
-  no redirects (3xx refused), no retries, no refresh, no proxy discovery.
+- Time: one 10 s watchdog is armed before name resolution. Resolution runs
+  in a daemon thread joined with the time left (getaddrinfo ignores socket
+  timeouts); at most two addresses are tried, each connect and the TLS
+  handshake take min(5 s, time left); the deadline is checked again right
+  before the request, so no header byte (and no `Authorization`) is sent once
+  it is spent; the watchdog shuts tracked sockets down at 10 s, so slow-drip
+  peers cannot extend it. Bound: 10 s plus thread scheduling. A hung resolver
+  thread may outlive the call; it holds no token. Tests: hung resolver,
+  deadline spent during resolution (no connection), deadline spent after
+  connect (zero bytes reach the peer), slow drip.
+- 64 KiB headers and body, no redirects (3xx refused), no retries, no
+  refresh, no proxy discovery.
 - Only a fresh direct 200 with `application/json` and every enabled window
   valid is usable. 401/403/429/5xx, transport errors, deadline, malformed or
   cache-sourced data are never fresh.
@@ -129,6 +141,16 @@ and harness refuse any other spelling.
   Native's other rows (`seven_day_oauth_apps`, `seven_day_opus`,
   `seven_day_sonnet`, `cinder_cove`, `wattle_ember`, `extra_usage`, `limits`)
   and any `five_hour_*`/`seven_day_*` row are counted, never substituted.
+- Present (non-null, non-empty) rows whose admission semantics are unproved
+  are reported as `unproved_rows`: `seven_day_oauth_apps`, the credit pools
+  `cinder_cove` and `wattle_ember`, any `limits[]` entry, unknown
+  `five_hour_*`/`seven_day_*` rows and unknown rows. The two model rows and
+  the `extra_usage` overage pool are not in that set (I). Native (S, offset
+  292579091) parses each `limits[]` entry as `{kind, group, percent,
+  resets_at, severity, is_active, scope.model.display_name,
+  scope.surface.display_name}` and shows them as per-model weekly buckets
+  labelled by display name (for example "Fable"), filtered by a server-flag
+  allowlist; nothing in the response maps a display name to an API model id.
 - Option-3 helper `fetch_profile_identity` (same bounds) keeps only
   `account.uuid` and `organization.uuid` from `/api/oauth/profile`, the
   endpoint native uses at login and refresh to bind a token to an account.
@@ -136,7 +158,7 @@ and harness refuse any other spelling.
 ## 3. Admission and rotation contract
 
 [admission.py](quota-reserve-probes/qc/admission.py) with
-[gate_server.py](quota-reserve-probes/qc/gate_server.py), 22 tests on a
+[gate_server.py](quota-reserve-probes/qc/gate_server.py), 23 tests on a
 deterministic clock. Lease = (bearer, registered account/organization,
 family, observation time, monotonic deadline, clock offset). Under one
 admission lock, before any upstream byte: refuse unless open; exactly one
@@ -151,7 +173,34 @@ Choices for G0 (I): same-identity rotation keeps already admitted streams
 (they were admitted under valid quota); any failure closes all registered
 streams. Revalidations are budgeted (default 4 per minute, then pause).
 A model with a model-specific row present (`seven_day_opus` for an opus
-model) is refused as `model_family_unproved`.
+model, by a substring heuristic) is refused as `model_family_unproved`.
+While the lease holds any `unproved_rows` entry, such as a model-scoped
+`limits[]` entry, every request is refused as `quota_row_unproved` (a
+refusal, not a latch). Remaining G0 gates: the production `allowed_models`
+list and its model-to-family mapping (the research heuristic is not one),
+and the semantics of each unproved row from a live sample; until then the
+gate refuses rather than admitting under the general windows.
+
+Fail-closed costs that are G0/K inputs (I, from the contract as written):
+
+- Idle bearer expiry: `monitor()` polls with the lease bearer. If native
+  refreshes during an idle period, polls fail until `freshness_expired`
+  pauses the session, and the next prompt (carrying the refreshed bearer) is
+  refused and needs manual continuation; paused polls have the same problem.
+  Possible change, not implemented: on a 401 for the lease bearer, re-read
+  the store bearer and run the same rotation contract (hold, fresh
+  same-bearer GET, identity check) before pausing.
+- Old-bearer stragglers after a same-identity rotation: a revoked old bearer
+  pauses the session at once; one that is not revoked flips the lease back
+  and forth, each flip a revalidation, until the 4-per-minute budget pauses
+  the session.
+- Monitor loss: the controller has no timer of its own. If `monitor()` stops
+  being called, registered streams stay open until the next `admit()`; only
+  new requests are refused. K must close streams at the lease deadline or on
+  monitor loss without waiting for `admit()`.
+- The admission lock is held across the rotation fetch (section 2 bound:
+  about 10 s), so every concurrent admission waits that long during a
+  rotation check.
 
 | Required sequence | Test |
 | --- | --- |
@@ -165,6 +214,7 @@ model) is refused as `model_family_unproved`.
 | Recovery never auto-resumes; stale/forged/reused continuation rejected | `test_recovery_never_auto_resumes`, `test_continuation_with_failing_check_stays_paused` |
 | Local-UUID verifier gap and its closure by the same-bearer profile verifier | `test_bearer_B_with_unchanged_local_metadata_is_the_local_verifier_gap` |
 | Real loopback gate: refused request opens no upstream connection | `test_rotation_and_switch_through_a_real_gate` |
+| Unproved rows (model-scoped `limits[]`, OAuth-apps, credit, unknown) refuse every model | `test_unproved_rows_refuse_every_model_without_latching` |
 
 The gap test is deliberate: with only before/after local UUID reads, a B
 bearer while local metadata still says A is admitted with B's own quota.
@@ -178,8 +228,17 @@ PA1F TLS proxy technique as a research aid only. Sanitized evidence:
 [observed-native.json](quota-reserve-probes/qc/observed-native.json),
 checked by [check_native.py](quota-reserve-probes/qc/check_native.py).
 Each case: fabricated full-login store, initialize plus two
-`get_usage(skip_behaviors=true)`, no user message, 45 s bound. All six cases
-exited 0 with zero model attempts and no CONNECT outside the two fixture hosts.
+`get_usage(skip_behaviors=true)`, no user message, 45 s bound. Retained run
+(run-5): all six cases exited 0 (measured from the child's `exit.json`) with
+zero model attempts at the fixture, zero model events counted in native's
+stdout, and no CONNECT outside the two fixture hosts.
+
+Completeness: the request lists below are the complete requests. Five cases
+(all but nonessential-off) also had exactly one incomplete request, recorded
+under `unrecorded_connections`: a second `POST /api/event_logging/v2/batch`
+to api.anthropic.com after `get_usage`, whose body exceeded the fixture's
+64 KiB body limit (ValueError while reading the body), so its response and
+bearer class were not recorded. It is telemetry, not a preconnect.
 
 | Case | Requests observed (host api unless noted) |
 | --- | --- |
@@ -204,28 +263,73 @@ needs `api.anthropic.com:443`. Gate lease API for K: `startup(bearer)`,
 `admit(headers, model, close) -> Decision` before any upstream byte,
 `monitor()`, `issue_continuation()` from the trusted terminal only,
 `continue_manually(token, bearer)`, `release(id)`; a pause closes every
-registered stream and nothing passive reopens it.
+registered stream and nothing passive reopens it. K must also own a timer
+that closes registered streams at the lease deadline or when monitoring
+stops, independent of `admit()` (section 3), and must budget for an admission
+lock held up to the usage-GET bound during a rotation check.
 
 ## 5. N1 harness and human permissions
 
 [n1_harness.py](quota-reserve-probes/qc/n1_harness.py) with a fake native
-([fake_claude.py](quota-reserve-probes/qc/fake_claude.py)), 17 tests:
+([fake_claude.py](quota-reserve-probes/qc/fake_claude.py)), 22 tests:
 alias-to-path resolution without enumeration; `create_pending` (exclusive
 mkdir, 0700, `account.json` 0600, state pending, identity null, random
 enrollment id, exact `config_directory`; existing or pending refuses);
 `mark_ready` only when local metadata equals the human-confirmed identity,
 written atomically; strict registration schema; refusal of conflicting
-caller variables (store/provider/endpoint/proxy/CA, nonessential-off) and of
-settings with conflicting `env`, auth helpers, a non-claude.ai
-`forceLoginMethod` or a mismatching `forceLoginOrgUUID`; policy files are
-read, never rewritten, and real HOME is kept. The child gets an allowlisted
-environment, closed inherited descriptors (verified), its own session, 4 MiB
-output and stderr bounds, 45 s per operation and 120 s total, and is reaped
-with its process group (grandchild verified). Output is a sanitized
-allowlist; a fabricated token echoed by the fake never appears. A cache
-shortcut is inconclusive unless the approved procedure names one bounded
-65 s wait (at most two queries). An optional loopback CONNECT tunnel counts
-host:port and bytes and refuses unlisted hosts. It was never run live.
+caller variables (store/provider/endpoint/proxy/CA, nonessential-off); policy
+documents are read, never rewritten, and real HOME is kept. The child gets
+an allowlisted environment, closed inherited descriptors (verified), its own
+session, 4 MiB output and stderr bounds, 45 s per operation and 120 s total,
+and is reaped with its process group (grandchild verified). Output is a
+sanitized allowlist; a fabricated token echoed by the fake never appears;
+non-object control replies refuse as `protocol_malformed`. A cache shortcut
+is inconclusive unless the approved procedure names one bounded 65 s wait (at
+most two queries). An optional loopback CONNECT tunnel counts host:port and
+bytes and refuses unlisted hosts. It was never run live.
+
+Policy sources (S, 2.1.322; review finding I1). Native composes several
+managed sources, so the harness inspects every file source it reads and
+refuses every source it cannot evaluate:
+
+| Source (native anchor) | Harness |
+| --- | --- |
+| `<config>/settings.json` (user) | inspected |
+| `<managed>/managed-settings.json`; managed dir `/etc/claude-code`, macOS `/Library/Application Support/ClaudeCode` (284122138) | inspected |
+| `<managed>/managed-settings.d/*.json`: regular files or symlinks, no leading dot, sorted by UTF-16 code units (284156811, 284158452) | inspected, native order |
+| WSL: `/mnt/c/Program Files/ClaudeCode` first, plus HKLM/HKCU `SOFTWARE\Policies\ClaudeCode` through `reg.exe` (283678656, 284508534) | refused (registry not inspectable) |
+| macOS managed preferences plist (reader absent from the Linux build: `plistStdouts` is always null there) | refused (not inspectable) |
+| Signed server-managed `<config>/remote-settings.json` and `policy-limits.json` caches (284089179, 283866174) | present refuses |
+| Server-managed fetch during the run: `api.anthropic.com/api/claude_code/settings` and `/policy_limits` (301264218) | detected afterwards by the cache file; voids the result |
+| `policyHelpers` in any document (commands that emit policy) | refused |
+
+Each document is refused on: an `env` key in the caller refusal list or in
+the families `ANTHROPIC_*`, `CLAUDE_*`, `AWS_*`, `GOOGLE_*`, `VERTEX_*`,
+`CLOUD_ML_*`, `NODE_*`, `SSL_*`, `BUN_*`, `NPM_CONFIG_*` or any name
+containing `PROXY`, `CERT` or `_CA_`; `apiKeyHelper`, `awsAuthRefresh`,
+`awsCredentialExport`, `gcpAuthRefresh`, `proxyAuthHelper` or
+`processWrapper`; a non-claude.ai `forceLoginMethod`; a `forceLoginOrgUUID`
+without the registered organization. The checks are per document and a
+refused key is refused wherever it appears, so whatever native's merge order
+and composition mode (first-wins or merge), the effective policy holds only
+accepted values (I). Project and local settings are out of scope
+because the child runs in a new empty temporary directory; native's git-root
+lookup from there was not traced (I).
+
+Limits, stated in the N1 draft below:
+
+- Server-managed policy fetched during the run applies before the harness
+  can see it (Team/Enterprise organizations; not fetched in the fixture runs
+  with a fabricated `max` subscription; eligibility rules not traced, U).
+  After such a run every later N1 refuses on the cache; evaluating signed
+  server-managed policy is a remaining gate.
+- Reaping covers the child's process group only. A descendant that calls
+  `setsid()` or daemonizes leaves the group and is neither signalled nor
+  reaped.
+- The tunnel sees, counts and refuses only traffic that honors
+  `HTTPS_PROXY`. Direct egress is neither counted nor blocked live; the
+  fixture guard showed none for 2.1.322 (section 4), which is not a live
+  guarantee.
 
 Draft for the coordinator to present (placeholders, not authorization):
 
@@ -247,17 +351,31 @@ HLogin permission (one named alias)
   Retained by the kit: account.json with the two confirmed UUIDs; nothing else.
   Bounds: one login attempt; failure or cancel stays pending; no retry, no other
     account, no default-account access, no quota query, no model request, no bearer read.
+  Policy: for a Team/Enterprise organization native may fetch and cache
+    server-managed policy (remote-settings.json, policy-limits.json) during login;
+    if it does, N1 refuses for this alias until that policy can be evaluated.
 
 N1 permission (same alias, no login)
+  Pre-run refusals: run_n1 refuses before spawning native on Linux only; it refuses
+    on macOS and WSL (OS policy sources not inspectable), when a server-managed
+    policy cache exists, and when any inspected policy document (user settings,
+    managed-settings.json, managed-settings.d/*.json) carries a refused env family,
+    auth or proxy helper, policyHelpers, or an incompatible forceLogin selector.
   N1-native: run_n1 on the registered directory; claude -p --input-format stream-json
     --output-format stream-json --verbose --safe-mode --no-session-persistence;
     initialize, then get_usage(skip_behaviors=true); no user message. 120 s total,
     45 s per operation, 5 s persistence wait, at most two get_usage with one named
     65 s wait for the native cache shortcut. Optional accounting tunnel limited to
-    api.anthropic.com:443 and platform.claude.com:443 (other hosts refused).
+    api.anthropic.com:443 and platform.claude.com:443; other hosts are refused only
+    for traffic that honors HTTPS_PROXY; direct egress is neither counted nor blocked.
+    Native and its process group are reaped; a descendant that calls setsid() escapes.
     Expected native traffic (fixture-observed; real counts may differ): profile,
     feature evaluation, bootstrap, penguin_mode, grove, referral eligibility, usage,
     mcp-registry, event_logging; token refresh to platform.claude.com if expired or 401.
+    Possible auth/network effect: for a Team/Enterprise organization native may fetch
+    server-managed policy (api.anthropic.com /api/claude_code/settings, /policy_limits)
+    and apply it during the run; the harness detects its cache only afterwards and then
+    reports server_policy_fetched with no quota result.
     Retained: sanitized result JSON (classification, booleans, normalized windows,
     cache advance, byte and connection counts). No token, raw record or raw body.
   N1-bearer (only if G0 selects option 2 or 3; credential read NOT yet approved):
@@ -280,16 +398,34 @@ N1 permission (same alias, no login)
   Keychain service/account naming and read call, usage row names, profile
   endpoint use at login/refresh.
 - **Fixture-proved:** reader refusal matrix and minimization; exact-bearer
-  usage client bounds and normalization; every required admission sequence;
-  harness registration, selector/policy refusal, bounds, fd closing, reaping,
-  sanitization and traffic accounting.
+  usage client bounds (including resolution and pre-send deadline) and
+  normalization; every required admission sequence and the unproved-row
+  refusal; harness registration, selector refusal, policy-source coverage
+  (drop-in order, server-managed caches, uninspectable OS sources), bounds,
+  fd closing, group reaping, protocol shape refusal, sanitization and traffic
+  accounting.
 - **I:** same-bearer usage is fresh and credential-attributable; `/usr/bin/
   security` avoids an ACL prompt; retaining same-identity streams is safe.
 - **U:** live usage/profile availability for a full-login bearer; server
   acceptance of a non-native User-Agent; `null` reset semantics; `limits`
-  model scoping; macOS Keychain behavior, ACL and fallback; real refresh
-  cadence and concurrent native refresh; proxy-required networks; measured
-  poll/age/budget values.
+  model scoping and the semantics of every other unproved row; macOS
+  Keychain behavior, ACL and fallback; macOS managed preferences and the WSL
+  registry as policy sources; server-managed policy eligibility and content;
+  real refresh cadence and concurrent native refresh; proxy-required
+  networks; measured poll/age/budget values.
+
+Remaining gates (not closed by this node):
+
+- G0: credential interface (options below); production `allowed_models` and
+  model-to-family mapping; admission semantics of unproved rows; stream
+  retention on same-identity rotation; idle-expiry and straggler behavior
+  (section 3).
+- K: independent stream-closing timer at lease deadline and on monitor
+  loss; refresh egress to platform.claude.com; lock-held fetch bound.
+- N1/HLogin: Linux only; accounts with server-managed policy refused until
+  signed server-managed policy can be evaluated; setsid escape and
+  proxy-only tunnel accounting accepted as stated limits or closed by an
+  outer boundary.
 
 ## G0 credential-interface options
 
@@ -318,10 +454,23 @@ cd "$Q" && python3 -I -B ../pc/network_guard.py python3 -I -B native_observe.py 
 pre-commit run --all-files
 ```
 
-Recorded results: 18, 15, 22, 17 and 2 tests OK; the checker passes; the
-retained native run exited 0 under the guard (two earlier exploratory runs
-also exited 0; the first lacked the base-URL case, the second the key
-redaction). Raw fake-only outputs, the temporary-root inventory and static
+Recorded results: 18, 21, 23, 22 and 2 tests OK; the checker passes; the
+retained native run (run-5) exited 0 under the guard, which again denied
+only its four self-check syscalls. Earlier runs also exited 0: run-1 lacked
+the base-URL case, run-2 the key redaction, run-3 measured exit and model
+fields only by assertion, run-4 lacked method and path for incomplete
+requests. Raw fake-only outputs, the temporary-root inventory and static
 excerpts are archived in the worktree's ignored `.cache/qc/`; the temporary
 roots were removed after archival. The coordinator should preserve that
 archive before removing the worktree.
+
+## Review round 1 changes
+
+| Finding | Resolution |
+| --- | --- |
+| I1 policy sources | Code and tests: drop-ins in native order, server-managed caches refused, policy helpers refused, macOS/WSL refused, post-run server-policy detection; scope and limits in section 5 and the N1 draft; remaining gate listed |
+| M1 deadline | Code and tests: watchdog before resolution, bounded resolution, remaining time per connect, check before first header byte; bound and lock cost in sections 2, 3 and 4 |
+| M2 unproved rows | Code and test: `quota_row_unproved` while any unproved row is present; `allowed_models` mapping and row semantics listed as G0 gates |
+| M3 monitor costs | Documented as G0/K inputs (section 3, K paragraph, remaining gates) |
+| M4 evidence fields | Code and rerun: measured `exit_status`, counted `model_events`, `unrecorded_connections` disclosed (section 4) |
+| M5 harness limits | `protocol_malformed` for non-object replies (tests); setsid and tunnel limits stated in section 5 and the N1 draft |
