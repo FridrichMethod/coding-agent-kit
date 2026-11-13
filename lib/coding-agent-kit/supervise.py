@@ -1164,8 +1164,8 @@ class Supervisor:
         return found
 
     def _signal_session_groups(self, table, sig):
-        """Signal whole process groups of the boundary sessions; returns how many were signalled.
-        A process that forks and exits at once is gone before any snapshot can name it, but the
+        """Signal whole process groups of the boundary sessions; returns how many were signalled,
+        not counting those seen with zombie members only. A process that forks and exits at once is gone before any snapshot can name it, but the
         group its child inherits stays: every boundary session's own group (its id is the session
         id, which _prune_sessions keeps only while the session has existed without a break), and on
         Linux every group a member of such a session is in, read from /proc as that member is. An
