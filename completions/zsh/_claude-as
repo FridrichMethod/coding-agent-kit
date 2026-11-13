@@ -1,41 +1,73 @@
 #compdef claude-as
 
-local -a names suggestions
-if ((CURRENT == 2)) && [[ $words[CURRENT] == -* ]]; then
-    # The own options count only here, as the first argument.
-    suggestions=(
-        '--help:show this help'
-        '--version:show the kit version'
-        '--list:list the account names'
-        '--info:show the last-seen details of an account'
-        '--labels:list the accounts with their labels'
-        '--label:set or clear the label of an account'
-        '--show-config:show the configuration in effect'
-    )
+local -a names suggestions flags=(--reserve-5h --reserve-weekly)
+local i=2 percent='^(off|0*(100(\.0*)?|[0-9]?[0-9](\.[0-9]*)?|\.[0-9]+))$'
+local MATCH MBEGIN MEND
+local -a match mbegin mend
+# The reserve flags, each at most once and with its value (off or a percentage
+# from 0 to 100), precede NAME in either order: skip them, so that word i comes
+# after them.
+while ((i < CURRENT)) && [[ -n ${(M)flags:#$words[i]} ]]; do
+    flags=(${flags:#$words[i]})
+    ((i += 2))
+    ((i > CURRENT)) || [[ ${words[i - 1]} =~ $percent ]] || return 1
+done
+if ((i > CURRENT)); then
+    # A value: off or a percentage, every tenth one until a digit is typed.
+    [[ $words[CURRENT] == -* ]] && return 1
+    if [[ -n $words[CURRENT] ]]; then
+        suggestions=({0..100})
+    else
+        suggestions=({0..100..10})
+    fi
+    suggestions=('off:disable the check of this window' $suggestions)
+    _describe -t reserve-values -V 'percentage to keep, or off' suggestions
+    return
+fi
+if ((i == CURRENT)) && [[ $words[CURRENT] == -* ]]; then
+    # The own options count only as the first argument; a reserve flag not yet
+    # given may follow the others.
+    if ((i == 2)); then
+        suggestions=(
+            '--help:show this help'
+            '--version:show the kit version'
+            '--list:list the account names'
+            '--info:show the last-seen details of an account'
+            '--labels:list the accounts with their labels'
+            '--label:set or clear the label of an account'
+            '--show-config:show the configuration in effect'
+            '--enroll-native:enroll an account through native Claude login'
+        )
+    fi
+    ((${flags[(Ie)--reserve-5h]})) && suggestions+=('--reserve-5h:keep this percentage of the 5-hour limit')
+    ((${flags[(Ie)--reserve-weekly]})) && suggestions+=('--reserve-weekly:keep this percentage of the weekly limit')
+    ((${#suggestions})) || return 1
     _describe -t options 'claude-as options' suggestions
     return
 fi
-if ((CURRENT == 2)) || { ((CURRENT == 3)) && [[ $words[2] == (--info|-i|--account-info|--label|--set-label) ]]; }; then
-    # Metadata only: claude-as --account-labels never starts native Claude or reads
-    # a credential. NAME<TAB>LABEL lines become NAME:LABEL descriptions. The
-    # 0.6 spelling keeps a rollback completing.
+if ((i == CURRENT)) || { ((i == 2 && CURRENT == 3)) && [[ $words[2] == (--info|-i|--account-info|--label|--set-label|--enroll-native) ]]; }; then
+    # Metadata only: claude-as --account-labels never starts native Claude, reads
+    # a credential, logs in or reads quota. NAME<TAB>LABEL lines become
+    # NAME:LABEL descriptions. The 0.6 spelling keeps a rollback completing.
     names=("${(@f)$(command claude-as --account-labels 2>/dev/null)}")
     names=("${(@)names:#}")
     names=("${(@)names/$'\t'/:}")
     ((${#names})) && _describe -t accounts 'Claude accounts' names
     return
 fi
-# After an own option and its arguments nothing is native.
-[[ $words[2] == -* ]] && return 1
-if ((CURRENT == 3)); then
+# After an own option and its arguments, or a dash word in place of NAME,
+# nothing is native.
+[[ $words[i] == -* ]] && return 1
+if ((CURRENT == i + 1)); then
     suggestions=('--help:show CLI help' '--version:show CLI version' '--print:print a response' '--continue:continue last session' '--resume:resume a session')
     _describe 'Claude arguments' suggestions
 elif (($+functions[_claude])); then
+    # The native words after NAME.
     local -a words=("${words[@]}")
     local CURRENT=$CURRENT
-    words[2]=()
+    words[2,i]=()
     words[1]=claude
-    ((CURRENT--))
+    ((CURRENT -= i - 1))
     _claude
 else
     _default

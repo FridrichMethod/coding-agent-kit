@@ -1,31 +1,59 @@
 # shellcheck shell=bash
 # bash-completion autoloads this file. Account names are metadata only:
-# claude-as --list-accounts never starts native Claude. It keeps that 0.6
-# spelling, which every release accepts, so a shell opened before an update
-# or a rollback still completes. The own options count only as the first
-# argument; after them and their arguments nothing is native.
+# claude-as --list-accounts never starts native Claude, logs in or reads
+# quota. It keeps that 0.6 spelling, which every release accepts, so a shell
+# opened before an update or a rollback still completes. The own options,
+# --enroll-native NAME among them, count only as the first argument; after
+# them and their arguments nothing is native. The reserve flags, each at most
+# once and with its value (off or a percentage from 0 to 100), precede NAME
+# in either order; the words after NAME go to the native completion.
 _claude_as() {
-    local words name word=${COMP_WORDS[COMP_CWORD]}
+    local words name rest word=${COMP_WORDS[COMP_CWORD]} i=1 flags=' --reserve-5h --reserve-weekly '
+    local percent='^(off|0*(100(\.0*)?|[0-9]?[0-9](\.[0-9]*)?|\.[0-9]+))$'
+    local -a values
     COMPREPLY=()
-    if [ "$COMP_CWORD" -eq 1 ]; then
-        case $word in
-            -*) words='--help --version --list --info --labels --label --show-config' ;;
+    # Skip the reserve flags and their values, so that word i is the first after them.
+    while [ "$i" -lt "$COMP_CWORD" ] && [[ $flags == *" ${COMP_WORDS[i]} "* ]]; do
+        flags=${flags/" ${COMP_WORDS[i]} "/ }
+        i=$((i + 2))
+        [ "$i" -gt "$COMP_CWORD" ] || [[ ${COMP_WORDS[i - 1]} =~ $percent ]] || return
+    done
+    if [ "$i" -gt "$COMP_CWORD" ]; then
+        # A value: off or a percentage, every tenth one until a digit is typed.
+        if [ -n "$word" ]; then
+            values=(off {0..100})
+        else
+            values=(off 0 10 20 30 40 50 60 70 80 90 100)
+        fi
+        words=${values[*]}
+    elif [ "$i" -eq "$COMP_CWORD" ]; then
+        case $i:$word in
+            # The own options count only as the first argument.
+            1:-*) words="--help --version --list --info --labels --label --show-config --enroll-native$flags" ;;
+            *:-*) words=$flags ;;
             *) words=$(command claude-as --list-accounts 2>/dev/null) || return ;;
         esac
-    elif [ "$COMP_CWORD" -eq 2 ]; then
+    elif [ "$i" -eq 1 ] && [[ ${COMP_WORDS[1]} == -* ]]; then
+        [ "$COMP_CWORD" -eq 2 ] || return
         case ${COMP_WORDS[1]} in
-            --info | -i | --account-info | --label | --set-label) words=$(command claude-as --list-accounts 2>/dev/null) || return ;;
-            -*) return ;;
-            *) words='--help --version --print --continue --resume' ;;
+            --info | -i | --account-info | --label | --set-label | --enroll-native)
+                words=$(command claude-as --list-accounts 2>/dev/null) || return
+                ;;
+            *) return ;;
         esac
-    elif [[ ${COMP_WORDS[1]} == -* ]]; then
+    elif [[ ${COMP_WORDS[i]} == -* ]]; then
         return
+    elif [ "$COMP_CWORD" -eq $((i + 1)) ]; then
+        words='--help --version --print --continue --resume'
     elif declare -F _claude >/dev/null; then
-        local COMP_WORDS=(claude "${COMP_WORDS[@]:2}") COMP_CWORD=$((COMP_CWORD - 1))
-        local COMP_LINE COMP_POINT
-        printf -v COMP_LINE '%q ' "${COMP_WORDS[@]}"
-        COMP_POINT=${#COMP_LINE}
-        _claude
+        # The native words after NAME, the line as typed after it and the cursor in place.
+        rest=$COMP_LINE
+        for name in "${COMP_WORDS[@]:0:i+1}"; do
+            rest=${rest#*"$name"}
+        done
+        local COMP_WORDS=(claude "${COMP_WORDS[@]:i+1}") COMP_CWORD=$((COMP_CWORD - i))
+        local COMP_POINT=$((COMP_POINT - ${#COMP_LINE} + ${#rest} + 6)) COMP_LINE=claude$rest
+        _claude claude "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD - 1]}"
         return
     else
         return
