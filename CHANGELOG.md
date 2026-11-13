@@ -1,5 +1,127 @@
 # Changelog
 
+## 0.8.0
+
+Usage reserves: both launchers can keep a percentage of an account's 5-hour
+and weekly limits unused, enforced by a new protected mode, and `claude-as`
+can enroll accounts with Claude Code's own login. A minor release: it adds
+launch flags, an own option, configuration tables and public paths, and
+changes the help text. A launch with both reserves off, as by default, is
+unchanged. A managed install takes it as a channel switch:
+`"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update --channel 0.8`.
+
+Breaking changes:
+
+- New public paths, which a copied install must include beside the 0.7
+  ones: `lib/coding-agent-kit/reserve.py`, `gate.py`, `monitor.py`,
+  `supervise.py`, `sandbox_linux.py` and `sandbox_macos.py`;
+  `lib/codex-as/protect.py`, `gate.py` and `reader.py`; and
+  `lib/claude-as/native.py`, `policy.py`, `bearer.py`, `provider.py` and
+  `protect.py`. `codex-as` loads `reserve.py` and `protect.py`, and
+  `claude-as` `reserve.py`, on every launch, so a copy without them prints
+  `incomplete install at ROOT` for any launch; `claude-as` needs `native.py`
+  once a native-login account exists, and a launch with a reserve needs the
+  others and refuses the same way without them. Linked and managed installs
+  and checkouts are unaffected, and no path moved.
+- The configuration tables `[usage_reserve]` and `[claude_auth]` are read
+  now. A 0.7 kit only warned about them as unknown keys; an invalid value
+  in them (for example `five_hour = true`) now stops every launch, listing
+  and completion with its error, as any other invalid key does.
+
+Added:
+
+- Usage reserves, per window and never combined: `--reserve-5h V` and
+  `--reserve-weekly V` before `NAME`, in either order, each at most once,
+  with the value as the next argument (`V` a number from 0 through 100, or
+  `off`; no `=` form), for one launch; `[usage_reserve] five_hour, weekly`
+  globally and `[usage_reserve.codex_accounts.NAME]` and
+  `[usage_reserve.claude_accounts.NAME]` per account, in the configuration
+  file. Each window resolves from the flag, then the account, then the
+  global value, then off; an omitted value inherits and an explicit `off`
+  overrides. Flags are never saved. 0 pauses at exhaustion and 100 never
+  starts model work. A file meant for reserves warns
+  `unknown key usage_reserve ignored` and protects nothing on an older kit.
+- Protected mode, which a launch with a reserve on uses: the native's
+  interactive TUI runs on a terminal of the launcher's own inside an OS
+  boundary whose only network exit is a per-invocation request gate on a
+  random loopback port. Before it starts, the native refreshes its
+  credential confined to the provider's sign-in host, and one model-free
+  quota read of both windows of this account must pass. The gate admits a
+  model request only with the account's credential, a reviewed model of
+  its quota family and a fresh reading above both reserves, and reads quota
+  about every 30 seconds (15 near a reserve). It pauses, refusing new model
+  requests and closing the admitted streams, when a window reaches its
+  reserve, and also when it cannot tell: a reading older than 120 seconds,
+  a missing or unattributed window, another account, a lost monitor or a
+  stopped gate (restarted paused, at most 5 times in 10 minutes). The
+  native interface stays usable. Nothing resumes by itself: F12 shows a
+  one-use code, and typing it asks for a fresh check that must pass.
+  At exit every process left inside the boundary is ended.
+- Protected mode requires Linux on x86_64 with Landlock ABI 6 or newer and
+  seccomp (not WSL), or macOS 27.2 on Apple silicon with
+  `/usr/bin/sandbox-exec` and a passing startup self-test, an interactive
+  terminal, and exactly the reviewed native release: codex-cli 0.167.2, or
+  Claude Code 2.1.322 with a `native-login` account. These are an upper
+  bound: a newer native or macOS release refuses protected launches until a
+  kit patch reviews it. Anything else is refused before the native starts,
+  with one line, exit 1:
+  `codex-as: usage reserve protection refused: REASON. (--reserve-5h off --reserve-weekly off launches unprotected)`
+  or `claude-as: protected mode refused: REASON.` The boundary is the
+  kit's own code (Landlock and seccomp through `ctypes`, a Seatbelt
+  profile); nothing is installed.
+- Protected `codex-as` runs only the interactive TUI with an allowlist of
+  options parsed as codex-cli 0.167.2 parses them; every subcommand,
+  `resume` and `fork` included, is refused, while `/new`, `/resume` and
+  `/fork` inside the TUI stay protected. It refuses API-key and FedRAMP
+  logins, unreviewed plans and models, profiles and overrides of the keys
+  it sets, and accounts whose managed requirements forbid what it sets
+  (application network restrictions, provider, residency, base URL,
+  credential store or `sqlite_home` pins, among others). The gate forwards
+  the workspace configuration bundle. Concurrent protected launches of one
+  account take turns at the pre-launch refresh.
+- Protected `claude-as` supports Pro and Max accounts only: Claude Code
+  applies no organization policy while its requests go through the gate,
+  so an account whose recorded subscription is not Pro or Max, and every
+  account on a machine that pins the sign-in organization, is refused with
+  a message that names it and says to launch without reserves. Print,
+  resume, settings, remote and background forms and every command are
+  refused; hooks, stdio MCP servers and plugins run inside the boundary.
+  The status line keeps working with `CODING_AGENT_KIT_CLAUDE_PID` set to
+  the native's pid, and `CODING_AGENT_KIT_USAGE_FILE` is not passed.
+- `claude-as --enroll-native NAME`: Claude Code's own login for an account,
+  in its own configuration directory
+  `<secrets_dir>/native-claude-accounts/NAME/config` with the registration
+  `account.json` beside it. The first run prints the two commands to sign
+  in (`CLAUDE_CONFIG_DIR=... claude auth login`, then `auth status`); the
+  next shows the login and asks for confirmation. Select the account with
+  `[claude_auth.accounts.NAME] mode = "native-login"` (the default mode is
+  `"setup-token"`). Claude Code keeps and refreshes the credential; the
+  launcher never reads, copies or stores it (only the protected-mode gate
+  reads it, in memory), injects no token and inherits nothing of the daily
+  `~/.claude`.
+- Completion of the reserve flags, their values and the account after them,
+  and of `claude-as --enroll-native NAME`, in Bash and zsh.
+- Test suites for the new modules, each with its entry point in
+  `tests/run.sh` and a pre-commit hook scoped to its sources:
+  `tests/reserves.sh`, `reserve-completion.sh`, `sandbox.sh`, `gate.sh`,
+  `supervise.sh`, `codex-reserve.sh` and `claude-reserve.sh`. Cases that need
+  the boundary, a PTY or a reviewed native skip with the reason where the
+  host lacks them. `tests/test-entrypoints.sh` also checks that every entry
+  point is in the suite list of `tests/run.sh` and that every
+  `tests/test_*.py` has an entry point.
+
+Changed:
+
+- Both help texts describe the reserve flags, and the `claude-as` help
+  `--enroll-native`.
+- Bash completion after `NAME` hands the native completion the command line
+  from `NAME` on, with the cursor and the current and previous words adjusted
+  to it.
+- AGENTS.md records protected mode's scoped exceptions to the dependency
+  rules: per-invocation gate and monitor processes, the gate as a protocol
+  client, the kit's own boundary code, refusing instead of falling back, and
+  the reviewed upper bound of native and macOS releases.
+
 ## 0.7.7
 
 - `codex-as` takeover recovery no longer stays pending when a thread's rollout is
