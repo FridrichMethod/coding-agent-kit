@@ -626,8 +626,9 @@ class Gate:
         self.streams, self._ids = {}, itertools.count(1)
         self.armed, self._answered = None, None
         # Whether the latest attributed quota observation of a pause passes (a failed read leaves
-        # it as it was), and what the launcher's terminal last said about it: False once a pause
-        # line (or the restart line) said paused, True once a notice said it passes; and when.
+        # it as it was, unless the launcher has not yet been told that it passes), and what the
+        # launcher's terminal last said about it: False once a pause line (or the restart line)
+        # said paused, True once a notice said it passes; and when.
         self._eligible, self._shown, self._shown_at = False, False, clock()
         self.attached, self.next_poll = None, None
         self.rebinding = None
@@ -673,7 +674,8 @@ class Gate:
         """While paused (and not lost): tell the launcher when the latest attributed quota
         observation starts or stops passing, so its line shows when a continuation can succeed. A
         change is sent at most once per notice_every seconds after the previous line; tick() sends
-        a deferred one, and a change undone in between sends nothing. It never resumes anything."""
+        a deferred one, and a change undone in between sends nothing, as does a deferred "passes"
+        after a failed read. It never resumes anything."""
         if self.state != "paused" or self.lost is not None or self.closed:
             return
         eligible = self._eligible
@@ -807,6 +809,8 @@ class Gate:
             answers = self._answers(at)
             if not observation.ok:
                 reason = observation.reason or "quota_unavailable"
+                if self._eligible and not self._shown:  # a held-back "passes" notice is stale now
+                    self._eligible = False
                 decision = self._decide(Event("health", at, name="quota_unavailable", observation=observation))
                 self.emit("unavailable", cause=cause, reason=reason)
                 forced = observation.permanent or cause in ("rebind", "startup")

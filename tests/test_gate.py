@@ -683,6 +683,36 @@ class Continuation(unittest.TestCase):
         later(60)
         self.assertEqual(len(notices()), 2)  # nothing more once lost
 
+    def test_a_deferred_passes_notice_is_dropped_when_a_read_fails_after_it(self):
+        """A notice that the latest check passes, held back by the rate limit, is never sent once a
+        later read failed: the line would say the latest check passes when it did not."""
+        clock = Clock()
+        h = Harness(self, clock=clock, holds_bearer=True, notice_every=30.0)
+
+        def later(seconds):
+            clock.advance(seconds)
+            h.gate.heartbeat()
+            h.gate.tick()
+
+        def notices():
+            return [(note["eligible"], note["reason"]) for note in h.notes if note["op"] == "notice"]
+
+        h.upstream.used = {"five_hour": 96.0, "weekly": 20.0}
+        h.alive()
+        h.provider.startup(h.gate)
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()  # passes, but the pause line was shown a second ago: the notice waits
+        later(1)
+        h.upstream.usage_status = 500
+        h.gate.poll()
+        self.assertEqual(h.gate.status()["reason"], "quota_unavailable")
+        later(60)
+        self.assertEqual(notices(), [])
+        h.upstream.usage_status = 200
+        h.gate.poll()
+        self.assertEqual(notices(), [(True, "awaiting_continuation")])
+
     def test_a_failed_check_uses_up_the_continuation(self):
         h = Harness(self)
         h.ready()
