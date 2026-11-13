@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import termios
+import threading
 import time
 import tty
 import unittest
@@ -302,6 +303,37 @@ class Requests(unittest.TestCase):
         self.assertEqual(sup.request("continue"), {"ok": False, "reason": "gate_unavailable"})
 
 
+class ContinuationRequest(unittest.TestCase):
+    def test_the_check_waits_past_the_control_timeout_and_a_timed_out_check_is_disarmed(self):
+        sup = supervise.Supervisor(["gate"], {})
+        sup.control, peer = socket.socketpair()
+        self.addCleanup(peer.close)
+        said = []
+        sup.say = said.append
+        self.assertGreaterEqual(supervise.CONTINUE_TIMEOUT, 35.0)  # Claude: store read plus two 10 s reads
+
+        def answer(delay):
+            request = json.loads(peer.recv(4096).split(b"\n")[0])
+            time.sleep(delay)
+            peer.sendall(json.dumps({"op": "reply", "to": "continue", "id": request["id"], "ok": True,
+                                     "reason": "resumed"}).encode() + b"\n")
+
+        with mock.patch.object(supervise, "CONTINUE_TIMEOUT", 1.0):
+            thread = threading.Thread(target=answer, args=(0.3,))
+            thread.start()
+            self.assertTrue(sup.check())
+            thread.join()
+        with mock.patch.object(supervise, "CONTINUE_TIMEOUT", 0.3):
+            started = time.monotonic()
+            self.assertFalse(sup.check())
+            self.assertLess(time.monotonic() - started, 2.0)
+        self.assertEqual(said[-1], "still paused: gate_unavailable")
+        peer.settimeout(2)
+        sent = [json.loads(line) for line in peer.recv(4096).splitlines()]
+        self.assertEqual([message["op"] for message in sent], ["continue", "disarm"])  # no late resume
+        self.assertIsNotNone(sup.control)
+
+
 class Notices(unittest.TestCase):
     """Gate messages that change the pause line without pausing or resuming anything."""
 
@@ -391,6 +423,22 @@ class Install(unittest.TestCase):
             with self.assertRaises(partial.Refused) as raised:
                 sup.start_gate()
             self.assertEqual(raised.exception.reason, "incomplete install at %s" % Path(directory).resolve())
+
+
+    def test_a_missing_monitor_refuses_before_the_pre_launch_refresh_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lib = Path(directory) / "lib/coding-agent-kit"
+            lib.mkdir(parents=True)
+            for name in ("supervise.py", "gate.py"):
+                shutil.copy(HERE.parent / "lib/coding-agent-kit" / name, lib / name)
+            partial = fakes.load("kit_supervise_no_monitor", lib / "supervise.py")
+            sup = partial.Supervisor([sys.executable, "-I", "-B", str(FIXTURES / "provider_gate.py")], {})
+            marker = Path(directory) / "refreshed"
+            with self.assertRaises(partial.Refused) as raised:
+                sup.refresh(["/bin/sh", "-c", ": > '%s'" % marker], {"PATH": "/usr/bin:/bin"}, timeout=5)
+            self.assertEqual(raised.exception.reason, "incomplete install at %s" % Path(directory).resolve())
+            self.assertFalse(marker.exists())
+            self.assertIsNone(sup.holder)
 
 
 class Sweep(unittest.TestCase):

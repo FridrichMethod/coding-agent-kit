@@ -511,6 +511,33 @@ class Rotation(unittest.TestCase):
         rebinds = [r for r in h.upstream.requests("/usage") if dict(r["headers"])["User-Agent"] == gate.USER_AGENT]
         self.assertEqual(len(rebinds), 1)
 
+    def test_waiters_wait_for_a_rebind_that_makes_two_reads(self):
+        """A Claude rebind reads the profile and then usage, each bounded by rebind_timeout: a
+        request held behind it waits for both instead of giving up after one."""
+
+        class TwoReads(fakes.FakeProvider):
+            def read_quota(self, gate_, presented, cause):
+                if cause == "rebind":
+                    gate_.fetch("GET", "/usage", secret=presented.secret, timeout=self.rebind_timeout)
+                return super().read_quota(gate_, presented, cause)
+
+        upstream = fakes.FakeUpstream()
+        provider = TwoReads(upstream.port)
+        provider.rebind_timeout = 1.0
+        h = Harness(self, upstream=upstream, provider=provider)
+        h.ready()
+        h.upstream.usage_delay = 0.7  # two reads: about 1.4 s, past rebind_timeout plus the slack
+        results = []
+        with mock.patch.object(gate, "REBIND_SLACK", 0.2):
+            threads = [threading.Thread(target=lambda: results.append(
+                h.request("POST", "/model", auth(fakes.BEARER_A2), MODEL_BODY, timeout=10)[0])) for _ in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(15)
+        self.assertEqual(results, [200, 200])
+        self.assertEqual(provider.rebind_reads, 2)  # the default covers a two-read rebind
+
     def test_a_poll_for_a_replaced_bearer_never_rebinds_the_lease(self):
         h = Harness(self)
         h.ready()

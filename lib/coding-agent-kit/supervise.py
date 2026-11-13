@@ -90,6 +90,9 @@ PORTS = (49152, 60999)  # inside both the Linux and the macOS ephemeral ranges
 STARTUP_TIMEOUT = 60.0
 HEARD_TIMEOUT = 10.0
 CONTROL_TIMEOUT = 20.0
+# A continuation's reply comes after the provider's check: for Claude Code a store read (macOS
+# security, up to 10 s) and two reads of up to 10 s each, so the launcher waits longer for it.
+CONTINUE_TIMEOUT = 40.0
 RESTART_LIMIT, RESTART_WINDOW, RESTART_DELAY = 5, 600.0, 0.5  # at most 5 gate restarts per 10 minutes
 SWEEP_GRACE = 1.0
 SWEEP_LIMIT = 5.0  # the end-of-invocation sweep keeps ending processes for this long at most
@@ -805,8 +808,10 @@ class Supervisor:
         return self.hold()
 
     def start_gate(self, mode="startup"):
-        """Start a gate on the held port and wait for ready; raises Refused on a startup refusal."""
-        needed = [Path(self.gate_argv[-1]), GATE_CORE] + ([MONITOR] if mode != "refresh" else [])
+        """Start a gate on the held port and wait for ready; raises Refused on a startup refusal.
+        A refresh gate needs no monitor, but the run after it does: a missing monitor refuses
+        before the pre-launch refresh rotates any credential."""
+        needed = [Path(self.gate_argv[-1]), GATE_CORE, MONITOR]
         if not all(path.is_file() for path in needed):
             raise Refused("incomplete install at %s" % ROOT)
         self.prepare()
@@ -917,7 +922,8 @@ class Supervisor:
         return found
 
     def request(self, op, timeout=CONTROL_TIMEOUT):
-        """One control round trip; a dead, restarting or silent gate answers gate_unavailable."""
+        """One control round trip; a dead, restarting or silent gate answers gate_unavailable (with
+        "timeout": true when the gate is still connected but did not answer in time)."""
         if self.control is None:
             return {"ok": False, "reason": "gate_unavailable"}
         self.sent += 1
@@ -936,7 +942,20 @@ class Supervisor:
                         return message
                     continue  # the late reply to a request that already timed out
                 self.events.append(message)
-        return {"ok": False, "reason": "gate_unavailable"}
+        if self.control is None:
+            return {"ok": False, "reason": "gate_unavailable"}
+        return {"ok": False, "reason": "gate_unavailable", "timeout": True}
+
+    def post(self, op):
+        """Send one control request without waiting; its reply is dropped as a late one."""
+        if self.control is None:
+            return
+        self.sent += 1
+        try:
+            self.control.sendall((json.dumps({"op": op, "id": self.sent}) + "\n").encode())
+        except OSError:
+            self.control.close()
+            self.control = None
 
     def wait_heard(self, timeout=HEARD_TIMEOUT):
         deadline = time.monotonic() + timeout
@@ -957,7 +976,9 @@ class Supervisor:
     def check(self):
         """TerminalControl's check: one verified continuation through the gate."""
         self.say("requesting a fresh quota check")
-        reply = self.request("continue")
+        reply = self.request("continue", CONTINUE_TIMEOUT)
+        if reply.get("timeout"):
+            self.post("disarm")  # a check still running must not resume after "still paused" below
         if reply.get("needs_read"):
             ran = False
             if self.reader is not None:

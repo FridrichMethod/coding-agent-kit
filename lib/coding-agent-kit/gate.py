@@ -97,6 +97,7 @@ HEARTBEAT_MAX = 1.5       # monitor liveness lease
 ATTACH_GRACE = 10.0       # until the first heartbeat after the gate is ready
 CONTINUATION_WINDOW = 30.0
 NOTICE_EVERY = 30.0       # at most one paused-state notice to the launcher per this many seconds
+REBIND_SLACK = CONNECT_TIMEOUT  # a request held behind a rebind waits for its reads plus this
 USAGE_READS = (10, 60.0)  # gate-originated reads per sliding window (the usage-read cap)
 REVALIDATIONS = (4, 60.0)  # hold-and-rebind checks per sliding window
 POLL_RUNNING, POLL_PAUSED = 30.0, 60.0  # used when the evaluator names no next poll
@@ -499,7 +500,9 @@ class BaseProvider:
     expected_identity (what Observation.identity must equal); family (None or what
     Observation.family must equal); connect_allow ({"host:port": (host, port)}, the exact targets
     a CONNECT may reach, served by a refresh-mode gate only; empty by default); rebind_timeout
-    (seconds a gate-read rebind may take). Tunables, which make(config) may set per provider:
+    (seconds each gate fetch of a rebind may take) and rebind_reads (the most fetches one rebind
+    makes, 2 by default: a request held behind it waits rebind_reads x rebind_timeout plus
+    REBIND_SLACK). Tunables, which make(config) may set per provider:
     usage_reads and revalidations ((count, window seconds) budgets), continuation_window,
     attach_grace and notice_every (seconds).
     """
@@ -511,6 +514,7 @@ class BaseProvider:
     family = None
     connect_allow = {}
     rebind_timeout = READ_TIMEOUT
+    rebind_reads = 2
     usage_reads = USAGE_READS
     revalidations = REVALIDATIONS
     continuation_window = CONTINUATION_WINDOW
@@ -921,7 +925,7 @@ class Gate:
                     with self.lock:
                         self.rebinding = None
                     wait.set()
-            elif not wait.wait(self.provider.rebind_timeout + CONNECT_TIMEOUT):
+            elif not wait.wait(self.provider.rebind_reads * self.provider.rebind_timeout + REBIND_SLACK):
                 return False, "rebind_timeout", None
         return False, "rebind_unresolved", None
 
