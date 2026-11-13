@@ -1170,7 +1170,7 @@ class Launchers(unittest.TestCase):
         self.protected_accounts()
         boundary = "lib/coding-agent-kit/" + ("sandbox_macos.py" if sys.platform == "darwin" else "sandbox_linux.py")
         shared = ["lib/coding-agent-kit/reserve.py", "lib/coding-agent-kit/gate.py",
-                  "lib/coding-agent-kit/supervise.py", boundary]
+                  "lib/coding-agent-kit/monitor.py", "lib/coding-agent-kit/supervise.py", boundary]
         cases = [("codex-as", "A", [*shared, "lib/codex-as/protect.py", "lib/codex-as/gate.py", "lib/codex-as/reader.py"]),
                  ("claude-as", "N", [*shared, "lib/claude-as/native.py", "lib/claude-as/protect.py",
                                      "lib/claude-as/provider.py", "lib/claude-as/bearer.py", "lib/claude-as/policy.py"])]

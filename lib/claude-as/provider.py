@@ -31,7 +31,7 @@ A machine whose managed settings pin the sign-in organization makes pro and max 
 launcher refuses that case (policy.py, protect.py), since only it reads the managed settings.
 
 Quota reads (QC option 3): GET https://api.anthropic.com/api/oauth/profile and /api/oauth/usage with
-the same in-memory bearer, the neutral User-Agent and the launcher's HTTPS_PROXY. The profile proves
+the same in-memory bearer, the neutral User-Agent and the proxy Claude Code would use for HTTPS (HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY, a plain http:// one only), captured by the launcher. The profile proves
 the identity (the two UUIDs only; nothing else is kept), the usage response gives the five-hour and
 seven-day windows. A model with its own row (seven_day_opus, seven_day_sonnet) is refused; any other
 present row whose semantics nobody proved (seven_day_oauth_apps, cinder_cove, wattle_ember, limits,
