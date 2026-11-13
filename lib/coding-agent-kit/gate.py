@@ -24,6 +24,12 @@ Invariants:
   may). Connects happen outside the lock, and no quota fetch ever runs under it; every lease
   method takes it. Monitor heartbeats are recorded without it, so a slow write never reads as a
   silent monitor.
+- A close of admission (a latch, a monitor or launcher loss, the timer's deadline or monitor
+  silence, shutdown) is announced before it waits for the lock, and a chunked write stops with
+  Closed before its next chunk once one is announced, reading the announcement without the lock.
+  The lock is not fair: a writer that releases and retakes it between chunks could otherwise keep
+  a waiting close out until its whole request is written. So no chunk starts after a close is
+  announced; the one being written then finishes or times out.
 - A Secret stays in memory: no event, status, message, reply or file carries a bearer or a value
   derived from one. Matching uses a keyed digest whose key never leaves this process.
 - Monitor loss (EOF, silence past HEARTBEAT_MAX, or launcher EOF) is final for a gate instance;
@@ -61,6 +67,7 @@ Monitor channel: monitor -> gate {"op": "hb"} | {"op": "poll"} | {"op": "polled"
 """
 
 import collections
+import contextlib
 from dataclasses import dataclass, field, replace
 import hashlib
 import hmac
@@ -619,6 +626,9 @@ class Gate:
         self.emit = emit or (lambda event, **fields: None)
         self.lock = threading.RLock()
         self._beat_lock, self._beat = threading.Lock(), None  # heartbeats take only this lock
+        # Reasons of the closes announced and not yet through the lock (_closing); chunk writers read
+        # the tuple without any lock. _closers_lock is a leaf: nothing else is taken while it is held.
+        self._closers_lock, self._closers = threading.Lock(), ()
         self.state = {"startup": "checking", "restart": "paused", "refresh": "refresh"}[mode]
         self.reason = "gate_restart" if mode == "restart" else None
         self.fields, self.lost, self.closed = {}, None, False
@@ -747,9 +757,32 @@ class Gate:
         with self._beat_lock:
             self._beat = now if self._beat is None else max(self._beat, now)
 
+    @contextlib.contextmanager
+    def _closing(self, reason):
+        """Hold the admission lock for a close of admission, announced before waiting for it. A
+        chunk writer that sees the announcement stops before its next chunk (send), so the close
+        waits for the chunks being written, never for whole requests. The announcement ends under
+        the lock once the close is done, and every announced close leaves admission closed (paused,
+        lost or shut down), so a writer it stops is one whose stream the close removes."""
+        with self._closers_lock:
+            self._closers += (reason,)
+        with self.lock:
+            try:
+                yield
+            finally:
+                with self._closers_lock:
+                    closers = list(self._closers)
+                    closers.remove(reason)
+                    self._closers = tuple(closers)
+
+    def _stop_if_closing(self):
+        closers = self._closers
+        if closers:
+            raise Closed(closers[0])
+
     def lose(self, reason):
         """Monitor or launcher loss: sticky for this gate instance; pauses and closes streams."""
-        with self.lock:
+        with self._closing(reason):
             if self.lost is not None or self.closed:
                 return
             self.lost = reason
@@ -757,24 +790,37 @@ class Gate:
             self._pause(reason, decision.fields, op="latched")
 
     def latch(self, reason):
-        with self.lock:
+        with self._closing(reason):
             decision = self._decide(Event("health", self.clock(), name=reason))
             self._pause(reason, decision.fields)
 
+    def _due(self, now, beat):
+        """The close the timer owes at NOW, given the last heartbeat BEAT: "monitor_stale", "stale"
+        or None. It reads the state without the lock, which a chunk writer may hold."""
+        if self.closed:
+            return None
+        if self.mode != "refresh" and self.lost is None and self.attached is not None:
+            silent = (now - self.attached > self.attach_grace) if beat is None else (now - beat > self.heartbeat_max)
+            if silent:
+                return "monitor_stale"
+        if self.state == "running" and (self.last_fresh is None or now >= self.last_fresh + self.max_age):
+            return "stale"
+        return None
+
     def tick(self):
         """One step of the independent timer: monitor silence, the lease deadline and a deferred
-        paused-state notice."""
-        with self.lock:
+        paused-state notice. It decides on one reading of the clock and the last heartbeat, taken
+        before the lock, and announces the close it owes (_closing), so waiting for the lock
+        neither delays the close behind a chunked write nor changes what it decides."""
+        now, beat = self.clock(), self.last_beat
+        due = self._due(now, beat)
+        with self._closing(due) if due else self.lock:
             if self.closed:
                 return
-            now, beat = self.clock(), self.last_beat
-            if self.mode != "refresh" and self.lost is None and self.attached is not None:
-                if beat is None:
-                    if now - self.attached > self.attach_grace:
-                        self.lose("monitor_stale")
-                elif now - beat > self.heartbeat_max:
-                    self.lose("monitor_stale")
-            if self.state == "running" and (self.last_fresh is None or now >= self.last_fresh + self.max_age):
+            if due == "monitor_stale" and self.lost is None:
+                self.lose("monitor_stale")
+            if self.state == "running" and (due == "stale" or self.last_fresh is None
+                                            or now >= self.last_fresh + self.max_age):
                 self._pause("stale", self._decide(Event("health", now, name="stale")).fields)
             elif self.state == "paused":
                 self._notice()
@@ -924,10 +970,13 @@ class Gate:
             self.streams.pop(stream, None)
 
     def send(self, stream, sock, data):
-        """Write DATA upstream for an admitted stream, chunk by chunk under the admission lock."""
+        """Write DATA upstream for an admitted stream, chunk by chunk under the admission lock. An
+        announced close (_closing) stops it before the next chunk without waiting for the lock."""
         view, offset = memoryview(data), 0
         while offset < len(view):
+            self._stop_if_closing()
             with self.lock:
+                self._stop_if_closing()  # announced while this writer waited for the lock
                 if not self.live(stream):
                     raise Closed(self.lost or self.reason or "closed")
                 sock.settimeout(WRITE_TIMEOUT)
@@ -1005,7 +1054,7 @@ class Gate:
                     "fields": dict(self.fields)}
 
     def shutdown(self):
-        with self.lock:
+        with self._closing("gate_closed"):
             self.closed = True
             closers, self.streams = list(self.streams.values()), {}
         for close in closers:
