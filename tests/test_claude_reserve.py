@@ -451,6 +451,11 @@ ORG_LIMITS = {  # an organization's policy-limits.json in the 2.1.322 schema; ke
 
 
 class ServerManagedPolicy(unittest.TestCase):
+    def setUp(self):
+        # The evaluator refuses group- or world-writable policy files; the files these tests create
+        # must not depend on the caller's umask (a 002 umask would make them group-writable).
+        self.addCleanup(os.umask, os.umask(0o022))
+
     def reasons(self, findings):
         return sorted({(f.name, f.native, f.bearer, f.reason) for f in findings})
 
@@ -643,8 +648,8 @@ class CredentialRead(unittest.TestCase):
         base = Path(self.tmp.name).resolve()
         self.config = base / "s" / "native-claude-accounts" / "N" / "config"
         self.config.mkdir(parents=True)
-        for path in (self.config, self.config.parent, self.config.parent.parent):
-            path.chmod(0o700)
+        for path in (self.config, self.config.parent, self.config.parent.parent, self.config.parent.parent.parent):
+            path.chmod(0o700)  # every created level, so the caller's umask cannot make an ancestor shared
         self.now = 1_800_000_000_000
 
     def store(self, token=upstream_fixture.BEARER_A, expires=None, scopes=("user:inference", "user:profile"), mode=0o600,
@@ -768,8 +773,9 @@ class GateProvider(unittest.TestCase):
         base = Path(self.tmp.name).resolve()
         self.config_dir = base / "s" / "native-claude-accounts" / "N" / "config"
         self.config_dir.mkdir(parents=True)
-        for path in (self.config_dir, self.config_dir.parent, self.config_dir.parent.parent):
-            path.chmod(0o700)
+        for path in (self.config_dir, self.config_dir.parent, self.config_dir.parent.parent,
+                     self.config_dir.parent.parent.parent):
+            path.chmod(0o700)  # every created level, so the caller's umask cannot make an ancestor shared
         self.store(upstream_fixture.BEARER_A)
         self.messages, self.events = [], []
 
