@@ -1089,6 +1089,19 @@ class ProtectScreens(unittest.TestCase):
                 self.assertIn(name, message)
                 self.assertNotIn("hidden-value", message)
 
+    def test_the_reach_checked_for_code_is_everything_a_boundary_process_can_write(self):
+        sandbox = types.SimpleNamespace(DEVICES=("/dev/null", "/dev/pts", "/dev/shm"),
+                                        claude_temp=lambda uid: "/private/tmp/claude-%d" % uid)
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            (base / "work").mkdir()
+            (base / "link").symlink_to(base / "work")
+            writable = [str(base / "link"), str(base / "work")]
+            self.assertEqual(protect.reach(writable, sandbox, 501, darwin=False),
+                             [str(base / "work")] + [os.path.realpath(path) for path in sandbox.DEVICES])
+            self.assertEqual(protect.reach(writable, sandbox, 501, darwin=True),
+                             [str(base / "work"), "/dev", "/private/tmp/claude-501"])
+
     def test_home_its_ancestors_and_its_login_items_cannot_be_writable(self):
         home = "/home/fixture"
         protect.check_writable(["/home/fixture/project", "/tmp/x", "/home/fixture/Library/Caches"], home)
@@ -1175,6 +1188,33 @@ class ProtectedRefusals(Kit):
         self.cwd = self.home
         self.assertIn("cannot be writable in protected mode", self.refused([]))
 
+    def test_a_kit_inside_the_working_directory_refuses_before_anything_starts(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        kit = self.cwd / "kit"
+        shutil.copytree(self.kit, kit)
+        code, output = self.terminal([], argv=[str(kit / "bin/claude-as"), "--reserve-5h", "10", "N"])
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the kit directory %s lies inside %s, which the boundary can write; run "
+                      "claude-as with a Python and a kit installed outside the working directory, every --add-dir and "
+                      "the account directory" % (kit / "lib/claude-as", self.cwd), output.replace("\n", " "))
+        self.assertFalse(self.record.exists())
+
+    def test_an_add_dir_holding_the_kit_or_the_python_refuses(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        probe = "import os, sys; print(os.path.realpath(getattr(sys, '_base_executable', None) or sys.executable))"
+        python = subprocess.run(["python3", "-I", "-c", probe], env=self.env, capture_output=True, text=True,
+                                check=True).stdout.strip()  # the interpreter the launcher's kit processes run
+        sub = self.kit / "lib/coding-agent-kit/sub"
+        sub.mkdir()
+        for add_dir, text in ((self.kit, "the kit directory %s lies inside %s" % (self.kit / "lib/claude-as", self.kit)),
+                              (sub, "%s, which the boundary can write, lies inside the kit directory %s"
+                               % (sub, self.kit / "lib/coding-agent-kit")),
+                              (Path(python).parent, "the Python %s lies inside %s" % (python, Path(python).parent))):
+            with self.subTest(add_dir=add_dir):
+                self.assertIn(text, self.refused(["--add-dir", str(add_dir)]).replace("\n", " "))
+
 
 class Protected(Kit):
     """A protected launch end to end: the real boundary, supervisor, gate and monitor, a fake native
@@ -1200,13 +1240,13 @@ class Protected(Kit):
             "subscriptionType": subscription}}))
         credential.chmod(0o600)
 
-    def protected(self, args=(), env=None, reserves=None, timeout=90, answers=()):
+    def protected(self, args=(), env=None, reserves=None, timeout=90, answers=(), python=sys.executable):
         security = self.base / "security"  # macOS: no Keychain item, so the store file is read
         security.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(44)\n")
         security.chmod(0o700)
         spec = {"kit": str(self.kit), "account": "N", "reserves": reserves or {"five_hour": "10", "weekly": "5"},
                 "args": list(args), "upstream_port": self.upstream.port, "security": str(security)}
-        argv = [sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)]
+        argv = [python, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)]
         return self.terminal([], answers, env=dict(self.env, **(env or {})), argv=argv, timeout=timeout)
 
     def test_a_passing_check_runs_the_native_behind_the_gate_with_its_own_pid(self):
@@ -1335,6 +1375,34 @@ class Protected(Kit):
         self.assertEqual(code, 1, output)
         self.assertIn("credential_credential_not_private", output)
         self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_workspace_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
+        venv = self.cwd / ".venv"
+        made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], capture_output=True,
+                              timeout=120)
+        if made.returncode:
+            self.skipTest("python3 -m venv is unavailable")
+        (site,) = venv.glob("lib/python*/site-packages")
+        mark = self.base / "planted.log"  # outside every writable path: only an unconfined process can write it
+        # What a boundary process can write into the workspace venv. The launcher itself, which loaded
+        # its code before any boundary existed, has FAKE_RECORD set; a kit process outside the boundary
+        # (it gets gate_env only) that processed this file would add a line to the mark.
+        (site / "planted.pth").write_text('import os; "FAKE_RECORD" in os.environ or open(%r, "a").write("pth %%d\\n" '
+                                          '%% os.getpid())\n' % str(mark))
+        ps = venv / "bin/ps"  # what a launcher on macOS would run every second if it ran ps by name
+        ps.write_text("#!/bin/sh\necho ps >> '%s'\nexec /bin/ps \"$@\"\n" % mark)
+        ps.chmod(0o755)
+        subprocess.run([str(venv / "bin/python3"), "-I", "-B", "-c", "pass"], env={}, check=True, timeout=30)
+        self.assertTrue(mark.exists())  # the venv's own interpreter runs it
+        mark.unlink()
+        path = os.pathsep.join((str(venv / "bin"), self.env["PATH"]))
+        code, output = self.protected(env={"PATH": path, "FAKE_MESSAGES": "1", "FAKE_BEARER": upstream_fixture.BEARER_A},
+                                      python=str(venv / "bin/python3"))
+        self.assertEqual(code, 0, output)
+        seen = self.recorded()
+        self.assertEqual([status for status, _ in seen["statuses"]], [200])
+        self.assertEqual(seen["env"]["PATH"], path)  # the native keeps the caller's PATH
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
 
 
 def reviewed_claude():
