@@ -20,3 +20,12 @@ keywords = ["sk-ant-"]
 id = "secrets-directory"
 description = "File under a .secrets directory"
 path = '''(^|/)\.secrets/'''
+
+# A test's list of the environment variable names Claude Code settings may not
+# set: the generic-api-key rule takes the name after GOOGLE_APPLICATION_CREDENTIALS
+# for a key. Only that exact line is allowed.
+[[allowlists]]
+description = "Environment variable names in the protected-mode policy test"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = ['''"AWS_PROFILE", "GOOGLE_APPLICATION_CREDENTIALS", "VERTEX_REGION_CLAUDE_3_5_HAIKU",''']
