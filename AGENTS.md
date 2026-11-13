@@ -1,8 +1,9 @@
 # Agent Guide
 
 This repository is coding-agent-kit, a standalone Codex and Claude Code
-multi-account wrapper: the `codex-as` and `claude-as` launchers and three
-Claude Code helpers (status line, notifications, Git hook guard). It installs
+multi-account wrapper: the `codex-as` and `claude-as` launchers, with
+optional usage reserves enforced in a protected mode, and three Claude Code
+helpers (status line, notifications, Git hook guard). It installs
 on top of an existing `codex` or `claude` and never installs either. Users
 install it as a managed install that follows the newest patch release of a
 channel (`install.sh` piped to `sh`), with `install.sh` from a checkout of
@@ -13,10 +14,17 @@ their own, or by linking or copying its files. It runs on Linux and macOS
 
 ```
 bin/codex-as, bin/claude-as      launchers (Bash, POSIX sh)
-lib/codex-as/*.py                codex-as modules: launch, check, layout, handoff, usage
-lib/claude-as/launch.py          claude-as module
+lib/codex-as/*.py                codex-as modules: launch, check, layout, handoff, usage;
+                                 protected mode: protect, gate (provider), reader
+lib/claude-as/*.py               claude-as modules: launch, native (native-login enrollment);
+                                 protected mode: protect, provider (gate), bearer, policy
 lib/coding-agent-kit/config.py   the configuration loader both launchers share
 lib/coding-agent-kit/accounts.py the account metadata cache both launchers share
+lib/coding-agent-kit/reserve.py  reserve flags, per-window policy and the quota evaluator (pure)
+lib/coding-agent-kit/gate.py     protected mode, shared: the request gate core
+lib/coding-agent-kit/monitor.py  ... the monitor process
+lib/coding-agent-kit/supervise.py ... the launcher-side supervisor (port, PTY, continuation, sweep)
+lib/coding-agent-kit/sandbox_{linux,macos}.py ... the OS boundaries (Landlock and seccomp; Seatbelt)
 completions/{bash,zsh}/          account-name and own-option completion for both launchers
 helpers/*.cjs                    Claude Code helpers (Node)
 install.sh                       links a checkout's bin/ and completions/ into a prefix; the managed install
@@ -58,7 +66,7 @@ tagged only from a green `main` and never changes an interface.
 pre-commit hook:
 
 - The public paths and their modes (`git ls-files -s`): the launchers, their
-  `lib/` modules, `config.py` and `accounts.py`, the completions, the helpers, `install.sh`
+  `lib/` modules, the shared `lib/coding-agent-kit/` modules, the completions, the helpers, `install.sh`
   and the three docs. Consumers may link these paths one by one from a tree of
   their own, copied installs depend on the `bin/` plus `lib/` shape, and
   `--help` points at `docs/account-launchers.md`.
@@ -71,17 +79,23 @@ The command-line surface is public too, guarded by the suites rather than
 `contract.sh`: the help text; the own options, only as the first argument
 and by exact match, in every spelling, aliases included, which no release drops:
 `-h`/`--help`, `-V`/`-v`/`--version`, `-l`/`--list`/`--list-accounts`, `--labels`/`--account-labels`,
-`-i`/`--info`/`--account-info NAME`, `claude-as --label`/`--set-label` and
-`--show-config`, with their outputs and exit codes (`--version` prints
+`-i`/`--info`/`--account-info NAME`, `claude-as --label`/`--set-label`,
+`claude-as --enroll-native NAME` and `--show-config`, with their outputs and exit codes (`--version` prints
 `coding-agent-kit X.Y.Z (FORM)`, FORM being `managed vX.Y.Z, channel X.Y`,
 `checkout ROOT`, `files ROOT` or `unknown`); the hint and exit code for any
-other dash word there; the `main` each helper exports, the
+other dash word there; the launch flags `--reserve-5h V` and
+`--reserve-weekly V` before NAME, with their errors; the `main` each helper exports, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
-fields, `install.sh` with its options and exit codes,
+fields, the native-login layout
+`<secrets_dir>/native-claude-accounts/NAME/{config,account.json}`,
+`install.sh` with its options and exit codes,
 `CODING_AGENT_KIT_COLOR`, and the `CODING_AGENT_KIT_USAGE_FILE`,
 `CODING_AGENT_KIT_TOKEN_ID` and `CODING_AGENT_KIT_CLAUDE_PID` that
-`claude-as` passes its child.
+`claude-as` passes its child (in protected mode the pid is the native's own
+and `CODING_AGENT_KIT_USAGE_FILE` is not passed). A refused protected launch
+exits 1; protected mode's refusal reasons, pause line and continuation
+prompts are documented behavior, not a machine interface.
 
 The managed install is the interface other repositories install the kit
 through, so all of it is public, guarded by `tests/managed-install.sh`: the
@@ -112,10 +126,16 @@ runs the old release's installer, so a new minor keeps accepting it too.
 The kit runs on what a host already has and stays small enough to audit.
 
 - At run time the launchers and `install.sh` need only POSIX `sh` or Bash with ordinary POSIX utilities, the Python 3.11+ standard library run as `python3 -I -B`, and the tool they wrap; the managed install also needs Git and `tar`, and takes its lock and renames over links with `python3`. Every network git call is bounded (HTTP low-speed limit, ssh timeouts, `timeout` where it exists), because a run holds the lock while it waits. The helpers need Node.js 22+ and nothing from npm. Nothing needs a pip package, virtual environment, compiler, network service or background process of its own. The kit never installs a tool.
-- A missing optional tool narrows the feature; a missing required tool fails once with a message that names it, never with a traceback or a half-done run. For example, codex-as without `git` limits takeover to the launch directory.
+- A missing optional tool narrows the feature; a missing required tool fails once with a message that names it, never with a traceback or a half-done run. For example, codex-as without `git` limits takeover to the launch directory, and a host without the protected-mode boundary refuses usage reserves.
 - A wrapper forwards to the native tool instead of reimplementing it. It requires a minimum version, never an exact pin or an upper bound. Anything beyond the tool's documented CLI and files (internal socket paths, wire protocols, lock layouts) is best effort: a failure there warns and falls back to plain native behavior, and blocks or asks only where continuing could lose work.
 - Keep helper code proportional to what it adds over the native tool. A feature that needs its own protocol client, journal or lock scheme must justify its code and test cost; prefer the native tool's own feature when one exists.
-- Tests use the Python standard library (`unittest`), Node's built-in test runner, the shells under test and fakes for third-party CLIs, run in a temporary HOME, and reach no network beyond `127.0.0.1` fixtures. A test may use a real host tool (zsh, dash, GNU Stow, codex) when it is present and must skip cleanly when it is absent. Nothing in the suites needs Docker, the internet or real credentials. Tests never touch the real home, its credentials or running daemons.
+- Protected mode (usage reserves) has scoped exceptions to the rules above, accepted as part of its reviewed design; they apply only to a launch with a reserve on, and a launch with both reserves off follows every rule above unchanged:
+  - Per-invocation processes: the gate, the monitor and Codex's short-lived quota readers run only while one launch runs and end with it. They are not services, daemons or background processes of the kit, and the launcher stays running on its own PTY instead of exec'ing the native. They run outside the boundary, so they use the base interpreter of the launcher's Python (still `python3 -I -B`), a launch is refused when that Python or the kit lies inside a path the boundary can write, and the launcher runs no command by name through the caller's `PATH` while boundary processes live.
+  - Protocol clients: the shared gate (`gate.py`) and its providers (`lib/codex-as/gate.py`, `lib/claude-as/provider.py`) forward model requests and read usage and identity over verified TLS, through the launcher's plain `http://` `HTTPS_PROXY`, because neither native offers an interface that ties a quota reading to the credential its requests carry. Keep them to what enforcement needs.
+  - The OS boundary is the kit's own reviewed code: a Landlock and seccomp filter set through `ctypes` on Linux, and a Seatbelt profile renderer with a startup self-test for `/usr/bin/sandbox-exec` on macOS. Nothing is installed; a host without the capability refuses protected mode.
+  - Best effort never falls back: where an unprotected launch warns and continues with plain native behavior, protected mode refuses before the native starts, or pauses model work after it started. It never lets unprotected traffic through.
+  - Version upper bound: protected mode accepts only the native releases it has reviewed (`REVIEWED` in `lib/codex-as/protect.py`, `REVIEWED_VERSIONS` in `lib/claude-as/protect.py`) and, on macOS, the reviewed releases (`REVIEWED_RELEASES` in `sandbox_macos.py`), because its argument screens, routes, model tables and profile are per release. A kit patch extends them after a review; unprotected launches keep a minimum version only.
+- Tests use the Python standard library (`unittest`), Node's built-in test runner, the shells under test and fakes for third-party CLIs, run in a temporary HOME, and reach no network beyond `127.0.0.1` fixtures. A test may use a real host tool or capability (zsh, dash, GNU Stow, codex, a reviewed Claude Code, Landlock, `sandbox-exec`) when it is present and must skip cleanly, with the reason, when it is absent. Nothing in the suites needs Docker, the internet or real credentials. Tests never touch the real home, its credentials or running daemons.
 - CI runs every pre-commit hook on every push, so keep hooks scoped by `files:` and fast: test parsing and other pure logic in process, and spawn real shells and child processes only for behavior that needs them (exec, signals, umask, TTY, file modes).
 
 ## Working commands
@@ -123,7 +143,7 @@ The kit runs on what a host already has and stays small enough to audit.
 - Install into a prefix: `./install.sh [--prefix DIR]`; remove: `./install.sh --uninstall`
 - Managed install: `install.sh --managed --channel MAJOR.MINOR` (or piped to `sh -s --`); update: `"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update`; remove: `--uninstall [--purge]`
 - Run the tests: `./tests/run.sh` (CI: `--ci`)
-- Run one suite: `tests/config.sh`, `tests/codex-as.sh`, `tests/account-enrollment.sh`, `tests/standalone-e2e.sh`, `tests/managed-install.sh`, `tests/contract.sh`
+- Run one suite: `tests/config.sh`, `tests/codex-as.sh`, `tests/account-enrollment.sh`, `tests/standalone-e2e.sh`, `tests/managed-install.sh`, `tests/contract.sh`; protected mode: `tests/reserves.sh`, `tests/reserve-completion.sh`, `tests/sandbox.sh`, `tests/gate.sh`, `tests/supervise.sh`, `tests/codex-reserve.sh`, `tests/claude-reserve.sh`
 - Run checks: `pre-commit run --all-files`
 
 ## Verification
@@ -142,7 +162,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
 
 ## Testing
 
-- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh`, and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
+- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh` (the statement, and that the entry point is in its suite list; every `tests/test_*.py` must be run by an entry point), and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
 - Behavior coverage is tracked as a source-to-test matrix in `tests/COVERAGE.md`; update it with the tests.
 
 ## Line endings
@@ -159,7 +179,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
   - basic hygiene hooks
   - the `english-documentation` ASCII check
   - `gitleaks`, plus the manual `gitleaks-history` stage that CI runs over the full history
-- CI runs `./tests/run.sh --ci` on Linux (zsh and GNU Stow installed; the test step fails if the folded Stow cases of `standalone-e2e.sh` did not run) and on macOS (system Bash 3.2, `/bin/sh`); each job fails if the tests or hooks leave an untracked file.
+- CI runs `./tests/run.sh --ci` on Linux (zsh and GNU Stow installed; the test step fails if the folded Stow cases of `standalone-e2e.sh` did not run) and on macOS (system Bash 3.2, `/bin/sh`); each job fails if the tests or hooks leave an untracked file. Hosted runners may lack the protected-mode boundary (Landlock ABI 6, the reviewed macOS release), so those cases skip there; a change to the boundary or to protected launches also needs a run on a host that has it.
 - `ci.yml` runs on pull requests, on pushes to `main` and on pushes to `ci/**` branches: check a change on a `ci/**` branch, then fast-forward `main` to that exact green commit and delete the branch. It also runs on pushed `v*` tags; only there (`GITHUB_REF_TYPE=tag`) the `ReleaseVersion` test checks the tags already on the checked-out commit, and fails unless each `vX.Y.Z` one names the launchers' release.
 - Agents land their own changes this way without a pull request and without asking before each push, merge or release tag, once the local suite, `pre-commit` and every job of that `ci.yml` run are green. They still ask before anything this file forbids or that cannot be undone: moving or deleting a tag, rewriting `main`, or deleting someone else's work.
 - If CI behavior affects contributors, update `README.md` in the same change.

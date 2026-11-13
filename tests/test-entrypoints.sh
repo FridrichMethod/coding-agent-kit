@@ -59,6 +59,25 @@ else
     [[ "$?" == 2 ]]
 fi
 
+# Every entry point is a suite of tests/run.sh, and every Python suite has an
+# entry point, so CI cannot leave a new suite out.
+SUITES=$(sed -n '/^tests=(/,/^)/p' "$TEST_DIR/run.sh")
+for test_file in "$TEST_DIR"/*.sh; do
+    name=${test_file##*/}
+    [[ "$name" != run.sh ]] || continue
+    if ! grep -Fxq -- "    $name" <<<"$SUITES"; then
+        printf 'ERROR: tests/%s is not in the suite list of tests/run.sh.\n' "$name" >&2
+        exit 1
+    fi
+done
+for test_file in "$TEST_DIR"/test_*.py; do
+    name=${test_file##*/}
+    if ! grep -Fq -- "$name" "$TEST_DIR"/*.sh; then
+        printf 'ERROR: no tests/*.sh entry point runs tests/%s.\n' "$name" >&2
+        exit 1
+    fi
+done
+
 # Every entry point drops the kit's knobs with the one statement of
 # tests/run.sh, and the statement names every CODING_AGENT_KIT_* variable the
 # code can read, so a caller's configuration file or colour choice cannot fail

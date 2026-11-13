@@ -96,6 +96,55 @@ repos:
         language: script
         pass_filenames: false
         files: ^(CHANGELOG\.md|bin/(codex|claude)-as|tests/(config\.sh|test_config\.py))$
+      - id: reserves
+        name: usage reserve flags, policy and evaluator (in process)
+        entry: tests/reserves.sh
+        language: script
+        pass_filenames: false
+        files: ^(lib/coding-agent-kit/(config|reserve)\.py|tests/(reserves\.sh|test_reserves\.py))$
+      - id: reserve-completion
+        name: completion of the reserve flags and native enrollment (isolated Bash/zsh)
+        entry: tests/reserve-completion.sh
+        language: script
+        pass_filenames: false
+        files: ^(bin/.*|lib/.*|completions/.*|install\.sh|tests/(reserve-completion\.sh|test_reserve_completion\.py))$
+      # The protected-mode suites start real processes on a PTY behind the OS
+      # boundary, so they are slower than the others (on Linux about 6 s for the
+      # boundary, 20 s for the gate, 25 s for the supervisor, 55 s for codex-as
+      # and 85 s for claude-as); each runs only when its own sources change.
+      - id: sandbox
+        name: protected-mode OS boundary (Landlock and seccomp, Seatbelt; skips without them)
+        entry: tests/sandbox.sh
+        language: script
+        pass_filenames: false
+        files: ^(lib/coding-agent-kit/sandbox_(linux|macos)\.py|tests/(sandbox\.sh|test_sandbox\.py))$
+      - id: gate
+        name: protected-mode quota gate and monitor (127.0.0.1 fixtures)
+        entry: tests/gate.sh
+        language: script
+        pass_filenames: false
+        files: ^(lib/coding-agent-kit/(gate|monitor)\.py|tests/(gate\.sh|test_gate\.py|fixtures/gate/.*))$
+      - id: supervise
+        name: protected-mode supervisor (PTY, signals, restart, sweep)
+        entry: tests/supervise.sh
+        language: script
+        pass_filenames: false
+        files: ^(lib/coding-agent-kit/(gate|monitor|supervise)\.py|tests/(supervise\.sh|test_supervise\.py|fixtures/gate/.*))$
+      # Every class but RealCodex (a real codex-cli on PATH adds about 35 s);
+      # tests/run.sh runs it. -k is case-sensitive: Protected does not match
+      # Unprotected.
+      - id: codex-reserve
+        name: codex-as protected mode (fake natives, 127.0.0.1 fixtures)
+        entry: tests/codex-reserve.sh -k Screen -k Reader -k Requirements -k Provider -k Decisions -k Unprotected -k Protected
+        language: script
+        pass_filenames: false
+        files: ^(bin/codex-as|lib/codex-as/.*|lib/coding-agent-kit/(config|reserve|gate|monitor|supervise|sandbox_linux|sandbox_macos)\.py|tests/(codex-reserve\.sh|test_codex_reserve\.py|fixtures/codex-reserve/.*))$
+      - id: claude-reserve
+        name: claude-as native login and protected mode (fake natives, 127.0.0.1 fixtures)
+        entry: tests/claude-reserve.sh
+        language: script
+        pass_filenames: false
+        files: ^(bin/claude-as|lib/claude-as/.*|lib/coding-agent-kit/(config|reserve|gate|monitor|supervise|sandbox_linux|sandbox_macos|accounts)\.py|tests/(claude-reserve\.sh|test_claude_reserve\.py|fixtures/claude-reserve/.*))$
       - id: account-info
         name: account metadata, Codex usage scan and queries (isolated HOME and fakes)
         entry: tests/account-info.sh
@@ -107,7 +156,7 @@ repos:
         entry: tests/test-entrypoints.sh
         language: script
         pass_filenames: false
-        files: ^(tests/(.*\.sh|test_config\.py)|bin/.*|lib/.*|completions/.*|helpers/.*|install\.sh)$
+        files: ^(tests/(.*\.sh|test_.*\.py)|bin/.*|lib/.*|completions/.*|helpers/.*|install\.sh)$
       - id: contract
         name: public contract (paths, modes, no symlinks)
         entry: tests/contract.sh

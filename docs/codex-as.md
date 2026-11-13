@@ -111,7 +111,7 @@ and launches.
 
 ## Version compatibility
 
-There is no version allowlist. The launcher accepts `codex-cli 0.161.0` or newer,
+There is no version allowlist for unprotected launches (a launch with a usage reserve accepts only the reviewed codex-cli 0.167.2; see [protected mode](#protected-mode)). The launcher accepts `codex-cli 0.161.0` or newer,
 including prereleases of later versions (a prerelease precedes its release, so
 `0.161.0-alpha.1` is refused), and refuses version output it cannot parse.
 0.161.0 is the oldest release with a recorded pass of the native suite below. In
@@ -196,6 +196,41 @@ suite ran:
 A root daemon at 0.166.0 or newer needs kit 0.7.5 or newer. A takeover that an
 older kit left pending completes when the same command runs again with the
 current kit.
+
+## Protected mode
+
+A launch with a [usage reserve](account-launchers.md#usage-reserves) on runs interactive Codex in protected mode; the account launchers documentation describes what that means, what it requires and what it costs for both launchers. This section adds what is specific to Codex. A refusal reads:
+
+```text
+codex-as: usage reserve protection refused: REASON. (--reserve-5h off --reserve-weekly off launches unprotected)
+```
+
+It exits 1 before anything starts. `NAME --help`, `-h`, `--version`, `-V` and `help` stay unprotected and unchanged.
+
+**Release.** Only codex-cli 0.167.2, the reviewed release. Any other version is refused, a suffix included; a newer one is named as beyond the newest reviewed release, so a Codex update stops protected launches until a kit patch reviews it.
+
+**Arguments.** Only the interactive TUI, parsed as codex-cli 0.167.2 parses them (attached and `=` forms, subcommands after option values): `-c`/`--config`, `-m`/`--model`, `-C`/`--cd`, `-i`/`--image`, `--no-alt-screen`, `--no-daemon`, `--strict-config` and a prompt. A one-word prompt that names a subcommand needs `--` before it. Every subcommand is refused, `resume` and `fork` included: inside the TUI `/new`, `/resume` and `/fork` work and stay behind the same boundary, gate, account and pause. Refused too: `-p`/`--profile`, `--remote`, `--oss`, feature, sandbox, approval, search and worktree options, `--add-dir`, and `-c` overrides of the keys protected mode sets itself (model providers and base URLs, the credential store, forced login and workspace, profiles, features, sandbox and permission settings, web search, tools, MCP servers, analytics, telemetry, memories, `sqlite_home`, the update check and network settings). `-C DIR` works as without reserves: Codex starts in the launch directory, and `DIR` is the workspace. The environment may not set `OPENAI_BASE_URL`.
+
+**Account.** A ChatGPT login of a plan whose Codex windows protected mode governs (Plus, Pro, Team, Business, Enterprise, Edu and the related plans of the reviewed release; not Free, Go, usage-based or automation plans). API-key and FedRAMP logins are refused.
+
+**Model.** The reviewed models of the Codex quota family. The model of the user `config.toml`, or of the profile it selects, is checked at launch unless `-m` or `-c model=` replaces it; a model chosen in another way is refused by the gate per request. A profile that the user `config.toml` selects and that sets a key protected mode sets is refused (`the profile NAME that PATH selects sets KEYS, which protected mode sets itself`).
+
+**Managed requirements.** A launch is refused when the account's managed requirements forbid what protected mode sets: application network restrictions (they allow only HTTPS and WebSocket to listed hosts, which denies the plain-HTTP loopback gate), network controls such as `experimental_network`, `network_proxy` or `permissions.network` unless disabled, pins of the model provider, data residency, `chatgpt_base_url`, the credential store, `sqlite_home` or the update check, a config server elsewhere, `allowed_sandbox_modes` without `danger-full-access`, a feature forced on that protected mode turns off, agent identity, a managed configuration that sets what protected mode sets itself, or requirements that cannot be read. The sources are the local `requirements.toml`, `/etc/codex/managed_config.toml`, macOS managed preferences (including MDM `config_toml_base64`) and the account's cached cloud configuration bundle, which counts only while Codex would use it: the same login, not expired. A refusal names the source; for the bundle cache, one unprotected launch refreshes it. Links to `config.toml` and requirement files are followed.
+
+**Start.** Before every protected launch Codex refreshes the credential natively, behind a refresh gate that passes only `auth.openai.com:443` and the configuration bundle; this rotates the refresh token on every protected launch, and Codex may refresh twice. Concurrent protected launches of one account take turns at it under `<codex_home>/accounts/.locks/.refresh-NAME.lock`. A fresh App Server read inside the boundary then binds the gate to the account's credential and must pass both reserves.
+
+**Inside the session.** Codex runs with `--no-daemon`, every model, usage and realtime URL at the gate, and its own sandbox off (`danger-full-access`). Processes inside write beneath the workspace, `<codex_home>` (which holds the account home and the shared sessions, so tools can also write `auth.json` links and other accounts' homes), the shared SQLite home and a private `TMPDIR` removed at exit; the refresh can also write `<secrets_dir>`. A workspace that is HOME or an ancestor of it is refused (`start from a project directory`). `TMPDIR` must lie outside the workspace, `<codex_home>` and the SQLite home, and outside the boundary's devices (`/dev/shm` and `/dev/pts` on Linux, `/dev` on macOS), so `TMPDIR=/dev/shm` is refused. The TUI loses the proxy variables. The gate forwards the configuration bundle (`GET /backend-api/wham/config/bundle`) while running and paused, and refuses compaction, realtime, WebSocket, memories, search and image routes. A refusal is HTTP 503, which Codex shows as an error.
+
+**Kit processes.** The gate, the monitor and its quota readers run outside the boundary, so nothing they load code from may be writable from inside: they run the base interpreter of the Python that runs codex-as, and a launch is refused when that interpreter, its prefix, a module path entry or the kit's directory lies inside a writable path (`run codex-as with a Python and a kit installed outside the workspace and the Codex homes`). A workspace virtual environment first on `PATH` still works. The readers get an allowlisted environment (`CODEX_CA_CERTIFICATE` included), and `SSL_CERT_FILE` and `SSL_CERT_DIR` reach the gate. While the run lasts, commands the launcher runs by name resolve only in the system directories.
+
+**After the run.** The credential link repair runs after every protected run, also after a refusal that follows the refresh.
+
+Limits:
+
+- Only the profile that the user `config.toml` selects is checked for protected keys. A profile that a project `.codex/config.toml` or `/etc/codex/config.toml` selects is not, and then fails inside the boundary with connection or sandbox errors instead of a refusal.
+- A relative `codex` path (a relative `PATH` entry, or a relative `codex` value) together with `-C` refuses with `the App Server did not start`; use an absolute path.
+- `SSL_CERT_FILE` and `SSL_CERT_DIR` are passed to the gate even when they lie inside the writable set.
+- The code-reach check does not follow links inside a checked module directory that point elsewhere, editable-install finders that map outside the module path, the base installation's OpenSSL configuration and provider modules, or spellings that differ only in case on a case-insensitive APFS volume.
 
 ## Remaining differences from native Codex
 

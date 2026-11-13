@@ -4,7 +4,7 @@
 
 # The kit release of this launcher; tests/test_config.py checks it against
 # the first heading of CHANGELOG.md.
-_codex_as_version=0.7.7
+_codex_as_version=0.8.0
 
 # Native Codex gets the caller's umask, variables, cwd and options; the Python
 # launcher writes its own files under umask 077.
@@ -110,7 +110,7 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'the picker or --last finishes an interrupted one.' \
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
-        'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit.' \
+        'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer; no upper version limit without reserves.' \
         'Own options, only as the first argument (codex options go after NAME):' \
         '  -l, --list: the account names; --labels: NAME<TAB>email lines for completion;' \
         '  -i, --info NAME: last-seen email, plan and usage of a run of NAME (offline, no credential read);' \

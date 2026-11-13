@@ -35,6 +35,12 @@ your own with `install.sh`, or link or copy its files.
   versions fall back to an explicit manual paste.
 - Node.js 22 or newer for the helpers; Git is optional for the status line.
 - Optional: bash-completion or zsh for account-name completion.
+- Usage reserves (protected mode) need more, and refuse to start without it:
+  Linux on x86_64 with Landlock ABI 6 or newer and seccomp (not WSL), or
+  macOS 27.2 on Apple silicon with `/usr/bin/sandbox-exec`; an interactive
+  terminal; and exactly the reviewed native release, codex-cli 0.167.2 or
+  Claude Code 2.1.322 with a Pro or Max account enrolled through native
+  login. Nothing is installed for it.
 
 ## Install
 
@@ -274,6 +280,8 @@ codex-as -l                           # account names, what completion offers (-
 codex-as -i work                      # last-seen email, plan and usage, offline (--info)
 claude-as --label personal "me@example.com"
 claude-as --show-config               # configuration in effect
+codex-as --reserve-5h 10 --reserve-weekly 40 work   # pause before the limits run out
+claude-as --enroll-native personal    # Claude Code's own login, for reserves
 codex-as -h                           # help (--help)
 codex-as -V                           # the kit's version and install form (--version, -v)
 ```
@@ -308,6 +316,22 @@ codex-as -V                           # the kit's version and install form (--ve
   kit's release and how it is installed, such as
   `coding-agent-kit 0.7.0 (managed v0.7.0, channel 0.7)`, while
   `NAME --version` prints the native CLI's version.
+- Usage reserves keep a percentage of an account's 5-hour and weekly limits
+  unused: `--reserve-5h V` and `--reserve-weekly V` before `NAME`, or the
+  `[usage_reserve]` tables of the configuration file, each window on its own
+  (`V` from 0 through 100, or `off`; off by default). With a reserve on, the
+  interactive TUI runs in protected mode: inside an OS boundary whose only
+  intended network exit is a local request gate (on Linux the boundary
+  limits the gate's port number, not its address), which pauses model work
+  when a window falls to its reserve, or when it cannot tell, until you
+  press F12, type the code shown and a fresh quota check passes. It costs the session its other
+  network access, and more; [usage reserves](docs/account-launchers.md#usage-reserves)
+  lists every requirement, cost and refusal. With both windows off a launch
+  is unchanged.
+- `claude-as --enroll-native NAME` enrolls a Claude account with Claude
+  Code's own login, kept and refreshed by Claude Code in its own
+  configuration directory; reserves need it. Select it with
+  `[claude_auth.accounts.NAME] mode = "native-login"`.
 - Each launcher keeps a small metadata cache per account in
   `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/`: the Codex
   email and plan from the account's token and the last rate limits a run saw
@@ -318,10 +342,11 @@ codex-as -V                           # the kit's version and install form (--ve
   transcripts; no token is ever stored there.
 
 [docs/account-launchers.md](docs/account-launchers.md) covers the account
-layout, adding accounts, completion, safety boundaries and manual repair;
+layout, adding accounts, usage reserves and protected mode, Claude native
+login, completion, safety boundaries and manual repair;
 [docs/codex-as.md](docs/codex-as.md) the Codex argument rules, daemon
-takeover, version compatibility and the remaining differences from native
-Codex.
+takeover, version compatibility, protected Codex and the remaining
+differences from native Codex.
 
 ## Configuration
 
@@ -336,6 +361,11 @@ claude = "claude"
 codex_home = "~/.codex"    # accounts live in codex_home/accounts
 secrets_dir = "~/.secrets"
 ```
+
+Two optional tables add behavior: `[usage_reserve]` (usage reserves, global
+and per account) and `[claude_auth]` (the Claude login mode of each
+account); reserves need kit 0.8.0 or newer, and an older kit ignores them
+with a warning.
 
 The file, and the directories and symlinks on its way, must be owned by you
 (or root) and not writable by others; unknown keys only warn. Choose `codex_home` and `secrets_dir` before the first
@@ -385,6 +415,14 @@ pre-commit run --all-files
   the native Codex sharing checks, and without GNU Stow the folded Stow cases
   of `standalone-e2e.sh`, and says so; as root it skips the read-only
   directory cases.
+- The protected-mode suites (`sandbox.sh`, `gate.sh`, `supervise.sh`,
+  `codex-reserve.sh`, `claude-reserve.sh`) run whole launches on a PTY inside
+  the real OS boundary where the host has it, and skip those cases with the
+  reason in their output where it does not (a hosted Linux runner's kernel
+  may lack Landlock ABI 6). With codex-cli 0.167.2 on `PATH`, and Claude Code
+  2.1.322 as `KIT_REAL_CLAUDE=/path/to/claude` or on `PATH` (Linux only),
+  they also run the real natives against local fixtures. They take a few
+  minutes in all; their pre-commit hooks run only when their sources change.
 - Every suite runs in a temporary HOME with fake CLIs and fictitious
   credentials, reaches no network beyond local fixtures, and first unsets
   `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`,
