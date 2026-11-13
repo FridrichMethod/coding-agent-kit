@@ -17,14 +17,31 @@ Public API (load this file by path; it is never on sys.path):
         state_dir    Path, absolute: $XDG_STATE_HOME/coding-agent-kit when XDG_STATE_HOME
                      is absolute, else $HOME/.local/state/coding-agent-kit; the
                      launchers keep the account metadata cache under it. Not a key.
-        warnings     tuple of "<file>: unknown key <key> ignored", one per unknown key
+        usage_reserve  UsageReserve: the [usage_reserve] tables; empty without them
+        claude_auth  tuple of (NAME, mode) from [claude_auth.accounts.NAME], sorted
+        warnings     tuple of "<file>: unknown key <key> ignored", one per unknown key;
+                     a nested key is dotted (usage_reserve.five_hours)
         expand(path) -> Path: Path(path).expanduser() with this run's HOME
         which(key) -> str | None: shutil.which() of the "codex" or "claude" value
         show(tool) -> str: the --show-config lines for "codex-as" or "claude-as"
+        claude_mode(name) -> "setup-token" or "native-login"; omitted means "setup-token"
+        native_claude_config(name) -> Path: <secrets_dir>/native-claude-accounts/NAME/config,
+                     the fixed CLAUDE_CONFIG_DIR of a native-login account (str() has no
+                     trailing slash); ValueError for an invalid account name
+    UsageReserve, a frozen dataclass:
+        defaults     Reserves of [usage_reserve]
+        codex_accounts, claude_accounts
+                     tuples of (NAME, Reserves), sorted, from
+                     [usage_reserve.codex_accounts.NAME] and [usage_reserve.claude_accounts.NAME]
+        account(tool, name) -> Reserves: that launcher's account layer; Reserves() when absent
+    Reserves, a frozen dataclass with five_hour and weekly: each None when the layer
+        does not set it (inherit), "off", or a finite Decimal from 0 through 100
+        (an integer exactly, a float as the TOML parser reads it; a bool is refused). reserve.py
+        resolves the layers.
     ConfigError(ValueError): one line, "<file>: <key>: <reason>" or
         "<file>: <reason>", without the "<tool>: " prefix and never quoting file
         contents; own_message is True, so the launchers print it as written.
-    DEFAULTS: the four keys and their default values, as written in a file.
+    DEFAULTS: the four top-level string keys and their default values, as written in a file.
 
 Location: CODING_AGENT_KIT_CONFIG when set and non-empty (absolute, and the
 file must exist); else $XDG_CONFIG_HOME/coding-agent-kit/config.toml when
@@ -38,10 +55,12 @@ launchers create.
 """
 
 from dataclasses import dataclass
+from decimal import Decimal
 import errno
 import functools
 import grp
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import pwd
@@ -56,10 +75,33 @@ VARIABLE = "CODING_AGENT_KIT_CONFIG"
 LIMIT = 64 * 1024
 COMMAND = re.compile(r"[A-Za-z0-9._+-]+")
 CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")  # C0, DEL and C1: values are printed and passed on as is
+ACCOUNT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]*")  # the launchers' account names
+ACCOUNT_NAME = "invalid account name (ASCII letters, digits, _ or -; no leading -)."
+WINDOWS = ("five_hour", "weekly")
+ACCOUNT_TABLES = {"codex-as": "codex_accounts", "claude-as": "claude_accounts"}
+CLAUDE_MODES = ("setup-token", "native-login")
 
 
 class ConfigError(ValueError):
     own_message = True
+
+
+@dataclass(frozen=True)
+class Reserves:
+    five_hour: object = None
+    weekly: object = None
+
+
+@dataclass(frozen=True)
+class UsageReserve:
+    defaults: Reserves = Reserves()
+    codex_accounts: tuple = ()
+    claude_accounts: tuple = ()
+
+    def account(self, tool, name):
+        if tool not in ACCOUNT_TABLES:
+            raise ValueError(f"unknown launcher {tool}")
+        return dict(getattr(self, ACCOUNT_TABLES[tool])).get(name, Reserves())
 
 
 @dataclass(frozen=True)
@@ -73,6 +115,16 @@ class Config:
     secrets_dir: Path
     state_dir: Path
     warnings: tuple = ()
+    usage_reserve: UsageReserve = UsageReserve()
+    claude_auth: tuple = ()
+
+    def claude_mode(self, name):
+        return dict(self.claude_auth).get(name, "setup-token")
+
+    def native_claude_config(self, name):
+        if not ACCOUNT.fullmatch(name):
+            raise ValueError(ACCOUNT_NAME)
+        return self.secrets_dir / "native-claude-accounts" / name / "config"
 
     def expand(self, path):
         """Path(path).expanduser(), with this run's HOME for ~ and ~/."""
@@ -232,6 +284,94 @@ def single(path):
     return Path("/" + str(path).lstrip("/"))
 
 
+def dotted(*parts):
+    """A nested key as warnings and errors show it: bare TOML keys, others JSON-quoted."""
+    return ".".join(part if re.fullmatch(r"[A-Za-z0-9_-]+", part) else json.dumps(part) for part in parts)
+
+
+def table(path, item, *where):
+    if not isinstance(item, dict):
+        raise ConfigError(f"{path}: {dotted(*where)}: must be a table.")
+    return item
+
+
+def accounts(path, item, *where):
+    """The (NAME, table) pairs of a table keyed by account name, which must be valid names."""
+    pairs = []
+    for name, entry in table(path, item, *where).items():
+        if not ACCOUNT.fullmatch(name):
+            raise ConfigError(f"{path}: {dotted(*where)}: {ACCOUNT_NAME}")  # never the name itself
+        pairs.append((name, table(path, entry, *where, name)))
+    return pairs
+
+
+def percent(value):
+    """A reserve value: "off", or a finite Decimal from 0 through 100 for a TOML integer or
+    float; None for anything else. An integer is exact. A float is the shortest decimal that
+    reads back as the binary float the TOML parser made, so 29.9 stays 29.9 and digits past
+    the float's precision (about 17 significant ones) are already rounded; -0 is 0."""
+    if isinstance(value, str):
+        return value if value == "off" else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    number = Decimal(repr(value)) if isinstance(value, float) else Decimal(value)
+    return abs(number) if 0 <= number <= 100 else None
+
+
+def reserve(path, value, *where):
+    checked = percent(value)
+    if checked is None:
+        raise ConfigError(f'{path}: {dotted(*where)}: must be a number from 0 through 100, or "off".')
+    return checked
+
+
+def usage_reserve(path, item, warnings):
+    """[usage_reserve]: five_hour, weekly and one table per launcher of account layers with
+    the same two keys. Keys are checked in file order; unknown keys warn."""
+    layers = {key: () for key in ACCOUNT_TABLES.values()}
+    values = {}
+    for key, value in table(path, item, "usage_reserve").items():
+        if key in WINDOWS:
+            values[key] = reserve(path, value, "usage_reserve", key)
+        elif key in layers:
+            entries = []
+            for name, entry in accounts(path, value, "usage_reserve", key):
+                own = {}
+                for window, setting in entry.items():
+                    if window in WINDOWS:
+                        own[window] = reserve(path, setting, "usage_reserve", key, name, window)
+                    else:
+                        warnings.append(f"{path}: unknown key {dotted('usage_reserve', key, name, window)} ignored")
+                entries.append((name, Reserves(**own)))
+            layers[key] = tuple(sorted(entries, key=lambda pair: pair[0]))
+        else:
+            warnings.append(f"{path}: unknown key {dotted('usage_reserve', key)} ignored")
+    return UsageReserve(Reserves(**values), **layers)
+
+
+def claude_auth(path, item, warnings):
+    """[claude_auth.accounts.NAME] mode: "setup-token" (also when omitted) or "native-login"."""
+    modes = []
+    for key, value in table(path, item, "claude_auth").items():
+        if key != "accounts":
+            warnings.append(f"{path}: unknown key {dotted('claude_auth', key)} ignored")
+            continue
+        for name, entry in accounts(path, value, "claude_auth", key):
+            mode = "setup-token"
+            for field, setting in entry.items():
+                where = ("claude_auth", key, name, field)
+                if field != "mode":
+                    warnings.append(f"{path}: unknown key {dotted(*where)} ignored")
+                elif not isinstance(setting, str) or setting not in CLAUDE_MODES:
+                    raise ConfigError(f'{path}: {dotted(*where)}: must be "setup-token" or "native-login".')
+                else:
+                    mode = setting
+            modes.append((name, mode))
+    return tuple(sorted(modes))
+
+
 def load():
     private_group.cache_clear()  # one listing of the accounts per run, never one from an earlier load
     value = os.environ.get("HOME", "")
@@ -248,11 +388,14 @@ def load():
         path = (xdg if xdg.is_absolute() else home / ".config") / "coding-agent-kit/config.toml"
     raw = read(path, bool(explicit), home)
     data = {} if raw is None else parse(path, raw)
-    values, warnings = dict(DEFAULTS), []
+    values, warnings, tables = dict(DEFAULTS), [], {}
     for key, item in data.items():
-        if key not in DEFAULTS:
-            shown = key if re.fullmatch(r"[A-Za-z0-9_-]+", key) else json.dumps(key)
-            warnings.append(f"{path}: unknown key {shown} ignored")
+        if key == "usage_reserve":
+            tables[key] = usage_reserve(path, item, warnings)
+        elif key == "claude_auth":
+            tables[key] = claude_auth(path, item, warnings)
+        elif key not in DEFAULTS:
+            warnings.append(f"{path}: unknown key {dotted(key)} ignored")
         elif not isinstance(item, str):
             raise ConfigError(f"{path}: {key}: must be a string.")
         elif not item:
@@ -287,4 +430,4 @@ def load():
     if single(state / "accounts") == secrets:
         raise ConfigError(f"{path}: secrets_dir: must differ from the account metadata directory {state / 'accounts'}.")
     source = f"from {VARIABLE}" if explicit else "found" if raw is not None else "not found; defaults"
-    return Config(path, source, home, state_dir=state, warnings=tuple(warnings), **values)
+    return Config(path, source, home, state_dir=state, warnings=tuple(warnings), **values, **tables)
