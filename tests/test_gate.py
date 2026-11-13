@@ -4,6 +4,8 @@ Most cases run a Gate in process against fakes on 127.0.0.1 with fabricated bear
 cases run the gate and monitor entry points with inherited sockets, as the supervisor does.
 """
 
+from dataclasses import replace
+import datetime
 import hashlib
 import http.client
 import json
@@ -18,6 +20,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 
 HERE = Path(__file__).resolve().parent
@@ -284,24 +287,16 @@ class Admission(unittest.TestCase):
 
 
 class Latch(unittest.TestCase):
-    def test_latch_closes_every_stream_and_tunnel(self):
-        echo = fakes.EchoServer()
-        self.addCleanup(echo.close)
+    def test_latch_closes_every_stream(self):
         upstream = fakes.FakeUpstream()
-        provider = fakes.FakeProvider(upstream.port, connect_allow={"auth.fixture:443": ("127.0.0.1", echo.port)})
-        h = Harness(self, upstream=upstream, provider=provider)
+        h = Harness(self, upstream=upstream)
         h.ready()
         streams = [h.stream() for _ in range(3)]
-        tunnel = h.raw(b"CONNECT auth.fixture:443 HTTP/1.1\r\nHost: auth.fixture:443\r\n\r\n")
-        self.assertIn(b" 200 ", tunnel.recv(4096))
-        tunnel.sendall(b"ping")
-        self.assertEqual(tunnel.recv(4096), b"ping")
-        self.assertEqual(h.gate.status()["streams"], 4)
+        self.assertEqual(h.gate.status()["streams"], 3)
         h.gate.latch("threshold")
-        for sock in streams + [tunnel]:
+        for sock in streams:
             self.assertTrue(eof_within(sock), "a registered stream stayed open after the latch")
             sock.close()
-        self.assertTrue(echo.closed.wait(3))
         self.assertTrue(wait_for(lambda: all(c.closed_at for c in upstream.connections)))
         self.assertEqual(h.gate.status()["streams"], 0)
         self.assertEqual([n["op"] for n in h.notes], ["paused"])
@@ -358,6 +353,31 @@ class Latch(unittest.TestCase):
 
 
 class MonitorLoss(unittest.TestCase):
+    def test_heartbeats_during_a_slow_upstream_write_keep_the_monitor_alive(self):
+        clock = Clock()
+        h = Harness(self, clock=clock)
+        h.ready()
+        ok, _, stream = h.gate.admit(gate.Presented(gate.Secret(fakes.BEARER_A), ("acct-A",)), MODEL_BODY, lambda: None)
+        self.assertTrue(ok)
+        waited = []
+
+        class Sock:
+            def settimeout(self, value):
+                pass
+
+            def sendall(self, chunk):  # 2 s per chunk, past the 1.5 s liveness lease
+                for _ in range(4):
+                    clock.advance(0.5)
+                    beat = threading.Thread(target=h.gate.heartbeat)
+                    beat.start()
+                    beat.join(0.5)
+                    waited.append(beat.is_alive())
+
+        h.gate.send(stream, Sock(), b"x" * (gate.CHUNK * 2))
+        h.gate.tick()
+        self.assertEqual(waited, [False] * 8, "a heartbeat waited for the admission lock")
+        self.assertEqual((h.gate.status()["lost"], h.gate.status()["state"]), (None, "running"))
+
     def test_silent_monitor_latches_for_good(self):
         clock = Clock()
         h = Harness(self, clock=clock)
@@ -468,6 +488,19 @@ class Rotation(unittest.TestCase):
         self.assertEqual(results, [200, 200, 200])
         rebinds = [r for r in h.upstream.requests("/usage") if dict(r["headers"])["User-Agent"] == gate.USER_AGENT]
         self.assertEqual(len(rebinds), 1)
+
+    def test_a_poll_for_a_replaced_bearer_never_rebinds_the_lease(self):
+        h = Harness(self)
+        h.ready()
+        old = h.gate.lease.presented
+        self.assertEqual(h.request("POST", "/model", auth(fakes.BEARER_A2), MODEL_BODY)[0], 200)
+        self.assertEqual(h.gate.status()["epoch"], 2)
+        self.assertEqual(h.gate.check(old, "poll"), "superseded")
+        self.assertEqual(h.gate.status()["epoch"], 2)
+        self.assertTrue(h.gate.lease.secret.matches(gate.Secret(fakes.BEARER_A2)))
+        holds = [event for event, _ in h.events].count("rotation_hold")
+        self.assertEqual(h.request("POST", "/model", auth(fakes.BEARER_A2), MODEL_BODY)[0], 200)
+        self.assertEqual([event for event, _ in h.events].count("rotation_hold"), holds)
 
     def test_revalidation_budget_pauses(self):
         h = Harness(self, revalidations=(2, 60.0))
@@ -610,43 +643,237 @@ class Upstreams(unittest.TestCase):
             stranger.startup(other.gate)
             self.assertEqual(other.gate.status()["reason"], "upstream_unavailable")
 
-    def test_connect_only_to_exact_targets_while_running(self):
+    def tunnel_harness(self, mode):
         echo = fakes.EchoServer()
         self.addCleanup(echo.close)
         upstream = fakes.FakeUpstream()
         provider = fakes.FakeProvider(upstream.port, connect_allow={"auth.fixture:443": ("127.0.0.1", echo.port)})
-        h = Harness(self, upstream=upstream, provider=provider)
+        return Harness(self, upstream=upstream, provider=provider, mode=mode), echo
+
+    def connect(self, h, target):
+        sock = h.raw(b"CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n" % (target, target))
+        reply = sock.recv(4096)
+        sock.close()
+        return reply.split(b" ")[1]
+
+    def test_a_running_or_paused_gate_refuses_connect_even_to_listed_targets(self):
+        h, echo = self.tunnel_harness("startup")
         h.alive()
-
-        def connect(target):
-            sock = h.raw(b"CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n" % (target, target))
-            reply = sock.recv(4096)
-            sock.close()
-            return reply.split(b" ")[1]
-
-        self.assertEqual(connect(b"auth.fixture:443"), b"403")  # checking
+        self.assertEqual(self.connect(h, b"auth.fixture:443"), b"403")  # checking
         h.ready()
-        self.assertEqual(connect(b"auth.fixture:443"), b"200")
-        for target in (b"auth.fixture:444", b"AUTH.fixture:443", b"other.fixture:443", b"127.0.0.1:%d" % echo.port):
-            self.assertEqual(connect(target), b"403")
+        self.assertEqual(self.connect(h, b"auth.fixture:443"), b"403")  # running: no opaque tunnel
         h.gate.latch("threshold")
-        self.assertEqual(connect(b"auth.fixture:443"), b"403")
+        self.assertEqual(self.connect(h, b"auth.fixture:443"), b"403")
+        restarted, _ = self.tunnel_harness("restart")
+        restarted.alive()
+        self.assertEqual(self.connect(restarted, b"auth.fixture:443"), b"403")
+        self.assertFalse(echo.closed.is_set())
+        self.assertEqual(bytes(echo.received), b"")
 
-    def test_refresh_mode_serves_only_the_tunnel_allowlist(self):
-        echo = fakes.EchoServer()
-        self.addCleanup(echo.close)
-        upstream = fakes.FakeUpstream()
-        provider = fakes.FakeProvider(upstream.port, connect_allow={"auth.fixture:443": ("127.0.0.1", echo.port)})
-        h = Harness(self, upstream=upstream, provider=provider, mode="refresh")
+    def test_refresh_mode_serves_only_the_exact_tunnel_allowlist(self):
+        h, echo = self.tunnel_harness("refresh")
         h.gate.attach()
         sock = h.raw(b"CONNECT auth.fixture:443 HTTP/1.1\r\n\r\n")
         self.assertIn(b" 200 ", sock.recv(4096))
         sock.sendall(b"refresh")
         self.assertEqual(sock.recv(4096), b"refresh")
         sock.close()
+        for target in (b"auth.fixture:444", b"AUTH.fixture:443", b"other.fixture:443", b"127.0.0.1:%d" % echo.port):
+            with self.subTest(target=target):
+                self.assertEqual(self.connect(h, target), b"403")
         self.assertEqual(h.request("GET", "/usage", auth())[0], 503)
         self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 503)
-        self.assertEqual(upstream.connections, [])
+        self.assertEqual(h.upstream.connections, [])
+
+    def test_launcher_loss_closes_a_refresh_tunnel(self):
+        h, echo = self.tunnel_harness("refresh")
+        h.gate.attach()
+        tunnel = h.raw(b"CONNECT auth.fixture:443 HTTP/1.1\r\n\r\n")
+        self.assertIn(b" 200 ", tunnel.recv(4096))
+        tunnel.sendall(b"ping")
+        self.assertEqual(tunnel.recv(4096), b"ping")
+        self.assertEqual(h.gate.status()["streams"], 1)
+        h.gate.lose("launcher_eof")
+        self.assertTrue(eof_within(tunnel))
+        self.assertTrue(echo.closed.wait(3))
+        self.assertEqual(h.gate.status()["streams"], 0)
+        self.assertEqual(self.connect(h, b"auth.fixture:443"), b"403")
+
+    def test_a_tunnel_survives_upstream_silence_after_a_client_write(self):
+        h, echo = self.tunnel_harness("refresh")
+        h.gate.attach()
+        with mock.patch.object(gate, "WRITE_TIMEOUT", 0.2):
+            tunnel = h.raw(b"CONNECT auth.fixture:443 HTTP/1.1\r\n\r\n")
+            self.addCleanup(tunnel.close)
+            self.assertIn(b" 200 ", tunnel.recv(4096))
+            tunnel.sendall(b"ping")
+            self.assertEqual(tunnel.recv(4096), b"ping")
+            time.sleep(0.6)  # upstream silence well past the write timeout
+            tunnel.sendall(b"pong")
+            tunnel.settimeout(3)
+            self.assertEqual(tunnel.recv(4096), b"pong")
+
+    def test_gate_fetch_is_bounded_in_total(self):
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(8)
+        self.addCleanup(listener.close)
+        held = []
+
+        def serve():  # answers every connection with a header that drips one byte per 0.1 s
+            while True:
+                try:
+                    sock, _ = listener.accept()
+                except OSError:
+                    return
+                held.append(sock)
+                threading.Thread(target=drip, args=(sock,), daemon=True).start()
+
+        def drip(sock):
+            try:
+                sock.recv(65536)
+                sock.sendall(b"HTTP/1.1 200 OK\r\nX-Slow: ")
+                while True:
+                    sock.sendall(b"a")
+                    time.sleep(0.1)
+            except OSError:
+                pass
+
+        threading.Thread(target=serve, daemon=True).start()
+        silent = socket.socket()  # a proxy that accepts and never answers the CONNECT
+        silent.bind(("127.0.0.1", 0))
+        silent.listen(8)
+        self.addCleanup(silent.close)
+        provider = fakes.FakeProvider(listener.getsockname()[1])
+        for proxy in (None, ("127.0.0.1", silent.getsockname()[1])):
+            with self.subTest(proxy=proxy):
+                h = Harness(self, provider=provider, proxy=proxy)
+                outcome = []
+
+                def fetch():
+                    began = time.monotonic()
+                    try:
+                        h.gate.fetch("GET", "/usage", timeout=0.6)
+                        outcome.append(("ok", time.monotonic() - began))
+                    except gate.Unavailable as error:
+                        outcome.append((error.reason, time.monotonic() - began))
+
+                thread = threading.Thread(target=fetch, daemon=True)
+                thread.start()
+                thread.join(5)
+                self.assertFalse(thread.is_alive(), "the fetch outlived its total timeout")
+                self.assertEqual(outcome[0][0], "timeout")
+                self.assertLess(outcome[0][1], 2.0)
+        for sock in held:
+            sock.close()
+
+
+class EvaluatorOutput(unittest.TestCase):
+    MALFORMED = ({"reset": datetime.datetime(2026, 11, 12, 18, 0)}, ["not", "a", "dict"], {1: "x"},
+                 {"remaining": float("nan")}, {"window": {"nested": 1}}, None)
+
+    def harness(self, fields, **kwargs):
+        base = fakes.FakeEvaluator()
+
+        def decide(event):
+            decision = base(event)
+            return decision if decision.running else replace(decision, fields=fields)
+
+        h = Harness(self, evaluator=decide, **kwargs)
+        h.encoded = []
+        h.gate.notify = lambda message: h.encoded.append(json.dumps(message))  # as the control channel does
+        return h
+
+    def admitted(self, h, closed):
+        ok, _, _ = h.gate.admit(gate.Presented(gate.Secret(fakes.BEARER_A), ("acct-A",)), MODEL_BODY,
+                                lambda: closed.append(1))
+        self.assertTrue(ok)
+
+    def test_malformed_fields_from_the_timer_pause_and_close_streams(self):
+        for fields in self.MALFORMED:
+            with self.subTest(fields=fields):
+                clock, closed = Clock(), []
+                h = self.harness(fields, clock=clock, max_age=10)
+                h.ready()
+                self.admitted(h, closed)
+                clock.advance(11)
+                h.gate.heartbeat()
+                h.gate.tick()
+                status = h.gate.status()
+                self.assertEqual((status["state"], status["reason"], status["fields"]), ("paused", "stale", {}))
+                self.assertEqual(closed, [1])
+                self.assertEqual(json.loads(h.encoded[-1])["op"], "paused")
+
+    def test_malformed_fields_from_an_observation_pause_with_evaluator_error(self):
+        for fields in self.MALFORMED:
+            with self.subTest(fields=fields):
+                closed = []
+                h = self.harness(fields, holds_bearer=True)
+                h.ready()
+                self.admitted(h, closed)
+                h.upstream.used = {"five_hour": 97.0, "weekly": 20.0}
+                h.gate.poll()
+                status = h.gate.status()
+                self.assertEqual((status["state"], status["reason"]), ("paused", "evaluator_error"))
+                self.assertEqual(closed, [1])
+                self.assertEqual(json.loads(h.encoded[-1])["reason"], "evaluator_error")
+
+    def test_other_malformed_decisions_are_evaluator_errors(self):
+        for decision in (gate.Decision(1, None), gate.Decision(False, 7), gate.Decision(False, "x" * 300),
+                         gate.Decision(True, None, {"k" * 10: "v" * 2000})):
+            with self.subTest(decision=decision):
+                h = Harness(self, evaluator=lambda event, decision=decision: decision)
+                self.assertEqual(h.gate._decide(gate.Event("health", 0.0, name="x")).reason, "evaluator_error")
+
+    def test_streams_close_before_a_failing_notification(self):
+        h = Harness(self)
+        h.ready()
+        closed = []
+        self.admitted(h, closed)
+
+        def broken(message):
+            raise TypeError("cannot encode")
+
+        h.gate.notify = broken
+        h.gate.latch("threshold")
+        self.assertEqual(closed, [1])
+        self.assertEqual(h.gate.status()["state"], "paused")
+
+    def test_a_timer_error_latches_and_ends_the_gate(self):
+        class Broken:
+            def __init__(self):
+                self.lost = []
+
+            def tick(self):
+                raise RuntimeError("boom")
+
+            def lose(self, reason):
+                self.lost.append(reason)
+
+        broken, stop = Broken(), threading.Event()
+        thread = threading.Thread(target=gate.run_timer, args=(broken, stop, 0.001), daemon=True)
+        thread.start()
+        thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertTrue(stop.is_set())
+        self.assertEqual(broken.lost, ["gate_error"])
+
+    def test_tunables_come_from_the_provider(self):
+        upstream = fakes.FakeUpstream()
+        self.addCleanup(upstream.close)
+        provider = fakes.FakeProvider(upstream.port, holds_bearer=True)
+        provider.usage_reads, provider.revalidations = (2, 60.0), (1, 30)
+        provider.continuation_window, provider.attach_grace = 45.0, 3
+        built = gate.Gate(provider, fakes.FakeEvaluator(), max_age=120)
+        self.assertEqual((built.usage_reads, built.revalidations, built.continuation_window, built.attach_grace),
+                         ((2, 60.0), (1, 30.0), 45.0, 3.0))
+        for name, value in (("usage_reads", (0, 60.0)), ("usage_reads", (True, 60.0)), ("revalidations", (1,)),
+                            ("continuation_window", 0), ("attach_grace", "10")):
+            with self.subTest(name=name, value=value):
+                bad = fakes.FakeProvider(upstream.port)
+                setattr(bad, name, value)
+                with self.assertRaises(ValueError):
+                    gate.Gate(bad, fakes.FakeEvaluator(), max_age=120)
 
 
 class Privacy(unittest.TestCase):
@@ -720,7 +947,7 @@ class GateProcess(unittest.TestCase):
         if process.poll() is None:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):  # macOS: a group of one zombie is EPERM
                 pass
         process.wait(5)
         if process.stderr:

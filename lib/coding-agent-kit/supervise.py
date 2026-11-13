@@ -16,7 +16,8 @@ instead of exec'ing it:
                                    lost gate paused; at the end sweep every boundary descendant,
                                    stop the gate and monitor and release the port.
     Supervisor(...).refresh(...)   before run(): the D1 pre-launch native refresh, confined, behind
-                                   a refresh-mode gate that serves only the exact CONNECT targets.
+                                   a refresh-mode gate that serves only the exact CONNECT targets
+                                   (no startup or restart gate serves a CONNECT).
     Supervisor(...).confined(...)  one confined command with the live gate as its only exit (an
                                    adapter's in-boundary preflight or continuation read).
 
@@ -26,9 +27,19 @@ argv to exec (macOS sandbox-exec), or raises to refuse; the refusal reaches the 
 native runs. The boundary modules' confine(gate_port, writable_paths, provider) returns an argv
 prefix, so an adapter passes lambda port, argv: module.confine(port, paths, name) + argv. The hook
 may close every descriptor above 2. On Linux the launcher is a child subreaper, so detached
-descendants stay its own and the end-of-invocation sweep finds them; elsewhere it tracks
-descendants by periodic snapshots, which a descendant that detaches within one snapshot interval
-can escape.
+descendants stay its own and the end-of-invocation sweep finds them. Everywhere the sweep also
+ends every process still in the session of the native or of a confined command (the launcher
+starts each in a session of its own), so an orphaned descendant that never called setsid is found
+on macOS too; there a descendant that calls setsid is found only by periodic snapshots, which one
+that detaches between two snapshots escapes.
+
+Boundary children get no proxy but the gate: native_environment() drops every proxy variable that
+does not name the gate (the launcher's own HTTPS_PROXY belongs to the gate's upstream connections).
+
+Job control: the native leads its own session on the launcher's PTY, so its process group is
+orphaned. A SIGTSTP it sends itself (a TUI's own suspend key) is discarded by the kernel, a native
+that stops itself with SIGSTOP is continued at once, and the launcher itself is never suspended:
+in raw mode Ctrl-Z reaches the native as a key.
 
 Continuation is a trusted-terminal action: after a pause, the trigger key (F12 unless the adapter
 chooses another) shows a fresh one-use code; typing it and Enter asks the gate for a fresh check.
@@ -36,6 +47,7 @@ Input typed before the pause is flushed, a bracketed paste never confirms, nativ
 reaches this parser, and nothing but terminal input starts a check.
 """
 
+import collections
 import ctypes
 import errno
 import fcntl
@@ -52,22 +64,25 @@ import sys
 import termios
 import time
 import tty
+from urllib.parse import urlsplit
 
 
 HERE = Path(os.path.realpath(__file__)).parent
-MONITOR = HERE / "monitor.py"
+ROOT = HERE.parent.parent
+MONITOR, GATE_CORE = HERE / "monitor.py", HERE / "gate.py"
 F12 = b"\x1b[24~"
 PASTE_START, PASTE_END = b"\x1b[200~", b"\x1b[201~"
 PORTS = (49152, 60999)  # inside both the Linux and the macOS ephemeral ranges
 STARTUP_TIMEOUT = 60.0
 HEARD_TIMEOUT = 10.0
 CONTROL_TIMEOUT = 20.0
-RESTART_LIMIT, RESTART_DELAY = 5, 0.5
+RESTART_LIMIT, RESTART_WINDOW, RESTART_DELAY = 5, 600.0, 0.5  # at most 5 gate restarts per 10 minutes
 SWEEP_GRACE = 1.0
 SNAPSHOT_EVERY = 1.0
 PR_SET_CHILD_SUBREAPER = 36
 PREFIX = "[coding-agent-kit] "
 LOOPBACK = ("127.0.0.1", "::1")
+PROXY_VARIABLES = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")
 # What a forked child reports through a shared anonymous page, which survives a confine hook that
 # closes every descriptor: the hook is running, exec is next, the hook refused, exec failed.
 HOOK, EXEC, REFUSED, FAILED = b"H", b"X", b"R", b"E"
@@ -89,7 +104,8 @@ def capture_proxy(env, parse):
     """The launcher's HTTPS_PROXY for the gate's upstream connections, captured once.
 
     parse is gate.parse_proxy. HTTPS_PROXY and https_proxy must agree; an unsupported proxy refuses
-    instead of going direct. The native never gets it: its only proxy is the gate."""
+    instead of going direct. Boundary children never get it: run() and confined() pass them
+    native_environment(), whose only proxy is the gate."""
     values = {env[name] for name in ("HTTPS_PROXY", "https_proxy") if env.get(name)}
     if len(values) > 1:
         raise Refused("HTTPS_PROXY and https_proxy differ")
@@ -97,6 +113,25 @@ def capture_proxy(env, parse):
         return parse(values.pop()) if values else None
     except ValueError:
         raise Refused("unsupported HTTPS_PROXY (only a plain http://HOST:PORT proxy)") from None
+
+
+def native_environment(env, port):
+    """ENV for a boundary child: every proxy variable is dropped unless it names the gate itself
+    (http://127.0.0.1:PORT), because the launcher's proxy belongs to the gate alone."""
+    result = dict(env)
+    for name in PROXY_VARIABLES:
+        value = result.get(name)
+        if value is None:
+            continue
+        try:
+            parts = urlsplit(value)
+            gate = (parts.scheme == "http" and parts.hostname == "127.0.0.1" and parts.port == port
+                    and parts.username is None and parts.path in ("", "/") and not parts.query)
+        except ValueError:
+            gate = False
+        if not gate:
+            del result[name]
+    return result
 
 
 class Holder:
@@ -358,8 +393,17 @@ def _child_fds(fds, stdio, report):
 class Supervisor:
     """One protected invocation: gate, monitor, native on a PTY, continuation, restart, sweep.
 
-    gate_argv: the provider's gate entry ([python3, -I, -B, script]); gate.py's options follow.
-    gate_config: the JSON object written to the gate's stdin (gate.py documents the core keys).
+    gate_argv: the provider's gate entry ([python3, -I, -B, script]): its last word is the provider's
+        gate script, and gate.py's options follow it. A missing script, gate.py or monitor.py refuses
+        with "incomplete install at ROOT".
+    gate_config: the JSON object written to the stdin of a startup or restart gate (gate.py documents
+        the core keys).
+    refresh_config: the JSON object for the refresh-mode gate of refresh() (default gate_config); the
+        provider's connect_allow belongs here, since only a refresh gate serves a CONNECT.
+    gate_env: the whole environment of the gate and the monitor (default empty). Nothing of the
+        launcher's environment reaches them otherwise, so a CA bundle named by SSL_CERT_FILE or
+        SSL_CERT_DIR is not used unless passed here; the gate then refuses an upstream it cannot
+        verify.
     monitor_reader: None (the gate polls) or the reader argv the monitor runs for each poll. The
         monitor runs outside the boundary, so this command must confine itself before it starts
         anything that talks to the provider.
@@ -369,27 +413,32 @@ class Supervisor:
     confine: callable(port, argv) -> argv, run in the native's child before exec.
     pid_env: name of an environment variable set to the native's own pid in its child.
     style: callable(text) -> text for the launcher's terminal messages (the kit colour policy).
+    restart_limit, restart_window: at most this many gate restarts per window seconds; past it the
+        launcher asks once for a relaunch and stays paused until the window frees a restart.
     """
 
     def __init__(self, gate_argv, gate_config, *, python=sys.executable, monitor_reader=None,
                  monitor_reader_timeout=None, reader=None, preflight=None, confine=None, pid_env=None,
                  holder_extra=(), gate_env=None, trigger=F12, key_name="F12", restart_limit=RESTART_LIMIT,
-                 restart_delay=RESTART_DELAY, startup_timeout=STARTUP_TIMEOUT, terminal=(0, 1), heartbeat=None,
-                 style=None):
+                 restart_window=RESTART_WINDOW, restart_delay=RESTART_DELAY, startup_timeout=STARTUP_TIMEOUT,
+                 terminal=(0, 1), heartbeat=None, style=None, refresh_config=None, clock=time.monotonic):
         self.gate_argv, self.gate_config = list(gate_argv), dict(gate_config)
+        self.refresh_config = dict(gate_config if refresh_config is None else refresh_config)
         self.python, self.monitor_reader, self.reader = python, monitor_reader, reader
         self.monitor_reader_timeout, self.heartbeat = monitor_reader_timeout, heartbeat
         self.preflight, self.confine, self.pid_env = preflight, confine, pid_env
         self.holder_extra, self.gate_env = tuple(holder_extra), dict(gate_env or {})
         self.trigger, self.key_name = trigger, key_name
         self.restart_limit, self.restart_delay, self.startup_timeout = restart_limit, restart_delay, startup_timeout
+        self.restart_window, self.clock = restart_window, clock
         self.term_in, self.term_out = terminal
         self.style = style or (lambda text: text)
         self.holder = None
         self.gate_pid = self.monitor_pid = self.native_pid = None
         self.control, self.buffer, self.events, self.sent = None, b"", [], 0
         self.exited, self.starts, self.prepared, self.baseline = {}, {}, False, {}
-        self.restarts, self.down_since = 0, None
+        self.watched, self.sessions = set(), {}  # spawned pids; boundary session id -> leader start
+        self.restarts, self.down_since, self.gave_up = collections.deque(), None, False
         self.subreaper, self.tracked, self.snapshot_at = False, {}, 0.0
         self.ui, self.master, self.to_native = None, None, bytearray()
 
@@ -451,6 +500,7 @@ class Supervisor:
                 finally:
                     os._exit(3 if kind == REFUSED else 127)
         self.exited.pop(pid, None)  # a reused pid is a new process
+        self.watched.add(pid)
         os.close(write_end)
         os.close(devnull)
         while os.read(read_end, 4096):
@@ -467,7 +517,10 @@ class Supervisor:
         stage = page[0:1]
         if stage == EXEC:
             if status is not None:
+                self.watched.discard(pid)
                 self.exited[pid] = status
+            elif hook is not None:  # a boundary child: its session is swept at the end
+                self.sessions[pid] = process_table().get(pid, (None, None))[1]
             if hook is None:
                 page.close()  # the pipe stayed open until exec closed it: exec ran
             else:
@@ -475,6 +528,7 @@ class Supervisor:
             return pid
         if status is None:
             os.waitpid(pid, 0)
+        self.watched.discard(pid)
         length = int.from_bytes(page[1:3], "big")
         text = page[3:3 + length].decode("utf-8", "replace") or "the child ended before exec"
         page.close()
@@ -495,6 +549,8 @@ class Supervisor:
             page.close()
 
     def reap(self):
+        """Reap every ended child; only the ones this supervisor spawned keep a status (the
+        subreaper's orphans need none, and their numbers may come back as new processes)."""
         while True:
             try:
                 pid, status = os.waitpid(-1, os.WNOHANG)
@@ -502,7 +558,9 @@ class Supervisor:
                 return
             if pid == 0:
                 return
-            self.exited[pid] = status
+            if pid in self.watched:
+                self.watched.discard(pid)
+                self.exited[pid] = status
 
     def _kill(self, pid, sig=signal.SIGKILL):
         if pid is None or pid in self.exited:
@@ -542,6 +600,9 @@ class Supervisor:
 
     def start_gate(self, mode="startup"):
         """Start a gate on the held port and wait for ready; raises Refused on a startup refusal."""
+        needed = [Path(self.gate_argv[-1]), GATE_CORE] + ([MONITOR] if mode != "refresh" else [])
+        if not all(path.is_file() for path in needed):
+            raise Refused("incomplete install at %s" % ROOT)
         self.prepare()
         control, gate_control = socket.socketpair()
         pair = socket.socketpair() if mode != "refresh" else None
@@ -558,13 +619,13 @@ class Supervisor:
         except OSError:
             for sock in (control, gate_control) + (pair or ()):
                 sock.close()
-            raise Refused("incomplete install at %s (gate not startable)" % HERE.parent.parent)
+            raise Refused("incomplete install at %s (gate not startable)" % ROOT)
         finally:
             os.close(config_read)
         gate_control.close()
         if pair:
             pair[1].close()
-        os.write(config_write, json.dumps(self.gate_config).encode())
+        os.write(config_write, json.dumps(self.refresh_config if mode == "refresh" else self.gate_config).encode())
         os.close(config_write)
         self.gate_pid, self.control, self.buffer = pid, control, b""
         deadline = time.monotonic() + self.startup_timeout
@@ -598,7 +659,7 @@ class Supervisor:
     def start_monitor(self, sock):
         if not MONITOR.is_file():
             sock.close()
-            raise Refused("incomplete install at %s" % HERE.parent.parent)
+            raise Refused("incomplete install at %s" % ROOT)
         argv = [self.python, "-I", "-B", str(MONITOR), "--fd", "3"]
         if self.heartbeat is not None:
             argv += ["--heartbeat", str(self.heartbeat)]
@@ -724,18 +785,26 @@ class Supervisor:
         """A dead, lost or silent gate: paused until a restarted gate passes a fresh check. A lost
         monitor is announced by the gate's own latched message when the gate is still alive."""
         if self.down_since is None:
-            self.down_since = time.monotonic()
+            self.down_since = self.clock()
             if self.ui is not None and not self.ui.paused:
                 self.ui.pause()
                 if announce:
                     self.say(pause_message("gate_unavailable", {}, self.key_name))
 
     def _restart(self):
-        if self.down_since is None or time.monotonic() - self.down_since < self.restart_delay:
+        now = self.clock()
+        if self.down_since is None or now - self.down_since < self.restart_delay:
             return
-        if self.restarts >= self.restart_limit:
+        while self.restarts and now - self.restarts[0] >= self.restart_window:
+            self.restarts.popleft()
+        if len(self.restarts) >= self.restart_limit:
+            if not self.gave_up:
+                self.gave_up = True
+                self.say("the gate stopped %d times within %d minutes and stays down for now; exit and relaunch "
+                         "to continue" % (self.restart_limit, round(self.restart_window / 60)))
             return
-        self.restarts += 1
+        self.gave_up = False
+        self.restarts.append(now)
         self._stop_gate()
         try:
             self.start_gate("restart")
@@ -744,7 +813,7 @@ class Supervisor:
             self.say("gate restarted paused; press %s to request a fresh check" % self.key_name)
         except Refused:
             self._stop_gate()
-            self.down_since = time.monotonic()
+            self.down_since = self.clock()
 
     # -- native --------------------------------------------------------------------------------------
     def _spawn_native(self, argv, env, cwd):
@@ -774,6 +843,7 @@ class Supervisor:
             return
         self.snapshot_at = now
         table = process_table()
+        self.tracked = {pid: start for pid, start in self.tracked.items() if table.get(pid, (None, None))[1] == start}
         for pid in descendants(os.getpid(), table) - self._kit_tree(table):
             self.tracked[pid] = table[pid][1]
 
@@ -783,22 +853,39 @@ class Supervisor:
             kit |= descendants(pid, table)
         return kit
 
+    def _session_members(self, table):
+        """Processes still in a boundary child's session. A session id is never a new process's
+        pid while the session has members; one whose number now leads a session of another
+        process (start time differs) is skipped."""
+        live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
+        found = set()
+        if live:
+            for pid in table:
+                try:
+                    if os.getsid(pid) in live:
+                        found.add(pid)
+                except OSError:
+                    continue
+        return found
+
     def sweep(self, include_kit=False, grace=SWEEP_GRACE):
         """End every boundary descendant (TERM, then KILL after grace); with include_kit also the
-        gate and monitor trees. Processes that were already the launcher's descendants before
-        prepare() are left alone. Returns how many processes were signalled."""
+        gate and monitor trees. A descendant is a process below the launcher, one a snapshot saw
+        below it (same start time), or a member of a boundary child's session. Processes that were
+        already the launcher's descendants before prepare() are left alone. Processes are told
+        apart by start time, never by pid alone. Returns how many processes were signalled."""
         signalled = set()
         if not self.prepared:
             return 0
         for round_ in range(6):
             self.reap()
             table = process_table()
-            victims = descendants(os.getpid(), table)
-            victims |= {pid for pid, start in self.tracked.items() if table.get(pid, (None, None))[1] == start}
+            found = descendants(os.getpid(), table) | self._session_members(table)
+            found |= {pid for pid, start in self.tracked.items() if table.get(pid, (None, None))[1] == start}
             if not include_kit:
-                victims -= self._kit_tree(table)
-            victims = {pid for pid in victims if pid not in self.exited and pid != os.getpid()
-                       and self.baseline.get(pid, ()) != table.get(pid, (None, None))[1]}
+                found -= self._kit_tree(table)
+            victims = {pid: table[pid][1] for pid in found if pid in table and pid != os.getpid()
+                       and self.baseline.get(pid, ()) != table[pid][1]}
             if not victims:
                 break
             sig = signal.SIGTERM if round_ == 0 else signal.SIGKILL
@@ -807,12 +894,12 @@ class Supervisor:
                     os.kill(pid, sig)
                 except (ProcessLookupError, PermissionError):
                     pass
-            signalled |= victims
+            signalled |= set(victims)
             deadline = time.monotonic() + (grace if round_ == 0 else 0.2)
             while time.monotonic() < deadline:
                 self.reap()
                 table = process_table()
-                if not any(pid in table and pid not in self.exited for pid in victims):
+                if not any(table.get(pid, (None, None))[1] == start for pid, start in victims.items()):
                     break
                 time.sleep(0.02)
         self.reap()
@@ -850,6 +937,7 @@ class Supervisor:
                         self._winch()
                     elif number in FORWARDED:
                         self._kill(self.native_pid, number)
+            self._unstop()
             self.reap()
             if master in writable and self.to_native:
                 try:
@@ -897,6 +985,18 @@ class Supervisor:
         self._drain(master)
         return self.exited[self.native_pid]
 
+    def _unstop(self):
+        """Continue a native that stopped itself: nothing could resume it on its orphaned PTY."""
+        try:
+            pid, status = os.waitpid(self.native_pid, os.WNOHANG | os.WUNTRACED)
+        except ChildProcessError:
+            return
+        if pid and os.WIFSTOPPED(status):
+            self._kill(self.native_pid, signal.SIGCONT)
+        elif pid:
+            self.watched.discard(pid)
+            self.exited[pid] = status
+
     def _drain(self, master, timeout=0.2):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline and select.select([master], [], [], 0.02)[0]:
@@ -936,7 +1036,7 @@ class Supervisor:
             old_wake = signal.set_wakeup_fd(wake_write, warn_on_full_buffer=False)
             for number in handled:
                 signal.signal(number, lambda *args: None)
-            self.native_pid, self.master = self._spawn_native(argv, env, cwd)
+            self.native_pid, self.master = self._spawn_native(argv, native_environment(env, self.holder.port), cwd)
             os.set_blocking(self.master, False)
 
             def forward(data):
@@ -970,9 +1070,9 @@ class Supervisor:
         pre-launch refresh, or an adapter's in-boundary preflight, poll or continuation read.
         Returns its exit code, or None when it ran past timeout (its process group is killed);
         raises Refused when the hook refuses or ARGV cannot start."""
-        self.prepare()
+        port = self.prepare()
         try:
-            pid = self.spawn(argv, env, cwd=cwd, stdout=stdout, stderr=stderr, confine=True)
+            pid = self.spawn(argv, native_environment(env, port), cwd=cwd, stdout=stdout, stderr=stderr, confine=True)
         except OSError as error:
             raise Refused("cannot start %s: %s" % (os.path.basename(argv[0]), error.strerror or error)) from None
         status = self._wait(pid, timeout)
@@ -987,9 +1087,9 @@ class Supervisor:
         return os.waitstatus_to_exitcode(status)
 
     def refresh(self, argv, env, timeout=30.0, cwd=None, stdout=None, stderr=None):
-        """The pre-launch native refresh: ARGV runs confined, while a refresh-mode gate serves only
-        the provider's exact CONNECT allowlist; returns its exit code, or None on timeout. Nothing
-        the refresh started outlives it."""
+        """The pre-launch native refresh: ARGV runs confined, while a refresh-mode gate (started
+        with refresh_config) serves only the provider's exact CONNECT allowlist; returns its exit
+        code, or None on timeout. Nothing the refresh started outlives it."""
         self.start_gate("refresh")
         try:
             return self.confined(argv, env, timeout, cwd=cwd, stdout=stdout, stderr=stderr)

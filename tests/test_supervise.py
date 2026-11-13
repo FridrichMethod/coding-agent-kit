@@ -13,6 +13,7 @@ from pathlib import Path
 import pty
 import re
 import select
+import shutil
 import signal
 import socket
 import struct
@@ -91,6 +92,16 @@ class Pure(unittest.TestCase):
         self.assertEqual(supervise.descendants(9, table), set())
         self.assertIn(os.getpid(), supervise.process_table())
 
+    def test_the_native_gets_no_proxy_but_the_gate(self):
+        env = {"HTTPS_PROXY": "http://proxy.example:3128", "https_proxy": "http://127.0.0.1:50001",
+               "HTTP_PROXY": "http://127.0.0.1:50001/", "http_proxy": "http://127.0.0.1:50002",
+               "ALL_PROXY": "socks5://proxy.example:1080", "all_proxy": "http://user:pw@127.0.0.1:50001",
+               "NO_PROXY": "localhost", "PATH": "/bin"}
+        self.assertEqual(supervise.native_environment(env, 50001),
+                         {"https_proxy": "http://127.0.0.1:50001", "HTTP_PROXY": "http://127.0.0.1:50001/",
+                          "NO_PROXY": "localhost", "PATH": "/bin"})
+        self.assertEqual(env["HTTPS_PROXY"], "http://proxy.example:3128")  # the caller's mapping is untouched
+
     def test_finish_keeps_the_exit_code(self):
         self.assertEqual(supervise.finish(7 << 8), 7)
         self.assertEqual(supervise.finish(0), 0)
@@ -111,6 +122,66 @@ class Requests(unittest.TestCase):
         self.assertEqual(sup.request("status", 2), {"ok": False, "reason": "gate_unavailable"})
         self.assertIsNone(sup.control)
         self.assertEqual(sup.request("continue"), {"ok": False, "reason": "gate_unavailable"})
+
+
+class Restart(unittest.TestCase):
+    def test_restarts_are_limited_per_window_and_ask_for_a_relaunch_once(self):
+        now = [1000.0]
+        sup = supervise.Supervisor(["gate"], {}, restart_limit=2, restart_window=600, restart_delay=0.5,
+                                   clock=lambda: now[0])
+        said, started = [], []
+        sup.say, sup._stop_gate, sup.wait_heard = said.append, lambda: None, lambda: {}
+        sup.start_gate = started.append
+
+        def gate_dies():
+            sup._gate_down()
+            now[0] += 1.0
+            sup._restart()
+
+        for _ in range(4):
+            gate_dies()
+        self.assertEqual(started, ["restart", "restart"])
+        relaunch = [text for text in said if "relaunch" in text]
+        self.assertEqual(len(relaunch), 1)
+        self.assertIn("exit and relaunch to continue", relaunch[0])
+        now[0] += 600
+        sup._restart()
+        self.assertEqual(started, ["restart"] * 3)
+        self.assertIsNone(sup.down_since)
+
+
+class Install(unittest.TestCase):
+    def test_a_missing_gate_script_refuses_as_an_incomplete_install(self):
+        sup = supervise.Supervisor([sys.executable, "-I", "-B", "/nonexistent/provider_gate.py"], {})
+        with self.assertRaises(supervise.Refused) as raised:
+            sup.start_gate()
+        self.assertIn("incomplete install at", raised.exception.reason)
+        self.assertIsNone(sup.holder)
+
+    def test_a_missing_gate_core_refuses_as_an_incomplete_install(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lib = Path(directory) / "lib/coding-agent-kit"
+            lib.mkdir(parents=True)
+            for name in ("supervise.py", "monitor.py"):
+                shutil.copy(HERE.parent / "lib/coding-agent-kit" / name, lib / name)
+            partial = fakes.load("kit_supervise_partial", lib / "supervise.py")
+            sup = partial.Supervisor([sys.executable, "-I", "-B", str(FIXTURES / "provider_gate.py")], {})
+            with self.assertRaises(partial.Refused) as raised:
+                sup.start_gate()
+            self.assertEqual(raised.exception.reason, "incomplete install at %s" % Path(directory).resolve())
+
+
+class Sweep(unittest.TestCase):
+    def test_the_sweep_compares_start_times_not_pid_numbers(self):
+        sup = supervise.Supervisor(["gate"], {})
+        table = supervise.process_table()
+        sup.baseline = {pid: table[pid][1] for pid in supervise.descendants(os.getpid(), table)}
+        sup.prepared = True
+        child = subprocess.Popen(["sleep", "30"], stdin=subprocess.DEVNULL)
+        self.addCleanup(lambda: alive(child.pid) and os.kill(child.pid, signal.SIGKILL))
+        sup.exited[child.pid] = 0  # an earlier process with this number was reaped
+        self.assertEqual(sup.sweep(grace=0.5), 1)
+        self.assertTrue(fakes_wait(lambda: not alive(child.pid)))
 
 
 class Spawn(unittest.TestCase):
@@ -295,6 +366,19 @@ class Terminal:
             except OSError:
                 pass
 
+    def expect_all(self, patterns, timeout=15.0):
+        """Wait until every pattern appears after the cursor, in any order; returns their matches."""
+        regexes = [re.compile(p.encode() if isinstance(p, str) else p) for p in patterns]
+        deadline = time.monotonic() + timeout
+        while True:
+            matches = [regex.search(self.output, self.cursor) for regex in regexes]
+            if all(matches):
+                self.cursor = max(match.end() for match in matches)
+                return matches
+            if time.monotonic() > deadline:
+                raise AssertionError("not all of %r in terminal output: %r" % (patterns, self.output[-2000:]))
+            self.pump(0.05)
+
     def expect(self, pattern, timeout=15.0):
         regex = re.compile(pattern.encode() if isinstance(pattern, str) else pattern)
         deadline = time.monotonic() + timeout
@@ -365,7 +449,8 @@ class Supervised(unittest.TestCase):
         self.terminal.write(code + b"\r")
 
     def test_native_runs_on_its_own_pty_with_its_own_pid_variable_and_exit_code(self):
-        self.launch()
+        self.launch(env={"HTTPS_PROXY": "http://proxy.example:3128", "ALL_PROXY": "socks5://proxy.example:1",
+                         "HTTP_PROXY": "http://127.0.0.1:{port}"})
         ready = self.ready()
         pid, variable, size = int(ready.group(1)), ready.group(2).decode(), ready.group(3).decode()
         self.assertEqual(variable, str(pid))
@@ -373,6 +458,11 @@ class Supervised(unittest.TestCase):
         self.assertEqual(size, "30x100")
         self.command("request")
         self.terminal.expect(r"STATUS 200")
+        port = self.kit_pids()[2]
+        for name, value in (("HTTPS_PROXY", "<unset>"), ("ALL_PROXY", "<unset>"),
+                            ("HTTP_PROXY", "http://127.0.0.1:%d" % port)):
+            self.command("env " + name)
+            self.terminal.expect(re.escape("ENV %s=%s" % (name, value)))
         self.command("exit 7")
         self.assertEqual(self.wait_exit(), 7)
 
@@ -430,19 +520,47 @@ class Supervised(unittest.TestCase):
         self.assertFalse((self.directory / "marker").exists())
         self.assertEqual(self.upstream.requests("/model"), [])
 
-    def test_detached_descendants_are_swept_at_the_end(self):
-        self.launch()
-        self.ready()
-        self.command("spawn")
+    def spawn(self, mode):
+        self.command("spawn " + mode)
         self.terminal.expect(r"SPAWNED")
         grandchild = int((self.directory / "spawned").read_text())
+        self.addCleanup(lambda: alive(grandchild) and os.kill(grandchild, signal.SIGKILL))
         self.assertTrue(alive(grandchild))
-        time.sleep(1.5)  # one descendant snapshot where there is no subreaper
+        return grandchild
+
+    def test_orphaned_session_members_and_snapshot_seen_descendants_are_swept(self):
+        self.launch()
+        self.ready()
+        orphaned = self.spawn("nosid")  # reparented at once, still in the native's session
+        detached = self.spawn("slow")  # setsid, but seen under its lingering parent first
         gate, monitor, _ = self.kit_pids()
         self.command("exit 0")
         self.assertEqual(self.wait_exit(), 0)
-        for pid in (grandchild, gate, monitor):
+        for pid in (orphaned, detached, gate, monitor):
             self.assertTrue(fakes_wait(lambda: not alive(pid)), "pid %d outlived the invocation" % pid)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"),
+                         "macOS has no child subreaper: a descendant that calls setsid and is orphaned "
+                         "between two snapshots escapes the sweep (a documented gap)")
+    def test_quickly_detached_descendants_are_swept(self):
+        self.launch()
+        self.ready()
+        grandchild = self.spawn("quick")
+        self.command("exit 0")
+        self.assertEqual(self.wait_exit(), 0)
+        self.assertTrue(fakes_wait(lambda: not alive(grandchild)), "the detached grandchild outlived the invocation")
+
+    def test_a_native_self_suspend_or_stop_does_not_hang_the_terminal(self):
+        self.launch()
+        self.ready()
+        self.command("suspend")  # its group is orphaned, so the kernel discards the SIGTSTP
+        self.terminal.expect(r"AFTER SUSPEND")
+        self.command("stop")  # the launcher continues a stopped native at once
+        self.terminal.expect(r"AFTER STOP")
+        self.command("request")
+        self.terminal.expect(r"STATUS 200")
+        self.command("exit 0")
+        self.assertEqual(self.wait_exit(), 0)
 
     def test_processes_started_before_the_supervisor_are_not_swept(self):
         bystander_file = self.directory / "bystander"
@@ -492,16 +610,30 @@ class Supervised(unittest.TestCase):
         self.assertEqual(self.wait_exit(), 0)
 
     def test_gate_death_keeps_the_port_and_a_restarted_gate_starts_paused(self):
-        self.launch()
+        self.launch(restart_delay=1.5)
         self.ready()
         gate, monitor, port = self.kit_pids()
         os.kill(gate, signal.SIGKILL)
         self.terminal.expect(r"paused \((gate_unavailable|monitor_eof|launcher_eof)\)")
-        self.terminal.expect(r"gate restarted paused")
+        self.command("request")  # waits in the held listener's backlog until the restarted gate refuses it
+        for address in ("127.0.0.1", "::1") if socket.has_ipv6 else ("127.0.0.1",):
+            squatter = socket.socket(socket.AF_INET6 if ":" in address else socket.AF_INET)
+            try:
+                squatter.bind((address, port))
+                squatter.listen(1)
+                result = "bound"
+            except OSError as error:
+                result = error.errno
+            finally:
+                squatter.close()
+            if result != errno.EADDRNOTAVAIL:  # a host without ::1
+                self.assertEqual(result, errno.EADDRINUSE, "a squatter bound %s during the gap" % address)
+        self.terminal.expect_all([r"gate restarted paused", r"STATUS 400"])
         new_gate, new_monitor, new_port = self.kit_pids()
         self.assertEqual(new_port, port)
         self.assertNotIn(new_gate, (gate, None))
         self.assertTrue(fakes_wait(lambda: not alive(monitor)))
+        self.assertEqual(self.upstream.requests("/model"), [])
         self.command("request")
         self.terminal.expect(r"STATUS 400")
         self.continue_()
@@ -556,6 +688,17 @@ class Supervised(unittest.TestCase):
         self.launch(confine="wrap", native=None, connect_allow=allow, refresh=client + ["other.fixture:443"])
         self.terminal.expect(r"REFRESH 4")
         self.assertEqual(self.wait_exit(), 1)
+        # The documented wiring: refresh, then run on the same supervisor. The run gate's provider
+        # lists the auth host too, and still no tunnel opens while the native runs.
+        received = bytes(echo.received)
+        self.launch(confine="wrap", connect_allow=allow, refresh=client + ["auth.fixture:443"])
+        self.terminal.expect(r"REFRESH 0")
+        self.ready()
+        self.command("connect auth.fixture:443")
+        self.terminal.expect(r"CONNECT 403")
+        self.command("exit 0")
+        self.assertEqual(self.wait_exit(), 0)
+        self.assertEqual(bytes(echo.received), received + b"refresh\n")
 
     def test_continuation_with_the_gate_down_stays_paused(self):
         self.launch(restart_delay=60)

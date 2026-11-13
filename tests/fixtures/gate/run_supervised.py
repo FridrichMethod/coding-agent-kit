@@ -1,11 +1,13 @@
 """Run one supervised invocation on the caller's terminal: python3 -I -B run_supervised.py SPEC.
 
 SPEC is JSON: upstream_port, store_bearer, next_poll, native (argv), env (extra native
-environment), confine (null; "wrap" or "refuse"; "close", "close-refuse" or "close-missing" first
-close every descriptor above 2 as the boundary modules do), pids (a file that SIGUSR1 fills with
-the gate and monitor pids and the port), extra (holder addresses), restart_delay, refresh (an argv
-run first under a refresh-mode gate), connect_allow and bystander (a file that gets the pid of a
-child started before the supervisor). Exit status: the native's, or 3 on a refusal.
+environment; "{port}" in a value becomes the gate port), confine (null; "wrap" or "refuse";
+"close", "close-refuse" or "close-missing" first close every descriptor above 2 as the boundary
+modules do), pids (a file that SIGUSR1 fills with the gate and monitor pids and the port), extra
+(holder addresses), restart_delay, refresh (an argv run first under a refresh-mode gate),
+connect_allow (the refresh gate's allowlist; the run gate's provider lists the same targets unless
+run_connect_allow says otherwise) and bystander (a file that gets the pid of a child started before
+the supervisor). Exit status: the native's, or 3 on a refusal.
 """
 
 import importlib.util
@@ -57,11 +59,13 @@ def main(spec):
         bystander = subprocess.Popen(["sleep", "30"], stdin=subprocess.DEVNULL, start_new_session=True)
         Path(spec["bystander"]).write_text(str(bystander.pid))
 
+    allow = spec.get("connect_allow", {})
     config = {"max_age_s": 120, "heartbeat_max_s": 1.5, "upstream_port": spec["upstream_port"],
               "holds_bearer": True, "store_bearer": spec.get("store_bearer", "fixture-bearer-A-0001"),
               "next_poll": spec.get("next_poll"), "name": spec.get("name", "claude"),
-              "connect_allow": spec.get("connect_allow", {})}
+              "connect_allow": spec.get("run_connect_allow", allow)}
     sup = supervise.Supervisor([sys.executable, "-I", "-B", str(HERE / "provider_gate.py")], config,
+                               refresh_config=dict(config, connect_allow=allow),
                                confine=confine if spec.get("confine") else None,
                                pid_env="CODING_AGENT_KIT_CLAUDE_PID", holder_extra=spec.get("extra", ()),
                                restart_delay=spec.get("restart_delay", 0.5))
@@ -76,7 +80,7 @@ def main(spec):
     try:
         port = sup.hold()
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "GATE_PORT": str(port)}
-        env.update(spec.get("env", {}))
+        env.update({name: value.replace("{port}", str(port)) for name, value in spec.get("env", {}).items()})
         if spec.get("refresh"):
             code = sup.refresh(spec["refresh"], env, timeout=10)
             sys.stdout.write("REFRESH %s\n" % code)

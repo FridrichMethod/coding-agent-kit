@@ -18,13 +18,19 @@ Providers plug in through four interfaces; BaseProvider documents each method:
 Invariants:
 - Every upstream request byte is written under the admission lock, in chunks of at most CHUNK
   bytes, each after live() confirms that the stream is still admitted, with a WRITE_TIMEOUT per
-  chunk. A latch takes the same lock and closes every registered stream and tunnel, so no request
-  byte follows it (a TLS or proxy handshake opened before it still may). Connects happen outside
-  the lock, and no quota fetch ever runs under it; every lease method takes it.
+  chunk. A latch takes the same lock, closes every registered stream and tunnel first and only
+  then reports, so no request byte follows it (a TLS or proxy handshake opened before it still
+  may). Connects happen outside the lock, and no quota fetch ever runs under it; every lease
+  method takes it. Monitor heartbeats are recorded without it, so a slow write never reads as a
+  silent monitor.
 - A Secret stays in memory: no event, status, message, reply or file carries a bearer or a value
   derived from one. Matching uses a keyed digest whose key never leaves this process.
 - Monitor loss (EOF, silence past HEARTBEAT_MAX, or launcher EOF) is final for a gate instance;
   a restarted gate starts paused ("gate_restart").
+- CONNECT tunnels exist only in refresh mode (the D1 pre-launch refresh): a startup or restart
+  gate refuses every CONNECT, so no opaque tunnel is open while model work runs.
+- Evaluator output is checked: a Decision whose running flag, reason or fields (a dict of str keys
+  to JSON scalars) is malformed counts as Decision(False, "evaluator_error").
 - Leaving a pause needs a continuation armed through the launcher's control channel, while the
   monitor is alive and has been heard, answered within CONTINUATION_WINDOW by the first quota
   observation whose request started after it, and a passing evaluator decision on that
@@ -34,7 +40,8 @@ Process entry (a provider script loads this file and calls main(argv, make)):
     python3 -I -B PROVIDER_GATE --listen-fds A[,B...] --control-fd N [--monitor-fd N]
                                 --mode startup|restart|refresh
     stdin: one JSON object, at most CONFIG_LIMIT bytes, then EOF. Core keys: max_age_s,
-        heartbeat_max_s (optional), proxy ([host, port] or null); make(config) reads the rest.
+        heartbeat_max_s (optional), proxy ([host, port] or null); make(config) reads the rest and
+        may set the provider's tunables (BaseProvider lists them).
 
 Control channel (JSON lines on the inherited socket, section 10 of the reviewed design):
     launcher -> gate: {"op": "continue" | "disarm" | "status" | "shutdown", "id": N (optional)}
@@ -57,6 +64,7 @@ import io
 import ipaddress
 import itertools
 import json
+import math
 import os
 import queue
 import re
@@ -162,7 +170,12 @@ class Secret:
 
 @dataclass(frozen=True)
 class Presented:
-    """What one request presents: its bearer and the provider's identity selectors."""
+    """What one request presents: its bearer and the provider's identity selectors.
+
+    Admission matches the bearer only; the selectors (for example ChatGPT-Account-ID) are carried
+    for the provider. present() must therefore refuse any selector other than the expected
+    identity's, and a missing one wherever the upstream would otherwise pick an account itself.
+    """
 
     secret: object
     selectors: tuple = ()
@@ -339,17 +352,32 @@ def _quietly(call):
         pass
 
 
-def open_tcp(host, port, proxy, timeout=CONNECT_TIMEOUT):
-    """A TCP stream to host:port, through an HTTP CONNECT tunnel when a proxy is given."""
+def _left(deadline, clock, cap=CONNECT_TIMEOUT):
+    """Seconds for the next blocking step: at most cap and never past deadline (None: cap)."""
+    if deadline is None:
+        return cap
+    left = deadline - clock()
+    if left <= 0:
+        raise socket.timeout("deadline passed")
+    return min(left, cap)
+
+
+def open_tcp(host, port, proxy, timeout=CONNECT_TIMEOUT, deadline=None, clock=time.monotonic):
+    """A TCP stream to host:port, through an HTTP CONNECT tunnel when a proxy is given.
+
+    Each step waits at most timeout seconds, and none starts or waits past deadline (a clock()
+    value) when one is given. Name resolution is bounded by the system resolver only."""
     if proxy is None:
-        return socket.create_connection((host, port), timeout=timeout)
-    sock = socket.create_connection(proxy, timeout=timeout)
+        return socket.create_connection((host, port), timeout=_left(deadline, clock, timeout))
+    sock = socket.create_connection(proxy, timeout=_left(deadline, clock, timeout))
     try:
         authority = "%s:%d" % ("[%s]" % host if ":" in host else host, port)
+        sock.settimeout(_left(deadline, clock, timeout))
         sock.sendall(("CONNECT %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\n\r\n"
                       % (authority, authority, USER_AGENT)).encode("ascii"))
         head = b""
         while not head.endswith(b"\r\n\r\n"):
+            sock.settimeout(_left(deadline, clock, timeout))
             byte = sock.recv(1)  # one byte at a time: no tunnel byte is consumed here
             if not byte or len(head) > 8192:
                 raise OSError("proxy refused the tunnel")
@@ -409,9 +437,11 @@ class BaseProvider:
 
     Attributes: name ("codex" or "claude"); routes (RouteTable); upstream (Upstream);
     expected_identity (what Observation.identity must equal); family (None or what
-    Observation.family must equal); connect_allow ({"host:port": (host, port)}, exact targets a
-    CONNECT may reach while running; empty by default); rebind_timeout (seconds a gate-read
-    rebind may take).
+    Observation.family must equal); connect_allow ({"host:port": (host, port)}, the exact targets
+    a CONNECT may reach, served by a refresh-mode gate only; empty by default); rebind_timeout
+    (seconds a gate-read rebind may take). Tunables, which make(config) may set per provider:
+    usage_reads and revalidations ((count, window seconds) budgets), continuation_window and
+    attach_grace (seconds).
     """
 
     name = "codex"
@@ -421,10 +451,17 @@ class BaseProvider:
     family = None
     connect_allow = {}
     rebind_timeout = READ_TIMEOUT
+    usage_reads = USAGE_READS
+    revalidations = REVALIDATIONS
+    continuation_window = CONTINUATION_WINDOW
+    attach_grace = ATTACH_GRACE
 
     def present(self, route, headers):
         """Presented for a request, or raise Refusal (latch=True pauses). Default: exactly one
-        "Authorization: Bearer X" and no other credential header; a model route latches."""
+        "Authorization: Bearer X" and no other credential header; a model route latches.
+
+        Admission compares the bearer alone, so an override that returns selectors must refuse
+        every selector other than the expected identity's (see Presented)."""
         auth = values(headers, "authorization")
         if (len(auth) != 1 or not auth[0].startswith("Bearer ") or values(headers, "x-api-key")
                 or values(headers, "proxy-authorization")):
@@ -443,7 +480,9 @@ class BaseProvider:
     def read_quota(self, gate, presented, cause):
         """One gate-originated model-free quota read through gate.fetch() with presented.secret;
         returns an Observation (received_at is replaced by the gate). cause: startup, poll,
-        rebind or continuation."""
+        rebind or continuation. A "poll" applies only while its bearer is still the lease's, so it
+        never rebinds the lease; a provider that re-reads a rotated store bearer checks it with
+        cause "rebind"."""
         raise Unavailable("no_reader")
 
     def observe_forwarded(self, route, presented, status, headers, body, received_at):
@@ -463,37 +502,77 @@ class BaseProvider:
         return refusal_response(self.name, reason)
 
 
+def _seconds(value, name, top=3600):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 < value <= top:
+        raise ValueError(name + " out of range")
+    return float(value)
+
+
+def _budget(value, name):
+    """A (count, window seconds) budget."""
+    if (not isinstance(value, (tuple, list)) or len(value) != 2 or isinstance(value[0], bool)
+            or not isinstance(value[0], int) or not 0 < value[0] <= 1000):
+        raise ValueError(name + " out of range")
+    return value[0], _seconds(value[1], name)
+
+
+def _scalar(value):
+    if isinstance(value, float):
+        return math.isfinite(value)
+    if isinstance(value, str):
+        return len(value) <= 1024
+    return value is None or isinstance(value, (bool, int))
+
+
+def _well_formed(decision):
+    """A Decision the gate can act on and report: a bool running flag, a short str reason (or
+    None) and at most 64 message fields of str keys to JSON scalars."""
+    if not isinstance(decision, Decision) or not isinstance(decision.running, bool):
+        return False
+    if decision.reason is not None and (not isinstance(decision.reason, str) or len(decision.reason) > 200):
+        return False
+    fields = decision.fields
+    return (isinstance(fields, dict) and len(fields) <= 64
+            and all(isinstance(key, str) and len(key) <= 64 and _scalar(value) for key, value in fields.items()))
+
+
 class Gate:
     """Lease, routes, admission lock, stream registry and latch of one gate instance."""
 
     def __init__(self, provider, decide, *, max_age, mode="startup", proxy=None,
-                 heartbeat_max=HEARTBEAT_MAX, attach_grace=ATTACH_GRACE,
-                 continuation_window=CONTINUATION_WINDOW, usage_reads=USAGE_READS,
-                 revalidations=REVALIDATIONS, clock=time.monotonic, wall=time.time, notify=None,
-                 emit=None):
+                 heartbeat_max=HEARTBEAT_MAX, attach_grace=None, continuation_window=None,
+                 usage_reads=None, revalidations=None, clock=time.monotonic, wall=time.time,
+                 notify=None, emit=None):
+        """Tunables left as None come from the provider's attributes (BaseProvider lists them)."""
         if mode not in ("startup", "restart", "refresh"):
             raise ValueError("unknown gate mode")
-        if isinstance(max_age, bool) or not isinstance(max_age, (int, float)) or not 0 < max_age <= 3600:
-            raise ValueError("max_age out of range")
         status, _ = provider.refusal("probe")
         if status in FORBIDDEN_STATUS.get(provider.name, ()) or not 400 <= status < 600:
             raise ValueError("refusal status not allowed for this provider")
+
+        def tunable(value, name):
+            return getattr(provider, name, getattr(BaseProvider, name)) if value is None else value
+
         self.provider, self._decider, self.mode = provider, decide, mode
-        self.max_age, self.proxy = float(max_age), proxy
-        self.heartbeat_max, self.attach_grace = heartbeat_max, attach_grace
-        self.continuation_window = continuation_window
-        self.usage_reads, self.revalidations = usage_reads, revalidations
+        self.max_age, self.proxy = _seconds(max_age, "max_age"), proxy
+        self.heartbeat_max = _seconds(heartbeat_max, "heartbeat_max")
+        self.attach_grace = _seconds(tunable(attach_grace, "attach_grace"), "attach_grace")
+        self.continuation_window = _seconds(tunable(continuation_window, "continuation_window"),
+                                            "continuation_window")
+        self.usage_reads = _budget(tunable(usage_reads, "usage_reads"), "usage_reads")
+        self.revalidations = _budget(tunable(revalidations, "revalidations"), "revalidations")
         self.clock, self.wall = clock, wall
         self.notify = notify or (lambda message: None)
         self.emit = emit or (lambda event, **fields: None)
         self.lock = threading.RLock()
+        self._beat_lock, self._beat = threading.Lock(), None  # heartbeats take only this lock
         self.state = {"startup": "checking", "restart": "paused", "refresh": "refresh"}[mode]
         self.reason = "gate_restart" if mode == "restart" else None
         self.fields, self.lost, self.closed = {}, None, False
         self.lease, self.last_fresh, self.epoch = None, None, 0
         self.streams, self._ids = {}, itertools.count(1)
         self.armed, self._answered = None, None
-        self.attached, self.last_beat, self.next_poll = None, None, None
+        self.attached, self.next_poll = None, None
         self.rebinding = None
         self._reads, self._checks = collections.deque(), collections.deque()
         self._contexts = {}
@@ -506,7 +585,7 @@ class Gate:
             decision = self._decider(event)
         except Exception:
             decision = None
-        if not isinstance(decision, Decision):
+        if not _well_formed(decision):
             return Decision(False, "evaluator_error")
         if isinstance(decision.next_poll, (int, float)) and not isinstance(decision.next_poll, bool):
             self.next_poll = float(decision.next_poll)
@@ -516,20 +595,21 @@ class Gate:
         self.armed = None
         if fields is not None:
             self.fields = dict(fields)
-        self.reason = reason
-        closers = []
-        if self.state != "paused" or op == "latched":
-            self.state = "paused"
-            closers, self.streams = list(self.streams.values()), {}
-            self.emit(op, reason=reason, closed=len(closers))
-            self.notify({"op": op, "reason": reason, "at": round(self.wall(), 3), "fields": dict(self.fields)})
-        for close in closers:
+        self.reason = reason if isinstance(reason, str) and reason else "paused"
+        if self.state == "paused" and op != "latched":
+            return
+        self.state = "paused"
+        closers, self.streams = list(self.streams.values()), {}
+        for close in closers:  # first: no report below may leave a stream open
             _quietly(close)
+        message = {"op": op, "reason": self.reason, "at": round(self.wall(), 3), "fields": dict(self.fields)}
+        _quietly(lambda: self.emit(op, reason=self.reason, closed=len(closers)))
+        _quietly(lambda: self.notify(message))
 
     def _resume(self, fields):
         self.state, self.reason, self.fields = "running", None, dict(fields)
-        self.emit("resumed")
-        self.notify({"op": "resumed", "at": round(self.wall(), 3)})
+        _quietly(lambda: self.emit("resumed"))
+        _quietly(lambda: self.notify({"op": "resumed", "at": round(self.wall(), 3)}))
 
     def _take(self, times, budget):
         limit, window = budget
@@ -573,10 +653,17 @@ class Gate:
         with self.lock:
             self.attached = self.clock()
 
+    @property
+    def last_beat(self):
+        with self._beat_lock:
+            return self._beat
+
     def heartbeat(self):
-        with self.lock:
-            if self.lost is None:
-                self.last_beat = self.clock()
+        """Record one monitor heartbeat. It never waits for the admission lock, so beats that
+        arrive while a request chunk is being written count when the timer next runs."""
+        now = self.clock()
+        with self._beat_lock:
+            self._beat = now if self._beat is None else max(self._beat, now)
 
     def lose(self, reason):
         """Monitor or launcher loss: sticky for this gate instance; pauses and closes streams."""
@@ -597,12 +684,12 @@ class Gate:
         with self.lock:
             if self.closed:
                 return
-            now = self.clock()
+            now, beat = self.clock(), self.last_beat
             if self.mode != "refresh" and self.lost is None and self.attached is not None:
-                if self.last_beat is None:
+                if beat is None:
                     if now - self.attached > self.attach_grace:
                         self.lose("monitor_stale")
-                elif now - self.last_beat > self.heartbeat_max:
+                elif now - beat > self.heartbeat_max:
                     self.lose("monitor_stale")
             if self.state == "running" and (self.last_fresh is None or now >= self.last_fresh + self.max_age):
                 self._pause("stale", self._decide(Event("health", now, name="stale")).fields)
@@ -629,6 +716,8 @@ class Gate:
         with self.lock:
             if self.closed or self.lost is not None:
                 return "lost"
+            if cause == "poll" and (self.lease is None or not self.lease.secret.matches(presented.secret)):
+                return "superseded"  # a poll for a bearer the lease no longer holds never rebinds it
             at = observation.received_at
             if self.last_fresh is not None and at < self.last_fresh:
                 return "superseded"  # an older read answered late; newer data stands
@@ -771,9 +860,10 @@ class Gate:
             sock.sendall(data)
 
     def open_tunnel(self, target, closer):
-        """Register a CONNECT tunnel to an exact allowlisted target while open; stream id or None."""
+        """Register a CONNECT tunnel to an exact allowlisted target; stream id or None. Only a
+        refresh-mode gate serves tunnels, and only until it is lost or shut down."""
         with self.lock:
-            if target not in self.provider.connect_allow or not self._open():
+            if self.mode != "refresh" or target not in self.provider.connect_allow or not self._open():
                 return None
             stream = next(self._ids)
             self.streams[stream] = closer
@@ -832,9 +922,10 @@ class Gate:
             _quietly(close)
 
     # -- upstream --------------------------------------------------------------------------------
-    def open(self, upstream):
-        """A connected upstream socket (TLS verified when upstream.tls); raises OSError."""
-        sock = open_tcp(upstream.host, upstream.port, self.proxy)
+    def open(self, upstream, deadline=None):
+        """A connected upstream socket (TLS verified when upstream.tls); raises OSError. Each step
+        takes at most CONNECT_TIMEOUT, and none runs past deadline (a clock() value) if given."""
+        sock = open_tcp(upstream.host, upstream.port, self.proxy, deadline=deadline, clock=self.clock)
         if not upstream.tls:
             return sock
         try:
@@ -844,7 +935,7 @@ class Gate:
                 context.minimum_version = ssl.TLSVersion.TLSv1_2
                 context.set_alpn_protocols(["http/1.1"])
                 self._contexts[upstream.ca_file] = context
-            sock.settimeout(CONNECT_TIMEOUT)
+            sock.settimeout(_left(deadline, self.clock))
             return context.wrap_socket(sock, server_hostname=upstream.host)
         except (OSError, ValueError) as error:
             sock.close()
@@ -854,7 +945,9 @@ class Gate:
         """One gate-originated model-free request: (status, headers, body), or raise Unavailable.
 
         It carries the neutral User-Agent, counts against the usage-read cap, and is bounded by
-        timeout (READ_TIMEOUT) in total. Never call it with the lock held."""
+        timeout (READ_TIMEOUT) in total: connect, proxy tunnel and TLS steps never wait past the
+        deadline, and a watchdog shuts the socket when it passes, whatever is blocking then (name
+        resolution is bounded by the system resolver only). Never call it with the lock held."""
         if any(name.lower() in FETCH_RESERVED for name, _ in headers):
             raise ValueError("reserved header in a gate fetch")
         with self.lock:
@@ -865,9 +958,19 @@ class Gate:
                 raise Unavailable("usage_read_cap")
         upstream = upstream or self.provider.upstream
         deadline = self.clock() + (timeout or READ_TIMEOUT)
-        sock = connection = None
+        sock = connection = watchdog = None
+        expired = threading.Event()
         try:
-            sock = self.open(upstream)
+            sock = self.open(upstream, deadline)
+
+            def expire():
+                expired.set()
+                _shut(sock)
+
+            watchdog = threading.Timer(max(0.0, deadline - self.clock()), expire)
+            watchdog.daemon = True
+            watchdog.start()
+            sock.settimeout(_left(deadline, self.clock))
             connection = http.client.HTTPConnection(upstream.host, upstream.port)
             connection.sock = sock
             connection.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
@@ -893,10 +996,15 @@ class Gate:
                 body += chunk
                 if len(body) > limit:
                     raise Unavailable("response_too_large")
+            if expired.is_set():
+                raise Unavailable("timeout")
             return response.status, response.getheaders(), bytes(body)
         except (OSError, http.client.HTTPException, ValueError):
-            raise Unavailable("upstream_unavailable") from None
+            late = expired.is_set() or self.clock() >= deadline
+            raise Unavailable("timeout" if late else "upstream_unavailable") from None
         finally:
+            if watchdog is not None:
+                watchdog.cancel()
             if connection is not None:
                 _quietly(connection.close)
             _close(sock)
@@ -1077,12 +1185,14 @@ class _Handler(BaseHTTPRequestHandler):
         gate.emit("connect", ok=stream is not None)
         if stream is None:
             return self._reply(403, b"", "text/plain")
-        sock = None
+        sock = writer = None
         try:
             host, port = gate.provider.connect_allow[target]
             try:
                 sock = open_tcp(host, port, gate.proxy)
+                writer = sock.dup()  # its own timeout: the writes never change the reader's
             except OSError:
+                _close(sock)
                 return self._reply(502, b"", "text/plain")
             holder["upstream"] = sock
             with gate.lock:
@@ -1099,7 +1209,7 @@ class _Handler(BaseHTTPRequestHandler):
                         chunk = self.rfile.read1(65536)
                         if not chunk:
                             break
-                        gate.send(stream, sock, chunk)
+                        gate.send(stream, writer, chunk)
                 except (Closed, OSError, ValueError):
                     pass
                 _shut(sock)
@@ -1118,6 +1228,8 @@ class _Handler(BaseHTTPRequestHandler):
         finally:
             gate.release(stream)
             _close(sock)
+            if writer is not None:
+                _quietly(writer.close)
             gate.emit("tunnel_closed", stream=stream)
 
 
@@ -1204,6 +1316,17 @@ def _options(argv):
     return listen, int(options["--control-fd"]), (None if monitor is None else int(monitor)), mode
 
 
+def run_timer(gate, stop, tick=TICK):
+    """The independent timer loop. An error in it latches the gate and ends it, so the launcher
+    sees a dead gate and restarts it paused, instead of losing the timer silently."""
+    while not stop.wait(tick):
+        try:
+            gate.tick()
+        except Exception:
+            _quietly(lambda: gate.lose("gate_error"))
+            stop.set()
+
+
 def _read_config(stream):
     raw = stream.read(CONFIG_LIMIT + 1)
     if len(raw) > CONFIG_LIMIT:
@@ -1256,26 +1379,25 @@ def main(argv, make, stdin=None):
     for server in servers:
         threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True).start()
 
-    def timer():
-        while not stop.wait(TICK):
-            gate.tick()
-
     def on_control(message):
         op = message.get("op")
         number = message.get("id")
         tag = {"id": number} if isinstance(number, int) and not isinstance(number, bool) else {}
 
         def answer():
-            if op == "continue":
-                reply = gate.arm_continuation()
-            elif op == "disarm":
-                reply = gate.disarm()
-            elif op == "status":
-                reply = gate.status()
-            elif op == "shutdown":
-                reply = {"ok": True}
-            else:
-                reply = {"ok": False, "reason": "unknown_op"}
+            try:
+                if op == "continue":
+                    reply = gate.arm_continuation()
+                elif op == "disarm":
+                    reply = gate.disarm()
+                elif op == "status":
+                    reply = gate.status()
+                elif op == "shutdown":
+                    reply = {"ok": True}
+                else:
+                    reply = {"ok": False, "reason": "unknown_op"}
+            except Exception:
+                reply = {"ok": False, "reason": "gate_error"}
             channel.send(dict(reply, op="reply", to=str(op)[:32], **tag))
             if op == "shutdown":
                 stop.set()
@@ -1308,7 +1430,7 @@ def main(argv, make, stdin=None):
                                                   lambda: gate.lose("monitor_eof")), daemon=True).start()
     threading.Thread(target=read_lines, args=(control, on_control, on_control_eof), daemon=True).start()
     gate.attach()
-    threading.Thread(target=timer, daemon=True).start()
+    threading.Thread(target=run_timer, args=(gate, stop), daemon=True).start()
     channel.send({"op": "ready", "port": servers[0].server_port, "pid": os.getpid(), "mode": mode})
     if monitor_fd is not None:
         monitor_channel.send({"op": "next", "after": gate.poll_delay()})
