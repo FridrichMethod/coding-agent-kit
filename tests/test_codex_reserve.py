@@ -6,13 +6,16 @@ boundary (Linux Landlock ABI 6+ on x86_64, or a reviewed macOS release) and open
 CA, and skip cleanly without them; with a real codex 0.167.2 on PATH one case runs it too.
 """
 
+import base64
 import contextlib
 import fcntl
 import importlib.util
 import json
 import os
 from pathlib import Path
+import plistlib
 import pty
+import pwd
 import re
 import select
 import shutil
@@ -62,6 +65,10 @@ def boundary_missing():
     except sandbox.Refusal as error:
         return str(error)
     return None
+
+
+def pwd_name():
+    return pwd.getpwuid(os.getuid()).pw_name
 
 
 def refused(call, *args):
@@ -251,6 +258,21 @@ class Requirements(unittest.TestCase):
                 cache["signed_payload"]["version"] = 2  # native ignores another cache version
                 (home / protect.BUNDLE_CACHE).write_text(json.dumps(cache))
                 protect.requirement_check(home, self.sqlite)
+
+    def test_macos_forced_managed_preferences_are_read_where_present(self):
+        with tempfile.TemporaryDirectory() as temp:
+            managed, home = Path(temp) / "Managed Preferences", Path(temp) / "account"
+            (managed / pwd_name()).mkdir(parents=True)
+            home.mkdir()
+            encoded = base64.b64encode(b"[application.network]\nenabled = true\n").decode()
+            (managed / pwd_name() / protect.MANAGED_DOMAIN).write_bytes(
+                plistlib.dumps({"requirements_toml_base64": encoded}))
+            with mock.patch.object(protect, "MANAGED_PREFERENCES", managed), \
+                    mock.patch.object(protect, "SYSTEM_REQUIREMENTS", Path(temp) / "absent.toml"), \
+                    mock.patch.object(protect.sys, "platform", "darwin"):
+                self.assertIn("application network", refused(protect.requirement_check, home, self.sqlite))
+                (managed / protect.MANAGED_DOMAIN).write_bytes(b"not a plist")
+                self.assertIn("cannot be read", refused(protect.requirement_check, home, self.sqlite))
 
 
 class Upstream:
@@ -809,6 +831,15 @@ class Unprotected(unittest.TestCase):
                 self.assertIn(text, result.stderr)
                 self.assertEqual(self.home.events(), [])
 
+    def test_a_configured_model_outside_the_reviewed_table_refuses_unless_overridden(self):
+        missing = boundary_missing()
+        (self.home.codex_home / "config.toml").write_text('model = "gpt-4o"\n')
+        terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
+        self.addCleanup(terminal.close)
+        terminal.expect("usage reserve protection refused: " + re.escape(missing or "the model gpt-4o is not one"))
+        self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
+        self.assertEqual(self.home.events(), [])
+
     def test_without_a_terminal_protected_mode_refuses(self):
         missing = boundary_missing()
         result = self.home.run(["--reserve-5h", "10", "A"])
@@ -954,12 +985,14 @@ class Protected(Launch):
             ("identity", lambda: setattr(self.backend, "user", "user-other"), "account changed"),
             ("refresh", lambda: setattr(self.backend, "refresh_status", 400), "pre-launch credential refresh failed"),
             ("usage", lambda: setattr(self.backend, "usage_status", 503), "no quota reading yet"),
+            ("policy", lambda: self.home.knobs(FAKE_POLICY_ERROR="1"), "(policy-unavailable)"),
         )
         for name, arrange, text in cases:
             with self.subTest(name=name):
                 self.backend.used, self.backend.user = [10, 20], "user-fixture-A"
                 self.backend.refresh_status = self.backend.usage_status = 200
                 self.home.log.unlink(missing_ok=True)
+                self.home.knobs()
                 arrange()
                 terminal = self.start()
                 terminal.expect("usage reserve protection refused: .*" + re.escape(text), timeout=90)

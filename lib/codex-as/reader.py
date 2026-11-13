@@ -17,7 +17,9 @@ the monitor, which runs outside the boundary, passes --confine, and the reader e
 boundary before it starts anything.
 
 Exit status: 0 the request was answered, 2 the App Server did not start, 3 initialize failed, 4 the
-request failed or timed out, 5 the boundary refused, 6 unusable arguments or specification.
+request failed or timed out, 5 the boundary refused, 6 unusable arguments or specification, and
+7 to 10 the request failed with one of native's four application network policy denials (POLICY,
+matched by their exact text; no other error text is kept).
 """
 
 import importlib.util
@@ -38,6 +40,11 @@ KIT = HERE.parent / "coding-agent-kit"
 CLIENT_INFO = {"name": "quota-probe", "version": "1"}
 REQUESTS = {"read": ("account/rateLimits/read", {"excludeResetCreditDetails": True}),
             "refresh": ("account/read", {"refreshToken": True})}
+# codex 0.167.2 http-client NetworkPolicyDenied: unavailable, destination, revoked, unsupported transport.
+POLICY = {"application network policy is unavailable": 7,
+          "destination denied by application network policy": 8,
+          "application network permission was revoked": 9,
+          "this SDK transport is disabled by application network restrictions": 10}
 LINE_LIMIT = 1024 * 1024
 CLOSE_GRACE = 5.0
 
@@ -125,7 +132,11 @@ def exchange(spec):
         server.send({"method": "initialized", "params": {}})
         method, params = REQUESTS[spec["mode"]]
         answer = server.request(method, params, deadline)
-        return 0 if answer and "result" in answer else 4
+        if answer and "result" in answer:
+            return 0
+        error = answer.get("error") if isinstance(answer, dict) else None
+        message = error.get("message") if isinstance(error, dict) else None
+        return next((code for text, code in POLICY.items() if isinstance(message, str) and text in message), 4)
     except (OSError, ValueError):
         return 4
     finally:

@@ -24,7 +24,6 @@ expected account, and no other credential; a bearer whose JWT claims name an acc
 same one. Refusals are 503, never 401 (a 401 would start a native refresh).
 """
 
-from dataclasses import replace
 from decimal import Decimal
 import base64
 import importlib.util

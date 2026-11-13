@@ -195,6 +195,9 @@ def app_server(config):
         if method == "initialize":
             log("initialize", client=message.get("params", {}).get("clientInfo"))
             reply = {"result": {"userAgent": "fake"}}
+        elif method == "account/rateLimits/read" and knob("FAKE_POLICY_ERROR"):
+            reply = {"error": {"code": -32603, "message": "failed to fetch codex rate limits: "
+                                                           "application network policy is unavailable"}}
         elif method == "account/rateLimits/read":
             status, body = usage(config)
             reply = {"result": {"rateLimits": json.loads(body)}} if status == 200 else \

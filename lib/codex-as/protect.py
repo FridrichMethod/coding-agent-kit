@@ -622,6 +622,11 @@ class Session:
             refuse(str(error))
         if not os.isatty(0):
             refuse("protected mode needs an interactive terminal for continuation")
+        configured = read_document(self.config.codex_home / "config.toml")
+        chosen = (toml_document(configured.decode("utf-8", "replace")) or {}).get("model") if configured else None
+        if isinstance(chosen, str) and not any(word in ("-m", "--model") or word.startswith(("-m", "--model="))
+                                               for word in self.args):
+            model(chosen, self.native)  # check.py has already parsed this file
         requirement_check(self.layout.home, self.sqlite)
 
     # -- the run --------------------------------------------------------------------------------------
@@ -727,7 +732,7 @@ class Session:
             # answers only the bundle and the tunnel); the refreshed credential is the verdict.
             if last_refresh(current) == before:
                 refuse("the pre-launch credential refresh failed (%s)"
-                       % ("timed out" if code is None else "reader status %d" % code if code else "unchanged"))
+                       % (reader_status(code) if code else "the credential is unchanged"))
             if login(current, self.native, self.storage) != self.login:
                 refuse("the refreshed login names another workspace, user or plan")
 
@@ -737,8 +742,7 @@ class Session:
                 status = supervisor.request("status", 10)
                 if not status.get("running"):
                     reason = status.get("reason") or "no fresh passing quota check"
-                    detail = "" if code == 0 else " (the quota read %s)" % (
-                        "timed out" if code is None else "ended with status %d" % code)
+                    detail = "" if code == 0 else " (quota read: %s)" % reader_status(code)
                     raise supervise.Refused(explain(reason, status.get("fields")) + detail)
 
             def continue_read():
@@ -764,6 +768,21 @@ class Session:
             for path in (self.private, self.work):
                 if path:
                     shutil.rmtree(path, ignore_errors=True)
+
+
+# reader.py exit statuses, for refusal messages.
+READER_STATUS = {
+    2: "the App Server did not start", 3: "the App Server did not initialize", 4: "the request failed",
+    5: "the boundary refused the reader", 6: "the reader's specification was unusable",
+    7: "native's managed network policy is unavailable (policy-unavailable)",
+    8: "native's managed network policy denies the gate (policy-destination)",
+    9: "native's managed network permission was revoked (policy-revoked)",
+    10: "native's managed network restrictions disable this transport (policy-unsupported-transport)",
+}
+
+
+def reader_status(code):
+    return "timed out" if code is None else READER_STATUS.get(code, "ended with status %d" % code)
 
 
 EXPLAINED = {
