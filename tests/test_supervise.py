@@ -24,6 +24,7 @@ import termios
 import time
 import tty
 import unittest
+from unittest import mock
 
 
 HERE = Path(__file__).resolve().parent
@@ -105,6 +106,137 @@ class Pure(unittest.TestCase):
     def test_finish_keeps_the_exit_code(self):
         self.assertEqual(supervise.finish(7 << 8), 7)
         self.assertEqual(supervise.finish(0), 0)
+
+
+class OutsideCommands(unittest.TestCase):
+    """What the launcher runs outside the boundary never resolves through a name the boundary can
+    replace: no command by PATH, kit processes start in /, and kit code lies out of reach."""
+
+    def scratch(self):
+        directory = tempfile.TemporaryDirectory(prefix="supervise-outside-")
+        self.addCleanup(directory.cleanup)
+        return Path(directory.name).resolve()
+
+    def planted_ps(self, base):
+        """An executable ps in BASE/bin that records each run in BASE/ran and prints one table row."""
+        ps, mark = base / "bin/ps", base / "ran"
+        ps.parent.mkdir()
+        ps.write_text("#!/bin/sh\necho planted >> '%s'\necho '1 0 Thu Jan  1 00:00:00 1970'\n" % mark)
+        ps.chmod(0o755)
+        return ps, mark
+
+    def refused(self, call, *args):
+        with self.assertRaises(supervise.Refused) as raised:
+            call(*args)
+        return raised.exception.reason
+
+    def test_without_proc_the_process_table_runs_the_system_ps_never_one_from_path(self):
+        base = self.scratch()
+        ps, mark = self.planted_ps(base)
+        if supervise.system_command(supervise.PS) is None:
+            self.skipTest("no ps in a root-owned system directory")
+        path = os.pathsep.join((str(ps.parent), os.environ.get("PATH", "")))
+        with mock.patch.object(supervise, "PROC", str(base / "no-proc")), mock.patch.dict(os.environ, {"PATH": path}):
+            table = supervise.process_table()
+        self.assertFalse(mark.exists(), "the planted ps ran")
+        self.assertEqual(table[os.getpid()][0], os.getppid())
+
+    def test_system_commands_resolve_only_through_names_root_alone_can_change(self):
+        if os.geteuid() == 0:
+            self.skipTest("every name is root's when the tests run as root")
+        base = self.scratch()
+        ps, _ = self.planted_ps(base)
+        self.assertIsNone(supervise.system_command([str(ps), str(base / "absent")]))
+        system = supervise.system_command(supervise.PS)
+        if system is None:
+            self.skipTest("no ps in a root-owned system directory")
+        self.assertIn(system, supervise.PS)
+        (base / "ps").symlink_to(system)                       # a link in a directory the user can write
+        (base / "sys").symlink_to(os.path.dirname(system))     # the same through a directory link
+        for candidate in (base / "ps", base / "sys/ps", ps.parent / ".." / "ps"):
+            with self.subTest(candidate=candidate):
+                self.assertIsNone(supervise.system_command([str(candidate)]))
+        self.assertEqual(supervise.system_command([str(base / "ps"), system]), system)
+        self.assertIsNone(supervise.system_command(["/"]))     # not a regular file
+
+    def test_a_host_without_proc_or_a_system_ps_refuses_before_anything_starts(self):
+        sup = supervise.Supervisor(["gate"], {})
+        with mock.patch.object(supervise, "PROC", "/nonexistent-proc"), \
+                mock.patch.object(supervise, "PS", ("/nonexistent/ps",)):
+            self.assertIn("cannot list the invocation's processes", self.refused(sup.prepare))
+        self.assertFalse(sup.prepared)
+        self.assertIsNone(sup.holder)
+
+    def test_the_gate_and_the_monitor_start_in_the_root_directory(self):
+        sup = supervise.Supervisor([sys.executable, "-I", "-B", str(FIXTURES / "provider_gate.py")], {})
+        sup.prepared, sup.holder = True, supervise.hold_port()
+        self.addCleanup(sup.holder.close)
+        seen = []
+
+        def spawn(argv, env, **options):
+            seen.append(options.get("cwd"))
+            raise OSError(errno.ENOENT, "not started")
+
+        sup.spawn = spawn
+        self.assertIn("gate not startable", self.refused(sup.start_gate))
+        left, right = socket.socketpair()
+        self.addCleanup(left.close)
+        with self.assertRaises(OSError):
+            sup.start_monitor(right)
+        self.assertEqual(seen, ["/", "/"])
+
+    def test_the_launcher_path_is_pinned_to_system_directories_while_protected(self):
+        with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
+            with supervise.launcher_path():
+                self.assertEqual(os.environ["PATH"], supervise.SYSTEM_PATH)
+            self.assertEqual(os.environ["PATH"], "/w/.venv/bin:/usr/bin")
+            del os.environ["PATH"]
+            with supervise.launcher_path():
+                self.assertEqual(os.environ["PATH"], supervise.SYSTEM_PATH)
+            self.assertNotIn("PATH", os.environ)
+
+    def test_kit_processes_run_the_base_interpreter_and_report_its_code_paths(self):
+        python = supervise.interpreter()
+        self.assertEqual(python, os.path.realpath(python))
+        with mock.patch.object(sys, "_base_executable", sys.executable, create=True):
+            self.assertEqual(supervise.interpreter(), os.path.realpath(sys.executable))
+        kit = (HERE.parent / "lib/claude-as", supervise.HERE)
+        sources = supervise.code_sources(python, {}, kit)
+        kinds = {}
+        for what, path, holds in sources:
+            kinds.setdefault(what, []).append((path, holds))
+        self.assertEqual(kinds["the Python"], [(python, False)])
+        self.assertEqual(len(kinds["the Python prefix"]), 4)
+        self.assertEqual(kinds["the kit directory"], [(str(path), True) for path in kit])
+        self.assertTrue(any(os.path.isfile(os.path.join(path, "json/__init__.py"))
+                            for path, _ in kinds["the Python module path entry"]))
+        self.assertIn("did not report where it loads code from",
+                      self.refused(supervise.code_sources, str(self.scratch() / "python3"), {}, kit))
+
+    def test_code_run_outside_the_boundary_must_lie_out_of_its_reach_through_every_link(self):
+        base = self.scratch()
+        work, out = base / "work", base / "out"
+        for path in (work / "venv/lib", out / "lib"):
+            path.mkdir(parents=True)
+        roots = [str(work)]
+        supervise.unreachable([("the Python", str(out / "python3"), False), ("the kit directory", str(out / "lib"), True),
+                               ("the Python prefix", str(base), False)], roots, "; HINT")
+        python = work / "venv/bin/python3"
+        self.assertEqual("the Python %s lies inside %s, which the boundary can write; HINT" % (python, work),
+                         self.refused(supervise.unreachable, [("the Python", str(python), False)], roots, "; HINT"))
+        self.assertEqual("%s, which the boundary can write, lies inside the kit directory %s" % (work, base),
+                         self.refused(supervise.unreachable, [("the kit directory", str(base), True)], roots, ""))
+        (out / "link").symlink_to(work / "venv")  # the real path is inside
+        (work / "hop").symlink_to(out / "lib")    # the name is inside, the real path outside
+        (work / "b").symlink_to(out / "lib")
+        (out / "a").symlink_to(work / "b")        # only a link on the way is inside
+        self.assertEqual(os.path.realpath(out / "a"), str(out / "lib"))
+        for path in (out / "link/lib", work / "hop", out / "a"):
+            with self.subTest(path=path):
+                self.refused(supervise.unreachable, [("the Python module path entry", str(path), True)], roots, "")
+        names = [name for name in supervise.resolution(out / "a/x/../y") if name.startswith(str(base) + "/")]
+        self.assertEqual(names, [str(out), str(out / "a"), str(work), str(work / "b"), str(out), str(out / "lib"),
+                                 str(out / "lib/x"), str(out / "lib/y")])
 
 
 class Requests(unittest.TestCase):

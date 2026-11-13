@@ -36,6 +36,16 @@ that detaches between two snapshots escapes.
 Boundary children get no proxy but the gate: native_environment() drops every proxy variable that
 does not name the gate (the launcher's own HTTPS_PROXY belongs to the gate's upstream connections).
 
+Nothing the launcher starts outside the boundary resolves through a name the boundary could replace.
+The gate and monitor start in / with only gate_env; their interpreter is the caller's choice
+(python=), and an adapter passes interpreter() after checking with code_sources() and unreachable()
+that neither it, its prefixes, its module path nor the kit lies in the boundary's reach. Without
+/proc (macOS) the process table comes from ps run by absolute path (system_command(PS): a
+candidate is used only when root alone can change every name on the way to it), in /, with a fixed
+environment; a host with neither refuses. launcher_path() pins the launcher's own PATH to the system
+directories for the protected run, so that no later command run by name resolves in a directory of
+the caller's PATH.
+
 Job control: the native leads its own session on the launcher's PTY, so its process group is
 orphaned. A SIGTSTP it sends itself (a TUI's own suspend key) is discarded by the kernel, a native
 that stops itself with SIGSTOP is continued at once, and the launcher itself is never suspended:
@@ -48,6 +58,7 @@ reaches this parser, and nothing but terminal input starts a check.
 """
 
 import collections
+import contextlib
 import ctypes
 import errno
 import fcntl
@@ -59,6 +70,7 @@ import secrets
 import select
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import termios
@@ -90,6 +102,13 @@ REPORT = 1024
 FORWARDED = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT, signal.SIGQUIT)
 # Python ignores these at startup and an ignored disposition survives exec; children get defaults.
 RESTORED = tuple(getattr(signal, name) for name in ("SIGPIPE", "SIGXFSZ", "SIGXFZ") if hasattr(signal, name))
+PROC = "/proc"
+PS = ("/bin/ps", "/usr/bin/ps")  # macOS and Linux; used only when system_command() trusts it
+SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+PS_ENV = {"PATH": SYSTEM_PATH, "LC_ALL": "C"}
+CODE_PROBE = ("import json, sys; print(json.dumps([sys.prefix, sys.exec_prefix, sys.base_prefix, "
+              "sys.base_exec_prefix, sys.path]))")
+CODE_PROBE_TIMEOUT = 10.0
 
 
 class Refused(Exception):
@@ -216,23 +235,137 @@ def enable_subreaper():
     return libc.prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == 0
 
 
+def within(path, root):
+    return path == root or path.startswith(root.rstrip("/") + "/")
+
+
+def resolution(path, hops=40):
+    """Every absolute name that resolving PATH looks up, in order: each leading directory and,
+    through each link, the names of its target, ending with the real path. A link anywhere on the
+    way can be replaced when its directory is writable, so every name counts, not only the real
+    path. Like the kernel: physical "..", relative and absolute targets, at most 40 links."""
+    path = str(path)
+    names, current = [], "/"
+    parts = list(Path(path if os.path.isabs(path) else os.path.join(os.getcwd(), path)).parts[1:])
+    while parts:
+        part = parts.pop(0)
+        if part == "..":
+            current = os.path.dirname(current)
+            continue
+        name = os.path.join(current, part)
+        names.append(name)
+        try:
+            target = Path(os.readlink(name)) if hops and os.path.islink(name) else None
+        except OSError:
+            target = None
+        if target is None:
+            current = name
+            continue
+        hops -= 1
+        parts[:0] = target.parts[1:] if target.is_absolute() else target.parts
+        current = "/" if target.is_absolute() else current
+    return names
+
+
+def system_command(candidates):
+    """The first of CANDIDATES (absolute paths) that only root can change, or None: / and every name
+    its resolution looks up belong to root, none but links is writable by group or other, and the
+    command is an executable regular file."""
+    for path in candidates:
+        try:
+            for name in ["/"] + resolution(path):
+                info = os.lstat(name)
+                if info.st_uid != 0 or (not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o022):
+                    break
+            else:
+                info = os.stat(path)
+                if stat.S_ISREG(info.st_mode) and info.st_mode & 0o111:
+                    return path
+        except OSError:
+            continue
+    return None
+
+
+def has_proc():
+    return os.path.isdir(os.path.join(PROC, "self"))
+
+
+@contextlib.contextmanager
+def launcher_path():
+    """The launcher's own PATH while boundary processes may live: a command it runs by name outside
+    the boundary never resolves in a directory of the caller's PATH, which the boundary may be able
+    to write. Boundary children keep the environment the adapter passes them."""
+    saved = os.environ.get("PATH")
+    os.environ["PATH"] = SYSTEM_PATH
+    try:
+        yield
+    finally:
+        if saved is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = saved
+
+
+def interpreter():
+    """The Python for kit processes outside the boundary, as a real path: the base installation of
+    the running one, so a virtual environment's site-packages and .pth files, which a venv in the
+    workspace puts in reach of the boundary, are never processed outside it."""
+    return os.path.realpath(getattr(sys, "_base_executable", None) or sys.executable)
+
+
+def code_sources(python, env, kit_dirs):
+    """(what, path, holds code) for everything a kit process outside the boundary loads code from:
+    PYTHON, its prefixes, the module path it starts with as `PYTHON -I -B` (site-packages and what
+    their .pth files add included) and KIT_DIRS. Refused when PYTHON cannot report them."""
+    try:
+        done = subprocess.run([python, "-I", "-B", "-c", CODE_PROBE], env=env, cwd="/", stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=CODE_PROBE_TIMEOUT)
+        *prefixes, entries = json.loads(done.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError):
+        prefixes = entries = None
+    if not (isinstance(entries, list) and len(prefixes) == 4
+            and all(isinstance(path, str) and os.path.isabs(path) for path in prefixes + entries)):
+        raise Refused("the Python at %s did not report where it loads code from" % python)
+    return ([("the Python", python, False)] + [("the Python prefix", path, False) for path in prefixes]
+            + [("the Python module path entry", path, True) for path in entries]
+            + [("the kit directory", str(path), True) for path in kit_dirs])
+
+
+def unreachable(sources, writable_paths, hint):
+    """Refused (reason ending in HINT) when a code source (code_sources), or a name on the way to
+    it, lies inside a writable path, or a writable path lies inside a directory of code."""
+    for what, path, holds in sources:
+        names, real = resolution(path), os.path.realpath(path)
+        for root in writable_paths:
+            if any(within(name, root) for name in names):
+                raise Refused("%s %s lies inside %s, which the boundary can write%s" % (what, path, root, hint))
+            if holds and within(root, real):
+                raise Refused("%s, which the boundary can write, lies inside %s %s%s" % (root, what, path, hint))
+
+
 def process_table():
-    """{pid: (ppid, start)} of every visible process; start tells a reused pid apart."""
+    """{pid: (ppid, start)} of every visible process; start tells a reused pid apart. Without /proc
+    it runs the system ps by absolute path, or returns {} when there is none (prepare() refuses
+    such a host)."""
     table = {}
-    if os.path.isdir("/proc/self"):
-        for name in os.listdir("/proc"):
+    if has_proc():
+        for name in os.listdir(PROC):
             if not name.isdigit():
                 continue
             try:
-                with open("/proc/%s/stat" % name, "rb") as stream:
+                with open(os.path.join(PROC, name, "stat"), "rb") as stream:
                     fields = stream.read().rsplit(b")", 1)[1].split()
                 table[int(name)] = (int(fields[1]), fields[19].decode())
             except (OSError, IndexError, ValueError):
                 continue
         return table
+    command = system_command(PS)
+    if command is None:
+        return table
     try:
-        ps = subprocess.Popen(["ps", "-A", "-o", "pid=", "-o", "ppid=", "-o", "lstart="], stdin=subprocess.DEVNULL,
-                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        ps = subprocess.Popen([command, "-A", "-o", "pid=", "-o", "ppid=", "-o", "lstart="], stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, cwd="/",
+                              env=dict(PS_ENV))
     except OSError:
         return table
     try:
@@ -407,6 +540,9 @@ class Supervisor:
         the core keys).
     refresh_config: the JSON object for the refresh-mode gate of refresh() (default gate_config); the
         provider's connect_allow belongs here, since only a refresh gate serves a CONNECT.
+    python: the interpreter of the monitor (default sys.executable). The gate and the monitor run
+        outside the boundary: an adapter passes interpreter() here and as gate_argv's first word
+        once unreachable() has accepted its code_sources().
     gate_env: the whole environment of the gate and the monitor (default empty). Nothing of the
         launcher's environment reaches them otherwise, so a CA bundle named by SSL_CERT_FILE or
         SSL_CERT_DIR is not used unless passed here; the gate then refuses an upstream it cannot
@@ -597,6 +733,9 @@ class Supervisor:
         """Become the child subreaper (Linux, where protected mode needs it) and hold the gate port;
         returns the port. Idempotent; refresh(), confined() and run() call it."""
         if not self.prepared:
+            if not has_proc() and system_command(PS) is None:
+                raise Refused("cannot list the invocation's processes (no %s and no ps in a root-owned system "
+                              "directory)" % PROC)
             self.subreaper = enable_subreaper()
             if sys.platform.startswith("linux") and not self.subreaper:
                 raise Refused("cannot become the child subreaper of the invocation")
@@ -622,7 +761,7 @@ class Supervisor:
             argv += ["--monitor-fd", numbers[-1]]
         config_read, config_write = os.pipe()
         try:
-            pid = self.spawn(argv, self.gate_env, fds=fds, stdin=config_read)
+            pid = self.spawn(argv, self.gate_env, fds=fds, stdin=config_read, cwd="/")
         except OSError:
             for sock in (control, gate_control) + (pair or ()):
                 sock.close()
@@ -675,7 +814,7 @@ class Supervisor:
             if self.monitor_reader_timeout:
                 argv += ["--reader-timeout", str(self.monitor_reader_timeout)]
         try:
-            self.monitor_pid = self.spawn(argv, self.gate_env, fds=[sock.fileno()])
+            self.monitor_pid = self.spawn(argv, self.gate_env, fds=[sock.fileno()], cwd="/")
         finally:
             sock.close()
 
