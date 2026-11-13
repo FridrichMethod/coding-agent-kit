@@ -231,14 +231,21 @@ def process_table():
                 continue
         return table
     try:
-        out = subprocess.run(["ps", "-A", "-o", "pid=", "-o", "ppid=", "-o", "lstart="], capture_output=True,
-                             text=True, timeout=10, stdin=subprocess.DEVNULL).stdout
-    except (OSError, subprocess.TimeoutExpired):
+        ps = subprocess.Popen(["ps", "-A", "-o", "pid=", "-o", "ppid=", "-o", "lstart="], stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    except OSError:
+        return table
+    try:
+        out = ps.communicate(timeout=10)[0]
+    except subprocess.TimeoutExpired:
+        ps.kill()
+        ps.communicate()
         return table
     for line in out.splitlines():
         parts = line.split(None, 2)
         if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
             table[int(parts[0])] = (int(parts[1]), parts[2].strip())
+    table.pop(ps.pid, None)  # ps lists itself, as a child of the caller that is gone once read
     return table
 
 
@@ -519,7 +526,7 @@ class Supervisor:
             if status is not None:
                 self.watched.discard(pid)
                 self.exited[pid] = status
-            elif hook is not None:  # a boundary child: its session is swept at the end
+            elif confine:  # a boundary child: its session is swept at the end
                 self.sessions[pid] = process_table().get(pid, (None, None))[1]
             if hook is None:
                 page.close()  # the pipe stayed open until exec closed it: exec ran

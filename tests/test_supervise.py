@@ -184,6 +184,21 @@ class Sweep(unittest.TestCase):
         self.assertTrue(fakes_wait(lambda: not alive(child.pid)))
 
 
+    def test_orphaned_members_of_a_boundary_session_are_found(self):
+        sup = supervise.Supervisor(["gate"], {})
+        out_read, out_write = os.pipe()
+        self.addCleanup(os.close, out_read)
+        script = "sleep 30 </dev/null >/dev/null 2>&1 & echo $!"  # sh exits; sleep is orphaned in its session
+        pid = sup.spawn(["/bin/sh", "-c", script], {"PATH": "/usr/bin:/bin"}, stdout=out_write, confine=True)
+        os.close(out_write)
+        self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
+        orphan = int(os.read(out_read, 64))
+        self.addCleanup(lambda: alive(orphan) and os.kill(orphan, signal.SIGKILL))
+        table = supervise.process_table()
+        self.assertNotIn(orphan, supervise.descendants(os.getpid(), table))
+        self.assertIn(orphan, sup._session_members(table))
+
+
 class Spawn(unittest.TestCase):
     def test_children_get_default_signal_dispositions_and_no_stray_descriptors(self):
         sup = supervise.Supervisor(["gate"], {})
