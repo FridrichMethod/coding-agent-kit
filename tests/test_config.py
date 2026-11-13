@@ -6,6 +6,8 @@ copies in a temporary HOME, with fake codex and claude that only record.
 
 import base64
 from contextlib import contextmanager
+import dataclasses
+from decimal import Decimal
 import errno
 import grp
 import hashlib
@@ -105,6 +107,16 @@ TOOLS = ("codex-as", "claude-as")
 CLAUDE_TOKEN = "sk-ant-oat01-" + "fabricated-config-claude-" * 3
 OPENAI_KEY = "sk-proj-" + "fabricated-config-openai-" * 3
 DEFAULTS_FILE = 'codex = "codex"\nclaude = "claude"\ncodex_home = "~/.codex"\nsecrets_dir = "~/.secrets"\n'
+# Reserves that resolve off everywhere and the explicit default Claude mode: no launch may change.
+OFF_TABLES = ('[usage_reserve]\nfive_hour = "off"\nweekly = "off"\n'
+              '[usage_reserve.codex_accounts.A]\nfive_hour = "off"\n'
+              '[usage_reserve.claude_accounts.work]\nweekly = "off"\n'
+              '[claude_auth.accounts.work]\nmode = "setup-token"\n')
+SPEC_RESERVES = ('[usage_reserve]\nfive_hour = 20\nweekly = 30\n'
+                 '[usage_reserve.codex_accounts.borrowed]\nweekly = 40\n'
+                 '[usage_reserve.claude_accounts.borrowed]\nweekly = 40\n')
+ACCOUNT_NAME = "invalid account name (ASCII letters, digits, _ or -; no leading -)."
+PERCENT = 'must be a number from 0 through 100, or "off".'
 # Records argv and environment, never a token; one JSON line per run.
 FAKE = r'''
 import hashlib, json, os, sys
@@ -731,6 +743,128 @@ class Loader(unittest.TestCase):
                 f"secrets_dir = {self.home / '.secrets'}"])
             write(self.file, f'claude = "{self.base}/missing claude"\n')
             self.assertIn(f"claude = {self.base}/missing claude (not an executable file)", config.load().show("claude-as"))
+            # Reserves and Claude modes add no --show-config line.
+            plain = {tool: config.load().show(tool) for tool in TOOLS}
+            write(self.file, f'claude = "{self.base}/missing claude"\n' + SPEC_RESERVES
+                  + '[claude_auth.accounts.borrowed]\nmode = "native-login"\n')
+            self.assertEqual({tool: config.load().show(tool) for tool in TOOLS}, plain)
+
+    def test_without_reserve_tables_every_reserve_is_unset_and_claude_uses_setup_tokens(self):
+        for text in (None, DEFAULTS_FILE, "[usage_reserve]\n[claude_auth]\n[claude_auth.accounts]\n"):
+            with self.subTest(text=text):
+                if text is not None:
+                    write(self.file, text)
+                loaded = self.load()
+                self.assertEqual(loaded.usage_reserve, config.UsageReserve())
+                self.assertEqual(loaded.usage_reserve.defaults, config.Reserves(None, None))
+                for tool in TOOLS:
+                    self.assertEqual(loaded.usage_reserve.account(tool, "borrowed"), config.Reserves())
+                self.assertEqual((loaded.claude_auth, loaded.claude_mode("borrowed")), ((), "setup-token"))
+                self.assertEqual(loaded.warnings, ())
+
+    def test_usage_reserve_layers_are_keyed_by_launcher_and_account(self):
+        write(self.file, SPEC_RESERVES + '[usage_reserve.codex_accounts.other]\nfive_hour = "off"\n')
+        reserve = self.load().usage_reserve
+        self.assertEqual(reserve.defaults, config.Reserves(Decimal(20), Decimal(30)))
+        self.assertEqual(reserve.account("codex-as", "borrowed"), config.Reserves(None, Decimal(40)))
+        self.assertEqual(reserve.account("claude-as", "borrowed"), config.Reserves(None, Decimal(40)))
+        self.assertEqual(reserve.account("codex-as", "other"), config.Reserves("off", None))
+        # Identical names in Codex and Claude are different provider accounts.
+        self.assertEqual(reserve.account("claude-as", "other"), config.Reserves())
+        self.assertEqual([name for name, _ in reserve.codex_accounts], ["borrowed", "other"])
+        with self.assertRaises(ValueError):
+            reserve.account("codex", "borrowed")
+
+    def test_reserve_values_are_finite_percentages_or_off(self):
+        for value, expected in (("0", Decimal(0)), ("100", Decimal(100)), ("0.0", Decimal("0.0")),
+                                ("100.0", Decimal("100.0")), ("12.5", Decimal("12.5")), ("29.9", Decimal("29.9")),
+                                ("-0", Decimal(0)), ("-0.0", Decimal("0.0")), ("+7", Decimal(7)), ("1e1", Decimal("10.0")),
+                                ('"off"', "off"), ("'off'", "off")):
+            for table, key in (("usage_reserve", "five_hour"), ("usage_reserve.claude_accounts.b", "weekly")):
+                with self.subTest(value=value, table=table):
+                    write(self.file, f"[{table}]\n{key} = {value}\n")
+                    reserve = self.load().usage_reserve
+                    layer = reserve.defaults if table == "usage_reserve" else reserve.account("claude-as", "b")
+                    found = getattr(layer, key)
+                    self.assertEqual((found, type(found)), (expected, type(expected)))
+                    if isinstance(found, Decimal):
+                        self.assertFalse(found.is_signed())  # -0 prints as 0
+        for value in ("true", "false", '"20"', '"OFF"', '"Off"', '" off"', '"off "', '""', "nan", "+inf", "-inf",
+                      "-1", "-0.001", "100.0001", "101", "1e3", "[]", "[20]", "{}", "1979-05-27"):
+            for table, key in (("usage_reserve", "weekly"), ("usage_reserve.codex_accounts.b", "five_hour")):
+                with self.subTest(value=value, table=table):
+                    write(self.file, f"[{table}]\n{key} = {value}\n")
+                    self.assertEqual(self.fails(), f"{self.file}: {table}.{key}: {PERCENT}")
+
+    def test_reserve_tables_and_account_names_are_checked(self):
+        cases = {
+            "usage_reserve = 5": "usage_reserve: must be a table.",
+            'usage_reserve = "off"': "usage_reserve: must be a table.",
+            "[[usage_reserve]]": "usage_reserve: must be a table.",
+            "[usage_reserve]\ncodex_accounts = 1": "usage_reserve.codex_accounts: must be a table.",
+            "[[usage_reserve.claude_accounts]]": "usage_reserve.claude_accounts: must be a table.",
+            "[usage_reserve.codex_accounts]\nborrowed = 5": "usage_reserve.codex_accounts.borrowed: must be a table.",
+            '[usage_reserve.codex_accounts]\nborrowed = "off"': "usage_reserve.codex_accounts.borrowed: must be a table.",
+            "claude_auth = 1": "claude_auth: must be a table.",
+            "[claude_auth]\naccounts = []": "claude_auth.accounts: must be a table.",
+            "[claude_auth.accounts]\nb = 1": "claude_auth.accounts.b: must be a table.",
+        }
+        for name in ("-x", "a b", "a.b", "", "caf\\u00e9", "x\\u001b[31m", "x\\n"):
+            cases[f'[usage_reserve.codex_accounts."{name}"]\nweekly = 1'] = f"usage_reserve.codex_accounts: {ACCOUNT_NAME}"
+            cases[f'[usage_reserve.claude_accounts."{name}"]'] = f"usage_reserve.claude_accounts: {ACCOUNT_NAME}"
+            cases[f'[claude_auth.accounts."{name}"]\nmode = "native-login"'] = f"claude_auth.accounts: {ACCOUNT_NAME}"
+        for text, reason in cases.items():
+            with self.subTest(text=text):
+                write(self.file, text + "\n")
+                self.assertEqual(self.fails(), f"{self.file}: {reason}")
+
+    def test_unknown_reserve_and_auth_keys_warn_and_continue(self):
+        write(self.file, '[usage_reserve]\nfive_hours = 1\nweekly = 25\n'
+                         '[usage_reserve.codex_accounts.b]\ndaily = 2\n"x y" = 3\nfive_hour = 15\n'
+                         '[usage_reserve.other_accounts.b]\nweekly = 1\n'
+                         '[claude_auth]\nfuture = 1\n'
+                         '[claude_auth.accounts.b]\nmode = "native-login"\nlabel = "x"\n')
+        loaded = self.load()
+        self.assertEqual(loaded.warnings, tuple(f"{self.file}: unknown key {key} ignored" for key in (
+            "usage_reserve.five_hours", "usage_reserve.codex_accounts.b.daily", 'usage_reserve.codex_accounts.b."x y"',
+            "usage_reserve.other_accounts", "claude_auth.future", "claude_auth.accounts.b.label")))
+        self.assertEqual(loaded.usage_reserve.defaults, config.Reserves(None, Decimal(25)))
+        self.assertEqual(loaded.usage_reserve.account("codex-as", "b"), config.Reserves(Decimal(15), None))
+        self.assertEqual(loaded.claude_mode("b"), "native-login")
+
+    def test_claude_auth_modes(self):
+        write(self.file, '[claude_auth.accounts.borrowed]\nmode = "native-login"\n'
+                         '[claude_auth.accounts.old]\nmode = "setup-token"\n[claude_auth.accounts.bare]\n')
+        loaded = self.load()
+        self.assertEqual(loaded.claude_auth, (("bare", "setup-token"), ("borrowed", "native-login"), ("old", "setup-token")))
+        self.assertEqual([loaded.claude_mode(name) for name in ("borrowed", "old", "bare", "missing")],
+                         ["native-login", "setup-token", "setup-token", "setup-token"])
+        for value in ('"native"', '"Native-Login"', '"native-login "', '""', "1", "true", '["native-login"]', "{}"):
+            with self.subTest(value=value):
+                write(self.file, f"[claude_auth.accounts.borrowed]\nmode = {value}\n")
+                self.assertEqual(self.fails(), f'{self.file}: claude_auth.accounts.borrowed.mode: '
+                                               'must be "setup-token" or "native-login".')
+
+    def test_native_claude_config_directory_is_fixed_below_secrets_dir(self):
+        loaded = self.load()
+        directory = loaded.native_claude_config("borrowed")
+        self.assertEqual(str(directory), f"{self.home}/.secrets/native-claude-accounts/borrowed/config")
+        write(self.file, 'secrets_dir = "~//vault/./"\n')
+        self.assertEqual(str(self.load().native_claude_config("b-1_")), f"{self.home}/vault/native-claude-accounts/b-1_/config")
+        for name in ("", "-x", "..", "a/b", "a b", "../x"):
+            with self.subTest(name=name), self.assertRaises(ValueError) as caught:
+                loaded.native_claude_config(name)
+            self.assertEqual(str(caught.exception), ACCOUNT_NAME)
+
+    def test_config_stays_frozen_and_hashable(self):
+        write(self.file, SPEC_RESERVES + '[claude_auth.accounts.borrowed]\nmode = "native-login"\n')
+        loaded = self.load()
+        self.assertEqual(hash(loaded), hash(self.load()))
+        self.assertEqual(loaded, self.load())
+        for target, field in ((loaded, "usage_reserve"), (loaded.usage_reserve, "defaults"),
+                              (loaded.usage_reserve.defaults, "weekly")):
+            with self.subTest(field=field), self.assertRaises(dataclasses.FrozenInstanceError):
+                setattr(target, field, None)
 
 
 class Launchers(unittest.TestCase):
@@ -1544,7 +1678,9 @@ class Launchers(unittest.TestCase):
         home = self.base / "golden/home with spaces"
         self.assertEqual(files[".codex/accounts/A/auth.json"][2], f"{home}/.secrets/codex-A.json")
         self.assertEqual(records[2]["env"]["CODEX_HOME"], f"{home}/.codex")
-        for variant in (DEFAULTS_FILE, f'codex_home = "{home}//.codex/"\nsecrets_dir = "{home}/./.secrets/"\n'):
+        # Reserves resolving off and the explicit setup-token mode change no launch either.
+        for variant in (DEFAULTS_FILE, f'codex_home = "{home}//.codex/"\nsecrets_dir = "{home}/./.secrets/"\n',
+                        DEFAULTS_FILE + OFF_TABLES):
             with self.subTest(variant=variant):
                 self.assertEqual(self.golden(variant), expected)
 
