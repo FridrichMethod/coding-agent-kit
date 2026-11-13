@@ -321,9 +321,10 @@ codex-as -V                           # the kit's version and install form (--ve
   `[usage_reserve]` tables of the configuration file, each window on its own
   (`V` from 0 through 100, or `off`; off by default). With a reserve on, the
   interactive TUI runs in protected mode: inside an OS boundary whose only
-  network exit is a local request gate, which pauses model work when a window
-  falls to its reserve, or when it cannot tell, until you press F12, type the
-  code shown and a fresh quota check passes. It costs the session its other
+  intended network exit is a local request gate (on Linux the boundary
+  limits the gate's port number, not its address), which pauses model work
+  when a window falls to its reserve, or when it cannot tell, until you
+  press F12, type the code shown and a fresh quota check passes. It costs the session its other
   network access, and more; [usage reserves](docs/account-launchers.md#usage-reserves)
   lists every requirement, cost and refusal. With both windows off a launch
   is unchanged.

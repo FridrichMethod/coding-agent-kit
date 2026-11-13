@@ -87,7 +87,9 @@ other dash word there; the launch flags `--reserve-5h V` and
 `--reserve-weekly V` before NAME, with their errors; the `main` each helper exports, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
-fields, `install.sh` with its options and exit codes,
+fields, the native-login layout
+`<secrets_dir>/native-claude-accounts/NAME/{config,account.json}`,
+`install.sh` with its options and exit codes,
 `CODING_AGENT_KIT_COLOR`, and the `CODING_AGENT_KIT_USAGE_FILE`,
 `CODING_AGENT_KIT_TOKEN_ID` and `CODING_AGENT_KIT_CLAUDE_PID` that
 `claude-as` passes its child (in protected mode the pid is the native's own
@@ -128,7 +130,7 @@ The kit runs on what a host already has and stays small enough to audit.
 - A wrapper forwards to the native tool instead of reimplementing it. It requires a minimum version, never an exact pin or an upper bound. Anything beyond the tool's documented CLI and files (internal socket paths, wire protocols, lock layouts) is best effort: a failure there warns and falls back to plain native behavior, and blocks or asks only where continuing could lose work.
 - Keep helper code proportional to what it adds over the native tool. A feature that needs its own protocol client, journal or lock scheme must justify its code and test cost; prefer the native tool's own feature when one exists.
 - Protected mode (usage reserves) has scoped exceptions to the rules above, accepted as part of its reviewed design; they apply only to a launch with a reserve on, and a launch with both reserves off follows every rule above unchanged:
-  - Per-invocation processes: the gate, the monitor and Codex's short-lived quota readers run only while one launch runs and end with it. They are not services, daemons or background processes of the kit, and the launcher stays running on its own PTY instead of exec'ing the native.
+  - Per-invocation processes: the gate, the monitor and Codex's short-lived quota readers run only while one launch runs and end with it. They are not services, daemons or background processes of the kit, and the launcher stays running on its own PTY instead of exec'ing the native. They run outside the boundary, so they use the base interpreter of the launcher's Python (still `python3 -I -B`), a launch is refused when that Python or the kit lies inside a path the boundary can write, and the launcher runs no command by name through the caller's `PATH` while boundary processes live.
   - Protocol clients: the shared gate (`gate.py`) and its providers (`lib/codex-as/gate.py`, `lib/claude-as/provider.py`) forward model requests and read usage and identity over verified TLS, through the launcher's plain `http://` `HTTPS_PROXY`, because neither native offers an interface that ties a quota reading to the credential its requests carry. Keep them to what enforcement needs.
   - The OS boundary is the kit's own reviewed code: a Landlock and seccomp filter set through `ctypes` on Linux, and a Seatbelt profile renderer with a startup self-test for `/usr/bin/sandbox-exec` on macOS. Nothing is installed; a host without the capability refuses protected mode.
   - Best effort never falls back: where an unprotected launch warns and continues with plain native behavior, protected mode refuses before the native starts, or pauses model work after it started. It never lets unprotected traffic through.

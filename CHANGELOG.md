@@ -43,28 +43,33 @@ Added:
   `unknown key usage_reserve ignored` and protects nothing on an older kit.
 - Protected mode, which a launch with a reserve on uses: the native's
   interactive TUI runs on a terminal of the launcher's own inside an OS
-  boundary whose only network exit is a per-invocation request gate on a
-  random loopback port. Before it starts, the native refreshes its
-  credential confined to the provider's sign-in host, and one model-free
-  quota read of both windows of this account must pass. The gate admits a
-  model request only with the account's credential, a reviewed model of
-  its quota family and a fresh reading above both reserves, and reads quota
-  about every 30 seconds (15 near a reserve). It pauses, refusing new model
-  requests and closing the admitted streams, when a window reaches its
-  reserve, and also when it cannot tell: a reading older than 120 seconds,
-  a missing or unattributed window, another account, a lost monitor or a
-  stopped gate (restarted paused, at most 5 times in 10 minutes). The
-  native interface stays usable. Nothing resumes by itself: F12 shows a
-  one-use code, and typing it asks for a fresh check that must pass.
-  At exit every process left inside the boundary is ended.
+  boundary whose only intended network exit is a per-invocation request gate
+  on a random loopback port (on Linux, Landlock limits the port number, not
+  the address: the gate's port number is reachable at every address, remote
+  ones included, and a process inside can accept outside connections on a
+  port the system picks; on macOS only the gate's `localhost` port is
+  reachable and every bind is denied). Before it starts, the native
+  refreshes its credential behind a refresh gate that passes only the
+  provider's sign-in host (and, for Codex, the workspace configuration
+  bundle), and one model-free quota read of both windows of this account
+  must pass. The gate admits a model request only with the account's
+  credential, a reviewed model of its quota family and a fresh reading above
+  both reserves, and reads quota about every 30 seconds (15 near a reserve).
+  It pauses, refusing new model requests and closing the admitted streams,
+  when a window reaches its reserve, and also when it cannot tell: a reading
+  older than 120 seconds, a missing or unattributed window, another account,
+  a lost monitor or a stopped gate (restarted paused, at most 5 times in 10
+  minutes). The native interface stays usable. Nothing resumes by itself:
+  F12 shows a one-use code, and typing it asks for a fresh check that must
+  pass. At exit every process left inside the boundary is ended.
 - Protected mode requires Linux on x86_64 with Landlock ABI 6 or newer and
   seccomp (not WSL), or macOS 27.2 on Apple silicon with
-  `/usr/bin/sandbox-exec` and a passing startup self-test, an interactive
-  terminal, and exactly the reviewed native release: codex-cli 0.167.2, or
-  Claude Code 2.1.322 with a `native-login` account. These are an upper
-  bound: a newer native or macOS release refuses protected launches until a
-  kit patch reviews it. Anything else is refused before the native starts,
-  with one line, exit 1:
+  `/usr/bin/sandbox-exec`, a root-owned `/bin/ps` and a passing startup
+  self-test, an interactive terminal, and exactly the reviewed native
+  release: codex-cli 0.167.2, or Claude Code 2.1.322 with a `native-login`
+  account. These are an upper bound: a newer native or macOS release
+  refuses protected launches until a kit patch reviews it. Anything else is
+  refused before the native starts, with one line, exit 1:
   `codex-as: usage reserve protection refused: REASON. (--reserve-5h off --reserve-weekly off launches unprotected)`
   or `claude-as: protected mode refused: REASON.` The boundary is the
   kit's own code (Landlock and seccomp through `ctypes`, a Seatbelt
@@ -80,14 +85,19 @@ Added:
   the workspace configuration bundle. Concurrent protected launches of one
   account take turns at the pre-launch refresh.
 - Protected `claude-as` supports Pro and Max accounts only: Claude Code
-  applies no organization policy while its requests go through the gate,
-  so an account whose recorded subscription is not Pro or Max, and every
-  account on a machine that pins the sign-in organization, is refused with
-  a message that names it and says to launch without reserves. Print,
-  resume, settings, remote and background forms and every command are
-  refused; hooks, stdio MCP servers and plugins run inside the boundary.
-  The status line keeps working with `CODING_AGENT_KIT_CLAUDE_PID` set to
-  the native's pid, and `CODING_AGENT_KIT_USAGE_FILE` is not passed.
+  applies no organization policy while its requests go through the gate, so
+  an account whose recorded subscription is not Pro or Max, and every
+  account on a machine that pins the sign-in organization, is refused with a
+  message that names it and says to launch without reserves. Print, resume,
+  settings, remote and background forms and every command are refused;
+  hooks, stdio MCP servers and plugins run inside the boundary. As in
+  protected `codex-as`, the gate and the monitor run the base interpreter of
+  the launcher's Python, and a launch is refused when that Python or the kit
+  lies inside a path the boundary can write (a kit checked out inside the
+  project, for example); while the run lasts, the launcher runs commands by
+  name only from the system directories. The status line keeps working with
+  `CODING_AGENT_KIT_CLAUDE_PID` set to the native's pid, and
+  `CODING_AGENT_KIT_USAGE_FILE` is not passed.
 - `claude-as --enroll-native NAME`: Claude Code's own login for an account,
   in its own configuration directory
   `<secrets_dir>/native-claude-accounts/NAME/config` with the registration
@@ -113,7 +123,8 @@ Added:
 Changed:
 
 - Both help texts describe the reserve flags, and the `claude-as` help
-  `--enroll-native`.
+  `--enroll-native`; the `codex-as` help says that the absent upper version
+  limit holds for launches without reserves.
 - Bash completion after `NAME` hands the native completion the command line
   from `NAME` on, with the cursor and the current and previous words adjusted
   to it.
