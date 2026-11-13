@@ -189,9 +189,10 @@ mode = "native-login"
   records the directory, so moving `secrets_dir` later needs a new
   enrollment.
 - Setting the mode changes no files. A `native-login` account that is not
-  enrolled refuses to launch with the enrollment command, and an account
-  switched back to `setup-token` uses its `<secrets_dir>/claude-NAME` token
-  again.
+  enrolled refuses to launch with the enrollment command. An account switched
+  back to `setup-token` uses its `<secrets_dir>/claude-NAME` token when it
+  has one; an enrolled native account without one is refused with the
+  setting that selects it, and is never offered a setup-token.
 
 ## File permissions
 
