@@ -2,8 +2,10 @@
 
 A launch whose resolved policy (reserve.py) enables a reserve for either window runs through this
 module; with both windows off codex-as never calls it and behaves exactly as without it. The query
-forms (-h, --help, -V, --version and help, check.Plan.query) stay unprotected and unchanged; every
-other subcommand, update and completion included, refuses.
+forms (-h, --help, -V, --version and help, check.Plan.query) stay unprotected and unchanged, and so
+do update and completion (check.Plan.rootless), which launch.py runs as plain codex in codex_home
+before any protection: they are the same for every login and send no model request. Every other
+subcommand refuses.
 
 Refusals come first and change nothing (Session.check): the native release must be a reviewed one
 (REVIEWED, with an upper bound); the arguments an allowlisted interactive TUI form, parsed like
@@ -876,6 +878,17 @@ def writable(home, paths):
     return result
 
 
+def moved(paths, refusal):
+    """Raise REFUSAL("path", ...) when a writable path, which the launcher resolved once, no longer
+    resolves to itself: a process inside the boundary can replace a writable path nested in another
+    one with a link (to HOME, say), which would widen the boundary of every later confined start (the
+    monitor's readers, a continuation's read). Every confined start checks it first."""
+    for path in paths:
+        if os.path.realpath(path) != path:
+            raise refusal("path", f"the writable path {path} no longer resolves to itself; a process inside the "
+                                  "boundary may have replaced it with a link")
+
+
 # Caller variables an App Server reader keeps; everything else stays with the TUI alone.
 READER_ENV = ("HOME", "USER", "LOGNAME", "PATH", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TERM", "SSL_CERT_FILE",
               "SSL_CERT_DIR", "CODEX_CA_CERTIFICATE", "CODEX_HOME", "CODEX_SQLITE_HOME", "TMPDIR")
@@ -919,7 +932,7 @@ class Session:
             self.sandbox = load(module, KIT / (module + ".py"))
         except (OSError, ImportError, SyntaxError):
             refuse(f"incomplete install at {HERE.parent.parent}")
-        if not (GATE.is_file() and READER.is_file()):
+        if not (GATE.is_file() and READER.is_file() and (KIT / "monitor.py").is_file()):
             refuse(f"incomplete install at {HERE.parent.parent}")
         try:
             self.sandbox.probe()
@@ -961,6 +974,7 @@ class Session:
         sandbox = self.sandbox
 
         def confine(port, argv):
+            moved(paths, sandbox.Refusal)
             if sys.platform == "darwin":
                 return sandbox.confine(port, paths, "codex", tested=tested) + list(argv)
             return sandbox.confine(port, paths, "codex") + list(argv)

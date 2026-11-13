@@ -204,6 +204,29 @@ class Screen(unittest.TestCase):
                 with self.subTest(patch=patch), mock.patch.multiple(sys, **patch):
                     self.assertIn("does not report where it loads code from", refused(protect.launcher_sources))
 
+    def test_the_confine_hook_refuses_a_writable_path_that_became_a_link(self):
+        class Refusal(Exception):
+            def __init__(self, kind, message):
+                super().__init__(message)
+                self.kind = kind
+
+        calls = []
+        sandbox = types.SimpleNamespace(Refusal=Refusal, confine=lambda port, paths, name, **_: calls.append(paths) or [])
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            (base / "home").mkdir()
+            inner = base / "codex/sqlite"
+            inner.mkdir(parents=True)
+            paths = [str(base / "codex"), str(inner)]
+            hook = protect.Session.hook(types.SimpleNamespace(sandbox=sandbox), paths, None)
+            self.assertEqual(hook(50123, ["codex"]), ["codex"])
+            inner.rmdir()
+            inner.symlink_to(base / "home")
+            with self.assertRaises(Refusal) as caught:
+                hook(50123, ["codex"])
+            self.assertIn("%s no longer resolves to itself" % inner, str(caught.exception))
+            self.assertEqual(calls, [paths])
+
     def test_the_launcher_runs_commands_by_name_from_system_directories_only_while_protected(self):
         with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
             with protect.launcher_path():
@@ -336,6 +359,23 @@ class Reader(unittest.TestCase):
         self.spec.write_text("not json")
         self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 6)
         self.assertEqual(self.calls, [("confine", 50123, ["/w"], "codex")])
+
+    def test_a_writable_path_that_became_a_link_refuses_before_the_boundary_applies(self):
+        """The launcher resolved the writable paths once; a process inside the boundary may later replace
+        a nested one (a SQLite home inside codex_home, say) with a link to HOME, so a path that no longer
+        resolves to itself refuses instead of widening the next reader's boundary."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            (base / "home").mkdir()
+            inner = base / "codex/sqlite"
+            inner.mkdir(parents=True)
+            limits = json.dumps({"port": 50123, "writable": [str(base / "codex"), str(inner)], "profile": None})
+            self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 0)
+            self.calls = []
+            inner.rmdir()
+            inner.symlink_to(base / "home")
+            self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 5)
+            self.assertEqual(self.calls, [])
 
     def test_an_unusable_or_refused_boundary_runs_nothing(self):
         for limits in ("[]", "not json", '{"port": 0, "writable": [], "profile": null}',
@@ -1149,6 +1189,29 @@ class Unprotected(unittest.TestCase):
                 result = self.home.run(args)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotIn("protection", result.stderr)
+
+    def test_update_and_completion_run_as_plain_codex_with_a_reserve_on(self):
+        """They are the same for every login and send no model request, so they stay unprotected."""
+        self.home.config("[usage_reserve]\nfive_hour = 20\n")
+        for args in (["--reserve-5h", "10", "A", "update"], ["A", "completion", "bash"]):
+            with self.subTest(args=args):
+                self.home.log.unlink(missing_ok=True)
+                result = self.home.run(args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("protection", result.stderr)
+                self.assertEqual([event["argv"] for event in self.home.events("other")], [args[-2:] if
+                                 args[-1] == "bash" else ["update"]])
+
+    def test_a_protected_launch_without_the_monitor_refuses_before_anything_starts(self):
+        kit = self.home.base / "kit"
+        shutil.copytree(ROOT / "bin", kit / "bin")
+        shutil.copytree(ROOT / "lib", kit / "lib", ignore=shutil.ignore_patterns("__pycache__"))
+        (kit / "lib/coding-agent-kit/monitor.py").unlink()
+        result = subprocess.run([str(kit / "bin/codex-as"), "--reserve-5h", "10", "A"], cwd=self.home.work,
+                                env=self.home.env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("usage reserve protection refused: incomplete install at %s" % kit, result.stderr)
+        self.assertEqual(self.home.events(), [])
 
     def test_enabled_reserves_refuse_every_other_mode_before_anything_starts(self):
         for args, text in ((["--reserve-5h", "10", "A", "exec", "x"], "not codex exec"),
