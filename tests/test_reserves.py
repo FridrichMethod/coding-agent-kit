@@ -7,6 +7,7 @@ config.py runs in a temporary HOME. No provider, credential or network is involv
 import ast
 import dataclasses
 from decimal import Decimal
+from fractions import Fraction
 import importlib.util
 import os
 from pathlib import Path
@@ -258,7 +259,8 @@ class Evaluation(unittest.TestCase):
 
     def test_tunables_are_the_g0_values(self):
         self.assertEqual((reserve.POLL_RUNNING, reserve.POLL_NEAR, reserve.NEAR_POINTS), (30, 15, 10))
-        self.assertEqual((reserve.MAX_AGE, reserve.RECOVERY_BUDGET), (120, 120))
+        self.assertEqual(reserve.MAX_AGE, 120)
+        self.assertIs(reserve.RECOVERY_BUDGET, reserve.MAX_AGE)  # one deadline, not a second setting
         self.assertEqual((reserve.BACKOFF_MIN, reserve.BACKOFF_MAX), (5, 60))
         self.assertEqual((reserve.POLL_PAUSED, reserve.POLL_PAUSED_MAX), (60, 300))
         self.assertEqual((reserve.QUERY_TIMEOUT, reserve.CONNECT_TIMEOUT, reserve.CONTINUATION_WINDOW), (10, 5, 30))
@@ -287,24 +289,28 @@ class Evaluation(unittest.TestCase):
         self.assertEqual(evaluator.observe(observation(self.clock)).reason, "control_pending")
         self.assertEqual(evaluator.control_up().decision, "run")
 
-    def test_startup_refuses_on_definitive_conditions(self):
+    def test_startup_refuses_on_definitive_conditions_in_either_order(self):
         for name, act, reason in (
                 ("threshold", lambda e: e.observe(observation(self.clock, weekly=60)), "threshold"),
                 ("missing", lambda e: e.observe(observation(self.clock, weekly=None)), "window_unavailable"),
                 ("unattributed", lambda e: e.observe(observation(self.clock, attributed=False)), "unattributed"),
                 ("fault", lambda e: e.fault("unsupported_plan"), "unsupported_plan"),
                 ("control", lambda e: e.control_down("monitor_lost"), "monitor_lost")):
-            with self.subTest(name=name):
-                evaluator = self.evaluator()
-                evaluator.control_up()
-                verdict = act(evaluator)
-                self.assertEqual((verdict.state, verdict.decision, verdict.reason, verdict.cause),
-                                 ("checking", "refuse", reason, reason))
-                # A refusal is final: a later passing reading never starts model work.
-                self.clock.advance(1)
-                evaluator.control_up()
-                self.assertEqual(evaluator.observe(observation(self.clock)).decision, "refuse")
-                self.assertFalse(evaluator.admits())
+            for control_first in (True, False):
+                with self.subTest(name=name, control_first=control_first):
+                    evaluator = self.evaluator()
+                    if control_first:
+                        evaluator.control_up()
+                    verdict = act(evaluator)  # before the first heartbeat too: the same refusal
+                    self.assertEqual((verdict.state, verdict.decision, verdict.reason, verdict.cause),
+                                     ("checking", "refuse", reason, reason))
+                    # A refusal is final: a newer passing reading and healthy control never start
+                    # model work, and a startup fault is never cleared.
+                    self.clock.advance(1)
+                    evaluator.observe(observation(self.clock))
+                    verdict = evaluator.control_up()
+                    self.assertEqual((verdict.decision, verdict.reason), ("refuse", reason))
+                    self.assertFalse(evaluator.admits())
 
     def test_transient_startup_failures_keep_checking_until_the_launcher_gives_up(self):
         evaluator = self.evaluator()
@@ -370,6 +376,7 @@ class Evaluation(unittest.TestCase):
             # Another window length or another name is not mapped onto an enabled window.
             "missing-other": [reserve.Reading(used=1, resets_at=wall + 60, duration=24 * 3600),
                               reserve.Reading(used=1, resets_at=wall + 60, name="seven_day_opus"),
+                              reserve.Reading(used=1, resets_at=wall + 60, name="seven_day_opus", duration=WEEK),
                               reserve.Reading(used=1, resets_at=wall + 60)],
         }
         for case, readings in cases.items():
@@ -387,19 +394,41 @@ class Evaluation(unittest.TestCase):
         edge = [reserve.Reading(used=1, resets_at=wall - 119, name="weekly")]
         self.assertEqual(evaluator.observe(observation(self.clock, weekly=None, extra=edge)).decision, "run")
 
+    def test_a_reading_with_another_name_is_never_ours_whatever_its_length(self):
+        wall = self.clock.wall()
+        for name in ("seven_day_opus", "seven_day_sonnet", "Weekly", "", 7):
+            others = (reserve.Reading(used=99, resets_at=wall + 60, name=name, duration=WEEK),
+                      reserve.Reading(used=99, resets_at=wall + 60, name=name, duration=FIVE_HOURS))
+            with self.subTest(name=name):
+                # Beside the real windows it changes nothing (no "ambiguous").
+                evaluator = self.evaluator()
+                evaluator.control_up()
+                verdict = evaluator.observe(observation(self.clock, extra=others))
+                self.assertEqual(verdict.decision, "run")
+                self.assertEqual([(w.window, w.status, w.remaining) for w in verdict.windows],
+                                 [("five_hour", "ok", D(90)), ("weekly", "ok", D(90))])
+                # Without them it never stands in for either.
+                evaluator = self.evaluator()
+                evaluator.control_up()
+                verdict = evaluator.observe(observation(self.clock, five=None, weekly=None, extra=others))
+                self.assertEqual((verdict.decision, verdict.reason), ("refuse", "window_unavailable"))
+                self.assertEqual([w.status for w in verdict.windows], ["missing", "missing"])
+
     def test_a_running_reading_without_an_enabled_window_pauses_at_once(self):
         evaluator = running(self.clock)
         self.clock.advance(1)
         verdict = evaluator.observe(observation(self.clock, weekly=None))
         self.assertEqual((verdict.state, verdict.reason), ("paused", "window_unavailable"))
-        self.assertEqual(verdict.message(), "borrowed: paused: weekly window unavailable (missing).")
+        self.assertEqual(verdict.message(), "borrowed: paused: weekly window unavailable (missing); "
+                                            "last valid reading at 2027-01-15T08:00:00Z.")
 
     def test_unattributed_readings_pause_at_once(self):
         evaluator = running(self.clock)
         self.clock.advance(1)
         verdict = evaluator.observe(observation(self.clock, attributed=False))
         self.assertEqual((verdict.state, verdict.reason, verdict.windows), ("paused", "unattributed", ()))
-        self.assertEqual(verdict.message(), "borrowed: paused: the quota reading is not attributed to this account.")
+        self.assertEqual(verdict.message(), "borrowed: paused: the quota reading is not attributed to this account; "
+                                            "last valid reading at 2027-01-15T08:00:00Z.")
 
     def test_freshness_expires_after_the_maximum_age(self):
         evaluator = running(self.clock)
@@ -486,7 +515,8 @@ class Evaluation(unittest.TestCase):
                          ("paused", None, "threshold", True))
         self.assertFalse(evaluator.admits())
         self.assertEqual(verdict.message("Press F12 to continue."),
-                         "borrowed: paused: the latest quota check passes; a continuation resumes. Press F12 to continue.")
+                         "borrowed: paused: a usage window reached its reserve; the latest quota check passes; "
+                         "a continuation resumes. Press F12 to continue.")
         for _ in range(5):
             self.clock.advance(30)
             evaluator.observe(observation(self.clock, five=0, weekly=0))
@@ -575,14 +605,61 @@ class Evaluation(unittest.TestCase):
         self.assertEqual((verdict.state, verdict.reason, verdict.cause), ("paused", "monitor_lost", "monitor_lost"))
         verdict = evaluator.continuation()
         self.assertEqual((verdict.continuation, verdict.reason), (None, "monitor_lost"))
-        self.assertEqual(verdict.message(), "borrowed: paused: the quota monitor stopped.")
+        self.assertEqual(verdict.message(), "borrowed: paused: the quota monitor stopped; "
+                                            "last valid reading at 2027-01-15T08:00:00Z.")
         self.clock.advance(1)
         self.assertEqual(evaluator.observe(observation(self.clock)).state, "paused")
         verdict = evaluator.control_up()  # loss stays until a continuation and a fresh pass
         self.assertEqual((verdict.state, verdict.reason, verdict.eligible), ("paused", None, True))
+        self.assertEqual(verdict.message(), "borrowed: paused: the quota monitor stopped; the latest quota check "
+                                            "passes; a continuation resumes.")
         self.assertEqual(evaluator.continuation().continuation, "armed")
         self.clock.advance(1)
         self.assertEqual(evaluator.observe(observation(self.clock)).decision, "run")
+
+    def test_a_restarted_gate_starts_paused(self):
+        evaluator = self.evaluator(paused="gate_restarted")
+        verdict = evaluator.verdict()
+        self.assertEqual((verdict.state, verdict.decision, verdict.reason, verdict.cause, verdict.eligible),
+                         ("paused", "pause", "control_pending", "gate_restarted", False))
+        self.assertEqual(verdict.message(), "borrowed: paused: the quota monitor is not running yet.")
+        self.assertFalse(evaluator.admits())
+        self.assertEqual(evaluator.next_poll(), reserve.POLL_PAUSED)
+        self.assertEqual(evaluator.continuation().continuation, None)  # refused before a heard heartbeat
+        self.clock.advance(1)
+        verdict = evaluator.observe(observation(self.clock))  # passing, but no continuation yet
+        self.assertEqual((verdict.state, verdict.reason, verdict.eligible), ("paused", "control_pending", False))
+        verdict = evaluator.control_up()
+        self.assertEqual((verdict.state, verdict.reason, verdict.cause, verdict.eligible),
+                         ("paused", None, "gate_restarted", True))
+        self.assertFalse(evaluator.admits())
+        self.assertEqual(verdict.message(), "borrowed: paused: the request gate restarted; the latest quota check "
+                                            "passes; a continuation resumes.")
+        self.clock.advance(30)
+        self.assertEqual(evaluator.observe(observation(self.clock)).state, "paused")  # a passing poll never resumes
+        self.assertEqual(evaluator.continuation().continuation, "armed")
+        self.clock.advance(1)
+        self.assertEqual(evaluator.observe(observation(self.clock)).decision, "run")
+        self.assertTrue(evaluator.admits())
+
+    def test_a_threshold_while_restarted_is_a_pause_not_a_refusal(self):
+        for control_first in (True, False):
+            with self.subTest(control_first=control_first):
+                evaluator = self.evaluator(paused="gate_restarted")
+                if control_first:
+                    evaluator.control_up()
+                verdict = evaluator.observe(observation(self.clock, weekly=60))
+                self.assertEqual((verdict.state, verdict.decision, verdict.reason, verdict.cause),
+                                 ("paused", "pause", "threshold", "gate_restarted"))
+                evaluator.control_up()
+                self.clock.advance(1)
+                self.assertTrue(evaluator.observe(observation(self.clock, weekly=0)).eligible)  # the window reset
+                evaluator.continuation()
+                self.clock.advance(1)
+                self.assertEqual(evaluator.observe(observation(self.clock, weekly=0)).decision, "run")
+        for bad in ("Gate restarted", "", 1):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.evaluator(paused=bad)
 
     def test_control_loss_while_armed_disarms(self):
         evaluator = paused_by_threshold(self.clock)
@@ -602,7 +679,8 @@ class Evaluation(unittest.TestCase):
         self.clock.advance(1)
         verdict = evaluator.fault("identity_changed")
         self.assertEqual((verdict.state, verdict.reason), ("paused", "identity_changed"))
-        self.assertEqual(verdict.message(), "borrowed: paused: the signed-in account changed.")
+        self.assertEqual(verdict.message(), "borrowed: paused: the signed-in account changed; "
+                                            "last valid reading at 2027-01-15T08:00:00Z.")
         verdict = evaluator.observe(in_flight)
         self.assertEqual((verdict.state, verdict.reason, verdict.eligible), ("paused", "identity_changed", False))
         evaluator.continuation()
@@ -634,6 +712,32 @@ class Evaluation(unittest.TestCase):
         self.assertEqual(delays, [60, 120, 240, 300, 300])
         evaluator.continuation()
         self.assertEqual(evaluator.next_poll(), 0)
+
+    def test_checking_polls_at_once_only_without_a_usable_reading(self):
+        evaluator = self.evaluator()
+        self.assertEqual(evaluator.next_poll(), 0)
+        evaluator.observe(observation(self.clock))  # fresh and passing; control is still pending
+        self.assertEqual((evaluator.verdict().reason, evaluator.next_poll()), ("control_pending", reserve.POLL_RUNNING))
+        self.clock.advance(1)
+        evaluator.observe(observation(self.clock, weekly=50.5))  # 49.5% left: near the 40% reserve
+        self.assertEqual(evaluator.next_poll(), reserve.POLL_NEAR)
+        self.clock.advance(reserve.MAX_AGE + 1)
+        self.assertEqual((evaluator.verdict().reason, evaluator.next_poll()), ("stale", 0))
+        evaluator.failure("timeout")
+        self.assertEqual(evaluator.next_poll(), reserve.BACKOFF_MIN)
+
+    def test_the_reserve_comparison_is_exact_at_any_precision(self):
+        near_all = D("99.9999999999999999999999999995")  # 30 significant digits: 100 - 5E-28
+        for used, decision in ((1e-27, "refuse"), (D("5E-28"), "refuse"), (D("4.9E-28"), "run"),
+                               (D("1E-1000"), "run"), (D("0.0000000000000000000000000005000000000001"), "refuse")):
+            with self.subTest(used=used):
+                evaluator = self.evaluator(five=near_all, weekly=None)
+                evaluator.control_up()
+                verdict = evaluator.observe(observation(self.clock, five=used, weekly=None))
+                self.assertEqual(verdict.decision, decision)
+                # The remaining value shown is never above the one observed.
+                exact = 100 - Fraction(D(repr(used)) if isinstance(used, float) else used)
+                self.assertLessEqual(Fraction(verdict.windows[0].remaining), exact)
 
     def test_threshold_message_fields(self):
         evaluator = running(self.clock)

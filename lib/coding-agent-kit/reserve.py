@@ -32,15 +32,21 @@ Policy (each window on its own, never combined):
 
 Evaluator (one per protected invocation; not thread-safe, the gate serializes it):
 
-    Evaluator(policy, clock, *, max_age=MAX_AGE, continuation_window=CONTINUATION_WINDOW)
+    Evaluator(policy, clock, *, paused=None, max_age=MAX_AGE,
+              continuation_window=CONTINUATION_WINDOW)
         clock() returns monotonic seconds; every time below is on that clock,
         except wall-clock epoch seconds (wall_at, resets_at, last_fresh).
+        paused: a reason word (for example "gate_restarted") starts paused with
+        that cause instead of checking; a restarted gate passes it.
     Inputs, each returning the Verdict after it:
         observe(Observation)    a NEW provider response the gate received
         failure(reason, at=None) a query that produced no response to evaluate
                                  (transport, HTTP status, parse); at: when it was sent
         fault(reason)           a condition of the binding that pauses at once
-                                 (identity_changed, unsupported_plan, ...)
+                                 (identity_changed, unsupported_plan, ...); while
+                                 paused, a NEW attributed response with every enabled
+                                 window valid, received after it, clears it, so never
+                                 report attributed=True while the condition persists
         control_down(reason)    monitor or control channel lost; sticky
         control_up()            control healthy: the monitor attached and was heard
         continuation()          a verified trusted-terminal request to continue
@@ -50,12 +56,16 @@ Evaluator (one per protected invocation; not thread-safe, the gate serializes it
         -> seconds until the next quota read.
 
 States: "checking" until the first fresh passing reading with healthy control
-("run"), or a refusal ("refuse"); "running"; "paused". A pause starts when any
-enabled window has remaining <= reserve (remaining = 100 - used, exact for the
-numbers as the provider wrote them), when the latest response lacks a valid
-enabled window or is not attributed, when the last valid fresh reading is older
-than max_age (transient failures never extend that budget), on a fault, or on
-control loss. Leaving a pause needs a continuation and then a NEW response,
+("run"), or a refusal ("refuse"); "running"; "paused". While checking, a
+threshold, an unavailable or unattributed response, a fault or control loss
+refuses at once, before or after the first heartbeat alike; only a pending
+monitor, no reading yet or a stale one waits (until give_up). A pause starts
+when any enabled window has remaining <= reserve (remaining = 100 - used,
+decided exactly for the numbers as the provider wrote them), when the latest
+response lacks a valid enabled window or is not attributed, when the last
+valid fresh reading is older than max_age (also the recovery budget:
+transient failures never extend it), on a fault, or on control loss. Leaving
+a pause needs healthy control, a continuation and then a NEW response,
 received after it and within continuation_window, that passes; any other
 answer uses the continuation up. A window reset, a passing poll or recovered
 control never resumes by itself. Unavailable data is never read as zero usage.
@@ -63,7 +73,7 @@ control never resumes by itself. Unavailable data is never read as zero usage.
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_FLOOR
+from decimal import Context, Decimal, ROUND_FLOOR
 import math
 import re
 
@@ -84,7 +94,8 @@ POLL_PAUSED_MAX = 300.0       # ... up to this, for as long as the pause lasts
 BACKOFF_MIN = 5.0             # retry after a failed read, jittered and doubling
 BACKOFF_MAX = 60.0
 MAX_AGE = 120.0               # oldest reading that still admits model work
-RECOVERY_BUDGET = MAX_AGE     # from the last fresh reading; failures never restart it
+RECOVERY_BUDGET = MAX_AGE     # the same deadline, not a second setting: Evaluator(max_age=)
+                              # bounds recovery from the last fresh reading; failures never restart it
 RESET_SKEW = 120.0            # tolerated clock skew around a reported reset time
 QUERY_TIMEOUT = 10.0          # one quota read in total
 CONNECT_TIMEOUT = 5.0         # each connect or TLS handshake within it
@@ -102,6 +113,7 @@ OK, AT_RESERVE = "ok", "at_reserve"  # WindowStatus.status for valid readings
 CHECKING, RUNNING, PAUSED = "checking", "running", "paused"
 # Conditions that only wait while checking; every other one refuses the start.
 WAITING = ("control_pending", "no_reading", "stale")
+FLOOR = Context(rounding=ROUND_FLOOR)  # rounds down, so a sum compared with 100 keeps its order
 LATEST_WALL = 253_400_000_000  # 9999-12-05: every reset accepted against it still formats
 CONTROL_TEXT = {
     "control_pending": "the quota monitor is not running yet",
@@ -109,12 +121,19 @@ CONTROL_TEXT = {
     "monitor_stale": "the quota monitor stopped answering",
     "launcher_lost": "the launcher's control channel closed",
     "gate_unavailable": "the request gate is unavailable",
+    "gate_restarted": "the request gate restarted",
 }
 FAULT_TEXT = {
     "identity_changed": "the signed-in account changed",
     "unsupported_plan": "the account's plan is not supported",
     "unsupported_family": "a request used a quota family the reserves do not cover",
     "revalidation_budget": "the credential changed too often",
+}
+CAUSE_TEXT = {  # what paused, once the latest check passes
+    "threshold": "a usage window reached its reserve",
+    "window_unavailable": "a usage window was unavailable",
+    "unattributed": "a quota reading was not attributed to this account",
+    "stale": "no fresh quota reading arrived in time",
 }
 
 
@@ -236,8 +255,10 @@ def resolve(tool, account, overrides, usage_reserve):
 @dataclass(frozen=True)
 class Reading:
     """One window of one response. used: unrounded percent used. resets_at: wall-clock
-    epoch seconds. name ("five_hour" or "weekly") or duration (seconds) identifies the
-    window; a reading with neither, or with another name or length, is not ours."""
+    epoch seconds. name ("five_hour" or "weekly") or, without a name, duration (seconds)
+    identifies the window. A reading with any other name (another quota family, such as
+    a per-model weekly limit) is not ours whatever its duration, nor is one with neither
+    or with another length; a window name with another length is a mismatch."""
     used: object
     resets_at: object = None
     name: object = None
@@ -249,7 +270,8 @@ class Observation:
     """A NEW response. fresh_at: the evaluator clock when the gate received it (a cache
     re-read hands back the old value and changes nothing). wall_at: wall-clock epoch
     seconds at that moment. attributed: verified for the expected identity and quota
-    family. Submit only complete snapshots: a missing enabled window pauses."""
+    family; never True while a reported fault persists, because a valid attributed
+    response clears it. Submit only complete snapshots: a missing enabled window pauses."""
     readings: tuple
     fresh_at: float
     wall_at: float
@@ -296,7 +318,7 @@ class Verdict:
             detail = ", ".join(f"{LABELS[w.window]} {percent(w.remaining, floor=True)}% remaining "
                                f"(reserve {percent(w.reserve)}%)" for w in self.windows)
         elif self.reason is None:
-            detail = "the latest quota check passes; a continuation resumes"
+            detail = f"{cause_text(self.cause)}; the latest quota check passes; a continuation resumes"
         else:
             detail = self.explain(self.reason)
         return f"{self.account}: {word}: {detail}." + (f" {how}" if how else "")
@@ -307,16 +329,24 @@ class Verdict:
             return "; ".join(f"{LABELS[w.window]} window {percent(w.remaining, floor=True)}% remaining, "
                              f"at or below its {percent(w.reserve)}% reserve, resets {timestamp(w.resets_at)}"
                              for w in self.windows if w.status == AT_RESERVE)
-        if reason == "window_unavailable":
-            return "; ".join(f"{LABELS[w.window]} window unavailable ({w.status.replace('_', ' ')})"
-                             for w in self.windows if w.status not in (OK, AT_RESERVE))
-        if reason == "unattributed":
-            return "the quota reading is not attributed to this account"
         if reason == "stale":
             return f"no fresh quota reading for {int(self.age)} s, last at {timestamp(self.last_fresh)}{last}"
         if reason == "no_reading":
             return f"no quota reading yet{last}"
-        return CONTROL_TEXT.get(reason) or FAULT_TEXT.get(reason) or reason.replace("_", " ")
+        if reason == "window_unavailable":
+            text = "; ".join(f"{LABELS[w.window]} window unavailable ({w.status.replace('_', ' ')})"
+                             for w in self.windows if w.status not in (OK, AT_RESERVE))
+        elif reason == "unattributed":
+            text = "the quota reading is not attributed to this account"
+        else:
+            text = CONTROL_TEXT.get(reason) or FAULT_TEXT.get(reason) or reason.replace("_", " ")
+        if self.last_fresh is None:
+            return text
+        return f"{text}; last valid reading at {timestamp(self.last_fresh)}"
+
+
+def cause_text(cause):
+    return CAUSE_TEXT.get(cause) or CONTROL_TEXT.get(cause) or FAULT_TEXT.get(cause) or cause.replace("_", " ")
 
 
 def percent(value, floor=False):
@@ -344,8 +374,9 @@ def number(value):
 
 def windows_of(reading):
     """{window: problem or None} for the enabled-or-not windows this reading claims."""
-    named = reading.name if isinstance(reading.name, str) and reading.name in DURATIONS else None
-    timed = None
+    if reading.name is not None and not (isinstance(reading.name, str) and reading.name in DURATIONS):
+        return {}  # another family's or window's name: not ours, whatever its duration
+    named, timed = reading.name, None
     if reading.duration is not None:
         seconds = number(reading.duration)
         timed = next((window for window, length in DURATIONS.items() if seconds == length), None)
@@ -370,8 +401,11 @@ def judge(reading, window, reserve, wall_at):
     wall = Decimal(repr(float(wall_at)))
     if reset <= wall - Decimal(repr(RESET_SKEW)) or reset > wall + DURATIONS[window] + Decimal(repr(RESET_SKEW)):
         return WindowStatus(window, reserve, "reset_anomaly")
-    remaining = 100 - used
-    return WindowStatus(window, reserve, AT_RESERVE if remaining <= reserve else OK, remaining, reading.resets_at)
+    # remaining <= reserve is used + reserve >= 100; rounding down keeps that comparison
+    # exact at any precision, and the remaining value shown is never above the true one.
+    at_reserve = FLOOR.add(used, reserve) >= 100
+    remaining = FLOOR.subtract(Decimal(100), used)
+    return WindowStatus(window, reserve, AT_RESERVE if at_reserve else OK, remaining, reading.resets_at)
 
 
 def reason_word(reason):
@@ -385,13 +419,15 @@ def finite(value):
 
 
 class Evaluator:
-    def __init__(self, policy, clock, *, max_age=MAX_AGE, continuation_window=CONTINUATION_WINDOW):
+    def __init__(self, policy, clock, *, paused=None, max_age=MAX_AGE, continuation_window=CONTINUATION_WINDOW):
         self.reserves = policy.enabled()
         if not self.reserves:
             raise ValueError("no enabled reserve: an unprotected launch needs no evaluator")
         self.account, self.clock = policy.account, clock
         self.max_age, self.continuation_window = max_age, continuation_window
         self.state, self.cause, self.refused = CHECKING, None, None
+        if paused is not None:
+            self.state, self.cause = PAUSED, reason_word(paused)
         self.control = "control_pending"
         self.fault_reason, self.fault_at = None, None
         self.latest_at = None        # receipt time of the latest response taken
@@ -432,7 +468,7 @@ class Evaluator:
             else:
                 self.problem = None
                 self.last_fresh, self.last_fresh_wall = fresh_at, observation.wall_at
-                if self.fault_reason is not None and fresh_at > self.fault_at:
+                if self.fault_reason is not None and fresh_at > self.fault_at and self.state != CHECKING:
                     self.fault_reason = self.fault_at = None
         self._update(now, resume=answered)
         return self._verdict(now)
@@ -489,7 +525,7 @@ class Evaluator:
     def next_poll(self, jitter=None):
         """Seconds until the next quota read. JITTER(low, high) picks the backoff; by
         default the upper bound. Paused reads are rate-bounded, never stopped."""
-        self._tick()
+        now = self._tick()
         if self.state == PAUSED:
             if self.armed is not None:
                 return 0.0
@@ -498,8 +534,8 @@ class Evaluator:
             cap = min(BACKOFF_MAX, BACKOFF_MIN * 2 ** min(self.failures - 1, 8))
             chosen = cap if jitter is None else jitter(BACKOFF_MIN, cap)
             return max(BACKOFF_MIN, min(cap, chosen))
-        if self.state == CHECKING:
-            return 0.0
+        if self.state == CHECKING and self.refused is None and (self.last_fresh is None or self._stale(now)):
+            return 0.0  # no usable reading yet
         near = any(status.remaining is not None and status.remaining - status.reserve <= NEAR_POINTS
                    for status in self.windows)
         return POLL_NEAR if near else POLL_RUNNING
@@ -549,19 +585,25 @@ class Evaluator:
             self.paused_polls += 1
 
     def _condition(self, now):
-        if self.control is not None:
+        """What blocks model work now. Definitive conditions come before the WAITING ones,
+        so a start refuses whatever order its events arrive in. (Stale precedes threshold:
+        a threshold decides as its response arrives, and an old one is shown as stale.)"""
+        if self.control not in (None, "control_pending"):
             return self.control
         if self.fault_reason is not None:
             return self.fault_reason
-        if self.latest_at is None:
-            return "no_reading"
         if self.problem is not None:
             return self.problem
-        if now - self.last_fresh > self.max_age:
+        if self.last_fresh is not None and self._stale(now):
             return "stale"
         if any(status.status == AT_RESERVE for status in self.windows):
             return "threshold"
-        return None
+        if self.control is not None:
+            return self.control
+        return "no_reading" if self.latest_at is None else None
+
+    def _stale(self, now):
+        return now - self.last_fresh > self.max_age
 
     def _update(self, now, resume=False):
         condition = self._condition(now)
