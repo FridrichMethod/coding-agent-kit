@@ -15,10 +15,15 @@ with an enabled reserve. In order (reviewed design, section 2.1):
 2. the port: the launcher becomes the child subreaper and holds a random loopback port (on macOS also
    every interface address), then runs the macOS boundary self-test;
 3. the D1 refresh: `claude auth status` runs confined behind a refresh gate that tunnels only
-   platform.claude.com:443, so native refreshes its own token before model work; it must succeed;
+   platform.claude.com:443, so native renews its own token before model work when it is inside its
+   five-minute refresh window (native renews it then only); it must exit 0, but its exit status does
+   not tell whether it renewed anything, so step 4 checks the result;
 4. the gate (provider.py) reads the token memory-only and refuses on its local checks (an
-   organization subscription, a token inside native's refresh window); the monitor starts; once a
-   heartbeat is heard the gate's first quota check must pass;
+   organization subscription; a token still inside native's refresh window, which the refresh did not
+   renew; a token valid for less than ten minutes beyond that window, too short a session since no
+   renewal passes the gate once the session runs); the monitor starts; once a heartbeat is heard the
+   gate's first quota check must pass, and the launcher then shows when the token expires, which is
+   when the session needs a relaunch unless another session of the account renews it;
 5. the native runs on the launcher's PTY inside the boundary with ANTHROPIC_BASE_URL and HTTPS_PROXY
    at the gate and NO_PROXY=127.0.0.1 (otherwise native sends its Messages requests to the proxy in
    absolute form, which the gate's route table refuses), its own sandbox off (the outer boundary
@@ -113,7 +118,12 @@ DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 GATE_EXTRA, REFRESH_EXTRA = {}, {}
 REASONS = {
     "threshold": "a usage window is at or below its reserve",
-    "native_refresh_window": "the account's access token expires within five minutes and was not refreshed",
+    "native_refresh_window": "the pre-launch refresh (claude auth status) did not renew the account's access token, "
+                             "which expires within five minutes",
+    # provider.py's NATIVE_REFRESH_WINDOW_MS and MIN_SESSION_MS, which the suite ties to this text
+    "token_expires_soon": "the account's access token expires within fifteen minutes, too soon for a protected "
+                          "session, and Claude Code renews it only in its last five minutes; launch again in up to ten "
+                          "minutes, when the pre-launch refresh renews it, or launch without reserves",
     "unproved_quota_row": "the usage report has a limit row protected mode has not reviewed",
     "identity_unattributed": "the usage reads did not prove the enrolled account",
     "identity_mismatch": "the signed-in account is not the enrolled one",
@@ -337,24 +347,30 @@ def judge_policy(verdict, paths):
         refuse(organization_message(paths, machine=True))
 
 
-def launch(config, policy, paths, record, args, executable, env, style=lambda text: text):
+def plain_notice(text):
+    print(text, file=sys.stderr)
+
+
+def launch(config, policy, paths, record, args, executable, env, style=lambda text: text, notice=plain_notice):
     """The protected invocation; returns the native's exit status (supervise.finish leaves by the
-    native's signal instead, after the cleanup below)."""
-    status = run(config, policy, paths, record, args, executable, env, style)
+    native's signal instead, after the cleanup below). style(text) styles the supervisor's lines on
+    the terminal (fd 1); notice(text) writes the launcher's own lines to stderr, styled for fd 2."""
+    status = run(config, policy, paths, record, args, executable, env, style, notice)
     supervise = _load("supervise", KIT / "supervise.py")
     return supervise.finish(status)
 
 
-def run(config, policy, paths, record, args, executable, env, style=lambda text: text):
+def run(config, policy, paths, record, args, executable, env, style=lambda text: text, notice=plain_notice):
     """Everything of launch() up to the native's wait status, with every temporary entry removed."""
     if not all(path.is_file() for path in GATE_MODULES):
         raise Refused(f"incomplete install at {HERE.parent.parent}")
     supervise = _load("supervise", KIT / "supervise.py")
     with supervise.launcher_path():
-        return protected(supervise, config, policy, paths, record, args, os.path.abspath(executable), env, style)
+        return protected(supervise, config, policy, paths, record, args, os.path.abspath(executable), env, style,
+                         notice)
 
 
-def protected(supervise, config, policy, paths, record, args, executable, env, style):
+def protected(supervise, config, policy, paths, record, args, executable, env, style, notice):
     """run() with the launcher's PATH pinned and an absolute native path."""
     gate = _load("gate", KIT / "gate.py")
     reserve = _load("reserve", KIT / "reserve.py")
@@ -425,6 +441,11 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                 status = sup.request("status", 10)
                 if status.get("state") != "checking" and status.get("heard"):
                     if status.get("state") == "running":
+                        expires = (status.get("fields") or {}).get("token_expires")
+                        if isinstance(expires, str):
+                            notice(f"claude-as: the account's access token expires at {expires}, and Claude Code "
+                                   "cannot renew it inside protected mode; unless another session of this account "
+                                   "renews it, relaunch before then.")
                         return
                     fields = status.get("fields") or {}
                     raise supervise.Refused("%s (%s)" % (fields.get("message") or explain(status.get("reason")),
@@ -440,8 +461,8 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                                    refresh_config=refresh_config, preflight=preflight, confine=confine,
                                    pid_env="CODING_AGENT_KIT_CLAUDE_PID", holder_extra=extra, gate_env=gate_env,
                                    heartbeat=reserve.HEARTBEAT, style=style)
-        print(style("claude-as: " + policy.describe() + "; protected mode: only the request gate is reachable, "
-                    "and after a pause F12 then the code shown asks for a fresh check."), file=sys.stderr)
+        notice("claude-as: " + policy.describe() + "; protected mode: only the request gate is reachable, "
+               "and after a pause F12 then the code shown asks for a fresh check.")
         temp = None
         try:
             port = sup.prepare()
@@ -467,6 +488,9 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
         except supervise.Refused as error:
             if error.reason == "organization_policy":
                 refuse(organization_message(paths))
+            if error.reason == "native_refresh_window":
+                refuse(f"{REASONS[error.reason]}; run CLAUDE_CONFIG_DIR={paths.config} claude auth status yourself to "
+                       "see why.")
             refuse(explain(error.reason) if error.reason in REASONS else error.reason)
         except sandbox.Refusal as error:
             refuse(str(error))

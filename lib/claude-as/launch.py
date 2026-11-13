@@ -559,7 +559,8 @@ def native_launch(config, account, args, policy, metadata, executable):
     if policy is None or policy.off:
         os.execve(executable, [executable, *args], env)
     protect = own_module("protect")
-    return protect.launch(config, policy, paths, record, args, executable, env, style=lambda text: styled(text, "33", 1))
+    return protect.launch(config, policy, paths, record, args, executable, env, style=lambda text: styled(text, "33", 1),
+                          notice=lambda text: say(text, "33"))
 
 
 def main():

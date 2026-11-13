@@ -1,7 +1,9 @@
 """A fake claude for the claude-as reserve tests; fabricated data only, no network.
 
 --version prints CLAUDE_FAKE_VERSION (default the reviewed 2.1.322). `auth status` prints a
-fixed line and exits CLAUDE_FAKE_AUTH_STATUS (default 0); `auth login` records the identity
+fixed line and exits CLAUDE_FAKE_AUTH_STATUS (default 0); with CLAUDE_FAKE_RENEW=SECONDS it first
+renews the token as native's refresh does: CLAUDE_CONFIG_DIR/.credentials.json is replaced (0600,
+by rename) with CLAUDE_FAKE_RENEW_TOKEN as the access token, expiring SECONDS from now; `auth login` records the identity
 CLAUDE_FAKE_LOGIN (account,organization) in CLAUDE_CONFIG_DIR/.claude.json as native does.
 `auth status` records to FAKE_RECORD + ".auth". FAKE_DIRECT=PORT first tries a direct TCP connect.
 Anything else records its arguments, environment and pid in FAKE_RECORD (when set), prints a
@@ -71,12 +73,26 @@ def pause_cycle(go):
     return statuses
 
 
+def renew(seconds, token):
+    import time
+    target = Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".credentials.json"
+    document = json.loads(target.read_text())
+    document["claudeAiOauth"].update(accessToken=token, expiresAt=int(time.time() * 1000) + seconds * 1000)
+    fresh = target.with_name(".credentials.json.new")
+    fd = os.open(fresh, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        stream.write(json.dumps(document))
+    os.replace(fresh, target)
+
+
 def main():
     args = sys.argv[1:]
     if args == ["--version"]:
         print(os.environ.get("CLAUDE_FAKE_VERSION", "2.1.322 (Claude Code)"))
         return 0
     if args == ["auth", "status"]:
+        if os.environ.get("CLAUDE_FAKE_RENEW"):
+            renew(int(os.environ["CLAUDE_FAKE_RENEW"]), os.environ["CLAUDE_FAKE_RENEW_TOKEN"])
         print("Logged in to the fixture account")
         record({"auth_status": True}, ".auth")
         return int(os.environ.get("CLAUDE_FAKE_AUTH_STATUS", "0"))

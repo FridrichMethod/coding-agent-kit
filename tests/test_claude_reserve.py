@@ -840,6 +840,29 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(caught.exception.reason, "credential_credential_not_private")
         self.assertEqual(self.upstream.requests, [])
 
+    def test_the_d1_refresh_must_leave_a_token_valid_for_a_minimum_session(self):
+        """Native renews its token only inside its five-minute window, and the run gate refuses every
+        renewal once the session runs, so the gate's own read after the refresh is the check that the
+        refresh worked: a token that needed it is still inside the window when it failed, and a token
+        just outside the window, which native left alone, would end the session within minutes."""
+        window, minimum = provider.NATIVE_REFRESH_WINDOW_MS // 1000, provider.MIN_SESSION_MS // 1000
+        self.assertEqual((window, minimum), (300, 600))
+        for expires_in, reason in ((window - 30, "native_refresh_window"), (window + 30, "token_expires_soon"),
+                                   (window + minimum - 30, "token_expires_soon")):
+            with self.subTest(expires_in):
+                self.store(upstream_fixture.BEARER_A, expires_in=expires_in)
+                prov, g = self.make()
+                with self.assertRaises(gate.Refusal) as caught:
+                    prov.startup(g)
+                self.assertEqual(caught.exception.reason, reason)
+        self.assertEqual(self.upstream.requests, [])
+        self.store(upstream_fixture.BEARER_A, expires_in=window + minimum + 60)
+        expires = json.loads((self.config_dir / ".credentials.json").read_text())["claudeAiOauth"]["expiresAt"]
+        _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        # The launcher shows when the session will need a relaunch: the expiry, never a bearer-derived value.
+        self.assertEqual(g.status()["fields"]["token_expires"], reserve.timestamp(expires // 1000))
+
     def test_models_outside_the_families_or_with_their_own_row_are_refused(self):
         self.upstream.extra = {"seven_day_opus": {"utilization": 3, "resets_at": None}}
         _, g = self.started()
@@ -1256,6 +1279,18 @@ class ProtectedRefusals(Kit):
         self.assertIn("policy-limits.json: secret_limit", output)
         self.assertNotIn("org-sensitive-value", output)
 
+    def test_the_launchers_own_lines_are_styled_for_stderr_not_for_the_terminal_on_stdout(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        log = self.base / "stderr.log"  # no credential is stored: the gate refuses after the start line
+        argv = ["/bin/sh", "-c", 'exec "$@" 2>"$0"', str(log), str(self.kit / "bin/claude-as"), "--reserve-5h", "10", "N"]
+        code, output = self.terminal([], env=dict(self.env, CODING_AGENT_KIT_COLOR="auto", TERM="xterm"), argv=argv)
+        self.assertEqual(code, 1, output)
+        text = log.read_text()
+        self.assertIn("claude-as: usage reserves for N: five-hour 10% (--reserve-5h)", text)
+        self.assertIn("protected mode refused", text)
+        self.assertNotIn("\x1b[", text)  # a redirected log stays plain
+
     def test_home_as_the_working_directory_refuses(self):
         if boundary_problem():
             self.skipTest(boundary_problem())
@@ -1306,11 +1341,11 @@ class Protected(Kit):
         self.upstream = upstream_fixture.ClaudeUpstream()
         self.addCleanup(self.upstream.close)
 
-    def store(self, subscription="max"):
+    def store(self, subscription="max", expires_in=3600):
         credential = self.native_config("N") / ".credentials.json"
         credential.write_text(json.dumps({"claudeAiOauth": {
             "accessToken": upstream_fixture.BEARER_A, "refreshToken": "fabricated-refresh",
-            "expiresAt": int(time.time() * 1000) + 3600_000, "scopes": ["user:inference", "user:profile"],
+            "expiresAt": int(time.time() * 1000) + expires_in * 1000, "scopes": ["user:inference", "user:profile"],
             "subscriptionType": subscription}}))
         credential.chmod(0o600)
 
@@ -1356,6 +1391,10 @@ class Protected(Kit):
         reads = self.upstream.paths("GET")
         self.assertEqual(reads[:2], ["/api/oauth/profile", "/api/oauth/usage"])
         self.assertIn("usage reserves for N: five-hour 10% (--reserve-5h), weekly 5% (--reserve-weekly)", output)
+        expires = json.loads((self.native_config("N") / ".credentials.json").read_text())["claudeAiOauth"]["expiresAt"]
+        self.assertIn("claude-as: the account's access token expires at %s, and Claude Code cannot renew it inside "
+                      "protected mode; unless another session of this account renews it, relaunch before then."
+                      % reserve.timestamp(expires // 1000), output.replace("\r\n", " ").replace("\n", " "))
 
     def test_a_window_at_its_reserve_refuses_before_the_native_starts(self):
         self.upstream.used["five_hour"] = 95
@@ -1442,6 +1481,40 @@ class Protected(Kit):
         self.assertEqual(code, 1, output)
         self.assertIn("the pre-launch native refresh (claude auth status) failed (1)", output)
         self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_token_the_refresh_did_not_renew_refuses_before_any_read(self):
+        """claude auth status exits 0 whether or not it renewed the token; the gate's read decides."""
+        self.store(expires_in=120)
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the pre-launch refresh (claude auth status) did not renew the "
+                      "account's access token, which expires within five minutes; run CLAUDE_CONFIG_DIR=%s claude "
+                      "auth status yourself to see why." % self.native_config("N"),
+                      output.replace("\r\n", " ").replace("\n", " "))
+        self.assertTrue(Path(str(self.record) + ".auth").exists())  # the refresh ran
+        self.assertFalse(self.record.exists())
+        self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_token_too_close_to_its_expiry_for_a_session_refuses(self):
+        self.store(expires_in=600)  # outside native's window, so the refresh leaves it alone
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the account's access token expires within fifteen minutes, too soon "
+                      "for a protected session, and Claude Code renews it only in its last five minutes; launch again "
+                      "in up to ten minutes, when the pre-launch refresh renews it, or launch without reserves",
+                      output.replace("\r\n", " ").replace("\n", " "))
+        self.assertFalse(self.record.exists())
+        self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_refresh_that_renews_a_near_expiry_token_lets_the_launch_run(self):
+        self.store(expires_in=120)
+        code, output = self.protected(env={"CLAUDE_FAKE_RENEW": "3600", "CLAUDE_FAKE_RENEW_TOKEN":
+                                           upstream_fixture.BEARER_A2, "FAKE_MESSAGES": "1",
+                                           "FAKE_BEARER": upstream_fixture.BEARER_A2})
+        self.assertEqual(code, 0, output)
+        self.assertEqual([status for status, _ in self.recorded()["statuses"]], [200])
+        profile = [r for r in self.upstream.requests if r["path"] == "/api/oauth/profile"][0]
+        self.assertIn(("Authorization", "Bearer " + upstream_fixture.BEARER_A2), profile["headers"])
 
     def test_an_unreadable_store_refuses_at_gate_startup(self):
         (self.native_config("N") / ".credentials.json").chmod(0o644)
@@ -1625,16 +1698,18 @@ class RealClaude(Kit):
     def store(self, token, subscription, hours=1):
         self.private(".credentials.json", {"claudeAiOauth": {
             "accessToken": token, "refreshToken": "fabricated-refresh-" + token[-4:],
-            "expiresAt": int(time.time() * 1000) + hours * 3600_000,
+            "expiresAt": int(time.time() * 1000 + hours * 3600_000),
             "scopes": ["user:inference", "user:profile", "user:sessions:claude_code"], "subscriptionType": subscription}})
 
-    def launch(self, args=()):
+    def spec(self, args=()):
         spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"},
                 "args": ["--debug-file", str(self.cwd / "native-debug.log"), "--permission-mode", "default", *args],
                 "upstream_port": self.upstream.port,
                 "connect_allow": {"platform.claude.com:443": ["127.0.0.1", self.closed.getsockname()[1]]}}
-        screen = Screen([sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)], self.env,
-                        self.cwd)
+        return [sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)]
+
+    def launch(self, args=()):
+        screen = Screen(self.spec(args), self.env, self.cwd)
         self.addCleanup(screen.close)
         screen.expect("Claude Code", 90)
         screen.expect("v" + protect.REVIEWED_VERSIONS[0], 30)
@@ -1651,6 +1726,21 @@ class RealClaude(Kit):
     def inside(self, kind):
         self.assertTrue(wait_for(lambda: (self.cwd / ("inside-%s.json" % kind)).exists(), 30), kind)
         return json.loads((self.cwd / ("inside-%s.json" % kind)).read_text())
+
+    def test_a_token_the_real_refresh_does_not_renew_refuses_before_the_native_starts(self):
+        """The real `claude auth status` exits 0 either way: inside its five-minute window it tries to
+        renew (the tunnel leads to a closed port, so it fails); just outside the window it renews
+        nothing. The gate's read after it refuses both, and no native session starts."""
+        for minutes, text in ((2, "the pre-launch refresh (claude auth status) did not renew the account's access "
+                                  "token, which expires within five minutes"),
+                              (10, "the account's access token expires within fifteen minutes, too soon for a "
+                                   "protected session")):
+            with self.subTest(minutes=minutes):
+                self.store(upstream_fixture.BEARER_A, "max", hours=minutes / 60)
+                code, output = self.terminal([], argv=self.spec(), timeout=120)
+                self.assertEqual(code, 1, output)
+                self.assertIn("protected mode refused: " + text, output.replace("\n", " "))
+                self.assertEqual(self.upstream.model_requests(), [])
 
     def test_an_organization_account_is_refused_before_the_native_starts(self):
         """The real `claude auth status` runs behind the refresh gate; the gate then refuses the
