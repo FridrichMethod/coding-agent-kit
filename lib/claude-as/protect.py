@@ -39,6 +39,15 @@ refresh), and the launcher refuses first when the machine's managed settings pin
 organization (forceLoginOrgUUID), which makes pro and max eligible too. Pro and max accounts lose
 nothing: native applies no organization policy to them in any mode.
 
+Code run outside the boundary: the gate, the monitor and the macOS self-test run the base interpreter
+of the Python running claude-as (supervise.interpreter: a virtual environment's site-packages and .pth
+files stay out), and the launch refuses unless that interpreter, its prefixes, its module path and the
+kit's module directories lie outside everything a boundary process can write (reach: the writable set,
+the boundary's devices and, on macOS, Claude's fixed temporary directory), through every link on the
+way (supervise.unreachable). The native path is made absolute, so the version check, the refresh and
+the native resolve it once. While the run lasts the launcher's own PATH is the system directories
+(supervise.launcher_path); the native keeps the caller's.
+
 macOS: Claude's Bash tool writes /private/tmp/claude-UID/<cwd with every non-alphanumeric byte as ->
 whatever TMPDIR says. That directory is writable inside the boundary, and at the end the entry named
 after this working directory is removed when it did not exist before the native started. Limits: a
@@ -111,6 +120,8 @@ REASONS = {
 }
 # The modules the gate process loads besides the supervisor's own checks (gate.py, monitor.py).
 GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py")
+CODE_HINT = ("; run claude-as with a Python and a kit installed outside the working directory, every --add-dir and the "
+             "account directory")
 
 
 class Refused(ValueError):
@@ -222,6 +233,17 @@ def check_writable(paths, home):
                        "holds login items); start Claude Code in a project directory.")
 
 
+def reach(writable, sandbox, uid, darwin):
+    """Everything a boundary process can write, resolved: the writable set, the boundary's devices
+    (Linux DEVICES; beneath /dev on macOS) and, on macOS, Claude's fixed /private/tmp/claude-UID."""
+    result = []
+    fixed = ["/dev", sandbox.claude_temp(uid)] if darwin else [os.path.realpath(path) for path in sandbox.DEVICES]
+    for path in [os.path.realpath(path) for path in writable] + fixed:
+        if path not in result:
+            result.append(path)
+    return result
+
+
 def macos_temp_entries(uid):
     root = "/private/tmp/claude-%d" % uid
     try:
@@ -274,6 +296,12 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
     if not all(path.is_file() for path in GATE_MODULES):
         raise Refused(f"incomplete install at {HERE.parent.parent}")
     supervise = _load("supervise", KIT / "supervise.py")
+    with supervise.launcher_path():
+        return protected(supervise, config, policy, paths, record, args, os.path.abspath(executable), env, style)
+
+
+def protected(supervise, config, policy, paths, record, args, executable, env, style):
+    """run() with the launcher's PATH pinned and an absolute native path."""
     gate = _load("gate", KIT / "gate.py")
     reserve = _load("reserve", KIT / "reserve.py")
     policies = _load("policy", HERE / "policy.py")
@@ -310,6 +338,14 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
     try:
         writable = [cwd, paths.config, private_tmp, *add_dirs]
         check_writable(writable, config.home)
+        # Nothing that kit processes outside the boundary load code from may be in its reach.
+        python = supervise.interpreter()
+        gate_env = {name: env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR") if env.get(name)}
+        try:
+            supervise.unreachable(supervise.code_sources(python, gate_env, (HERE, KIT)),
+                                  reach(writable, sandbox, uid, darwin), CODE_HINT)
+        except supervise.Refused as error:
+            refuse(error.reason + ".")
         settings = {"sandbox": {"enabled": False}, "remoteControlAtStartup": False}
         reserves = {setting.window: None if setting.reserve is None else str(setting.reserve)
                     for setting in policy.settings()}
@@ -346,8 +382,7 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
             extra = sandbox.holder_addresses().reserve if darwin else ()
         except sandbox.Refusal as error:
             refuse(str(error))
-        gate_env = {name: env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR") if env.get(name)}
-        sup = supervise.Supervisor([sys.executable, "-I", "-B", str(HERE / "provider.py")], gate_config,
+        sup = supervise.Supervisor([python, "-I", "-B", str(HERE / "provider.py")], gate_config, python=python,
                                    refresh_config=refresh_config, preflight=preflight, confine=confine,
                                    pid_env="CODING_AGENT_KIT_CLAUDE_PID", holder_extra=extra, gate_env=gate_env,
                                    heartbeat=reserve.HEARTBEAT, style=style)
@@ -357,7 +392,7 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
         try:
             port = sup.prepare()
             if darwin:
-                tested["result"] = sandbox.self_test(port, writable, "claude")
+                tested["result"] = sandbox.self_test(port, writable, "claude", python=python)
             gate_url = "http://127.0.0.1:%d" % port
             native_env = dict(env, HTTPS_PROXY=gate_url, https_proxy=gate_url, NO_PROXY="127.0.0.1",
                               no_proxy="127.0.0.1", TMPDIR=private_tmp, CLAUDE_DISABLE_ADOPT="1")
