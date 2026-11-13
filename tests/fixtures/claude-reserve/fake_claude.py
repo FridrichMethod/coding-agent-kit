@@ -3,6 +3,7 @@
 --version prints CLAUDE_FAKE_VERSION (default the reviewed 2.1.322). `auth status` prints a
 fixed line and exits CLAUDE_FAKE_AUTH_STATUS (default 0); `auth login` records the identity
 CLAUDE_FAKE_LOGIN (account,organization) in CLAUDE_CONFIG_DIR/.claude.json as native does.
+`auth status` records to FAKE_RECORD + ".auth". FAKE_DIRECT=PORT first tries a direct TCP connect.
 Anything else records its arguments, environment and pid in FAKE_RECORD (when set), prints a
 sentinel and exits FAKE_EXIT (default 0). With FAKE_MESSAGES=N it first sends N Messages
 requests to ANTHROPIC_BASE_URL with its own bearer and records each status in FAKE_RECORD.
@@ -14,10 +15,11 @@ from pathlib import Path
 import sys
 
 
-def record(extra=None):
+def record(extra=None, suffix=""):
     target = os.environ.get("FAKE_RECORD")
     if not target:
         return
+    target += suffix
     data = {"args": sys.argv[1:], "env": dict(os.environ), "pid": os.getpid(), "cwd": os.getcwd()}
     data.update(extra or {})
     Path(target).write_text(json.dumps(data))
@@ -52,7 +54,7 @@ def main():
         return 0
     if args == ["auth", "status"]:
         print("Logged in to the fixture account")
-        record({"auth_status": True})
+        record({"auth_status": True}, ".auth")
         return int(os.environ.get("CLAUDE_FAKE_AUTH_STATUS", "0"))
     if args == ["auth", "login"]:
         account, organization = os.environ["CLAUDE_FAKE_LOGIN"].split(",")
@@ -62,6 +64,13 @@ def main():
         target.chmod(0o600)
         return 0
     extra = {}
+    if os.environ.get("FAKE_DIRECT"):
+        import socket
+        try:
+            socket.create_connection(("127.0.0.1", int(os.environ["FAKE_DIRECT"])), timeout=5).close()
+            extra["direct"] = "connected"
+        except OSError as error:
+            extra["direct"] = "errno:%s" % error.errno
     if os.environ.get("FAKE_MESSAGES"):
         extra["statuses"] = messages(int(os.environ["FAKE_MESSAGES"]))
     record(extra)

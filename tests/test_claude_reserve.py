@@ -75,14 +75,15 @@ class Kit(unittest.TestCase):
         return subprocess.run([str(self.kit / "bin/claude-as"), *args], cwd=self.cwd, env=env or self.env,
                               stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout)
 
-    def terminal(self, args, answers=(), env=None, timeout=60):
-        """claude-as on a fresh controlling terminal; ANSWERS are (prompt, reply) pairs, in order.
-        Returns (exit code, everything written to the terminal)."""
+    def terminal(self, args, answers=(), env=None, timeout=60, argv=None):
+        """claude-as (or ARGV) on a fresh controlling terminal; ANSWERS are (prompt, reply) pairs, in
+        order. Returns (exit code, everything written to the terminal)."""
+        argv = argv or [str(self.kit / "bin/claude-as"), *args]
         pid, master = pty.fork()
         if pid == 0:
             try:
                 os.chdir(self.cwd)
-                os.execve(str(self.kit / "bin/claude-as"), [str(self.kit / "bin/claude-as"), *args], env or self.env)
+                os.execve(argv[0], argv, env or self.env)
             finally:
                 os._exit(127)
         output, pending, deadline = b"", list(answers), time.monotonic() + timeout
@@ -178,7 +179,8 @@ class Enrollment(Kit):
         record = json.loads((self.native_config("N").parent / "account.json").read_text())
         self.assertEqual(record["state"], "ready")
         self.assertEqual(record["identity"], {"account_uuid": ACCOUNT_UUID, "organization_uuid": ORGANIZATION_UUID})
-        self.assertEqual(self.recorded()["env"]["CLAUDE_CONFIG_DIR"], str(self.native_config("N")))
+        refresh = json.loads(Path(str(self.record) + ".auth").read_text())
+        self.assertEqual(refresh["env"]["CLAUDE_CONFIG_DIR"], str(self.native_config("N")))
         again = self.run_kit(["--enroll-native", "N"])
         self.assertEqual(again.returncode, 0)
         self.assertIn("already enrolled", again.stderr)
@@ -263,7 +265,7 @@ class NativeLaunch(Kit):
 
     def test_native_login_refuses_injected_credentials_and_auth_flags(self):
         self.enroll()
-        self.record.unlink()
+        self.record.unlink(missing_ok=True)
         self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
         result = self.run_kit(["N"], env=dict(self.env, ANTHROPIC_API_KEY="x"))
         self.assertEqual(result.returncode, 1)
@@ -819,6 +821,174 @@ class GateProvider(unittest.TestCase):
         self.assertIsNone(provider.normalize_profile({"account": {"uuid": "a b"}, "organization": {"uuid": "o"}}))
         self.assertEqual(provider.family("claude-3-5-haiku-20241022"), "haiku")
         self.assertIsNone(provider.family("claude-sonnet-4-5[1m]"))
+
+
+
+def boundary_problem():
+    """Why this host cannot run the protected-mode boundary, or None."""
+    name = "sandbox_macos.py" if sys.platform == "darwin" else "sandbox_linux.py"
+    module = load("test_claude_sandbox", ROOT / "lib/coding-agent-kit" / name)
+    try:
+        module.probe()
+    except module.Refusal as error:
+        return str(error)
+    return None
+
+
+class ProtectedRefusals(Kit):
+    """Refusals of the real launcher before any port, gate or native under the boundary."""
+
+    def setUp(self):
+        super().setUp()
+        self.enroll()
+        self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
+        for name in (".auth", ""):
+            Path(str(self.record) + name).unlink(missing_ok=True)
+
+    def refused(self, args, env=None, protected=True):
+        code, output = self.terminal(["--reserve-5h", "10", "N", *args], env=env)
+        self.assertEqual(code, 1, output)
+        if protected:
+            self.assertIn("protected mode refused", output)
+        self.assertFalse(self.record.exists())
+        return output
+
+    def test_unsupported_native_forms_refuse(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        for args, text in ((["-p", "hi"], "-p is not an interactive form"), (["--resume"], "--resume is not"),
+                           (["--settings", "{}"], "--settings is not"), (["mcp", "list"], "claude mcp command"),
+                           (["--model", "x", "--", "doctor"], "claude doctor command"),
+                           (["--mcp-config=x"], "--mcp-config is not"), (["--fork-session"], "--fork-session is not")):
+            with self.subTest(args):
+                self.assertIn(text, self.refused(args))
+        # The launcher's own screen refuses these before protected mode looks at them.
+        for args, text in ((["-pc"], "unsupported/combined option"), (["--bg"], "unsupported/combined option"),
+                           (["--remote-control"], "CLI option changes authentication")):
+            with self.subTest(args):
+                self.assertIn(text, self.refused(args, protected=False))
+
+    def test_unreviewed_native_versions_refuse(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        output = self.refused([], env=dict(self.env, CLAUDE_FAKE_VERSION="2.1.323 (Claude Code)"))
+        self.assertIn("Claude Code 2.1.323 is not a version this kit release reviewed", output)
+
+    def test_store_and_proxy_selectors_in_the_environment_refuse(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        self.assertIn("CLAUDE_SECURESTORAGE_CONFIG_DIR",
+                      self.refused([], env=dict(self.env, CLAUDE_SECURESTORAGE_CONFIG_DIR="")))
+        self.assertIn("unsupported HTTPS_PROXY", self.refused([], env=dict(self.env, HTTPS_PROXY="socks5://x:1")))
+
+    def test_unreviewed_server_managed_policy_refuses_with_key_names_only(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        limits = self.native_config("N") / "policy-limits.json"
+        limits.write_text(json.dumps(dict(E0_LIMITS, secret_limit={"value": "org-sensitive-value"})))
+        limits.chmod(0o600)
+        output = self.refused([])
+        self.assertIn("policy-limits.json: secret_limit", output)
+        self.assertNotIn("org-sensitive-value", output)
+
+    def test_home_as_the_working_directory_refuses(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        self.cwd = self.home
+        self.assertIn("cannot be writable in protected mode", self.refused([]))
+
+
+class Protected(Kit):
+    """A protected launch end to end: the real boundary, supervisor, gate and monitor, a fake native
+    and the loopback Claude upstream."""
+
+    def setUp(self):
+        problem = boundary_problem()
+        if problem:
+            self.skipTest("protected-mode boundary unavailable: " + problem)
+        super().setUp()
+        self.enroll()
+        self.record = self.cwd / "record.json"
+        self.env["FAKE_RECORD"] = str(self.record)
+        credential = self.native_config("N") / ".credentials.json"
+        credential.write_text(json.dumps({"claudeAiOauth": {
+            "accessToken": upstream_fixture.BEARER_A, "refreshToken": "fabricated-refresh",
+            "expiresAt": int(time.time() * 1000) + 3600_000, "scopes": ["user:inference", "user:profile"]}}))
+        credential.chmod(0o600)
+        self.upstream = upstream_fixture.ClaudeUpstream()
+        self.addCleanup(self.upstream.close)
+
+    def protected(self, args=(), env=None, reserves=None, timeout=90):
+        security = self.base / "security"  # macOS: no Keychain item, so the store file is read
+        security.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(44)\n")
+        security.chmod(0o700)
+        spec = {"kit": str(self.kit), "account": "N", "reserves": reserves or {"five_hour": "10", "weekly": "5"},
+                "args": list(args), "upstream_port": self.upstream.port, "security": str(security)}
+        argv = [sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)]
+        return self.terminal([], env=dict(self.env, **(env or {})), argv=argv, timeout=timeout)
+
+    def test_a_passing_check_runs_the_native_behind_the_gate_with_its_own_pid(self):
+        code, output = self.protected(["--model", "claude-sonnet-4-5"], env={
+            "FAKE_MESSAGES": "2", "FAKE_BEARER": upstream_fixture.BEARER_A, "FAKE_DIRECT": str(self.upstream.port)})
+        self.assertEqual(code, 0, output)
+        self.assertIn("fake claude sentinel", output)
+        seen = self.recorded()
+        self.assertEqual([status for status, _ in seen["statuses"]], [200, 200])
+        env = seen["env"]
+        base = env["ANTHROPIC_BASE_URL"]
+        self.assertRegex(base, r"^http://127\.0\.0\.1:[0-9]+$")
+        self.assertEqual(env["HTTPS_PROXY"], base)
+        self.assertEqual(env["CODING_AGENT_KIT_CLAUDE_PID"], str(seen["pid"]))
+        self.assertEqual(env["CLAUDE_CONFIG_DIR"], str(self.native_config("N")))
+        self.assertNotIn("CLAUDE_CODE_OAUTH_TOKEN", env)
+        self.assertFalse(os.path.exists(env["TMPDIR"]))  # the private temporary directory is gone
+        self.assertEqual(seen["args"][0], "--settings")
+        settings = json.loads(seen["args"][1])
+        self.assertEqual(settings, {"sandbox": {"enabled": False}, "remoteControlAtStartup": False,
+                                    "env": {"ANTHROPIC_BASE_URL": base}})
+        self.assertEqual(seen["args"][2:], ["--model", "claude-sonnet-4-5"])
+        self.assertNotEqual(seen["direct"], "connected")  # only the gate port is reachable
+        refresh = json.loads(Path(str(self.record) + ".auth").read_text())
+        self.assertEqual(refresh["env"]["HTTPS_PROXY"].rsplit(":", 1)[1], base.rsplit(":", 1)[1])
+        models = self.upstream.model_requests()
+        self.assertEqual(len(models), 2)
+        for request in models:
+            self.assertIn(("Authorization", "Bearer " + upstream_fixture.BEARER_A), request["headers"])
+        reads = self.upstream.paths("GET")
+        self.assertEqual(reads[:2], ["/api/oauth/profile", "/api/oauth/usage"])
+        self.assertIn("usage reserves for N: five-hour 10% (--reserve-5h), weekly 5% (--reserve-weekly)", output)
+
+    def test_a_window_at_its_reserve_refuses_before_the_native_starts(self):
+        self.upstream.used["five_hour"] = 95
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused", output)
+        self.assertIn("five-hour window 5% remaining, at or below its 10% reserve", output)
+        self.assertFalse(self.record.exists())
+        self.assertTrue(Path(str(self.record) + ".auth").exists())  # the refresh ran first
+        self.assertEqual(self.upstream.model_requests(), [])
+
+    def test_another_accounts_bearer_is_refused_with_zero_model_bytes(self):
+        code, output = self.protected(env={"FAKE_MESSAGES": "2", "FAKE_BEARER": upstream_fixture.BEARER_B})
+        self.assertEqual(code, 0, output)
+        statuses = self.recorded()["statuses"]
+        self.assertEqual([status for status, _ in statuses], [400, 400])
+        self.assertIn("bearer_identity_mismatch", statuses[0][1])
+        self.assertEqual(self.upstream.model_requests(), [])
+        self.assertIn("quota reserve paused (bearer_identity_mismatch)", output)
+
+    def test_a_failing_pre_launch_refresh_refuses(self):
+        code, output = self.protected(env={"CLAUDE_FAKE_AUTH_STATUS": "1"})
+        self.assertEqual(code, 1, output)
+        self.assertIn("the pre-launch native refresh (claude auth status) failed (1)", output)
+        self.assertEqual(self.upstream.paths(), [])
+
+    def test_an_unreadable_store_refuses_at_gate_startup(self):
+        (self.native_config("N") / ".credentials.json").chmod(0o644)
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("credential_credential_not_private", output)
+        self.assertEqual(self.upstream.paths(), [])
 
 
 if __name__ == "__main__":

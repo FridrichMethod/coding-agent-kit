@@ -176,6 +176,7 @@ class ClaudeProvider(gate.BaseProvider):
             raise ValueError("identity")
         self.config_dir, self.platform = config["config_dir"], config["platform"]
         self.keychain_user, self.home = config.get("keychain_user"), config.get("home")
+        self.security = config.get("security") or bearer.SECURITY  # another path only from the test driver
         self.connect_allow = {target: tuple(address) for target, address in (config.get("connect_allow") or {}).items()
                               if target in REFRESH_TARGETS or upstream}
         self.rebind_timeout = gate.READ_TIMEOUT
@@ -187,7 +188,7 @@ class ClaudeProvider(gate.BaseProvider):
     def credential(self):
         try:
             return bearer.read(self.config_dir, platform=self.platform, wrap=gate.Secret, now_ms=self.clock_ms(),
-                               keychain_user=self.keychain_user, home=self.home)
+                               keychain_user=self.keychain_user, home=self.home, security=self.security)
         except bearer.Refused as error:
             raise gate.Refusal("credential_" + error.reason) from None
 
