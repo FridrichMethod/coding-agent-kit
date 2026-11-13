@@ -3,8 +3,9 @@
 Load this file by path (it is never on sys.path). Only the gate process calls it: the launcher never
 reads the credential store. Native Claude Code owns the store and its refresh; this reader never
 writes, refreshes, logs, persists or hashes anything, and keeps only the access token (wrapped at
-once by the caller's secret type), its expiry and whether it carries the inference scope. The
-refresh token and every other field are parsed past and dropped.
+once by the caller's secret type), its expiry, whether it carries the inference scope and the
+subscription type native recorded (a short lowercase word, or None). The refresh token and every
+other field are parsed past and dropped.
 
 Stores (Claude Code 2.1.322, S; reviewed design QC option 3):
     Linux   CONFIG/.credentials.json, an owned regular 0600 file with one link, read once by
@@ -21,8 +22,9 @@ Stores (Claude Code 2.1.322, S; reviewed design QC option 3):
 
 Public API:
     read(config_dir, *, platform, wrap, now_ms=None, keychain_user=None, home=None,
-         security=SECURITY) -> Credential(secret, expires_at_ms)
-    Credential: secret is wrap(token); expires_at_ms an int.
+         security=SECURITY) -> Credential(secret, expires_at_ms, subscription)
+    Credential: secret is wrap(token); expires_at_ms an int; subscription native's subscriptionType
+        ("pro", "max", "team", "enterprise", ...) when it is a short lowercase word, else None.
     keychain_service(config_dir), keychain_account(user), parse_document(raw, now_ms, wrap)
     Refused(reason): a fixed reason word only, never a path, value or token.
 """
@@ -48,6 +50,7 @@ SECURITY = "/usr/bin/security"
 KEYCHAIN_NOT_FOUND = 44
 KEYCHAIN_TIMEOUT = 10.0
 ACCOUNT_NAME = re.compile(r"[a-zA-Z0-9._-]+")
+SUBSCRIPTION = re.compile(r"[a-z][a-z0-9_]{0,31}")
 FILE = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
 
 
@@ -61,9 +64,10 @@ class Refused(Exception):
 class Credential:
     secret: object
     expires_at_ms: int
+    subscription: object = None
 
     def __repr__(self):
-        return "Credential(<redacted>, expires_at_ms=%d)" % self.expires_at_ms
+        return "Credential(<redacted>, expires_at_ms=%d, subscription=%r)" % (self.expires_at_ms, self.subscription)
 
 
 def _native():
@@ -102,6 +106,8 @@ def parse_document(raw, now_ms, wrap):
         if not isinstance(oauth, dict):
             raise Refused("oauth_record_missing")
         token, expires, scopes = oauth.get("accessToken"), oauth.get("expiresAt"), oauth.get("scopes")
+        subscription = oauth.get("subscriptionType")
+        subscription = subscription if isinstance(subscription, str) and SUBSCRIPTION.fullmatch(subscription) else None
         if not isinstance(token, str) or not TOKEN.fullmatch(token):
             raise Refused("access_token_malformed")
         if type(expires) is not int or not 0 < expires < MAX_EXPIRES_MS:
@@ -113,7 +119,7 @@ def parse_document(raw, now_ms, wrap):
         if expires <= now_ms:
             raise Refused("token_expired")
         try:
-            return Credential(wrap(token), expires)
+            return Credential(wrap(token), expires, subscription)
         except ValueError:
             raise Refused("access_token_malformed") from None
     finally:

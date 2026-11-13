@@ -33,9 +33,22 @@ Local settings sources (user, project and managed files) are judged by the beare
 forceRemoteSettingsRefresh: the user's own hooks, MCP servers and plugins stay enabled and run inside
 the boundary. macOS managed preferences cannot be read safely here, so their presence refuses.
 
-Files: lstat first; a symlink, a non-regular file, another owner, a second hard link, permissions
-other than 0600 (server-managed caches) or group/other write (local sources), or more than 1 MiB
-refuses; one bounded read of the opened inode, which must be the one checked and unchanged afterwards.
+A settings env refuses (both scopes) only for names that change auth, provider, endpoint, transport or
+the credential store: ANTHROPIC_* except the model selectors (ANTHROPIC_MODEL, ANTHROPIC_SMALL_FAST_MODEL,
+ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL, whose models the gate checks), every proxy variable
+(HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, NO_PROXY, any case), the cloud provider families AWS_*, GOOGLE_*,
+VERTEX_* and CLOUD_ML_*, the CLAUDE_CODE_* names that select a provider, credential, token (not a token
+count), auth, URL or endpoint, proxy, host, gateway, remote session, process wrapper, entrypoint or
+temporary directory, and CLAUDE_CONFIG_DIR,
+CLAUDE_SECURESTORAGE_*, CLAUDE_LOCAL_OAUTH_*, CLAUDE_SESSION_INGRESS_* and CLAUDE_BG_AUTH_*. Other names
+(CA bundles such as NODE_EXTRA_CA_CERTS, CLAUDE_CODE_MAX_OUTPUT_TOKENS, ...) stay: in protected mode
+native's only exit is plain HTTP to the gate, which originates every upstream connection itself.
+
+Files: lstat first; a symlink, a non-regular file, a second hard link, permissions other than 0600
+(server-managed caches) or group/other write (local sources), or more than 1 MiB refuses, and so does
+an owner other than this user, except that the managed settings files (managed-settings.json and
+managed-settings.d/*.json) may also be root's, as they are by design; one bounded read of the opened
+inode, which must be the one checked and unchanged afterwards.
 
 Public API:
     evaluate(config_dir, organization, cwd, platform=sys.platform, managed=None) -> Verdict
@@ -69,9 +82,16 @@ SETTINGS_ACTIVE = ("hooks", "statusLine", "subagentStatusLine", "fileSuggestion"
                    "autoUploadSessions", "daemonColdStart", "autoDreamEnabled", "forceRemoteSettingsRefresh")
 REVIEWED_SETTINGS = frozenset(SETTINGS_REFUSED + POLICY_HELPERS + SETTINGS_ACTIVE
                               + ("env", "forceLoginMethod", "forceLoginOrgUUID"))
-# Environment names a settings env may not set: auth, provider, endpoint, transport and runtime families.
-ENV_REFUSED = re.compile(r"(?:ANTHROPIC_|CLAUDE_|AWS_|GOOGLE_|VERTEX_|CLOUD_ML_|NODE_|SSL_|BUN_|NPM_CONFIG_).*"
-                         r"|.*(?:PROXY|CERT|_CA_).*", re.IGNORECASE)
+# Environment names a settings env may not set: they change auth, provider, endpoint, transport or the
+# credential store (the module docstring lists the families). Model selectors stay: the gate checks models.
+ENV_ALLOWED = re.compile(r"ANTHROPIC_(?:MODEL|SMALL_FAST_MODEL|DEFAULT_(?:OPUS|SONNET|HAIKU)_MODEL)")
+ENV_REFUSED = re.compile(
+    r"ANTHROPIC_.*|(?:HTTPS?|ALL|NO)_PROXY|(?:AWS|GOOGLE|VERTEX|CLOUD_ML)_.*"
+    r"|CLAUDE_CODE_(?:USE_.*|.*OAUTH.*|.*API_KEY.*|.*AUTH.*|.*_TOKEN[0-9]*|.*_TOKEN_FILE_DESCRIPTOR|.*CRED.*"
+    r"|.*_URL|.*ENDPOINT.*|.*PROXY.*|.*HOST.*|.*GATEWAY.*|.*REMOTE.*|.*SESSION.*|.*PROVIDER.*|PROCESS_WRAPPER"
+    r"|TMPDIR|ENTRYPOINT)"
+    r"|CLAUDE_(?:CONFIG_DIR|SECURESTORAGE.*|LOCAL_OAUTH.*|SESSION_INGRESS.*|BG_AUTH.*)", re.IGNORECASE)
+MANAGED_OWNER = 0  # root: managed settings files are root's by design
 LIMITS_KEYS = frozenset(("restrictions", "compliance_taints", "monitoring_notice", "defaults", "core_skills",
                          "artifact_create_notice", "upcoming_minimum_version"))
 REVIEWED_DEFAULTS = frozenset(("remote_control_at_startup",))
@@ -88,7 +108,7 @@ REASON_TEXT = {
     "policy_shape_unrecognized": "a document or value of an unreviewed shape",
     "policy_limits_unreviewed_keys": "an organization limit this kit release has not reviewed",
     "policy_refresh_forced": "a forced policy refresh, which native cannot make in protected mode",
-    "policy_file_unsafe": "a policy file that is not a private regular file of yours",
+    "policy_file_unsafe": "a policy file that is not a private regular file of yours (or root's, for managed settings)",
     "policy_file_unreadable": "a policy file that cannot be read once and unchanged",
     "policy_unparsed": "a policy file that is not JSON",
     "policy_os_managed": "macOS managed preferences, which protected mode cannot inspect",
@@ -149,7 +169,8 @@ def _settings_key(source, name, value, organization, active_scope):
         env = value or {}
         if not isinstance(env, dict):
             return Finding(source, shown, True, True, "policy_conflicting_env")
-        if any(not isinstance(key, str) or ENV_REFUSED.fullmatch(key) for key in env):
+        if any(not isinstance(key, str) or (ENV_REFUSED.fullmatch(key) and not ENV_ALLOWED.fullmatch(key))
+               for key in env):
             return Finding(source, shown, True, True, "policy_conflicting_env")
         return None
     if name in POLICY_HELPERS:
@@ -252,8 +273,10 @@ def _reject_constant(name):
     raise ValueError("non-finite number")
 
 
-def read_checked(directory, name, exact_mode):
-    """("absent" | "unsafe" | "unreadable" | "read", bytes or None) for NAME in the directory fd."""
+def read_checked(directory, name, exact_mode, owners=None):
+    """("absent" | "unsafe" | "unreadable" | "read", bytes or None) for NAME in the directory fd;
+    OWNERS are the accepted owner uids (default: this user only)."""
+    owners = (os.getuid(),) if owners is None else owners
     try:
         before = os.lstat(name, dir_fd=directory)
     except FileNotFoundError:
@@ -261,7 +284,7 @@ def read_checked(directory, name, exact_mode):
     except OSError:
         return "unreadable", None
     mode = stat.S_IMODE(before.st_mode)
-    if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or before.st_nlink != 1
+    if (not stat.S_ISREG(before.st_mode) or before.st_uid not in owners or before.st_nlink != 1
             or (mode != exact_mode if exact_mode is not None else mode & 0o022)
             or before.st_size > FILE_LIMIT):
         return "unsafe", None
@@ -291,9 +314,9 @@ def read_checked(directory, name, exact_mode):
     return "read", raw
 
 
-def _document(source, directory, name, exact_mode):
+def _document(source, directory, name, exact_mode, owners=None):
     """(document or None, findings) of one file; an absent file is (None, [])."""
-    status, raw = read_checked(directory, name, exact_mode)
+    status, raw = read_checked(directory, name, exact_mode, owners)
     if status == "absent":
         return None, []
     if status != "read":
@@ -313,35 +336,37 @@ def _open_dir(path):
         return None
 
 
-def _local(path, organization):
+def _local(path, organization, owners=None):
     directory = _open_dir(os.path.dirname(path))
     if directory is None:
         return []
     try:
-        document, findings = _document(path, directory, os.path.basename(path), None)
+        document, findings = _document(path, directory, os.path.basename(path), None, owners)
     finally:
         os.close(directory)
     return findings if document is None else judge_local(path, document, organization)
 
 
-def local_sources(config_dir, cwd, platform):
-    """The settings files native 2.1.322 reads for this account and working directory (S)."""
-    sources = [os.path.join(config_dir, "settings.json")]
+def local_sources(config_dir, cwd, platform, managed_dirs=None):
+    """(path, managed) of every settings file native 2.1.322 reads for this account and working
+    directory (S); managed is True for the managed settings files, which root may own."""
+    sources = [(os.path.join(config_dir, "settings.json"), False)]
     place = cwd
     while True:
-        sources += [os.path.join(place, ".claude/settings.json"), os.path.join(place, ".claude/settings.local.json")]
+        sources += [(os.path.join(place, ".claude/settings.json"), False),
+                    (os.path.join(place, ".claude/settings.local.json"), False)]
         parent = os.path.dirname(place)
         if parent == place:
             break
         place = parent
-    for managed in MANAGED_DIRS.get(platform, ()):
-        sources.append(os.path.join(managed, "managed-settings.json"))
+    for managed in MANAGED_DIRS.get(platform, ()) if managed_dirs is None else managed_dirs:
+        sources.append((os.path.join(managed, "managed-settings.json"), True))
         try:
             names = sorted(name for name in os.listdir(os.path.join(managed, "managed-settings.d"))
                            if name.endswith(".json"))
         except OSError:
             names = []
-        sources += [os.path.join(managed, "managed-settings.d", name) for name in names]
+        sources += [(os.path.join(managed, "managed-settings.d", name), True) for name in names]
     return sources
 
 
@@ -364,9 +389,11 @@ def os_managed(root):
     return found
 
 
-def evaluate(config_dir, organization, cwd, platform=None, managed_preferences=MANAGED_PREFERENCES):
+def evaluate(config_dir, organization, cwd, platform=None, managed_preferences=MANAGED_PREFERENCES,
+             managed_dirs=None):
     """The Verdict for this account's cached server-managed policy and the local settings sources."""
     platform = platform or ("darwin" if sys.platform == "darwin" else "linux")
+    uid = os.getuid()
     findings = []
     directory = _open_dir(config_dir)
     if directory is None:
@@ -384,8 +411,8 @@ def evaluate(config_dir, organization, cwd, platform=None, managed_preferences=M
                 findings.append(Finding(HELPER_CONSENT, "<file>", True, True, "policy_helper_unevaluable"))
         finally:
             os.close(directory)
-    for path in local_sources(config_dir, cwd, platform):
-        findings += _local(path, organization)
+    for path, managed in local_sources(config_dir, cwd, platform, managed_dirs):
+        findings += _local(path, organization, (MANAGED_OWNER, uid) if managed else (uid,))
     if platform == "darwin":
         findings += [Finding(path, "<file>", True, True, "policy_os_managed") for path in os_managed(managed_preferences)]
     native = tuple(sorted({finding.reason for finding in findings if finding.native}))

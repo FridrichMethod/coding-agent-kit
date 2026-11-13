@@ -19,6 +19,14 @@ restart gate refuses; a refresh gate tunnels only platform.claude.com:443 for th
 refresh. Refusals use status 400 (invalid_request_error): native renders 403 as a /login hint and
 retries 429.
 
+Organization policy (D15 and the user's decision): Claude Code 2.1.322 fetches the organization's
+server-managed policy (remote settings and policy limits) for every claude.ai login whose subscription
+type is not a personal one (S: its eligibility checks answer "prosumer_oauth" and
+"unsupported_subscription" for a non-null type other than enterprise or team, and treat a missing type
+as eligible), and caches it in CONFIG/remote-settings.json and policy-limits.json. Protected mode
+refuses every such fetch, so startup refuses ("policy_cache_missing") unless the store names a
+personal subscription (pro or max) or both caches exist; the launcher's evaluator judged the caches.
+
 Quota reads (QC option 3): GET https://api.anthropic.com/api/oauth/profile and /api/oauth/usage with
 the same in-memory bearer, the neutral User-Agent and the launcher's HTTPS_PROXY. The profile proves
 the identity (the two UUIDs only; nothing else is kept), the usage response gives the five-hour and
@@ -44,6 +52,7 @@ import os
 from pathlib import Path
 import random
 import re
+import stat
 import threading
 import time
 
@@ -67,6 +76,8 @@ USAGE_PATH, PROFILE_PATH = "/api/oauth/usage", "/api/oauth/profile"
 OAUTH_BETA = "oauth-2025-04-20"
 REFRESH_TARGETS = {"platform.claude.com:443": ("platform.claude.com", 443)}
 NATIVE_REFRESH_WINDOW_MS = 300000  # native refreshes when now + 300000 >= expiresAt (S, 2.1.322)
+PERSONAL_PLANS = frozenset(("pro", "max"))  # native fetches no organization policy for these (S, 2.1.322)
+POLICY_CACHES = ("remote-settings.json", "policy-limits.json")
 ROUTES = gate.RouteTable("claude-" + VERSION, (
     gate.Route("POST", "/v1/messages", gate.MODEL, query=True),
     gate.Route("POST", "/v1/messages/count_tokens", gate.MODEL, query=True),
@@ -177,7 +188,10 @@ class ClaudeProvider(gate.BaseProvider):
         self.config_dir, self.platform = config["config_dir"], config["platform"]
         self.keychain_user, self.home = config.get("keychain_user"), config.get("home")
         self.security = config.get("security") or bearer.SECURITY  # another path only from the test driver
-        self.connect_allow = {target: tuple(address) for target, address in (config.get("connect_allow") or {}).items()
+        # The tunnel address is the reviewed one; only the in-process test driver, which also sets the
+        # upstream, may name another (a loopback fake).
+        self.connect_allow = {target: (tuple(address) if upstream else REFRESH_TARGETS[target])
+                              for target, address in (config.get("connect_allow") or {}).items()
                               if target in REFRESH_TARGETS or upstream}
         self.rebind_timeout = gate.READ_TIMEOUT
         self.own_rows = frozenset()
@@ -197,8 +211,8 @@ class ClaudeProvider(gate.BaseProvider):
 
     # -- admission -------------------------------------------------------------------------------
     def check_model(self, presented, body):
-        try:
-            model = json.loads(body).get("model")
+        try:  # a duplicated key could read differently upstream, so it refuses
+            model = json.loads(body, object_pairs_hook=_unique).get("model")
         except (ValueError, AttributeError, UnicodeDecodeError, RecursionError):
             model = None
         kind = family(model)
@@ -253,6 +267,8 @@ class ClaudeProvider(gate.BaseProvider):
         credential = self.credential()
         if credential.expires_at_ms - self.clock_ms() <= NATIVE_REFRESH_WINDOW_MS:
             raise gate.Refusal("native_refresh_window")
+        if credential.subscription not in PERSONAL_PLANS and not self.policy_cached():
+            raise gate.Refusal("policy_cache_missing")
         presented = gate.Presented(credential.secret)
         credential = None
         threading.Thread(target=self._first_check, args=(gate_, presented), daemon=True).start()
@@ -265,6 +281,17 @@ class ClaudeProvider(gate.BaseProvider):
             time.sleep(0.02)
         if gate_.last_beat is not None:
             gate_.check(presented, "startup")
+
+    def policy_cached(self):
+        """Both organization policy caches exist as regular files (their contents were judged by the
+        launcher's evaluator before the gate started)."""
+        for name in POLICY_CACHES:
+            try:
+                if not stat.S_ISREG(os.lstat(os.path.join(self.config_dir, name)).st_mode):
+                    return False
+            except OSError:
+                return False
+        return True
 
     def poll(self, gate_):
         """The monitor's poll: the lease's bearer; a rejected or rotated one is re-read from the store

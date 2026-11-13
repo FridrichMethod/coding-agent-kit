@@ -19,12 +19,26 @@ with an enabled reserve. In order (reviewed design, section 2.1):
    starts; once a heartbeat is heard the gate's first quota check must pass;
 5. the native runs on the launcher's PTY inside the boundary with ANTHROPIC_BASE_URL and HTTPS_PROXY
    at the gate, its own sandbox off (the outer boundary confines writes to the workspace, the account
-   directory, a private temporary directory and any --add-dir) and remoteControlAtStartup off;
-   CODING_AGENT_KIT_CLAUDE_PID is the native's own pid. At the end every boundary descendant is
-   ended, this invocation's temporary entries are removed and the port is released.
+   directory, a private temporary directory and any --add-dir), remoteControlAtStartup off and
+   CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1, so its exit dialog offers no "Move to background and exit"
+   (a session handed to the background would outlive the gate). CODING_AGENT_KIT_CLAUDE_PID is the
+   native's own pid; CODING_AGENT_KIT_USAGE_FILE is not passed, because the status line helper cannot
+   write the account metadata directory inside the boundary (the gate's own readings drive the
+   reserves; --info keeps what the last unprotected session recorded). At the end every boundary
+   descendant is ended, this invocation's temporary entries are removed and the port is released.
+
+Organization policy: when the account's subscription is not a personal one and native has not cached
+the organization's policy yet, the gate refuses at startup (provider.py, policy_cache_missing) and the
+message says how to create the caches: one ordinary session without reserves.
+
+macOS: Claude's Bash tool writes /private/tmp/claude-UID/<cwd with every non-alphanumeric byte as ->
+whatever TMPDIR says. That directory is writable inside the boundary, and at the end the entry named
+after this working directory is removed when it did not exist before the native started. Limits: a
+same-directory Claude session started meanwhile may be using that entry too, and when the entry
+existed before, what this invocation wrote inside it stays.
 
 A refusal raises ValueError with one line (launch.py prints it, exit 1); nothing ran under the
-boundary then. Afterwards launch() returns the native's exit status.
+boundary then. Afterwards launch() returns the native's exit status (or leaves by the native's signal).
 """
 
 from dataclasses import dataclass
@@ -79,7 +93,10 @@ REASONS = {
     "upstream_unavailable": "the quota reads could not reach the provider",
     "monitor_lost": "the quota monitor stopped",
     "gate did not start": "the request gate did not start",
+    "policy_cache_missing": "the organization policy is not cached yet",
 }
+# The modules the gate process loads besides the supervisor's own checks (gate.py, monitor.py).
+GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py")
 
 
 class Refused(ValueError):
@@ -191,17 +208,6 @@ def check_writable(paths, home):
                        "holds login items); start Claude Code in a project directory.")
 
 
-def private_directory(path):
-    try:
-        os.mkdir(path, 0o700)
-    except FileExistsError:
-        pass
-    info = os.lstat(path)
-    if not os.path.isdir(path) or os.path.islink(path) or info.st_uid != os.getuid() or info.st_mode & 0o077:
-        refuse(f"{path} must be a private directory of yours.")
-    return path
-
-
 def macos_temp_entries(uid):
     root = "/private/tmp/claude-%d" % uid
     try:
@@ -225,7 +231,25 @@ def clean_macos_temp(root, before, cwd):
         shutil.rmtree(path, ignore_errors=True)
 
 
+def policy_cache_message(paths):
+    return (f"the organization policy of {paths.name} is not cached yet (Claude Code writes remote-settings.json and "
+            f"policy-limits.json in {paths.config} when an ordinary session starts, and protected mode cannot fetch "
+            f"them); start one session without reserves (claude-as {paths.name}), wait for its prompt, exit it, then "
+            "launch with reserves again.")
+
+
 def launch(config, policy, paths, record, args, executable, env, style=lambda text: text):
+    """The protected invocation; returns the native's exit status (supervise.finish leaves by the
+    native's signal instead, after the cleanup below)."""
+    status = run(config, policy, paths, record, args, executable, env, style)
+    supervise = _load("supervise", KIT / "supervise.py")
+    return supervise.finish(status)
+
+
+def run(config, policy, paths, record, args, executable, env, style=lambda text: text):
+    """Everything of launch() up to the native's wait status, with every temporary entry removed."""
+    if not all(path.is_file() for path in GATE_MODULES):
+        raise Refused(f"incomplete install at {HERE.parent.parent}")
     supervise = _load("supervise", KIT / "supervise.py")
     gate = _load("gate", KIT / "gate.py")
     reserve = _load("reserve", KIT / "reserve.py")
@@ -314,8 +338,10 @@ def launch(config, policy, paths, record, args, executable, env, style=lambda te
             if darwin:
                 tested["result"] = sandbox.self_test(port, writable, "claude")
             gate_url = "http://127.0.0.1:%d" % port
-            native_env = dict(env, HTTPS_PROXY=gate_url, https_proxy=gate_url, TMPDIR=private_tmp)
-            native_env.pop("ANTHROPIC_BASE_URL", None)
+            native_env = dict(env, HTTPS_PROXY=gate_url, https_proxy=gate_url, TMPDIR=private_tmp,
+                              CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF="1")
+            for name in ("ANTHROPIC_BASE_URL", "CODING_AGENT_KIT_USAGE_FILE"):
+                native_env.pop(name, None)
             code = sup.refresh([executable, "auth", "status"], native_env, timeout=REFRESH_TIMEOUT, cwd=cwd)
             if code != 0:
                 refuse(f"the pre-launch native refresh (claude auth status) failed ({'timeout' if code is None else code});"
@@ -330,6 +356,8 @@ def launch(config, policy, paths, record, args, executable, env, style=lambda te
             status = sup.run([executable, "--settings", json.dumps(settings, separators=(",", ":")), *args],
                              native_env, cwd=cwd)
         except supervise.Refused as error:
+            if error.reason == "policy_cache_missing":
+                refuse(policy_cache_message(paths))
             refuse(explain(error.reason) if error.reason in REASONS else error.reason)
         except sandbox.Refusal as error:
             refuse(str(error))
@@ -337,6 +365,6 @@ def launch(config, policy, paths, record, args, executable, env, style=lambda te
             sup.close()
             if before is not None:
                 clean_macos_temp(temp_root, before, cwd)
-        return supervise.finish(status)
+        return status
     finally:
         shutil.rmtree(private_tmp, ignore_errors=True)

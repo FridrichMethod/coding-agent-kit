@@ -5,8 +5,9 @@ fixed line and exits CLAUDE_FAKE_AUTH_STATUS (default 0); `auth login` records t
 CLAUDE_FAKE_LOGIN (account,organization) in CLAUDE_CONFIG_DIR/.claude.json as native does.
 `auth status` records to FAKE_RECORD + ".auth". FAKE_DIRECT=PORT first tries a direct TCP connect.
 Anything else records its arguments, environment and pid in FAKE_RECORD (when set), prints a
-sentinel and exits FAKE_EXIT (default 0). With FAKE_MESSAGES=N it first sends N Messages
-requests to ANTHROPIC_BASE_URL with its own bearer and records each status in FAKE_RECORD.
+sentinel and exits FAKE_EXIT (default 0), or kills itself with signal FAKE_SIGNAL when that is set.
+With FAKE_MESSAGES=N it first sends N Messages requests to ANTHROPIC_BASE_URL with its own bearer
+and records each status in FAKE_RECORD.
 """
 
 import json
@@ -75,6 +76,10 @@ def main():
         extra["statuses"] = messages(int(os.environ["FAKE_MESSAGES"]))
     record(extra)
     print("fake claude sentinel", flush=True)
+    if os.environ.get("FAKE_SIGNAL"):
+        import signal
+        signal.signal(int(os.environ["FAKE_SIGNAL"]), signal.SIG_DFL)
+        os.kill(os.getpid(), int(os.environ["FAKE_SIGNAL"]))
     return int(os.environ.get("FAKE_EXIT", "0"))
 
 

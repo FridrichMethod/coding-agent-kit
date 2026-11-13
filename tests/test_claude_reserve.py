@@ -4,18 +4,24 @@ Every case runs in a temporary HOME with a fake claude (tests/fixtures/claude-re
 protected mode, loopback fixtures; nothing reaches a real account, credential or provider.
 """
 
+import errno
+import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import shutil
 import signal
+import socket
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
+import termios
 import time
 import unittest
 
@@ -30,6 +36,29 @@ CLAUDE_VARIABLES = ("CLAUDE_CONFIG_DIR", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_A
                     "ALL_PROXY", "all_proxy", "PYTHONPATH")
 SETUP_TOKEN = "sk-ant-oat01-" + "fabricated-setup-token-" * 3
 ACCOUNT_UUID, ORGANIZATION_UUID = "acct-0000-fixture", "org-0000-fixture"
+
+
+# Makes its stdin (a PTY) the controlling terminal of the new session it was started in, then execs.
+CONTROLLING = "import fcntl, os, sys, termios; fcntl.ioctl(0, termios.TIOCSCTTY, 0); os.execve(sys.argv[1], sys.argv[1:], os.environ)"
+
+
+def spawn_on_terminal(argv, env, cwd, size=None):
+    """(pid, master fd) of ARGV on a new PTY as its controlling terminal, in a session of its own.
+    subprocess starts it without running Python code in a forked copy of this process, whose gate and
+    fixture threads would make a pty.fork() child unsafe."""
+    master, slave = pty.openpty()
+    if size:
+        fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", size[0], size[1], 0, 0))
+    try:
+        child = subprocess.Popen([sys.executable, "-I", "-c", CONTROLLING, *argv], env=env, cwd=cwd, stdin=slave,
+                                 stdout=slave, stderr=slave, start_new_session=True)
+    except BaseException:
+        os.close(master)
+        raise
+    finally:
+        os.close(slave)
+    child.returncode = 0  # waited for with os.waitpid by the caller; keeps Popen from waiting again
+    return child.pid, master
 
 
 class Kit(unittest.TestCase):
@@ -79,13 +108,7 @@ class Kit(unittest.TestCase):
         """claude-as (or ARGV) on a fresh controlling terminal; ANSWERS are (prompt, reply) pairs, in
         order. Returns (exit code, everything written to the terminal)."""
         argv = argv or [str(self.kit / "bin/claude-as"), *args]
-        pid, master = pty.fork()
-        if pid == 0:
-            try:
-                os.chdir(self.cwd)
-                os.execve(argv[0], argv, env or self.env)
-            finally:
-                os._exit(127)
+        pid, master = spawn_on_terminal(argv, env or self.env, self.cwd)
         output, pending, deadline = b"", list(answers), time.monotonic() + timeout
         status = None
         try:
@@ -226,6 +249,23 @@ class Enrollment(Kit):
         self.assertEqual(result.returncode, 1)
         self.assertIn("not a symlink", result.stderr)
 
+    def test_the_wrong_number_of_words_prints_the_usage(self):
+        for args in (["--enroll-native"], ["--enroll-native", "N", "extra"]):
+            result = self.run_kit(args)
+            self.assertEqual(result.returncode, 1, args)
+            self.assertIn("usage: claude-as --enroll-native NAME", result.stderr)
+        self.assertFalse((self.secrets / "native-claude-accounts").exists())
+
+    def test_an_enrolled_account_without_the_mode_key_points_at_it_instead_of_a_setup_token(self):
+        self.enroll()
+        self.record.unlink(missing_ok=True)
+        result = self.run_kit(["N", "hello"])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('N is enrolled with native login; select it in', result.stderr)
+        self.assertIn('[claude_auth.accounts.N] mode = "native-login"', result.stderr)
+        self.assertFalse(self.record.exists())
+        self.assertFalse((self.secrets / "claude-N").exists())
+
     def test_list_names_enrolled_native_accounts_beside_setup_token_ones(self):
         self.enroll("N")
         token = self.secrets / "claude-T"
@@ -273,6 +313,23 @@ class NativeLaunch(Kit):
         result = self.run_kit(["N", "--bare"])
         self.assertEqual(result.returncode, 1)
         self.assertFalse(self.record.exists())
+
+    def test_a_missing_gate_module_is_an_incomplete_install_before_anything_starts(self):
+        self.enroll()
+        self.record.unlink(missing_ok=True)
+        self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
+        for name in ("lib/claude-as/bearer.py", "lib/coding-agent-kit/reserve.py"):
+            with self.subTest(name):
+                saved = (self.kit / name).read_bytes()
+                (self.kit / name).unlink()
+                try:
+                    result = self.run_kit(["--reserve-5h", "10", "N"])
+                finally:
+                    (self.kit / name).write_bytes(saved)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(f"incomplete install at {self.kit}", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertFalse(self.record.exists())
 
     def test_version_after_a_native_name_is_claude_codes_own(self):
         self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
@@ -422,6 +479,57 @@ class ServerManagedPolicy(unittest.TestCase):
             with self.subTest(label):
                 self.assertEqual(self.reasons(policy.judge_remote_settings(document, org)), sorted(expected))
 
+    def test_settings_env_refuses_only_auth_provider_endpoint_proxy_and_store_names(self):
+        allowed = ("NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+                   "CLAUDE_CODE_IDLE_TOKEN_THRESHOLD", "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS",
+                   "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "ANTHROPIC_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
+                   "ANTHROPIC_DEFAULT_HAIKU_MODEL", "BASH_DEFAULT_TIMEOUT_MS", "DISABLE_TELEMETRY", "NODE_OPTIONS")
+        refused = ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_CUSTOM_HEADERS",
+                   "anthropic_base_url", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "NO_PROXY", "ALL_PROXY",
+                   "AWS_PROFILE", "GOOGLE_APPLICATION_CREDENTIALS", "VERTEX_REGION_CLAUDE_3_5_HAIKU",
+                   "CLOUD_ML_REGION", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_OAUTH_TOKEN",
+                   "CLAUDE_CODE_API_KEY_HELPER_TTL_MS", "CLAUDE_CODE_SKIP_BEDROCK_AUTH", "CLAUDE_CODE_HTTPS_PROXY",
+                   "CLAUDE_CODE_PROCESS_WRAPPER", "CLAUDE_CODE_TMPDIR", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CONFIG_DIR",
+                   "CLAUDE_CODE_GATEWAY_TOKEN", "CLAUDE_CODE_MEMORY_API_TOKEN4", "CLAUDE_CODE_SESSION_ACCESS_TOKEN",
+                   "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR", "CLAUDE_CODE_CUSTOM_OAUTH_URL", "CLAUDE_CODE_REMOTE_SDK_URL",
+                   "CLAUDE_CODE_METRICS_ENDPOINT",
+                   "CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE")
+        for name in allowed:
+            with self.subTest(name):
+                self.assertEqual(policy.judge_remote_settings({"env": {name: "1"}}, "o"), [])
+        for name in refused:
+            with self.subTest(name):
+                self.assertEqual(self.reasons(policy.judge_local("s", {"env": {name: "1"}}, "o")),
+                                 [("env", True, True, "policy_conflicting_env")])
+
+    def test_managed_settings_may_be_roots_but_caches_and_project_files_must_be_yours(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            config, work = self.files(base, {}, E0_LIMITS)
+            managed = base / "managed"
+            (managed / "managed-settings.d").mkdir(parents=True)
+            (Path(work) / ".claude").mkdir()
+            files = {managed / "managed-settings.json": {"permissions": {"deny": ["WebFetch"]}},
+                     managed / "managed-settings.d" / "10-org.json": {"env": {"NODE_EXTRA_CA_CERTS": "/x"}},
+                     Path(work) / ".claude" / "settings.json": {"model": "x"}}
+            for path, document in files.items():
+                path.write_text(json.dumps(document))
+                path.chmod(0o644)
+            self.assertFalse(policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux",
+                                             managed_dirs=(str(managed),)).refused())
+            # The files belong to the test user; let them stand for root's, and the user be someone else.
+            with mock.patch.object(policy, "MANAGED_OWNER", os.getuid()), \
+                    mock.patch.object(policy.os, "getuid", return_value=os.getuid() + 1):
+                verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux",
+                                          managed_dirs=(str(managed),))
+            unsafe = sorted(f.source for f in verdict.findings if f.reason == "policy_file_unsafe")
+            self.assertEqual(unsafe, sorted(["remote-settings.json", "policy-limits.json",
+                                             str(Path(work) / ".claude" / "settings.json")]))
+            (managed / "managed-settings.json").chmod(0o664)
+            verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux", managed_dirs=(str(managed),))
+            self.assertEqual([f.source for f in verdict.findings], [str(managed / "managed-settings.json")])
+
     def test_local_sources_keep_the_users_own_hooks_but_not_auth_pins(self):
         self.assertEqual(policy.judge_local("s", {"hooks": {"Stop": [1]}, "statusLine": {"command": "x"}}, "o"), [])
         self.assertEqual(self.reasons(policy.judge_local("s", {"apiKeyHelper": "x"}, "o")),
@@ -496,13 +604,20 @@ class CredentialRead(unittest.TestCase):
         self.now = 1_800_000_000_000
 
     def store(self, token=upstream_fixture.BEARER_A, expires=None, scopes=("user:inference", "user:profile"), mode=0o600,
-              raw=None):
+              raw=None, subscription="max"):
         path = self.config / ".credentials.json"
         path.write_text(raw if raw is not None else json.dumps({"claudeAiOauth": {
             "accessToken": token, "refreshToken": "fabricated-refresh-secret", "expiresAt": expires or self.now + 3600_000,
-            "scopes": list(scopes), "subscriptionType": "max"}}))
+            "scopes": list(scopes), "subscriptionType": subscription}}))
         path.chmod(mode)
         return path
+
+    def test_the_subscription_type_is_kept_only_as_a_short_word(self):
+        for value, expected in (("enterprise", "enterprise"), ("team", "team"), (None, None), ("Max Plan", None),
+                                (7, None), ("x" * 40, None)):
+            with self.subTest(value):
+                self.store(subscription=value)
+                self.assertEqual(self.read().subscription, expected)
 
     def read(self, **kw):
         return bearer.read(str(self.config), platform="linux", wrap=gate.Secret, now_ms=self.now, **kw)
@@ -512,7 +627,8 @@ class CredentialRead(unittest.TestCase):
         credential = self.read()
         self.assertTrue(credential.secret.matches(gate.Secret(upstream_fixture.BEARER_A)))
         self.assertEqual(credential.expires_at_ms, self.now + 3600_000)
-        self.assertEqual(set(bearer.Credential.__dataclass_fields__), {"secret", "expires_at_ms"})
+        self.assertEqual(set(bearer.Credential.__dataclass_fields__), {"secret", "expires_at_ms", "subscription"})
+        self.assertEqual(credential.subscription, "max")
         for text in (repr(credential), str(credential.secret)):
             self.assertNotIn(upstream_fixture.BEARER_A, text)
             self.assertNotIn("fabricated-refresh-secret", text)
@@ -613,11 +729,13 @@ class GateProvider(unittest.TestCase):
         self.store(upstream_fixture.BEARER_A)
         self.messages, self.events = [], []
 
-    def store(self, token, expires_in=3600):
+    def store(self, token, expires_in=3600, subscription="max"):
         path = self.config_dir / ".credentials.json"
-        path.write_text(json.dumps({"claudeAiOauth": {"accessToken": token, "refreshToken": "fabricated-refresh",
-                                                      "expiresAt": int(time.time() * 1000) + expires_in * 1000,
-                                                      "scopes": ["user:inference", "user:profile"]}}))
+        oauth = {"accessToken": token, "refreshToken": "fabricated-refresh",
+                 "expiresAt": int(time.time() * 1000) + expires_in * 1000, "scopes": ["user:inference", "user:profile"]}
+        if subscription is not None:
+            oauth["subscriptionType"] = subscription
+        path.write_text(json.dumps({"claudeAiOauth": oauth}))
         path.chmod(0o600)
 
     def config(self, **extra):
@@ -699,7 +817,47 @@ class GateProvider(unittest.TestCase):
         for model, reason in (("gpt-4", "model_unproved"), ("claude-opus-4-1", "model_has_own_limit"),
                               ("claude-opus-sonnet-x", "model_unproved"), (None, "model_unproved")):
             self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, model)[:2], (False, reason))
+        for body in (b'{"model": "claude-sonnet-4-5", "model": "claude-opus-4-1"}',
+                     b'{"model": "claude-opus-4-1", "model": "claude-sonnet-4-5"}'):
+            g.heartbeat()
+            self.assertEqual(g.admit(gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), body, lambda: None)[:2],
+                             (False, "model_unproved"))
         self.assertEqual(g.state, "running")
+
+    def test_an_account_native_fetches_organization_policy_for_needs_both_caches(self):
+        for subscription in ("enterprise", "team", None, "unknown_plan"):
+            with self.subTest(subscription):
+                self.store(upstream_fixture.BEARER_A, subscription=subscription)
+                prov, g = self.make()
+                with self.assertRaises(gate.Refusal) as caught:
+                    prov.startup(g)
+                self.assertEqual(caught.exception.reason, "policy_cache_missing")
+        (self.config_dir / "remote-settings.json").write_text("{}")
+        for change in (lambda: None, lambda: (self.config_dir / "policy-limits.json").mkdir()):  # one, or no file
+            change()
+            prov, g = self.make()
+            with self.assertRaises(gate.Refusal):
+                prov.startup(g)
+        self.assertEqual(self.upstream.requests, [])
+        (self.config_dir / "policy-limits.json").rmdir()
+        (self.config_dir / "policy-limits.json").write_text("{}")
+        _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        for name in provider.POLICY_CACHES:
+            (self.config_dir / name).unlink()
+        for subscription in ("pro", "max"):  # personal plans: native fetches no organization policy
+            with self.subTest(subscription):
+                self.store(upstream_fixture.BEARER_A, subscription=subscription)
+                _, g = self.started()
+                self.assertEqual(g.state, "running", g.status())
+
+    def test_the_refresh_tunnel_reaches_only_the_reviewed_address(self):
+        config = self.config(connect_allow={"platform.claude.com:443": ["127.0.0.1", 9], "evil.example:443": ["x", 1]})
+        del config["upstream"]
+        self.assertEqual(provider.ClaudeProvider(config).connect_allow,
+                         {"platform.claude.com:443": ("platform.claude.com", 443)})
+        config = self.config(connect_allow={"platform.claude.com:443": ["127.0.0.1", 9]})
+        self.assertEqual(provider.ClaudeProvider(config).connect_allow, {"platform.claude.com:443": ("127.0.0.1", 9)})
 
     def test_a_rotated_bearer_of_the_same_account_is_held_rebound_and_admitted(self):
         _, g = self.started()
@@ -835,6 +993,77 @@ def boundary_problem():
     return None
 
 
+protect = load("test_claude_protect", ROOT / "lib/claude-as/protect.py")
+
+
+class ProtectScreens(unittest.TestCase):
+    """protect.py's pure screens in process, on every host (the launcher-level cases below need the
+    boundary, whose probe runs first)."""
+
+    def refused(self, call, *args):
+        with self.assertRaises(protect.Refused) as caught:
+            call(*args)
+        return str(caught.exception)
+
+    def test_the_interactive_forms_pass_and_report_their_add_dirs(self):
+        for args, add_dirs in (([], []), (["hello world"], []), (["--model", "claude-sonnet-4-5", "hi"], []),
+                               (["--model=opus", "--effort", "high"], []), (["-d"], []), (["-d", "api", "hi"], []),
+                               (["--add-dir", "a", "b", "--verbose", "go"], ["a", "b"]), (["--add-dir=c"], ["c"]),
+                               (["--allowedTools", "Bash", "Read", "--", "-x"], []), (["fix", "the", "mcp"], []),
+                               (["--", "fix", "auth"], []), (["--permission-mode", "plan", "-"], []),
+                               (["--dangerously-skip-permissions", "--no-chrome"], [])):
+            with self.subTest(args):
+                self.assertEqual(protect.screen_arguments(args).add_dirs, add_dirs)
+
+    def test_every_other_form_or_a_command_word_refuses(self):
+        for args, text in ((["-p", "hi"], "-p is not an interactive form"), (["--print"], "--print is not"),
+                           (["-pc"], "-pc is not"), (["-c"], "-c is not"), (["--continue"], "--continue is not"),
+                           (["-r"], "-r is not"), (["--resume", "x"], "--resume is not"),
+                           (["--fork-session"], "--fork-session is not"), (["--session-id", "x"], "--session-id is not"),
+                           (["--settings", "{}"], "--settings is not"), (["--setting-sources=user"], "--setting-sources is"),
+                           (["--mcp-config", "x"], "--mcp-config is not"), (["--plugin-dir", "x"], "--plugin-dir is"),
+                           (["--remote"], "--remote is not"), (["--bg"], "--bg is not"), (["--betas", "x"], "--betas is"),
+                           (["--sk-ant-oat01-secret"], "this option is not"), (["--model"], "--model needs a value"),
+                           (["mcp", "list"], "the claude mcp command"), (["--model", "x", "auth"], "the claude auth command"),
+                           (["--", "update"], "the claude update command"), (["--verbose", "doctor"], "claude doctor")):
+            with self.subTest(args):
+                message = self.refused(protect.screen_arguments, args)
+                self.assertIn(text, message)
+                self.assertTrue(message.startswith("protected mode refused: "))
+                self.assertNotIn("secret", message)
+
+    def test_store_and_proxy_selectors_in_the_environment_refuse_without_values(self):
+        protect.screen_environment({"PATH": "/bin", "HTTPS_PROXY": "http://127.0.0.1:1"})
+        for name in protect.ENV_REFUSED:
+            with self.subTest(name):
+                message = self.refused(protect.screen_environment, {name: "hidden-value"})
+                self.assertIn(name, message)
+                self.assertNotIn("hidden-value", message)
+
+    def test_home_its_ancestors_and_its_login_items_cannot_be_writable(self):
+        home = "/home/fixture"
+        protect.check_writable(["/home/fixture/project", "/tmp/x", "/home/fixture/Library/Caches"], home)
+        for path in ("/home/fixture", "/home", "/", "/home/fixture/Library", "/home/fixture/Library/LaunchAgents",
+                     "/home/fixture/Library/LaunchAgents/sub"):
+            with self.subTest(path):
+                self.assertIn("cannot be writable in protected mode", self.refused(protect.check_writable, [path], home))
+
+    def test_only_a_reviewed_native_version_passes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            native = Path(temp) / "claude"
+            native.write_text(f"#!{sys.executable}\nimport os, sys\nprint(os.environ['V'])\n"
+                              "sys.exit(int(os.environ.get('C', '0')))\n")
+            native.chmod(0o700)
+            env = dict(os.environ, V="2.1.322 (Claude Code)")
+            self.assertEqual(protect.native_version(str(native), env), "2.1.322")
+            for change, text in (({"V": "2.1.323 (Claude Code)"}, "Claude Code 2.1.323 is not a version"),
+                                 ({"V": "2.1.322"}, "did not print a Claude Code version"),
+                                 ({"C": "1"}, "did not print a Claude Code version")):
+                with self.subTest(change):
+                    self.assertIn(text, self.refused(protect.native_version, str(native), dict(env, **change)))
+            self.assertIn("did not answer", self.refused(protect.native_version, str(Path(temp) / "absent"), env))
+
+
 class ProtectedRefusals(Kit):
     """Refusals of the real launcher before any port, gate or native under the boundary."""
 
@@ -910,13 +1139,17 @@ class Protected(Kit):
         self.enroll()
         self.record = self.cwd / "record.json"
         self.env["FAKE_RECORD"] = str(self.record)
+        self.store()
+        self.upstream = upstream_fixture.ClaudeUpstream()
+        self.addCleanup(self.upstream.close)
+
+    def store(self, subscription="max"):
         credential = self.native_config("N") / ".credentials.json"
         credential.write_text(json.dumps({"claudeAiOauth": {
             "accessToken": upstream_fixture.BEARER_A, "refreshToken": "fabricated-refresh",
-            "expiresAt": int(time.time() * 1000) + 3600_000, "scopes": ["user:inference", "user:profile"]}}))
+            "expiresAt": int(time.time() * 1000) + 3600_000, "scopes": ["user:inference", "user:profile"],
+            "subscriptionType": subscription}}))
         credential.chmod(0o600)
-        self.upstream = upstream_fixture.ClaudeUpstream()
-        self.addCleanup(self.upstream.close)
 
     def protected(self, args=(), env=None, reserves=None, timeout=90):
         security = self.base / "security"  # macOS: no Keychain item, so the store file is read
@@ -941,6 +1174,8 @@ class Protected(Kit):
         self.assertEqual(env["CODING_AGENT_KIT_CLAUDE_PID"], str(seen["pid"]))
         self.assertEqual(env["CLAUDE_CONFIG_DIR"], str(self.native_config("N")))
         self.assertNotIn("CLAUDE_CODE_OAUTH_TOKEN", env)
+        self.assertNotIn("CODING_AGENT_KIT_USAGE_FILE", env)  # the helper cannot write it inside the boundary
+        self.assertEqual(env["CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF"], "1")
         self.assertFalse(os.path.exists(env["TMPDIR"]))  # the private temporary directory is gone
         self.assertEqual(seen["args"][0], "--settings")
         settings = json.loads(seen["args"][1])
@@ -976,6 +1211,27 @@ class Protected(Kit):
         self.assertIn("bearer_identity_mismatch", statuses[0][1])
         self.assertEqual(self.upstream.model_requests(), [])
         self.assertIn("quota reserve paused (bearer_identity_mismatch)", output)
+
+    def test_an_organization_account_without_policy_caches_refuses_with_how_to_create_them(self):
+        self.store("enterprise")
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the organization policy of N is not cached yet", output)
+        self.assertIn("start one session without reserves (claude-as N)", output)
+        self.assertFalse(self.record.exists())
+        self.assertEqual(self.upstream.paths(), [])
+        for name, document in (("remote-settings.json", {}), ("policy-limits.json", E0_LIMITS)):
+            path = self.native_config("N") / name
+            path.write_text(json.dumps(document))
+            path.chmod(0o600)
+        code, output = self.protected()
+        self.assertEqual(code, 0, output)
+        self.assertIn("fake claude sentinel", output)
+
+    def test_a_native_killed_by_a_signal_ends_the_launcher_by_it_after_the_cleanup(self):
+        code, output = self.protected(env={"FAKE_SIGNAL": str(int(signal.SIGTERM))})
+        self.assertEqual(code, -signal.SIGTERM, output)
+        self.assertFalse(os.path.exists(self.recorded()["env"]["TMPDIR"]))
 
     def test_a_failing_pre_launch_refresh_refuses(self):
         code, output = self.protected(env={"CLAUDE_FAKE_AUTH_STATUS": "1"})

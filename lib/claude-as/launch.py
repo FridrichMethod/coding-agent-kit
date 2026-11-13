@@ -588,7 +588,9 @@ def main():
         if text:
             print(text)
         return
-    if len(args) == 2 and args[0] == "--enroll-native":
+    if args[:1] == ["--enroll-native"]:
+        if len(args) != 2:
+            fail("usage: claude-as --enroll-native NAME")
         enroll_native(config, args[1])
         return
     reserve = kit_module("reserve")
@@ -624,11 +626,14 @@ def main():
         if os.path.lexists(secret):
             directory(secret, config)
         sys.exit(native_launch(config, account, args, policy, kit_module("accounts"), executable))
+    target = secret / ("claude-" + account)
+    if not query and not os.path.lexists(target) and account in native_module().names(config):
+        fail(f"{account} is enrolled with native login; select it in {config.file} with "
+             f'[claude_auth.accounts.{account}] mode = "native-login" (no setup-token is saved for it).')
     if not policy.off and not query:
         fail(f"usage reserves need a native-login account, and {account} uses a setup-token, whose usage Claude Code "
              f"does not report; enroll it with claude-as --enroll-native {account} and set "
              f'[claude_auth.accounts.{account}] mode = "native-login", or launch without reserves.')
-    target = secret / ("claude-" + account)
     missing = not os.path.lexists(target)
     preflight(args, config, enrollment=missing and not query)
     executable = config.which("claude")
