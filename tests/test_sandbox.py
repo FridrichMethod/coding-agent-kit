@@ -470,12 +470,13 @@ except OSError as error:
 class Listener:
     """A TCP listener outside every boundary that records what each connection sent."""
 
-    def __init__(self, family=socket.AF_INET, host="127.0.0.1"):
+    def __init__(self, family=socket.AF_INET, address=("127.0.0.1", 0)):
         self.sock = socket.socket(family, socket.SOCK_STREAM)
-        self.sock.bind((host, 0))
+        self.sock.bind(address)
         self.sock.listen(16)
         self.sock.settimeout(0.2)
-        self.port = self.sock.getsockname()[1]
+        name = self.sock.getsockname()
+        self.port = name[1] if isinstance(name, tuple) else None
         self.received = []
         self.done = threading.Event()
         self.thread = threading.Thread(target=self.serve, daemon=True)
@@ -532,7 +533,7 @@ class LinuxEnforcement(unittest.TestCase):
         self.addCleanup(self.gate.close)
         self.other = Listener()
         self.addCleanup(self.other.close)
-        self.other6 = Listener(socket.AF_INET6, "::1") if ipv6_loopback() else None
+        self.other6 = Listener(socket.AF_INET6, ("::1", 0)) if ipv6_loopback() else None
         if self.other6:
             self.addCleanup(self.other6.close)
         self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -630,6 +631,579 @@ class LinuxEnforcement(unittest.TestCase):
                               stdin=subprocess.DEVNULL)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual((self.base / "inside/ran").read_text(), "confined\n")
+
+
+
+macos = load("kit_sandbox_macos_under_test", MACOS_MODULE)
+
+GOLDEN_CODEX = """\
+(version 1)
+(allow default)
+(deny network* (with message "coding-agent-kit"))
+(allow network-outbound (remote tcp "localhost:4100"))
+(deny job-creation (with message "coding-agent-kit"))
+(deny lsopen (with message "coding-agent-kit"))
+(deny appleevent-send (with message "coding-agent-kit"))
+(deny mach-lookup (with message "coding-agent-kit"))
+(allow mach-lookup (global-name "com.apple.FSEvents"))
+(allow mach-lookup (global-name "com.apple.PowerManagement.control"))
+(allow mach-lookup (global-name "com.apple.SecurityServer"))
+(allow mach-lookup (global-name "com.apple.SystemConfiguration.DNSConfiguration"))
+(allow mach-lookup (global-name "com.apple.SystemConfiguration.configd"))
+(allow mach-lookup (global-name "com.apple.cfprefsd.agent"))
+(allow mach-lookup (global-name "com.apple.cfprefsd.daemon"))
+(allow mach-lookup (global-name "com.apple.logd"))
+(allow mach-lookup (global-name "com.apple.system.notification_center"))
+(allow mach-lookup (global-name "com.apple.system.opendirectoryd.libinfo"))
+(allow mach-lookup (global-name "com.apple.system.opendirectoryd.membership"))
+(deny signal (with message "coding-agent-kit"))
+(allow signal (target same-sandbox))
+(deny file-ioctl (ioctl-command TIOCSTI) (with message "coding-agent-kit"))
+(deny file-write* (subpath "/"))
+(allow file-write* (subpath "/Users/u/proj") (subpath "/private/var/folders/ab/T") (literal "/dev/null") \
+(literal "/dev/tty") (literal "/dev/ptmx") (regex #"^/dev/ttys[0-9]+$") (literal "/dev/dtracehelper") \
+(regex #"^/dev/fd/"))
+(deny file-write* (subpath "/Users/u/proj/Library/LaunchAgents") \
+(subpath "/private/var/folders/ab/T/Library/LaunchAgents") (subpath "/private/var/at"))
+"""
+WRITABLE = ["/Users/u/proj", "/private/var/folders/ab/T"]
+PASS_RESULT = {"gate": "connected", "other": "errno:1", "bind": "errno:1", "udp": "errno:1", "write": "errno:1",
+               "tiocsti": "errno:1"}
+IFCONFIG_SAMPLE = """\
+lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> mtu 16384
+\toptions=1203<RXCSUM,TXCSUM,TXSTATUS,SW_TIMESTAMP>
+\tinet 127.0.0.1 netmask 0xff000000
+\tinet6 ::1 prefixlen 128
+\tinet6 fe80::1%lo0 prefixlen 64 scopeid 0x1
+\tinet 127.0.0.2 netmask 0xff000000
+\tnd6 options=201<PERFORMNUD,DAD>
+en0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+\tether 00:00:5e:00:53:01
+\tinet6 fe80::1c2b:3d4e:5f60:7182%en0 prefixlen 64 secured scopeid 0xb
+\tinet 192.0.2.10 netmask 0xffffff00 broadcast 192.0.2.255
+\tinet6 2001:db8::10 prefixlen 64 autoconf secured
+\tinet6 2001:db8::10 prefixlen 64 autoconf temporary
+utun0: flags=8051<UP,POINTOPOINT,RUNNING,MULTICAST> mtu 1380
+\tinet6 fe80::abcd%utun0 prefixlen 64 scopeid 0xf
+\tinet 198.51.100.7 --> 198.51.100.1 netmask 0xffffffff
+bad0: flags=0<> mtu 0
+\tinet notanaddress netmask 0x0
+\tinet 999.1.1.1 netmask 0x0
+\tinet6 192.0.2.99 prefixlen 64
+\tinet 2001:db8::99 netmask 0x0
+\tinet6 fe80::2%bad/scope prefixlen 64
+\tinet6
+"""
+IFCONFIG_PARSED = (("inet6", "fe80::1%lo0"), ("inet6", "fe80::1c2b:3d4e:5f60:7182%en0"), ("inet", "192.0.2.10"),
+                   ("inet6", "2001:db8::10"), ("inet6", "fe80::abcd%utun0"), ("inet", "198.51.100.7"))
+
+
+def mac_facts(**changes):
+    facts = {"system": "Darwin", "machine": "arm64", "version": "27.2", "sandbox_exec": True, "ifconfig": True}
+    facts.update(changes)
+    return facts
+
+
+class MacHost(unittest.TestCase):
+    """macOS refuses every host the reviewed matrix did not cover (G0 D7), before anything runs."""
+
+    def refused(self, kind, **changes):
+        with self.assertRaises(macos.Refusal) as caught:
+            macos.assess(mac_facts(**changes))
+        self.assertEqual(caught.exception.kind, kind)
+        message = str(caught.exception)
+        self.assertTrue(message and message.isascii() and message.isprintable(), message)
+        return message
+
+    def test_reviewed_release(self):
+        self.assertEqual(macos.assess(mac_facts()), macos.Host(version="27.2", arch="arm64"))
+        self.assertEqual(macos.assess(mac_facts(version="27.2.1")), macos.Host(version="27.2.1", arch="arm64"))
+
+    def test_other_systems_architectures_and_releases(self):
+        self.assertIn("macOS", self.refused("platform", system="Linux"))
+        self.assertIn("x86_64", self.refused("architecture", machine="x86_64"))
+        for version in ("27.3", "28", "28.0.1", "30.1"):
+            with self.subTest(version=version):
+                message = self.refused("version", version=version)
+                self.assertIn("newer than the newest reviewed release (27.2)", message)
+        for version in ("27.1", "27.0", "27", "26.4", "15.5", "10.16"):
+            with self.subTest(version=version):
+                self.assertIn("not a reviewed release", self.refused("version", version=version))
+        for version in ("", None, "27.2-beta", "27.2.1.4", "x", "27.2\n"):
+            with self.subTest(version=version):
+                self.assertIn("could not be read", self.refused("version", version=version))
+
+    def test_missing_tools(self):
+        self.assertIn(macos.SANDBOX_EXEC, self.refused("sandbox-exec", sandbox_exec=False))
+        self.assertIn(macos.IFCONFIG, self.refused("ifconfig", ifconfig=False))
+
+    def test_order(self):
+        self.refused("platform", system="Linux", machine="x86_64", version="")
+        self.refused("architecture", machine="x86_64", version="28.0", sandbox_exec=False)
+        self.refused("version", version="28.0", sandbox_exec=False, ifconfig=False)
+        self.refused("sandbox-exec", sandbox_exec=False, ifconfig=False)
+
+    def test_probe_changes_nothing(self):
+        try:
+            host = macos.probe()
+        except macos.Refusal as refusal:
+            self.assertIn(refusal.kind, macos.KINDS)
+            if sys.platform != "darwin":
+                self.assertEqual(refusal.kind, "platform")
+        else:
+            self.assertIn(host.arch, macos.ARCHES)
+
+
+class MacProfile(unittest.TestCase):
+    def test_codex_profile(self):
+        self.assertEqual(macos.render_profile(4100, WRITABLE, "codex", 501), GOLDEN_CODEX)
+
+    def test_claude_adds_its_fixed_temp_directory(self):
+        claude = macos.render_profile(4100, WRITABLE, "claude", 501)
+        self.assertEqual(claude, GOLDEN_CODEX.replace('(subpath "/private/var/folders/ab/T") ',
+                                                      '(subpath "/private/tmp/claude-501") '
+                                                      '(subpath "/private/var/folders/ab/T") '))
+        self.assertNotIn("claude-501/Library", claude)
+        self.assertIn('(subpath "/private/tmp/claude-0")', macos.render_profile(4100, WRITABLE, "claude", 0))
+        self.assertEqual(macos.claude_temp(501), "/private/tmp/claude-501")
+
+    def test_deterministic_for_the_same_set(self):
+        shuffled = [WRITABLE[1], WRITABLE[0], WRITABLE[1]]
+        self.assertEqual(macos.render_profile(4100, shuffled, "codex", 501), GOLDEN_CODEX)
+        self.assertEqual(macos.render_profile(4100, tuple(WRITABLE), "codex", 501), GOLDEN_CODEX)
+
+    def test_network_rules(self):
+        profile = macos.render_profile(65535, ["/Users/u"], "codex", 501)
+        self.assertIn('(allow network-outbound (remote tcp "localhost:65535"))', profile)
+        self.assertNotIn("remote ip", profile)  # a remote ip rule would admit UDP to the gate's port number
+        self.assertEqual(profile.count("network-outbound"), 1)
+        self.assertNotIn("network-bind", profile)
+
+    def test_services(self):
+        self.assertEqual(len(macos.MACH_SERVICES), 11)
+        self.assertIn("com.apple.SecurityServer", macos.MACH_SERVICES)
+        for escape in ("com.apple.coreservices.launchservicesd", "com.apple.coreservices.appleevents",
+                       "com.apple.nsurlsessiond", "com.apple.dnssd.service", "com.apple.lsd.mapdb",
+                       "com.apple.lsd.modifydb", "com.apple.trustd.agent"):
+            self.assertNotIn(escape, macos.MACH_SERVICES)
+
+    def test_refusals(self):
+        cases = [((0, WRITABLE, "codex", 501), "input"), ((True, WRITABLE, "codex", 501), "input"),
+                 ((65536, WRITABLE, "codex", 501), "input"), (("4100", WRITABLE, "codex", 501), "input"),
+                 ((4100, WRITABLE, "gemini", 501), "input"), ((4100, "/Users/u", "codex", 501), "input"),
+                 ((4100, WRITABLE, "codex", -1), "input"), ((4100, WRITABLE, "codex", True), "input"),
+                 ((4100, WRITABLE, "codex", "501"), "input")]
+        for path in ("relative", "", "/", "/tmp", "/tmp/x", "/var/folders/x", "/etc/hosts", '/Users/u/a"b',
+                     "/Users/u/a\\b", "/Users/u/café", "/Users/u/proj/", "/Users/u/../x", "//Users/u",
+                     "/Users/u/./x", "/Users/u\nx", "/Users/u/x\n", "/Users/u/x)y\x7f"):
+            cases.append(((4100, [path], "codex", 501), "path"))
+        for args, kind in cases:
+            with self.subTest(args=args), self.assertRaises(macos.Refusal) as caught:
+                macos.render_profile(*args)
+            self.assertEqual(caught.exception.kind, kind)
+            self.assertTrue(str(caught.exception).isascii() and str(caught.exception).isprintable())
+
+    def test_parentheses_and_spaces_are_fine_inside_quotes(self):
+        profile = macos.render_profile(4100, ["/Users/u/My Projects (old)"], "codex", 501)
+        self.assertIn('(subpath "/Users/u/My Projects (old)")', profile)
+
+
+class MacWritable(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-sandbox-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name).resolve()
+
+    def test_resolves_links_and_drops_duplicates(self):
+        (self.base / "work").mkdir()
+        (self.base / "link").symlink_to(self.base / "work")
+        (self.base / "file").write_text("")
+        paths = [str(self.base / "link"), str(self.base / "work"), str(self.base / "file")]
+        self.assertEqual(macos.resolve_writable(paths), [str(self.base / "work"), str(self.base / "file")])
+
+    def test_refusals(self):
+        (self.base / "root").symlink_to("/")
+        for paths, kind in ((["relative"], "path"), ([str(self.base / "missing")], "path"), (["/"], "path"),
+                            ([str(self.base / "root")], "path"), ([str(self.base / "x\0")], "path"),
+                            ("/x", "input"), ([b"/x"], "input")):
+            with self.subTest(paths=paths), self.assertRaises(macos.Refusal) as caught:
+                macos.resolve_writable(paths)
+            self.assertEqual(caught.exception.kind, kind)
+
+
+def write_script(path, text):
+    path.write_text(text)
+    path.chmod(0o755)
+    return str(path)
+
+
+class MacHolder(unittest.TestCase):
+    """The addresses the launcher holds the gate port on (G0 D9, section 2.4)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-sandbox-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name).resolve()
+
+    def test_parse(self):
+        self.assertEqual(macos.parse_ifconfig(IFCONFIG_SAMPLE), IFCONFIG_PARSED)
+        self.assertEqual(macos.parse_ifconfig(""), ())
+
+    def test_holder_addresses(self):
+        (self.base / "out.txt").write_text(IFCONFIG_SAMPLE)
+        fake = write_script(self.base / "ifconfig", '#!/bin/sh\n[ "$1" = -a ] || exit 64\ncat "%s"\n'
+                            % (self.base / "out.txt"))
+        hold = macos.holder_addresses(ifconfig=fake)
+        self.assertEqual(hold.listen, (("inet", "127.0.0.1"), ("inet6", "::1")))
+        self.assertEqual(hold.reserve, (("inet", "0.0.0.0"), ("inet6", "::")) + IFCONFIG_PARSED)
+
+    def test_holder_refusals(self):
+        failing = write_script(self.base / "failing", "#!/bin/sh\necho broken >&2\nexit 1\n")
+        hanging = write_script(self.base / "hanging", "#!/bin/sh\nexec sleep 30\n")
+        for fake, timeout in ((failing, 10), (str(self.base / "missing"), 10), (hanging, 0.5)):
+            with self.subTest(fake=fake), self.assertRaises(macos.Refusal) as caught:
+                macos.holder_addresses(ifconfig=fake, timeout=timeout)
+            self.assertEqual(caught.exception.kind, "ifconfig")
+
+
+class MacSelfTestVerdict(unittest.TestCase):
+    def test_pass(self):
+        self.assertEqual(macos.self_test_failures(dict(PASS_RESULT)), [])
+
+    def test_each_failure_is_named(self):
+        problems = {"gate": ("errno:61", "the gate port is unreachable"),
+                    "other": ("connected", "another loopback port is not denied"),
+                    "bind": ("bound", "binding a port is not denied"),
+                    "udp": ("sent", "UDP to the gate port is not denied"),
+                    "write": ("written", "a write outside the writable paths is not denied"),
+                    "tiocsti": ("injected", "terminal input injection (TIOCSTI) is not denied")}
+        for key, (value, text) in problems.items():
+            with self.subTest(key=key):
+                result = dict(PASS_RESULT, **{key: value})
+                self.assertEqual(macos.self_test_failures(result), ["%s (%s)" % (text, value)])
+                missing = dict(PASS_RESULT)
+                del missing[key]
+                self.assertEqual(macos.self_test_failures(missing), ["%s (no answer)" % text])
+
+    def test_no_result(self):
+        self.assertEqual(len(macos.self_test_failures(None)), 1)
+        self.assertEqual(len(macos.self_test_failures([PASS_RESULT])), 1)
+        self.assertEqual(macos.self_test_failures({"error": "timed out\x1b[2J"}), ["timed out?[2J"])
+        self.assertEqual(macos.self_test_failures(dict(PASS_RESULT, other="\x1b]0;x\x07" * 50))[0][-4:], "...)")
+
+
+class MacSelfTestRunner(unittest.TestCase):
+    """The self-test plumbing with fake sandbox-exec scripts; nothing is confined here."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-sandbox-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name).resolve()
+        (self.base / "probe").mkdir()
+        self.gate = Listener()
+        self.addCleanup(self.gate.close)
+
+    def run_self_test(self, fake, **options):
+        options.setdefault("probe_bases", [str(self.base / "probe")])
+        return macos.self_test(self.gate.port, ["/usr"], "codex", sandbox_exec=fake, **options)
+
+    def test_passing_profile(self):
+        fake = write_script(self.base / "sandbox-exec", "#!/bin/sh\n[ \"$1\" = -p ] || exit 64\n"
+                            "printf '%%s' \"$2\" > '%s'\nprintf '%%s\\n' '%s'\n"
+                            % (self.base / "profile.sb", json.dumps(PASS_RESULT)))
+        self.assertEqual(self.run_self_test(fake), PASS_RESULT)
+        self.assertEqual((self.base / "profile.sb").read_text(),
+                         macos.render_profile(self.gate.port, ["/usr"], "codex", os.getuid()))
+        self.assertEqual(os.listdir(self.base / "probe"), [])
+
+    def test_an_unconfined_run_fails_on_every_denial_it_checks(self):
+        fake = write_script(self.base / "sandbox-exec", '#!/bin/sh\n[ "$1" = -p ] || exit 64\nshift 2\nexec "$@"\n')
+        with self.assertRaises(macos.Refusal) as caught:
+            self.run_self_test(fake)
+        self.assertEqual(caught.exception.kind, "self-test")
+        message = str(caught.exception)
+        for text in ("another loopback port is not denied (connected)", "binding a port is not denied (bound)",
+                     "UDP to the gate port is not denied (sent)",
+                     "a write outside the writable paths is not denied (written)"):
+            self.assertIn(text, message)
+        self.assertNotIn("the gate port is unreachable", message)
+        self.assertEqual(os.listdir(self.base / "probe"), [])
+
+    def test_a_rejected_profile(self):
+        fake = write_script(self.base / "sandbox-exec",
+                            "#!/bin/sh\necho 'sandbox-exec: unbound variable: tcp' >&2\nexit 65\n")
+        with self.assertRaises(macos.Refusal) as caught:
+            self.run_self_test(fake)
+        self.assertIn("exited with status 65: sandbox-exec: unbound variable: tcp", str(caught.exception))
+
+    def test_a_missing_sandbox_exec(self):
+        with self.assertRaises(macos.Refusal) as caught:
+            self.run_self_test(str(self.base / "missing"))
+        self.assertEqual(caught.exception.kind, "self-test")
+
+    def test_bounded_in_time(self):
+        fake = write_script(self.base / "sandbox-exec", "#!/bin/sh\nexec sleep 30\n")
+        began = time.monotonic()
+        with self.assertRaises(macos.Refusal) as caught:
+            self.run_self_test(fake, timeout=0.5)
+        self.assertLess(time.monotonic() - began, 10)
+        self.assertIn("did not finish within 0.5 s", str(caught.exception))
+        self.assertEqual(os.listdir(self.base / "probe"), [])
+
+    def test_needs_a_directory_outside_the_writable_paths(self):
+        fake = write_script(self.base / "sandbox-exec", "#!/bin/sh\nexit 0\n")
+        for bases in (["/usr"], ["/usr/share"], [str(self.base / "missing")], []):
+            with self.subTest(bases=bases), self.assertRaises(macos.Refusal) as caught:
+                self.run_self_test(fake, probe_bases=bases)
+            self.assertIn("outside the writable paths", str(caught.exception))
+
+    def test_input_refusals_come_first(self):
+        with self.assertRaises(macos.Refusal) as caught:
+            macos.self_test(0, ["/usr"], "codex", sandbox_exec="/nonexistent")
+        self.assertEqual(caught.exception.kind, "input")
+
+
+DESCRIPTORS = r"""
+import errno, importlib.util, json, os, sys
+loader = importlib.util.spec_from_file_location("sandbox_under_test", sys.argv[1])
+module = importlib.util.module_from_spec(loader)
+loader.loader.exec_module(module)
+reader, writer = os.pipe()
+module.close_inherited()
+results = {}
+for name, fd in (("reader", reader), ("writer", writer), ("inherited", int(sys.argv[2]))):
+    try:
+        os.fstat(fd)
+        results[name] = "open"
+    except OSError as error:
+        results[name] = errno.errorcode[error.errno]
+print(json.dumps(results))
+"""
+
+
+class MacDescriptors(unittest.TestCase):
+    """confine() closes every descriptor but the terminal: Seatbelt does not police existing sockets."""
+
+    def test_close_inherited(self):
+        reader, writer = os.pipe()
+        self.addCleanup(os.close, reader)
+        try:
+            done = subprocess.run([sys.executable, "-I", "-B", "-c", DESCRIPTORS, str(MACOS_MODULE), str(writer)],
+                                  capture_output=True, text=True, timeout=30, pass_fds=(writer,),
+                                  stdin=subprocess.DEVNULL)
+        finally:
+            os.close(writer)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(json.loads(done.stdout), {"reader": "EBADF", "writer": "EBADF", "inherited": "EBADF"})
+        self.assertEqual(os.read(reader, 16), b"")
+
+
+class MacConfine(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-sandbox-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name).resolve()
+
+    def run_child(self, argv, **changes):
+        spec = {"module": str(MACOS_MODULE), "gate": 4100, "writable": [str(self.base)], "provider": "codex",
+                "argv": argv}
+        spec.update(changes)
+        return subprocess.run([sys.executable, "-I", "-B", "-c", RUNNER, json.dumps(spec)], capture_output=True,
+                              text=True, timeout=60, stdin=subprocess.DEVNULL,
+                              env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")})
+
+    def test_confine_on_this_host(self):
+        argv = [sys.executable, "-I", "-B", "-c", "print('ran')"]
+        try:
+            macos.probe()
+        except macos.Refusal as refusal:
+            done = self.run_child(argv)
+            self.assertEqual(done.returncode, 3, done.stderr)
+            self.assertEqual(json.loads(done.stdout)["refused"], refusal.kind)
+        else:
+            done = self.run_child(argv)
+            self.assertEqual((done.returncode, done.stdout), (0, "ran\n"), done.stderr)
+
+    def test_input_refusals_come_first(self):
+        for changes, kind in (({"gate": 0}, "input"), ({"provider": "x"}, "input")):
+            with self.subTest(changes=changes):
+                done = self.run_child(["/usr/bin/true"], **changes)
+                self.assertEqual(done.returncode, 3, done.stderr)
+                self.assertEqual(json.loads(done.stdout)["refused"], kind)
+
+
+MAC_ACTORS = r"""
+import errno, json, os, socket, subprocess, sys, time
+spec = json.loads(sys.argv[1])
+out = {}
+
+def attempt(name, action):
+    try:
+        out[name] = action() or "ok"
+    except OSError as error:
+        out[name] = errno.errorcode.get(error.errno, str(error.errno))
+
+def tcp(port, tag=b"inside"):
+    with socket.socket() as sock:
+        sock.settimeout(3)
+        sock.connect(("127.0.0.1", port))
+        sock.sendall(tag)
+        return "connected"
+
+def udp():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.sendto(b"udp", ("127.0.0.1", spec["udp"]))
+        return "sent"
+
+def bind():
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return "bound"
+
+def unix():
+    with socket.socket(socket.AF_UNIX) as sock:
+        sock.settimeout(3)
+        sock.connect(spec["unix"])
+        sock.sendall(b"inside")
+        return "connected"
+
+def write(path):
+    with open(path, "w") as handle:
+        handle.write("x")
+
+attempt("gate", lambda: tcp(spec["gate"]))
+attempt("other", lambda: tcp(spec["other"]))
+attempt("udp", udp)
+attempt("bind", bind)
+if spec.get("unix"):
+    attempt("unix", unix)
+attempt("write_inside", lambda: write(os.path.join(spec["inside"], "written")))
+attempt("write_outside", lambda: write(os.path.join(spec["outside"], "written")))
+attempt("read_outside", lambda: open(spec["outside_file"]).read())
+attempt("signal", lambda: os.kill(spec["outsider"], 0))
+child = subprocess.run([sys.executable, "-I", "-B", "-c", spec["child"], sys.argv[1]], capture_output=True,
+                       text=True, timeout=20, stdin=subprocess.DEVNULL)
+out["child"] = child.stdout.strip()
+root = os.getpid()
+if os.fork() == 0:
+    os.setsid()
+    if os.fork():
+        os._exit(0)
+    null = os.open("/dev/null", os.O_RDWR)
+    for fd in (0, 1, 2):
+        os.dup2(null, fd)
+    os.close(null)
+    late = {"root_gone": False}
+    for _ in range(200):
+        try:
+            os.kill(root, 0)
+        except ProcessLookupError:
+            late["root_gone"] = True
+            break
+        except OSError:
+            break
+        time.sleep(0.05)
+    try:
+        late["other"] = tcp(spec["other"], tag=b"detached")
+    except OSError as error:
+        late["other"] = errno.errorcode.get(error.errno, str(error.errno))
+    with open(os.path.join(spec["inside"], "detached.tmp"), "w") as handle:
+        json.dump(late, handle)
+    os.rename(os.path.join(spec["inside"], "detached.tmp"), os.path.join(spec["inside"], "detached.json"))
+    os._exit(0)
+print(json.dumps(out), flush=True)
+"""
+
+
+@unittest.skipUnless(sys.platform == "darwin", "the macOS boundary needs macOS")
+class MacEnforcement(unittest.TestCase):
+    """The real profile under /usr/bin/sandbox-exec, against listeners outside it.
+
+    On a release outside REVIEWED_RELEASES, protected mode refuses anyway, so a
+    self-test failure there skips these cases instead of failing them.
+    """
+
+    maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        if not os.access(macos.SANDBOX_EXEC, os.X_OK):
+            raise unittest.SkipTest("%s is not available" % macos.SANDBOX_EXEC)
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-sandbox-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name).resolve()
+        for name in ("inside", "outside"):
+            (self.base / name).mkdir()
+        (self.base / "outside/kept").write_text("outside")
+        self.gate = Listener()
+        self.addCleanup(self.gate.close)
+        self.other = Listener()
+        self.addCleanup(self.other.close)
+        self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.udp.bind(("127.0.0.1", 0))
+        self.udp.setblocking(False)
+        self.addCleanup(self.udp.close)
+        self.unix = None
+        try:
+            self.unix = Listener(socket.AF_UNIX, str(self.base / "outside/s"))
+            self.addCleanup(self.unix.close)
+        except OSError:
+            pass  # a temporary directory too deep for a socket path; the TCP cases still run
+        self.outsider = subprocess.Popen(["sleep", "60"], stdin=subprocess.DEVNULL)
+        self.addCleanup(LinuxEnforcement.reap, self.outsider)
+
+    def require_profile(self):
+        try:
+            return macos.self_test(self.gate.port, [str(self.base / "inside")], "codex")
+        except macos.Refusal as refusal:
+            try:
+                macos.probe()
+            except macos.Refusal as host:
+                self.skipTest("unreviewed host (%s); its self-test failed: %s" % (host, refusal))
+            raise
+
+    def test_self_test_passes(self):
+        self.assertEqual(self.require_profile(), PASS_RESULT)
+        self.assertEqual(sorted(os.listdir(self.base / "inside")), [])
+
+    def test_only_the_gate_port_for_every_descendant(self):
+        self.require_profile()
+        profile = macos.render_profile(self.gate.port, macos.resolve_writable([str(self.base / "inside")]),
+                                       "codex", os.getuid())
+        actors = {"gate": self.gate.port, "other": self.other.port, "udp": self.udp.getsockname()[1],
+                  "unix": str(self.base / "outside/s") if self.unix else None, "inside": str(self.base / "inside"),
+                  "outside": str(self.base / "outside"), "outside_file": str(self.base / "outside/kept"),
+                  "outsider": self.outsider.pid, "child": CHILD}
+        done = subprocess.run([macos.SANDBOX_EXEC, "-p", profile, sys.executable, "-I", "-B", "-c", MAC_ACTORS,
+                               json.dumps(actors)], capture_output=True, text=True, timeout=60,
+                              stdin=subprocess.DEVNULL)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        out = json.loads(done.stdout.strip().splitlines()[-1])
+        if self.unix:
+            self.assertNotEqual(out.pop("unix"), "connected")
+        self.assertEqual(out, {"gate": "connected", "other": "EPERM", "udp": "EPERM", "bind": "EPERM",
+                               "write_inside": "ok", "write_outside": "EPERM", "read_outside": "outside",
+                               "signal": "EPERM", "child": "EPERM"})
+        detached = self.base / "inside/detached.json"
+        for _ in range(200):
+            if detached.exists():
+                break
+            time.sleep(0.05)
+        self.assertEqual(json.loads(detached.read_text()), {"other": "EPERM", "root_gone": True})
+        for _ in range(100):
+            if self.gate.received:
+                break
+            time.sleep(0.05)
+        self.assertEqual(self.gate.received, [b"inside"])
+        self.assertEqual(self.other.received, [])
+        if self.unix:
+            self.assertEqual(self.unix.received, [])
+        with self.assertRaises(BlockingIOError):
+            self.udp.recv(16)
+        self.assertEqual(sorted(os.listdir(self.base / "outside")), ["kept", "s"] if self.unix else ["kept"])
+        self.assertIsNone(self.outsider.poll())
 
 
 if __name__ == "__main__":
