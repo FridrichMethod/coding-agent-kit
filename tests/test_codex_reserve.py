@@ -640,7 +640,9 @@ class Home:
         self.write_credential(backend.credential())
         self.env = {name: value for name, value in os.environ.items() if name not in KIT_KNOBS
                     and not name.lower().endswith("_proxy") and not name.startswith(("CODEX_", "OPENAI_", "SSL_"))}
-        self.env.update(HOME=str(self.home), PATH=os.pathsep.join((str(self.bin), "/usr/bin", "/bin")),
+        # The launcher runs python3 from PATH: this interpreter first (macOS /usr/bin/python3 is older than 3.11).
+        python = os.path.dirname(os.path.realpath(sys.executable))
+        self.env.update(HOME=str(self.home), PATH=os.pathsep.join((str(self.bin), python, "/usr/bin", "/bin")),
                         TMPDIR=str(self.tmp), PYTHONDONTWRITEBYTECODE="1",
                         TERM="xterm-256color")
 
