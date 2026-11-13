@@ -62,9 +62,16 @@ tests=(
     test-entrypoints.sh
     contract.sh
     config.sh
+    reserves.sh
     account-info.sh
     codex-as.sh
     account-enrollment.sh
+    reserve-completion.sh
+    sandbox.sh
+    gate.sh
+    supervise.sh
+    codex-reserve.sh
+    claude-reserve.sh
     standalone-e2e.sh
     managed-install.sh
 )
