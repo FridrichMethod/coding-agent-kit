@@ -1434,8 +1434,10 @@ class Launchers(unittest.TestCase):
         write(state / "codex-A.json", json.dumps({"email": "alice@example.com"}))
         write(state / "claude-work.json", json.dumps({"label": "Work: billing"}))
         before = snapshot(linked)
-        codex_options = ["--help", "--version", "--list", "--info", "--labels", "--show-config"]
-        claude_options = ["--help", "--version", "--list", "--info", "--labels", "--label", "--show-config"]
+        flags = ["--reserve-5h", "--reserve-weekly"]
+        codex_options = ["--help", "--version", "--list", "--info", "--labels", "--show-config", *flags]
+        claude_options = ["--help", "--version", "--list", "--info", "--labels", "--label", "--show-config",
+                          "--enroll-native", *flags]
         bash = [
             ("codex-as", ["-"], codex_options), ("codex-as", ["--l"], ["--list", "--labels"]),
             ("claude-as", ["-"], claude_options), ("claude-as", ["--la"], ["--labels", "--label"]),
@@ -1454,13 +1456,17 @@ class Launchers(unittest.TestCase):
                 result = self.complete("bash", tool, linked, words)
                 self.assertEqual((result.returncode, result.stdout.splitlines(), result.stderr), (0, expected, ""))
         if shutil.which("zsh"):
+            flags = ["--reserve-5h:keep this percentage of the 5-hour limit",
+                     "--reserve-weekly:keep this percentage of the weekly limit"]
             codex = ["[codex-as options]", "--help:show this help", "--version:show the kit version",
                      "--list:list the account names", "--info:show the last-seen details of an account",
-                     "--labels:list the accounts with their emails", "--show-config:show the configuration in effect"]
+                     "--labels:list the accounts with their emails", "--show-config:show the configuration in effect",
+                     *flags]
             claude = ["[claude-as options]", "--help:show this help", "--version:show the kit version",
                       "--list:list the account names", "--info:show the last-seen details of an account",
                       "--labels:list the accounts with their labels", "--label:set or clear the label of an account",
-                      "--show-config:show the configuration in effect"]
+                      "--show-config:show the configuration in effect",
+                      "--enroll-native:enroll an account through native Claude login", *flags]
             zsh = [
                 ("codex-as", ["-"], 0, codex), ("claude-as", ["--"], 0, claude),
                 ("codex-as", [""], 0, ["[Codex accounts]", "A:alice@example.com"]),
