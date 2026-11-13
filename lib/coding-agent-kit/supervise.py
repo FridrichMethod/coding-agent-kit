@@ -460,6 +460,19 @@ def pause_message(reason, fields, key="F12"):
     return "; ".join(parts)
 
 
+def eligible_message(fields, key="F12"):
+    """The deterministic line for a pause whose latest quota check passes: only a continuation is
+    missing. Nothing resumes until the user asks."""
+    fields = fields or {}
+    parts = ["quota reserve: the latest quota check passes"]
+    if fields.get("account") is not None:
+        parts.append("account " + _value(fields["account"]))
+    if fields.get("last_fresh") is not None:
+        parts.append("last fresh check " + _value(fields["last_fresh"]))
+    parts.append("press %s, then type the code shown and Enter, to continue" % key)
+    return "; ".join(parts)
+
+
 class TerminalControl:
     """The trusted-terminal parser: forwards user input to the native and owns continuation.
 
@@ -960,7 +973,16 @@ class Supervisor:
             self.say(pause_message(message.get("reason"), message.get("fields"), self.key_name))
             if op == "latched":
                 self._gate_down()
+        elif op == "notice" and (self.ui is None or self.ui.paused):
+            # The pause line is out of date: a fresh check now passes, or no longer does. It
+            # neither flushes input nor resumes, so a code being typed stays valid.
+            if message.get("eligible") is True:
+                self.say(eligible_message(message.get("fields"), self.key_name))
+            else:
+                self.say(pause_message(message.get("reason"), message.get("fields"), self.key_name))
         elif op == "resumed" and self.ui is not None:
+            if self.ui.paused:  # a check the launcher had stopped waiting for passed after all
+                self.say("fresh quota check passed; model requests resume")
             self.ui.resume()
 
     def _gate_down(self, announce=True):

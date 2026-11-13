@@ -302,6 +302,50 @@ class Requests(unittest.TestCase):
         self.assertEqual(sup.request("continue"), {"ok": False, "reason": "gate_unavailable"})
 
 
+class Notices(unittest.TestCase):
+    """Gate messages that change the pause line without pausing or resuming anything."""
+
+    class UI:
+        def __init__(self, paused):
+            self.paused, self.calls = paused, []
+
+        def pause(self):
+            self.calls.append("pause")
+            self.paused = True
+
+        def resume(self):
+            self.calls.append("resume")
+            self.paused = False
+
+    def handled(self, message, paused=True):
+        sup = supervise.Supervisor(["gate"], {})
+        said, sup.ui = [], self.UI(paused)
+        sup.say = said.append
+        sup._handle(message)
+        return said, sup.ui.calls
+
+    def test_the_launcher_shows_when_a_pause_can_be_continued_without_resuming(self):
+        fields = {"account": "A", "last_fresh": "2026-11-12T13:00:01Z", "message": "ignored"}
+        said, calls = self.handled({"op": "notice", "eligible": True, "reason": "awaiting_continuation",
+                                    "fields": fields})
+        self.assertEqual(said, ["quota reserve: the latest quota check passes; account A; last fresh check "
+                                "2026-11-12T13:00:01Z; press F12, then type the code shown and Enter, to continue"])
+        self.assertEqual(said, [supervise.eligible_message(dict(reversed(list(fields.items()))))])
+        self.assertEqual(calls, [])  # no flush, no resume: a code being typed stays valid
+        fields = {"account": "A", "window": "five-hour", "remaining": "3", "reserve": "5"}
+        said, calls = self.handled({"op": "notice", "eligible": False, "reason": "threshold", "fields": fields})
+        self.assertEqual((said, calls), ([supervise.pause_message("threshold", fields)], []))
+        for eligible in (True, False):
+            with self.subTest(eligible=eligible):  # already resumed: an old notice says nothing
+                self.assertEqual(self.handled({"op": "notice", "eligible": eligible, "reason": "x", "fields": {}},
+                                              paused=False), ([], []))
+
+    def test_a_resume_the_launcher_did_not_see_coming_is_announced(self):
+        self.assertEqual(self.handled({"op": "resumed"}),
+                         (["fresh quota check passed; model requests resume"], ["resume"]))
+        self.assertEqual(self.handled({"op": "resumed"}, paused=False), ([], ["resume"]))
+
+
 class Restart(unittest.TestCase):
     def test_restarts_are_limited_per_window_and_ask_for_a_relaunch_once(self):
         now = [1000.0]
@@ -775,7 +819,7 @@ class Supervised(unittest.TestCase):
             self.assertTrue(fakes_wait(lambda: not alive(pid)), "pid %d outlived the launcher" % pid)
 
     def test_pause_shows_the_message_and_only_a_fresh_trusted_continuation_resumes(self):
-        self.launch(next_poll=1.0)
+        self.launch(next_poll=1.0, notice_every=0.5)
         self.ready()
         self.command("request")
         self.terminal.expect(r"STATUS 200")
@@ -792,7 +836,9 @@ class Supervised(unittest.TestCase):
         self.continue_()
         self.terminal.expect(r"still paused: threshold")
         self.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
-        time.sleep(1.5)  # polls see the reset; they never resume
+        # Polls see the reset and the line says so; they never resume.
+        self.terminal.expect(r"quota reserve: the latest quota check passes; account A; press F12, then type the "
+                             r"code shown and Enter, to continue")
         self.command("request")
         self.terminal.expect(r"STATUS 400")
         self.continue_()

@@ -51,6 +51,9 @@ Control channel (JSON lines on the inherited socket, section 10 of the reviewed 
         {"op": "ready", "port": P, "pid": N, "mode": M} once serving;
         {"op": "paused", "reason": R, "at": T, "fields": {...}} on a pause;
         {"op": "latched", "reason": R, "at": T, "fields": {...}} on monitor or launcher loss;
+        {"op": "notice", "eligible": B, "reason": R, "at": T, "fields": {...}} while paused, when the
+            latest quota check starts (B true, R "awaiting_continuation") or stops passing, at most
+            once per notice_every seconds (a notice never pauses or resumes);
         {"op": "resumed", "at": T} after a verified continuation;
         {"op": "refused", "reason": R} and exit status 3 when startup refuses.
 Monitor channel: monitor -> gate {"op": "hb"} | {"op": "poll"} | {"op": "polled", "ok": B};
@@ -93,6 +96,7 @@ TICK = 0.02               # the independent deadline timer
 HEARTBEAT_MAX = 1.5       # monitor liveness lease
 ATTACH_GRACE = 10.0       # until the first heartbeat after the gate is ready
 CONTINUATION_WINDOW = 30.0
+NOTICE_EVERY = 30.0       # at most one paused-state notice to the launcher per this many seconds
 USAGE_READS = (10, 60.0)  # gate-originated reads per sliding window (the usage-read cap)
 REVALIDATIONS = (4, 60.0)  # hold-and-rebind checks per sliding window
 POLL_RUNNING, POLL_PAUSED = 30.0, 60.0  # used when the evaluator names no next poll
@@ -496,8 +500,8 @@ class BaseProvider:
     Observation.family must equal); connect_allow ({"host:port": (host, port)}, the exact targets
     a CONNECT may reach, served by a refresh-mode gate only; empty by default); rebind_timeout
     (seconds a gate-read rebind may take). Tunables, which make(config) may set per provider:
-    usage_reads and revalidations ((count, window seconds) budgets), continuation_window and
-    attach_grace (seconds).
+    usage_reads and revalidations ((count, window seconds) budgets), continuation_window,
+    attach_grace and notice_every (seconds).
     """
 
     name = "codex"
@@ -511,6 +515,7 @@ class BaseProvider:
     revalidations = REVALIDATIONS
     continuation_window = CONTINUATION_WINDOW
     attach_grace = ATTACH_GRACE
+    notice_every = NOTICE_EVERY
 
     def present(self, route, headers):
         """Presented for a request, or raise Refusal (latch=True pauses). Default: exactly one
@@ -597,8 +602,8 @@ class Gate:
 
     def __init__(self, provider, decide, *, max_age, mode="startup", proxy=None, no_proxy=(),
                  heartbeat_max=HEARTBEAT_MAX, attach_grace=None, continuation_window=None,
-                 usage_reads=None, revalidations=None, clock=time.monotonic, wall=time.time,
-                 notify=None, emit=None):
+                 usage_reads=None, revalidations=None, notice_every=None, clock=time.monotonic,
+                 wall=time.time, notify=None, emit=None):
         """Tunables left as None come from the provider's attributes (BaseProvider lists them).
         proxy is (host, port) or None; no_proxy the hosts that bypass it (bypasses())."""
         if mode not in ("startup", "restart", "refresh"):
@@ -614,6 +619,7 @@ class Gate:
         self.max_age, self.proxy, self.no_proxy = _seconds(max_age, "max_age"), proxy, tuple(no_proxy)
         self.heartbeat_max = _seconds(heartbeat_max, "heartbeat_max")
         self.attach_grace = _seconds(tunable(attach_grace, "attach_grace"), "attach_grace")
+        self.notice_every = _seconds(tunable(notice_every, "notice_every"), "notice_every")
         self.continuation_window = _seconds(tunable(continuation_window, "continuation_window"),
                                             "continuation_window")
         self.usage_reads = _budget(tunable(usage_reads, "usage_reads"), "usage_reads")
@@ -629,6 +635,10 @@ class Gate:
         self.lease, self.last_fresh, self.epoch = None, None, 0
         self.streams, self._ids = {}, itertools.count(1)
         self.armed, self._answered = None, None
+        # Whether the latest attributed quota observation of a pause passes (a failed read leaves
+        # it as it was), and what the launcher's terminal last said about it: False once a pause
+        # line (or the restart line) said paused, True once a notice said it passes; and when.
+        self._eligible, self._shown, self._shown_at = False, False, clock()
         self.attached, self.next_poll = None, None
         self.rebinding = None
         self._reads, self._checks = collections.deque(), collections.deque()
@@ -649,18 +659,41 @@ class Gate:
         return decision
 
     def _pause(self, reason, fields=None, op="paused"):
-        self.armed = None
+        """Pause, or update the reason and fields of a pause. An armed continuation survives an
+        update (an observation that did not answer it, a refused request): only a new pause or a
+        loss voids it."""
+        if self.state != "paused" or op == "latched":
+            self.armed = None
         if fields is not None:
             self.fields = dict(fields)
         self.reason = reason if isinstance(reason, str) and reason else "paused"
         if self.state == "paused" and op != "latched":
+            self._notice()
             return
         self.state = "paused"
         closers, self.streams = list(self.streams.values()), {}
         for close in closers:  # first: no report below may leave a stream open
             _quietly(close)
         message = {"op": op, "reason": self.reason, "at": round(self.wall(), 3), "fields": dict(self.fields)}
+        self._eligible, self._shown, self._shown_at = False, False, self.clock()
         _quietly(lambda: self.emit(op, reason=self.reason, closed=len(closers)))
+        _quietly(lambda: self.notify(message))
+
+    def _notice(self):
+        """While paused (and not lost): tell the launcher when the latest attributed quota
+        observation starts or stops passing, so its line shows when a continuation can succeed. A
+        change is sent at most once per notice_every seconds after the previous line; tick() sends
+        a deferred one, and a change undone in between sends nothing. It never resumes anything."""
+        if self.state != "paused" or self.lost is not None or self.closed:
+            return
+        eligible = self._eligible
+        now = self.clock()
+        if eligible == self._shown or now - self._shown_at < self.notice_every:
+            return
+        self._shown, self._shown_at = eligible, now
+        message = {"op": "notice", "eligible": eligible, "reason": self.reason, "at": round(self.wall(), 3),
+                   "fields": dict(self.fields)}
+        _quietly(lambda: self.emit("notice", eligible=eligible))
         _quietly(lambda: self.notify(message))
 
     def _resume(self, fields):
@@ -737,7 +770,8 @@ class Gate:
             self._pause(reason, decision.fields)
 
     def tick(self):
-        """One step of the independent timer: monitor silence and the lease deadline."""
+        """One step of the independent timer: monitor silence, the lease deadline and a deferred
+        paused-state notice."""
         with self.lock:
             if self.closed:
                 return
@@ -750,6 +784,8 @@ class Gate:
                     self.lose("monitor_stale")
             if self.state == "running" and (self.last_fresh is None or now >= self.last_fresh + self.max_age):
                 self._pause("stale", self._decide(Event("health", now, name="stale")).fields)
+            elif self.state == "paused":
+                self._notice()
 
     def poll_delay(self):
         with self.lock:
@@ -790,9 +826,11 @@ class Gate:
             if observation.identity is None or observation.identity != self.provider.expected_identity:
                 reason = ("identity_unattributed" if observation.identity is None else
                           "bearer_identity_mismatch" if cause == "rebind" else "identity_mismatch")
+                self._eligible = False
                 self._pause(reason, self._decide(Event("health", at, name=reason)).fields)
                 return reason
             if self.provider.family is not None and observation.family != self.provider.family:
+                self._eligible = False
                 self._pause("unsupported_family", self._decide(Event("health", at, name="unsupported_family")).fields)
                 return "unsupported_family"
             if answers:
@@ -803,6 +841,7 @@ class Gate:
             self.lease = Lease(presented, observation.identity, observation.family, at, at + self.max_age, self.epoch)
             self.last_fresh = at
             self.emit("fresh", cause=cause, epoch=self.epoch, running=decision.running, answers=answers)
+            self._eligible = decision.running or decision.reason == "awaiting_continuation"
             if not decision.running:
                 self._pause(decision.reason or "paused", decision.fields)
             elif self.state == "checking":
@@ -811,7 +850,7 @@ class Gate:
                 if answers:
                     self._resume(decision.fields)
                 else:
-                    self.reason, self.fields = "awaiting_continuation", dict(decision.fields)
+                    self._pause("awaiting_continuation", decision.fields)
             else:
                 self.fields = dict(decision.fields)
             return "fresh"

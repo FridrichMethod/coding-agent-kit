@@ -584,6 +584,78 @@ class Continuation(unittest.TestCase):
         self.assertEqual(h.gate.status()["state"], "paused")
         self.assertIn(("continuation_expired", {}), h.events)
 
+    def test_an_armed_continuation_survives_a_read_that_started_before_it(self):
+        clock = Clock()
+        h = Harness(self, clock=clock)
+        h.ready()
+        h.gate.latch("threshold")
+        presented = gate.Presented(gate.Secret(fakes.BEARER_A), ("acct-A",))
+        started = clock()  # native's own usage read, in flight when the continuation is armed
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "needs_read": True, "reason": "armed"})
+        late = gate.Observation(started, True, identity=tuple(fakes.IDENTITY_A), data={"five_hour": 10, "weekly": 20})
+        self.assertEqual(h.gate.observe(presented, late, "forwarded"), "fresh")
+        self.assertEqual((h.gate.status()["state"], h.gate.status()["armed"]), ("paused", True))
+        h.gate.latch("selector_conflict")  # a refused request while paused voids nothing either
+        self.assertTrue(h.gate.status()["armed"])
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 200)  # the continuation's own read
+        self.assertEqual(h.gate.status()["state"], "running")
+        h.gate.latch("threshold")
+        h.gate.arm_continuation()
+        h.gate.lose("monitor_eof")  # a loss still voids it
+        self.assertFalse(h.gate.status()["armed"])
+
+    def test_a_pause_that_becomes_continuable_is_announced_rate_limited(self):
+        clock = Clock()
+        h = Harness(self, clock=clock, holds_bearer=True, notice_every=30.0)
+
+        def later(seconds):
+            clock.advance(seconds)
+            h.gate.heartbeat()
+            h.gate.tick()
+
+        def notices():
+            return [note for note in h.notes if note["op"] == "notice"]
+
+        h.upstream.used = {"five_hour": 96.0, "weekly": 20.0}
+        h.alive()
+        h.provider.startup(h.gate)
+        self.assertEqual([note["op"] for note in h.notes], ["paused"])
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()
+        self.assertEqual(h.gate.status()["reason"], "awaiting_continuation")
+        self.assertEqual(notices(), [])  # the pause line was shown a second ago
+        later(30)
+        self.assertEqual([(n["eligible"], n["reason"]) for n in notices()], [(True, "awaiting_continuation")])
+        self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 503)  # it resumes nothing
+        later(5)
+        h.gate.poll()
+        h.upstream.usage_status = 500
+        h.gate.poll()  # a failed read proves nothing either way
+        self.assertEqual(h.gate.status()["reason"], "quota_unavailable")
+        h.upstream.usage_status = 200
+        later(60)
+        self.assertEqual(len(notices()), 1)  # unchanged: nothing new to say
+        h.upstream.used = {"five_hour": 97.0, "weekly": 20.0}
+        h.gate.poll()
+        latest = notices()[-1]
+        self.assertEqual((latest["eligible"], latest["reason"], latest["fields"]["window"]),
+                         (False, "threshold", "five_hour"))
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()
+        h.upstream.used = {"five_hour": 97.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()
+        later(60)
+        self.assertEqual(len(notices()), 2)  # a flap inside the interval ends where it began: no line
+        self.assertEqual(h.gate.status()["state"], "paused")
+        self.assertNotIn("resumed", [note["op"] for note in h.notes])
+        h.gate.lose("monitor_eof")
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(60)
+        self.assertEqual(len(notices()), 2)  # nothing more once lost
+
     def test_a_failed_check_uses_up_the_continuation(self):
         h = Harness(self)
         h.ready()
