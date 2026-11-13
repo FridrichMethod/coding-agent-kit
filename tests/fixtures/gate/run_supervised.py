@@ -1,9 +1,11 @@
 """Run one supervised invocation on the caller's terminal: python3 -I -B run_supervised.py SPEC.
 
 SPEC is JSON: upstream_port, store_bearer, next_poll, native (argv), env (extra native
-environment), confine (null, "refuse" or "wrap"), pids (a file that SIGUSR1 fills with the gate
-and monitor pids), extra (holder addresses), restart_delay, refresh (an argv run first under a
-refresh-mode gate) and connect_allow. Exit status: the native's, or 3 on a refusal.
+environment), confine (null; "wrap" or "refuse"; "close", "close-refuse" or "close-missing" first
+close every descriptor above 2 as the boundary modules do), pids (a file that SIGUSR1 fills with
+the gate and monitor pids and the port), extra (holder addresses), restart_delay, refresh (an argv
+run first under a refresh-mode gate), connect_allow and bystander (a file that gets the pid of a
+child started before the supervisor). Exit status: the native's, or 3 on a refusal.
 """
 
 import importlib.util
@@ -11,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 
 HERE = Path(os.path.realpath(__file__)).parent
@@ -27,13 +30,32 @@ def load(name, path):
 supervise = load("kit_supervise", ROOT / "lib/coding-agent-kit/supervise.py")
 
 
+class BoundaryRefusal(Exception):
+    """The boundary modules' Refusal(kind, message); str() is the message."""
+
+    def __init__(self, kind, message):
+        super().__init__(message)
+        self.kind = kind
+
+
 def main(spec):
     def confine(port, argv):
-        if spec.get("confine") == "refuse":
+        mode = spec.get("confine")
+        if mode.startswith("close"):
+            os.closerange(3, 65536)
+        if mode == "refuse":
             raise supervise.Refused("boundary_refused_fixture")
-        if spec.get("confine") == "wrap":
+        if mode == "close-refuse":
+            raise BoundaryRefusal("enforcement", "boundary enforcement failed in the fixture")
+        if mode == "close-missing":
+            return [str(HERE / "no-such-native")]
+        if mode in ("wrap", "close"):
             return argv + ["--confined", str(port)]
         return argv
+
+    if spec.get("bystander"):
+        bystander = subprocess.Popen(["sleep", "30"], stdin=subprocess.DEVNULL, start_new_session=True)
+        Path(spec["bystander"]).write_text(str(bystander.pid))
 
     config = {"max_age_s": 120, "heartbeat_max_s": 1.5, "upstream_port": spec["upstream_port"],
               "holds_bearer": True, "store_bearer": spec.get("store_bearer", "fixture-bearer-A-0001"),
@@ -43,9 +65,14 @@ def main(spec):
                                confine=confine if spec.get("confine") else None,
                                pid_env="CODING_AGENT_KIT_CLAUDE_PID", holder_extra=spec.get("extra", ()),
                                restart_delay=spec.get("restart_delay", 0.5))
+    def report(*args):
+        target = Path(spec["pids"])
+        target.with_suffix(".new").write_text(
+            json.dumps([sup.gate_pid, sup.monitor_pid, sup.holder.port if sup.holder else None]))
+        target.with_suffix(".new").replace(target)
+
     if spec.get("pids"):
-        signal.signal(signal.SIGUSR1, lambda *args: Path(spec["pids"]).write_text(
-            json.dumps([sup.gate_pid, sup.monitor_pid, sup.holder.port if sup.holder else None])))
+        signal.signal(signal.SIGUSR1, report)
     try:
         port = sup.hold()
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "GATE_PORT": str(port)}

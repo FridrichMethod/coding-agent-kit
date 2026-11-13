@@ -37,8 +37,8 @@ Process entry (a provider script loads this file and calls main(argv, make)):
         heartbeat_max_s (optional), proxy ([host, port] or null); make(config) reads the rest.
 
 Control channel (JSON lines on the inherited socket, section 10 of the reviewed design):
-    launcher -> gate: {"op": "continue" | "disarm" | "status" | "shutdown"}
-    gate -> launcher: {"op": "reply", "to": OP, ...};
+    launcher -> gate: {"op": "continue" | "disarm" | "status" | "shutdown", "id": N (optional)}
+    gate -> launcher: {"op": "reply", "to": OP, "id": N (when given), ...};
         {"op": "ready", "port": P, "pid": N, "mode": M} once serving;
         {"op": "paused", "reason": R, "at": T, "fields": {...}} on a pause;
         {"op": "latched", "reason": R, "at": T, "fields": {...}} on monitor or launcher loss;
@@ -1262,6 +1262,8 @@ def main(argv, make, stdin=None):
 
     def on_control(message):
         op = message.get("op")
+        number = message.get("id")
+        tag = {"id": number} if isinstance(number, int) and not isinstance(number, bool) else {}
 
         def answer():
             if op == "continue":
@@ -1274,7 +1276,7 @@ def main(argv, make, stdin=None):
                 reply = {"ok": True}
             else:
                 reply = {"ok": False, "reason": "unknown_op"}
-            channel.send(dict(reply, op="reply", to=str(op)[:32]))
+            channel.send(dict(reply, op="reply", to=str(op)[:32], **tag))
             if op == "shutdown":
                 stop.set()
 

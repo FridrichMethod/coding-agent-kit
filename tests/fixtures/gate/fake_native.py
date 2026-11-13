@@ -42,16 +42,21 @@ def request():
 
 
 def spawn():
+    path = os.environ["SPAWN_FILE"]
     if os.fork() == 0:
         os.setsid()
         if os.fork() == 0:
-            with open(os.environ["SPAWN_FILE"], "w") as stream:
+            with open(path + ".new", "w") as stream:
                 stream.write(str(os.getpid()))
+            os.replace(path + ".new", path)
             for fd in (0, 1, 2):
                 os.close(fd)
             time.sleep(60)
         os._exit(0)
     os.wait()
+    deadline = time.monotonic() + 5
+    while not os.path.exists(path) and time.monotonic() < deadline:
+        time.sleep(0.01)
 
 
 def main():

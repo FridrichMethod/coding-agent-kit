@@ -758,6 +758,15 @@ class GateProcess(unittest.TestCase):
         self.assertEqual(self.ask("shutdown")["ok"], True)
         self.assertEqual(process.wait(5), 0)
 
+    def test_replies_echo_the_request_id(self):
+        self.start(holds_bearer=True)
+        self.messages(lambda m: m["op"] == "ready")
+        for number in (7, True, "8"):
+            self.control.sendall((json.dumps({"op": "status", "id": number}) + "\n").encode())
+            reply = self.messages(lambda m: m.get("op") == "reply")[-1]
+            with self.subTest(number=number):
+                self.assertEqual(reply.get("id"), 7 if number == 7 else None)
+
     def test_startup_refusal_exits_3_with_a_reason(self):
         process = self.start(holds_bearer=True, store_bearer="fixture-unknown-bearer")
         refused = self.messages(lambda m: m["op"] == "refused")[-1]

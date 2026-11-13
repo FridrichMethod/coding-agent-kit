@@ -96,6 +96,51 @@ class Pure(unittest.TestCase):
         self.assertEqual(supervise.finish(0), 0)
 
 
+class Requests(unittest.TestCase):
+    def test_a_late_reply_never_answers_a_newer_request(self):
+        sup = supervise.Supervisor(["gate"], {})
+        sup.control, peer = socket.socketpair()
+        self.addCleanup(peer.close)
+        sup.sent = 4  # request 4 timed out; its reply arrives late
+        peer.sendall(b'{"op":"reply","to":"status","id":4,"state":"late"}\n{"op":"paused","reason":"x"}\n'
+                     b'{"op":"reply","to":"status","id":5,"state":"current"}\n')
+        self.assertEqual(sup.request("status", 2)["state"], "current")
+        self.assertEqual(json.loads(peer.recv(4096)), {"op": "status", "id": 5})
+        self.assertEqual(sup.events, [{"op": "paused", "reason": "x"}])
+        peer.close()
+        self.assertEqual(sup.request("status", 2), {"ok": False, "reason": "gate_unavailable"})
+        self.assertIsNone(sup.control)
+        self.assertEqual(sup.request("continue"), {"ok": False, "reason": "gate_unavailable"})
+
+
+class Spawn(unittest.TestCase):
+    def test_children_get_default_signal_dispositions_and_no_stray_descriptors(self):
+        sup = supervise.Supervisor(["gate"], {})
+        held = socket.socket()
+        self.addCleanup(held.close)
+        script = "kill -PIPE $$; exit 9"
+        pid = sup.spawn(["/bin/sh", "-c", script], {"PATH": "/usr/bin:/bin"})
+        status = sup._wait(pid, 10)
+        self.assertTrue(os.WIFSIGNALED(status) and os.WTERMSIG(status) == signal.SIGPIPE, status)
+        out_read, out_write = os.pipe()
+        self.addCleanup(os.close, out_read)
+        script = "for fd in 3 4 5 %d %d; do (: <&$fd) 2>/dev/null && echo open $fd; done; echo done" % (
+            held.fileno(), out_read)
+        pid = sup.spawn(["/bin/sh", "-c", script], {"PATH": "/usr/bin:/bin"}, stdout=out_write)
+        os.close(out_write)
+        self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
+        self.assertEqual(os.read(out_read, 4096), b"done\n")
+
+    def test_exec_failure_and_hook_refusal(self):
+        sup = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv)
+        with self.assertRaises(OSError):
+            sup.spawn(["/nonexistent/native"], {})
+        sup.confine = lambda port, argv: (_ for _ in ()).throw(supervise.Refused("no boundary here"))
+        with self.assertRaises(supervise.Refused) as raised:
+            sup.spawn(["/bin/sh", "-c", "exit 0"], {}, confine=True)
+        self.assertEqual(raised.exception.reason, "no boundary here")
+
+
 class Holder(unittest.TestCase):
     def test_holds_a_random_loopback_port_for_its_lifetime(self):
         extra = ("127.0.0.2",) if sys.platform.startswith("linux") else ("0.0.0.0",)
@@ -123,6 +168,18 @@ class Holder(unittest.TestCase):
         other = supervise.hold_port()
         self.addCleanup(other.close)
         self.assertNotEqual(other.port, holder.port)
+
+    def test_boundary_module_pairs_and_loopback_duplicates(self):
+        extra = (("inet", "127.0.0.1"), ("inet6", "::1"), ("inet", "127.0.0.3")) \
+            if sys.platform.startswith("linux") else (("inet", "127.0.0.1"), ("inet", "0.0.0.0"))
+        holder = supervise.hold_port(extra)
+        self.addCleanup(holder.close)
+        self.assertEqual([sock.getsockname()[0] for sock in holder.reserved], [extra[-1][1]])
+        squatter = socket.socket()
+        self.addCleanup(squatter.close)
+        with self.assertRaises(OSError) as raised:
+            squatter.bind((extra[-1][1], holder.port))
+        self.assertEqual(raised.exception.errno, errno.EADDRINUSE)
 
     def test_a_taken_port_is_refused_when_pinned(self):
         taken = socket.socket()
@@ -343,6 +400,23 @@ class Supervised(unittest.TestCase):
         self.command("exit 0")
         self.assertEqual(self.wait_exit(), 0)
 
+    def test_a_hook_that_closes_every_descriptor_still_reports(self):
+        self.launch(confine="close")
+        self.terminal.expect(r"CONFINED \d+")
+        self.ready()
+        self.command("exit 5")
+        self.assertEqual(self.wait_exit(), 5)
+        (self.directory / "marker").unlink()
+        self.launch(confine="close-refuse")
+        self.terminal.expect(r"protected mode refused: boundary enforcement failed in the fixture")
+        self.assertEqual(self.wait_exit(), 3)
+        self.assertFalse((self.directory / "marker").exists())
+        # Seen before the relay starts (a refusal) or only at its exit status 127, by timing.
+        self.launch(confine="close-missing")
+        self.terminal.expect(r"cannot start the native: No such file or directory")
+        self.assertIn(self.wait_exit(), (3, 127))
+        self.assertFalse((self.directory / "marker").exists())
+
     def test_confine_refusal_starts_no_native(self):
         self.launch(confine="refuse")
         self.terminal.expect(r"protected mode refused: boundary_refused_fixture")
@@ -369,6 +443,25 @@ class Supervised(unittest.TestCase):
         self.assertEqual(self.wait_exit(), 0)
         for pid in (grandchild, gate, monitor):
             self.assertTrue(fakes_wait(lambda: not alive(pid)), "pid %d outlived the invocation" % pid)
+
+    def test_processes_started_before_the_supervisor_are_not_swept(self):
+        bystander_file = self.directory / "bystander"
+        self.launch(bystander=str(bystander_file))
+        self.ready()
+        bystander = int(bystander_file.read_text())
+        self.addCleanup(kill_tree, bystander)
+        self.command("exit 0")
+        self.assertEqual(self.wait_exit(), 0)
+        self.assertTrue(alive(bystander))
+
+    def test_launcher_death_ends_the_gate_monitor_and_native(self):
+        self.launch()
+        native = int(self.ready().group(1))
+        gate, monitor, _ = self.kit_pids()
+        os.kill(self.process.pid, signal.SIGKILL)
+        self.process.wait(10)
+        for pid in (gate, monitor, native):
+            self.assertTrue(fakes_wait(lambda: not alive(pid)), "pid %d outlived the launcher" % pid)
 
     def test_pause_shows_the_message_and_only_a_fresh_trusted_continuation_resumes(self):
         self.launch(next_poll=1.0)
@@ -408,7 +501,7 @@ class Supervised(unittest.TestCase):
         new_gate, new_monitor, new_port = self.kit_pids()
         self.assertEqual(new_port, port)
         self.assertNotIn(new_gate, (gate, None))
-        self.assertFalse(fakes_wait(lambda: alive(monitor), 0.5) and alive(monitor))
+        self.assertTrue(fakes_wait(lambda: not alive(monitor)))
         self.command("request")
         self.terminal.expect(r"STATUS 400")
         self.continue_()
@@ -429,6 +522,24 @@ class Supervised(unittest.TestCase):
         self.terminal.expect(r"STATUS 400")
         self.continue_()
         self.terminal.expect(r"fresh quota check passed")
+        self.command("exit 0")
+        self.assertEqual(self.wait_exit(), 0)
+
+    def test_a_stalled_monitor_latches_and_restarts_the_gate_paused(self):
+        self.launch()
+        self.ready()
+        gate, monitor, _ = self.kit_pids()
+        os.kill(monitor, signal.SIGSTOP)
+        self.addCleanup(lambda: alive(monitor) and os.kill(monitor, signal.SIGKILL))
+        self.terminal.expect(r"paused \(monitor_stale\)")
+        self.terminal.expect(r"gate restarted paused")
+        self.assertTrue(fakes_wait(lambda: not alive(gate) and not alive(monitor)))
+        self.command("request")
+        self.terminal.expect(r"STATUS 400")
+        self.continue_()
+        self.terminal.expect(r"fresh quota check passed")
+        self.command("request")
+        self.terminal.expect(r"STATUS 200")
         self.command("exit 0")
         self.assertEqual(self.wait_exit(), 0)
 
