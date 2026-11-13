@@ -234,6 +234,10 @@ class Enrollment(Kit):
             result = self.run_kit(["--enroll-native", name])
             self.assertEqual(result.returncode, 1)
             self.assertIn("invalid account name", result.stderr)
+        result = self.run_kit(["--enroll-native", "a" * 65])  # a native-login name has at most 64 characters
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("invalid account name for native login (ASCII letters, digits, _ or -; no leading -; at most "
+                      "64 characters).", result.stderr)
         self.assertFalse((self.secrets / "native-claude-accounts").exists())
 
     def test_a_tampered_registration_or_symlinked_directory_refuses(self):
@@ -323,9 +327,10 @@ class NativeLaunch(Kit):
 
     def test_a_missing_gate_module_is_an_incomplete_install_before_anything_starts(self):
         self.enroll()
-        self.record.unlink(missing_ok=True)
+        for name in ("", ".auth"):
+            Path(str(self.record) + name).unlink(missing_ok=True)
         self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
-        for name in ("lib/claude-as/bearer.py", "lib/coding-agent-kit/reserve.py"):
+        for name in ("lib/claude-as/bearer.py", "lib/coding-agent-kit/reserve.py", "lib/coding-agent-kit/monitor.py"):
             with self.subTest(name):
                 saved = (self.kit / name).read_bytes()
                 (self.kit / name).unlink()
@@ -337,6 +342,16 @@ class NativeLaunch(Kit):
                 self.assertIn(f"incomplete install at {self.kit}", result.stderr)
                 self.assertNotIn("Traceback", result.stderr)
                 self.assertFalse(self.record.exists())
+                self.assertFalse(Path(str(self.record) + ".auth").exists())  # before the pre-launch refresh
+
+    def test_a_setup_token_launch_needs_no_native_module_before_any_native_login_account_exists(self):
+        (self.kit / "lib/claude-as/native.py").unlink()
+        result = self.run_kit(["newone"])  # a new setup-token enrollment, which needs a terminal here
+        self.assertEqual(result.returncode, 1)
+        self.assertNotIn("incomplete install", result.stderr)
+        (self.secrets / "native-claude-accounts").mkdir(mode=0o700)
+        result = self.run_kit(["newone"])
+        self.assertIn(f"incomplete install at {self.kit}", result.stderr)
 
     def test_version_after_a_native_name_is_claude_codes_own(self):
         self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
@@ -425,15 +440,13 @@ provider = load("test_claude_provider", ROOT / "lib/claude-as/provider.py")
 gate = provider.gate
 reserve = provider.reserve
 upstream_fixture = load("test_claude_upstream", FIXTURES / "upstream.py")
-E0_LIMITS = {  # the shape of the stanford policy-limits.json (E0: key names only; values fabricated)
+ORG_LIMITS = {  # an organization's policy-limits.json in the 2.1.322 schema; keys and values fabricated
     "artifact_create_notice": {"text": "fixture notice"},
     "compliance_taints": ["fixture_regime"],
     "defaults": {"remote_control_at_startup": True},
     "monitoring_notice": {"text": "fixture monitoring", "url": "https://example.invalid/notice"},
     "restrictions": {name: {"allowed": False} for name in (
-        "allow_cobalt_plinth_alkanet", "allow_connector_file_downloads", "allow_drive_file_references",
-        "allow_gmail_file_references", "allow_product_feedback", "allow_quick_web_setup",
-        "enforce_web_search_mcp_isolation")},
+        "allow_fixture_feature_a", "allow_fixture_feature_b", "enforce_fixture_isolation")},
 }
 
 
@@ -441,8 +454,8 @@ class ServerManagedPolicy(unittest.TestCase):
     def reasons(self, findings):
         return sorted({(f.name, f.native, f.bearer, f.reason) for f in findings})
 
-    def test_the_enterprise_limits_seen_in_e0_and_an_empty_settings_document_are_accepted(self):
-        self.assertEqual(policy.judge_policy_limits(E0_LIMITS), [])
+    def test_an_organization_limits_document_and_an_empty_settings_document_are_accepted(self):
+        self.assertEqual(policy.judge_policy_limits(ORG_LIMITS), [])
         self.assertEqual(policy.judge_remote_settings({}, ORGANIZATION_UUID), [])
         self.assertEqual(policy.judge_policy_limits({"core_skills": ["a"], "upcoming_minimum_version": None,
                                                      "restrictions": {"allow_x": True}}), [])
@@ -513,7 +526,7 @@ class ServerManagedPolicy(unittest.TestCase):
         from unittest import mock
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp).resolve()
-            config, work = self.files(base, {}, E0_LIMITS)
+            config, work = self.files(base, {}, ORG_LIMITS)
             managed = base / "managed"
             (managed / "managed-settings.d").mkdir(parents=True)
             (Path(work) / ".claude").mkdir()
@@ -581,7 +594,7 @@ class ServerManagedPolicy(unittest.TestCase):
     def test_evaluate_reads_the_caches_safely_and_reports_names_never_values(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp).resolve()
-            config, work = self.files(base, {"forceLoginOrgUUID": "org-sensitive-value"}, E0_LIMITS)
+            config, work = self.files(base, {"forceLoginOrgUUID": "org-sensitive-value"}, ORG_LIMITS)
             verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux")
             self.assertEqual((verdict.native, verdict.bearer), (("policy_organization_mismatch",),) * 2)
             self.assertIn("remote-settings.json: forceLoginOrgUUID", verdict.describe())
@@ -965,6 +978,45 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (True, "admitted"))
 
+    def test_a_restarted_gate_reads_quota_with_the_store_bearer_but_never_resumes_by_itself(self):
+        prov, g = self.make(mode="restart")
+        g.attach()
+        g.heartbeat()
+        prov.poll(g)
+        self.assertEqual([r["path"] for r in self.upstream.requests], ["/api/oauth/profile", "/api/oauth/usage"])
+        self.assertEqual((g.state, g.reason), ("paused", "awaiting_continuation"))
+        self.upstream.used["five_hour"] = 95
+        prov.poll(g)  # the lease the read bound polls on: usage only
+        self.assertEqual(self.upstream.paths("GET")[2:], ["/api/oauth/usage"])
+        self.assertEqual((g.state, g.reason), ("paused", "threshold"))
+        self.upstream.used["five_hour"] = 10
+        prov.poll(g)
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
+
+    def test_rebind_and_continuation_reads_fit_the_bounds_their_waiters_use(self):
+        """A rebind's two GETs together stay within rebind_timeout, which held requests wait for (plus
+        the connect timeout); a continuation's store read and two GETs stay within the launcher's 20 s
+        control timeout, so it never reports gate_unavailable while the check can still pass."""
+        prov, _ = self.make()
+        seen = []
+
+        class Fetching:
+            lease = None
+
+            def fetch(self, method, path, **options):
+                seen.append((path, options["timeout"]))
+                body = {"account": {"uuid": "a"}, "organization": {"uuid": "o"}} if "profile" in path else {}
+                return 200, [("Content-Type", "application/json")], json.dumps(body).encode()
+
+        for cause in ("startup", "rebind", "continuation"):
+            prov.read_quota(Fetching(), gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), cause)
+        timeouts = {cause: [timeout for _, timeout in seen[index * 2:index * 2 + 2]]
+                    for index, cause in enumerate(("startup", "rebind", "continuation"))}
+        self.assertEqual(timeouts["startup"], [None, None])  # the gate's READ_TIMEOUT each
+        self.assertLessEqual(sum(timeouts["rebind"]), prov.rebind_timeout)
+        self.assertLessEqual(bearer.KEYCHAIN_TIMEOUT + sum(timeouts["continuation"]), 20.0 - 1.0)
+
     def test_a_rejected_lease_bearer_is_reread_from_the_store_and_rebound(self):
         prov, g = self.started()
         self.store(upstream_fixture.BEARER_A2)
@@ -1053,9 +1105,27 @@ class ProtectScreens(unittest.TestCase):
                                (["--add-dir", "a", "b", "--verbose", "go"], ["a", "b"]), (["--add-dir=c"], ["c"]),
                                (["--allowedTools", "Bash", "Read", "--", "-x"], []), (["fix", "the", "mcp"], []),
                                (["--", "fix", "auth"], []), (["--permission-mode", "plan", "-"], []),
-                               (["--dangerously-skip-permissions", "--no-chrome"], [])):
+                               (["--dangerously-skip-permissions", "--verbose"], [])):
             with self.subTest(args):
                 self.assertEqual(protect.screen_arguments(args).add_dirs, add_dirs)
+
+    def test_the_gate_tables_are_those_of_the_one_reviewed_version(self):
+        """provider.py's routes, families and policy shapes are one table, so adding a release to
+        REVIEWED_VERSIONS needs those tables keyed by release first."""
+        self.assertEqual(protect.REVIEWED_VERSIONS, (provider.VERSION,))
+
+    def test_every_form_protected_mode_allows_passes_the_launchers_own_screen(self):
+        """launch.py's preflight runs first on every native-login launch; a form only protect.py allowed
+        would be refused there anyway."""
+        launch = load("test_claude_launch", ROOT / "lib/claude-as/launch.py")
+        forms = [[flag, "x"] for flag in sorted(protect.VALUES | protect.VARIADIC)]
+        forms += [[flag] for flag in sorted(protect.OPTIONAL | protect.SWITCHES)]
+        from unittest import mock
+        with mock.patch.dict(os.environ, {}, clear=True):  # no caller credential or provider variable
+            for form in forms:
+                with self.subTest(form):
+                    launch.preflight(form, None, enrollment=False, config_dir="/nonexistent/config")
+                    self.assertEqual(protect.screen_arguments(form).add_dirs, ["x"] if form[0] == "--add-dir" else [])
 
     def test_every_other_form_or_a_command_word_refuses(self):
         for args, text in ((["-p", "hi"], "-p is not an interactive form"), (["--print"], "--print is not"),
@@ -1273,7 +1343,7 @@ class ProtectedRefusals(Kit):
         if boundary_problem():
             self.skipTest(boundary_problem())
         limits = self.native_config("N") / "policy-limits.json"
-        limits.write_text(json.dumps(dict(E0_LIMITS, secret_limit={"value": "org-sensitive-value"})))
+        limits.write_text(json.dumps(dict(ORG_LIMITS, secret_limit={"value": "org-sensitive-value"})))
         limits.chmod(0o600)
         output = self.refused([])
         self.assertIn("policy-limits.json: secret_limit", output)
@@ -1417,7 +1487,7 @@ class Protected(Kit):
 
     def test_an_organization_account_refuses_before_the_native_even_with_policy_caches(self):
         self.store("enterprise")
-        for name, document in (("remote-settings.json", {}), ("policy-limits.json", E0_LIMITS)):
+        for name, document in (("remote-settings.json", {}), ("policy-limits.json", ORG_LIMITS)):
             path = self.native_config("N") / name
             path.write_text(json.dumps(document))
             path.chmod(0o600)
@@ -1747,7 +1817,7 @@ class RealClaude(Kit):
         enterprise subscription, so no native session starts and no model request is made."""
         self.store(upstream_fixture.BEARER_A, "enterprise")
         for name, document in (("remote-settings.json", {"permissions": {"deny": ["Bash"]}}),
-                               ("policy-limits.json", E0_LIMITS)):
+                               ("policy-limits.json", ORG_LIMITS)):
             self.private(name, document)
         spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"}, "args": [],
                 "upstream_port": self.upstream.port,

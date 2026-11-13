@@ -51,7 +51,8 @@ once the gate recorded a heartbeat, and the startup check runs only then.
 import sys
 
 if sys.version_info < (3, 11):
-    sys.exit(2)
+    print("claude-as gate: protected mode needs Python 3.11 or later.", file=sys.stderr)
+    raise SystemExit(2)
 
 from datetime import datetime
 from decimal import Decimal
@@ -74,9 +75,13 @@ def _load(name, path):
     return module
 
 
-gate = _load("claude_as_gate_core", HERE.parent / "coding-agent-kit/gate.py")
-reserve = _load("claude_as_reserve", HERE.parent / "coding-agent-kit/reserve.py")
-bearer = _load("claude_as_bearer", HERE / "bearer.py")
+try:
+    gate = _load("claude_as_gate_core", HERE.parent / "coding-agent-kit/gate.py")
+    reserve = _load("claude_as_reserve", HERE.parent / "coding-agent-kit/reserve.py")
+    bearer = _load("claude_as_bearer", HERE / "bearer.py")
+except (OSError, ImportError, SyntaxError):
+    print("claude-as gate: incomplete install at %s" % HERE.parent.parent, file=sys.stderr)
+    raise SystemExit(2) from None
 
 VERSION = "2.1.322"
 API = gate.Upstream("api.anthropic.com", 443)
@@ -85,6 +90,10 @@ OAUTH_BETA = "oauth-2025-04-20"
 REFRESH_TARGETS = {"platform.claude.com:443": ("platform.claude.com", 443)}
 NATIVE_REFRESH_WINDOW_MS = 300000  # native refreshes when now + 300000 >= expiresAt (S, 2.1.322)
 MIN_SESSION_MS = 600000  # what a protected session gets at least beyond native's window (a tunable, I)
+# A continuation's store read (up to bearer.KEYCHAIN_TIMEOUT on macOS) and its two GETs stay within
+# the launcher's 20 s control timeout, so it never reports gate_unavailable while the check can still
+# pass. (A rebind's two GETs take half of rebind_timeout each; see _get.)
+CONTINUATION_GET_TIMEOUT = 4.0
 PERSONAL_PLANS = frozenset(("pro", "max"))  # native applies no organization policy to these (S, 2.1.322)
 ROUTES = gate.RouteTable("claude-" + VERSION, (
     gate.Route("POST", "/v1/messages", gate.MODEL, query=True),
@@ -240,7 +249,9 @@ class ClaudeProvider(gate.BaseProvider):
 
     # -- quota reads -------------------------------------------------------------------------------
     def _get(self, gate_, path, presented, cause):
-        timeout = self.rebind_timeout if cause == "rebind" else None
+        # A rebind's profile and usage GETs together stay within rebind_timeout, which the gate's held
+        # requests wait for (plus the connect timeout); other causes get the gate's READ_TIMEOUT.
+        timeout = {"rebind": self.rebind_timeout / 2, "continuation": CONTINUATION_GET_TIMEOUT}.get(cause)
         status, headers, body = gate_.fetch("GET", path, secret=presented.secret, timeout=timeout,
                                             headers=(("Accept", "application/json"), ("anthropic-beta", OAUTH_BETA)))
         if status != 200:
@@ -304,11 +315,20 @@ class ClaudeProvider(gate.BaseProvider):
 
     def poll(self, gate_):
         """The monitor's poll: the lease's bearer; a rejected or rotated one is re-read from the store
-        and checked as a rebind (never as a poll, which cannot rebind)."""
+        and checked as a rebind (never as a poll, which cannot rebind). A restarted gate has no lease
+        until a check binds one, so its polls check the store's bearer as a rebind, which keeps the
+        pause (a restarted gate leaves it only through a continuation) but keeps its readings fresh."""
         self.gate = gate_
         with gate_.lock:
-            lease = None if gate_.lost or gate_.closed else gate_.lease
+            ended = gate_.lost is not None or gate_.closed
+            lease = None if ended else gate_.lease
         if lease is None:
+            if not ended and gate_.mode == "restart":
+                try:
+                    current = self.stored()
+                except gate.Refusal:
+                    return
+                gate_.check(current, "rebind")
             return
         outcome = gate_.check(lease.presented, "poll")
         if outcome in ("http_401", "superseded"):
@@ -323,10 +343,6 @@ class ClaudeProvider(gate.BaseProvider):
         """A continuation checks the store's current bearer, which a refused attempt never keeps."""
         self.gate = gate_
         return gate_.check(self.stored(), "continuation")
-
-
-def _text(value):
-    return value if isinstance(value, str) else reserve.percent(value)
 
 
 class Decider:

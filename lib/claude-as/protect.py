@@ -88,15 +88,16 @@ REFRESH_TIMEOUT = 30.0
 PREFLIGHT_TIMEOUT = 45.0
 REFRESH_TARGET = "platform.claude.com:443"
 # Interactive option forms of Claude Code 2.1.322 (S: its --help) that keep one terminal session
-# whose model requests all reach the gate. Values are checked by native; models by the gate.
+# whose model requests all reach the gate, among those launch.py's own preflight audits (it runs first
+# on every native-login launch; the suite checks that each form here passes it). Values are checked
+# by native; models by the gate.
 VALUES = {"--model", "--effort", "--system-prompt", "--append-system-prompt", "--system-prompt-file",
           "--append-system-prompt-file", "--agent", "--agents", "--permission-mode", "--fallback-model",
-          "--debug-file", "-n", "--name", "--autocompact", "--system-prompt-snapshot"}
+          "--debug-file"}
 VARIADIC = {"--allowedTools", "--allowed-tools", "--disallowedTools", "--disallowed-tools", "--tools", "--add-dir"}
-OPTIONAL = {"-d", "--debug", "--prompt-suggestions"}
+OPTIONAL = {"-d", "--debug"}
 SWITCHES = {"--verbose", "--dangerously-skip-permissions", "--allow-dangerously-skip-permissions",
-            "--disable-slash-commands", "--strict-mcp-config", "--ax-screen-reader", "--brief", "--no-chrome",
-            "--restricted", "--safe-mode", "--exclude-dynamic-system-prompt-sections"}
+            "--disable-slash-commands", "--strict-mcp-config"}
 # The first operand native dispatches as a command: every top-level command Claude Code 2.1.322
 # registers, visible and hidden, with its aliases (S: the root program and the registration functions it
 # calls), the two other names its root handling treats like install and update (rollback,
@@ -133,8 +134,10 @@ REASONS = {
     "gate did not start": "the request gate did not start",
     "organization_policy": "Claude Code applies no organization policy behind the request gate",
 }
-# The modules the gate process loads besides the supervisor's own checks (gate.py, monitor.py).
-GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py")
+# The modules the gate and monitor processes load besides gate.py (which the launcher loads too),
+# checked before anything runs: the supervisor checks monitor.py only when the run gate starts, after
+# the pre-launch refresh.
+GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py", KIT / "monitor.py")
 CODE_HINT = ("; run claude-as with a Python and a kit installed outside the working directory, every --add-dir and the "
              "account directory")
 
@@ -194,8 +197,7 @@ def screen_arguments(args):
                 if flag == "--add-dir":
                     add_dirs += values
             elif flag in OPTIONAL:
-                if not sep and index < len(args) and not (len(args[index]) > 1 and args[index].startswith("-")) \
-                        and flag != "--prompt-suggestions":
+                if not sep and index < len(args) and not (len(args[index]) > 1 and args[index].startswith("-")):
                     index += 1
             elif arg in SWITCHES:
                 pass
