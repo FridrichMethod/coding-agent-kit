@@ -1420,6 +1420,28 @@ class ProtectedRefusals(Kit):
         self.assertIn("protected mode refused", text)
         self.assertNotIn("\x1b[", text)  # a redirected log stays plain
 
+    def test_the_native_gets_the_same_umask_as_in_an_unprotected_launch(self):
+        """claude-as runs under umask 077 in both modes, so with the caller's umask at 022 a file the
+        native writes is 0600 in a protected launch as in an unprotected one. The protected native run
+        here is the pre-launch refresh (`claude auth status`, confined like the TUI); no credential is
+        stored, so the gate refuses right after it, before any read."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        record = self.cwd / "record.json"  # in the working directory, which the boundary can write
+        env = dict(self.env, FAKE_RECORD=str(record))
+        old = os.umask(0o022)
+        try:
+            code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+            unprotected = self.run_kit(["N"], env=env)
+        finally:
+            os.umask(old)
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused", output)
+        refreshed = Path(str(record) + ".auth")
+        self.assertEqual(stat.S_IMODE(refreshed.stat().st_mode), 0o600)
+        self.assertEqual(unprotected.returncode, 0, unprotected.stderr)
+        self.assertEqual(stat.S_IMODE(record.stat().st_mode), 0o600)
+
     def test_home_as_the_working_directory_refuses(self):
         if boundary_problem():
             self.skipTest(boundary_problem())
