@@ -1,8 +1,9 @@
 """codex-as protected mode: usage reserves enforced around interactive Codex (launcher side).
 
 A launch whose resolved policy (reserve.py) enables a reserve for either window runs through this
-module; with both windows off codex-as never calls it and behaves exactly as without it. Help,
-version, update, completion and other help forms stay unprotected and unchanged.
+module; with both windows off codex-as never calls it and behaves exactly as without it. The query
+forms (-h, --help, -V, --version and help, check.Plan.query) stay unprotected and unchanged; every
+other subcommand, update and completion included, refuses.
 
 Refusals come first and change nothing (Session.check): the native release must be a reviewed one
 (REVIEWED, with an upper bound); the arguments an allowlisted interactive TUI form, parsed like
@@ -25,9 +26,18 @@ Session.run then, with the account lease held by the launcher for the whole run:
 The writable set is the workspace, codex_home (which holds the account home and shared sessions),
 the shared SQLite home and a private temporary directory; the refresh adds secrets_dir, where
 native writes the refreshed credential. None may be HOME, an ancestor of HOME, HOME/Library or
-lie at or inside HOME/Library/LaunchAgents. The readers' specifications live in another private
-directory, which must lie outside every writable path (a TMPDIR inside the workspace refuses), and
+lie at or inside HOME/Library/LaunchAgents. The boundary also leaves its devices writable
+(fixed_writable: /dev/shm and /dev/pts on Linux). The readers' specifications live in another
+private directory, which must lie outside all of it (a TMPDIR inside the workspace refuses), and
 the monitor's reader takes its boundary from the argv the launcher builds, never from a file.
+
+The gate, the monitor and the monitor's reader run outside the boundary (the reader until it
+confines itself), so nothing they load code from may be in its reach: they run the base
+interpreter of the Python running codex-as (interpreter: a virtual environment's site-packages and
+.pth files stay out), and the run refuses unless that interpreter, its prefixes, its module path
+and the kit's module directories lie outside every writable path, through every link on the way
+(unreachable). While the run lasts, commands the launcher itself runs by name resolve only in the
+system directories (launcher_path).
 """
 
 import contextlib
@@ -44,6 +54,7 @@ import pwd
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import time
@@ -695,23 +706,131 @@ def overrides(port):
     return [word for pair in settings(port) for word in ("-c", pair)]
 
 
+def selected_profile(table):
+    """(name, table) of the profile a user config.toml selects with profile = NAME, else (None, {})."""
+    profiles, chosen = table.get("profiles"), table.get("profile")
+    selected = profiles.get(chosen) if isinstance(chosen, str) and isinstance(profiles, dict) else None
+    return (chosen, selected) if isinstance(selected, dict) else (None, {})
+
+
 def configured_model(table):
     """The model a user config.toml selects: its selected profile's model, else its own (native
     ranks the profile layer above the file)."""
-    profiles, chosen = table.get("profiles"), table.get("profile")
-    selected = profiles.get(chosen) if isinstance(chosen, str) and isinstance(profiles, dict) else None
-    if isinstance(selected, dict) and "model" in selected:
-        return selected["model"]
-    return table.get("model")
+    profile = selected_profile(table)[1]
+    return profile["model"] if "model" in profile else table.get("model")
+
+
+def within(path, root):
+    return path == root or path.startswith(root.rstrip("/") + "/")
+
+
+def resolution(path, hops=40):
+    """Every absolute name that resolving PATH looks up, in order: each leading directory and,
+    through each link, the names of its target, ending with the real path. A link anywhere on the
+    way can be replaced when its directory is writable, so every name counts, not only the real
+    path."""
+    path = str(path)
+    names, current = [], "/"
+    parts = list(Path(path if os.path.isabs(path) else os.path.join(os.getcwd(), path)).parts[1:])
+    while parts:
+        part = parts.pop(0)
+        if part == "..":
+            current = os.path.dirname(current)
+            continue
+        name = os.path.join(current, part)
+        names.append(name)
+        try:
+            target = Path(os.readlink(name)) if hops and os.path.islink(name) else None
+        except OSError:
+            target = None
+        if target is None:
+            current = name
+            continue
+        hops -= 1
+        parts[:0] = target.parts[1:] if target.is_absolute() else target.parts
+        current = "/" if target.is_absolute() else current
+    return names
 
 
 def outside(path, writable_paths):
-    """Refused unless PATH, resolved, lies outside every (resolved) writable path."""
-    real = os.path.realpath(str(path))
+    """Refused unless PATH lies outside every (resolved) writable path, through every link."""
     for root in writable_paths:
-        if real == root or real.startswith(root.rstrip("/") + "/"):
-            refuse(f"the temporary directory {os.path.dirname(real)} lies inside {root}, which the boundary can "
-                   "write; set TMPDIR to a directory outside the workspace and the Codex homes")
+        if any(within(name, root) for name in resolution(path)):
+            refuse(f"the temporary directory {os.path.dirname(os.path.realpath(str(path)))} lies inside {root}, "
+                   "which the boundary can write; set TMPDIR to a directory outside the workspace and the Codex "
+                   "homes")
+
+
+def fixed_writable(sandbox):
+    """What the boundary leaves writable besides the writable set: the Linux boundary's DEVICES
+    (/dev/pts and /dev/shm included) or the macOS device rules, which all lie beneath /dev."""
+    if sys.platform == "darwin":
+        return ["/dev"]
+    return [os.path.realpath(device) for device in sandbox.DEVICES]
+
+
+def interpreter():
+    """The Python that kit processes outside the boundary run, as a real path: the base installation
+    of the running one, so a virtual environment's site-packages and .pth files, which a venv in
+    the workspace puts in reach of the boundary, are never processed outside it."""
+    return os.path.realpath(getattr(sys, "_base_executable", None) or sys.executable)
+
+
+CODE_PROBE = ("import json, sys; print(json.dumps([sys.prefix, sys.exec_prefix, sys.base_prefix, "
+              "sys.base_exec_prefix, sys.path]))")
+CODE_PROBE_TIMEOUT = 10.0
+CODE_HINT = "; run codex-as with a Python and a kit installed outside the workspace and the Codex homes"
+
+
+def code_sources(python, env):
+    """(what, path, holds code) for everything a kit process outside the boundary loads code from:
+    PYTHON, its prefixes, the module path it starts with as `PYTHON -I -B` (site-packages and what
+    their .pth files add included, as the monitor runs it) and the kit's two module directories.
+    Refused when PYTHON cannot report them."""
+    try:
+        done = subprocess.run([python, "-I", "-B", "-c", CODE_PROBE], env=env, cwd="/", stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=CODE_PROBE_TIMEOUT)
+        *prefixes, entries = json.loads(done.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError):
+        prefixes = entries = None
+    if not (isinstance(entries, list) and len(prefixes) == 4
+            and all(isinstance(path, str) and os.path.isabs(path) for path in prefixes + entries)):
+        refuse(f"the Python at {python} did not report where it loads code from")
+    return ([("the Python", python, False)] + [("the Python prefix", path, False) for path in prefixes]
+            + [("the Python module path entry", path, True) for path in entries]
+            + [("the kit directory", str(path), True) for path in (HERE, KIT)])
+
+
+def unreachable(sources, writable_paths):
+    """Refused when a code source (code_sources), or a link on the way to it, lies inside a writable
+    path, or a writable path lies inside a directory of code."""
+    for what, path, holds in sources:
+        names, real = resolution(path), os.path.realpath(path)
+        for root in writable_paths:
+            if any(within(name, root) for name in names):
+                refuse(f"{what} {path} lies inside {root}, which the boundary can write" + CODE_HINT)
+            if holds and within(root, real):
+                refuse(f"{root}, which the boundary can write, lies inside {what} {path}" + CODE_HINT)
+
+
+SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+
+
+@contextlib.contextmanager
+def launcher_path():
+    """The launcher's own PATH while boundary processes may live: a command it runs by name outside
+    the boundary (the supervisor's ps on macOS) never resolves in a directory of the caller's PATH,
+    which the boundary may be able to write. The native and the readers keep the caller's PATH
+    (Session.env)."""
+    saved = os.environ.get("PATH")
+    os.environ["PATH"] = SYSTEM_PATH
+    try:
+        yield
+    finally:
+        if saved is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = saved
 
 
 def writable(home, paths):
@@ -790,7 +909,15 @@ class Session:
         # project and managed layers can select another one, which the gate refuses per request.
         path = self.config.codex_home / "config.toml"
         raw = read_document(path, reason="the Codex configuration cannot be read")
-        configured = configured_model(toml_document(raw.decode("utf-8", "replace")) or {}) if raw else None
+        table = (toml_document(raw.decode("utf-8", "replace")) or {}) if raw else {}
+        # Native may rank a selected profile above the -c overrides (U for 0.167.2; older codex-rs did),
+        # so a profile that sets what protected mode sets refuses instead of failing inside the boundary.
+        name, profile = selected_profile(table)
+        keys = sorted(PROTECTED_KEYS & set(profile))
+        if keys:
+            refuse(f"the profile {shown(name)} that {path} selects sets {', '.join(keys)}, which protected mode "
+                   "sets itself")
+        configured = configured_model(table)
         overridden = scan(self.args, self.native)[1] is not None
         if not overridden and isinstance(configured, str) and configured not in self.native.models:
             refuse(f"the model {shown(configured)} that {path} selects is not one whose quota protected mode "
@@ -872,7 +999,11 @@ class Session:
     def run(self, baseline):
         """The whole protected invocation; returns the native's wait status. self.baseline is then
         the credential post-run repair compares with: the refreshed one once the refresh passed."""
-        supervise, python = self.supervise, sys.executable
+        with launcher_path():
+            return self.protected(baseline)
+
+    def protected(self, baseline):
+        supervise, python = self.supervise, interpreter()
         self.baseline = baseline
         self.login = login(baseline, self.native, self.storage)
         before = last_refresh(baseline)
@@ -881,10 +1012,13 @@ class Session:
             self.work = tempfile.mkdtemp(prefix="codex-as-tmp-")
             self.private = tempfile.mkdtemp(prefix="codex-as-protect-")
             paths, refresh_paths = self.paths(), self.paths(refresh=True)
-            # Reader specifications must stay out of reach of every boundary process.
-            outside(self.private, paths + refresh_paths)
-            proxy = supervise.capture_proxy(self.env, self.kit_gate.parse_proxy)
+            reach = paths + refresh_paths + fixed_writable(self.sandbox)
+            # Reader specifications, and the code of every kit process outside the boundary, must
+            # stay out of reach of every boundary process.
+            outside(self.private, reach)
             gate_env = {name: self.env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR", "LANG") if name in self.env}
+            unreachable(code_sources(python, gate_env), reach)
+            proxy = supervise.capture_proxy(self.env, self.kit_gate.parse_proxy)
             reserves = {setting.window: [None if setting.reserve is None else str(setting.reserve), setting.source]
                         for setting in self.policy.settings()}
             config = {"max_age_s": MAX_AGE, "heartbeat_max_s": HEARTBEAT_MAX,
@@ -958,7 +1092,9 @@ class Session:
             self.message(self.policy.describe())
             self.message("protected mode: model requests pass through a local gate; after a pause press F12, "
                          "then type the code shown, to request a fresh quota check")
-            return sup.run(command, env, cwd=str(self.cwd))
+            # The native starts in the launcher's directory, as an unprotected launch does, so it
+            # resolves a relative -C once; readers, which get no -C, start in the workspace.
+            return sup.run(command, env)
         except supervise.Refused as error:
             refuse(str(error.reason))
         except self.sandbox.Refusal as error:

@@ -11,8 +11,8 @@ base_url, CONNECT through HTTPS_PROXY for auth.openai.com:443 (verified with SSL
                                          refresh through the tunnel, written like native: a
                                          temporary file beside the resolved auth.json, renamed)
     codex [-c K=V]... --no-daemon ...    TUI: prints READY, then per line on its terminal:
-                                         usage | turn [MODEL] | net PORT | write PATH | spawn |
-                                         replace (auth.json becomes a regular file) | quit
+                                         usage | turn [MODEL] | net PORT | write PATH [BASE64] |
+                                         spawn | replace (auth.json becomes a regular file) | quit
 Protected mode gives App Server readers an allowlisted environment, so the knobs come from the
 environment or from <codex_home>/fake-codex.json (codex_home is the parent of accounts/NAME), and
 every action is appended to <codex_home>/fake-codex.log (JSON lines). FAKE_BUNDLE=1 fetches the
@@ -20,6 +20,7 @@ config bundle at App Server and TUI start, as a workspace plan does; FAKE_REPLAC
 refresh replace the auth.json link with a regular file instead of writing through it.
 """
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -245,7 +246,7 @@ def tui(config, rest):
                 print("NET %s" % error.errno, flush=True)
         elif words[0] == "write":
             try:
-                Path(words[1]).write_text("x")
+                Path(words[1]).write_bytes(base64.b64decode(words[2]) if len(words) > 2 else b"x")
                 print("WRITE ok", flush=True)
             except OSError as error:
                 print("WRITE %s" % error.errno, flush=True)

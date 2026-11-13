@@ -120,6 +120,72 @@ class Screen(unittest.TestCase):
             link.symlink_to(work / "tmp")
             refused(protect.outside, link / "spec", [str(work)])
 
+    def test_the_boundary_devices_count_as_writable(self):
+        name = "sandbox_macos" if sys.platform == "darwin" else "sandbox_linux"
+        fixed = protect.fixed_writable(load(name, ROOT / "lib/coding-agent-kit" / (name + ".py")))
+        for device in ("/dev/shm", "/dev/pts") if sys.platform != "darwin" else ("/dev/fd", "/dev/ttys000"):
+            with self.subTest(device=device):
+                self.assertTrue(any(protect.within(os.path.realpath(device), root) for root in fixed), fixed)
+        if sys.platform != "darwin" and os.path.isdir("/dev/shm"):
+            self.assertIn("set TMPDIR", refused(protect.outside, "/dev/shm/codex-as-protect-x", fixed))
+
+    def test_code_loaded_outside_the_boundary_must_lie_out_of_its_reach_through_every_link(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work, out = base / "work", base / "out"
+            for path in (work / "venv/lib", out / "lib"):
+                path.mkdir(parents=True)
+            roots = [str(work)]
+            protect.unreachable([("the Python", str(out / "python3"), False), ("the kit directory", str(out / "lib"), True),
+                                 ("the Python prefix", str(base), False)], roots)
+            python = work / "venv/bin/python3"
+            self.assertIn("the Python %s lies inside %s, which the boundary can write; run codex-as with a Python and "
+                          "a kit installed outside" % (python, work),
+                          refused(protect.unreachable, [("the Python", str(python), False)], roots))
+            self.assertIn("%s, which the boundary can write, lies inside the kit directory %s" % (work, base),
+                          refused(protect.unreachable, [("the kit directory", str(base), True)], roots))
+            (out / "link").symlink_to(work / "venv")  # the real path is inside
+            (work / "hop").symlink_to(out / "lib")    # the name is inside, the real path outside
+            (work / "b").symlink_to(out / "lib")
+            (out / "a").symlink_to(work / "b")        # only a link on the way is inside
+            self.assertEqual(os.path.realpath(out / "a"), str(out / "lib"))
+            for path in (out / "link/lib", work / "hop", out / "a"):
+                with self.subTest(path=path):
+                    refused(protect.unreachable, [("the Python module path entry", str(path), True)], roots)
+            names = [name for name in protect.resolution(out / "a/x/../y") if name.startswith(str(base) + "/")]
+            self.assertEqual(names, [str(out), str(out / "a"), str(work), str(work / "b"), str(out), str(out / "lib"),
+                                     str(out / "lib/x"), str(out / "lib/y")])
+
+    def test_kit_processes_run_the_base_interpreter_and_report_its_code_paths(self):
+        python = protect.interpreter()
+        self.assertEqual(python, os.path.realpath(python))
+        with mock.patch.object(sys, "_base_executable", sys.executable, create=True):
+            self.assertEqual(protect.interpreter(), os.path.realpath(sys.executable))
+        sources = protect.code_sources(python, {})
+        kinds = {}
+        for what, path, holds in sources:
+            kinds.setdefault(what, []).append((path, holds))
+        self.assertEqual(kinds["the Python"], [(python, False)])
+        self.assertEqual(len(kinds["the Python prefix"]), 4)
+        self.assertEqual(kinds["the kit directory"], [(str(protect.HERE), True), (str(protect.KIT), True)])
+        self.assertTrue(any(os.path.isfile(os.path.join(path, "json/__init__.py"))
+                            for path, _ in kinds["the Python module path entry"]))
+        self.assertIn("did not report where it loads code from",
+                      refused(protect.code_sources, str(ROOT / "missing/python3"), {}))
+
+    def test_the_launcher_runs_commands_by_name_from_system_directories_only_while_protected(self):
+        with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
+            with protect.launcher_path():
+                self.assertEqual(os.environ["PATH"], protect.SYSTEM_PATH)
+            self.assertEqual(os.environ["PATH"], "/w/.venv/bin:/usr/bin")
+
+    def test_a_selected_profile_is_found_with_its_protected_keys(self):
+        profiles = {"p": {"model": "gpt-5.5", "sandbox_mode": "workspace-write"}, "q": {"model_provider": "x"}}
+        self.assertEqual(protect.selected_profile({"profile": "p", "profiles": profiles}), ("p", profiles["p"]))
+        self.assertEqual(protect.selected_profile({"profiles": profiles}), (None, {}))
+        self.assertEqual(protect.selected_profile({"profile": "r", "profiles": profiles}), (None, {}))
+        self.assertEqual(sorted(protect.PROTECTED_KEYS & set(profiles["p"])), ["sandbox_mode"])
+
     def test_subcommands_and_headless_modes_refuse_wherever_clap_would_run_them(self):
         for args in (["resume"], ["fork", "x"], ["exec", "x"], ["e", "x"], ["review"], ["hello", "resume"],
                      ["-m", "gpt-5.5", "resume"], ["-mgpt-5.5", "fork"], ["-c=model=gpt-5.5", "resume"],
@@ -1009,6 +1075,19 @@ class Unprotected(unittest.TestCase):
         self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
         self.assertEqual(self.home.events(), [])
 
+    def test_a_selected_profile_that_sets_what_protected_mode_sets_refuses(self):
+        missing = boundary_missing()
+        config = self.home.codex_home / "config.toml"
+        config.write_text('model = "gpt-5.5"\nprofile = "p"\n[profiles.p]\nmodel = "gpt-5.5"\n'
+                          'sandbox_mode = "workspace-write"\nmodel_provider = "openai"\n')
+        terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
+        self.addCleanup(terminal.close)
+        terminal.expect("usage reserve protection refused: " + re.escape(
+            missing or "the profile p that %s selects sets model_provider, sandbox_mode, which protected mode sets "
+            "itself" % config))
+        self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
+        self.assertEqual(self.home.events(), [])
+
     def test_without_a_terminal_protected_mode_refuses(self):
         missing = boundary_missing()
         result = self.home.run(["--reserve-5h", "10", "A"])
@@ -1246,6 +1325,79 @@ class Protected(Launch):
         terminal.send("quit\r")
         self.assertEqual(self.exit_code(), 0)
         self.assertFalse(private.exists())
+
+    def test_a_workspace_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
+        venv = self.home.work / ".venv"
+        made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], capture_output=True,
+                              timeout=120)
+        if made.returncode:
+            self.skipTest("python3 -m venv is unavailable")
+        (site,) = venv.glob("lib/python*/site-packages")
+        mark = self.home.base / "planted.log"  # outside every writable path: only an unconfined process can write it
+        planted = "import os; open(%r, 'a').write('pth %%d\\n' %% os.getpid())\n" % str(mark)
+        ps = venv / "bin/ps"  # what the launcher would run by name on macOS
+        ps.write_text("#!/bin/sh\necho ps >> '%s'\nexec /bin/ps \"$@\"\n" % mark)
+        ps.chmod(0o755)
+        terminal = self.start(env={"PATH": os.pathsep.join((str(venv / "bin"), self.home.env["PATH"]))})
+        terminal.expect("READY")
+        terminal.send("write %s %s\r" % (site / "probe.pth", base64.b64encode(planted.encode()).decode()))
+        terminal.expect("WRITE ok")
+        subprocess.run([str(venv / "bin/python3"), "-I", "-B", "-c", "pass"], check=True, timeout=30)
+        self.assertTrue(mark.exists())  # the venv's own interpreter would run it
+        mark.unlink()
+        # A new gate and monitor, then a continuation's reader (and on macOS the supervisor's ps).
+        for pid in self.kit_processes("monitor.py"):
+            os.kill(pid, signal.SIGKILL)
+        terminal.expect("gate restarted paused", timeout=30)
+        terminal.send(F12)
+        code = terminal.expect("type ([0-9a-f]{8}) then Enter").group(1).decode()
+        terminal.send(code + "\r")
+        terminal.expect("fresh quota check passed", timeout=40)
+        if os.path.isdir("/proc"):
+            for pid in self.kit_processes("gate.py") + self.kit_processes("monitor.py"):
+                argv = Path("/proc", str(pid), "cmdline").read_bytes().decode().split("\0")
+                self.assertEqual(argv[0], protect.interpreter())
+                if "--reader-argv" in argv:
+                    self.assertEqual(json.loads(argv[argv.index("--reader-argv") + 1])[0], protect.interpreter())
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
+
+    def kit_processes(self, script):
+        """Pids of this launch's kit processes that run SCRIPT."""
+        if os.path.isdir("/proc"):
+            return [pid for pid in leftovers(self.home.base) if any(
+                word.endswith(script.encode()) for word in Path("/proc", str(pid), "cmdline").read_bytes().split(b"\0"))]
+        out = subprocess.run(["ps", "-A", "-o", "pid=", "-o", "command="], capture_output=True, text=True).stdout
+        return [int(line.split(None, 1)[0]) for line in out.splitlines() if script in line and str(ROOT) in line]
+
+    def test_a_kit_inside_the_workspace_refuses_before_anything_starts(self):
+        kit = self.home.work / "kit"
+        shutil.copytree(ROOT / "bin", kit / "bin")
+        shutil.copytree(ROOT / "lib", kit / "lib", ignore=shutil.ignore_patterns("__pycache__"))
+        self.terminal = Terminal([str(kit / "bin/codex-as"), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
+        self.terminal.expect("usage reserve protection refused: the kit directory %s lies inside %s, which the boundary "
+                             "can write; run codex-as with a Python and a kit installed outside the workspace"
+                             % (re.escape(str(kit / "lib/codex-as")), re.escape(str(self.home.work))))
+        self.assertEqual(self.exit_code(), 1)
+        self.assertEqual(self.home.events(), [])
+        self.assertEqual(self.backend.seen(), [])
+
+    def test_a_relative_cd_resolves_once_against_the_launch_directory(self):
+        (self.home.work / "sub").mkdir()
+        result = self.home.run(["A", "-C", "sub"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        (plain,) = self.home.events("tui")
+        self.home.log.unlink()
+        terminal = self.start(args=("--reserve-5h", "10", "A", "-C", "sub"))
+        terminal.expect("READY")
+        terminal.send("write %s\r" % (self.home.work / "sub/file"))  # the -C directory is the workspace
+        terminal.expect("WRITE ok")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        (record,) = self.home.events("tui")
+        self.assertEqual((record["cwd"], record["argv"][-2:]), (plain["cwd"], plain["argv"][-2:]))
+        self.assertEqual((record["cwd"], record["argv"][-2:]), (str(self.home.work), ["-C", "sub"]))
 
     def test_a_model_override_replaces_the_configured_model(self):
         (self.home.codex_home / "config.toml").write_text('model = "gpt-4o"\n')
