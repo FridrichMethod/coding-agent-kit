@@ -1164,29 +1164,39 @@ class Supervisor:
         return found
 
     def _signal_session_groups(self, table, sig):
-        """Signal whole process groups of the boundary sessions; returns how many were signalled.
-        A process that forks and exits at once is gone before any snapshot can name it, but the
-        group its child inherits stays: every boundary session's own group (its id is the session
-        id, which _prune_sessions keeps only while the session has existed without a break), and on
-        Linux every group a live member of such a session is in, read from /proc as that member is.
-        A chain that also leaves its group on every fork can still outrun this."""
+        """Signal whole process groups of the boundary sessions; returns how many were signalled,
+        not counting those seen with zombie members only. A process that forks and exits at once is
+        gone before any snapshot can name it, but the group its child inherits stays: every boundary
+        session's own group (its id is the session id, which _prune_sessions keeps only while the
+        session has existed without a break), and on Linux every group a member of such a session is
+        in, read from /proc as that member is. An exited member counts while it is a zombie: a
+        fork-and-exit chain in a group of its own (one setpgid, as a job-control shell does for
+        `cmd &`) leaves no live member long enough to be read, but under the subreaper each member
+        that exits stays the launcher's zombie, in that group, until reap(). A zombie holds its group
+        number, and a group never spans sessions, so only boundary processes are signalled. A group
+        seen with zombie members only is signalled but not counted, so it alone keeps no sweep round
+        going. A chain that changes its group on every fork, or one in a group of its own without
+        /proc (macOS), can still outrun this."""
         live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
         own = {os.getpgrp(), os.getsid(0)}
         live -= own
-        done = set()
+        done, counted = set(), set()
 
-        def end(group):
+        def end(group, count=True):
             if group in done or group in own:
                 return
             try:
                 os.killpg(group, sig)
                 done.add(group)
+                if count:
+                    counted.add(group)
             except (ProcessLookupError, PermissionError):
                 pass
 
         for sid in live:
             end(sid)
         if live and has_proc():
+            running = {}  # group -> whether a member that is not a zombie was seen in it
             for name in os.listdir(PROC):
                 if not name.isdigit():
                     continue
@@ -1196,9 +1206,11 @@ class Supervisor:
                     state, group, session = fields[0], int(fields[2]), int(fields[3])
                 except (OSError, IndexError, ValueError):
                     continue
-                if session in live and state != b"Z":
-                    end(group)
-        return len(done)
+                if session in live:
+                    running[group] = running.get(group, False) or state != b"Z"
+            for group, member in running.items():
+                end(group, count=member)
+        return len(counted)
 
     def sweep(self, include_kit=False, grace=SWEEP_GRACE, limit=SWEEP_LIMIT):
         """End every boundary descendant (TERM, then KILL after grace, round after round until none

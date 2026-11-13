@@ -261,7 +261,8 @@ def main(args):
     if not policy.off and not plan.query:
         native = protect.reviewed(version.stdout)
         session = protect.Session(guard, storage, reserve, config, layout, policy, native,
-                                  protect.screen(native_args, native), codex, os.environ, sqlite, plan.cwd)
+                                  protect.screen(native_args, native), codex, os.environ, sqlite, plan.cwd,
+                                  umask=CALLER_UMASK if CALLER_UMASK >= 0 else None)
         session.check()
     env = os.environ.copy()
     env["CODEX_HOME"] = str(layout.home)

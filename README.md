@@ -26,7 +26,8 @@ your own with `install.sh`, or link or copy its files.
   and runs it with `-Channel 0.6` as the
   [v0.6.0 README](https://github.com/FridrichMethod/coding-agent-kit/blob/v0.6.0/README.md)
   describes.
-- Python 3.11 or newer, standard library only (run as `python3 -I -B`).
+- Python 3.11 or newer, standard library only (run as `python3 -I -B`, the
+  launchers with `-S`).
 - Bash for `codex-as` (3.2 is enough), POSIX `sh` for `claude-as` and
   `install.sh`, and ordinary POSIX utilities. The managed install also needs
   Git and `tar`.
@@ -37,8 +38,10 @@ your own with `install.sh`, or link or copy its files.
 - Optional: bash-completion or zsh for account-name completion.
 - Usage reserves (protected mode) need more, and refuse to start without it:
   Linux on x86_64 with Landlock ABI 6 or newer and seccomp (not WSL), or
-  macOS 27.2 on Apple silicon with `/usr/bin/sandbox-exec`; an interactive
-  terminal; and exactly the reviewed native release, codex-cli 0.167.2 or
+  macOS 27.2, the reviewed release (older and newer ones are refused), on
+  Apple silicon with `/usr/bin/sandbox-exec`; an interactive terminal; a
+  `python3` first on `PATH` and a kit outside every path the session can
+  write; and exactly the reviewed native release, codex-cli 0.167.2 or
   Claude Code 2.1.322 with a Pro or Max account enrolled through native
   login. Nothing is installed for it.
 

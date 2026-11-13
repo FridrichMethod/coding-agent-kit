@@ -151,8 +151,9 @@ five_hour = "off"
   the invocation's `--reserve-5h` or `--reserve-weekly` flag, then the
   account's table, then `[usage_reserve]`, then off. A missing field
   inherits; an explicit `"off"` turns the window off even when a broader
-  layer sets a percentage. The flags change only that launch and are never
-  written anywhere.
+  layer sets a percentage. A window that is off neither refuses nor pauses
+  a protected launch, also when Codex reports it at its limit. The flags
+  change only that launch and are never written anywhere.
 - 0 is an enabled reserve that pauses at exhaustion; 100 never lets model
   work start. With both windows off the launch is unchanged.
 

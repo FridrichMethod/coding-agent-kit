@@ -20,7 +20,8 @@ Breaking changes:
   `protect.py`. `codex-as` loads `reserve.py` and `protect.py`, and
   `claude-as` `reserve.py`, on every launch, so a copy without them prints
   `incomplete install at ROOT` for any launch; `claude-as` needs `native.py`
-  once a native-login account exists, and a launch with a reserve needs the
+  once `<secrets_dir>/native-claude-accounts` exists (the first
+  `--enroll-native` creates it), and a launch with a reserve needs the
   others and refuses the same way without them. Linked and managed installs
   and checkouts are unaffected, and no path moved.
 - The configuration tables `[usage_reserve]` and `[claude_auth]` are read
@@ -55,21 +56,29 @@ Added:
   must pass. The gate admits a model request only with the account's
   credential, a reviewed model of its quota family and a fresh reading above
   both reserves, and reads quota about every 30 seconds (15 near a reserve).
+  It connects through the proxy the native itself would use for HTTPS
+  (`HTTPS_PROXY`, then `ALL_PROXY` for Codex, or `HTTP_PROXY` and then
+  `ALL_PROXY` for Claude Code), captured once and never passed to the
+  native; it goes direct only to a host that both natives' `NO_PROXY`
+  readings exempt, and a proxy it cannot use (anything but a plain
+  `http://` one) refuses the launch.
   It pauses, refusing new model requests and closing the admitted streams,
   when a window reaches its reserve, and also when it cannot tell: a reading
   older than 120 seconds, a missing or unattributed window, another account,
   a lost monitor or a stopped gate (restarted paused, at most 5 times in 10
   minutes). The native interface stays usable. Nothing resumes by itself:
-  F12 shows a one-use code, and typing it asks for a fresh check that must
+  while paused the launcher says when the latest quota check passes, F12
+  shows a one-use code, and typing it asks for a fresh check that must
   pass. At exit every process left inside the boundary is ended.
 - Protected mode requires Linux on x86_64 with Landlock ABI 6 or newer and
   seccomp (not WSL), or macOS 27.2 on Apple silicon with
   `/usr/bin/sandbox-exec`, a root-owned `/bin/ps` and a passing startup
   self-test, an interactive terminal, and exactly the reviewed native
   release: codex-cli 0.167.2, or Claude Code 2.1.322 with a `native-login`
-  account. These are an upper bound: a newer native or macOS release
-  refuses protected launches until a kit patch reviews it. Anything else is
-  refused before the native starts, with one line, exit 1:
+  account. Only these reviewed releases are accepted: an older release
+  (macOS 15, for example) is refused as unreviewed, and a newer native or
+  macOS release refuses protected launches until a kit patch reviews it.
+  Anything else is refused before the native starts, with one line, exit 1:
   `codex-as: usage reserve protection refused: REASON. (--reserve-5h off --reserve-weekly off launches unprotected)`
   or `claude-as: protected mode refused: REASON.` The boundary is the
   kit's own code (Landlock and seccomp through `ctypes`, a Seatbelt
@@ -82,8 +91,14 @@ Added:
   it sets, and accounts whose managed requirements forbid what it sets
   (application network restrictions, provider, residency, base URL,
   credential store or `sqlite_home` pins, among others). The gate forwards
-  the workspace configuration bundle. Concurrent protected launches of one
-  account take turns at the pre-launch refresh.
+  the workspace configuration bundle; one that forbids protected mode
+  pauses a running session until a later bundle lifts it. Codex's limit
+  flags (`limit_reached`, `allowed` false) are attributed to the windows at
+  100%: an exhausted window whose reserve is off neither refuses nor
+  pauses, and flags that no window accounts for refuse the start and pause
+  a run. Concurrent protected launches of one account take turns at the
+  pre-launch refresh. Codex, its tools and its quota readers keep the
+  caller's umask, and `NAME update` and `completion` stay plain `codex`.
 - Protected `claude-as` supports Pro and Max accounts only: Claude Code
   applies no organization policy while its requests go through the gate, so
   an account whose recorded subscription is not Pro or Max, and every
@@ -92,11 +107,15 @@ Added:
   settings, remote and background forms and every command are refused;
   hooks, stdio MCP servers and plugins run inside the boundary. As in
   protected `codex-as`, the gate and the monitor run the base interpreter of
-  the launcher's Python, and a launch is refused when that Python or the kit
-  lies inside a path the boundary can write (a kit checked out inside the
-  project, for example); while the run lasts, the launcher runs commands by
-  name only from the system directories. The status line keeps working with
-  `CODING_AGENT_KIT_CLAUDE_PID` set to the native's pid, and
+  the launcher's Python, and a launch is refused when that Python, the
+  launcher's own `python3` or the kit lies inside a path the boundary can
+  write (a kit checked out inside the project, or a workspace virtual
+  environment first on `PATH`, for example); while the run lasts, the
+  launcher runs commands by name only from the system directories. A launch
+  is refused when the account's token, after the pre-launch refresh,
+  expires within fifteen minutes, and the start line names the time it
+  expires, when the session needs a relaunch. The status line keeps working
+  with `CODING_AGENT_KIT_CLAUDE_PID` set to the native's pid, and
   `CODING_AGENT_KIT_USAGE_FILE` is not passed.
 - `claude-as --enroll-native NAME`: Claude Code's own login for an account,
   in its own configuration directory
@@ -125,13 +144,16 @@ Changed:
 - Both help texts describe the reserve flags, and the `claude-as` help
   `--enroll-native`; the `codex-as` help says that the absent upper version
   limit holds for launches without reserves.
+- Both launchers start `python3 -I -B -S`, so no site-packages or `.pth`
+  file of the `python3` found on `PATH` (a virtual environment's included)
+  runs in the launcher.
 - Bash completion after `NAME` hands the native completion the command line
   from `NAME` on, with the cursor and the current and previous words adjusted
   to it.
 - AGENTS.md records protected mode's scoped exceptions to the dependency
   rules: per-invocation gate and monitor processes, the gate as a protocol
   client, the kit's own boundary code, refusing instead of falling back, and
-  the reviewed upper bound of native and macOS releases.
+  accepting only the reviewed native and macOS releases.
 
 ## 0.7.7
 
