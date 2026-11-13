@@ -818,6 +818,33 @@ class Provider(unittest.TestCase):
         self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
         self.assertEqual(self.model_requests(), [])
 
+    def test_a_blocking_bundle_keeps_the_run_paused_until_a_later_bundle_lifts_it(self):
+        """Passing usage reads and a continuation never undo a requirement refusal that still applies;
+        a later bundle without blockers lifts it, and a continuation then resumes as after any pause."""
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["state"], "running")
+        self.upstream.bundle = bundle("[application.network]\nenabled = true\n")
+        self.assertEqual(self.request("GET", provider_gate.BUNDLE_PATH)[0], 200)
+        self.assertEqual(self.gate.status()["reason"], "requirements_application_network")
+        self.request("GET", "/backend-api/wham/usage")  # passes both reserves
+        self.assertEqual(self.gate.status()["reason"], "requirements_application_network")
+        self.gate.heartbeat()
+        self.gate.arm_continuation()
+        self.request("GET", "/backend-api/wham/usage")
+        status = self.gate.status()
+        self.assertEqual((status["state"], status["reason"]), ("paused", "requirements_application_network"))
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+        self.assertEqual(self.model_requests(), [])
+        self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only", "danger-full-access"]\n')
+        self.assertEqual(self.request("GET", provider_gate.BUNDLE_PATH)[0], 200)
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["reason"], "awaiting_continuation")
+        self.gate.heartbeat()
+        self.gate.arm_continuation()
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["state"], "running")
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
+
     def test_the_bundle_route_stays_open_while_paused(self):
         self.request("GET", "/backend-api/wham/usage")
         self.upstream.document = usage_document(primary=91)

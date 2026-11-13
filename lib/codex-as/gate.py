@@ -164,6 +164,7 @@ class CodexProvider(kit.BaseProvider):
         if upstream is not None:
             self.upstream = upstream
         self.own_rows = frozenset()  # names of quota rows other than the codex family's
+        self.requirement = None      # the latest bundle's refusal reason while it applies
 
     def present(self, route, headers):
         refuse = lambda reason: kit.Refusal(reason, route.kind == kit.MODEL)
@@ -235,12 +236,14 @@ class CodexProvider(kit.BaseProvider):
         found = readings(rate_limit)
         flagged = rate_limit.get("limit_reached") is True or rate_limit.get("allowed") is False
         return kit.Observation(at, True, identity=identity, family="codex",
-                               data={"readings": found, "wall": time.time(),
+                               data={"readings": found, "wall": time.time(), "requirement": self.requirement,
                                      "limit_reached": flagged and not limit_explained(found)})
 
     def bundle(self, status, body, at):
         """Nothing for a bundle protected mode can run with (or a failed fetch: native then refuses
-        managed traffic itself); a permanent refusal for one whose requirements forbid it."""
+        managed traffic itself); a permanent refusal for one whose requirements forbid it. The refusal
+        stays with the provider until a later bundle has no blocker, and every usage reply carries it,
+        so that a passing reading and a continuation never undo it."""
         if status != 200:
             return None
         try:
@@ -248,9 +251,10 @@ class CodexProvider(kit.BaseProvider):
         except (ValueError, UnicodeError, RecursionError):
             document = None
         found = protect.bundle_blockers(document, self.sqlite_home)
+        self.requirement = "requirements_" + sorted(found)[0] if found else None
         if not found:
             return None
-        return kit.Observation(at, False, reason="requirements_" + sorted(found)[0], permanent=True)
+        return kit.Observation(at, False, reason=self.requirement, permanent=True)
 
 
 class Decider:
@@ -289,10 +293,11 @@ class Decider:
             data = observation.data if isinstance(observation.data, dict) else {}
             fresh = reserve.Observation(tuple(data.get("readings") or ()), event.at,
                                         data.get("wall", time.time()), True)
-            # A condition the reply still carries applies before its reading: a start then refuses
-            # instead of running and pausing at once, and the reading never clears it.
-            if data.get("limit_reached"):
-                evaluator.fault("limit_reached")
+            # A condition that still applies goes before the reading: a start then refuses instead of
+            # running and pausing at once, and the reading never clears it.
+            condition = data.get("requirement") or ("limit_reached" if data.get("limit_reached") else None)
+            if condition:
+                evaluator.fault(word(condition))
             verdict = evaluator.observe(fresh)
         else:
             verdict = self.health(event)
