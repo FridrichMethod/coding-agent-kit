@@ -487,6 +487,19 @@ class Sweep(unittest.TestCase):
         self.assertTrue(select.select([beat_read], [], [], 3.0)[0] and os.read(beat_read, 64) == b"",
                         "the fork chain outlived the sweep")
 
+    @unittest.skipUnless(sys.platform.startswith("linux") and os.path.isdir("/proc/self"),
+                         "the child subreaper and the /proc group scan are Linux's")
+    def test_a_fork_chain_in_a_process_group_of_its_own_is_ended_under_the_subreaper(self):
+        """One setpgid, as a job-control shell does for `cmd &`, takes a fork-and-exit chain out of
+        the session's own group, and no live member lasts long enough for a scan to read it. Each
+        member that exits stays a zombie of the launcher (the subreaper) until it reaps, still in
+        the chain's group, so the sweep ends that group through it. The launcher runs in a process of
+        its own here, since a subreaper test process would adopt every other test's orphans."""
+        result = subprocess.run([sys.executable, "-I", "-B", "-c", SUBREAPER_CHAIN,
+                                 str(HERE.parent / "lib/coding-agent-kit/supervise.py")],
+                                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.stdout.strip(), "ended", result.stdout + result.stderr)
+
     def test_orphaned_members_of_a_boundary_session_are_found(self):
         sup = supervise.Supervisor(["gate"], {})
         out_read, out_write = os.pipe()
@@ -1131,6 +1144,49 @@ def _quiet_killpg(group):
         os.killpg(group, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
+
+
+# A launcher in a process of its own (argv[1]: supervise.py): it becomes the child subreaper, spawns
+# a boundary child whose session leader exits after its child left the session's group once, and
+# sweeps; it prints "ended" when every chain member is gone within 3 s (the beat pipe reaches EOF).
+# A chain that outlives the sweep is killed through the group it reported, and stops after 20 s anyway.
+SUBREAPER_CHAIN = """
+import importlib.util, os, select, signal, sys, time
+spec = importlib.util.spec_from_file_location("chain_supervise", sys.argv[1])
+supervise = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(supervise)
+if not supervise.enable_subreaper():
+    sys.exit("no child subreaper")
+sup = supervise.Supervisor(["gate"], {})
+table = supervise.process_table()
+sup.baseline = {pid: table[pid][1] for pid in supervise.descendants(os.getpid(), table)}
+sup.prepared = True
+chain = ("import os, time\\n"
+         "if os.fork():\\n    os._exit(0)\\n"
+         "os.setpgid(0, 0)\\n"
+         "os.write(1, b'%d\\\\n' % os.getpid())\\n"
+         "end = time.monotonic() + 20\\n"
+         "while time.monotonic() < end:\\n    if os.fork():\\n        os._exit(0)\\n")
+beat_read, beat_write = os.pipe()  # every member holds the write end: EOF once all are gone
+sup.spawn([sys.executable, "-I", "-B", "-c", chain], {}, stdout=beat_write, confine=True)
+os.close(beat_write)
+line = b""
+while not line.endswith(b"\\n"):
+    line += os.read(beat_read, 1)
+group = int(line)
+time.sleep(0.3)  # the chain is running in its own group: the session's group and leader are gone
+sup.sweep(grace=0.2)
+ended, deadline = False, time.monotonic() + 3.0
+while not ended and select.select([beat_read], [], [], max(0.0, deadline - time.monotonic()))[0]:
+    ended = os.read(beat_read, 4096) == b""
+if not ended:
+    try:
+        os.killpg(group, signal.SIGKILL)
+    except OSError:
+        pass
+sup.reap()
+print("ended" if ended else "outlived")
+"""
 
 
 def fakes_wait(predicate, timeout=5.0):
