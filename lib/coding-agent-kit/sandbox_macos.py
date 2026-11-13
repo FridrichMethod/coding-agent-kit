@@ -15,10 +15,13 @@ apply another one, so it can neither loosen nor replace it. The profile:
 - denies every file write except beneath the writable paths, the terminal
   devices and, for Claude, its fixed per-user temporary directory
   /private/tmp/claude-UID; writes beneath WRITABLE/Library/LaunchAgents and
-  /private/var/at stay denied. /dev/ttys* is writable because PTY tools
-  open new terminals by path, so a process inside can write to every
-  terminal of the user, not only its own. A writable path that is not
-  printable ASCII, or holds a quote or a backslash, refuses protected mode.
+  /private/var/at stay denied. Hard-linking or renaming an outside file
+  into a writable path fails (EPERM), and a symlink there to an outside
+  file can be made but not written through. /dev/ttys* is writable because
+  PTY tools open new terminals by path, so a process inside can write to
+  every terminal of the user, not only its own. A writable path that is
+  not printable ASCII, or holds a quote or a backslash, refuses protected
+  mode.
 
 `localhost` in a Seatbelt address also admits the wildcard and configured
 local addresses (interface addresses, loopback aliases) on the gate port, so
@@ -176,6 +179,10 @@ attempt("bind", bind)
 attempt("udp", udp)
 attempt("write", write)
 master, slave = os.openpty()
+# No echo: an injected byte echoed to a master nobody reads would make the session leader's exit wait for it to drain.
+attrs = termios.tcgetattr(slave)
+attrs[3] &= ~termios.ECHO
+termios.tcsetattr(slave, termios.TCSANOW, attrs)
 pid = os.fork()
 if pid == 0:
     try:

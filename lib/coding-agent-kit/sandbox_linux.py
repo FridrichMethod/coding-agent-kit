@@ -15,13 +15,16 @@ to exec the native, in this order:
   - scopes abstract UNIX sockets and signals to the domain, so nothing inside
     reaches an outside abstract socket or signals the gate, monitor or holder,
   - handles every write-class filesystem right and allows it only beneath
-    the writable paths and the terminal devices in DEVICES, so linking or
-    renaming an outside file into a writable directory fails too (EXDEV,
-    EACCES). Reads, execution and metadata changes (chmod, chown, utimes,
-    extended attributes), for which Landlock has no right, stay open.
-    /dev/pts is writable because PTY tools open new terminals by path, so a
-    process inside can write to every terminal of the user, not only its
-    own;
+    the writable paths and the devices in DEVICES, so linking or renaming
+    an outside file into a writable directory fails too (EXDEV, EACCES).
+    Reads, execution and metadata changes (chmod, chown, utimes, extended
+    attributes), for which Landlock has no right, stay open. /dev/pts is
+    writable because PTY tools open new terminals by path, so a process
+    inside can write to every terminal of the user, not only its own.
+    /dev/shm is writable for POSIX shared memory and semaphores (Python
+    multiprocessing locks, for example); it is a tmpfs shared with every
+    process of the user outside the boundary, so what a process inside
+    leaves there reaches them;
 - install a seccomp filter that allows socket() only for IPv4 and IPv6 TCP
   (protocol 0 or IPPROTO_TCP) and netlink route, and socketpair() only for
   AF_UNIX stream and seqpacket, whose connected ends cannot be re-addressed.
@@ -33,14 +36,15 @@ to exec the native, in this order:
   of another architecture, such as 32-bit i386 code, kills the process, and
   an x32 syscall fails with ENOSYS.
 
-Landlock names a port, not an address. An outside listener on the gate port
-at another local address stays reachable, and a process inside can get the
-gate port itself on an address where nothing holds it (127.0.0.2, say)
-through a port-0 bind, which may return any free port. So the launcher holds
-the port for the whole invocation, on 127.0.0.1 and, where IPv6 exists, on
-::1, and points the native at the literal 127.0.0.1, never at a name such as
-localhost. The boundary governs egress; a process inside can still accept
-connections that outside parties start.
+Landlock names a port, not an address. A listener on the gate port at any
+other address, local or remote, stays reachable, and a process inside can
+get the gate port itself on an address where nothing holds it (127.0.0.2,
+say) through a port-0 bind, which may return any free port. So the launcher
+holds the port for the whole invocation, on 127.0.0.1 and, where IPv6
+exists, on ::1, and points the native at the literal 127.0.0.1, never at a
+name such as localhost; against a remote host on the same port number only
+the random choice of the port stands. The boundary governs egress; a process
+inside can still accept connections that outside parties start.
 
 Public API (load this file by path; it is never on sys.path):
 

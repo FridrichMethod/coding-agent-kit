@@ -944,9 +944,12 @@ class MacSelfTestRunner(unittest.TestCase):
             self.run_self_test(fake)
         self.assertEqual(caught.exception.kind, "self-test")
         message = str(caught.exception)
-        for text in ("another loopback port is not denied (connected)", "binding a port is not denied (bound)",
-                     "UDP to the gate port is not denied (sent)",
-                     "a write outside the writable paths is not denied (written)"):
+        texts = ["another loopback port is not denied (connected)", "binding a port is not denied (bound)",
+                 "UDP to the gate port is not denied (sent)",
+                 "a write outside the writable paths is not denied (written)"]
+        if sys.platform == "darwin":  # Linux may refuse TIOCSTI itself (dev.tty.legacy_tiocsti)
+            texts.append("terminal input injection (TIOCSTI) is not denied (injected)")
+        for text in texts:
             self.assertIn(text, message)
         self.assertNotIn("the gate port is unreachable", message)
         self.assertEqual(os.listdir(self.base / "probe"), [])
@@ -1240,11 +1243,16 @@ class MacEnforcement(unittest.TestCase):
 
     def require_profile(self):
         try:
-            return macos.self_test(self.gate.port, [str(self.base / "inside")], "codex")
+            tested = macos.self_test(self.gate.port, [str(self.base / "inside")], "codex")
         except macos.Refusal as refusal:
             if self.unreviewed is None:
                 raise
             self.skipTest("unreviewed host (%s); its self-test failed: %s" % (self.unreviewed, refusal))
+        # The self-test connected to the gate once and sent nothing; let the listener record that, then start afresh.
+        wait_for(lambda: self.gate.received, 100)
+        self.assertEqual(self.gate.received, [b""])
+        self.gate.received.clear()
+        return tested
 
     def test_self_test_passes(self):
         tested = self.require_profile()
