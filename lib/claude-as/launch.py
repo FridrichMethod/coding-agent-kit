@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import stat
 import subprocess
@@ -42,7 +43,7 @@ SECTION = re.compile(r"Your OAuth token \(valid for [^\r\n)]{1,80}\):\s*(.*?)\s*
 # the first argument and by exact match; the older spellings stay accepted.
 QUERIES = {"--list": "--list-accounts", "-l": "--list-accounts", "--labels": "--account-labels",
            "--info": "--account-info", "-i": "--account-info", "--label": "--set-label"}
-OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h", "--version", "-V", "-v"}
+OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h", "--version", "-V", "-v", "--enroll-native"}
 # A dash word that is safe to echo back in the hint.
 PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
 
@@ -95,17 +96,20 @@ def validate(token):
 
 
 def accounts(root, config):
+    """Setup-token accounts (<secrets_dir>/claude-NAME) and enrolled native-login ones."""
     if not os.path.lexists(root):
         return []
     directory(root, config)
-    result = []
+    result = set()
     for path in root.iterdir():
         name = path.name.removeprefix("claude-")
         info = path.lstat()
         if (path.name.startswith("claude-") and NAME.fullmatch(name)
                 and stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
                 and info.st_nlink == 1 and stat.S_IMODE(info.st_mode) == 0o600):
-            result.append(name)
+            result.add(name)
+    if (root / "native-claude-accounts").is_dir():
+        result.update(name for name in native_module().names(config) if not name.startswith("-"))
     return sorted(result)
 
 
@@ -173,27 +177,32 @@ def inspect_config(cfg):
         fail("settings.env conflicts with account authentication (values hidden).")
 
 
-def preflight(args, kit, enrollment):
+def preflight(args, kit, enrollment, config_dir=None):
     conflicts = sorted(CONFLICTS.intersection(os.environ))
     if conflicts:
         fail("authentication/provider environment conflict: " + ", ".join(conflicts) + " (values hidden).")
     # Native paths use env || default and Node path joining, not shell '~'
-    # expansion. Inspect exactly the configuration the real CLI will load.
-    config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or str(kit.home / ".claude")).absolute()
-    sources = [config / "settings.json", config / "settings.local.json",
+    # expansion. Inspect exactly the configuration the real CLI will load:
+    # a native-login account's fixed directory, which the launcher passes it.
+    config = Path(config_dir or os.environ.get("CLAUDE_CONFIG_DIR") or str(kit.home / ".claude")).absolute()
+    # A native-login account injects no credential: native applies its own login pins and policy,
+    # so only the token injection of a setup-token account needs the settings sources checked.
+    sources = [] if config_dir else [config / "settings.json", config / "settings.local.json",
                Path("/etc/claude-code/managed-settings.json"),
                Path("/Library/Application Support/ClaudeCode/managed-settings.json")]
-    for parent in (Path.cwd(), *Path.cwd().parents):
-        sources += [parent / ".claude/settings.json", parent / ".claude/settings.local.json"]
     managed = Path("/etc/claude-code/managed-settings.d")
-    if managed.exists():
-        sources += sorted(managed.glob("*.json"))
+    if not config_dir:
+        for parent in (Path.cwd(), *Path.cwd().parents):
+            sources += [parent / ".claude/settings.json", parent / ".claude/settings.local.json"]
+        if managed.exists():
+            sources += sorted(managed.glob("*.json"))
     for path in set(sources):
         config_check(path, enrollment=enrollment and path in {
             Path("/etc/claude-code/managed-settings.json"),
             Path("/Library/Application Support/ClaudeCode/managed-settings.json"),
         } or enrollment and path.parent == managed)
-    config_check(config / "remote-settings.json", enrollment=enrollment)
+    if not config_dir:
+        config_check(config / "remote-settings.json", enrollment=enrollment)
     if enrollment and (config / "remote-settings-helper-consent").exists():
         fail("managed policy helper present; automatic enrollment cannot preserve its loading chain.")
     if enrollment:
@@ -371,6 +380,27 @@ def kit_module(name):
     return module
 
 
+def own_module(name):
+    """lib/claude-as/NAME.py, a sibling of this file, by path; a missing file is an incomplete install."""
+    here = Path(os.path.realpath(__file__)).parent
+    spec = importlib.util.spec_from_file_location("claude_as_own_" + name, here / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except (OSError, ImportError, SyntaxError):
+        fail(f"incomplete install at {here.parent.parent}")
+    return module
+
+
+_NATIVE = []
+
+
+def native_module():
+    if not _NATIVE:
+        _NATIVE.append(own_module("native"))
+    return _NATIVE[0]
+
+
 def kit_config():
     config = kit_module("config").load()
     for warning in config.warnings:
@@ -426,10 +456,12 @@ def set_label(config, metadata, args):
     print(styled(f"claude-as: label of {name} {'set' if label else 'cleared'}.", "32", 2), file=sys.stderr)
 
 
-def usage_environment(env, config, metadata, account, token):
+def usage_environment(env, config, metadata, account, token, token_id=None):
     """The status line helper records this account's last rate limits through these, and
     only under the claude this process becomes (exec keeps its pid) and a token, where it
-    sees one, that hashes to the same identifier."""
+    sees one, that hashes to the same identifier. A native-login account passes token_id
+    (derived from its enrollment, since the launcher never reads its credential); protected
+    mode replaces the pid with the native's own."""
     for name in ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID", "CODING_AGENT_KIT_CLAUDE_PID"):
         env.pop(name, None)
     try:
@@ -437,8 +469,97 @@ def usage_environment(env, config, metadata, account, token):
     except (OSError, ValueError):
         return
     env["CODING_AGENT_KIT_USAGE_FILE"] = str(folder / f"claude-{account}.usage.json")
-    env["CODING_AGENT_KIT_TOKEN_ID"] = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
+    env["CODING_AGENT_KIT_TOKEN_ID"] = token_id or hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
     env["CODING_AGENT_KIT_CLAUDE_PID"] = str(os.getpid())
+
+
+def enroll_native(config, name):
+    """claude-as --enroll-native NAME: a pending registration and the user's own login commands,
+    then, once native recorded a login, ready after the user confirms the account."""
+    if not NAME.fullmatch(name) or name.startswith("-"):
+        fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
+    native = native_module()
+    paths = native.Paths(config, name)
+    secret = config.secrets_dir
+    if not os.path.lexists(secret):
+        secret.mkdir(mode=0o700)
+    directory(secret, config)
+    conflicts = sorted(CONFLICTS.intersection(os.environ) | ({"CLAUDE_CONFIG_DIR"} & set(os.environ)))
+    if conflicts:
+        fail("authentication/provider environment conflict: " + ", ".join(conflicts) + " (values hidden); "
+             "native login must use only the account's own directory.")
+    claude = shlex.quote(config.claude)
+    variable = "CLAUDE_CONFIG_DIR=" + shlex.quote(paths.config)
+    commands = [f"  {variable} {claude} auth login", f"  {variable} {claude} auth status"]
+    hint = ([] if config.claude_mode(name) == "native-login" else
+            [f"Then select it in {config.file}:", f"  [claude_auth.accounts.{name}]", '  mode = "native-login"'])
+    record = native.load(paths)
+    if record is None:
+        native.create_pending(paths)
+        say(f"claude-as: the native-login enrollment of {name} is pending. In this terminal, sign in once with "
+            "Claude Code itself:", "36")
+        print("\n".join(commands), file=sys.stderr)
+        say(f"Then run claude-as --enroll-native {name} again to confirm the account.", "36")
+        if hint:
+            print("\n".join(hint), file=sys.stderr)
+        return
+    if record["state"] == "ready":
+        say(f"claude-as: {name} is already enrolled with native login (configuration directory {paths.config}).", "32")
+        if hint:
+            print("\n".join(hint), file=sys.stderr)
+        return
+    identity = native.read_identity(paths.config)
+    if identity is None:
+        print("\n".join(commands), file=sys.stderr)
+        fail(f"the native login of {name} is not complete yet: run the commands above, then "
+             f"claude-as --enroll-native {name} again.")
+    executable = config.which("claude")
+    if not executable:
+        fail("real Claude executable not found on PATH." if config.claude == "claude"
+             else f"the configured claude executable {config.claude} was not found.")
+    tty = Terminal()
+    try:
+        tty.write(f"Claude Code reports this login for {name}:\n")
+        env = os.environ.copy()
+        env["CLAUDE_CONFIG_DIR"] = paths.config
+        status = subprocess.run([executable, "auth", "status"], env=env, stdin=subprocess.DEVNULL, stdout=tty,
+                                stderr=tty, check=False)
+        if status.returncode:
+            fail(f"claude auth status failed for {name}; sign in again with the commands of the first "
+                 f"claude-as --enroll-native {name}.")
+        tty.confirm(f"Use this account and organization as {name}?")
+        native.mark_ready(paths, identity)
+        tty.write(f"Enrolled {name} with native login; Claude Code keeps and refreshes its credential.\n", "32")
+    finally:
+        tty.close()
+    if hint:
+        print("\n".join(hint), file=sys.stderr)
+
+
+def say(text, style):
+    print(styled(text, style, 2), file=sys.stderr)
+
+
+def native_launch(config, account, args, policy, metadata, executable):
+    """A native-login account: Claude Code with the fixed CLAUDE_CONFIG_DIR and its own stored
+    login; protected mode when a reserve is enabled. The credential is never read here."""
+    native = native_module()
+    paths = native.Paths(config, account)
+    if os.environ.get("CLAUDE_CONFIG_DIR", paths.config) != paths.config:
+        fail(f"CLAUDE_CONFIG_DIR is set; the native-login account {account} uses {paths.config} (unset it).")
+    record = native.load(paths)
+    if record is None:
+        fail(f"{account} is configured for native login but not enrolled; run claude-as --enroll-native {account}.")
+    if record["state"] != "ready":
+        fail(f"the native-login enrollment of {account} is pending; sign in, then run "
+             f"claude-as --enroll-native {account} to confirm it.")
+    env = os.environ.copy()
+    env["CLAUDE_CONFIG_DIR"] = paths.config
+    usage_environment(env, config, metadata, account, None, token_id=native.token_id(record))
+    if policy is None or policy.off:
+        os.execve(executable, [executable, *args], env)
+    protect = own_module("protect")
+    return protect.launch(config, policy, paths, record, args, executable, env, style=lambda text: styled(text, "33", 1))
 
 
 def main():
@@ -467,9 +588,15 @@ def main():
         if text:
             print(text)
         return
-    if args and args[0] not in OPTIONS and PLAIN.fullmatch(args[0]) and (word := shown(args[0])):
+    if len(args) == 2 and args[0] == "--enroll-native":
+        enroll_native(config, args[1])
+        return
+    reserve = kit_module("reserve")
+    # The reserve flags come first, before NAME; without them the arguments are unchanged.
+    overrides, rest = reserve.split_flags(sys.argv[1:])
+    if rest and rest[0] not in OPTIONS and PLAIN.fullmatch(rest[0]) and (word := shown(rest[0])):
         fail(f"{word} is not a claude-as option; native options go after NAME (claude-as NAME {word} ...)")
-    account, *args = sys.argv[1:]
+    account, *args = rest
     # As in codex-as, no name starts with -, so a mistyped option is never enrolled.
     if not NAME.fullmatch(account) or account.startswith("-"):
         fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
@@ -484,6 +611,23 @@ def main():
         fail("HOME must be an owned, real user directory without group/other write access." if parent == config.home
              else f"{parent} must be an owned, real directory without group/other write access.")
     query = args in (["--help"], ["-h"], ["--version"], ["-v"])
+    policy = reserve.resolve("claude-as", account, overrides, config.usage_reserve)
+    if config.claude_mode(account) == "native-login":
+        native = native_module().Paths(config, account)
+        preflight(args, config, enrollment=False, config_dir=native.config)
+        executable = config.which("claude")
+        if not executable:
+            fail("real Claude executable not found on PATH." if config.claude == "claude"
+                 else f"the configured claude executable {config.claude} was not found.")
+        if query:
+            os.execve(executable, [executable, *args], dict(os.environ, CLAUDE_CONFIG_DIR=native.config))
+        if os.path.lexists(secret):
+            directory(secret, config)
+        sys.exit(native_launch(config, account, args, policy, kit_module("accounts"), executable))
+    if not policy.off and not query:
+        fail(f"usage reserves need a native-login account, and {account} uses a setup-token, whose usage Claude Code "
+             f"does not report; enroll it with claude-as --enroll-native {account} and set "
+             f'[claude_auth.accounts.{account}] mode = "native-login", or launch without reserves.')
     target = secret / ("claude-" + account)
     missing = not os.path.lexists(target)
     preflight(args, config, enrollment=missing and not query)
