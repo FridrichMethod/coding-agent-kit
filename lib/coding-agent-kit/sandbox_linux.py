@@ -9,14 +9,19 @@ to exec the native, in this order:
 - set no_new_privs;
 - enter one Landlock domain that
   - handles TCP connect and allows it only to the gate port,
-  - handles TCP bind and allows only port 0, a kernel-chosen ephemeral port
-    (listen() on an unbound socket autobinds one anyway), so no process
-    inside can bind the gate port or any other chosen port,
+  - handles TCP bind and allows only port 0, so every chosen port is denied
+    and only the kernel picks one (listen() on an unbound socket autobinds
+    one anyway),
   - scopes abstract UNIX sockets and signals to the domain, so nothing inside
     reaches an outside abstract socket or signals the gate, monitor or holder,
   - handles every write-class filesystem right and allows it only beneath
-    the writable paths and the terminal devices in DEVICES; reads and
-    execution stay open;
+    the writable paths and the terminal devices in DEVICES, so linking or
+    renaming an outside file into a writable directory fails too (EXDEV,
+    EACCES). Reads, execution and metadata changes (chmod, chown, utimes,
+    extended attributes), for which Landlock has no right, stay open.
+    /dev/pts is writable because PTY tools open new terminals by path, so a
+    process inside can write to every terminal of the user, not only its
+    own;
 - install a seccomp filter that allows socket() only for IPv4 and IPv6 TCP
   (protocol 0 or IPPROTO_TCP) and netlink route, and socketpair() only for
   AF_UNIX stream and seqpacket, whose connected ends cannot be re-addressed.
@@ -25,12 +30,17 @@ to exec the native, in this order:
   (they connect without the connect hook) with EOPNOTSUPP, io_uring with
   ENOSYS and ioctl(TIOCSTI) with EPERM, whatever dev.tty.legacy_tiocsti
   says, so no process inside can queue input for a shell outside. A syscall
-  of another architecture kills the process.
+  of another architecture, such as 32-bit i386 code, kills the process, and
+  an x32 syscall fails with ENOSYS.
 
-Landlock names a port, not an address: an outside listener on the gate port
-at another loopback address stays reachable, so the launcher holds the port
-for the whole invocation. The boundary governs egress; a process inside can
-still accept connections that outside parties start.
+Landlock names a port, not an address. An outside listener on the gate port
+at another local address stays reachable, and a process inside can get the
+gate port itself on an address where nothing holds it (127.0.0.2, say)
+through a port-0 bind, which may return any free port. So the launcher holds
+the port for the whole invocation, on 127.0.0.1 and, where IPv6 exists, on
+::1, and points the native at the literal 127.0.0.1, never at a name such as
+localhost. The boundary governs egress; a process inside can still accept
+connections that outside parties start.
 
 Public API (load this file by path; it is never on sys.path):
 
@@ -49,7 +59,14 @@ Public API (load this file by path; it is never on sys.path):
         returns its sandbox-exec prefix). Every host and input refusal comes
         before anything changes; a Refusal of kind "descriptors" or
         "enforcement" may follow a partial confinement, so after any Refusal
-        the caller exits without starting the native.
+        the caller exits without starting the native. Those two kinds come
+        after every descriptor above 2 is closed, close-on-exec ones such as
+        a status pipe included, so the supervisor learns of them only from
+        the exit status and what the child writes to fd 0-2.
+        writable_paths come from the adapter and never include HOME or an
+        ancestor of it, which would reopen HOME-wide delegation (shell rc
+        files, systemd user units, autostart entries); this module never
+        reads HOME, so the caller checks.
     assess(facts) -> Host, host_facts() -> dict
         The pure refusal rules of probe() and the host facts they read.
     check_inputs(gate_port, writable_paths, provider)
@@ -83,7 +100,8 @@ MIN_ABI = 6
 VALIDATED_ARCHES = ("x86_64",)
 KINDS = ("platform", "architecture", "wsl", "landlock", "seccomp", "input", "path", "stdio", "descriptors",
          "enforcement")
-# Writable for every native: the terminal, its PTYs and POSIX shared memory.
+# Writable for every native: the terminal, its PTYs (every PTY of the user, since tools open new ones by
+# path) and POSIX shared memory.
 DEVICES = ("/dev/null", "/dev/tty", "/dev/ptmx", "/dev/pts", "/dev/shm")
 
 # Landlock (include/uapi/linux/landlock.h). The syscall numbers are the same on x86_64 and aarch64.

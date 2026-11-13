@@ -15,12 +15,15 @@ apply another one, so it can neither loosen nor replace it. The profile:
 - denies every file write except beneath the writable paths, the terminal
   devices and, for Claude, its fixed per-user temporary directory
   /private/tmp/claude-UID; writes beneath WRITABLE/Library/LaunchAgents and
-  /private/var/at stay denied.
+  /private/var/at stay denied. /dev/ttys* is writable because PTY tools
+  open new terminals by path, so a process inside can write to every
+  terminal of the user, not only its own. A writable path that is not
+  printable ASCII, or holds a quote or a backslash, refuses protected mode.
 
-`localhost` in a Seatbelt address also admits the wildcard and interface
-addresses on the gate port, so the launcher holds the port on every address
-holder_addresses() lists, for the whole invocation. The profile governs
-egress and delegation, not reads.
+`localhost` in a Seatbelt address also admits the wildcard and configured
+local addresses (interface addresses, loopback aliases) on the gate port, so
+the launcher holds the port on every address holder_addresses() lists, for
+the whole invocation. The profile governs egress and delegation, not reads.
 
 SBPL is an undocumented Apple interface and sandbox-exec is deprecated. The
 profile is the one reviewed on the releases in REVIEWED_RELEASES, other
@@ -38,26 +41,36 @@ Public API (load this file by path; it is never on sys.path):
     holder_addresses(ifconfig=IFCONFIG, timeout=10) -> Hold
         The addresses the launcher must hold the gate port on: Hold.listen
         (127.0.0.1 and ::1, listening) and Hold.reserve (0.0.0.0, :: and every
-        interface address from `ifconfig -a`, bound with SO_REUSEADDR and,
-        for IPv6, IPV6_V6ONLY, without listening), each ("inet" | "inet6",
-        address); IPv6 addresses keep their %scope. Refusal("ifconfig") when
-        the list cannot be read. Addresses that appear later are not covered.
+        other address from `ifconfig -a`, loopback aliases such as 127.0.0.2
+        included, bound with SO_REUSEADDR and, for IPv6, IPV6_V6ONLY, without
+        listening), each ("inet" | "inet6", address); IPv6 addresses keep
+        their %scope. A hold that fails, EADDRINUSE included, refuses
+        protected mode. Refusal("ifconfig") when the list cannot be read.
+        Addresses that appear later are not covered.
     self_test(gate_port, writable_paths, provider, *, python=sys.executable,
-              timeout=SELF_TEST_TIMEOUT) -> dict
-        Runs a probe under the very profile confine() renders, while the gate
+              timeout=SELF_TEST_TIMEOUT) -> Tested
+        Runs a probe under the profile for these arguments, while the gate
         port is held: it must connect to the gate port and be denied (EPERM)
         another loopback port, a bind, UDP to the gate port, a write outside
-        the writable paths and TIOCSTI. Returns the probe's answers or raises
-        Refusal("self-test"). The launcher runs it before any native process
-        under the profile.
-    confine(gate_port, writable_paths, provider) -> list[str]
+        the writable paths and TIOCSTI. Returns Tested(profile, answers) or
+        raises Refusal("self-test"). The launcher runs it before any native
+        process under the profile.
+    confine(gate_port, writable_paths, provider, *, tested) -> list[str]
         In the child that is about to exec the native, just before exec, with
-        the native's terminal on fd 0-2: refuses socket stdio, closes every
-        other descriptor (Seatbelt does not police sockets that already exist)
-        and returns the argv prefix [SANDBOX_EXEC, "-p", PROFILE] to put
-        before the native command. Every host and input refusal comes before
-        anything changes; after a Refusal of kind "descriptors" the caller
-        exits without starting the native.
+        the native's terminal on fd 0-2: renders the profile again and
+        refuses ("self-test") unless it equals tested.profile, so only the
+        profile the self-test checked runs; refuses socket stdio; closes
+        every other descriptor (Seatbelt does not police sockets that
+        already exist) and returns the argv prefix [SANDBOX_EXEC, "-p",
+        PROFILE] to put before the native command. Every refusal but
+        "descriptors" comes before anything changes and leaves a status
+        pipe open; after "descriptors" every descriptor above 2 may be
+        closed, so the supervisor learns of it only from the exit status
+        and what the child writes to fd 0-2, and the child exits without
+        starting the native. writable_paths come from the adapter and never
+        include HOME or an ancestor of it, which would reopen HOME-wide
+        delegation (shell rc files, HOME/Library/LaunchAgents for an
+        ancestor); this module never reads HOME, so the caller checks.
     render_profile(gate_port, writable_paths, provider, uid) -> str
         The profile for resolved writable paths (pure).
     resolve_writable(paths) -> list[str]
@@ -88,6 +101,7 @@ import tempfile
 
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 IFCONFIG = "/sbin/ifconfig"
+LISTEN = (("inet", "127.0.0.1"), ("inet6", "::1"))  # Hold.listen; holder_addresses() reserves every other address
 PROVIDERS = ("codex", "claude")
 ARCHES = ("arm64",)
 REVIEWED_RELEASES = ((27, 2),)  # (major, minor); a kit release that reviews another one adds it
@@ -183,6 +197,7 @@ print(json.dumps(result), flush=True)
 _SAFE = re.compile(r"[\x20-\x7e]*")
 _VERSION = re.compile(r"(\d+)(?:\.(\d+))?(?:\.\d+)?")
 _SCOPE = re.compile(r"[A-Za-z0-9]+")
+_LISTENED = frozenset(ipaddress.ip_address(address) for _, address in LISTEN)
 
 
 class Refusal(Exception):
@@ -203,6 +218,14 @@ class Host:
 class Hold:
     listen: tuple
     reserve: tuple
+
+
+@dataclass(frozen=True)
+class Tested:
+    """A profile that passed the self-test, and the probe's answers under it."""
+
+    profile: str
+    answers: dict
 
 
 def _executable(path):
@@ -334,7 +357,14 @@ def render_profile(gate_port, writable_paths, provider, uid):
 
 
 def parse_ifconfig(text):
-    """(("inet" | "inet6", address), ...) of `ifconfig -a`, loopback and malformed lines left out."""
+    """(("inet" | "inet6", address), ...) of `ifconfig -a`, without 127.0.0.1, ::1 and malformed lines.
+
+    127.0.0.1 and ::1 are left out because the launcher listens there
+    (Hold.listen). Every other address stays, loopback aliases such as
+    127.0.0.2 included: Seatbelt's `localhost` admits configured local
+    addresses, and an address left to the wildcard hold alone can be bound by
+    an outside process that sets SO_REUSEADDR.
+    """
     found = []
     for line in text.splitlines():
         parts = line.split()
@@ -347,7 +377,7 @@ def parse_ifconfig(text):
             address = ipaddress.ip_address(literal)
         except ValueError:
             continue
-        if address.version != (4 if parts[0] == "inet" else 6) or address.is_loopback:
+        if address.version != (4 if parts[0] == "inet" else 6) or address in _LISTENED:
             continue
         entry = (parts[0], parts[1])
         if entry not in found:
@@ -366,7 +396,7 @@ def holder_addresses(ifconfig=IFCONFIG, timeout=10.0):
         raise Refusal("ifconfig", "%s could not run: %s" % (ifconfig, error.strerror)) from None
     if done.returncode != 0:
         raise Refusal("ifconfig", "%s -a failed with exit status %d" % (ifconfig, done.returncode))
-    return Hold(listen=(("inet", "127.0.0.1"), ("inet6", "::1")),
+    return Hold(listen=LISTEN,
                 reserve=(("inet", "0.0.0.0"), ("inet6", "::")) + parse_ifconfig(done.stdout.decode("utf-8", "replace")))
 
 
@@ -433,7 +463,7 @@ def _run_probe(argv, timeout):
 
 def self_test(gate_port, writable_paths, provider, *, python=sys.executable, timeout=SELF_TEST_TIMEOUT,
               sandbox_exec=SANDBOX_EXEC, probe_bases=PROBE_BASES):
-    """The probe's answers under the profile confine() renders, or Refusal("self-test")."""
+    """Tested(profile, answers) for the profile confine() renders, or Refusal("self-test")."""
     check_inputs(gate_port, writable_paths, provider)
     uid = os.getuid()
     writable = resolve_writable(writable_paths)
@@ -451,7 +481,7 @@ def self_test(gate_port, writable_paths, provider, *, python=sys.executable, tim
     failures = self_test_failures(result)
     if failures:
         raise Refusal("self-test", "the boundary self-test failed: " + "; ".join(failures))
-    return result
+    return Tested(profile=profile, answers=result)
 
 
 def stdio_sockets(fds=(0, 1, 2)):
@@ -493,11 +523,15 @@ def close_inherited():
         raise Refusal("descriptors", "descriptors %s are still open" % ", ".join(map(str, left)))
 
 
-def confine(gate_port, writable_paths, provider):
-    """Prepare this process for the profile (see the module documentation); returns the argv prefix."""
+def confine(gate_port, writable_paths, provider, *, tested=None):
+    """Prepare this process for the tested profile (see the module documentation); returns the argv prefix."""
     check_inputs(gate_port, writable_paths, provider)
+    if not isinstance(tested, Tested):
+        raise Refusal("input", "confine() needs the Tested result of a passing self_test()")
     probe()
     profile = render_profile(gate_port, resolve_writable(writable_paths), provider, os.getuid())
+    if profile != tested.profile:
+        raise Refusal("self-test", "the profile for this native differs from the one the self-test checked")
     sockets = stdio_sockets()
     if sockets:
         raise Refusal("stdio", "descriptor %s of the native is a socket, which the boundary cannot police"
