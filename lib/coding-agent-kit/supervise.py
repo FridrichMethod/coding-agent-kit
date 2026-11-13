@@ -92,6 +92,7 @@ HEARD_TIMEOUT = 10.0
 CONTROL_TIMEOUT = 20.0
 RESTART_LIMIT, RESTART_WINDOW, RESTART_DELAY = 5, 600.0, 0.5  # at most 5 gate restarts per 10 minutes
 SWEEP_GRACE = 1.0
+SWEEP_LIMIT = 5.0  # the end-of-invocation sweep keeps ending processes for this long at most
 SNAPSHOT_EVERY = 1.0
 PR_SET_CHILD_SUBREAPER = 36
 PREFIX = "[coding-agent-kit] "
@@ -1082,16 +1083,56 @@ class Supervisor:
                     continue
         return found
 
-    def sweep(self, include_kit=False, grace=SWEEP_GRACE):
-        """End every boundary descendant (TERM, then KILL after grace); with include_kit also the
-        gate and monitor trees. A descendant is a process below the launcher, one a snapshot saw
-        below it (same start time), or a member of a boundary child's session. Processes that were
-        already the launcher's descendants before prepare() are left alone. Processes are told
-        apart by start time, never by pid alone. Returns how many processes were signalled."""
-        signalled = set()
+    def _signal_session_groups(self, table, sig):
+        """Signal whole process groups of the boundary sessions; returns how many were signalled.
+        A process that forks and exits at once is gone before any snapshot can name it, but the
+        group its child inherits stays: every boundary session's own group (its id is the session
+        id, still in use while the session leader in TABLE is not another process), and on Linux
+        every group a live member of such a session is in, read from /proc as that member is. A
+        chain that also leaves its group on every fork can still outrun this."""
+        live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
+        own = {os.getpgrp(), os.getsid(0)}
+        live -= own
+        done = set()
+
+        def end(group):
+            if group in done or group in own:
+                return
+            try:
+                os.killpg(group, sig)
+                done.add(group)
+            except (ProcessLookupError, PermissionError):
+                pass
+
+        for sid in live:
+            end(sid)
+        if live and has_proc():
+            for name in os.listdir(PROC):
+                if not name.isdigit():
+                    continue
+                try:
+                    with open(os.path.join(PROC, name, "stat"), "rb") as stream:
+                        fields = stream.read().rsplit(b")", 1)[1].split()
+                    state, group, session = fields[0], int(fields[2]), int(fields[3])
+                except (OSError, IndexError, ValueError):
+                    continue
+                if session in live and state != b"Z":
+                    end(group)
+        return len(done)
+
+    def sweep(self, include_kit=False, grace=SWEEP_GRACE, limit=SWEEP_LIMIT):
+        """End every boundary descendant (TERM, then KILL after grace, round after round until none
+        is left or LIMIT seconds passed); with include_kit also the gate and monitor trees. A
+        descendant is a process below the launcher, one a snapshot saw below it (same start time),
+        or a member of a boundary child's session, whose process groups are also signalled whole
+        (_signal_session_groups). Processes that were already the launcher's descendants before
+        prepare() are left alone. Processes are told apart by start time, never by pid alone.
+        Returns how many processes (or groups) were signalled."""
+        signalled, groups = set(), 0
         if not self.prepared:
             return 0
-        for round_ in range(6):
+        stop, round_ = time.monotonic() + limit, 0
+        while True:
             self.reap()
             table = process_table()
             found = descendants(os.getpid(), table) | self._session_members(table)
@@ -1100,24 +1141,29 @@ class Supervisor:
                 found -= self._kit_tree(table)
             victims = {pid: table[pid][1] for pid in found if pid in table and pid != os.getpid()
                        and self.baseline.get(pid, ()) != table[pid][1]}
-            if not victims:
-                break
             sig = signal.SIGTERM if round_ == 0 else signal.SIGKILL
+            hit = self._signal_session_groups(table, sig)
+            groups += hit
+            if not victims and not hit:
+                break
             for pid in victims:
                 try:
                     os.kill(pid, sig)
                 except (ProcessLookupError, PermissionError):
                     pass
             signalled |= set(victims)
-            deadline = time.monotonic() + (grace if round_ == 0 else 0.2)
+            if time.monotonic() >= stop:
+                break
+            deadline = min(stop, time.monotonic() + (grace if round_ == 0 else 0.2))
             while time.monotonic() < deadline:
                 self.reap()
                 table = process_table()
                 if not any(table.get(pid, (None, None))[1] == start for pid, start in victims.items()):
                     break
                 time.sleep(0.02)
+            round_ += 1
         self.reap()
-        return len(signalled)
+        return len(signalled) + groups
 
     def _winch(self):
         if self.master is None:

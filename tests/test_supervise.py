@@ -406,6 +406,27 @@ class Sweep(unittest.TestCase):
         self.assertTrue(fakes_wait(lambda: not alive(child.pid)))
 
 
+    @unittest.skipUnless(os.path.isdir("/proc/self"),
+                         "without /proc the process table comes from ps, too slow to see a fork chain's members")
+    def test_a_fork_chain_in_a_boundary_session_is_ended_before_the_port_is_released(self):
+        """Each member forks and exits at once, so every snapshot names only dead processes; the
+        sweep still ends the chain, through the process group a member was seen in."""
+        sup = supervise.Supervisor(["gate"], {})
+        table = supervise.process_table()
+        sup.baseline = {pid: table[pid][1] for pid in supervise.descendants(os.getpid(), table)}
+        sup.prepared = True
+        chain = ("import os, time\nend = time.monotonic() + 20\nwhile time.monotonic() < end:\n"
+                 "    if os.fork():\n        os._exit(0)\n")
+        beat_read, beat_write = os.pipe()  # every member holds the write end: EOF once all are gone
+        self.addCleanup(os.close, beat_read)
+        pid = sup.spawn([sys.executable, "-I", "-B", "-c", chain], {}, stdout=beat_write, confine=True)
+        os.close(beat_write)
+        self.addCleanup(lambda: _quiet_killpg(pid))
+        time.sleep(0.3)  # the chain is running: its first member is long gone
+        sup.sweep(grace=0.2)
+        self.assertTrue(select.select([beat_read], [], [], 3.0)[0] and os.read(beat_read, 64) == b"",
+                        "the fork chain outlived the sweep")
+
     def test_orphaned_members_of_a_boundary_session_are_found(self):
         sup = supervise.Supervisor(["gate"], {})
         out_read, out_write = os.pipe()
@@ -981,6 +1002,13 @@ class Supervised(unittest.TestCase):
         self.command("exit 0")
         self.assertEqual(self.wait_exit(), 0)
         self.assertTrue(fakes_wait(lambda: not alive(monitor)))
+
+
+def _quiet_killpg(group):
+    try:
+        os.killpg(group, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
 
 
 def fakes_wait(predicate, timeout=5.0):
