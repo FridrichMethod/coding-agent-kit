@@ -32,6 +32,8 @@ try:
     usage = load_module("usage", "codex-as/usage.py")
     settings = load_module("config", "coding-agent-kit/config.py")
     metadata = load_module("accounts", "coding-agent-kit/accounts.py")
+    reserve = load_module("reserve", "coding-agent-kit/reserve.py")
+    protect = load_module("protect", "codex-as/protect.py")
 except (OSError, ImportError, SyntaxError):
     message = f"codex-as: incomplete install at {LIB.parent}"
     print(guard.styled(message, "31", 2) if "guard" in globals() else message, file=sys.stderr)
@@ -89,13 +91,18 @@ RERAISED = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGKILL, signal
 class Supervision:
     """From just before native Codex starts until post-run repair ends: forward termination
     to it and ignore Ctrl-C, which the terminal already delivers to its whole process group.
-    Termination after it exits waits for the repair to finish, then ends the launcher."""
+    Termination after it exits waits for the repair to finish, then ends the launcher.
+    ended=True guards a repair after a native that already exited (protected mode's supervisor
+    runs it): every termination waits for the repair."""
 
-    def __init__(self):
+    def __init__(self, ended=False):
         self.child, self.pending, self.late, self.previous = None, [], [], {}
+        self.ended = ended
 
     def forward(self, signum, frame):
-        if self.child is None:
+        if self.ended:
+            self.late.append(signum)
+        elif self.child is None:
             self.pending.append(signum)
         elif self.child.poll() is None:
             self.child.send_signal(signum)
@@ -202,6 +209,8 @@ def main(args):
     config = settings.load()
     for warning in config.warnings:
         guard.warn(warning)
+    # Reserve flags come before NAME; without them the arguments come back unchanged.
+    reserves, args = reserve.split_flags(args)
     args = [QUERIES.get(args[0], args[0]), *args[1:]] if args else args
     if args in (["--list-accounts"], ["--show-config"], ["--account-labels"]) or (
             len(args) == 2 and args[0] == "--account-info"):
@@ -224,6 +233,7 @@ def main(args):
     if not args or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", args[0]):
         guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
     account, *native_args = args
+    policy = reserve.resolve("codex-as", account, reserves, config.usage_reserve)
     plan = guard.arguments(native_args, config)
     codex = config.which("codex")
     if codex is None:
@@ -246,6 +256,13 @@ def main(args):
     if version.returncode:
         return version.returncode
     guard.codex_version(version.stdout)
+    # An enabled reserve protects every launch but help and version forms, which run no model.
+    session = None
+    if not policy.off and not plan.query:
+        native = protect.reviewed(version.stdout)
+        session = protect.Session(guard, storage, reserve, config, layout, policy, native,
+                                  protect.screen(native_args, native), codex, os.environ, sqlite, plan.cwd)
+        session.check()
     env = os.environ.copy()
     env["CODEX_HOME"] = str(layout.home)
     env["CODEX_SQLITE_HOME"] = str(sqlite)
@@ -286,6 +303,18 @@ def main(args):
         layout.close()
         raise
     started = time.time()
+    if session is not None:
+        # The pre-launch refresh may already have written the credential when a refusal follows,
+        # so the repair runs however the protected run ends, and termination waits for it.
+        try:
+            status = session.run(baseline)
+        finally:
+            layout.close()
+            with Supervision(ended=True):
+                post_run(layout, baseline if session.baseline is None else session.baseline)
+                if os.path.lexists(layout.target):
+                    remember(config, layout, plan=plan, started=started)
+        return -os.WTERMSIG(status) if os.WIFSIGNALED(status) else os.waitstatus_to_exitcode(status)
     with Supervision():
         try:
             result = run_native(command, env, layout.fd)

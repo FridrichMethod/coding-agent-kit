@@ -101,6 +101,7 @@ class Plan:
     unknown: tuple  # options this scan does not know (typos fail in clap after any takeover)
     profile: str | None  # -p/--profile: layers codex_home/NAME.config.toml
     forked: bool = False  # fork or exec fork: recover_id is the source, not a thread this run writes
+    query: bool = False  # -h, --help, -V, --version or help: native prints and runs nothing
 
     @property
     def continued(self):
@@ -264,7 +265,7 @@ def arguments(args, config):
                 scope, last and picking, others, no_daemon,
                 bare or command in {"update", "completion"}, tuple(unknown),
                 profile if profile is not None and PROFILE.fullmatch(profile) else None,
-                forked=forked or command == "fork")
+                forked=forked or command == "fork", query=query)
 
 
 
