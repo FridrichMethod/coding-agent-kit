@@ -1017,6 +1017,28 @@ class Launchers(unittest.TestCase):
         self.assertEqual(snapshot(self.home), before, "a launch without python3 wrote to HOME")
         self.assertEqual(self.records(), [])
 
+    def test_the_launchers_process_no_site_packages_of_the_python3_they_find(self):
+        """Both launchers start python3 with -S as well as -I -B: the .pth files of a virtual environment
+        first on PATH, which a protected session may have written, never run in the launcher."""
+        venv = self.base / "work/.venv"
+        made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], capture_output=True,
+                              timeout=120)
+        if made.returncode:
+            self.skipTest("python3 -m venv is unavailable")
+        (site,) = venv.glob("lib/python*/site-packages")
+        mark = self.base / "planted.log"
+        write(site / "zz-planted.pth", "import os; open(%r, 'a').write('pth %%d\\n' %% os.getpid())\n" % str(mark))
+        subprocess.run([str(venv / "bin/python3"), "-I", "-B", "-c", "pass"], check=True, timeout=30)
+        self.assertTrue(mark.exists())  # the environment's own python3 -I -B runs it
+        mark.unlink()
+        env = {"PATH": os.pathsep.join((str(venv / "bin"), self.env["PATH"]))}
+        for tool, account in (("codex-as", "A"), ("claude-as", "work")):
+            for args in (["--list"], ["--show-config"], [account, "--version"]):
+                with self.subTest(tool=tool, args=args):
+                    result = self.run_tool([self.kit / "bin" / tool, *args], env, cwd=self.base / "work")
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
+
     def test_resolution_cases(self):
         linked = self.base / "linked home"
         farm_kit = self.linked_home(linked)

@@ -36,8 +36,11 @@ confines itself), so nothing they load code from may be in its reach: they run t
 interpreter of the Python running codex-as (interpreter: a virtual environment's site-packages and
 .pth files stay out), and the run refuses unless that interpreter, its prefixes, its module path
 and the kit's module directories lie outside every writable path, through every link on the way
-(unreachable). While the run lasts, commands the launcher itself runs by name resolve only in the
-system directories (launcher_path).
+(unreachable). The launcher itself runs before any check, as the python3 that bin/codex-as finds
+on PATH, started with -S so that no .pth file runs in it; the run refuses when that python3, its
+prefixes or its module path lie in the boundary's reach (launcher_sources), since a session could
+then replace them under the next launch. While the run lasts, commands the launcher itself runs by
+name resolve only in the system directories (launcher_path).
 """
 
 import contextlib
@@ -801,16 +804,38 @@ def code_sources(python, env):
             + [("the kit directory", str(path), True) for path in (HERE, KIT)])
 
 
-def unreachable(sources, writable_paths):
-    """Refused when a code source (code_sources), or a link on the way to it, lies inside a writable
-    path, or a writable path lies inside a directory of code."""
+LAUNCHER_HINT = ("; start codex-as with a python3 outside the workspace and the Codex homes first on PATH "
+                 "(deactivate a workspace virtual environment)")
+
+
+def launcher_sources():
+    """(what, path, holds code) for the launcher process itself, which runs outside every boundary
+    before any check: the python3 that bin/codex-as found on PATH, by the name it ran (so every link
+    on the way counts), its prefixes and its module path, which holds no site-packages: bin/codex-as
+    starts it as `python3 -I -B -S`. A protected session that could replace one of them would run
+    the next launch's code unconfined, so protected mode refuses such a launch. A python3 replaced
+    before this launch has run instead of it; the check cannot see that. Refused when the
+    interpreter does not report them."""
+    prefixes = [sys.prefix, sys.exec_prefix, sys.base_prefix, sys.base_exec_prefix]
+    entries = list(sys.path)
+    if not all(isinstance(path, str) and os.path.isabs(path) for path in [sys.executable, *prefixes, *entries]):
+        refuse("the Python running codex-as does not report where it loads code from")
+    return ([("the launcher's Python", sys.executable, False)]
+            + [("the launcher's Python prefix", path, False) for path in prefixes]
+            + [("the launcher's module path entry", path, True) for path in entries])
+
+
+def unreachable(sources, writable_paths, hint=CODE_HINT):
+    """Refused (reason ending in HINT) when a code source (code_sources, launcher_sources), or a link
+    on the way to it, lies inside a writable path, or a writable path lies inside a directory of
+    code."""
     for what, path, holds in sources:
         names, real = resolution(path), os.path.realpath(path)
         for root in writable_paths:
             if any(within(name, root) for name in names):
-                refuse(f"{what} {path} lies inside {root}, which the boundary can write" + CODE_HINT)
+                refuse(f"{what} {path} lies inside {root}, which the boundary can write" + hint)
             if holds and within(root, real):
-                refuse(f"{root}, which the boundary can write, lies inside {what} {path}" + CODE_HINT)
+                refuse(f"{root}, which the boundary can write, lies inside {what} {path}" + hint)
 
 
 SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
@@ -1017,6 +1042,7 @@ class Session:
             # stay out of reach of every boundary process.
             outside(self.private, reach)
             gate_env = {name: self.env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR", "LANG") if name in self.env}
+            unreachable(launcher_sources(), reach, LAUNCHER_HINT)
             unreachable(code_sources(python, gate_env), reach)
             proxy = supervise.capture_proxy(self.env, self.kit_gate.parse_proxy)
             reserves = {setting.window: [None if setting.reserve is None else str(setting.reserve), setting.source]

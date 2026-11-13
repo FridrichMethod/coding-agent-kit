@@ -173,6 +173,37 @@ class Screen(unittest.TestCase):
         self.assertIn("did not report where it loads code from",
                       refused(protect.code_sources, str(ROOT / "missing/python3"), {}))
 
+    def test_the_launchers_own_python_must_lie_out_of_reach_by_the_name_it_ran(self):
+        sources = protect.launcher_sources()
+        kinds = {}
+        for what, path, holds in sources:
+            kinds.setdefault(what, []).append((path, holds))
+        self.assertEqual(kinds["the launcher's Python"], [(sys.executable, False)])
+        self.assertEqual(len(kinds["the launcher's Python prefix"]), 4)
+        self.assertEqual(kinds["the launcher's module path entry"], [(path, True) for path in sys.path])
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work = base / "work"
+            (work / ".venv/bin").mkdir(parents=True)
+            (base / "bin").mkdir()
+            protect.unreachable(protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT)
+            python = work / ".venv/bin/python3"
+            linked = base / "bin/python3"
+            linked.symlink_to(python)  # a link outside to an interpreter inside
+            for patch in ({"executable": str(python)}, {"executable": str(linked)},
+                          {"prefix": str(work / ".venv")}, {"path": [*sys.path, str(work / "lib")]},
+                          {"path": [*sys.path, str(base)]}):
+                with self.subTest(patch=patch), mock.patch.multiple(sys, **patch):
+                    message = refused(protect.unreachable, protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT)
+                    self.assertIn("; start codex-as with a python3 outside the workspace and the Codex homes first on "
+                                  "PATH", message)
+            with mock.patch.object(sys, "executable", str(python)):
+                self.assertIn("the launcher's Python %s lies inside %s" % (python, work),
+                              refused(protect.unreachable, protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT))
+            for patch in ({"executable": ""}, {"executable": None}, {"path": ["relative"]}):
+                with self.subTest(patch=patch), mock.patch.multiple(sys, **patch):
+                    self.assertIn("does not report where it loads code from", refused(protect.launcher_sources))
+
     def test_the_launcher_runs_commands_by_name_from_system_directories_only_while_protected(self):
         with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
             with protect.launcher_path():
@@ -1418,25 +1449,45 @@ class Protected(Launch):
         self.assertEqual(self.exit_code(), 0)
         self.assertFalse(private.exists())
 
-    def test_a_workspace_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
-        venv = self.home.work / ".venv"
-        made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], capture_output=True,
+    def venv(self, path, mark):
+        """A virtual environment at PATH whose site-packages hold a .pth file that appends to MARK."""
+        made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(path)], capture_output=True,
                               timeout=120)
         if made.returncode:
             self.skipTest("python3 -m venv is unavailable")
-        (site,) = venv.glob("lib/python*/site-packages")
+        (site,) = path.glob("lib/python*/site-packages")
+        (site / "zz-planted.pth").write_text("import os; open(%r, 'a').write('pth %%d\\n' %% os.getpid())\n" % str(mark))
+        subprocess.run([str(path / "bin/python3"), "-I", "-B", "-c", "pass"], check=True, timeout=30)
+        self.assertTrue(mark.exists())  # the environment's own python3 -I -B runs it
+        mark.unlink()
+        return os.pathsep.join((str(path / "bin"), self.home.env["PATH"]))
+
+    def test_a_workspace_venv_first_on_path_refuses_before_anything_starts(self):
+        """A python3 the boundary can write could take over the next launch outside every boundary, before
+        any check, so a launch through one refuses; meanwhile -S keeps its .pth files out of the launcher."""
+        venv = self.home.work / ".venv"
         mark = self.home.base / "planted.log"  # outside every writable path: only an unconfined process can write it
-        planted = "import os; open(%r, 'a').write('pth %%d\\n' %% os.getpid())\n" % str(mark)
+        terminal = self.start(env={"PATH": self.venv(venv, mark)})
+        terminal.expect("usage reserve protection refused: the launcher's Python %s lies inside %s, which the boundary "
+                        "can write; start codex-as with a python3 outside the workspace and the Codex homes first on "
+                        "PATH" % (re.escape(str(venv / "bin/python3")), re.escape(str(self.home.work))))
+        self.assertEqual(self.exit_code(), 1)
+        self.assertEqual(self.home.events(), [])
+        self.assertEqual(self.backend.seen(), [])
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
+
+    def test_a_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
+        """With a virtual environment outside the boundary's reach first on PATH, neither the launcher
+        (python3 -S) nor the gate, monitor and readers (the base interpreter) process its .pth files."""
+        venv = self.home.base / "venv"
+        mark = self.home.base / "planted.log"
+        path = self.venv(venv, mark)
         ps = venv / "bin/ps"  # what the launcher would run by name on macOS
         ps.write_text("#!/bin/sh\necho ps >> '%s'\nexec /bin/ps \"$@\"\n" % mark)
         ps.chmod(0o755)
-        terminal = self.start(env={"PATH": os.pathsep.join((str(venv / "bin"), self.home.env["PATH"]))})
+        terminal = self.start(env={"PATH": path})
         terminal.expect("READY")
-        terminal.send("write %s %s\r" % (site / "probe.pth", base64.b64encode(planted.encode()).decode()))
-        terminal.expect("WRITE ok")
-        subprocess.run([str(venv / "bin/python3"), "-I", "-B", "-c", "pass"], check=True, timeout=30)
-        self.assertTrue(mark.exists())  # the venv's own interpreter would run it
-        mark.unlink()
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
         # A new gate and monitor, then a continuation's reader (and on macOS the supervisor's ps).
         for pid in self.kit_processes("monitor.py"):
             os.kill(pid, signal.SIGKILL)

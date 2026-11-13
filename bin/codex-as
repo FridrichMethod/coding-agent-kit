@@ -177,4 +177,7 @@ if [ ! -r "$_codex_as_launcher" ]; then
     _codex_as_message 31 2 "codex-as: incomplete install at $_codex_as_root (missing lib/codex-as/launch.py)"
     exit 1
 fi
-exec python3 -I -B "$_codex_as_launcher" "$@"
+# -S: no site-packages or .pth file of the python3 found on PATH (a workspace virtual
+# environment, which a protected session can write) runs in the launcher; the kit needs
+# only the standard library.
+exec python3 -I -B -S "$_codex_as_launcher" "$@"
