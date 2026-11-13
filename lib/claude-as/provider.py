@@ -13,19 +13,22 @@ bearer with it under the admission lock.
 
 Claude Code 2.1.322 (reviewed): with ANTHROPIC_BASE_URL at the gate it sends POST /v1/messages and
 POST /v1/messages/count_tokens there (both admitted only under a matching fresh lease, the model
-checked); every other route is refused. Its auxiliary calls (profile, bootstrap, telemetry, policy
-refresh, OAuth refresh) go through HTTPS_PROXY, the gate, as CONNECT tunnels, which a startup or
-restart gate refuses; a refresh gate tunnels only platform.claude.com:443 for the D1 pre-launch
-refresh. Refusals use status 400 (invalid_request_error): native renders 403 as a /login hint and
-retries 429.
+checked); every other route is refused. Its auxiliary calls (profile, bootstrap, telemetry, OAuth
+refresh) go through HTTPS_PROXY, the gate, as CONNECT tunnels, which a startup or restart gate
+refuses; a refresh gate tunnels only platform.claude.com:443 for the D1 pre-launch refresh. Refusals
+use status 400 (invalid_request_error): native renders 403 as a /login hint and retries 429.
 
-Organization policy (D15 and the user's decision): Claude Code 2.1.322 fetches the organization's
-server-managed policy (remote settings and policy limits) for every claude.ai login whose subscription
-type is not a personal one (S: its eligibility checks answer "prosumer_oauth" and
-"unsupported_subscription" for a non-null type other than enterprise or team, and treat a missing type
-as eligible), and caches it in CONFIG/remote-settings.json and policy-limits.json. Protected mode
-refuses every such fetch, so startup refuses ("policy_cache_missing") unless the store names a
-personal subscription (pro or max) or both caches exist; the launcher's evaluator judged the caches.
+Organization policy (D15 and the user's decision to refuse rather than run without it): Claude Code
+2.1.322 applies an organization's server-managed policy (remote settings and policy limits, fetched
+from api.anthropic.com and cached in CONFIG) only while ANTHROPIC_BASE_URL is unset or names
+api.anthropic.com (S: its base-URL check answers "custom_base_url", and then it neither fetches nor
+applies either document, cached copies included). Protected mode points ANTHROPIC_BASE_URL at this
+gate, so no organization policy is in force in a protected session. Startup therefore refuses
+("organization_policy") every account native would apply such a policy to: every subscription type
+other than pro or max, a missing or unrecognized one included (S: native's eligibility checks answer
+"prosumer_oauth" and "unsupported_subscription" only for a known type other than enterprise or team).
+A machine whose managed settings pin the sign-in organization makes pro and max eligible too; the
+launcher refuses that case (policy.py, protect.py), since only it reads the managed settings.
 
 Quota reads (QC option 3): GET https://api.anthropic.com/api/oauth/profile and /api/oauth/usage with
 the same in-memory bearer, the neutral User-Agent and the launcher's HTTPS_PROXY. The profile proves
@@ -52,7 +55,6 @@ import os
 from pathlib import Path
 import random
 import re
-import stat
 import threading
 import time
 
@@ -76,8 +78,7 @@ USAGE_PATH, PROFILE_PATH = "/api/oauth/usage", "/api/oauth/profile"
 OAUTH_BETA = "oauth-2025-04-20"
 REFRESH_TARGETS = {"platform.claude.com:443": ("platform.claude.com", 443)}
 NATIVE_REFRESH_WINDOW_MS = 300000  # native refreshes when now + 300000 >= expiresAt (S, 2.1.322)
-PERSONAL_PLANS = frozenset(("pro", "max"))  # native fetches no organization policy for these (S, 2.1.322)
-POLICY_CACHES = ("remote-settings.json", "policy-limits.json")
+PERSONAL_PLANS = frozenset(("pro", "max"))  # native applies no organization policy to these (S, 2.1.322)
 ROUTES = gate.RouteTable("claude-" + VERSION, (
     gate.Route("POST", "/v1/messages", gate.MODEL, query=True),
     gate.Route("POST", "/v1/messages/count_tokens", gate.MODEL, query=True),
@@ -265,10 +266,10 @@ class ClaudeProvider(gate.BaseProvider):
         """Local refusals before the gate serves; the first quota check once the monitor is heard."""
         self.gate = gate_
         credential = self.credential()
+        if credential.subscription not in PERSONAL_PLANS:
+            raise gate.Refusal("organization_policy")
         if credential.expires_at_ms - self.clock_ms() <= NATIVE_REFRESH_WINDOW_MS:
             raise gate.Refusal("native_refresh_window")
-        if credential.subscription not in PERSONAL_PLANS and not self.policy_cached():
-            raise gate.Refusal("policy_cache_missing")
         presented = gate.Presented(credential.secret)
         credential = None
         threading.Thread(target=self._first_check, args=(gate_, presented), daemon=True).start()
@@ -281,17 +282,6 @@ class ClaudeProvider(gate.BaseProvider):
             time.sleep(0.02)
         if gate_.last_beat is not None:
             gate_.check(presented, "startup")
-
-    def policy_cached(self):
-        """Both organization policy caches exist as regular files (their contents were judged by the
-        launcher's evaluator before the gate started)."""
-        for name in POLICY_CACHES:
-            try:
-                if not stat.S_ISREG(os.lstat(os.path.join(self.config_dir, name)).st_mode):
-                    return False
-            except OSError:
-                return False
-        return True
 
     def poll(self, gate_):
         """The monitor's poll: the lease's bearer; a rejected or rotated one is re-read from the store

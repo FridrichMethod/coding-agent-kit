@@ -24,10 +24,15 @@ protected mode passes remoteControlAtStartup=false in its own settings, which na
 organization default, and the gate routes no remote-control traffic. Any other key, or another
 shape, refuses both scopes until a kit release reviews it.
 
-Native's in-run policy refresh (GET https://api.anthropic.com/api/claude_code/settings and
-/policy_limits) goes through its HTTPS proxy, the gate, which refuses every CONNECT while model work
-runs; native then keeps these cached copies, the ones judged at launch. forceRemoteSettingsRefresh
-would make native exit at startup, so it refuses (it is one of the active keys).
+In a protected session native applies neither document: Claude Code 2.1.322 treats server-managed
+policy as ineligible while ANTHROPIC_BASE_URL names anything but api.anthropic.com (S, reason
+"custom_base_url"), and protected mode points it at the gate, so native neither fetches nor applies
+them, cached copies included. Protected mode therefore refuses every account native would apply an
+organization policy to (provider.py refuses by subscription type; Verdict.pins_organization reports a
+machine whose managed settings name forceLoginOrgUUID, which makes every subscription eligible, S).
+The judgment of the caches stays fail-closed for what an unprotected session of the same account
+applies. forceRemoteSettingsRefresh would make native exit at startup, so it refuses (it is one of
+the active keys).
 
 Local settings sources (user, project and managed files) are judged by the bearer rules plus
 forceRemoteSettingsRefresh: the user's own hooks, MCP servers and plugins stay enabled and run inside
@@ -54,8 +59,10 @@ Public API:
     evaluate(config_dir, organization, cwd, platform=sys.platform, managed=None) -> Verdict
     judge_remote_settings(document, organization) / judge_policy_limits(document)
         / judge_local(document, organization) -> list[Finding]   (pure)
-    Verdict(native, bearer, findings): native and bearer are tuples of reason words, empty when
-        accepted; refused() is True when either scope refuses; describe() names reasons and keys.
+    Verdict(native, bearer, findings, pins_organization): native and bearer are tuples of reason
+        words, empty when accepted; refused() is True when either scope refuses; describe() names
+        reasons and keys; pins_organization is True when a managed settings file has the key
+        forceLoginOrgUUID (any value: native checks only that it is set).
 """
 
 from dataclasses import dataclass
@@ -130,6 +137,7 @@ class Verdict:
     native: tuple
     bearer: tuple
     findings: tuple
+    pins_organization: bool = False
 
     def refused(self):
         return bool(self.native or self.bearer)
@@ -337,14 +345,18 @@ def _open_dir(path):
 
 
 def _local(path, organization, owners=None):
+    """(findings, top-level key names) of one local settings file; no names when it is absent or refused."""
     directory = _open_dir(os.path.dirname(path))
     if directory is None:
-        return []
+        return [], frozenset()
     try:
         document, findings = _document(path, directory, os.path.basename(path), None, owners)
     finally:
         os.close(directory)
-    return findings if document is None else judge_local(path, document, organization)
+    if document is None:
+        return findings, frozenset()
+    names = frozenset(document) if isinstance(document, dict) else frozenset()
+    return judge_local(path, document, organization), names
 
 
 def local_sources(config_dir, cwd, platform, managed_dirs=None):
@@ -411,10 +423,13 @@ def evaluate(config_dir, organization, cwd, platform=None, managed_preferences=M
                 findings.append(Finding(HELPER_CONSENT, "<file>", True, True, "policy_helper_unevaluable"))
         finally:
             os.close(directory)
+    pins = False
     for path, managed in local_sources(config_dir, cwd, platform, managed_dirs):
-        findings += _local(path, organization, (MANAGED_OWNER, uid) if managed else (uid,))
+        problems, names = _local(path, organization, (MANAGED_OWNER, uid) if managed else (uid,))
+        findings += problems
+        pins = pins or (managed and "forceLoginOrgUUID" in names)
     if platform == "darwin":
         findings += [Finding(path, "<file>", True, True, "policy_os_managed") for path in os_managed(managed_preferences)]
     native = tuple(sorted({finding.reason for finding in findings if finding.native}))
     bearer = tuple(sorted({finding.reason for finding in findings if finding.bearer}))
-    return Verdict(native, bearer, tuple(findings))
+    return Verdict(native, bearer, tuple(findings), pins)

@@ -7,7 +7,10 @@ CLAUDE_FAKE_LOGIN (account,organization) in CLAUDE_CONFIG_DIR/.claude.json as na
 Anything else records its arguments, environment and pid in FAKE_RECORD (when set), prints a
 sentinel and exits FAKE_EXIT (default 0), or kills itself with signal FAKE_SIGNAL when that is set.
 With FAKE_MESSAGES=N it first sends N Messages requests to ANTHROPIC_BASE_URL with its own bearer
-and records each status in FAKE_RECORD.
+and records each status in FAKE_RECORD. With FAKE_PAUSE_CYCLE=PATH it sends one request (printing
+"fake claude admitted" after a 200), waits until PATH exists, then sends a request every 0.2 s,
+printing "fake claude refused" after the first refusal, until one passes again; every status is
+recorded.
 """
 
 import json
@@ -48,6 +51,26 @@ def messages(count):
     return statuses
 
 
+def pause_cycle(go):
+    import time
+    statuses = messages(1)
+    if statuses[0][0] == 200:
+        print("fake claude admitted", flush=True)
+    deadline = time.monotonic() + 100
+    while not os.path.exists(go) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    refused = False
+    while time.monotonic() < deadline:
+        statuses += messages(1)
+        if statuses[-1][0] == 200 and refused:
+            break
+        if statuses[-1][0] != 200 and not refused:
+            refused = True
+            print("fake claude refused", flush=True)
+        time.sleep(0.2)
+    return statuses
+
+
 def main():
     args = sys.argv[1:]
     if args == ["--version"]:
@@ -74,6 +97,8 @@ def main():
             extra["direct"] = "errno:%s" % error.errno
     if os.environ.get("FAKE_MESSAGES"):
         extra["statuses"] = messages(int(os.environ["FAKE_MESSAGES"]))
+    if os.environ.get("FAKE_PAUSE_CYCLE"):
+        extra["statuses"] = pause_cycle(os.environ["FAKE_PAUSE_CYCLE"])
     record(extra)
     print("fake claude sentinel", flush=True)
     if os.environ.get("FAKE_SIGNAL"):

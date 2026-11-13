@@ -10,13 +10,15 @@ with an enabled reserve. In order (reviewed design, section 2.1):
    (credential, provider, store, endpoint and proxy selectors), the native version (only the reviewed
    2.1.322: a disclosed upper bound, since a new subcommand typed as a bare word looks like a prompt),
    the working directory (never HOME, an ancestor of it or HOME/Library), and the policy evaluator
-   (policy.py) for the account's server-managed policy and the local settings sources;
+   (policy.py) for the account's server-managed policy and the local settings sources, including a
+   machine that pins the sign-in organization (see Organization policy below);
 2. the port: the launcher becomes the child subreaper and holds a random loopback port (on macOS also
    every interface address), then runs the macOS boundary self-test;
 3. the D1 refresh: `claude auth status` runs confined behind a refresh gate that tunnels only
    platform.claude.com:443, so native refreshes its own token before model work; it must succeed;
-4. the gate (provider.py) reads the token memory-only and refuses on its local checks; the monitor
-   starts; once a heartbeat is heard the gate's first quota check must pass;
+4. the gate (provider.py) reads the token memory-only and refuses on its local checks (an
+   organization subscription, a token inside native's refresh window); the monitor starts; once a
+   heartbeat is heard the gate's first quota check must pass;
 5. the native runs on the launcher's PTY inside the boundary with ANTHROPIC_BASE_URL and HTTPS_PROXY
    at the gate and NO_PROXY=127.0.0.1 (otherwise native sends its Messages requests to the proxy in
    absolute form, which the gate's route table refuses), its own sandbox off (the outer boundary
@@ -29,9 +31,13 @@ with an enabled reserve. In order (reviewed design, section 2.1):
    reserves; --info keeps what the last unprotected session recorded). At the end every boundary
    descendant is ended, this invocation's temporary entries are removed and the port is released.
 
-Organization policy: when the account's subscription is not a personal one and native has not cached
-the organization's policy yet, the gate refuses at startup (provider.py, policy_cache_missing) and the
-message says how to create the caches: one ordinary session without reserves.
+Organization policy: Claude Code 2.1.322 applies no server-managed organization policy while
+ANTHROPIC_BASE_URL names the gate (S, provider.py), and protected mode does not run without that
+policy (the user's decision). So it refuses every account native would apply one to: the gate refuses
+at startup when the store's subscription type is not pro or max (organization_policy, after the D1
+refresh), and the launcher refuses first when the machine's managed settings pin the sign-in
+organization (forceLoginOrgUUID), which makes pro and max eligible too. Pro and max accounts lose
+nothing: native applies no organization policy to them in any mode.
 
 macOS: Claude's Bash tool writes /private/tmp/claude-UID/<cwd with every non-alphanumeric byte as ->
 whatever TMPDIR says. That directory is writable inside the boundary, and at the end the entry named
@@ -73,10 +79,16 @@ OPTIONAL = {"-d", "--debug", "--prompt-suggestions"}
 SWITCHES = {"--verbose", "--dangerously-skip-permissions", "--allow-dangerously-skip-permissions",
             "--disable-slash-commands", "--strict-mcp-config", "--ax-screen-reader", "--brief", "--no-chrome",
             "--restricted", "--safe-mode", "--exclude-dynamic-system-prompt-sections"}
-# The first operand native dispatches as a command (2.1.322 --help, plus the hidden login words).
-SUBCOMMANDS = {"agents", "attach", "auth", "auto-mode", "doctor", "gateway", "import", "install", "logs", "mcp",
-               "plugin", "plugins", "purge", "respawn", "rm", "setup-token", "stop", "kill", "ultrareview",
-               "update", "upgrade", "login", "logout", "remote-control", "rc", "config", "api"}
+# The first operand native dispatches as a command: every top-level command Claude Code 2.1.322
+# registers, visible and hidden, with its aliases (S: the root program and the registration functions it
+# calls), the two other names its root handling treats like install and update (rollback,
+# forward-home-settings), and the hidden login words.
+SUBCOMMANDS = {"agents", "api", "apply-project-settings", "attach", "auth", "auto-mode", "config", "design-login",
+               "doctor", "drop-worktree-registrations", "edit-chrome-settings", "edit-hook", "edit-memory-settings",
+               "edit-permission-rules", "edit-sandbox-settings", "edit-skill-overrides", "forward-home-settings",
+               "gateway", "import", "import-conversations", "install", "kill", "login", "logout", "logs", "mcp",
+               "plugin", "plugins", "project", "purge", "rc", "remote-control", "respawn", "rm", "rollback",
+               "sandbox", "setup-token", "stop", "ultrareview", "update", "upgrade"}
 # Caller variables that select another credential store, endpoint, transport or process wrapper
 # (launch.py's preflight refuses the credential and provider ones first).
 ENV_REFUSED = ("CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE", "CLAUDE_CODE_PROCESS_WRAPPER",
@@ -95,7 +107,7 @@ REASONS = {
     "upstream_unavailable": "the quota reads could not reach the provider",
     "monitor_lost": "the quota monitor stopped",
     "gate did not start": "the request gate did not start",
-    "policy_cache_missing": "the organization policy is not cached yet",
+    "organization_policy": "Claude Code applies no organization policy behind the request gate",
 }
 # The modules the gate process loads besides the supervisor's own checks (gate.py, monitor.py).
 GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py")
@@ -233,11 +245,20 @@ def clean_macos_temp(root, before, cwd):
         shutil.rmtree(path, ignore_errors=True)
 
 
-def policy_cache_message(paths):
-    return (f"the organization policy of {paths.name} is not cached yet (Claude Code writes remote-settings.json and "
-            f"policy-limits.json in {paths.config} when an ordinary session starts, and protected mode cannot fetch "
-            f"them); start one session without reserves (claude-as {paths.name}), wait for its prompt, exit it, then "
-            "launch with reserves again.")
+def organization_message(paths, machine=False):
+    cause = ("this machine's managed settings pin the sign-in organization (forceLoginOrgUUID)" if machine
+             else f"{paths.name} is an organization account (its subscription is not Pro or Max, or not known)")
+    return (f"{cause}, so Claude Code would apply the organization's server-managed policy, but it applies none while "
+            "its requests go through the request gate (a custom ANTHROPIC_BASE_URL), and protected mode does not run "
+            f"without that policy; launch without reserves (claude-as {paths.name}).")
+
+
+def judge_policy(verdict, paths):
+    """Refuse a policy verdict that refuses either scope or a machine that pins the sign-in organization."""
+    if verdict.refused():
+        refuse("Claude Code policy for this account: " + verdict.describe())
+    if verdict.pins_organization:
+        refuse(organization_message(paths, machine=True))
 
 
 def launch(config, policy, paths, record, args, executable, env, style=lambda text: text):
@@ -271,9 +292,7 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
     native_version(executable, env)
     identity = (record["identity"]["account_uuid"], record["identity"]["organization_uuid"])
     cwd = os.path.realpath(os.getcwd())
-    verdict = policies.evaluate(paths.config, identity[1], cwd)
-    if verdict.refused():
-        refuse("Claude Code policy for this account: " + verdict.describe())
+    judge_policy(policies.evaluate(paths.config, identity[1], cwd), paths)
     try:
         proxy = supervise.capture_proxy(os.environ, gate.parse_proxy)
     except supervise.Refused as error:
@@ -348,9 +367,7 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
             if code != 0:
                 refuse(f"the pre-launch native refresh (claude auth status) failed ({'timeout' if code is None else code});"
                        f" run CLAUDE_CONFIG_DIR={paths.config} claude auth status yourself to see why.")
-            verdict = policies.evaluate(paths.config, identity[1], cwd)
-            if verdict.refused():
-                refuse("Claude Code policy for this account: " + verdict.describe())
+            judge_policy(policies.evaluate(paths.config, identity[1], cwd), paths)
             settings["env"] = {"ANTHROPIC_BASE_URL": gate_url}
             native_env["ANTHROPIC_BASE_URL"] = gate_url
             if darwin:
@@ -358,8 +375,8 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
             status = sup.run([executable, "--settings", json.dumps(settings, separators=(",", ":")), *args],
                              native_env, cwd=cwd)
         except supervise.Refused as error:
-            if error.reason == "policy_cache_missing":
-                refuse(policy_cache_message(paths))
+            if error.reason == "organization_policy":
+                refuse(organization_message(paths))
             refuse(explain(error.reason) if error.reason in REASONS else error.reason)
         except sandbox.Refusal as error:
             refuse(str(error))

@@ -26,6 +26,7 @@ import sys
 import tempfile
 import termios
 import time
+import types
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -109,7 +110,8 @@ class Kit(unittest.TestCase):
 
     def terminal(self, args, answers=(), env=None, timeout=60, argv=None):
         """claude-as (or ARGV) on a fresh controlling terminal; ANSWERS are (prompt, reply) pairs, in
-        order. Returns (exit code, everything written to the terminal)."""
+        order: a text reply is typed with Enter, a callable one gets the output so far and its bytes are
+        written as they are. Returns (exit code, everything written to the terminal)."""
         argv = argv or [str(self.kit / "bin/claude-as"), *args]
         pid, master = spawn_on_terminal(argv, env or self.env, self.cwd)
         output, pending, deadline = b"", list(answers), time.monotonic() + timeout
@@ -131,8 +133,10 @@ class Kit(unittest.TestCase):
                     output += data
                 while pending and pending[0][0].encode() in output:
                     prompt, reply = pending.pop(0)
+                    data = reply(output) if callable(reply) else reply.encode() + b"\r"
                     output = output.replace(prompt.encode(), b"<" + prompt.encode() + b">", 1)
-                    os.write(master, reply.encode() + b"\r")
+                    if data:
+                        os.write(master, data)
                 done, raw = os.waitpid(pid, os.WNOHANG)
                 if done:
                     status = raw
@@ -533,6 +537,30 @@ class ServerManagedPolicy(unittest.TestCase):
             verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux", managed_dirs=(str(managed),))
             self.assertEqual([f.source for f in verdict.findings], [str(managed / "managed-settings.json")])
 
+    def test_a_managed_sign_in_organization_pin_is_reported_whatever_its_value(self):
+        """Native makes every subscription eligible for organization policy when a managed settings file
+        sets forceLoginOrgUUID (S); a user or project file with it does not count."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            config, work = self.files(base)
+            managed = base / "managed"
+            managed.mkdir()
+            (Path(work) / ".claude").mkdir()
+            (Path(work) / ".claude/settings.json").write_text(json.dumps({"forceLoginOrgUUID": ORGANIZATION_UUID}))
+            evaluate = lambda: policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux",
+                                               managed_dirs=(str(managed),))
+            self.assertFalse(evaluate().pins_organization)
+            for value in (ORGANIZATION_UUID, [ORGANIZATION_UUID], None):
+                with self.subTest(value):
+                    (managed / "managed-settings.json").write_text(json.dumps({"forceLoginOrgUUID": value}))
+                    verdict = evaluate()
+                    self.assertEqual((verdict.refused(), verdict.pins_organization), (False, True))
+            (managed / "managed-settings.json").unlink()
+            (managed / "managed-settings.d").mkdir()
+            (managed / "managed-settings.d" / "10-org.json").write_text(json.dumps({"forceLoginOrgUUID": "org-other"}))
+            verdict = evaluate()
+            self.assertEqual((verdict.native, verdict.pins_organization), (("policy_organization_mismatch",), True))
+
     def test_local_sources_keep_the_users_own_hooks_but_not_auth_pins(self):
         self.assertEqual(policy.judge_local("s", {"hooks": {"Stop": [1]}, "statusLine": {"command": "x"}}, "o"), [])
         self.assertEqual(self.reasons(policy.judge_local("s", {"apiKeyHelper": "x"}, "o")),
@@ -827,28 +855,21 @@ class GateProvider(unittest.TestCase):
                              (False, "model_unproved"))
         self.assertEqual(g.state, "running")
 
-    def test_an_account_native_fetches_organization_policy_for_needs_both_caches(self):
+    def test_an_organization_account_refuses_before_any_read_even_with_policy_caches(self):
+        """Native applies no organization policy behind the gate (custom ANTHROPIC_BASE_URL, S), so every
+        subscription it would apply one to refuses, whatever is cached."""
+        for name in ("remote-settings.json", "policy-limits.json"):
+            (self.config_dir / name).write_text("{}")
+            (self.config_dir / name).chmod(0o600)
         for subscription in ("enterprise", "team", None, "unknown_plan"):
             with self.subTest(subscription):
                 self.store(upstream_fixture.BEARER_A, subscription=subscription)
                 prov, g = self.make()
                 with self.assertRaises(gate.Refusal) as caught:
                     prov.startup(g)
-                self.assertEqual(caught.exception.reason, "policy_cache_missing")
-        (self.config_dir / "remote-settings.json").write_text("{}")
-        for change in (lambda: None, lambda: (self.config_dir / "policy-limits.json").mkdir()):  # one, or no file
-            change()
-            prov, g = self.make()
-            with self.assertRaises(gate.Refusal):
-                prov.startup(g)
+                self.assertEqual(caught.exception.reason, "organization_policy")
         self.assertEqual(self.upstream.requests, [])
-        (self.config_dir / "policy-limits.json").rmdir()
-        (self.config_dir / "policy-limits.json").write_text("{}")
-        _, g = self.started()
-        self.assertEqual(g.state, "running", g.status())
-        for name in provider.POLICY_CACHES:
-            (self.config_dir / name).unlink()
-        for subscription in ("pro", "max"):  # personal plans: native fetches no organization policy
+        for subscription in ("pro", "max"):  # personal plans: native applies no organization policy in any mode
             with self.subTest(subscription):
                 self.store(upstream_fixture.BEARER_A, subscription=subscription)
                 _, g = self.started()
@@ -1035,6 +1056,36 @@ class ProtectScreens(unittest.TestCase):
                 self.assertTrue(message.startswith("protected mode refused: "))
                 self.assertNotIn("secret", message)
 
+    def test_every_top_level_command_of_the_reviewed_version_refuses(self):
+        """Every top-level command Claude Code 2.1.322 registers, visible and hidden, with its aliases (S),
+        plus the hidden login words and the two other names its root handling treats as commands."""
+        reviewed = {"agents", "attach", "auth", "auto-mode", "doctor", "gateway", "import", "install", "logs", "mcp",
+                    "plugin", "plugins", "purge", "respawn", "rm", "setup-token", "stop", "kill", "ultrareview",
+                    "update", "upgrade", "remote-control", "rc", "project", "sandbox", "edit-hook",
+                    "edit-chrome-settings", "edit-memory-settings", "edit-permission-rules", "edit-sandbox-settings",
+                    "edit-skill-overrides", "design-login", "drop-worktree-registrations", "import-conversations",
+                    "apply-project-settings", "rollback", "forward-home-settings", "login", "logout", "config", "api"}
+        self.assertEqual(protect.SUBCOMMANDS, reviewed)
+        for word in sorted(reviewed):
+            with self.subTest(word):
+                self.assertIn(f"the claude {word} command does not run in protected mode",
+                              self.refused(protect.screen_arguments, [word, "--json"]))
+                self.assertIn(f"the claude {word} command", self.refused(protect.screen_arguments, ["--", word]))
+        self.assertEqual(protect.screen_arguments(["edit the hook", "project"]).add_dirs, [])  # prompts stay prompts
+
+    def test_a_refusing_policy_verdict_or_a_machine_organization_pin_refuses(self):
+        paths = types.SimpleNamespace(name="N")
+        protect.judge_policy(policy.Verdict((), (), ()), paths)
+        verdict = policy.Verdict(("policy_conflicting_auth",), ("policy_conflicting_auth",),
+                                 (policy.Finding("policy-limits.json", "apiKeyHelper", True, True,
+                                                 "policy_conflicting_auth"),))
+        self.assertIn("Claude Code policy for this account: a credential helper",
+                      self.refused(protect.judge_policy, verdict, paths))
+        message = self.refused(protect.judge_policy, policy.Verdict((), (), (), True), paths)
+        self.assertIn("this machine's managed settings pin the sign-in organization (forceLoginOrgUUID)", message)
+        self.assertIn("launch without reserves (claude-as N)", message)
+        self.assertIn("N is an organization account", protect.organization_message(paths))
+
     def test_store_and_proxy_selectors_in_the_environment_refuse_without_values(self):
         protect.screen_environment({"PATH": "/bin", "HTTPS_PROXY": "http://127.0.0.1:1"})
         for name in protect.ENV_REFUSED:
@@ -1154,14 +1205,14 @@ class Protected(Kit):
             "subscriptionType": subscription}}))
         credential.chmod(0o600)
 
-    def protected(self, args=(), env=None, reserves=None, timeout=90):
+    def protected(self, args=(), env=None, reserves=None, timeout=90, answers=()):
         security = self.base / "security"  # macOS: no Keychain item, so the store file is read
         security.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(44)\n")
         security.chmod(0o700)
         spec = {"kit": str(self.kit), "account": "N", "reserves": reserves or {"five_hour": "10", "weekly": "5"},
                 "args": list(args), "upstream_port": self.upstream.port, "security": str(security)}
         argv = [sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)]
-        return self.terminal([], env=dict(self.env, **(env or {})), argv=argv, timeout=timeout)
+        return self.terminal([], answers, env=dict(self.env, **(env or {})), argv=argv, timeout=timeout)
 
     def test_a_passing_check_runs_the_native_behind_the_gate_with_its_own_pid(self):
         code, output = self.protected(["--model", "claude-sonnet-4-5"], env={
@@ -1216,21 +1267,61 @@ class Protected(Kit):
         self.assertEqual(self.upstream.model_requests(), [])
         self.assertIn("quota reserve paused (bearer_identity_mismatch)", output)
 
-    def test_an_organization_account_without_policy_caches_refuses_with_how_to_create_them(self):
+    def test_an_organization_account_refuses_before_the_native_even_with_policy_caches(self):
         self.store("enterprise")
-        code, output = self.protected()
-        self.assertEqual(code, 1, output)
-        self.assertIn("protected mode refused: the organization policy of N is not cached yet", output)
-        self.assertIn("start one session without reserves (claude-as N)", output)
-        self.assertFalse(self.record.exists())
-        self.assertEqual(self.upstream.paths(), [])
         for name, document in (("remote-settings.json", {}), ("policy-limits.json", E0_LIMITS)):
             path = self.native_config("N") / name
             path.write_text(json.dumps(document))
             path.chmod(0o600)
         code, output = self.protected()
-        self.assertEqual(code, 0, output)
-        self.assertIn("fake claude sentinel", output)
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: N is an organization account (its subscription is not Pro or Max, "
+                      "or not known), so Claude Code would apply the organization's server-managed policy, but it "
+                      "applies none while its requests go through the request gate", output)
+        self.assertIn("launch without reserves (claude-as N)", output)
+        self.assertFalse(self.record.exists())
+        self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_threshold_poll_pauses_mid_run_and_f12_with_the_code_continues(self):
+        """The composed pause and continuation: a near-reserve poll (15 s) finds the window at its reserve,
+        the native's next request gets the 400 refusal, and F12 plus the shown code on the launcher's
+        terminal runs a continuation check with the store's bearer, after which requests pass again."""
+        self.upstream.used["five_hour"] = 85  # 15% left against a 10% reserve: polls every 15 s
+        go, state = self.cwd / "paused", {}
+
+        def crossed(output):
+            self.upstream.used["five_hour"] = 95
+            return b""
+
+        def paused(output):
+            go.write_text("")
+            return b""
+
+        def trigger(output):
+            self.upstream.used["five_hour"] = 50
+            state["reads"] = len(self.upstream.paths("GET"))
+            return b"\x1b[24~"
+
+        def code(output):
+            return re.findall(rb"type ([0-9a-f]{8}) then Enter to request a fresh quota check", output)[-1] + b"\r"
+
+        status, output = self.protected(env={"FAKE_PAUSE_CYCLE": str(go), "FAKE_BEARER": upstream_fixture.BEARER_A},
+                                        answers=[("fake claude admitted", crossed),
+                                                 ("quota reserve paused (threshold)", paused),
+                                                 ("fake claude refused", trigger),
+                                                 ("then Enter to request a fresh quota check", code)], timeout=120)
+        self.assertEqual(status, 0, output)
+        self.assertIn("<quota reserve paused (threshold)>; account N; window five-hour; remaining 5% (reserve 10%)",
+                      output)  # <...> marks where an answer was matched
+        self.assertIn("fresh quota check passed; model requests resume", output)
+        cycle = self.recorded()["statuses"]
+        self.assertEqual(([s for s, _ in cycle[:2]], cycle[-1][0]), ([200, 400], 200))
+        self.assertTrue(all(s == 400 and "quota reserve" in body for s, body in cycle[1:-1]), cycle)
+        self.assertIn("threshold", cycle[1][1])
+        self.assertEqual(len(self.upstream.model_requests()), 2)  # the refused requests sent no model bytes
+        continuation = [r for r in self.upstream.requests if r["method"] == "GET"][state["reads"]:]
+        self.assertEqual([r["path"] for r in continuation][:2], ["/api/oauth/profile", "/api/oauth/usage"])
+        self.assertIn(("Authorization", "Bearer " + upstream_fixture.BEARER_A), continuation[0]["headers"])
 
     def test_a_native_killed_by_a_signal_ends_the_launcher_by_it_after_the_cleanup(self):
         code, output = self.protected(env={"FAKE_SIGNAL": str(int(signal.SIGTERM))})
@@ -1372,6 +1463,11 @@ class RealClaude(Kit):
         self.upstream = upstream_fixture.ClaudeUpstream()
         self.upstream.messages = True
         self.addCleanup(self.upstream.close)
+        # The refresh gate's tunnel leads to a bound loopback port that never listens, so a refresh native
+        # might start fails with a refused connection instead of reaching platform.claude.com.
+        self.closed = socket.socket()
+        self.addCleanup(self.closed.close)
+        self.closed.bind(("127.0.0.1", 0))
         inside = [sys.executable, "-I", str(FIXTURES / "inside.py")]
         probe = lambda kind: [*inside, kind, str(self.cwd), str(self.upstream.port), str(self.home)]
         self.private(".claude.json", {
@@ -1398,7 +1494,8 @@ class RealClaude(Kit):
     def launch(self, args=()):
         spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"},
                 "args": ["--debug-file", str(self.cwd / "native-debug.log"), "--permission-mode", "default", *args],
-                "upstream_port": self.upstream.port}
+                "upstream_port": self.upstream.port,
+                "connect_allow": {"platform.claude.com:443": ["127.0.0.1", self.closed.getsockname()[1]]}}
         screen = Screen([sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)], self.env,
                         self.cwd)
         self.addCleanup(screen.close)
@@ -1418,12 +1515,24 @@ class RealClaude(Kit):
         self.assertTrue(wait_for(lambda: (self.cwd / ("inside-%s.json" % kind)).exists(), 30), kind)
         return json.loads((self.cwd / ("inside-%s.json" % kind)).read_text())
 
-    def test_the_native_with_hooks_mcp_and_a_background_tool_reaches_only_the_gate(self):
+    def test_an_organization_account_is_refused_before_the_native_starts(self):
+        """The real `claude auth status` runs behind the refresh gate; the gate then refuses the
+        enterprise subscription, so no native session starts and no model request is made."""
         self.store(upstream_fixture.BEARER_A, "enterprise")
-        caches = {"remote-settings.json": {}, "policy-limits.json": E0_LIMITS}
-        for name, document in caches.items():
+        for name, document in (("remote-settings.json", {"permissions": {"deny": ["Bash"]}}),
+                               ("policy-limits.json", E0_LIMITS)):
             self.private(name, document)
-        before = {name: (self.config_dir / name).read_bytes() for name in caches}
+        spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"}, "args": [],
+                "upstream_port": self.upstream.port,
+                "connect_allow": {"platform.claude.com:443": ["127.0.0.1", self.closed.getsockname()[1]]}}
+        code, output = self.terminal([], argv=[sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"),
+                                               json.dumps(spec)], timeout=90)
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: N is an organization account", output)
+        self.assertEqual(self.upstream.requests, [])
+
+    def test_the_native_with_hooks_mcp_and_a_background_tool_reaches_only_the_gate(self):
+        self.store(upstream_fixture.BEARER_A, "max")
         self.upstream.bash = "echo $$ > %s/bash-pid.txt; echo $TMPDIR > %s/bash-tmpdir.txt; exec sleep 120" % (
             self.cwd, self.cwd)
         screen = self.launch()
@@ -1461,7 +1570,6 @@ class RealClaude(Kit):
         self.assertNotIn("quota reserve:", log)  # the gate refused no Messages request
         self.assertIn("proxy refused the connection", log)  # auxiliary CONNECTs refused, native kept going
         self.assertIn('MCP server "fixture": Successfully connected', log)
-        self.assertEqual({name: (self.config_dir / name).read_bytes() for name in caches}, before)
         self.assertFalse(os.path.exists(private_tmp))
         self.assertTrue(wait_for(lambda: gone(shell), 10), "the background shell outlived the invocation")
 
