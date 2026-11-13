@@ -77,7 +77,10 @@ Public API (load this file by path; it is never on sys.path):
         The input refusals of confine().
     writable_rules(paths) -> tuple
         (resolved path, Landlock rights) for each existing writable path and
-        each device in DEVICES that exists.
+        each device in DEVICES that exists. A path that resolves through a
+        link inside a writable path refuses: a process inside a previous
+        boundary could have put it there, and confine() resolves the paths
+        again on every start (codex-as confines each quota reader).
     ruleset_plan(abi, gate_port, rules) -> dict
         The Landlock ruleset confine() creates.
     seccomp_program(arch) -> list
@@ -289,8 +292,36 @@ def check_inputs(gate_port, writable_paths, provider):
         raise Refusal("input", "the writable paths must be a list of strings")
 
 
+def links_on_the_way(path, hops=40):
+    """The links that resolving the absolute PATH goes through, in order (physical "..", relative
+    and absolute targets, at most HOPS links)."""
+    links, current, parts = [], "/", [part for part in path.split("/") if part not in ("", ".")]
+    while parts:
+        part = parts.pop(0)
+        if part == "..":
+            current = os.path.dirname(current)
+            continue
+        name = os.path.join(current, part)
+        try:
+            target = os.readlink(name)
+        except OSError:  # not a link, or missing (stat refuses that later)
+            current = name
+            continue
+        hops -= 1
+        if hops < 0:
+            raise Refusal("path", "the writable path %s goes through too many links" % ascii(path))
+        links.append(name)
+        parts[:0] = [item for item in target.split("/") if item not in ("", ".")]
+        current = "/" if target.startswith("/") else current
+    return links
+
+
 def writable_rules(paths):
-    """((resolved path, rights), ...) for the writable paths, then the devices that exist."""
+    """((resolved path, rights), ...) for the writable paths, then the devices that exist.
+
+    Every confined start resolves the paths again, after processes inside may have run: a path
+    whose resolution goes through a link inside a writable path (which such a process could have
+    put there) refuses, so a nested writable path replaced by a link never widens the boundary."""
     rules, seen = [], set()
 
     def add(real, mode):
@@ -301,6 +332,16 @@ def writable_rules(paths):
     for path in paths:
         if not path.startswith("/") or "\0" in path:
             raise Refusal("path", "a writable path must be absolute: %s" % ascii(path))
+    roots = [os.path.realpath(path) for path in paths]
+    if "/" in roots:
+        raise Refusal("path", "the whole filesystem cannot be writable inside the boundary")
+    for path in paths:
+        for link in links_on_the_way(path):
+            for root in roots:
+                if link == root or link.startswith(root.rstrip("/") + "/"):
+                    raise Refusal("path", "the writable path %s goes through %s, a link inside the writable path "
+                                  "%s, which a process inside the boundary could have replaced"
+                                  % (ascii(path), ascii(link), ascii(root)))
         real = os.path.realpath(path)
         try:
             mode = os.stat(real).st_mode

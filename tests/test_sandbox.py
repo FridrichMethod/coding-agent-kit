@@ -21,7 +21,6 @@ import json
 import os
 from pathlib import Path
 import platform
-import shutil
 import socket
 import struct
 import subprocess
@@ -193,8 +192,35 @@ class LinuxInputs(unittest.TestCase):
                 linux.writable_rules([path])
             self.assertEqual(caught.exception.kind, "path")
         (self.base / "root").symlink_to("/")
-        with self.assertRaises(linux.Refusal):
+        with self.assertRaises(linux.Refusal) as caught:
             linux.writable_rules([str(self.base / "root")])
+        self.assertIn("the whole filesystem", str(caught.exception))
+
+    def test_a_link_inside_a_writable_path_on_the_way_to_another_refuses(self):
+        """Every confined start resolves the writable paths again: a process inside that replaced a
+        nested writable path (or a directory on the way to it) with a link must not widen the next
+        boundary, here to the directory standing in for HOME."""
+        home, outer = self.base / "home", self.base / "home/.codex"
+        (outer / "sqlite").mkdir(parents=True)
+        (outer / "deep/er").mkdir(parents=True)
+        (self.base / "alias").symlink_to(outer)  # a link outside every writable path is fine
+        paths = [str(outer), str(outer / "sqlite"), str(outer / "deep/er"), str(self.base / "alias/deep")]
+        self.assertIn(str(outer / "sqlite"), dict(linux.writable_rules(paths)))
+        (outer / "sqlite").rmdir()
+        (outer / "sqlite").symlink_to(home)
+        with self.assertRaises(linux.Refusal) as caught:
+            linux.writable_rules(paths)
+        self.assertEqual(caught.exception.kind, "path")
+        self.assertIn(str(outer / "sqlite"), str(caught.exception))
+        (outer / "sqlite").unlink()
+        (outer / "sqlite").mkdir()
+        (outer / "deep/er").rmdir()
+        (outer / "deep").rmdir()
+        (outer / "deep").symlink_to(self.base)  # deep/er now resolves outside, through deep
+        (self.base / "er").mkdir()
+        with self.assertRaises(linux.Refusal) as caught:
+            linux.writable_rules(paths)
+        self.assertIn(str(outer / "deep"), str(caught.exception))
 
     def test_rights_never_cover_reads_execution_or_device_ioctl(self):
         unhandled = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 15)
