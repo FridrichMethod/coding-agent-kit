@@ -34,7 +34,8 @@ on macOS too; there a descendant that calls setsid is found only by periodic sna
 that detaches between two snapshots escapes.
 
 Boundary children get no proxy but the gate: native_environment() drops every proxy variable that
-does not name the gate (the launcher's own HTTPS_PROXY belongs to the gate's upstream connections).
+does not name the gate. The caller's own proxy, the one the native would use for HTTPS
+(capture_proxy()), belongs to the gate's upstream connections.
 
 Nothing the launcher starts outside the boundary resolves through a name the boundary could replace.
 The gate and monitor start in / with only gate_env; their interpreter is the caller's choice
@@ -66,6 +67,7 @@ import json
 import mmap
 import os
 from pathlib import Path
+import re
 import secrets
 import select
 import signal
@@ -95,6 +97,17 @@ PR_SET_CHILD_SUBREAPER = 36
 PREFIX = "[coding-agent-kit] "
 LOOPBACK = ("127.0.0.1", "::1")
 PROXY_VARIABLES = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")
+# The variables a native reads for its HTTPS connections, group by group in precedence order (both
+# spellings of a name form one group): Codex (reqwest) falls back from HTTPS_PROXY to ALL_PROXY,
+# Claude Code from HTTPS_PROXY to HTTP_PROXY and never reads ALL_PROXY. Without a provider either
+# fallback counts, so the gate never goes direct where one native would use a proxy.
+PROXY_ORDER = {
+    "codex": (("HTTPS_PROXY", "https_proxy"), ("ALL_PROXY", "all_proxy")),
+    "claude": (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy")),
+    None: (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")),
+}
+NO_PROXY_VARIABLES = ("NO_PROXY", "no_proxy")
+NO_PROXY_ENTRY = re.compile(r"[a-z0-9.*:\[\]/_-]{1,262}")
 # What a forked child reports through a shared anonymous page, which survives a confine hook that
 # closes every descriptor: the hook is running, exec is next, the hook refused, exec failed.
 HOOK, EXEC, REFUSED, FAILED = b"H", b"X", b"R", b"E"
@@ -119,19 +132,42 @@ class Refused(Exception):
         self.reason = reason
 
 
-def capture_proxy(env, parse):
-    """The launcher's HTTPS_PROXY for the gate's upstream connections, captured once.
+def capture_proxy(env, parse, provider=None):
+    """The caller's proxy for the gate's upstream connections, captured once at startup: None (the
+    gate connects directly) or (host, port, no_proxy), the gate configuration's proxy value.
 
-    parse is gate.parse_proxy. HTTPS_PROXY and https_proxy must agree; an unsupported proxy refuses
-    instead of going direct. Boundary children never get it: run() and confined() pass them
-    native_environment(), whose only proxy is the gate."""
-    values = {env[name] for name in ("HTTPS_PROXY", "https_proxy") if env.get(name)}
-    if len(values) > 1:
-        raise Refused("HTTPS_PROXY and https_proxy differ")
-    try:
-        return parse(values.pop()) if values else None
-    except ValueError:
-        raise Refused("unsupported HTTPS_PROXY (only a plain http://HOST:PORT proxy)") from None
+    parse is gate.parse_proxy. The proxy is the one the PROVIDER's native ("codex", "claude", or
+    None for either) would use for HTTPS (PROXY_ORDER): the first group with a value set, whose set
+    values must agree. An unsupported value refuses instead of going direct, naming the variable but
+    never its value. no_proxy holds one entry list per set spelling of NO_PROXY (gate.bypasses).
+    Boundary children never get the proxy: run() and confined() pass them native_environment(),
+    whose only proxy is the gate."""
+    for names in PROXY_ORDER[provider]:
+        found = [(name, env[name]) for name in names if env.get(name)]
+        if not found:
+            continue
+        if len({value for _, value in found}) > 1:
+            raise Refused("%s differ" % " and ".join(name for name, _ in found))
+        name, value = found[0]
+        try:
+            host, port = parse(value)
+        except (ValueError, TypeError):
+            raise Refused("unsupported %s (only a plain http://HOST:PORT proxy)" % name) from None
+        return host, port, no_proxy_lists(env)
+    return None
+
+
+def no_proxy_lists(env):
+    """One tuple of lower-case entries per set spelling of NO_PROXY, in NO_PROXY_VARIABLES order.
+    An entry the gate could not match (gate.bypasses) is dropped, which only keeps that host on the
+    proxy."""
+    lists = []
+    for name in NO_PROXY_VARIABLES:
+        text = env.get(name)
+        if text:
+            entries = (entry for entry in re.split(r"[\s,]+", text.lower()) if entry)
+            lists.append(tuple(entry for entry in entries if NO_PROXY_ENTRY.fullmatch(entry))[:1024])
+    return tuple(lists)
 
 
 def native_environment(env, port):

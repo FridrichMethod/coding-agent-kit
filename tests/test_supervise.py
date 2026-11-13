@@ -79,12 +79,58 @@ class Pure(unittest.TestCase):
     def test_capture_proxy(self):
         parse = fakes.gate.parse_proxy
         self.assertIsNone(supervise.capture_proxy({}, parse))
-        self.assertEqual(supervise.capture_proxy({"https_proxy": "http://p.example:3128"}, parse), ("p.example", 3128))
+        self.assertEqual(supervise.capture_proxy({"https_proxy": "http://p.example:3128"}, parse),
+                         ("p.example", 3128, ()))
         self.assertEqual(supervise.capture_proxy({"HTTPS_PROXY": "http://p:1", "https_proxy": "http://p:1"}, parse),
-                         ("p", 1))
+                         ("p", 1, ()))
         for env in ({"HTTPS_PROXY": "http://p:1", "https_proxy": "http://q:1"}, {"HTTPS_PROXY": "https://p:1"}):
             with self.subTest(env=env), self.assertRaises(supervise.Refused):
                 supervise.capture_proxy(env, parse)
+
+    def test_the_gate_takes_the_proxy_the_native_would_use_for_https(self):
+        """Codex (reqwest) falls back from HTTPS_PROXY to ALL_PROXY, Claude Code to HTTP_PROXY; without
+        a provider either fallback counts. A proxy the gate cannot use refuses instead of going direct."""
+        parse = fakes.gate.parse_proxy
+        cases = (
+            ("codex", {"ALL_PROXY": "http://a.example:1"}, ("a.example", 1, ())),
+            ("codex", {"all_proxy": "http://a.example:2"}, ("a.example", 2, ())),
+            ("codex", {"HTTP_PROXY": "http://h.example:1"}, None),
+            ("codex", {"HTTPS_PROXY": "http://p:1", "ALL_PROXY": "socks5://x:1"}, ("p", 1, ())),
+            ("codex", {"HTTPS_PROXY": "", "ALL_PROXY": "http://a:3"}, ("a", 3, ())),
+            ("claude", {"HTTP_PROXY": "http://h.example:1"}, ("h.example", 1, ())),
+            ("claude", {"http_proxy": "http://h.example:2"}, ("h.example", 2, ())),
+            ("claude", {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, None),
+            ("claude", {"https_proxy": "http://p:1", "HTTP_PROXY": "socks5://x:1"}, ("p", 1, ())),
+            (None, {"ALL_PROXY": "http://a:1"}, ("a", 1, ())),
+            (None, {"http_proxy": "http://h:1", "all_proxy": "http://h:1"}, ("h", 1, ())),
+        )
+        for provider, env, expected in cases:
+            with self.subTest(provider=provider, env=env):
+                self.assertEqual(supervise.capture_proxy(env, parse, provider=provider), expected)
+        refused = (
+            ("codex", {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, "unsupported ALL_PROXY"),
+            ("codex", {"all_proxy": "socks5://127.0.0.1:9050"}, "unsupported all_proxy"),
+            ("codex", {"ALL_PROXY": "http://a:1", "all_proxy": "http://b:1"}, "ALL_PROXY and all_proxy differ"),
+            ("claude", {"HTTP_PROXY": "https://h:1"}, "unsupported HTTP_PROXY"),
+            ("claude", {"http_proxy": "h.example:3128"}, "unsupported http_proxy"),
+            (None, {"HTTP_PROXY": "http://h:1", "ALL_PROXY": "http://a:1"}, "HTTP_PROXY and ALL_PROXY differ"),
+            (None, {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, "unsupported ALL_PROXY"),
+        )
+        for provider, env, reason in refused:
+            with self.subTest(provider=provider, env=env), self.assertRaises(supervise.Refused) as raised:
+                supervise.capture_proxy(env, parse, provider=provider)
+            self.assertIn(reason, raised.exception.reason)
+            for value in env.values():
+                self.assertNotIn(value, raised.exception.reason)  # a proxy URL may carry a secret
+
+    def test_no_proxy_is_captured_with_the_proxy_one_list_per_spelling(self):
+        parse = fakes.gate.parse_proxy
+        env = {"HTTPS_PROXY": "http://p:1", "NO_PROXY": "localhost, .Example.com,,127.0.0.1:8080",
+               "no_proxy": "*"}
+        self.assertEqual(supervise.capture_proxy(env, parse),
+                         ("p", 1, (("localhost", ".example.com", "127.0.0.1:8080"), ("*",))))
+        self.assertIsNone(supervise.capture_proxy({"NO_PROXY": "*"}, parse))
+        self.assertEqual(supervise.capture_proxy({"HTTPS_PROXY": "http://p:1", "NO_PROXY": ""}, parse), ("p", 1, ()))
 
     def test_descendants(self):
         table = {2: (1, "a"), 3: (2, "b"), 4: (3, "c"), 5: (1, "d"), 6: (5, "e")}

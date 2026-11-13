@@ -638,6 +638,54 @@ class Upstreams(unittest.TestCase):
         h.gate.proxy = ("127.0.0.1", refusing.port)
         self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 503)
 
+    def test_no_proxy_hosts_reach_the_upstream_directly(self):
+        proxy = fakes.FakeProxy()
+        self.addCleanup(proxy.close)
+        h = Harness(self, proxy=("127.0.0.1", proxy.port), no_proxy=(("localhost", "127.0.0.1"),))
+        h.ready()
+        self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 200)
+        self.assertEqual(proxy.targets, [])
+        self.assertEqual(len(h.upstream.requests("/model")), 1)
+        h.gate.no_proxy = (("127.0.0.1",), ("other.example",))  # every set spelling must exempt it
+        self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 200)
+        self.assertEqual(proxy.targets, ["127.0.0.1:%d" % h.upstream.port])
+
+    def test_no_proxy_entries_match_as_the_natives_read_them(self):
+        cases = (
+            ("*", "api.anthropic.com", 443, True),
+            ("anthropic.com", "api.anthropic.com", 443, True),
+            (".anthropic.com", "api.anthropic.com", 443, True),
+            ("*.anthropic.com", "api.anthropic.com", 443, True),
+            (".chatgpt.com", "chatgpt.com", 443, True),
+            ("chatgpt.com", "chatgpt.com", 443, True),
+            ("chatgpt.com.", "chatgpt.com", 443, True),
+            ("gpt.com", "chatgpt.com", 443, False),
+            ("chatgpt.com:443", "chatgpt.com", 443, True),
+            ("chatgpt.com:8443", "chatgpt.com", 443, False),
+            ("10.0.0.0/8", "10.1.2.3", 443, True),
+            ("10.0.0.0/8", "api.anthropic.com", 443, False),
+            ("127.0.0.1", "127.0.0.1", 443, True),
+            ("127.0.0.1:8080", "127.0.0.1", 443, False),
+            ("[::1]:443", "::1", 443, True),
+            ("::1", "::1", 443, True),
+            ("localhost", "api.anthropic.com", 443, False),
+        )
+        for entry, host, port, expected in cases:
+            with self.subTest(entry=entry, host=host):
+                self.assertEqual(gate.bypasses(((entry,),), host, port), expected)
+        self.assertFalse(gate.bypasses((), "chatgpt.com", 443))
+        self.assertFalse(gate.bypasses(((),), "chatgpt.com", 443))
+        self.assertFalse(gate.bypasses((("chatgpt.com",), ("localhost",)), "chatgpt.com", 443))
+
+    def test_the_proxy_configuration_value(self):
+        self.assertEqual(gate.proxy_setting(None), (None, ()))
+        self.assertEqual(gate.proxy_setting(["p.example", 3128]), (("p.example", 3128), ()))
+        self.assertEqual(gate.proxy_setting(["p", 1, [["localhost", ".example.com"], ["*"]]]),
+                         (("p", 1), (("localhost", ".example.com"), ("*",))))
+        for bad in (["p"], ["p", "x"], ["p", 1, "localhost"], ["p", 1, [[1]]], ["p", 1, [], []], "p:1"):
+            with self.subTest(bad=bad), self.assertRaises((ValueError, TypeError)):
+                gate.proxy_setting(bad)
+
     def test_parse_proxy_accepts_plain_http_host_port_only(self):
         self.assertIsNone(gate.parse_proxy(""))
         self.assertEqual(gate.parse_proxy("http://proxy.example:3128"), ("proxy.example", 3128))
@@ -1180,6 +1228,24 @@ class GateProcess(unittest.TestCase):
         process = self.start(max_age_s=True)
         self.assertEqual(self.messages(lambda m: m["op"] == "refused")[-1]["reason"], "config_invalid")
         self.assertEqual(process.wait(5), 3)
+        process = self.start(holds_bearer=True, proxy=["127.0.0.1", 1, "localhost"])
+        self.assertEqual(self.messages(lambda m: m["op"] == "refused")[-1]["reason"], "config_invalid")
+        self.assertEqual(process.wait(5), 3)
+
+    def test_the_captured_proxy_and_its_no_proxy_hosts_reach_the_gate(self):
+        proxy = fakes.FakeProxy()
+        self.addCleanup(proxy.close)
+        process = self.start(holds_bearer=True, proxy=["127.0.0.1", proxy.port, [["127.0.0.1"]]])
+        self.messages(lambda m: m["op"] == "ready")
+        self.assertTrue(wait_for(lambda: self.ask("status")["running"]))
+        self.assertEqual(proxy.targets, [])  # NO_PROXY: the startup check went direct
+        self.assertEqual(self.ask("shutdown")["ok"], True)
+        self.assertEqual(process.wait(5), 0)
+        self.upstream = None
+        process = self.start(holds_bearer=True, proxy=["127.0.0.1", proxy.port])
+        self.messages(lambda m: m["op"] == "ready")
+        self.assertTrue(wait_for(lambda: self.ask("status")["running"]))
+        self.assertEqual(proxy.targets, ["127.0.0.1:%d" % self.upstream.port])
 
     def test_monitor_kill_and_stall_latch(self):
         for how, reason in ((signal.SIGKILL, "monitor_eof"), (signal.SIGSTOP, "monitor_stale")):

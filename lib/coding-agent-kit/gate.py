@@ -3,8 +3,9 @@
 Provider-neutral core shared by codex-as and claude-as (load this file by path; it is never on
 sys.path). A gate runs outside the boundary as its own process. It serves plain HTTP on the
 loopback listening sockets that the launcher holds for the whole invocation and originates every
-upstream connection itself, over verified TLS (HTTP/1.1, TLS 1.2 or later), through the launcher's
-plain http:// HTTPS_PROXY when the launcher captured one at startup.
+upstream connection itself, over verified TLS (HTTP/1.1, TLS 1.2 or later), through the caller's
+plain http:// proxy when the launcher captured one at startup (the one the native would use for
+HTTPS; a NO_PROXY host goes direct, as it would for the native).
 
 Providers plug in through four interfaces; BaseProvider documents each method:
     a default-deny RouteTable per native version (Route kinds: model, usage, read, paused_read);
@@ -40,8 +41,9 @@ Process entry (a provider script loads this file and calls main(argv, make)):
     python3 -I -B PROVIDER_GATE --listen-fds A[,B...] --control-fd N [--monitor-fd N]
                                 --mode startup|restart|refresh
     stdin: one JSON object, at most CONFIG_LIMIT bytes, then EOF. Core keys: max_age_s,
-        heartbeat_max_s (optional), proxy ([host, port] or null); make(config) reads the rest and
-        may set the provider's tunables (BaseProvider lists them).
+        heartbeat_max_s (optional), proxy (null, [host, port] or [host, port, NO_PROXY lists]: see
+        proxy_setting); make(config) reads the rest and may set the provider's tunables
+        (BaseProvider lists them).
 
 Control channel (JSON lines on the inherited socket, section 10 of the reviewed design):
     launcher -> gate: {"op": "continue" | "disarm" | "status" | "shutdown", "id": N (optional)}
@@ -303,7 +305,7 @@ class RouteTable:
 
 
 def parse_proxy(url):
-    """The launcher's HTTPS_PROXY as (host, port), or None when unset.
+    """The caller's proxy URL as (host, port), or None when unset.
 
     Only a plain http://HOST:PORT proxy without credentials or a path is supported; anything else
     raises ValueError, and protected mode refuses rather than going direct.
@@ -314,12 +316,66 @@ def parse_proxy(url):
         parts = urlsplit(url)
         port = parts.port
     except ValueError:
-        raise ValueError("unsupported HTTPS_PROXY") from None
+        raise ValueError("unsupported proxy") from None
     if (parts.scheme != "http" or not parts.hostname or not port or parts.username is not None
             or parts.password is not None or parts.path not in ("", "/") or parts.query
             or parts.fragment):
-        raise ValueError("unsupported HTTPS_PROXY")
+        raise ValueError("unsupported proxy")
     return (parts.hostname, port)
+
+
+def bypasses(no_proxy, host, port):
+    """Whether NO_PROXY exempts HOST:PORT from the proxy. NO_PROXY is one entry list per set
+    spelling (supervise.no_proxy_lists), and every list must match, so a host goes direct only where
+    each spelling says so. An entry "*" matches every host; "NAME", ".NAME" and "*.NAME" match NAME
+    and its subdomains; an IP address or CIDR range matches the addresses in it; a ":PORT" suffix
+    (after "]" for an IPv6 address) limits an entry to that port."""
+    return bool(no_proxy) and all(any(_bypass(entry, host, port) for entry in entries) for entries in no_proxy)
+
+
+def _bypass(entry, host, port):
+    if entry == "*":
+        return True
+    name, wanted = entry, None
+    bracketed = re.fullmatch(r"\[([0-9a-f:.]+)\](?::([0-9]{1,5}))?", entry)
+    if bracketed:
+        name, wanted = bracketed.groups()
+    elif entry.count(":") == 1:
+        name, _, wanted = entry.partition(":")
+    if wanted is not None and (not wanted.isdigit() or int(wanted) != port):
+        return False
+    host = host.lower().strip("[]").rstrip(".")
+    try:
+        network = ipaddress.ip_network(name, strict=False)
+    except ValueError:
+        network = None
+    if network is not None:
+        try:
+            return ipaddress.ip_address(host) in network
+        except ValueError:
+            return False
+    name = name.rstrip(".")
+    name = name[2:] if name.startswith("*.") else name[1:] if name.startswith(".") else name
+    return bool(name) and (host == name or host.endswith("." + name))
+
+
+def proxy_setting(value):
+    """(proxy, no_proxy) of the configuration's proxy value: null, [host, port] or [host, port,
+    [[entry, ...], ...]] (supervise.capture_proxy). Anything else raises ValueError."""
+    if value is None:
+        return None, ()
+    if not isinstance(value, (list, tuple)) or len(value) not in (2, 3):
+        raise ValueError("malformed proxy")
+    host, port = value[0], value[1]
+    if not isinstance(host, str) or not host or isinstance(port, bool) or not isinstance(port, int) \
+            or not 0 < port < 65536:
+        raise ValueError("malformed proxy")
+    lists = value[2] if len(value) == 3 else ()
+    if not isinstance(lists, (list, tuple)) or not all(
+            isinstance(entries, (list, tuple)) and all(isinstance(entry, str) for entry in entries)
+            for entries in lists):
+        raise ValueError("malformed no_proxy")
+    return (host, port), tuple(tuple(entries) for entries in lists)
 
 
 def values(headers, name):
@@ -539,11 +595,12 @@ def _well_formed(decision):
 class Gate:
     """Lease, routes, admission lock, stream registry and latch of one gate instance."""
 
-    def __init__(self, provider, decide, *, max_age, mode="startup", proxy=None,
+    def __init__(self, provider, decide, *, max_age, mode="startup", proxy=None, no_proxy=(),
                  heartbeat_max=HEARTBEAT_MAX, attach_grace=None, continuation_window=None,
                  usage_reads=None, revalidations=None, clock=time.monotonic, wall=time.time,
                  notify=None, emit=None):
-        """Tunables left as None come from the provider's attributes (BaseProvider lists them)."""
+        """Tunables left as None come from the provider's attributes (BaseProvider lists them).
+        proxy is (host, port) or None; no_proxy the hosts that bypass it (bypasses())."""
         if mode not in ("startup", "restart", "refresh"):
             raise ValueError("unknown gate mode")
         status, _ = provider.refusal("probe")
@@ -554,7 +611,7 @@ class Gate:
             return getattr(provider, name, getattr(BaseProvider, name)) if value is None else value
 
         self.provider, self._decider, self.mode = provider, decide, mode
-        self.max_age, self.proxy = _seconds(max_age, "max_age"), proxy
+        self.max_age, self.proxy, self.no_proxy = _seconds(max_age, "max_age"), proxy, tuple(no_proxy)
         self.heartbeat_max = _seconds(heartbeat_max, "heartbeat_max")
         self.attach_grace = _seconds(tunable(attach_grace, "attach_grace"), "attach_grace")
         self.continuation_window = _seconds(tunable(continuation_window, "continuation_window"),
@@ -922,10 +979,15 @@ class Gate:
             _quietly(close)
 
     # -- upstream --------------------------------------------------------------------------------
+    def proxy_for(self, host, port):
+        """The proxy for a connection to HOST:PORT: the captured one, unless NO_PROXY exempts it."""
+        return None if self.proxy is None or bypasses(self.no_proxy, host, port) else self.proxy
+
     def open(self, upstream, deadline=None):
         """A connected upstream socket (TLS verified when upstream.tls); raises OSError. Each step
         takes at most CONNECT_TIMEOUT, and none runs past deadline (a clock() value) if given."""
-        sock = open_tcp(upstream.host, upstream.port, self.proxy, deadline=deadline, clock=self.clock)
+        sock = open_tcp(upstream.host, upstream.port, self.proxy_for(upstream.host, upstream.port),
+                        deadline=deadline, clock=self.clock)
         if not upstream.tls:
             return sock
         try:
@@ -1200,7 +1262,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             host, port = gate.provider.connect_allow[target]
             try:
-                sock = open_tcp(host, port, gate.proxy)
+                sock = open_tcp(host, port, gate.proxy_for(host, port))
                 writer = sock.dup()  # its own timeout: the writes never change the reader's
             except OSError:
                 _close(sock)
@@ -1369,9 +1431,8 @@ def main(argv, make, stdin=None):
     try:
         config = _read_config(stdin or sys.stdin.buffer)
         provider, decide = make(config)
-        proxy = config.get("proxy")
-        gate = Gate(provider, decide, max_age=config["max_age_s"], mode=mode,
-                    proxy=(str(proxy[0]), int(proxy[1])) if proxy else None,
+        proxy, no_proxy = proxy_setting(config.get("proxy"))
+        gate = Gate(provider, decide, max_age=config["max_age_s"], mode=mode, proxy=proxy, no_proxy=no_proxy,
                     heartbeat_max=float(config.get("heartbeat_max_s", HEARTBEAT_MAX)), notify=channel.send)
     except Refusal as error:
         return refuse(error.reason)
