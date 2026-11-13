@@ -24,12 +24,18 @@ Invariants:
   may). Connects happen outside the lock, and no quota fetch ever runs under it; every lease
   method takes it. Monitor heartbeats are recorded without it, so a slow write never reads as a
   silent monitor.
+- CPython's lock is not fair: a writer that releases and retakes it between chunks could keep
+  every other user out until its whole request is written. So the admission lock (AdmissionLock)
+  makes a chunk writer yield to every user already waiting for it before it takes the next chunk:
+  a pause decided under the lock (a quota threshold, another identity or family, a failed read,
+  an admission refusal), a timer step, a poll or an admission waits on chunk writers at most for
+  the chunk each one is writing, or has already been let through to write, when it starts to
+  wait.
 - A close of admission (a latch, a monitor or launcher loss, the timer's deadline or monitor
-  silence, shutdown) is announced before it waits for the lock, and a chunked write stops with
-  Closed before its next chunk once one is announced, reading the announcement without the lock.
-  The lock is not fair: a writer that releases and retakes it between chunks could otherwise keep
-  a waiting close out until its whole request is written. So no chunk starts after a close is
-  announced; the one being written then finishes or times out.
+  silence, shutdown) is also announced before it waits for the lock. A chunk writer checks for an
+  announcement before each chunk, without the lock and again once it holds it, and stops with
+  Closed: no chunk starts after its writer has seen an announcement, and a close announced while
+  a writer holds the lock waits for that writer's current chunk, which finishes or times out.
 - A Secret stays in memory: no event, status, message, reply or file carries a bearer or a value
   derived from one. Matching uses a keyed digest whose key never leaves this process.
 - Monitor loss (EOF, silence past HEARTBEAT_MAX, or launcher EOF) is final for a gate instance;
@@ -594,6 +600,52 @@ def _well_formed(decision):
             and all(isinstance(key, str) and len(key) <= 64 and _scalar(value) for key, value in fields.items()))
 
 
+class AdmissionLock:
+    """A gate's admission lock: re-entrant, and chunk writers yield to its other users.
+
+    A user other than a chunk writer (`with lock:`) registers before it waits for the lock. A chunk
+    writer (`with lock.chunk():`) first waits until every user registered before it asked has had
+    the lock, and only then asks for it. So a user waits on writers at most for the chunk each one
+    is writing, or has already been let through to write, when it registers; and a writer waits
+    only for the users ahead of it, never for those that come later. LOCK is the re-entrant lock it
+    orders access to: a threading.RLock unless a test passes an instrumented one."""
+
+    def __init__(self, lock=None):
+        self._lock = threading.RLock() if lock is None else lock
+        self._turns = threading.Condition(threading.Lock())  # a leaf: nothing is taken while held
+        self._tickets, self._waiting = itertools.count(), set()
+
+    def __enter__(self):
+        ticket = None
+        try:
+            with self._turns:
+                ticket = next(self._tickets)
+                self._waiting.add(ticket)
+            self._lock.acquire()
+        finally:
+            if ticket is not None:
+                with self._turns:
+                    self._waiting.discard(ticket)
+                    self._turns.notify_all()
+        return self
+
+    def __exit__(self, *exc):
+        self._lock.release()
+
+    @contextlib.contextmanager
+    def chunk(self):
+        """Hold the lock to write one chunk, once every user registered before this call has had it.
+        Never call it with the lock held."""
+        with self._turns:
+            mark = next(self._tickets)
+            self._turns.wait_for(lambda: not any(ticket < mark for ticket in self._waiting))
+        self._lock.acquire()
+        try:
+            yield
+        finally:
+            self._lock.release()
+
+
 class Gate:
     """Lease, routes, admission lock, stream registry and latch of one gate instance."""
 
@@ -624,7 +676,7 @@ class Gate:
         self.clock, self.wall = clock, wall
         self.notify = notify or (lambda message: None)
         self.emit = emit or (lambda event, **fields: None)
-        self.lock = threading.RLock()
+        self.lock = AdmissionLock()
         self._beat_lock, self._beat = threading.Lock(), None  # heartbeats take only this lock
         # Reasons of the closes announced and not yet through the lock (_closing); chunk writers read
         # the tuple without any lock. _closers_lock is a leaf: nothing else is taken while it is held.
@@ -760,20 +812,30 @@ class Gate:
     @contextlib.contextmanager
     def _closing(self, reason):
         """Hold the admission lock for a close of admission, announced before waiting for it. A
-        chunk writer that sees the announcement stops before its next chunk (send), so the close
-        waits for the chunks being written, never for whole requests. The announcement ends under
-        the lock once the close is done, and every announced close leaves admission closed (paused,
-        lost or shut down), so a writer it stops is one whose stream the close removes."""
+        chunk writer that has seen the announcement starts no further chunk (send), so the close
+        waits at most for the chunk a writer was already writing, never for whole requests. The
+        announcement is withdrawn under the lock once the close is done, or at once if waiting for
+        the lock ends in an exception. Every announced close leaves admission closed (paused, lost
+        or shut down), so a writer it stops is one whose stream the close removes."""
         with self._closers_lock:
             self._closers += (reason,)
-        with self.lock:
-            try:
-                yield
-            finally:
-                with self._closers_lock:
-                    closers = list(self._closers)
-                    closers.remove(reason)
-                    self._closers = tuple(closers)
+        held = False
+        try:
+            with self.lock:
+                held = True
+                try:
+                    yield
+                finally:
+                    self._withdraw(reason)
+        finally:
+            if not held:
+                self._withdraw(reason)
+
+    def _withdraw(self, reason):
+        with self._closers_lock:
+            closers = list(self._closers)
+            closers.remove(reason)
+            self._closers = tuple(closers)
 
     def _stop_if_closing(self):
         closers = self._closers
@@ -811,7 +873,9 @@ class Gate:
         """One step of the independent timer: monitor silence, the lease deadline and a deferred
         paused-state notice. It decides on one reading of the clock and the last heartbeat, taken
         before the lock, and announces the close it owes (_closing), so waiting for the lock
-        neither delays the close behind a chunked write nor changes what it decides."""
+        neither delays the close behind a chunked write nor changes what it decides. A close it
+        decided stands even when an observation applied while it waited renewed the lease: that
+        fails closed, and leaving the pause takes a continuation."""
         now, beat = self.clock(), self.last_beat
         due = self._due(now, beat)
         with self._closing(due) if due else self.lock:
@@ -970,12 +1034,13 @@ class Gate:
             self.streams.pop(stream, None)
 
     def send(self, stream, sock, data):
-        """Write DATA upstream for an admitted stream, chunk by chunk under the admission lock. An
-        announced close (_closing) stops it before the next chunk without waiting for the lock."""
+        """Write DATA upstream for an admitted stream, chunk by chunk under the admission lock. Each
+        chunk waits for the users already waiting for the lock (AdmissionLock.chunk), and an
+        announced close (_closing) stops the write before its next chunk without the lock."""
         view, offset = memoryview(data), 0
         while offset < len(view):
             self._stop_if_closing()
-            with self.lock:
+            with self.lock.chunk():
                 self._stop_if_closing()  # announced while this writer waited for the lock
                 if not self.live(stream):
                     raise Closed(self.lost or self.reason or "closed")

@@ -88,17 +88,20 @@ class Clock:
 
 
 class Contended:
-    """Stands in for a Gate's admission lock: a real RLock, instrumented.
+    """Stands in for the lock under a Gate's admission lock (gate.AdmissionLock), instrumented.
 
-    start() runs a thread and returns it with an Event set once that thread reaches the lock, which
-    a close announces itself before. With writer_first, no thread other than the writer (the thread
-    that made this lock) gets the lock until writers_out is set: the worst case of CPython's lock,
-    which is not fair, so a writer that releases and retakes it between chunks can win every time."""
+    start() runs a thread and returns it with an Event set once that thread reaches this lock, which
+    it does after a close has announced itself and after the admission lock has registered it as
+    waiting. Without writer_first this is a real RLock. With writer_first, the writer (the thread
+    that made this lock) wins every race for it: the worst case of CPython's lock, which is not
+    fair, so a writer that releases it and asks again at once, between two chunks, can win every
+    time."""
 
     def __init__(self, gate_, writer_first=False):
-        self.lock, self.writer_first = threading.RLock(), writer_first
-        self.writer, self.reached, self.writers_out = threading.current_thread(), {}, threading.Event()
-        gate_.lock = self
+        self.real, self.writer_first = threading.RLock(), writer_first
+        self.writer, self.reached = threading.current_thread(), {}
+        self.free, self.owner, self.depth, self.asking = threading.Condition(), None, 0, False
+        gate_.lock = gate.AdmissionLock(self)
 
     def start(self, target, *args):
         thread = threading.Thread(target=target, args=args, daemon=True)
@@ -106,18 +109,32 @@ class Contended:
         thread.start()
         return thread, self.reached[thread]
 
-    def __enter__(self):
+    def acquire(self):
         me = threading.current_thread()
-        if me is not self.writer:
-            if me in self.reached:
-                self.reached[me].set()
-            if self.writer_first:
-                self.writers_out.wait(30)
-        self.lock.acquire()
-        return self
+        if me in self.reached:
+            self.reached[me].set()
+        if not self.writer_first:
+            return self.real.acquire()
+        writer = me is self.writer
+        with self.free:
+            if self.owner is me:
+                self.depth += 1
+                return True
+            self.asking = self.asking or writer
+            if not self.free.wait_for(lambda: self.owner is None and (writer or not self.asking), 30):
+                raise AssertionError("the lock never came free for " + me.name)
+            self.asking = self.asking and not writer
+            self.owner, self.depth = me, 1
+            return True
 
-    def __exit__(self, *exc):
-        self.lock.release()
+    def release(self):
+        if not self.writer_first:
+            return self.real.release()
+        with self.free:
+            self.depth -= 1
+            if not self.depth:
+                self.owner = None
+                self.free.notify_all()
 
 
 class Recorder:
@@ -408,7 +425,9 @@ class Latch(unittest.TestCase):
 
     def test_request_chunks_are_written_only_while_the_stream_is_live(self):
         """A latch requested while chunk 2 is written stops the write before chunk 3, whichever
-        thread takes the lock next; once it is through, a resumed gate writes in full again."""
+        thread takes the lock next; once it is through, a resumed gate writes in full again. A
+        presented request latches (here for a foreign account); a quota threshold pauses through an
+        observation instead, which test_a_pause_decided_under_the_lock_waits_for_one_chunk covers."""
         h = Harness(self)
         h.ready()
         stream = admitted(h)
@@ -418,7 +437,7 @@ class Latch(unittest.TestCase):
         def on_chunk(count):
             states.append(h.gate.state)
             if count == 2:
-                thread, reached = lock.start(h.gate.latch, "threshold")
+                thread, reached = lock.start(h.gate.latch, "foreign_account")
                 latcher.append(thread)
                 self.assertTrue(reached.wait(10), "the latch never reached the lock")
 
@@ -426,8 +445,8 @@ class Latch(unittest.TestCase):
             h.gate.send(stream, Recorder(on_chunk), b"x" * (gate.CHUNK * 8))
         latcher[0].join(10)
         self.assertFalse(latcher[0].is_alive())
-        self.assertEqual((caught.exception.reason, states), ("threshold", ["running", "running"]))
-        self.assertEqual((h.gate.status()["state"], h.gate.status()["reason"]), ("paused", "threshold"))
+        self.assertEqual((caught.exception.reason, states), ("foreign_account", ["running", "running"]))
+        self.assertEqual((h.gate.status()["state"], h.gate.status()["reason"]), ("paused", "foreign_account"))
         h.gate.heartbeat()
         self.assertEqual(h.gate.arm_continuation(), {"ok": False, "needs_read": True, "reason": "armed"})
         self.assertEqual(h.request("GET", "/usage", auth())[0], 200)
@@ -451,71 +470,106 @@ class Latch(unittest.TestCase):
             clock.advance(h.gate.heartbeat_max + 0.5)
             h.gate.tick()
 
-        return {"latch": (lambda: h.gate.latch("threshold"), "threshold", "paused"),
+        return {"latch": (lambda: h.gate.latch("foreign_account"), "foreign_account", "paused"),
                 "monitor_eof": (lambda: h.gate.lose("monitor_eof"), "monitor_eof", "paused"),
                 "launcher_eof": (lambda: h.gate.lose("launcher_eof"), "launcher_eof", "paused"),
                 "deadline": (deadline, "stale", "paused"),
                 "silence": (silence, "monitor_stale", "paused"),
                 "shutdown": (h.gate.shutdown, "gate_closed", "closed")}
 
+    def contend(self, h, start, chunks, on_chunk=None):
+        """Write CHUNKS chunks for a fresh stream while the writer wins every race for the lock, and
+        run START on its own thread from inside chunk 3; on_chunk(count) runs inside each chunk, in
+        chunk 3 once START has reached the lock. Returns (Recorder, Closed or None)."""
+        stream = admitted(h)
+        lock = Contended(h.gate, writer_first=True)
+        started = []
+
+        def chunk(count):
+            if count == 3:
+                thread, reached = lock.start(start)
+                started.append(thread)
+                self.assertTrue(reached.wait(10), "the other user never reached the lock")
+            if on_chunk is not None:
+                on_chunk(count)
+
+        sock, closed = Recorder(chunk), None
+        try:
+            h.gate.send(stream, sock, b"x" * (gate.CHUNK * chunks))
+        except gate.Closed as error:
+            closed = error
+        started[0].join(10)
+        self.assertFalse(started[0].is_alive(), "the other user never finished")
+        return sock, closed
+
     def test_a_close_is_never_starved_by_a_writer_that_always_wins_the_lock(self):
         """The lock is not fair: a writer that releases and retakes it between chunks can keep a
         waiting close out until its whole request is written. Every close announces itself before
-        it waits, so the write stops at its next chunk even when the writer always wins the lock."""
+        it waits, so the write stops at its next chunk even when the writer wins every race."""
         for name in self.CLOSES:
             with self.subTest(close=name):
                 clock = Clock()
                 h = Harness(self, clock=clock)
                 h.ready()
-                stream = admitted(h)
                 start, reason, state = self.closers(h, clock)[name]
-                lock = Contended(h.gate, writer_first=True)
-                self.addCleanup(lock.writers_out.set)
-                closer = []
-
-                def on_chunk(count):
-                    if count == 3:
-                        thread, reached = lock.start(start)
-                        closer.append(thread)
-                        self.assertTrue(reached.wait(10), "the close never reached the lock")
-
-                sock = Recorder(on_chunk)
-                try:
-                    with self.assertRaises(gate.Closed) as caught:
-                        h.gate.send(stream, sock, b"x" * gate.BODY_LIMIT)
-                finally:
-                    lock.writers_out.set()
-                closer[0].join(10)
-                self.assertFalse(closer[0].is_alive(), "the close never completed")
-                self.assertEqual((len(sock.chunks), caught.exception.reason), (3, reason))
+                sock, closed = self.contend(h, start, gate.BODY_LIMIT // gate.CHUNK)
+                self.assertEqual((len(sock.chunks), closed and closed.reason), (3, reason))
                 status = h.gate.status()
                 self.assertEqual("closed" if h.gate.closed else status["state"], state)
                 self.assertEqual(status["streams"], 0)
+
+    def reading(self, h, **fields):
+        """A gate check of the lease's bearer, as the monitor's poll runs one, whose read returns at
+        once with FIELDS over a passing reading: applying it is all it takes the lock for."""
+        values = dict({"identity": fakes.IDENTITY_A, "used": h.upstream.used}, **fields)
+        observation = gate.Observation(0.0, True, identity=tuple(values["identity"]), data=dict(values["used"]))
+        h.provider.read_quota = lambda gate_, presented, cause: observation
+        presented = h.gate.lease.presented
+        return lambda: h.gate.check(presented, "poll")
+
+    def test_a_pause_decided_under_the_lock_waits_for_one_chunk(self):
+        """A pause decided under the lock cannot be announced, so the lock lets it in: a chunk writer
+        yields to every user already waiting before it takes the next chunk. A quota reading past a
+        reserve (the threshold), a reading for another identity and a request without one bearer
+        each pause the gate from inside chunk 3, and the write stops after that chunk, even when the
+        writer wins every race for the lock."""
+        cases = {"threshold": lambda h: self.reading(h, used={"five_hour": 99.0, "weekly": 20.0}),
+                 "identity_mismatch": lambda h: self.reading(h, identity=fakes.IDENTITY_B),
+                 "selector_conflict": lambda h: lambda: h.gate.admit(gate.Presented(None, ("acct-A",)),
+                                                                     MODEL_BODY, lambda: None)}
+        for reason, make in cases.items():
+            with self.subTest(reason=reason):
+                h = Harness(self)
+                h.ready()
+                sock, closed = self.contend(h, make(h), gate.BODY_LIMIT // gate.CHUNK)
+                self.assertEqual((len(sock.chunks), closed and closed.reason), (3, reason))
+                self.assertEqual((h.gate.status()["state"], h.gate.status()["reason"]), ("paused", reason))
+                self.assertEqual(h.gate.status()["streams"], 0)
+
+    def test_a_passing_poll_behind_a_writer_lands_within_one_chunk_and_keeps_the_write(self):
+        h = Harness(self)
+        h.ready()
+        applied = []
+
+        def on_chunk(count):  # with the lock held, so a poll applied under it is seen in order
+            applied.append(any(event == "fresh" and fields["cause"] == "poll" for event, fields in h.events))
+
+        sock, closed = self.contend(h, self.reading(h), 16, on_chunk)
+        self.assertIsNone(closed)
+        self.assertEqual((len(sock.chunks), applied), (16, [False] * 3 + [True] * 13))
+        self.assertEqual((h.gate.status()["state"], h.gate.status()["streams"]), ("running", 1))
 
     def test_a_timer_tick_with_nothing_due_never_stops_a_write(self):
         clock = Clock()
         h = Harness(self, clock=clock)
         h.ready()
-        stream = admitted(h)
-        lock = Contended(h.gate, writer_first=True)
-        self.addCleanup(lock.writers_out.set)
-        ticker = []
 
-        def on_chunk(count):
-            if count == 3:
-                clock.advance(h.gate.heartbeat_max / 2)
-                thread, reached = lock.start(h.gate.tick)
-                ticker.append(thread)
-                self.assertTrue(reached.wait(10), "the tick never reached the lock")
+        def tick():
+            clock.advance(h.gate.heartbeat_max / 2)
+            h.gate.tick()
 
-        sock = Recorder(on_chunk)
-        try:
-            h.gate.send(stream, sock, b"x" * (gate.CHUNK * 16))
-        finally:
-            lock.writers_out.set()
-        ticker[0].join(10)
-        self.assertFalse(ticker[0].is_alive())
-        self.assertEqual(len(sock.chunks), 16)
+        sock, closed = self.contend(h, tick, 16)
+        self.assertEqual((len(sock.chunks), closed), (16, None))
         self.assertEqual((h.gate.status()["state"], h.gate.status()["lost"]), ("running", None))
 
     def test_a_timer_close_stands_on_the_reading_it_was_decided_on(self):
@@ -526,28 +580,17 @@ class Latch(unittest.TestCase):
         clock = Clock()
         h = Harness(self, clock=clock)
         h.ready()
-        stream = admitted(h)
-        lock = Contended(h.gate, writer_first=True)
-        self.addCleanup(lock.writers_out.set)
-        ticker = []
+
+        def tick():
+            clock.advance(h.gate.heartbeat_max + 0.5)
+            h.gate.tick()
 
         def on_chunk(count):
             if count == 3:
-                clock.advance(h.gate.heartbeat_max + 0.5)
-                thread, reached = lock.start(h.gate.tick)
-                ticker.append(thread)
-                self.assertTrue(reached.wait(10), "the tick never reached the lock")
                 h.gate.heartbeat()  # late: the tick already found the monitor silent
 
-        sock = Recorder(on_chunk)
-        try:
-            with self.assertRaises(gate.Closed) as caught:
-                h.gate.send(stream, sock, b"x" * (gate.CHUNK * 16))
-        finally:
-            lock.writers_out.set()
-        ticker[0].join(10)
-        self.assertFalse(ticker[0].is_alive())
-        self.assertEqual((len(sock.chunks), caught.exception.reason), (3, "monitor_stale"))
+        sock, closed = self.contend(h, tick, 16, on_chunk)
+        self.assertEqual((len(sock.chunks), closed and closed.reason), (3, "monitor_stale"))
         self.assertEqual((h.gate.status()["state"], h.gate.status()["lost"]), ("paused", "monitor_stale"))
 
     def test_many_writers_under_contention_write_nothing_once_a_latch_is_requested(self):
@@ -566,7 +609,7 @@ class Latch(unittest.TestCase):
                 counts["after"] += 1
             counts["chunks"] += 1
             if counts["chunks"] == 40:
-                thread, reached = lock.start(h.gate.latch, "threshold")
+                thread, reached = lock.start(h.gate.latch, "foreign_account")
                 latcher.append(thread)
                 self.assertTrue(reached.wait(10), "the latch never reached the lock")
 
@@ -587,8 +630,38 @@ class Latch(unittest.TestCase):
         latcher[0].join(30)
         self.assertFalse(any(thread.is_alive() for thread in threads + latcher))
         self.assertEqual((counts["chunks"], counts["after"]), (40, 0))
-        self.assertEqual(outcomes, ["threshold"] * writers)
+        self.assertEqual(outcomes, ["foreign_account"] * writers)
         self.assertEqual((h.gate.status()["state"], h.gate.status()["streams"]), ("paused", 0))
+
+    def test_a_close_interrupted_while_it_waits_for_the_lock_leaves_nothing_announced(self):
+        """A close whose wait for the lock ends in an exception (an asynchronous one, such as an
+        interrupt) withdraws its announcement, so it never stops a later write."""
+
+        class Interrupted(BaseException):
+            pass
+
+        class Interrupting:
+            def __init__(self):
+                self.real, self.interrupt = threading.RLock(), True
+
+            def acquire(self):
+                if self.interrupt:
+                    self.interrupt = False
+                    raise Interrupted()
+                return self.real.acquire()
+
+            def release(self):
+                return self.real.release()
+
+        h = Harness(self)
+        h.ready()
+        stream = admitted(h)
+        h.gate.lock = gate.AdmissionLock(Interrupting())
+        with self.assertRaises(Interrupted):
+            h.gate.latch("foreign_account")
+        sock = Recorder()
+        h.gate.send(stream, sock, b"x" * (gate.CHUNK * 2))
+        self.assertEqual((len(sock.chunks), h.gate.status()["state"]), (2, "running"))
 
 
 class MonitorLoss(unittest.TestCase):
