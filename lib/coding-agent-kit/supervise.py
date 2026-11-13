@@ -1165,17 +1165,18 @@ class Supervisor:
 
     def _signal_session_groups(self, table, sig):
         """Signal whole process groups of the boundary sessions; returns how many were signalled,
-        not counting those seen with zombie members only. A process that forks and exits at once is gone before any snapshot can name it, but the
-        group its child inherits stays: every boundary session's own group (its id is the session
-        id, which _prune_sessions keeps only while the session has existed without a break), and on
-        Linux every group a member of such a session is in, read from /proc as that member is. An
-        exited member counts while it is a zombie: a fork-and-exit chain in a group of its own (one
-        setpgid, as a job-control shell does for `cmd &`) leaves no live member long enough to be
-        read, but under the subreaper each member that exits stays the launcher's zombie, in that
-        group, until reap(). A zombie holds its group number, and a group never spans sessions, so
-        only boundary processes are signalled. A group seen with zombie members only is signalled
-        but not counted, so it alone keeps no sweep round going. A chain that changes its group on
-        every fork, or one in a group of its own without /proc (macOS), can still outrun this."""
+        not counting those seen with zombie members only. A process that forks and exits at once is
+        gone before any snapshot can name it, but the group its child inherits stays: every boundary
+        session's own group (its id is the session id, which _prune_sessions keeps only while the
+        session has existed without a break), and on Linux every group a member of such a session is
+        in, read from /proc as that member is. An exited member counts while it is a zombie: a
+        fork-and-exit chain in a group of its own (one setpgid, as a job-control shell does for
+        `cmd &`) leaves no live member long enough to be read, but under the subreaper each member
+        that exits stays the launcher's zombie, in that group, until reap(). A zombie holds its group
+        number, and a group never spans sessions, so only boundary processes are signalled. A group
+        seen with zombie members only is signalled but not counted, so it alone keeps no sweep round
+        going. A chain that changes its group on every fork, or one in a group of its own without
+        /proc (macOS), can still outrun this."""
         live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
         own = {os.getpgrp(), os.getsid(0)}
         live -= own
