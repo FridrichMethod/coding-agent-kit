@@ -37,6 +37,12 @@ seven-day windows. A model with its own row (seven_day_opus, seven_day_sonnet) i
 present row whose semantics nobody proved (seven_day_oauth_apps, cinder_cove, wattle_ember, limits,
 unknown ones) pauses every request. A poll with the lease's bearer reads usage only.
 
+Token lifetime (D1): startup refuses a token that is inside native's 300 s refresh window
+(native_refresh_window: the pre-launch refresh did not renew it) or within MIN_SESSION_MS beyond it
+(token_expires_soon), since no renewal passes this gate once the session runs. Decisions carry
+token_expires, the expiry of the token the launch started with, so that the launcher can say when
+the session needs a relaunch; no value derived from the token itself leaves this process.
+
 Evaluator wiring: Decider turns the gate's events into calls of the reserve evaluator (reserve.py),
 one per gate instance; a restarted gate builds it paused. The evaluator hears the monitor (control_up)
 once the gate recorded a heartbeat, and the startup check runs only then.
@@ -45,7 +51,8 @@ once the gate recorded a heartbeat, and the startup check runs only then.
 import sys
 
 if sys.version_info < (3, 11):
-    sys.exit(2)
+    print("claude-as gate: protected mode needs Python 3.11 or later.", file=sys.stderr)
+    raise SystemExit(2)
 
 from datetime import datetime
 from decimal import Decimal
@@ -68,9 +75,13 @@ def _load(name, path):
     return module
 
 
-gate = _load("claude_as_gate_core", HERE.parent / "coding-agent-kit/gate.py")
-reserve = _load("claude_as_reserve", HERE.parent / "coding-agent-kit/reserve.py")
-bearer = _load("claude_as_bearer", HERE / "bearer.py")
+try:
+    gate = _load("claude_as_gate_core", HERE.parent / "coding-agent-kit/gate.py")
+    reserve = _load("claude_as_reserve", HERE.parent / "coding-agent-kit/reserve.py")
+    bearer = _load("claude_as_bearer", HERE / "bearer.py")
+except (OSError, ImportError, SyntaxError):
+    print("claude-as gate: incomplete install at %s" % HERE.parent.parent, file=sys.stderr)
+    raise SystemExit(2) from None
 
 VERSION = "2.1.322"
 API = gate.Upstream("api.anthropic.com", 443)
@@ -78,6 +89,11 @@ USAGE_PATH, PROFILE_PATH = "/api/oauth/usage", "/api/oauth/profile"
 OAUTH_BETA = "oauth-2025-04-20"
 REFRESH_TARGETS = {"platform.claude.com:443": ("platform.claude.com", 443)}
 NATIVE_REFRESH_WINDOW_MS = 300000  # native refreshes when now + 300000 >= expiresAt (S, 2.1.322)
+MIN_SESSION_MS = 600000  # what a protected session gets at least beyond native's window (a tunable, I)
+# A continuation's store read (up to bearer.KEYCHAIN_TIMEOUT on macOS) and its two GETs stay within
+# the launcher's 20 s control timeout, so it never reports gate_unavailable while the check can still
+# pass. (A rebind's two GETs take half of rebind_timeout each; see _get.)
+CONTINUATION_GET_TIMEOUT = 4.0
 PERSONAL_PLANS = frozenset(("pro", "max"))  # native applies no organization policy to these (S, 2.1.322)
 ROUTES = gate.RouteTable("claude-" + VERSION, (
     gate.Route("POST", "/v1/messages", gate.MODEL, query=True),
@@ -197,6 +213,7 @@ class ClaudeProvider(gate.BaseProvider):
         self.rebind_timeout = gate.READ_TIMEOUT
         self.own_rows = frozenset()
         self.gate = None
+        self.token_expires = None  # epoch seconds of the token the launch started with
         self.clock_ms = lambda: int(time.time() * 1000)
 
     # -- the store bearer -----------------------------------------------------------------------
@@ -232,7 +249,9 @@ class ClaudeProvider(gate.BaseProvider):
 
     # -- quota reads -------------------------------------------------------------------------------
     def _get(self, gate_, path, presented, cause):
-        timeout = self.rebind_timeout if cause == "rebind" else None
+        # A rebind's profile and usage GETs together stay within rebind_timeout, which the gate's held
+        # requests wait for (plus the connect timeout); other causes get the gate's READ_TIMEOUT.
+        timeout = {"rebind": self.rebind_timeout / 2, "continuation": CONTINUATION_GET_TIMEOUT}.get(cause)
         status, headers, body = gate_.fetch("GET", path, secret=presented.secret, timeout=timeout,
                                             headers=(("Accept", "application/json"), ("anthropic-beta", OAUTH_BETA)))
         if status != 200:
@@ -263,13 +282,24 @@ class ClaudeProvider(gate.BaseProvider):
 
     # -- lifecycle --------------------------------------------------------------------------------
     def startup(self, gate_):
-        """Local refusals before the gate serves; the first quota check once the monitor is heard."""
+        """Local refusals before the gate serves; the first quota check once the monitor is heard.
+
+        This read is the check of the D1 pre-launch refresh, whose exit status says nothing about
+        it: native renews its token only inside its refresh window, and once the session runs this
+        gate refuses every renewal. A token that needed the refresh and did not get it is still
+        inside the window (time only moves on), so it refuses (native_refresh_window); one that
+        native left alone because it was just outside the window would end the session within
+        minutes, so less than MIN_SESSION_MS beyond the window refuses too (token_expires_soon)."""
         self.gate = gate_
         credential = self.credential()
         if credential.subscription not in PERSONAL_PLANS:
             raise gate.Refusal("organization_policy")
-        if credential.expires_at_ms - self.clock_ms() <= NATIVE_REFRESH_WINDOW_MS:
+        remaining = credential.expires_at_ms - self.clock_ms()
+        if remaining <= NATIVE_REFRESH_WINDOW_MS:
             raise gate.Refusal("native_refresh_window")
+        if remaining <= NATIVE_REFRESH_WINDOW_MS + MIN_SESSION_MS:
+            raise gate.Refusal("token_expires_soon")
+        self.token_expires = credential.expires_at_ms // 1000
         presented = gate.Presented(credential.secret)
         credential = None
         threading.Thread(target=self._first_check, args=(gate_, presented), daemon=True).start()
@@ -285,11 +315,20 @@ class ClaudeProvider(gate.BaseProvider):
 
     def poll(self, gate_):
         """The monitor's poll: the lease's bearer; a rejected or rotated one is re-read from the store
-        and checked as a rebind (never as a poll, which cannot rebind)."""
+        and checked as a rebind (never as a poll, which cannot rebind). A restarted gate has no lease
+        until a check binds one, so its polls check the store's bearer as a rebind, which keeps the
+        pause (a restarted gate leaves it only through a continuation) but keeps its readings fresh."""
         self.gate = gate_
         with gate_.lock:
-            lease = None if gate_.lost or gate_.closed else gate_.lease
+            ended = gate_.lost is not None or gate_.closed
+            lease = None if ended else gate_.lease
         if lease is None:
+            if not ended and gate_.mode == "restart":
+                try:
+                    current = self.stored()
+                except gate.Refusal:
+                    return
+                gate_.check(current, "rebind")
             return
         outcome = gate_.check(lease.presented, "poll")
         if outcome in ("http_401", "superseded"):
@@ -304,10 +343,6 @@ class ClaudeProvider(gate.BaseProvider):
         """A continuation checks the store's current bearer, which a refused attempt never keeps."""
         self.gate = gate_
         return gate_.check(self.stored(), "continuation")
-
-
-def _text(value):
-    return value if isinstance(value, str) else reserve.percent(value)
 
 
 class Decider:
@@ -372,6 +407,8 @@ class Decider:
                           reserve=reserve.percent(window.reserve), reset=reserve.timestamp(window.resets_at))
         if verdict.last_fresh is not None:
             fields["last_fresh"] = reserve.timestamp(verdict.last_fresh)
+        if self.provider.token_expires is not None:
+            fields["token_expires"] = reserve.timestamp(self.provider.token_expires)
         fields["message"] = verdict.message()[:1000]
         running = verdict.decision == "run"
         reason = None if running else (verdict.reason or ("awaiting_continuation" if verdict.eligible else verdict.cause)

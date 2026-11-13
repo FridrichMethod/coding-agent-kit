@@ -62,7 +62,8 @@ class Paths:
 
     def __init__(self, config, name):
         if not isinstance(name, str) or not NAME.fullmatch(name):
-            raise NativeError("invalid account name (ASCII letters, digits, _ or -; no leading -).")
+            raise NativeError("invalid account name for native login (ASCII letters, digits, _ or -; no leading -; "
+                              "at most 64 characters).")
         self.name = name
         self.secrets = str(config.secrets_dir)
         self.config = str(config.native_claude_config(name))

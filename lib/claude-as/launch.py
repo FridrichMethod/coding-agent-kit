@@ -559,7 +559,8 @@ def native_launch(config, account, args, policy, metadata, executable):
     if policy is None or policy.off:
         os.execve(executable, [executable, *args], env)
     protect = own_module("protect")
-    return protect.launch(config, policy, paths, record, args, executable, env, style=lambda text: styled(text, "33", 1))
+    return protect.launch(config, policy, paths, record, args, executable, env, style=lambda text: styled(text, "33", 1),
+                          notice=lambda text: say(text, "33"))
 
 
 def main():
@@ -627,7 +628,9 @@ def main():
             directory(secret, config)
         sys.exit(native_launch(config, account, args, policy, kit_module("accounts"), executable))
     target = secret / ("claude-" + account)
-    if not query and not os.path.lexists(target) and account in native_module().names(config):
+    # native.py is needed only once the native-login root exists (an enrolled name is checked there).
+    if not query and not os.path.lexists(target) and os.path.lexists(secret / "native-claude-accounts") \
+            and account in native_module().names(config):
         fail(f"{account} is enrolled with native login; select it in {config.file} with "
              f'[claude_auth.accounts.{account}] mode = "native-login" (no setup-token is saved for it).')
     if not policy.off and not query:

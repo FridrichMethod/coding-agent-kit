@@ -15,10 +15,15 @@ with an enabled reserve. In order (reviewed design, section 2.1):
 2. the port: the launcher becomes the child subreaper and holds a random loopback port (on macOS also
    every interface address), then runs the macOS boundary self-test;
 3. the D1 refresh: `claude auth status` runs confined behind a refresh gate that tunnels only
-   platform.claude.com:443, so native refreshes its own token before model work; it must succeed;
+   platform.claude.com:443, so native renews its own token before model work when it is inside its
+   five-minute refresh window (native renews it then only); it must exit 0, but its exit status does
+   not tell whether it renewed anything, so step 4 checks the result;
 4. the gate (provider.py) reads the token memory-only and refuses on its local checks (an
-   organization subscription, a token inside native's refresh window); the monitor starts; once a
-   heartbeat is heard the gate's first quota check must pass;
+   organization subscription; a token still inside native's refresh window, which the refresh did not
+   renew; a token valid for less than ten minutes beyond that window, too short a session since no
+   renewal passes the gate once the session runs); the monitor starts; once a heartbeat is heard the
+   gate's first quota check must pass, and the launcher then shows when the token expires, which is
+   when the session needs a relaunch unless another session of the account renews it;
 5. the native runs on the launcher's PTY inside the boundary with ANTHROPIC_BASE_URL and HTTPS_PROXY
    at the gate and NO_PROXY=127.0.0.1 (otherwise native sends its Messages requests to the proxy in
    absolute form, which the gate's route table refuses), its own sandbox off (the outer boundary
@@ -50,9 +55,12 @@ the native resolve it once. While the run lasts the launcher's own PATH is the s
 
 macOS: Claude's Bash tool writes /private/tmp/claude-UID/<cwd with every non-alphanumeric byte as ->
 whatever TMPDIR says. That directory is writable inside the boundary, and at the end the entry named
-after this working directory is removed when it did not exist before the native started. Limits: a
-same-directory Claude session started meanwhile may be using that entry too, and when the entry
-existed before, what this invocation wrote inside it stays.
+after this working directory is removed when it did not exist before the native started. The
+launcher records the directory (creating it, 0700, when absent) just before the native starts and
+removes the entry by descriptor beneath that same directory only: a boundary process can replace the
+directory or the entry with a link, and the launcher, outside the boundary, then removes nothing.
+Limits: a same-directory Claude session started meanwhile may be using that entry too, and when the
+entry existed before, what this invocation wrote inside it stays.
 
 A refusal raises ValueError with one line (launch.py prints it, exit 1); nothing ran under the
 boundary then. Afterwards launch() returns the native's exit status (or leaves by the native's signal).
@@ -66,6 +74,7 @@ from pathlib import Path
 import pwd
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -79,15 +88,16 @@ REFRESH_TIMEOUT = 30.0
 PREFLIGHT_TIMEOUT = 45.0
 REFRESH_TARGET = "platform.claude.com:443"
 # Interactive option forms of Claude Code 2.1.322 (S: its --help) that keep one terminal session
-# whose model requests all reach the gate. Values are checked by native; models by the gate.
+# whose model requests all reach the gate, among those launch.py's own preflight audits (it runs first
+# on every native-login launch; the suite checks that each form here passes it). Values are checked
+# by native; models by the gate.
 VALUES = {"--model", "--effort", "--system-prompt", "--append-system-prompt", "--system-prompt-file",
           "--append-system-prompt-file", "--agent", "--agents", "--permission-mode", "--fallback-model",
-          "--debug-file", "-n", "--name", "--autocompact", "--system-prompt-snapshot"}
+          "--debug-file"}
 VARIADIC = {"--allowedTools", "--allowed-tools", "--disallowedTools", "--disallowed-tools", "--tools", "--add-dir"}
-OPTIONAL = {"-d", "--debug", "--prompt-suggestions"}
+OPTIONAL = {"-d", "--debug"}
 SWITCHES = {"--verbose", "--dangerously-skip-permissions", "--allow-dangerously-skip-permissions",
-            "--disable-slash-commands", "--strict-mcp-config", "--ax-screen-reader", "--brief", "--no-chrome",
-            "--restricted", "--safe-mode", "--exclude-dynamic-system-prompt-sections"}
+            "--disable-slash-commands", "--strict-mcp-config"}
 # The first operand native dispatches as a command: every top-level command Claude Code 2.1.322
 # registers, visible and hidden, with its aliases (S: the root program and the registration functions it
 # calls), the two other names its root handling treats like install and update (rollback,
@@ -103,12 +113,18 @@ SUBCOMMANDS = {"agents", "api", "apply-project-settings", "attach", "auth", "aut
 ENV_REFUSED = ("CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE", "CLAUDE_CODE_PROCESS_WRAPPER",
                "CLAUDE_CODE_HTTP_PROXY", "CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_CONFIG_DIR", "CLAUDE_CODE_TMPDIR")
 PLAIN = re.compile(r"-[A-Za-z0-9_.,:/@+-]*")
+DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 # Empty in every launch: only the in-process test driver (tests/fixtures/claude-reserve) sets these, to
 # point the gate at loopback fakes. No environment variable or file reaches them.
 GATE_EXTRA, REFRESH_EXTRA = {}, {}
 REASONS = {
     "threshold": "a usage window is at or below its reserve",
-    "native_refresh_window": "the account's access token expires within five minutes and was not refreshed",
+    "native_refresh_window": "the pre-launch refresh (claude auth status) did not renew the account's access token, "
+                             "which expires within five minutes",
+    # provider.py's NATIVE_REFRESH_WINDOW_MS and MIN_SESSION_MS, which the suite ties to this text
+    "token_expires_soon": "the account's access token expires within fifteen minutes, too soon for a protected "
+                          "session, and Claude Code renews it only in its last five minutes; launch again in up to ten "
+                          "minutes, when the pre-launch refresh renews it, or launch without reserves",
     "unproved_quota_row": "the usage report has a limit row protected mode has not reviewed",
     "identity_unattributed": "the usage reads did not prove the enrolled account",
     "identity_mismatch": "the signed-in account is not the enrolled one",
@@ -118,8 +134,10 @@ REASONS = {
     "gate did not start": "the request gate did not start",
     "organization_policy": "Claude Code applies no organization policy behind the request gate",
 }
-# The modules the gate process loads besides the supervisor's own checks (gate.py, monitor.py).
-GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py")
+# The modules the gate and monitor processes load besides gate.py (which the launcher loads too),
+# checked before anything runs: the supervisor checks monitor.py only when the run gate starts, after
+# the pre-launch refresh.
+GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py", KIT / "monitor.py")
 CODE_HINT = ("; run claude-as with a Python and a kit installed outside the working directory, every --add-dir and the "
              "account directory")
 
@@ -179,8 +197,7 @@ def screen_arguments(args):
                 if flag == "--add-dir":
                     add_dirs += values
             elif flag in OPTIONAL:
-                if not sep and index < len(args) and not (len(args[index]) > 1 and args[index].startswith("-")) \
-                        and flag != "--prompt-suggestions":
+                if not sep and index < len(args) and not (len(args[index]) > 1 and args[index].startswith("-")):
                     index += 1
             elif arg in SWITCHES:
                 pass
@@ -244,27 +261,76 @@ def reach(writable, sandbox, uid, darwin):
     return result
 
 
-def macos_temp_entries(uid):
-    root = "/private/tmp/claude-%d" % uid
+def temp_entry_name(cwd):
+    """The entry Claude's Bash tool uses in /private/tmp/claude-UID for a working directory."""
+    return re.sub(r"[^A-Za-z0-9]", "-", cwd)
+
+
+def _owned_directory(path):
+    """A descriptor of PATH when it is a real directory (never through a link) owned by this user."""
+    fd = os.open(path, DIRECTORY)
     try:
-        return root, set(os.listdir(root))
+        info = os.fstat(fd)
+        if stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid():
+            return fd, info
     except OSError:
-        return root, set()
+        pass
+    os.close(fd)
+    raise OSError("not an owned directory")
 
 
-def clean_macos_temp(root, before, cwd):
+def macos_temp_snapshot(root):
+    """((st_dev, st_ino), entry names) of Claude's fixed temporary directory, taken just before the
+    native starts; None when it is not an owned real directory. An absent one is created first (0700,
+    as native creates it), so that the cleanup can recognize it."""
+    try:
+        os.mkdir(root, 0o700)
+    except FileExistsError:
+        pass
+    except OSError:
+        return None
+    try:
+        fd, info = _owned_directory(root)
+    except OSError:
+        return None
+    try:
+        return (info.st_dev, info.st_ino), frozenset(os.listdir(fd))
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def clean_macos_temp(root, snapshot, cwd):
     """Remove this invocation's entry in Claude's fixed /private/tmp/claude-UID: the one named after the
-    working directory, and only when it did not exist before the native started."""
-    name = re.sub(r"[^A-Za-z0-9]", "-", cwd)
-    path = os.path.join(root, name)
+    working directory, only when it did not exist at the snapshot, and only beneath the directory the
+    snapshot recorded. A boundary process can replace that directory or the entry (the profile's rule
+    covers them), so everything goes through a descriptor opened without following links, and a
+    replaced, linked or foreign directory is left alone."""
+    if snapshot is None:
+        return
+    identity, before = snapshot
+    name = temp_entry_name(cwd)
     if name in before:
         return
     try:
-        info = os.lstat(path)
+        fd, info = _owned_directory(root)
     except OSError:
         return
-    if os.path.isdir(path) and not os.path.islink(path) and info.st_uid == os.getuid():
-        shutil.rmtree(path, ignore_errors=True)
+    try:
+        if (info.st_dev, info.st_ino) != identity:
+            return
+        try:
+            entry = os.stat(name, dir_fd=fd, follow_symlinks=False)
+        except OSError:
+            return
+        if stat.S_ISDIR(entry.st_mode) and entry.st_uid == os.getuid():
+            try:
+                shutil.rmtree(name, ignore_errors=True, dir_fd=fd)  # descriptor-based: follows no link
+            except NotImplementedError:  # no descriptor-based removal on this platform: leave it
+                pass
+    finally:
+        os.close(fd)
 
 
 def organization_message(paths, machine=False):
@@ -283,24 +349,30 @@ def judge_policy(verdict, paths):
         refuse(organization_message(paths, machine=True))
 
 
-def launch(config, policy, paths, record, args, executable, env, style=lambda text: text):
+def plain_notice(text):
+    print(text, file=sys.stderr)
+
+
+def launch(config, policy, paths, record, args, executable, env, style=lambda text: text, notice=plain_notice):
     """The protected invocation; returns the native's exit status (supervise.finish leaves by the
-    native's signal instead, after the cleanup below)."""
-    status = run(config, policy, paths, record, args, executable, env, style)
+    native's signal instead, after the cleanup below). style(text) styles the supervisor's lines on
+    the terminal (fd 1); notice(text) writes the launcher's own lines to stderr, styled for fd 2."""
+    status = run(config, policy, paths, record, args, executable, env, style, notice)
     supervise = _load("supervise", KIT / "supervise.py")
     return supervise.finish(status)
 
 
-def run(config, policy, paths, record, args, executable, env, style=lambda text: text):
+def run(config, policy, paths, record, args, executable, env, style=lambda text: text, notice=plain_notice):
     """Everything of launch() up to the native's wait status, with every temporary entry removed."""
     if not all(path.is_file() for path in GATE_MODULES):
         raise Refused(f"incomplete install at {HERE.parent.parent}")
     supervise = _load("supervise", KIT / "supervise.py")
     with supervise.launcher_path():
-        return protected(supervise, config, policy, paths, record, args, os.path.abspath(executable), env, style)
+        return protected(supervise, config, policy, paths, record, args, os.path.abspath(executable), env, style,
+                         notice)
 
 
-def protected(supervise, config, policy, paths, record, args, executable, env, style):
+def protected(supervise, config, policy, paths, record, args, executable, env, style, notice):
     """run() with the launcher's PATH pinned and an absolute native path."""
     gate = _load("gate", KIT / "gate.py")
     reserve = _load("reserve", KIT / "reserve.py")
@@ -371,6 +443,11 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                 status = sup.request("status", 10)
                 if status.get("state") != "checking" and status.get("heard"):
                     if status.get("state") == "running":
+                        expires = (status.get("fields") or {}).get("token_expires")
+                        if isinstance(expires, str):
+                            notice(f"claude-as: the account's access token expires at {expires}, and Claude Code "
+                                   "cannot renew it inside protected mode; unless another session of this account "
+                                   "renews it, relaunch before then.")
                         return
                     fields = status.get("fields") or {}
                     raise supervise.Refused("%s (%s)" % (fields.get("message") or explain(status.get("reason")),
@@ -386,9 +463,9 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                                    refresh_config=refresh_config, preflight=preflight, confine=confine,
                                    pid_env="CODING_AGENT_KIT_CLAUDE_PID", holder_extra=extra, gate_env=gate_env,
                                    heartbeat=reserve.HEARTBEAT, style=style)
-        print(style("claude-as: " + policy.describe() + "; protected mode: only the request gate is reachable, "
-                    "and after a pause F12 then the code shown asks for a fresh check."), file=sys.stderr)
-        before = None
+        notice("claude-as: " + policy.describe() + "; protected mode: only the request gate is reachable, "
+               "and after a pause F12 then the code shown asks for a fresh check.")
+        temp = None
         try:
             port = sup.prepare()
             if darwin:
@@ -406,19 +483,23 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
             settings["env"] = {"ANTHROPIC_BASE_URL": gate_url}
             native_env["ANTHROPIC_BASE_URL"] = gate_url
             if darwin:
-                temp_root, before = macos_temp_entries(uid)
+                root = sandbox.claude_temp(uid)
+                temp = root, macos_temp_snapshot(root)
             status = sup.run([executable, "--settings", json.dumps(settings, separators=(",", ":")), *args],
                              native_env, cwd=cwd)
         except supervise.Refused as error:
             if error.reason == "organization_policy":
                 refuse(organization_message(paths))
+            if error.reason == "native_refresh_window":
+                refuse(f"{REASONS[error.reason]}; run CLAUDE_CONFIG_DIR={paths.config} claude auth status yourself to "
+                       "see why.")
             refuse(explain(error.reason) if error.reason in REASONS else error.reason)
         except sandbox.Refusal as error:
             refuse(str(error))
         finally:
             sup.close()
-            if before is not None:
-                clean_macos_temp(temp_root, before, cwd)
+            if temp is not None:
+                clean_macos_temp(*temp, cwd)
         return status
     finally:
         shutil.rmtree(private_tmp, ignore_errors=True)

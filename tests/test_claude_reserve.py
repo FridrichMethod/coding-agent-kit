@@ -234,6 +234,10 @@ class Enrollment(Kit):
             result = self.run_kit(["--enroll-native", name])
             self.assertEqual(result.returncode, 1)
             self.assertIn("invalid account name", result.stderr)
+        result = self.run_kit(["--enroll-native", "a" * 65])  # a native-login name has at most 64 characters
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("invalid account name for native login (ASCII letters, digits, _ or -; no leading -; at most "
+                      "64 characters).", result.stderr)
         self.assertFalse((self.secrets / "native-claude-accounts").exists())
 
     def test_a_tampered_registration_or_symlinked_directory_refuses(self):
@@ -323,9 +327,10 @@ class NativeLaunch(Kit):
 
     def test_a_missing_gate_module_is_an_incomplete_install_before_anything_starts(self):
         self.enroll()
-        self.record.unlink(missing_ok=True)
+        for name in ("", ".auth"):
+            Path(str(self.record) + name).unlink(missing_ok=True)
         self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
-        for name in ("lib/claude-as/bearer.py", "lib/coding-agent-kit/reserve.py"):
+        for name in ("lib/claude-as/bearer.py", "lib/coding-agent-kit/reserve.py", "lib/coding-agent-kit/monitor.py"):
             with self.subTest(name):
                 saved = (self.kit / name).read_bytes()
                 (self.kit / name).unlink()
@@ -337,6 +342,16 @@ class NativeLaunch(Kit):
                 self.assertIn(f"incomplete install at {self.kit}", result.stderr)
                 self.assertNotIn("Traceback", result.stderr)
                 self.assertFalse(self.record.exists())
+                self.assertFalse(Path(str(self.record) + ".auth").exists())  # before the pre-launch refresh
+
+    def test_a_setup_token_launch_needs_no_native_module_before_any_native_login_account_exists(self):
+        (self.kit / "lib/claude-as/native.py").unlink()
+        result = self.run_kit(["newone"])  # a new setup-token enrollment, which needs a terminal here
+        self.assertEqual(result.returncode, 1)
+        self.assertNotIn("incomplete install", result.stderr)
+        (self.secrets / "native-claude-accounts").mkdir(mode=0o700)
+        result = self.run_kit(["newone"])
+        self.assertIn(f"incomplete install at {self.kit}", result.stderr)
 
     def test_version_after_a_native_name_is_claude_codes_own(self):
         self.write_config('[claude_auth.accounts.N]\nmode = "native-login"\n')
@@ -425,15 +440,13 @@ provider = load("test_claude_provider", ROOT / "lib/claude-as/provider.py")
 gate = provider.gate
 reserve = provider.reserve
 upstream_fixture = load("test_claude_upstream", FIXTURES / "upstream.py")
-E0_LIMITS = {  # the shape of the stanford policy-limits.json (E0: key names only; values fabricated)
+ORG_LIMITS = {  # an organization's policy-limits.json in the 2.1.322 schema; keys and values fabricated
     "artifact_create_notice": {"text": "fixture notice"},
     "compliance_taints": ["fixture_regime"],
     "defaults": {"remote_control_at_startup": True},
     "monitoring_notice": {"text": "fixture monitoring", "url": "https://example.invalid/notice"},
     "restrictions": {name: {"allowed": False} for name in (
-        "allow_cobalt_plinth_alkanet", "allow_connector_file_downloads", "allow_drive_file_references",
-        "allow_gmail_file_references", "allow_product_feedback", "allow_quick_web_setup",
-        "enforce_web_search_mcp_isolation")},
+        "allow_fixture_feature_a", "allow_fixture_feature_b", "enforce_fixture_isolation")},
 }
 
 
@@ -441,8 +454,8 @@ class ServerManagedPolicy(unittest.TestCase):
     def reasons(self, findings):
         return sorted({(f.name, f.native, f.bearer, f.reason) for f in findings})
 
-    def test_the_enterprise_limits_seen_in_e0_and_an_empty_settings_document_are_accepted(self):
-        self.assertEqual(policy.judge_policy_limits(E0_LIMITS), [])
+    def test_an_organization_limits_document_and_an_empty_settings_document_are_accepted(self):
+        self.assertEqual(policy.judge_policy_limits(ORG_LIMITS), [])
         self.assertEqual(policy.judge_remote_settings({}, ORGANIZATION_UUID), [])
         self.assertEqual(policy.judge_policy_limits({"core_skills": ["a"], "upcoming_minimum_version": None,
                                                      "restrictions": {"allow_x": True}}), [])
@@ -513,7 +526,7 @@ class ServerManagedPolicy(unittest.TestCase):
         from unittest import mock
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp).resolve()
-            config, work = self.files(base, {}, E0_LIMITS)
+            config, work = self.files(base, {}, ORG_LIMITS)
             managed = base / "managed"
             (managed / "managed-settings.d").mkdir(parents=True)
             (Path(work) / ".claude").mkdir()
@@ -581,7 +594,7 @@ class ServerManagedPolicy(unittest.TestCase):
     def test_evaluate_reads_the_caches_safely_and_reports_names_never_values(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp).resolve()
-            config, work = self.files(base, {"forceLoginOrgUUID": "org-sensitive-value"}, E0_LIMITS)
+            config, work = self.files(base, {"forceLoginOrgUUID": "org-sensitive-value"}, ORG_LIMITS)
             verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux")
             self.assertEqual((verdict.native, verdict.bearer), (("policy_organization_mismatch",),) * 2)
             self.assertIn("remote-settings.json: forceLoginOrgUUID", verdict.describe())
@@ -840,6 +853,29 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(caught.exception.reason, "credential_credential_not_private")
         self.assertEqual(self.upstream.requests, [])
 
+    def test_the_d1_refresh_must_leave_a_token_valid_for_a_minimum_session(self):
+        """Native renews its token only inside its five-minute window, and the run gate refuses every
+        renewal once the session runs, so the gate's own read after the refresh is the check that the
+        refresh worked: a token that needed it is still inside the window when it failed, and a token
+        just outside the window, which native left alone, would end the session within minutes."""
+        window, minimum = provider.NATIVE_REFRESH_WINDOW_MS // 1000, provider.MIN_SESSION_MS // 1000
+        self.assertEqual((window, minimum), (300, 600))
+        for expires_in, reason in ((window - 30, "native_refresh_window"), (window + 30, "token_expires_soon"),
+                                   (window + minimum - 30, "token_expires_soon")):
+            with self.subTest(expires_in):
+                self.store(upstream_fixture.BEARER_A, expires_in=expires_in)
+                prov, g = self.make()
+                with self.assertRaises(gate.Refusal) as caught:
+                    prov.startup(g)
+                self.assertEqual(caught.exception.reason, reason)
+        self.assertEqual(self.upstream.requests, [])
+        self.store(upstream_fixture.BEARER_A, expires_in=window + minimum + 60)
+        expires = json.loads((self.config_dir / ".credentials.json").read_text())["claudeAiOauth"]["expiresAt"]
+        _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        # The launcher shows when the session will need a relaunch: the expiry, never a bearer-derived value.
+        self.assertEqual(g.status()["fields"]["token_expires"], reserve.timestamp(expires // 1000))
+
     def test_models_outside_the_families_or_with_their_own_row_are_refused(self):
         self.upstream.extra = {"seven_day_opus": {"utilization": 3, "resets_at": None}}
         _, g = self.started()
@@ -942,6 +978,45 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (True, "admitted"))
 
+    def test_a_restarted_gate_reads_quota_with_the_store_bearer_but_never_resumes_by_itself(self):
+        prov, g = self.make(mode="restart")
+        g.attach()
+        g.heartbeat()
+        prov.poll(g)
+        self.assertEqual([r["path"] for r in self.upstream.requests], ["/api/oauth/profile", "/api/oauth/usage"])
+        self.assertEqual((g.state, g.reason), ("paused", "awaiting_continuation"))
+        self.upstream.used["five_hour"] = 95
+        prov.poll(g)  # the lease the read bound polls on: usage only
+        self.assertEqual(self.upstream.paths("GET")[2:], ["/api/oauth/usage"])
+        self.assertEqual((g.state, g.reason), ("paused", "threshold"))
+        self.upstream.used["five_hour"] = 10
+        prov.poll(g)
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
+
+    def test_rebind_and_continuation_reads_fit_the_bounds_their_waiters_use(self):
+        """A rebind's two GETs together stay within rebind_timeout, which held requests wait for (plus
+        the connect timeout); a continuation's store read and two GETs stay within the launcher's 20 s
+        control timeout, so it never reports gate_unavailable while the check can still pass."""
+        prov, _ = self.make()
+        seen = []
+
+        class Fetching:
+            lease = None
+
+            def fetch(self, method, path, **options):
+                seen.append((path, options["timeout"]))
+                body = {"account": {"uuid": "a"}, "organization": {"uuid": "o"}} if "profile" in path else {}
+                return 200, [("Content-Type", "application/json")], json.dumps(body).encode()
+
+        for cause in ("startup", "rebind", "continuation"):
+            prov.read_quota(Fetching(), gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), cause)
+        timeouts = {cause: [timeout for _, timeout in seen[index * 2:index * 2 + 2]]
+                    for index, cause in enumerate(("startup", "rebind", "continuation"))}
+        self.assertEqual(timeouts["startup"], [None, None])  # the gate's READ_TIMEOUT each
+        self.assertLessEqual(sum(timeouts["rebind"]), prov.rebind_timeout)
+        self.assertLessEqual(bearer.KEYCHAIN_TIMEOUT + sum(timeouts["continuation"]), 20.0 - 1.0)
+
     def test_a_rejected_lease_bearer_is_reread_from_the_store_and_rebound(self):
         prov, g = self.started()
         self.store(upstream_fixture.BEARER_A2)
@@ -1030,9 +1105,27 @@ class ProtectScreens(unittest.TestCase):
                                (["--add-dir", "a", "b", "--verbose", "go"], ["a", "b"]), (["--add-dir=c"], ["c"]),
                                (["--allowedTools", "Bash", "Read", "--", "-x"], []), (["fix", "the", "mcp"], []),
                                (["--", "fix", "auth"], []), (["--permission-mode", "plan", "-"], []),
-                               (["--dangerously-skip-permissions", "--no-chrome"], [])):
+                               (["--dangerously-skip-permissions", "--verbose"], [])):
             with self.subTest(args):
                 self.assertEqual(protect.screen_arguments(args).add_dirs, add_dirs)
+
+    def test_the_gate_tables_are_those_of_the_one_reviewed_version(self):
+        """provider.py's routes, families and policy shapes are one table, so adding a release to
+        REVIEWED_VERSIONS needs those tables keyed by release first."""
+        self.assertEqual(protect.REVIEWED_VERSIONS, (provider.VERSION,))
+
+    def test_every_form_protected_mode_allows_passes_the_launchers_own_screen(self):
+        """launch.py's preflight runs first on every native-login launch; a form only protect.py allowed
+        would be refused there anyway."""
+        launch = load("test_claude_launch", ROOT / "lib/claude-as/launch.py")
+        forms = [[flag, "x"] for flag in sorted(protect.VALUES | protect.VARIADIC)]
+        forms += [[flag] for flag in sorted(protect.OPTIONAL | protect.SWITCHES)]
+        from unittest import mock
+        with mock.patch.dict(os.environ, {}, clear=True):  # no caller credential or provider variable
+            for form in forms:
+                with self.subTest(form):
+                    launch.preflight(form, None, enrollment=False, config_dir="/nonexistent/config")
+                    self.assertEqual(protect.screen_arguments(form).add_dirs, ["x"] if form[0] == "--add-dir" else [])
 
     def test_every_other_form_or_a_command_word_refuses(self):
         for args, text in ((["-p", "hi"], "-p is not an interactive form"), (["--print"], "--print is not"),
@@ -1126,6 +1219,80 @@ class ProtectScreens(unittest.TestCase):
             self.assertIn("did not answer", self.refused(protect.native_version, str(Path(temp) / "absent"), env))
 
 
+class MacosTemporaryCleanup(unittest.TestCase):
+    """The end-of-invocation cleanup of Claude's fixed /private/tmp/claude-UID, which a boundary process
+    can replace (its subpath rule covers the entry itself). The launcher runs outside the boundary, so it
+    removes only this invocation's entry, by descriptor, beneath the very directory it recorded before
+    the native started; these cases use a temporary root on any host."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.base = Path(temp.name).resolve()
+        self.root = self.base / "claude-501"
+        self.cwd = "/Users/me/proj.x"
+        self.name = "-Users-me-proj-x"
+        self.outside = self.base / "home/.claude/projects"  # what a link would expose: another session's history
+        (self.outside / self.name).mkdir(parents=True)
+        (self.outside / self.name / "session.jsonl").write_text("history")
+
+    def snapshot(self):
+        return protect.macos_temp_snapshot(str(self.root))
+
+    def clean(self, snapshot):
+        protect.clean_macos_temp(str(self.root), snapshot, self.cwd)
+
+    def assertOutsideIntact(self):
+        self.assertEqual((self.outside / self.name / "session.jsonl").read_text(), "history")
+
+    def test_only_this_invocations_new_entry_is_removed(self):
+        self.assertEqual(protect.temp_entry_name(self.cwd), self.name)
+        snapshot = self.snapshot()  # an absent root is created as native creates it, so it can be recorded
+        self.assertEqual(stat.S_IMODE(self.root.stat().st_mode), 0o700)
+        (self.root / self.name / "sub").mkdir(parents=True)
+        (self.root / self.name / "sub" / "out.txt").write_text("x")
+        (self.root / self.name / "link").symlink_to(self.outside)  # a link inside is removed, never followed
+        (self.root / "-other-session").mkdir()
+        self.clean(snapshot)
+        self.assertEqual(sorted(os.listdir(self.root)), ["-other-session"])
+        self.assertOutsideIntact()
+
+    def test_an_entry_that_existed_before_the_native_started_stays(self):
+        (self.root / self.name).mkdir(parents=True)
+        snapshot = self.snapshot()
+        (self.root / self.name / "new.txt").write_text("x")
+        self.clean(snapshot)
+        self.assertTrue((self.root / self.name / "new.txt").exists())
+
+    def test_a_root_replaced_by_a_link_is_never_followed(self):
+        snapshot = self.snapshot()
+        shutil.rmtree(self.root)
+        self.root.symlink_to(self.outside)  # what `rm -rf ROOT; ln -s ~/.claude/projects ROOT` leaves
+        self.clean(snapshot)
+        self.assertOutsideIntact()
+
+    def test_a_swapped_root_is_left_alone(self):
+        snapshot = self.snapshot()
+        self.root.rename(self.base / "claude-501.old")  # keeps the recorded directory, so the inode differs
+        (self.root / self.name).mkdir(parents=True)
+        self.clean(snapshot)
+        self.assertTrue((self.root / self.name).is_dir())
+
+    def test_an_entry_replaced_by_a_link_is_never_followed(self):
+        snapshot = self.snapshot()
+        (self.root / self.name).symlink_to(self.outside / self.name)
+        self.clean(snapshot)
+        self.assertOutsideIntact()
+        self.assertTrue((self.root / self.name).is_symlink())
+
+    def test_a_root_that_is_a_link_before_the_native_starts_records_nothing(self):
+        self.root.symlink_to(self.outside)
+        self.assertIsNone(self.snapshot())
+        self.clean(None)
+        self.assertOutsideIntact()
+        self.assertEqual(os.listdir(self.outside), [self.name])  # nothing was created through the link
+
+
 class ProtectedRefusals(Kit):
     """Refusals of the real launcher before any port, gate or native under the boundary."""
 
@@ -1176,11 +1343,23 @@ class ProtectedRefusals(Kit):
         if boundary_problem():
             self.skipTest(boundary_problem())
         limits = self.native_config("N") / "policy-limits.json"
-        limits.write_text(json.dumps(dict(E0_LIMITS, secret_limit={"value": "org-sensitive-value"})))
+        limits.write_text(json.dumps(dict(ORG_LIMITS, secret_limit={"value": "org-sensitive-value"})))
         limits.chmod(0o600)
         output = self.refused([])
         self.assertIn("policy-limits.json: secret_limit", output)
         self.assertNotIn("org-sensitive-value", output)
+
+    def test_the_launchers_own_lines_are_styled_for_stderr_not_for_the_terminal_on_stdout(self):
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        log = self.base / "stderr.log"  # no credential is stored: the gate refuses after the start line
+        argv = ["/bin/sh", "-c", 'exec "$@" 2>"$0"', str(log), str(self.kit / "bin/claude-as"), "--reserve-5h", "10", "N"]
+        code, output = self.terminal([], env=dict(self.env, CODING_AGENT_KIT_COLOR="auto", TERM="xterm"), argv=argv)
+        self.assertEqual(code, 1, output)
+        text = log.read_text()
+        self.assertIn("claude-as: usage reserves for N: five-hour 10% (--reserve-5h)", text)
+        self.assertIn("protected mode refused", text)
+        self.assertNotIn("\x1b[", text)  # a redirected log stays plain
 
     def test_home_as_the_working_directory_refuses(self):
         if boundary_problem():
@@ -1232,11 +1411,11 @@ class Protected(Kit):
         self.upstream = upstream_fixture.ClaudeUpstream()
         self.addCleanup(self.upstream.close)
 
-    def store(self, subscription="max"):
+    def store(self, subscription="max", expires_in=3600):
         credential = self.native_config("N") / ".credentials.json"
         credential.write_text(json.dumps({"claudeAiOauth": {
             "accessToken": upstream_fixture.BEARER_A, "refreshToken": "fabricated-refresh",
-            "expiresAt": int(time.time() * 1000) + 3600_000, "scopes": ["user:inference", "user:profile"],
+            "expiresAt": int(time.time() * 1000) + expires_in * 1000, "scopes": ["user:inference", "user:profile"],
             "subscriptionType": subscription}}))
         credential.chmod(0o600)
 
@@ -1282,6 +1461,10 @@ class Protected(Kit):
         reads = self.upstream.paths("GET")
         self.assertEqual(reads[:2], ["/api/oauth/profile", "/api/oauth/usage"])
         self.assertIn("usage reserves for N: five-hour 10% (--reserve-5h), weekly 5% (--reserve-weekly)", output)
+        expires = json.loads((self.native_config("N") / ".credentials.json").read_text())["claudeAiOauth"]["expiresAt"]
+        self.assertIn("claude-as: the account's access token expires at %s, and Claude Code cannot renew it inside "
+                      "protected mode; unless another session of this account renews it, relaunch before then."
+                      % reserve.timestamp(expires // 1000), output.replace("\r\n", " ").replace("\n", " "))
 
     def test_a_window_at_its_reserve_refuses_before_the_native_starts(self):
         self.upstream.used["five_hour"] = 95
@@ -1304,7 +1487,7 @@ class Protected(Kit):
 
     def test_an_organization_account_refuses_before_the_native_even_with_policy_caches(self):
         self.store("enterprise")
-        for name, document in (("remote-settings.json", {}), ("policy-limits.json", E0_LIMITS)):
+        for name, document in (("remote-settings.json", {}), ("policy-limits.json", ORG_LIMITS)):
             path = self.native_config("N") / name
             path.write_text(json.dumps(document))
             path.chmod(0o600)
@@ -1368,6 +1551,40 @@ class Protected(Kit):
         self.assertEqual(code, 1, output)
         self.assertIn("the pre-launch native refresh (claude auth status) failed (1)", output)
         self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_token_the_refresh_did_not_renew_refuses_before_any_read(self):
+        """claude auth status exits 0 whether or not it renewed the token; the gate's read decides."""
+        self.store(expires_in=120)
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the pre-launch refresh (claude auth status) did not renew the "
+                      "account's access token, which expires within five minutes; run CLAUDE_CONFIG_DIR=%s claude "
+                      "auth status yourself to see why." % self.native_config("N"),
+                      output.replace("\r\n", " ").replace("\n", " "))
+        self.assertTrue(Path(str(self.record) + ".auth").exists())  # the refresh ran
+        self.assertFalse(self.record.exists())
+        self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_token_too_close_to_its_expiry_for_a_session_refuses(self):
+        self.store(expires_in=600)  # outside native's window, so the refresh leaves it alone
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the account's access token expires within fifteen minutes, too soon "
+                      "for a protected session, and Claude Code renews it only in its last five minutes; launch again "
+                      "in up to ten minutes, when the pre-launch refresh renews it, or launch without reserves",
+                      output.replace("\r\n", " ").replace("\n", " "))
+        self.assertFalse(self.record.exists())
+        self.assertEqual(self.upstream.paths(), [])
+
+    def test_a_refresh_that_renews_a_near_expiry_token_lets_the_launch_run(self):
+        self.store(expires_in=120)
+        code, output = self.protected(env={"CLAUDE_FAKE_RENEW": "3600", "CLAUDE_FAKE_RENEW_TOKEN":
+                                           upstream_fixture.BEARER_A2, "FAKE_MESSAGES": "1",
+                                           "FAKE_BEARER": upstream_fixture.BEARER_A2})
+        self.assertEqual(code, 0, output)
+        self.assertEqual([status for status, _ in self.recorded()["statuses"]], [200])
+        profile = [r for r in self.upstream.requests if r["path"] == "/api/oauth/profile"][0]
+        self.assertIn(("Authorization", "Bearer " + upstream_fixture.BEARER_A2), profile["headers"])
 
     def test_an_unreadable_store_refuses_at_gate_startup(self):
         (self.native_config("N") / ".credentials.json").chmod(0o644)
@@ -1551,16 +1768,18 @@ class RealClaude(Kit):
     def store(self, token, subscription, hours=1):
         self.private(".credentials.json", {"claudeAiOauth": {
             "accessToken": token, "refreshToken": "fabricated-refresh-" + token[-4:],
-            "expiresAt": int(time.time() * 1000) + hours * 3600_000,
+            "expiresAt": int(time.time() * 1000 + hours * 3600_000),
             "scopes": ["user:inference", "user:profile", "user:sessions:claude_code"], "subscriptionType": subscription}})
 
-    def launch(self, args=()):
+    def spec(self, args=()):
         spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"},
                 "args": ["--debug-file", str(self.cwd / "native-debug.log"), "--permission-mode", "default", *args],
                 "upstream_port": self.upstream.port,
                 "connect_allow": {"platform.claude.com:443": ["127.0.0.1", self.closed.getsockname()[1]]}}
-        screen = Screen([sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)], self.env,
-                        self.cwd)
+        return [sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)]
+
+    def launch(self, args=()):
+        screen = Screen(self.spec(args), self.env, self.cwd)
         self.addCleanup(screen.close)
         screen.expect("Claude Code", 90)
         screen.expect("v" + protect.REVIEWED_VERSIONS[0], 30)
@@ -1578,12 +1797,27 @@ class RealClaude(Kit):
         self.assertTrue(wait_for(lambda: (self.cwd / ("inside-%s.json" % kind)).exists(), 30), kind)
         return json.loads((self.cwd / ("inside-%s.json" % kind)).read_text())
 
+    def test_a_token_the_real_refresh_does_not_renew_refuses_before_the_native_starts(self):
+        """The real `claude auth status` exits 0 either way: inside its five-minute window it tries to
+        renew (the tunnel leads to a closed port, so it fails); just outside the window it renews
+        nothing. The gate's read after it refuses both, and no native session starts."""
+        for minutes, text in ((2, "the pre-launch refresh (claude auth status) did not renew the account's access "
+                                  "token, which expires within five minutes"),
+                              (10, "the account's access token expires within fifteen minutes, too soon for a "
+                                   "protected session")):
+            with self.subTest(minutes=minutes):
+                self.store(upstream_fixture.BEARER_A, "max", hours=minutes / 60)
+                code, output = self.terminal([], argv=self.spec(), timeout=120)
+                self.assertEqual(code, 1, output)
+                self.assertIn("protected mode refused: " + text, output.replace("\n", " "))
+                self.assertEqual(self.upstream.model_requests(), [])
+
     def test_an_organization_account_is_refused_before_the_native_starts(self):
         """The real `claude auth status` runs behind the refresh gate; the gate then refuses the
         enterprise subscription, so no native session starts and no model request is made."""
         self.store(upstream_fixture.BEARER_A, "enterprise")
         for name, document in (("remote-settings.json", {"permissions": {"deny": ["Bash"]}}),
-                               ("policy-limits.json", E0_LIMITS)):
+                               ("policy-limits.json", ORG_LIMITS)):
             self.private(name, document)
         spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"}, "args": [],
                 "upstream_port": self.upstream.port,
