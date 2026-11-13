@@ -75,9 +75,10 @@ Added:
   `/usr/bin/sandbox-exec`, a root-owned `/bin/ps` and a passing startup
   self-test, an interactive terminal, and exactly the reviewed native
   release: codex-cli 0.167.2, or Claude Code 2.1.322 with a `native-login`
-  account. These are an upper bound: a newer native or macOS release
-  refuses protected launches until a kit patch reviews it. Anything else is
-  refused before the native starts, with one line, exit 1:
+  account. Only these reviewed releases are accepted: an older release
+  (macOS 15, for example) is refused as unreviewed, and a newer native or
+  macOS release refuses protected launches until a kit patch reviews it.
+  Anything else is refused before the native starts, with one line, exit 1:
   `codex-as: usage reserve protection refused: REASON. (--reserve-5h off --reserve-weekly off launches unprotected)`
   or `claude-as: protected mode refused: REASON.` The boundary is the
   kit's own code (Landlock and seccomp through `ctypes`, a Seatbelt
@@ -152,7 +153,7 @@ Changed:
 - AGENTS.md records protected mode's scoped exceptions to the dependency
   rules: per-invocation gate and monitor processes, the gate as a protocol
   client, the kit's own boundary code, refusing instead of falling back, and
-  the reviewed upper bound of native and macOS releases.
+  accepting only the reviewed native and macOS releases.
 
 ## 0.7.7
 
