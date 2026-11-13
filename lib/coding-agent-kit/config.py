@@ -36,7 +36,7 @@ Public API (load this file by path; it is never on sys.path):
         account(tool, name) -> Reserves: that launcher's account layer; Reserves() when absent
     Reserves, a frozen dataclass with five_hour and weekly: each None when the layer
         does not set it (inherit), "off", or a finite Decimal from 0 through 100
-        (integers and floats exactly as written; a bool is refused). reserve.py
+        (an integer exactly, a float as the TOML parser reads it; a bool is refused). reserve.py
         resolves the layers.
     ConfigError(ValueError): one line, "<file>: <key>: <reason>" or
         "<file>: <reason>", without the "<tool>: " prefix and never quoting file
@@ -307,7 +307,9 @@ def accounts(path, item, *where):
 
 def percent(value):
     """A reserve value: "off", or a finite Decimal from 0 through 100 for a TOML integer or
-    float (exactly as written: 29.9 stays 29.9, -0 is 0); None for anything else."""
+    float; None for anything else. An integer is exact. A float is the shortest decimal that
+    reads back as the binary float the TOML parser made, so 29.9 stays 29.9 and digits past
+    the float's precision (about 17 significant ones) are already rounded; -0 is 0."""
     if isinstance(value, str):
         return value if value == "off" else None
     if isinstance(value, bool) or not isinstance(value, (int, float)):

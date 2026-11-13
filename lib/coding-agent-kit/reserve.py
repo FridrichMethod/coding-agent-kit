@@ -30,14 +30,16 @@ Policy (each window on its own, never combined):
     Setting(window, reserve, source): reserve is a Decimal from 0 through 100 or
         None (off); source is "invocation", "account", "global" or "default".
 
-Evaluator (one per protected invocation; not thread-safe, the gate serializes it):
+Evaluator (one per gate instance; not thread-safe, the gate serializes it):
 
     Evaluator(policy, clock, *, paused=None, max_age=MAX_AGE,
               continuation_window=CONTINUATION_WINDOW)
         clock() returns monotonic seconds; every time below is on that clock,
         except wall-clock epoch seconds (wall_at, resets_at, last_fresh).
-        paused: a reason word (for example "gate_restarted") starts paused with
-        that cause instead of checking; a restarted gate passes it.
+        max_age and continuation_window are finite seconds above 0.
+        paused: a reason word starts paused with that cause instead of checking.
+        A restarted gate builds Evaluator(policy, clock, paused="gate_restarted"),
+        never a checking one.
     Inputs, each returning the Verdict after it:
         observe(Observation)    a NEW provider response the gate received
         failure(reason, at=None) a query that produced no response to evaluate
@@ -47,11 +49,19 @@ Evaluator (one per protected invocation; not thread-safe, the gate serializes it
                                  paused, a NEW attributed response with every enabled
                                  window valid, received after it, clears it, so never
                                  report attributed=True while the condition persists
-        control_down(reason)    monitor or control channel lost; sticky
-        control_up()            control healthy: the monitor attached and was heard
+        control_down(reason)    monitor or control channel lost (monitor_lost,
+                                 monitor_stale, launcher_lost, ...): final for this
+                                 evaluator. The first loss stays; control_up() never
+                                 clears it. Recovery is a restarted gate, paused.
+        control_up()            the monitor attached and a heartbeat was heard: clears
+                                 the control_pending a new evaluator starts with; safe
+                                 to report on every heard heartbeat
         continuation()          a verified trusted-terminal request to continue
         give_up()               the launcher's startup bound ran out: refuse
         tick()                  the timer: freshness and continuation deadlines
+    Reasons are lower-case identifiers. fault and control_down refuse (ValueError)
+    the evaluator's own condition words (WAITING, CAUSE_TEXT) and each other's
+    (CONTROL_TEXT, FAULT_TEXT).
     verdict() -> Verdict; admits() -> bool, the admission test; next_poll(jitter=None)
         -> seconds until the next quota read.
 
@@ -67,8 +77,10 @@ valid fresh reading is older than max_age (also the recovery budget:
 transient failures never extend it), on a fault, or on control loss. Leaving
 a pause needs healthy control, a continuation and then a NEW response,
 received after it and within continuation_window, that passes; any other
-answer uses the continuation up. A window reset, a passing poll or recovered
-control never resumes by itself. Unavailable data is never read as zero usage.
+answer uses the continuation up. A window reset or a passing poll never
+resumes by itself, and a control loss never leaves this evaluator: the
+restarted gate starts a new one paused. Unavailable data is never read as
+zero usage.
 """
 
 from dataclasses import dataclass
@@ -114,6 +126,7 @@ CHECKING, RUNNING, PAUSED = "checking", "running", "paused"
 # Conditions that only wait while checking; every other one refuses the start.
 WAITING = ("control_pending", "no_reading", "stale")
 FLOOR = Context(rounding=ROUND_FLOOR)  # rounds down, so a sum compared with 100 keeps its order
+SHOWN_DECIMALS = FLOOR.prec    # at most this many decimals in a running window's remaining value
 LATEST_WALL = 253_400_000_000  # 9999-12-05: every reset accepted against it still formats
 CONTROL_TEXT = {
     "control_pending": "the quota monitor is not running yet",
@@ -135,6 +148,7 @@ CAUSE_TEXT = {  # what paused, once the latest check passes
     "unattributed": "a quota reading was not attributed to this account",
     "stale": "no fresh quota reading arrived in time",
 }
+OWN_CONDITIONS = frozenset(WAITING) | frozenset(CAUSE_TEXT)  # never a fault or a control loss
 
 
 class ReserveError(ValueError):
@@ -315,7 +329,7 @@ class Verdict:
         """One deterministic line; HOW (for example the continuation key) follows it."""
         word = {"run": "running", "check": "checking", "pause": "paused", "refuse": "refused"}[self.decision]
         if self.decision == "run":
-            detail = ", ".join(f"{LABELS[w.window]} {percent(w.remaining, floor=True)}% remaining "
+            detail = ", ".join(f"{LABELS[w.window]} {above_reserve(w)}% remaining "
                                f"(reserve {percent(w.reserve)}%)" for w in self.windows)
         elif self.reason is None:
             detail = f"{cause_text(self.cause)}; the latest quota check passes; a continuation resumes"
@@ -355,6 +369,20 @@ def percent(value, floor=False):
         value = value.quantize(Decimal("0.1"), rounding=ROUND_FLOOR)
     text = format(value, "f")
     return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def above_reserve(status):
+    """A running window's remaining value as shown: rounded down to one decimal, or to as
+    many more as it takes to stay above the reserve, so it is never above the value
+    observed nor shown at the reserve; "over RESERVE" past SHOWN_DECIMALS decimals."""
+    remaining, reserve = status.remaining, status.reserve
+    if remaining > reserve:
+        # The gap rounded down is positive, so 10**-decimals <= gap and rounding remaining
+        # down to that many decimals stays above remaining - gap = reserve.
+        decimals = max(1, -FLOOR.subtract(remaining, reserve).adjusted())
+        if decimals <= SHOWN_DECIMALS:
+            return percent(remaining.quantize(Decimal(f"1E-{decimals}"), ROUND_FLOOR, Context(prec=decimals + 3)))
+    return "over " + percent(reserve)
 
 
 def timestamp(seconds):
@@ -408,9 +436,11 @@ def judge(reading, window, reserve, wall_at):
     return WindowStatus(window, reserve, AT_RESERVE if at_reserve else OK, remaining, reading.resets_at)
 
 
-def reason_word(reason):
+def reason_word(reason, reserved=frozenset()):
     if not isinstance(reason, str) or not REASON.fullmatch(reason):
         raise ValueError("a reason is a lower-case identifier of at most 64 characters")
+    if reason in reserved:
+        raise ValueError(f"{reason} names another kind of condition")
     return reason
 
 
@@ -423,6 +453,9 @@ class Evaluator:
         self.reserves = policy.enabled()
         if not self.reserves:
             raise ValueError("no enabled reserve: an unprotected launch needs no evaluator")
+        for name, seconds in (("max_age", max_age), ("continuation_window", continuation_window)):
+            if not finite(seconds) or seconds <= 0:
+                raise ValueError(f"{name} is a finite number of seconds above 0")
         self.account, self.clock = policy.account, clock
         self.max_age, self.continuation_window = max_age, continuation_window
         self.state, self.cause, self.refused = CHECKING, None, None
@@ -479,22 +512,25 @@ class Evaluator:
         return self._failed(reason, now, now if at is None or not finite(at) else min(at, now))
 
     def fault(self, reason):
-        reason = reason_word(reason)
+        reason = reason_word(reason, OWN_CONDITIONS | CONTROL_TEXT.keys())
         now = self._tick()
         self.fault_reason, self.fault_at, self.armed = reason, now, None
         self._update(now)
         return self._verdict(now)
 
     def control_down(self, reason):
-        reason = reason_word(reason)
+        reason = reason_word(reason, OWN_CONDITIONS | FAULT_TEXT.keys())
         now = self._tick()
-        self.control, self.armed = reason, None
+        if self.control in (None, "control_pending"):
+            self.control = reason  # final: the first loss stays for this evaluator
+        self.armed = None
         self._update(now)
         return self._verdict(now)
 
     def control_up(self):
         now = self._tick()
-        self.control = None
+        if self.control == "control_pending":
+            self.control = None  # a loss is never cleared here
         self._update(now)
         return self._verdict(now)
 

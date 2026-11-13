@@ -600,6 +600,8 @@ class Evaluation(unittest.TestCase):
         self.assertEqual(evaluator.continuation().continuation, None)  # checking
         evaluator = running(self.clock)
         self.assertEqual(evaluator.continuation().continuation, None)
+        for _ in range(3):  # a gate may report every heard heartbeat: nothing changes
+            self.assertEqual(evaluator.control_up().decision, "run")
         self.clock.advance(1)
         verdict = evaluator.control_down("monitor_lost")
         self.assertEqual((verdict.state, verdict.reason, verdict.cause), ("paused", "monitor_lost", "monitor_lost"))
@@ -607,15 +609,75 @@ class Evaluation(unittest.TestCase):
         self.assertEqual((verdict.continuation, verdict.reason), (None, "monitor_lost"))
         self.assertEqual(verdict.message(), "borrowed: paused: the quota monitor stopped; "
                                             "last valid reading at 2027-01-15T08:00:00Z.")
+
+    def test_control_loss_is_final_for_the_evaluator(self):
+        evaluator = running(self.clock)
+        self.clock.advance(1)
+        verdict = evaluator.control_down("monitor_stale")
+        self.assertEqual((verdict.state, verdict.reason, verdict.cause), ("paused", "monitor_stale", "monitor_stale"))
+        self.clock.advance(1)
+        self.assertFalse(evaluator.observe(observation(self.clock)).eligible)
+        # The monitor is heard again: the loss stays, so no continuation is armed and a
+        # passing check never resumes this evaluator.
+        for _ in range(3):
+            verdict = evaluator.control_up()
+            self.assertEqual((verdict.state, verdict.reason, verdict.cause, verdict.eligible),
+                             ("paused", "monitor_stale", "monitor_stale", False))
+        self.assertEqual(verdict.message(), "borrowed: paused: the quota monitor stopped answering; "
+                                            "last valid reading at 2027-01-15T08:00:02Z.")
+        self.assertEqual(evaluator.continuation().continuation, None)
         self.clock.advance(1)
         self.assertEqual(evaluator.observe(observation(self.clock)).state, "paused")
-        verdict = evaluator.control_up()  # loss stays until a continuation and a fresh pass
-        self.assertEqual((verdict.state, verdict.reason, verdict.eligible), ("paused", None, True))
-        self.assertEqual(verdict.message(), "borrowed: paused: the quota monitor stopped; the latest quota check "
-                                            "passes; a continuation resumes.")
-        self.assertEqual(evaluator.continuation().continuation, "armed")
+        self.assertEqual(evaluator.next_poll(), reserve.POLL_PAUSED * 2 ** 2)  # two paused reads; nothing armed
+        # The first loss stays when another one follows.
+        self.assertEqual(evaluator.control_down("launcher_lost").reason, "monitor_stale")
+        self.assertFalse(evaluator.admits())
+        # A loss before the first heartbeat of a restarted gate is final as well.
+        restarted = self.evaluator(paused="gate_restarted")
+        restarted.control_down("monitor_lost")
+        verdict = restarted.control_up()
+        self.assertEqual((verdict.state, verdict.reason, verdict.cause, verdict.eligible),
+                         ("paused", "monitor_lost", "gate_restarted", False))
+        self.assertEqual(restarted.continuation().continuation, None)
+        # Recovery is a restarted gate: a new evaluator that starts paused and gets a new monitor.
+        restarted = self.evaluator(paused="gate_restarted")
+        restarted.control_up()
         self.clock.advance(1)
-        self.assertEqual(evaluator.observe(observation(self.clock)).decision, "run")
+        self.assertTrue(restarted.observe(observation(self.clock)).eligible)
+        self.assertEqual(restarted.continuation().continuation, "armed")
+        self.clock.advance(1)
+        self.assertEqual(restarted.observe(observation(self.clock)).decision, "run")
+
+    def test_loss_and_fault_reasons_are_not_the_evaluators_own_conditions(self):
+        own = set(reserve.WAITING) | set(reserve.CAUSE_TEXT)
+        for method, words in (("control_down", sorted(own | set(reserve.FAULT_TEXT))),
+                              ("fault", sorted(own | set(reserve.CONTROL_TEXT)))):
+            for word in words:
+                with self.subTest(method=method, word=word):
+                    evaluator = running(self.clock)
+                    with self.assertRaises(ValueError):
+                        getattr(evaluator, method)(word)
+                    self.assertEqual(evaluator.verdict().decision, "run")
+                    checking = self.evaluator()
+                    with self.assertRaises(ValueError):
+                        getattr(checking, method)(word)
+                    self.assertEqual(checking.verdict().reason, "control_pending")
+        # Their own words, and new ones, are accepted.
+        for method, word in (("control_down", "gate_unavailable"), ("control_down", "monitor_gone"),
+                             ("fault", "identity_changed"), ("fault", "token_expiring")):
+            with self.subTest(method=method, word=word):
+                self.assertEqual(getattr(running(self.clock), method)(word).reason, word)
+
+    def test_the_deadlines_are_finite_and_positive(self):
+        for name in ("max_age", "continuation_window"):
+            for bad in (float("nan"), float("inf"), -float("inf"), 0, -1, True, "120", None, D(120)):
+                with self.subTest(name=name, bad=bad), self.assertRaises(ValueError):
+                    self.evaluator(**{name: bad})
+        evaluator = self.evaluator(max_age=2, continuation_window=0.5)
+        evaluator.control_up()
+        evaluator.observe(observation(self.clock))
+        self.clock.advance(2.001)
+        self.assertEqual(evaluator.verdict().reason, "stale")
 
     def test_a_restarted_gate_starts_paused(self):
         evaluator = self.evaluator(paused="gate_restarted")
@@ -665,11 +727,12 @@ class Evaluation(unittest.TestCase):
         evaluator = paused_by_threshold(self.clock)
         evaluator.continuation()
         self.clock.advance(1)
-        evaluator.control_down("launcher_lost")
+        self.assertEqual(evaluator.control_down("launcher_lost").continuation, None)
         evaluator.control_up()
         self.clock.advance(1)
         verdict = evaluator.observe(observation(self.clock, five=0, weekly=0))
-        self.assertEqual((verdict.state, verdict.continuation, verdict.eligible), ("paused", None, True))
+        self.assertEqual((verdict.state, verdict.reason, verdict.continuation, verdict.eligible),
+                         ("paused", "launcher_lost", None, False))
 
     def test_faults_pause_and_clear_only_with_newer_attributed_data(self):
         evaluator = running(self.clock)
@@ -755,6 +818,24 @@ class Evaluation(unittest.TestCase):
                          "resets 2027-01-16T08:00:01Z. Press F12 to continue.")
         self.assertEqual(running(self.clock).verdict().message(),
                          "borrowed: running: five-hour 90% remaining (reserve 10%), weekly 90% remaining (reserve 40%).")
+
+    def test_a_running_window_is_shown_above_its_reserve(self):
+        # Rounded down to one decimal, with more decimals only where one would reach the
+        # reserve; never above the value observed.
+        for used, reserve_value, shown in ((89.96, D(10), "10.04"), (89.9, D(10), "10.1"), (10.04, D(10), "89.9"),
+                                           (D("89.85"), D("10.1"), "10.15"), (D("89.81"), D("10.1"), "10.19"),
+                                           (D("89.75"), D("10.1"), "10.2"), (0, D(10), "100"),
+                                           (D("99.99"), D(0), "0.01"),
+                                           (D("89." + "9" * 26), D(10), "10." + "0" * 25 + "1"),
+                                           # Beyond 28 digits only "over" stays true.
+                                           (D("89." + "9" * 30), D(10), "over 10"),
+                                           (D("99." + "9" * 40), D(0), "over 0")):
+            with self.subTest(used=used, reserve=reserve_value):
+                evaluator = self.evaluator(five=reserve_value, weekly=None)
+                evaluator.control_up()
+                verdict = evaluator.observe(observation(self.clock, five=used, weekly=None))
+                self.assertEqual(verdict.message(), f"borrowed: running: five-hour {shown}% remaining "
+                                                    f"(reserve {reserve.percent(reserve_value)}%).")
 
     def test_checking_messages(self):
         evaluator = self.evaluator()
