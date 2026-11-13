@@ -5,7 +5,7 @@ sys.path). A gate runs outside the boundary as its own process. It serves plain 
 loopback listening sockets that the launcher holds for the whole invocation and originates every
 upstream connection itself, over verified TLS (HTTP/1.1, TLS 1.2 or later), through the caller's
 plain http:// proxy when the launcher captured one at startup (the one the native would use for
-HTTPS; a NO_PROXY host goes direct, as it would for the native).
+HTTPS; a host goes direct only where every native's reading of NO_PROXY exempts it).
 
 Providers plug in through four interfaces; BaseProvider documents each method:
     a default-deny RouteTable per native version (Route kinds: model, usage, read, paused_read);
@@ -329,39 +329,25 @@ def parse_proxy(url):
     return (parts.hostname, port)
 
 
-def bypasses(no_proxy, host, port):
-    """Whether NO_PROXY exempts HOST:PORT from the proxy. NO_PROXY is one entry list per set
-    spelling (supervise.no_proxy_lists), and every list must match, so a host goes direct only where
-    each spelling says so. An entry "*" matches every host; "NAME", ".NAME" and "*.NAME" match NAME
-    and its subdomains; an IP address or CIDR range matches the addresses in it; a ":PORT" suffix
-    (after "]" for an IPv6 address) limits an entry to that port."""
-    return bool(no_proxy) and all(any(_bypass(entry, host, port) for entry in entries) for entries in no_proxy)
+def bypasses(no_proxy, host):
+    """Whether NO_PROXY exempts HOST from the proxy, which it does only where every native would.
+    NO_PROXY is one entry list per set spelling (supervise.no_proxy_lists), and every list must
+    exempt HOST. A list that is just "*" exempts every host; an entry NAME exempts the host NAME
+    itself, and ".NAME" the hosts below NAME but not NAME. Any other entry ("*.NAME", a ":PORT"
+    suffix, an address range, an IPv6 address, "*" among other entries) exempts nothing, because
+    Claude Code or Codex reads it differently or not at all."""
+    host = host.lower()
+    return bool(no_proxy) and all(_exempts(tuple(entries), host) for entries in no_proxy)
 
 
-def _bypass(entry, host, port):
-    if entry == "*":
+NO_PROXY_NAME = re.compile(r"[a-z0-9._-]{1,253}")
+
+
+def _exempts(entries, host):
+    if entries == ("*",):
         return True
-    name, wanted = entry, None
-    bracketed = re.fullmatch(r"\[([0-9a-f:.]+)\](?::([0-9]{1,5}))?", entry)
-    if bracketed:
-        name, wanted = bracketed.groups()
-    elif entry.count(":") == 1:
-        name, _, wanted = entry.partition(":")
-    if wanted is not None and (not wanted.isdigit() or int(wanted) != port):
-        return False
-    host = host.lower().strip("[]").rstrip(".")
-    try:
-        network = ipaddress.ip_network(name, strict=False)
-    except ValueError:
-        network = None
-    if network is not None:
-        try:
-            return ipaddress.ip_address(host) in network
-        except ValueError:
-            return False
-    name = name.rstrip(".")
-    name = name[2:] if name.startswith("*.") else name[1:] if name.startswith(".") else name
-    return bool(name) and (host == name or host.endswith("." + name))
+    return any(host.endswith(entry) if entry.startswith(".") else host == entry
+               for entry in entries if NO_PROXY_NAME.fullmatch(entry))
 
 
 def proxy_setting(value):
@@ -1023,8 +1009,8 @@ class Gate:
 
     # -- upstream --------------------------------------------------------------------------------
     def proxy_for(self, host, port):
-        """The proxy for a connection to HOST:PORT: the captured one, unless NO_PROXY exempts it."""
-        return None if self.proxy is None or bypasses(self.no_proxy, host, port) else self.proxy
+        """The proxy for a connection to HOST:PORT: the captured one, unless NO_PROXY exempts HOST."""
+        return None if self.proxy is None or bypasses(self.no_proxy, host) else self.proxy
 
     def open(self, upstream, deadline=None):
         """A connected upstream socket (TLS verified when upstream.tls); raises OSError. Each step

@@ -130,11 +130,18 @@ class Pure(unittest.TestCase):
                 self.assertNotIn(value, raised.exception.reason)  # a proxy URL may carry a secret
 
     def test_no_proxy_is_captured_with_the_proxy_one_list_per_spelling(self):
+        """Entries are split on commas only, as Codex splits them; an entry some native would not
+        exempt a host by (a port, a range, "*." or "*" among others, two names in one entry) is
+        dropped, which keeps the host on the proxy, and a spelling whose entries are all dropped
+        still counts."""
         parse = fakes.gate.parse_proxy
         env = {"HTTPS_PROXY": "http://p:1", "NO_PROXY": "localhost, .Example.com,,127.0.0.1:8080",
                "no_proxy": "*"}
         self.assertEqual(supervise.capture_proxy(env, parse),
-                         ("p", 1, (("localhost", ".example.com", "127.0.0.1:8080"), ("*",))))
+                         ("p", 1, (("localhost", ".example.com"), ("*",))))
+        env = {"HTTPS_PROXY": "http://p:1", "NO_PROXY": "a.example b.example,*.c.example,10.0.0.0/8,*,::1",
+               "no_proxy": " * "}
+        self.assertEqual(supervise.capture_proxy(env, parse), ("p", 1, ((), ())))
         self.assertIsNone(supervise.capture_proxy({"NO_PROXY": "*"}, parse))
         self.assertEqual(supervise.capture_proxy({"HTTPS_PROXY": "http://p:1", "NO_PROXY": ""}, parse), ("p", 1, ()))
 

@@ -749,32 +749,37 @@ class Upstreams(unittest.TestCase):
         self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 200)
         self.assertEqual(proxy.targets, ["127.0.0.1:%d" % h.upstream.port])
 
-    def test_no_proxy_entries_match_as_the_natives_read_them(self):
+    def test_no_proxy_exempts_a_host_only_where_every_native_would(self):
+        """Claude Code matches a bare NAME as that host only and ".NAME" (in its other clients) as the
+        hosts below NAME; Codex reads neither ":PORT" nor "*.NAME" and splits on commas only. So the gate
+        goes direct only for what all of them exempt, and keeps every other host on the proxy."""
         cases = (
-            ("*", "api.anthropic.com", 443, True),
-            ("anthropic.com", "api.anthropic.com", 443, True),
-            (".anthropic.com", "api.anthropic.com", 443, True),
-            ("*.anthropic.com", "api.anthropic.com", 443, True),
-            (".chatgpt.com", "chatgpt.com", 443, True),
-            ("chatgpt.com", "chatgpt.com", 443, True),
-            ("chatgpt.com.", "chatgpt.com", 443, True),
-            ("gpt.com", "chatgpt.com", 443, False),
-            ("chatgpt.com:443", "chatgpt.com", 443, True),
-            ("chatgpt.com:8443", "chatgpt.com", 443, False),
-            ("10.0.0.0/8", "10.1.2.3", 443, True),
-            ("10.0.0.0/8", "api.anthropic.com", 443, False),
-            ("127.0.0.1", "127.0.0.1", 443, True),
-            ("127.0.0.1:8080", "127.0.0.1", 443, False),
-            ("[::1]:443", "::1", 443, True),
-            ("::1", "::1", 443, True),
-            ("localhost", "api.anthropic.com", 443, False),
+            ("anthropic.com", "anthropic.com", True),
+            ("api.anthropic.com", "API.Anthropic.com", True),
+            ("anthropic.com", "api.anthropic.com", False),
+            (".anthropic.com", "api.anthropic.com", True),
+            (".chatgpt.com", "chatgpt.com", False),
+            ("*.anthropic.com", "api.anthropic.com", False),
+            ("chatgpt.com.", "chatgpt.com", False),
+            ("gpt.com", "chatgpt.com", False),
+            (".gpt.com", "chatgpt.com", False),
+            ("chatgpt.com:443", "chatgpt.com", False),
+            ("10.0.0.0/8", "10.1.2.3", False),
+            ("127.0.0.1", "127.0.0.1", True),
+            ("127.0.0.1:8080", "127.0.0.1", False),
+            ("[::1]:443", "::1", False),
+            ("::1", "::1", False),
+            ("localhost", "api.anthropic.com", False),
         )
-        for entry, host, port, expected in cases:
+        for entry, host, expected in cases:
             with self.subTest(entry=entry, host=host):
-                self.assertEqual(gate.bypasses(((entry,),), host, port), expected)
-        self.assertFalse(gate.bypasses((), "chatgpt.com", 443))
-        self.assertFalse(gate.bypasses(((),), "chatgpt.com", 443))
-        self.assertFalse(gate.bypasses((("chatgpt.com",), ("localhost",)), "chatgpt.com", 443))
+                self.assertEqual(gate.bypasses(((entry,),), host), expected)
+        self.assertTrue(gate.bypasses((("*",),), "chatgpt.com"))
+        self.assertFalse(gate.bypasses((("localhost", "*"),), "chatgpt.com"))  # "*" only as the whole value
+        self.assertTrue(gate.bypasses((("localhost", "chatgpt.com"),), "chatgpt.com"))
+        self.assertFalse(gate.bypasses((), "chatgpt.com"))
+        self.assertFalse(gate.bypasses(((),), "chatgpt.com"))
+        self.assertFalse(gate.bypasses((("chatgpt.com",), ("localhost",)), "chatgpt.com"))
 
     def test_the_proxy_configuration_value(self):
         self.assertEqual(gate.proxy_setting(None), (None, ()))

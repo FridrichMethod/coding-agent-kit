@@ -112,7 +112,7 @@ PROXY_ORDER = {
     None: (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")),
 }
 NO_PROXY_VARIABLES = ("NO_PROXY", "no_proxy")
-NO_PROXY_ENTRY = re.compile(r"[a-z0-9.*:\[\]/_-]{1,262}")
+NO_PROXY_ENTRY = re.compile(r"[a-z0-9._-]{1,253}")  # the names gate.bypasses can exempt
 # What a forked child reports through a shared anonymous page, which survives a confine hook that
 # closes every descriptor: the hook is running, exec is next, the hook refused, exec failed.
 HOOK, EXEC, REFUSED, FAILED = b"H", b"X", b"R", b"E"
@@ -163,14 +163,18 @@ def capture_proxy(env, parse, provider=None):
 
 
 def no_proxy_lists(env):
-    """One tuple of lower-case entries per set spelling of NO_PROXY, in NO_PROXY_VARIABLES order.
-    An entry the gate could not match (gate.bypasses) is dropped, which only keeps that host on the
-    proxy."""
+    """One tuple of lower-case entries per set spelling of NO_PROXY, in NO_PROXY_VARIABLES order,
+    split on commas only, as Codex splits them, or ("*",) for a value of exactly "*". An entry that
+    gate.bypasses would not exempt a host by (a port, a range, "*.NAME", "*" among other entries, two
+    names in one entry) is dropped, which only keeps that host on the proxy; a set spelling whose
+    entries are all dropped still counts."""
     lists = []
     for name in NO_PROXY_VARIABLES:
         text = env.get(name)
-        if text:
-            entries = (entry for entry in re.split(r"[\s,]+", text.lower()) if entry)
+        if text == "*":
+            lists.append(("*",))
+        elif text:
+            entries = (entry.strip() for entry in text.lower().split(","))
             lists.append(tuple(entry for entry in entries if NO_PROXY_ENTRY.fullmatch(entry))[:1024])
     return tuple(lists)
 
