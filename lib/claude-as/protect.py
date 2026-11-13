@@ -49,9 +49,16 @@ of the Python running claude-as (supervise.interpreter: a virtual environment's 
 files stay out), and the launch refuses unless that interpreter, its prefixes, its module path and the
 kit's module directories lie outside everything a boundary process can write (reach: the writable set,
 the boundary's devices and, on macOS, Claude's fixed temporary directory), through every link on the
-way (supervise.unreachable). The native path is made absolute, so the version check, the refresh and
-the native resolve it once. While the run lasts the launcher's own PATH is the system directories
-(supervise.launcher_path); the native keeps the caller's.
+way (supervise.unreachable). The launcher itself runs before any check, as the python3 that
+bin/claude-as finds on PATH, started with -S so that no .pth file runs in it; the launch refuses when
+that python3, its prefixes or its module path lie in the same reach (launcher_sources), since a
+session could then replace them under the next launch. The native path is made absolute, so the
+version check, the refresh and the native resolve it once. While the run lasts the launcher's own PATH
+is the system directories (supervise.launcher_path); the native keeps the caller's.
+
+Proxy: the gate reaches the provider through the proxy Claude Code itself would use for HTTPS
+(gate_proxy: HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY), captured once; the native sees only the
+gate as its proxy.
 
 macOS: Claude's Bash tool writes /private/tmp/claude-UID/<cwd with every non-alphanumeric byte as ->
 whatever TMPDIR says. That directory is writable inside the boundary, and at the end the entry named
@@ -140,6 +147,8 @@ REASONS = {
 GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py", KIT / "monitor.py")
 CODE_HINT = ("; run claude-as with a Python and a kit installed outside the working directory, every --add-dir and the "
              "account directory")
+LAUNCHER_HINT = ("; start claude-as with a python3 outside the working directory, every --add-dir and the account "
+                 "directory first on PATH (deactivate a workspace virtual environment)")
 
 
 class Refused(ValueError):
@@ -259,6 +268,34 @@ def reach(writable, sandbox, uid, darwin):
         if path not in result:
             result.append(path)
     return result
+
+
+def launcher_sources():
+    """(what, path, holds code) for the launcher process itself, which runs outside every boundary
+    before any check: the python3 that bin/claude-as found on PATH, by the name it ran (so every link
+    on the way counts), its prefixes and its module path, which holds no site-packages: bin/claude-as
+    starts it as `python3 -I -B -S`. A protected session that could replace one of them would run
+    the next launch's code unconfined, so protected mode refuses such a launch. A python3 replaced
+    before this launch has run instead of it; the check cannot see that. Refused when the
+    interpreter does not report them."""
+    prefixes = [sys.prefix, sys.exec_prefix, sys.base_prefix, sys.base_exec_prefix]
+    entries = list(sys.path)
+    if not all(isinstance(path, str) and os.path.isabs(path) for path in [sys.executable, *prefixes, *entries]):
+        refuse("the Python running claude-as does not report where it loads code from.")
+    return ([("the launcher's Python", sys.executable, False)]
+            + [("the launcher's Python prefix", path, False) for path in prefixes]
+            + [("the launcher's module path entry", path, True) for path in entries])
+
+
+def gate_proxy(supervise, parse, env):
+    """The caller's proxy for the gate's upstream connections, as Claude Code itself would use it for
+    HTTPS (its OAuth requests, which carry the bearer, included): HTTPS_PROXY, otherwise HTTP_PROXY,
+    otherwise ALL_PROXY, each in either spelling; None to connect directly. A value the gate cannot
+    use refuses, naming the variable but never its value (parse is gate.parse_proxy)."""
+    try:
+        return supervise.capture_proxy(env, parse, provider="claude")
+    except supervise.Refused as error:
+        refuse(error.reason + ".")
 
 
 def temp_entry_name(cwd):
@@ -393,10 +430,7 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
     identity = (record["identity"]["account_uuid"], record["identity"]["organization_uuid"])
     cwd = os.path.realpath(os.getcwd())
     judge_policy(policies.evaluate(paths.config, identity[1], cwd), paths)
-    try:
-        proxy = supervise.capture_proxy(os.environ, gate.parse_proxy)
-    except supervise.Refused as error:
-        refuse(error.reason)
+    proxy = gate_proxy(supervise, gate.parse_proxy, os.environ)
     uid = os.getuid()
     tmp_root = os.path.realpath(env.get("TMPDIR") or "/tmp") if not darwin else os.path.realpath(
         env.get("TMPDIR") or tempfile.gettempdir())
@@ -416,6 +450,7 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
         try:
             supervise.unreachable(supervise.code_sources(python, gate_env, (HERE, KIT)),
                                   reach(writable, sandbox, uid, darwin), CODE_HINT)
+            supervise.unreachable(launcher_sources(), reach(writable, sandbox, uid, darwin), LAUNCHER_HINT)
         except supervise.Refused as error:
             refuse(error.reason + ".")
         settings = {"sandbox": {"enabled": False}, "remoteControlAtStartup": False}

@@ -439,6 +439,7 @@ bearer = load("test_claude_bearer", ROOT / "lib/claude-as/bearer.py")
 provider = load("test_claude_provider", ROOT / "lib/claude-as/provider.py")
 gate = provider.gate
 reserve = provider.reserve
+supervise = load("test_claude_supervise", ROOT / "lib/coding-agent-kit/supervise.py")
 upstream_fixture = load("test_claude_upstream", FIXTURES / "upstream.py")
 ORG_LIMITS = {  # an organization's policy-limits.json in the 2.1.322 schema; keys and values fabricated
     "artifact_create_notice": {"text": "fixture notice"},
@@ -1188,6 +1189,58 @@ class ProtectScreens(unittest.TestCase):
                 self.assertIn(name, message)
                 self.assertNotIn("hidden-value", message)
 
+    def test_the_gate_takes_the_proxy_claude_code_would_use_for_https(self):
+        """Claude Code reads HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY (either spelling) for its HTTPS
+        requests, the bearer-carrying ones included; the gate's upstream connections follow it."""
+        for env, expected in (({}, None),
+                              ({"HTTPS_PROXY": "http://a.test:1", "HTTP_PROXY": "http://c.test:3"}, ("a.test", 1, ())),
+                              ({"http_proxy": "http://c.test:3", "ALL_PROXY": "socks5h://b.test:2"}, ("c.test", 3, ())),
+                              ({"ALL_PROXY": "http://b.test:2", "no_proxy": "api.anthropic.com"},
+                               ("b.test", 2, (("api.anthropic.com",),)))):
+            with self.subTest(env=env):
+                self.assertEqual(protect.gate_proxy(supervise, gate.parse_proxy, env), expected)
+        for env, reason in (({"HTTP_PROXY": "socks5h://c.test:3"}, "unsupported HTTP_PROXY"),
+                            ({"all_proxy": "socks5h://b.test:2"}, "unsupported all_proxy"),
+                            ({"HTTP_PROXY": "http://c.test:3", "http_proxy": "http://d.test:4"},
+                             "HTTP_PROXY and http_proxy differ")):
+            with self.subTest(env=env):
+                message = self.refused(protect.gate_proxy, supervise, gate.parse_proxy, env)
+                self.assertIn(reason, message)
+                self.assertTrue(message.startswith("protected mode refused: "))
+                self.assertNotIn(".test", message)
+
+    def test_the_launchers_own_python_must_lie_out_of_reach_by_the_name_it_ran(self):
+        """bin/claude-as runs the python3 it finds on PATH, before any check; a protected session that
+        could replace it, a prefix or a module path entry would run the next launch unconfined."""
+        sources = protect.launcher_sources()
+        kinds = {}
+        for what, path, holds in sources:
+            kinds.setdefault(what, []).append((path, holds))
+        self.assertEqual(kinds["the launcher's Python"], [(sys.executable, False)])
+        self.assertEqual(len(kinds["the launcher's Python prefix"]), 4)
+        self.assertEqual(kinds["the launcher's module path entry"], [(path, True) for path in sys.path])
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work = base / "work"
+            (work / ".venv/bin").mkdir(parents=True)
+            (base / "bin").mkdir()
+            supervise.unreachable(protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT)
+            python = work / ".venv/bin/python3"
+            linked = base / "bin/python3"
+            linked.symlink_to(python)  # a link outside to an interpreter inside
+            for patch in ({"executable": str(python)}, {"executable": str(linked)},
+                          {"prefix": str(work / ".venv")}, {"path": [*sys.path, str(work / "lib")]},
+                          {"path": [*sys.path, str(base)]}):
+                with self.subTest(patch=patch), mock.patch.multiple(sys, **patch):
+                    with self.assertRaises(supervise.Refused) as caught:
+                        supervise.unreachable(protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT)
+                    self.assertIn("; start claude-as with a python3 outside the working directory, every --add-dir "
+                                  "and the account directory first on PATH", caught.exception.reason)
+            for patch in ({"executable": ""}, {"executable": None}, {"path": ["relative"]}):
+                with self.subTest(patch=patch), mock.patch.multiple(sys, **patch):
+                    self.assertIn("does not report where it loads code from", self.refused(protect.launcher_sources))
+
     def test_the_reach_checked_for_code_is_everything_a_boundary_process_can_write(self):
         sandbox = types.SimpleNamespace(DEVICES=("/dev/null", "/dev/pts", "/dev/shm"),
                                         claude_temp=lambda uid: "/private/tmp/claude-%d" % uid)
@@ -1401,6 +1454,75 @@ class ProtectedRefusals(Kit):
                 self.assertIn(text, self.refused(["--add-dir", str(add_dir)]).replace("\n", " "))
 
 
+class ConnectProxy:
+    """A plain HTTP CONNECT proxy on 127.0.0.1 that tunnels to loopback ports only and records the
+    targets it was asked for."""
+
+    def __init__(self):
+        import threading
+        self.threading = threading
+        self.listener = socket.socket()
+        self.listener.bind(("127.0.0.1", 0))
+        self.listener.listen(32)
+        self.port = self.listener.getsockname()[1]
+        self.targets = []
+        threading.Thread(target=self._accept, daemon=True).start()
+
+    def close(self):
+        self.listener.close()
+
+    def _accept(self):
+        while True:
+            try:
+                client, _ = self.listener.accept()
+            except OSError:
+                return
+            self.threading.Thread(target=self._serve, args=(client,), daemon=True).start()
+
+    def _serve(self, client):
+        upstream = None
+        try:
+            head = b""
+            while b"\r\n\r\n" not in head:
+                data = client.recv(1)
+                if not data:
+                    return
+                head += data
+            method, target = head.split(b" ")[:2]
+            self.targets.append(target.decode())
+            host, _, port = target.decode().rpartition(":")
+            if method != b"CONNECT" or host != "127.0.0.1":
+                client.sendall(b"HTTP/1.1 403 Forbidden\r\n\r\n")
+                return
+            upstream = socket.create_connection((host, int(port)), timeout=10)
+            client.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
+            self.threading.Thread(target=self._pump, args=(upstream, client), daemon=True).start()
+            self._pump(client, upstream)
+        except (OSError, ValueError):
+            pass
+        finally:
+            client.close()
+            if upstream is not None:
+                upstream.close()
+
+    @staticmethod
+    def _pump(source, sink):
+        try:
+            while True:
+                data = source.recv(65536)
+                if not data:
+                    break
+                sink.sendall(data)
+        except OSError:
+            pass
+        finally:
+            for sock in (source, sink):
+                try:
+                    sock.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+
+
 class Protected(Kit):
     """A protected launch end to end: the real boundary, supervisor, gate and monitor, a fake native
     and the loopback Claude upstream."""
@@ -1599,17 +1721,36 @@ class Protected(Kit):
         self.assertIn("credential_credential_not_private", output)
         self.assertEqual(self.upstream.paths(), [])
 
-    def test_a_workspace_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
-        venv = self.cwd / ".venv"
+    def test_the_gate_reaches_upstream_through_http_proxy_as_claude_code_would(self):
+        """With no HTTPS_PROXY, Claude Code uses HTTP_PROXY for HTTPS and only then ALL_PROXY, so the gate
+        does too (an unusable ALL_PROXY would refuse under any other order); the native never sees the
+        caller's proxy."""
+        proxy = ConnectProxy()
+        self.addCleanup(proxy.close)
+        for name in ("NO_PROXY", "no_proxy"):  # a caller's loopback exemption would send the gate direct
+            self.env.pop(name, None)
+        code, output = self.protected(env={"HTTP_PROXY": "http://127.0.0.1:%d" % proxy.port,
+                                           "ALL_PROXY": "socks5h://127.0.0.1:1", "FAKE_MESSAGES": "1",
+                                           "FAKE_BEARER": upstream_fixture.BEARER_A})
+        self.assertEqual(code, 0, output)
+        seen = self.recorded()
+        self.assertEqual([status for status, _ in seen["statuses"]], [200])
+        self.assertIn("127.0.0.1:%d" % self.upstream.port, proxy.targets)  # quota reads and the model request
+        self.assertEqual(sorted(name for name in seen["env"] if name.lower().endswith("_proxy")),
+                         ["HTTPS_PROXY", "NO_PROXY", "https_proxy", "no_proxy"])
+        self.assertEqual(seen["env"]["HTTPS_PROXY"], seen["env"]["ANTHROPIC_BASE_URL"])  # only the gate
+
+    def workspace_venv(self, venv, mark):
+        """A virtual environment at VENV whose .pth file and ps record in MARK every run outside the
+        boundary of a process other than the launcher; the PATH that puts it first."""
         made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], capture_output=True,
                               timeout=120)
         if made.returncode:
             self.skipTest("python3 -m venv is unavailable")
         (site,) = venv.glob("lib/python*/site-packages")
-        mark = self.base / "planted.log"  # outside every writable path: only an unconfined process can write it
-        # What a boundary process can write into the workspace venv. The launcher itself, which loaded
-        # its code before any boundary existed, has FAKE_RECORD set; a kit process outside the boundary
-        # (it gets gate_env only) that processed this file would add a line to the mark.
+        # What a boundary process can write into a workspace venv. The launcher (the test driver) has
+        # FAKE_RECORD set; a kit process outside the boundary (it gets gate_env only) that processed this
+        # file would add a line to the mark.
         (site / "planted.pth").write_text('import os; "FAKE_RECORD" in os.environ or open(%r, "a").write("pth %%d\\n" '
                                           '%% os.getpid())\n' % str(mark))
         ps = venv / "bin/ps"  # what a launcher on macOS would run every second if it ran ps by name
@@ -1618,7 +1759,32 @@ class Protected(Kit):
         subprocess.run([str(venv / "bin/python3"), "-I", "-B", "-c", "pass"], env={}, check=True, timeout=30)
         self.assertTrue(mark.exists())  # the venv's own interpreter runs it
         mark.unlink()
-        path = os.pathsep.join((str(venv / "bin"), self.env["PATH"]))
+        return os.pathsep.join((str(venv / "bin"), self.env["PATH"]))
+
+    def test_a_workspace_venv_first_on_path_refuses_before_anything_starts(self):
+        """A python3 the boundary can write could take over the next launch outside every boundary, before
+        any check, so a launch through one refuses."""
+        venv = self.cwd / ".venv"
+        mark = self.base / "planted.log"  # outside every writable path: only an unconfined process can write it
+        path = self.workspace_venv(venv, mark)
+        code, output = self.protected(env={"PATH": path}, python=str(venv / "bin/python3"))
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the launcher's Python %s lies inside %s, which the boundary can write; "
+                      "start claude-as with a python3 outside the working directory, every --add-dir and the account "
+                      "directory first on PATH (deactivate a workspace virtual environment)." % (venv / "bin/python3",
+                                                                                                self.cwd),
+                      output.replace("\n", " "))
+        self.assertFalse(self.record.exists())
+        self.assertFalse(Path(str(self.record) + ".auth").exists())  # no pre-launch refresh ran
+        self.assertEqual(self.upstream.paths(), [])
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
+
+    def test_a_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
+        """With a virtual environment outside the boundary's reach first on PATH, the gate and the monitor
+        (the base interpreter) never process its .pth files, and nothing runs its ps."""
+        venv = self.base / "venv"
+        mark = self.base / "planted.log"
+        path = self.workspace_venv(venv, mark)
         code, output = self.protected(env={"PATH": path, "FAKE_MESSAGES": "1", "FAKE_BEARER": upstream_fixture.BEARER_A},
                                       python=str(venv / "bin/python3"))
         self.assertEqual(code, 0, output)
