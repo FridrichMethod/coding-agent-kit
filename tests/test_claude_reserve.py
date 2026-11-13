@@ -344,5 +344,482 @@ class SetupTokenAndFlags(Kit):
             self.assertIn(text, result.stdout)
 
 
+
+def load(name, path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+policy = load("test_claude_policy", ROOT / "lib/claude-as/policy.py")
+bearer = load("test_claude_bearer", ROOT / "lib/claude-as/bearer.py")
+provider = load("test_claude_provider", ROOT / "lib/claude-as/provider.py")
+gate = provider.gate
+reserve = provider.reserve
+upstream_fixture = load("test_claude_upstream", FIXTURES / "upstream.py")
+E0_LIMITS = {  # the shape of the stanford policy-limits.json (E0: key names only; values fabricated)
+    "artifact_create_notice": {"text": "fixture notice"},
+    "compliance_taints": ["fixture_regime"],
+    "defaults": {"remote_control_at_startup": True},
+    "monitoring_notice": {"text": "fixture monitoring", "url": "https://example.invalid/notice"},
+    "restrictions": {name: {"allowed": False} for name in (
+        "allow_cobalt_plinth_alkanet", "allow_connector_file_downloads", "allow_drive_file_references",
+        "allow_gmail_file_references", "allow_product_feedback", "allow_quick_web_setup",
+        "enforce_web_search_mcp_isolation")},
+}
+
+
+class ServerManagedPolicy(unittest.TestCase):
+    def reasons(self, findings):
+        return sorted({(f.name, f.native, f.bearer, f.reason) for f in findings})
+
+    def test_the_enterprise_limits_seen_in_e0_and_an_empty_settings_document_are_accepted(self):
+        self.assertEqual(policy.judge_policy_limits(E0_LIMITS), [])
+        self.assertEqual(policy.judge_remote_settings({}, ORGANIZATION_UUID), [])
+        self.assertEqual(policy.judge_policy_limits({"core_skills": ["a"], "upcoming_minimum_version": None,
+                                                     "restrictions": {"allow_x": True}}), [])
+
+    def test_unreviewed_limits_and_shapes_refuse_both_scopes(self):
+        cases = {
+            "new_limit": ({"new_limit": 1}, ("new_limit", True, True, "policy_limits_unreviewed_keys")),
+            "defaults": ({"defaults": {"other": True}}, ("defaults.other", True, True, "policy_limits_unreviewed_keys")),
+            "defaults type": ({"defaults": {"remote_control_at_startup": "yes"}},
+                              ("defaults.remote_control_at_startup", True, True, "policy_shape_unrecognized")),
+            "restrictions": ({"restrictions": ["allow_x"]}, ("restrictions", True, True, "policy_shape_unrecognized")),
+            "taints": ({"compliance_taints": "x"}, ("compliance_taints", True, True, "policy_shape_unrecognized")),
+            "notice": ({"monitoring_notice": "x"}, ("monitoring_notice", True, True, "policy_shape_unrecognized")),
+        }
+        for label, (document, expected) in cases.items():
+            with self.subTest(label):
+                self.assertEqual(self.reasons(policy.judge_policy_limits(document)), [expected])
+        self.assertEqual(self.reasons(policy.judge_policy_limits([])),
+                         [("<document>", True, True, "policy_shape_unrecognized")])
+
+    def test_settings_review_scopes(self):
+        org = ORGANIZATION_UUID
+        cases = {
+            "apiKeyHelper": ({"apiKeyHelper": "x"}, [("apiKeyHelper", True, True, "policy_conflicting_auth")]),
+            "policyHelper": ({"policyHelper": {}}, [("policyHelper", True, True, "policy_helper_unevaluable")]),
+            "hooks": ({"hooks": {"Stop": []}}, [("hooks", True, False, "policy_command_unevaluable")]),
+            "empty hooks": ({"hooks": {}, "statusLine": None}, []),
+            "refresh": ({"forceRemoteSettingsRefresh": True}, [("forceRemoteSettingsRefresh", True, False,
+                                                                "policy_refresh_forced")]),
+            "method": ({"forceLoginMethod": "console"}, [("forceLoginMethod", True, True,
+                                                          "policy_login_method_incompatible")]),
+            "claudeai": ({"forceLoginMethod": "claudeai", "forceLoginOrgUUID": org}, []),
+            "org list": ({"forceLoginOrgUUID": ["other", org]}, []),
+            "org": ({"forceLoginOrgUUID": "org-elsewhere"}, [("forceLoginOrgUUID", True, True,
+                                                              "policy_organization_mismatch")]),
+            "env": ({"env": {"ANTHROPIC_BASE_URL": "x", "FOO": "1"}}, [("env", True, True, "policy_conflicting_env")]),
+            "plain env": ({"env": {"FOO": "1"}, "permissions": {"deny": ["Bash"]}, "model": "x"}, []),
+            "envelope": ({"settings": {"apiKeyHelper": "x"}}, [("settings", True, True, "policy_shape_unrecognized")]),
+        }
+        for label, (document, expected) in cases.items():
+            with self.subTest(label):
+                self.assertEqual(self.reasons(policy.judge_remote_settings(document, org)), sorted(expected))
+
+    def test_local_sources_keep_the_users_own_hooks_but_not_auth_pins(self):
+        self.assertEqual(policy.judge_local("s", {"hooks": {"Stop": [1]}, "statusLine": {"command": "x"}}, "o"), [])
+        self.assertEqual(self.reasons(policy.judge_local("s", {"apiKeyHelper": "x"}, "o")),
+                         [("apiKeyHelper", True, True, "policy_conflicting_auth")])
+
+    def files(self, base, remote=None, limits=None, mode=0o600):
+        config = base / "config"
+        config.mkdir(mode=0o700)
+        for name, document in (("remote-settings.json", remote), ("policy-limits.json", limits)):
+            if document is not None:
+                path = config / name
+                path.write_text(document if isinstance(document, str) else json.dumps(document))
+                path.chmod(mode)
+        work = base / "work"
+        work.mkdir()
+        return str(config), str(work)
+
+    def test_evaluate_reads_the_caches_safely_and_reports_names_never_values(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            config, work = self.files(base, {"forceLoginOrgUUID": "org-sensitive-value"}, E0_LIMITS)
+            verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux")
+            self.assertEqual((verdict.native, verdict.bearer), (("policy_organization_mismatch",),) * 2)
+            self.assertIn("remote-settings.json: forceLoginOrgUUID", verdict.describe())
+            self.assertNotIn("org-sensitive-value", verdict.describe() + repr(verdict))
+        for label, change, reason in (
+                ("mode", lambda c: os.chmod(c / "policy-limits.json", 0o644), "policy_file_unsafe"),
+                ("symlink", lambda c: (c / "remote-settings.json").symlink_to(c / "policy-limits.json"),
+                 "policy_file_unsafe"),
+                ("size", lambda c: (c / "policy-limits.json").write_text(" " * (1 << 20) + "{}"), "policy_file_unsafe"),
+                ("json", lambda c: (c / "policy-limits.json").write_text("{"), "policy_unparsed"),
+                ("consent", lambda c: (c / "remote-settings-helper-consent").write_text("1"),
+                 "policy_helper_unevaluable")):
+            with self.subTest(label), tempfile.TemporaryDirectory() as temp:
+                base = Path(temp).resolve()
+                config, work = self.files(base, None, {})
+                change(Path(config))
+                verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux")
+                self.assertIn(reason, verdict.native)
+                self.assertTrue(verdict.refused())
+
+    def test_absent_caches_and_a_project_hook_are_accepted_but_a_project_auth_pin_refuses(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            config, work = self.files(base)
+            self.assertFalse(policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux").refused())
+            (Path(work) / ".claude").mkdir()
+            (Path(work) / ".claude/settings.json").write_text(json.dumps({"hooks": {"Stop": [1]}}))
+            self.assertFalse(policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux").refused())
+            (Path(work) / ".claude/settings.local.json").write_text(json.dumps({"env": {"HTTPS_PROXY": "x"}}))
+            verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux")
+            self.assertEqual(verdict.native, ("policy_conflicting_env",))
+
+    def test_macos_managed_preferences_for_claude_refuse(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "com.example.other.plist").write_text("")
+            self.assertEqual(policy.os_managed(str(root)), [])
+            (root / "com.anthropic.claudecode.plist").write_text("")
+            self.assertEqual(len(policy.os_managed(str(root))), 1)
+
+
+class CredentialRead(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name).resolve()
+        self.config = base / "s" / "native-claude-accounts" / "N" / "config"
+        self.config.mkdir(parents=True)
+        for path in (self.config, self.config.parent, self.config.parent.parent):
+            path.chmod(0o700)
+        self.now = 1_800_000_000_000
+
+    def store(self, token=upstream_fixture.BEARER_A, expires=None, scopes=("user:inference", "user:profile"), mode=0o600,
+              raw=None):
+        path = self.config / ".credentials.json"
+        path.write_text(raw if raw is not None else json.dumps({"claudeAiOauth": {
+            "accessToken": token, "refreshToken": "fabricated-refresh-secret", "expiresAt": expires or self.now + 3600_000,
+            "scopes": list(scopes), "subscriptionType": "max"}}))
+        path.chmod(mode)
+        return path
+
+    def read(self, **kw):
+        return bearer.read(str(self.config), platform="linux", wrap=gate.Secret, now_ms=self.now, **kw)
+
+    def test_only_the_access_token_and_expiry_are_kept_and_never_shown(self):
+        self.store()
+        credential = self.read()
+        self.assertTrue(credential.secret.matches(gate.Secret(upstream_fixture.BEARER_A)))
+        self.assertEqual(credential.expires_at_ms, self.now + 3600_000)
+        self.assertEqual(set(bearer.Credential.__dataclass_fields__), {"secret", "expires_at_ms"})
+        for text in (repr(credential), str(credential.secret)):
+            self.assertNotIn(upstream_fixture.BEARER_A, text)
+            self.assertNotIn("fabricated-refresh-secret", text)
+
+    def test_unsafe_or_unusable_stores_refuse_with_a_fixed_reason(self):
+        cases = (("mode", dict(mode=0o640), "credential_not_private"),
+                 ("scope", dict(scopes=("user:profile",)), "inference_scope_missing"),
+                 ("expired", dict(expires=1), "token_expired"),
+                 ("json", dict(raw="{"), "document_malformed"),
+                 ("duplicate", dict(raw='{"claudeAiOauth": {}, "claudeAiOauth": {}}'), "document_malformed"),
+                 ("record", dict(raw='{"other": 1}'), "oauth_record_missing"),
+                 ("token", dict(token="short"), "access_token_malformed"))
+        for label, change, reason in cases:
+            with self.subTest(label):
+                self.store(**change)
+                with self.assertRaises(bearer.Refused) as caught:
+                    self.read()
+                self.assertEqual(caught.exception.reason, reason)
+                self.assertNotIn("fabricated", str(caught.exception))
+        (self.config / ".credentials.json").unlink()
+        with self.assertRaises(bearer.Refused) as caught:
+            self.read()
+        self.assertEqual(caught.exception.reason, "credential_absent")
+        target = self.config.parent / "elsewhere.json"
+        self.store()
+        (self.config / ".credentials.json").rename(target)
+        (self.config / ".credentials.json").symlink_to(target)
+        with self.assertRaises(bearer.Refused) as caught:
+            self.read()
+        self.assertEqual(caught.exception.reason, "credential_unusable")
+
+    def test_another_spelling_or_an_open_directory_refuses(self):
+        self.store()
+        with self.assertRaises(bearer.Refused) as caught:
+            bearer.read(str(self.config) + "/", platform="linux", wrap=gate.Secret, now_ms=self.now)
+        self.assertEqual(caught.exception.reason, "path_not_canonical")
+        self.config.chmod(0o750)
+        with self.assertRaises(bearer.Refused) as caught:
+            self.read()
+        self.assertEqual(caught.exception.reason, "account_directory_unusable")
+
+    def fake_security(self, code, output):
+        script = Path(self.tmp.name) / "security"
+        log = Path(self.tmp.name) / "security.log"
+        script.write_text(f"#!{sys.executable}\nimport json, os, sys\n"
+                          f"open({str(log)!r}, 'w').write(json.dumps({{'argv': sys.argv[1:], 'env': dict(os.environ)}}))\n"
+                          f"sys.stdout.write({output!r})\nsys.exit({code})\n")
+        script.chmod(0o700)
+        return str(script), log
+
+    def test_the_macos_keychain_item_of_the_exact_directory_and_its_file_fallback(self):
+        document = json.dumps({"claudeAiOauth": {"accessToken": upstream_fixture.BEARER_A2, "expiresAt": self.now + 9000,
+                                                 "scopes": ["user:inference"]}})
+        security, log = self.fake_security(0, document.encode().hex() + "\n")
+        credential = bearer.read(str(self.config), platform="darwin", wrap=gate.Secret, now_ms=self.now,
+                                 keychain_user="fixture-user", home="/fixture/home", security=security)
+        self.assertTrue(credential.secret.matches(gate.Secret(upstream_fixture.BEARER_A2)))
+        seen = json.loads(log.read_text())
+        service = "Claude Code-credentials-" + hashlib.sha256(str(self.config).encode()).hexdigest()[:8]
+        self.assertEqual(seen["argv"], ["find-generic-password", "-a", "fixture-user", "-s", service, "-w"])
+        self.assertEqual({k: v for k, v in seen["env"].items() if k in ("PATH", "HOME")},
+                         {"PATH": "/usr/bin:/bin", "HOME": "/fixture/home"})
+        self.assertEqual(bearer.keychain_account("bad name"), "claude-code-user")
+        security, _ = self.fake_security(44, "")
+        self.store()
+        credential = bearer.read(str(self.config), platform="darwin", wrap=gate.Secret, now_ms=self.now,
+                                 keychain_user="u", security=security)
+        self.assertTrue(credential.secret.matches(gate.Secret(upstream_fixture.BEARER_A)))
+        security, _ = self.fake_security(51, "")
+        with self.assertRaises(bearer.Refused) as caught:
+            bearer.read(str(self.config), platform="darwin", wrap=gate.Secret, now_ms=self.now, security=security)
+        self.assertEqual(caught.exception.reason, "keychain_read_failed")
+
+
+
+def wait_for(predicate, timeout=10.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.01)
+    return predicate()
+
+
+class GateProvider(unittest.TestCase):
+    """The Claude provider and its evaluator inside a real gate, against the loopback upstream."""
+
+    def setUp(self):
+        self.upstream = upstream_fixture.ClaudeUpstream()
+        self.addCleanup(self.upstream.close)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name).resolve()
+        self.config_dir = base / "s" / "native-claude-accounts" / "N" / "config"
+        self.config_dir.mkdir(parents=True)
+        for path in (self.config_dir, self.config_dir.parent, self.config_dir.parent.parent):
+            path.chmod(0o700)
+        self.store(upstream_fixture.BEARER_A)
+        self.messages, self.events = [], []
+
+    def store(self, token, expires_in=3600):
+        path = self.config_dir / ".credentials.json"
+        path.write_text(json.dumps({"claudeAiOauth": {"accessToken": token, "refreshToken": "fabricated-refresh",
+                                                      "expiresAt": int(time.time() * 1000) + expires_in * 1000,
+                                                      "scopes": ["user:inference", "user:profile"]}}))
+        path.chmod(0o600)
+
+    def config(self, **extra):
+        config = {"max_age_s": 120, "account": "N", "reserves": {"five_hour": "10", "weekly": "5"},
+                  "sources": {"five_hour": "invocation", "weekly": "global"},
+                  "identity": list(upstream_fixture.IDENTITY_A), "config_dir": str(self.config_dir),
+                  "platform": "linux", "upstream": {"host": "127.0.0.1", "port": self.upstream.port, "tls": False}}
+        config.update(extra)
+        return config
+
+    def make(self, mode="startup", **extra):
+        prov, decide = provider.make(self.config(**extra))
+        g = gate.Gate(prov, decide, max_age=self.config(**extra)["max_age_s"], mode=mode, notify=self.messages.append,
+                      emit=lambda event, **fields: self.events.append((event, fields)))
+        self.addCleanup(g.shutdown)
+        return prov, g
+
+    def started(self, **extra):
+        prov, g = self.make(**extra)
+        prov.startup(g)
+        g.attach()
+        g.heartbeat()
+        self.assertTrue(wait_for(lambda: g.state != "checking"), g.status())
+        return prov, g
+
+    def body(self, model="claude-sonnet-4-5-20250929"):
+        return json.dumps({"model": model, "max_tokens": 1}).encode()
+
+    def admit(self, g, token, model="claude-sonnet-4-5-20250929"):
+        g.heartbeat()
+        return g.admit(gate.Presented(gate.Secret(token)), self.body(model), lambda: None)
+
+    def test_startup_reads_profile_then_usage_with_the_bearer_and_a_neutral_agent(self):
+        prov, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        reads = [r for r in self.upstream.requests if r["method"] == "GET"]
+        self.assertEqual([r["path"] for r in reads], ["/api/oauth/profile", "/api/oauth/usage"])
+        for request in reads:
+            headers = {k.lower(): v for k, v in request["headers"]}
+            self.assertEqual(headers["authorization"], "Bearer " + upstream_fixture.BEARER_A)
+            self.assertEqual(headers["user-agent"], "quota-probe/1")
+            self.assertEqual(headers["anthropic-beta"], "oauth-2025-04-20")
+            self.assertNotIn("x-api-key", headers)
+        self.assertEqual(g.lease.identity, upstream_fixture.IDENTITY_A)
+
+    def test_a_window_at_its_reserve_or_an_unproved_row_refuses_the_start(self):
+        self.upstream.used["five_hour"] = 90
+        _, g = self.started()
+        self.assertEqual((g.state, g.reason), ("paused", "threshold"))
+        self.assertEqual(g.fields["window"], "five-hour")
+        self.assertEqual((g.fields["remaining"], g.fields["reserve"]), ("10", "10"))
+        self.upstream.used["five_hour"] = 10
+        self.upstream.extra = {"cinder_cove": {"utilization": 1}}
+        _, g = self.started()
+        self.assertEqual((g.state, g.reason), ("paused", "unproved_quota_row"))
+        self.upstream.extra = {}
+        self.upstream.identities[upstream_fixture.BEARER_A] = upstream_fixture.IDENTITY_B
+        _, g = self.started()
+        self.assertEqual(g.state, "paused")
+        self.assertIn(g.reason, ("identity_mismatch", "identity_changed"))
+
+    def test_a_token_inside_natives_refresh_window_refuses_before_any_read(self):
+        self.store(upstream_fixture.BEARER_A, expires_in=200)
+        prov, g = self.make()
+        with self.assertRaises(gate.Refusal) as caught:
+            prov.startup(g)
+        self.assertEqual(caught.exception.reason, "native_refresh_window")
+        (self.config_dir / ".credentials.json").chmod(0o644)
+        with self.assertRaises(gate.Refusal) as caught:
+            prov.startup(g)
+        self.assertEqual(caught.exception.reason, "credential_credential_not_private")
+        self.assertEqual(self.upstream.requests, [])
+
+    def test_models_outside_the_families_or_with_their_own_row_are_refused(self):
+        self.upstream.extra = {"seven_day_opus": {"utilization": 3, "resets_at": None}}
+        _, g = self.started()
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (True, "admitted"))
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-haiku-4-5")[:2], (True, "admitted"))
+        for model, reason in (("gpt-4", "model_unproved"), ("claude-opus-4-1", "model_has_own_limit"),
+                              ("claude-opus-sonnet-x", "model_unproved"), (None, "model_unproved")):
+            self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, model)[:2], (False, reason))
+        self.assertEqual(g.state, "running")
+
+    def test_a_rotated_bearer_of_the_same_account_is_held_rebound_and_admitted(self):
+        _, g = self.started()
+        ok, _, stream = self.admit(g, upstream_fixture.BEARER_A)
+        self.assertTrue(ok)
+        ok, reason, _ = self.admit(g, upstream_fixture.BEARER_A2)
+        self.assertEqual((ok, reason), (True, "admitted"))
+        self.assertEqual(g.epoch, 2)
+        self.assertIn(stream, g.streams)  # a same-identity rotation keeps admitted streams
+        profiles = [r for r in self.upstream.requests if r["path"] == "/api/oauth/profile"]
+        self.assertIn(("Authorization", "Bearer " + upstream_fixture.BEARER_A2), profiles[-1]["headers"])
+
+    def test_a_bearer_of_another_account_pauses_and_closes_streams(self):
+        _, g = self.started()
+        closed = []
+        g.heartbeat()
+        ok, _, _ = g.admit(gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), self.body(), lambda: closed.append(1))
+        self.assertTrue(ok)
+        ok, reason, _ = self.admit(g, upstream_fixture.BEARER_B)
+        self.assertEqual((ok, reason), (False, "bearer_identity_mismatch"))
+        self.assertEqual((g.state, closed), ("paused", [1]))
+        self.assertEqual(self.upstream.model_requests(), [])
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (False, "bearer_identity_mismatch"))
+
+    def test_a_pause_resumes_only_through_a_continuation_and_a_fresh_pass(self):
+        prov, g = self.started()
+        self.upstream.used["seven_day"] = 96
+        prov.poll(g)
+        self.assertEqual((g.state, g.reason), ("paused", "threshold"))
+        self.upstream.used["seven_day"] = 20
+        prov.poll(g)
+        self.assertEqual((g.state, g.reason), ("paused", "awaiting_continuation"))
+        g.heartbeat()
+        reply = g.arm_continuation()
+        self.assertEqual(reply, {"ok": True, "reason": "resumed"})
+        self.assertEqual(g.state, "running")
+        self.assertTrue(any(m["op"] == "resumed" for m in self.messages))
+        self.upstream.used["seven_day"] = 99
+        prov.poll(g)
+        g.heartbeat()
+        reply = g.arm_continuation()
+        self.assertEqual((reply["ok"], g.state), (False, "paused"))
+
+    def test_monitor_loss_latches_and_refuses_every_continuation(self):
+        _, g = self.started()
+        g.lose("monitor_eof")
+        self.assertEqual((g.state, g.reason), ("paused", "monitor_eof"))
+        self.assertTrue(any(m["op"] == "latched" for m in self.messages))
+        self.assertEqual(g.arm_continuation(), {"ok": False, "reason": "monitor_lost"})
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (False, "monitor_eof"))
+
+    def test_a_restarted_gate_starts_paused_and_needs_a_continuation(self):
+        prov, g = self.make(mode="restart")
+        self.assertEqual((g.state, g.reason), ("paused", "gate_restart"))
+        g.attach()
+        self.assertEqual(g.arm_continuation(), {"ok": False, "reason": "monitor_unheard"})
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (True, "admitted"))
+
+    def test_a_rejected_lease_bearer_is_reread_from_the_store_and_rebound(self):
+        prov, g = self.started()
+        self.store(upstream_fixture.BEARER_A2)
+        del self.upstream.identities[upstream_fixture.BEARER_A]
+        prov.poll(g)
+        self.assertEqual(g.state, "running", g.status())
+        self.assertTrue(g.lease.secret.matches(gate.Secret(upstream_fixture.BEARER_A2)))
+        self.assertEqual(g.epoch, 2)
+
+    def test_an_expired_store_token_refuses_the_continuation(self):
+        prov, g = self.started()
+        g.latch("threshold")
+        self.store(upstream_fixture.BEARER_A, expires_in=-5)
+        g.heartbeat()
+        reply = g.arm_continuation()
+        self.assertEqual(reply, {"ok": False, "reason": "credential_token_expired"})
+
+    def test_stale_readings_pause_on_the_timer(self):
+        prov, g = self.started(max_age_s=0.5)
+        self.assertEqual(g.state, "running")
+        time.sleep(0.6)
+        g.heartbeat()
+        g.tick()
+        self.assertEqual((g.state, g.reason), ("paused", "stale"))
+
+    def test_refusals_are_400_errors_without_a_login_hint_and_carry_no_bearer(self):
+        prov, g = self.started()
+        for reason in ("threshold", "model_unproved", "model_has_own_limit"):
+            status, body = prov.refusal(reason)
+            payload = json.loads(body)
+            self.assertEqual((status, payload["type"], payload["error"]["type"]), (400, "error", "invalid_request_error"))
+            self.assertIn("quota reserve", payload["error"]["message"])
+            self.assertNotIn("login", payload["error"]["message"])
+        self.admit(g, upstream_fixture.BEARER_B)
+        text = json.dumps([self.messages, [list(e) for e in self.events], g.status()], default=str)
+        for token in (upstream_fixture.BEARER_A, upstream_fixture.BEARER_A2, upstream_fixture.BEARER_B,
+                      "fabricated-refresh"):
+            self.assertNotIn(token, text)
+
+    @unittest.expectedFailure
+    def test_gate_fetch_survives_a_connection_close_reply(self):
+        """Known defect of the shared gate core (lib/coding-agent-kit/gate.py, Gate.fetch): http.client
+        closes the connection's socket when a reply says Connection: close, and the read loop's next
+        settimeout() fails with EBADF, so every such quota read is upstream_unavailable. Real servers
+        commonly answer a request that says Connection: close this way. Remove expectedFailure once the
+        core is fixed."""
+        self.upstream.close_header = True
+        _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+
+    def test_usage_normalization(self):
+        readings, own, unproved = provider.normalize_usage({
+            "five_hour": {"utilization": 12.5, "resets_at": "2026-11-12T10:00:00Z"}, "seven_day": None,
+            "seven_day_sonnet": {"utilization": 1}, "extra_usage": {"is_enabled": True}, "limits": [],
+            "wattle_ember": {"x": 1}, "type": "usage"})
+        self.assertEqual([(r.name, r.used) for r in readings], [("five_hour", 12.5)])
+        self.assertEqual(readings[0].resets_at, 1794477600)
+        self.assertEqual((own, unproved), (frozenset({"sonnet"}), ("wattle_ember",)))
+        self.assertIsNone(provider.normalize_profile({"account": {"uuid": "a b"}, "organization": {"uuid": "o"}}))
+        self.assertEqual(provider.family("claude-3-5-haiku-20241022"), "haiku")
+        self.assertIsNone(provider.family("claude-sonnet-4-5[1m]"))
+
+
 if __name__ == "__main__":
     unittest.main()
