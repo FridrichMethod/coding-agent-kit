@@ -604,6 +604,9 @@ class Supervisor:
         Refused. The gate must then report running.
     confine: callable(port, argv) -> argv, run in the native's child before exec.
     pid_env: name of an environment variable set to the native's own pid in its child.
+    umask: None, or the file mode creation mask the native and every confined command get, set in
+        the child just before exec (codex-as passes the caller's: its launcher runs under 077). The
+        gate, the monitor and the launcher keep the launcher's own, so the kit's files stay private.
     style: callable(text) -> text for the launcher's terminal messages (the kit colour policy).
     restart_limit, restart_window: at most this many gate restarts per window seconds; past it the
         launcher asks once for a relaunch and stays paused until the window frees a restart.
@@ -613,12 +616,15 @@ class Supervisor:
                  monitor_reader_timeout=None, reader=None, preflight=None, confine=None, pid_env=None,
                  holder_extra=(), gate_env=None, trigger=F12, key_name="F12", restart_limit=RESTART_LIMIT,
                  restart_window=RESTART_WINDOW, restart_delay=RESTART_DELAY, startup_timeout=STARTUP_TIMEOUT,
-                 terminal=(0, 1), heartbeat=None, style=None, refresh_config=None, clock=time.monotonic):
+                 terminal=(0, 1), heartbeat=None, style=None, refresh_config=None, umask=None,
+                 clock=time.monotonic):
+        if umask is not None and (isinstance(umask, bool) or not isinstance(umask, int) or not 0 <= umask <= 0o777):
+            raise ValueError("umask must be None or a mode from 0 through 0o777")
         self.gate_argv, self.gate_config = list(gate_argv), dict(gate_config)
         self.refresh_config = dict(gate_config if refresh_config is None else refresh_config)
         self.python, self.monitor_reader, self.reader = python, monitor_reader, reader
         self.monitor_reader_timeout, self.heartbeat = monitor_reader_timeout, heartbeat
-        self.preflight, self.confine, self.pid_env = preflight, confine, pid_env
+        self.preflight, self.confine, self.pid_env, self.umask = preflight, confine, pid_env, umask
         self.holder_extra, self.gate_env = tuple(holder_extra), dict(gate_env or {})
         self.trigger, self.key_name = trigger, key_name
         self.restart_limit, self.restart_delay, self.startup_timeout = restart_limit, restart_delay, startup_timeout
@@ -640,8 +646,9 @@ class Supervisor:
         """fork and exec ARGV in a new session with fds at 3.. and nothing else inherited.
 
         tty_fd becomes the controlling terminal and stdio. confine applies the confine hook in the
-        child just before exec; pid_env sets the pid variable to the child's own pid. Returns the
-        pid; raises Refused when the hook refuses and OSError when exec fails.
+        child just before exec, and then the supervisor's umask when it has one; pid_env sets the
+        pid variable to the child's own pid. Returns the pid; raises Refused when the hook refuses
+        and OSError when exec fails.
 
         The child reports on a shared anonymous page, because the confine hook may close every
         descriptor above 2 (the boundary modules do); the close-on-exec pipe only wakes the parent.
@@ -656,6 +663,7 @@ class Supervisor:
             stdio = [devnull if fd is None else fd for fd in (stdin, stdout, stderr)]
         hook, port, variable = self.confine if confine else None, self.holder.port if self.holder else None, \
             self.pid_env if pid_env else None
+        mask = self.umask if confine else None
         pid = os.fork()
         if pid == 0:
             kind = FAILED
@@ -678,6 +686,8 @@ class Supervisor:
                     page[0:1] = HOOK
                     final = list(hook(port, final))
                     kind = FAILED
+                if mask is not None:
+                    os.umask(mask)
                 page[0:1] = EXEC
                 os.execve(final[0], final, child_env)
             except BaseException as error:

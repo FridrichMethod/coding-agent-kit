@@ -439,6 +439,37 @@ class Spawn(unittest.TestCase):
         self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
         self.assertEqual(os.read(out_read, 4096), b"done\n")
 
+    def test_boundary_children_get_the_callers_umask_and_kit_processes_the_launchers(self):
+        """codex-as runs under umask 077 and passes the caller's: the native and every confined
+        command (and what they start) create files as an unprotected launch would; the gate and the
+        monitor keep the launcher's 077."""
+        old = os.umask(0o077)
+        self.addCleanup(os.umask, old)
+
+        def umask_of(sup, confine):
+            out_read, out_write = os.pipe()
+            try:
+                pid = sup.spawn(["/bin/sh", "-c", "umask"], {"PATH": "/usr/bin:/bin"}, stdout=out_write,
+                                confine=confine)
+                os.close(out_write)
+                out_write = None
+                self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
+                return int(os.read(out_read, 64).strip(), 8)
+            finally:
+                os.close(out_read)
+                if out_write is not None:
+                    os.close(out_write)
+
+        caller = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv, umask=0o022)
+        self.assertEqual(umask_of(caller, True), 0o022)
+        self.assertEqual(umask_of(caller, False), 0o077)
+        unchanged = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv)  # claude-as
+        self.assertEqual(umask_of(unchanged, True), 0o077)
+        self.assertEqual(os.umask(0o077), 0o077)  # the launcher's own umask is untouched
+        for bad in (-1, 0o1000, True, "022"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                supervise.Supervisor(["gate"], {}, umask=bad)
+
     def test_exec_failure_and_hook_refusal(self):
         sup = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv)
         with self.assertRaises(OSError):
