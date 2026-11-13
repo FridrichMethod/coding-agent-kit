@@ -388,6 +388,16 @@ def unreachable(sources, writable_paths, hint):
                 raise Refused("%s, which the boundary can write, lies inside %s %s%s" % (root, what, path, hint))
 
 
+def proc_entry(pid):
+    """(ppid, start) of PID from /proc, or None when it is not there."""
+    try:
+        with open(os.path.join(PROC, str(pid), "stat"), "rb") as stream:
+            fields = stream.read().rsplit(b")", 1)[1].split()
+        return int(fields[1]), fields[19].decode()
+    except (OSError, IndexError, ValueError):
+        return None
+
+
 def process_table():
     """{pid: (ppid, start)} of every visible process; start tells a reused pid apart. Without /proc
     it runs the system ps by absolute path, or returns {} when there is none (prepare() refuses
@@ -395,14 +405,10 @@ def process_table():
     table = {}
     if has_proc():
         for name in os.listdir(PROC):
-            if not name.isdigit():
-                continue
-            try:
-                with open(os.path.join(PROC, name, "stat"), "rb") as stream:
-                    fields = stream.read().rsplit(b")", 1)[1].split()
-                table[int(name)] = (int(fields[1]), fields[19].decode())
-            except (OSError, IndexError, ValueError):
-                continue
+            if name.isdigit():
+                entry = proc_entry(name)
+                if entry is not None:
+                    table[int(name)] = entry
         return table
     command = system_command(PS)
     if command is None:
@@ -1078,12 +1084,18 @@ class Supervisor:
         return pid, master
 
     def _snapshot(self):
-        """Without a subreaper: remember every descendant seen, so reparenting cannot hide it."""
+        """The run loop's check, once per SNAPSHOT_EVERY: forget the boundary sessions seen empty
+        (_prune_sessions) and, without a subreaper, remember every descendant seen, so reparenting
+        cannot hide it."""
         now = time.monotonic()
-        if self.subreaper or now - self.snapshot_at < SNAPSHOT_EVERY:
+        if now - self.snapshot_at < SNAPSHOT_EVERY:
             return
         self.snapshot_at = now
+        if self.subreaper:
+            self._prune_sessions()
+            return
         table = process_table()
+        self._prune_sessions(table)
         self.tracked = {pid: start for pid, start in self.tracked.items() if table.get(pid, (None, None))[1] == start}
         for pid in descendants(os.getpid(), table) - self._kit_tree(table):
             self.tracked[pid] = table[pid][1]
@@ -1094,10 +1106,49 @@ class Supervisor:
             kit |= descendants(pid, table)
         return kit
 
+    def _prune_sessions(self, table=None):
+        """Forget every boundary session seen empty: its leader is gone and neither its process
+        group nor a member is left, or its number is now another process's (start time differs).
+        TABLE is a process_table(); without one the leaders are read from /proc. A session id is
+        never a new process's pid while the session or its group has members, so a session checked
+        this way by the run loop and in every sweep round is signalled only while it has existed
+        without a break, and once forgotten its number is never signalled again."""
+        if not self.sessions or (table is not None and not table):  # an empty table is a failed ps
+            return
+        if table is None and not has_proc():
+            table = process_table()
+            if not table:
+                return
+        in_use = None
+        for sid, start in list(self.sessions.items()):
+            entry = table.get(sid) if table is not None else proc_entry(sid)
+            if entry is not None:
+                if entry[1] != start:
+                    del self.sessions[sid]
+                continue
+            try:
+                os.killpg(sid, 0)
+                continue
+            except PermissionError:
+                continue
+            except ProcessLookupError:
+                pass
+            if in_use is None:
+                in_use = set()
+                pids = table if table is not None else [int(name) for name in os.listdir(PROC) if name.isdigit()]
+                for pid in pids:
+                    try:
+                        in_use.add(os.getsid(pid))
+                    except OSError:
+                        continue
+            if sid not in in_use:
+                del self.sessions[sid]
+
     def _session_members(self, table):
         """Processes still in a boundary child's session. A session id is never a new process's
         pid while the session has members; one whose number now leads a session of another
-        process (start time differs) is skipped."""
+        process (start time differs) is skipped, and sweep() forgets the sessions seen empty
+        before it looks (_prune_sessions)."""
         live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
         found = set()
         if live:
@@ -1113,9 +1164,9 @@ class Supervisor:
         """Signal whole process groups of the boundary sessions; returns how many were signalled.
         A process that forks and exits at once is gone before any snapshot can name it, but the
         group its child inherits stays: every boundary session's own group (its id is the session
-        id, still in use while the session leader in TABLE is not another process), and on Linux
-        every group a live member of such a session is in, read from /proc as that member is. A
-        chain that also leaves its group on every fork can still outrun this."""
+        id, which _prune_sessions keeps only while the session has existed without a break), and on
+        Linux every group a live member of such a session is in, read from /proc as that member is.
+        A chain that also leaves its group on every fork can still outrun this."""
         live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
         own = {os.getpgrp(), os.getsid(0)}
         live -= own
@@ -1161,6 +1212,7 @@ class Supervisor:
         while True:
             self.reap()
             table = process_table()
+            self._prune_sessions(table)
             found = descendants(os.getpid(), table) | self._session_members(table)
             found |= {pid for pid, start in self.tracked.items() if table.get(pid, (None, None))[1] == start}
             if not include_kit:

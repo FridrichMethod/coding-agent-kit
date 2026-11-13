@@ -500,6 +500,45 @@ class Sweep(unittest.TestCase):
         table = supervise.process_table()
         self.assertNotIn(orphan, supervise.descendants(os.getpid(), table))
         self.assertIn(orphan, sup._session_members(table))
+        sup._snapshot()  # the run loop's check: a session with a member left is kept
+        self.assertIn(pid, sup.sessions)
+
+    def test_a_boundary_session_seen_empty_is_forgotten(self):
+        """A session id can come back as an unrelated process's pid once the session is empty, so
+        the run loop's check (with or without a subreaper) forgets an emptied session at once."""
+        for subreaper in (False, True):
+            with self.subTest(subreaper=subreaper):
+                sup = supervise.Supervisor(["gate"], {})
+                sup.subreaper = subreaper
+                pid = sup.spawn(["/bin/sh", "-c", "exit 0"], {"PATH": "/usr/bin:/bin"}, confine=True)
+                self.assertIn(pid, sup.sessions)
+                self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
+                sup._snapshot()
+                self.assertEqual(sup.sessions, {})
+
+    def test_an_orphaned_group_under_a_session_number_seen_empty_earlier_survives_the_sweep(self):
+        """After PID reuse an old boundary session's number may name an unrelated job's orphaned
+        process group (its leader gone, a member left, as in `git log | less` after git exits). The
+        session was seen empty before its number came back, so the sweep never signals it."""
+        job = subprocess.Popen(["/bin/sh", "-c", "sleep 30 </dev/null >/dev/null 2>&1 & echo $!"],
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, process_group=0)
+        member = int(job.stdout.readline())
+        job.stdout.close()
+        job.wait(10)
+        self.addCleanup(lambda: alive(member) and os.kill(member, signal.SIGKILL))
+        self.assertEqual(os.getpgid(member), job.pid)  # the group outlives its leader
+        sup = supervise.Supervisor(["gate"], {})
+        table = supervise.process_table()
+        sup.baseline = {pid: table[pid][1] for pid in supervise.descendants(os.getpid(), table)}
+        sup.prepared = True
+        sup.sessions = {job.pid: "a reader long gone"}
+        # The run loop's check while that reader's session was empty, before its number came back.
+        with mock.patch.object(supervise.os, "killpg", side_effect=ProcessLookupError):
+            sup._prune_sessions(supervise.process_table())
+        self.assertEqual(sup.sessions, {})
+        sup.sweep(grace=0.2, limit=1.0)
+        time.sleep(0.2)
+        self.assertTrue(alive(member), "the sweep signalled a process group outside the boundary")
 
 
 class Spawn(unittest.TestCase):
