@@ -771,10 +771,8 @@ class Provider(unittest.TestCase):
         self.assertEqual(reads[-1][2]["User-Agent"], kit.USER_AGENT)
         self.assertEqual(self.gate.status()["epoch"], 2)
 
-    @unittest.expectedFailure
     def test_a_gate_read_survives_an_upstream_that_closes_the_connection(self):
-        """Kit gate.fetch sets a timeout on the socket after http.client closed it (EBADF) when the
-        reply says Connection: close; L/nodes/X/gate-fetch-close.patch fixes it in gate.py (S2)."""
+        """A gate read of a reply that says Connection: close, as chatgpt.com sends, binds the bearer."""
         self.request("GET", "/backend-api/wham/usage")
         rotated = backend.credential(access="A1r1")["tokens"]["access_token"]
         headers = {"Authorization": "Bearer " + rotated, "ChatGPT-Account-ID": ACCOUNT}
