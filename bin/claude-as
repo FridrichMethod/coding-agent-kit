@@ -123,4 +123,7 @@ if [ ! -r "$_claude_as_root/lib/claude-as/launch.py" ]; then
     _claude_as_message 31 2 "claude-as: incomplete install at $_claude_as_root (missing lib/claude-as/launch.py)"
     exit 1
 fi
-exec python3 -I -B "$_claude_as_root/lib/claude-as/launch.py" "$@"
+# -S: no site-packages or .pth file of the python3 found on PATH (a workspace virtual
+# environment, which a protected session can write) runs in the launcher; the kit needs
+# only the standard library.
+exec python3 -I -B -S "$_claude_as_root/lib/claude-as/launch.py" "$@"

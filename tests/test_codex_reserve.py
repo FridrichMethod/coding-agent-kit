@@ -173,6 +173,60 @@ class Screen(unittest.TestCase):
         self.assertIn("did not report where it loads code from",
                       refused(protect.code_sources, str(ROOT / "missing/python3"), {}))
 
+    def test_the_launchers_own_python_must_lie_out_of_reach_by_the_name_it_ran(self):
+        sources = protect.launcher_sources()
+        kinds = {}
+        for what, path, holds in sources:
+            kinds.setdefault(what, []).append((path, holds))
+        self.assertEqual(kinds["the launcher's Python"], [(sys.executable, False)])
+        self.assertEqual(len(kinds["the launcher's Python prefix"]), 4)
+        self.assertEqual(kinds["the launcher's module path entry"], [(path, True) for path in sys.path])
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work = base / "work"
+            (work / ".venv/bin").mkdir(parents=True)
+            (base / "bin").mkdir()
+            protect.unreachable(protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT)
+            python = work / ".venv/bin/python3"
+            linked = base / "bin/python3"
+            linked.symlink_to(python)  # a link outside to an interpreter inside
+            for patch in ({"executable": str(python)}, {"executable": str(linked)},
+                          {"prefix": str(work / ".venv")}, {"path": [*sys.path, str(work / "lib")]},
+                          {"path": [*sys.path, str(base)]}):
+                with self.subTest(patch=patch), mock.patch.multiple(sys, **patch):
+                    message = refused(protect.unreachable, protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT)
+                    self.assertIn("; start codex-as with a python3 outside the workspace and the Codex homes first on "
+                                  "PATH", message)
+            with mock.patch.object(sys, "executable", str(python)):
+                self.assertIn("the launcher's Python %s lies inside %s" % (python, work),
+                              refused(protect.unreachable, protect.launcher_sources(), [str(work)], protect.LAUNCHER_HINT))
+            for patch in ({"executable": ""}, {"executable": None}, {"path": ["relative"]}):
+                with self.subTest(patch=patch), mock.patch.multiple(sys, **patch):
+                    self.assertIn("does not report where it loads code from", refused(protect.launcher_sources))
+
+    def test_the_confine_hook_refuses_a_writable_path_that_became_a_link(self):
+        class Refusal(Exception):
+            def __init__(self, kind, message):
+                super().__init__(message)
+                self.kind = kind
+
+        calls = []
+        sandbox = types.SimpleNamespace(Refusal=Refusal, confine=lambda port, paths, name, **_: calls.append(paths) or [])
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            (base / "home").mkdir()
+            inner = base / "codex/sqlite"
+            inner.mkdir(parents=True)
+            paths = [str(base / "codex"), str(inner)]
+            hook = protect.Session.hook(types.SimpleNamespace(sandbox=sandbox), paths, None)
+            self.assertEqual(hook(50123, ["codex"]), ["codex"])
+            inner.rmdir()
+            inner.symlink_to(base / "home")
+            with self.assertRaises(Refusal) as caught:
+                hook(50123, ["codex"])
+            self.assertIn("%s no longer resolves to itself" % inner, str(caught.exception))
+            self.assertEqual(calls, [paths])
+
     def test_the_launcher_runs_commands_by_name_from_system_directories_only_while_protected(self):
         with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
             with protect.launcher_path():
@@ -305,6 +359,23 @@ class Reader(unittest.TestCase):
         self.spec.write_text("not json")
         self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 6)
         self.assertEqual(self.calls, [("confine", 50123, ["/w"], "codex")])
+
+    def test_a_writable_path_that_became_a_link_refuses_before_the_boundary_applies(self):
+        """The launcher resolved the writable paths once; a process inside the boundary may later replace
+        a nested one (a SQLite home inside codex_home, say) with a link to HOME, so a path that no longer
+        resolves to itself refuses instead of widening the next reader's boundary."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            (base / "home").mkdir()
+            inner = base / "codex/sqlite"
+            inner.mkdir(parents=True)
+            limits = json.dumps({"port": 50123, "writable": [str(base / "codex"), str(inner)], "profile": None})
+            self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 0)
+            self.calls = []
+            inner.rmdir()
+            inner.symlink_to(base / "home")
+            self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 5)
+            self.assertEqual(self.calls, [])
 
     def test_an_unusable_or_refused_boundary_runs_nothing(self):
         for limits in ("[]", "not json", '{"port": 0, "writable": [], "profile": null}',
@@ -550,16 +621,23 @@ def usage_document(primary=10, secondary=20, plan="pro", account=ACCOUNT, user=U
                                 "secondary_window": windows[1]}}, **extra)
 
 
+def limited(primary, secondary, limit_reached=True, allowed=False):
+    """A usage reply whose rate limit carries Codex's limit flags."""
+    document = usage_document(primary=primary, secondary=secondary)
+    document["rate_limit"].update(limit_reached=limit_reached, allowed=allowed)
+    return document
+
+
 class Provider(unittest.TestCase):
     """The Codex provider and decision adapter on the shared gate, in process, over HTTP."""
 
-    def setUp(self):
+    def setUp(self, reserves=None):
         self.upstream = Upstream()
         self.addCleanup(self.upstream.close)
         self.upstream.document = usage_document()
         self.provider = provider_gate.CodexProvider(ACCOUNT, USER, NATIVE, "/fixture/.codex",
                                                     upstream=kit.Upstream("127.0.0.1", self.upstream.port, tls=False))
-        self.decider = provider_gate.Decider(policy())
+        self.decider = provider_gate.Decider(reserves or policy())
         self.gate = provider_gate.CodexGate(self.provider, self.decider, max_age=120)
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
@@ -720,6 +798,66 @@ class Provider(unittest.TestCase):
         self.request("GET", "/backend-api/wham/usage")
         self.assertEqual(self.gate.status()["reason"], "limit_reached")
 
+    def test_a_limit_flag_that_a_window_turned_off_accounts_for_neither_refuses_nor_pauses(self):
+        """Codex sets limit_reached and allowed for its rate limit as a whole: a window at its limit that
+        the user turned off accounts for them, so the enabled window alone decides, at the start and
+        during the run."""
+        for reserves, exhausted, flags in ((policy(five_hour=None), (100, 20), {"limit_reached": True, "allowed": False}),
+                                           (policy(weekly=None), (20, 100), {"limit_reached": True, "allowed": False}),
+                                           (policy(five_hour=None), (100, 20), {"limit_reached": False, "allowed": False}),
+                                           (policy(weekly=None), (20, 100), {"limit_reached": True, "allowed": True})):
+            with self.subTest(reserves=reserves, exhausted=exhausted, flags=flags):
+                self.setUp(reserves)
+                self.upstream.document = limited(*exhausted, **flags)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running", self.gate.status())
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running", self.gate.status())
+                self.setUp(reserves)  # mid-run: the window turned off runs out
+                self.request("GET", "/backend-api/wham/usage")
+                self.upstream.document = limited(*exhausted, **flags)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running", self.gate.status())
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
+
+    def test_an_enabled_window_at_its_limit_refuses_as_its_own_threshold(self):
+        self.setUp(policy(weekly=None))
+        self.upstream.document = limited(100, 20)
+        self.request("GET", "/backend-api/wham/usage")
+        status = self.gate.status()
+        self.assertEqual((status["state"], status["reason"], status["fields"]["window"]), ("paused", "threshold", "five-hour"))
+        self.assertTrue(status["fields"]["detail"].startswith("A: refused: five-hour window "), status["fields"])
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+        self.assertEqual(self.model_requests(), [])
+
+    def test_a_limit_flag_no_window_accounts_for_refuses_the_start_and_pauses_a_run(self):
+        """Fail closed when the flags cannot be attributed: no window at its limit, a turned-off window
+        just short of it, a window of another length, or a window without a usage number."""
+        other = dict(limited(10, 20), rate_limit=dict(limited(10, 20)["rate_limit"], primary_window=backend.window(100, 3600)))
+        broken = dict(limited(10, 20), rate_limit=dict(limited(10, 20)["rate_limit"], primary_window="exhausted"))
+        for reserves, document in ((policy(), limited(10, 20)), (policy(five_hour=None), limited(99, 20)),
+                                   (policy(five_hour=None), other), (policy(five_hour=None), broken)):
+            with self.subTest(reserves=reserves, document=document["rate_limit"]):
+                self.setUp(reserves)
+                self.upstream.document = document
+                self.request("GET", "/backend-api/wham/usage")
+                status = self.gate.status()
+                self.assertEqual((status["state"], status["reason"]), ("paused", "limit_reached"))
+                # A refusal of the start, not a run that paused at once.
+                self.assertTrue(status["fields"]["detail"].startswith("A: refused: "), status["fields"])
+                self.assertIn("usage limit reached", protect.explain(status["reason"], status["fields"]))
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+                self.setUp(reserves)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running")
+                self.upstream.document = document
+                self.request("GET", "/backend-api/wham/usage")
+                status = self.gate.status()
+                self.assertEqual((status["state"], status["reason"]), ("paused", "limit_reached"))
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+                self.assertEqual(self.model_requests(), [])
+
     def test_models_with_their_own_quota_row_are_refused(self):
         self.upstream.document = usage_document(additional_rate_limits=[
             {"limit_name": "gpt-6-luna", "metered_feature": "codex_other", "rate_limit": None}])
@@ -750,6 +888,33 @@ class Provider(unittest.TestCase):
         self.assertEqual((status["state"], status["reason"]), ("paused", "requirements_application_network"))
         self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
         self.assertEqual(self.model_requests(), [])
+
+    def test_a_blocking_bundle_keeps_the_run_paused_until_a_later_bundle_lifts_it(self):
+        """Passing usage reads and a continuation never undo a requirement refusal that still applies;
+        a later bundle without blockers lifts it, and a continuation then resumes as after any pause."""
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["state"], "running")
+        self.upstream.bundle = bundle("[application.network]\nenabled = true\n")
+        self.assertEqual(self.request("GET", provider_gate.BUNDLE_PATH)[0], 200)
+        self.assertEqual(self.gate.status()["reason"], "requirements_application_network")
+        self.request("GET", "/backend-api/wham/usage")  # passes both reserves
+        self.assertEqual(self.gate.status()["reason"], "requirements_application_network")
+        self.gate.heartbeat()
+        self.gate.arm_continuation()
+        self.request("GET", "/backend-api/wham/usage")
+        status = self.gate.status()
+        self.assertEqual((status["state"], status["reason"]), ("paused", "requirements_application_network"))
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+        self.assertEqual(self.model_requests(), [])
+        self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only", "danger-full-access"]\n')
+        self.assertEqual(self.request("GET", provider_gate.BUNDLE_PATH)[0], 200)
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["reason"], "awaiting_continuation")
+        self.gate.heartbeat()
+        self.gate.arm_continuation()
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["state"], "running")
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
 
     def test_the_bundle_route_stays_open_while_paused(self):
         self.request("GET", "/backend-api/wham/usage")
@@ -1024,6 +1189,29 @@ class Unprotected(unittest.TestCase):
                 result = self.home.run(args)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotIn("protection", result.stderr)
+
+    def test_update_and_completion_run_as_plain_codex_with_a_reserve_on(self):
+        """They are the same for every login and send no model request, so they stay unprotected."""
+        self.home.config("[usage_reserve]\nfive_hour = 20\n")
+        for args in (["--reserve-5h", "10", "A", "update"], ["A", "completion", "bash"]):
+            with self.subTest(args=args):
+                self.home.log.unlink(missing_ok=True)
+                result = self.home.run(args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("protection", result.stderr)
+                self.assertEqual([event["argv"] for event in self.home.events("other")], [args[-2:] if
+                                 args[-1] == "bash" else ["update"]])
+
+    def test_a_protected_launch_without_the_monitor_refuses_before_anything_starts(self):
+        kit = self.home.base / "kit"
+        shutil.copytree(ROOT / "bin", kit / "bin")
+        shutil.copytree(ROOT / "lib", kit / "lib", ignore=shutil.ignore_patterns("__pycache__"))
+        (kit / "lib/coding-agent-kit/monitor.py").unlink()
+        result = subprocess.run([str(kit / "bin/codex-as"), "--reserve-5h", "10", "A"], cwd=self.home.work,
+                                env=self.home.env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("usage reserve protection refused: incomplete install at %s" % kit, result.stderr)
+        self.assertEqual(self.home.events(), [])
 
     def test_enabled_reserves_refuse_every_other_mode_before_anything_starts(self):
         for args, text in ((["--reserve-5h", "10", "A", "exec", "x"], "not codex exec"),
@@ -1324,25 +1512,45 @@ class Protected(Launch):
         self.assertEqual(self.exit_code(), 0)
         self.assertFalse(private.exists())
 
-    def test_a_workspace_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
-        venv = self.home.work / ".venv"
-        made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], capture_output=True,
+    def venv(self, path, mark):
+        """A virtual environment at PATH whose site-packages hold a .pth file that appends to MARK."""
+        made = subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(path)], capture_output=True,
                               timeout=120)
         if made.returncode:
             self.skipTest("python3 -m venv is unavailable")
-        (site,) = venv.glob("lib/python*/site-packages")
+        (site,) = path.glob("lib/python*/site-packages")
+        (site / "zz-planted.pth").write_text("import os; open(%r, 'a').write('pth %%d\\n' %% os.getpid())\n" % str(mark))
+        subprocess.run([str(path / "bin/python3"), "-I", "-B", "-c", "pass"], check=True, timeout=30)
+        self.assertTrue(mark.exists())  # the environment's own python3 -I -B runs it
+        mark.unlink()
+        return os.pathsep.join((str(path / "bin"), self.home.env["PATH"]))
+
+    def test_a_workspace_venv_first_on_path_refuses_before_anything_starts(self):
+        """A python3 the boundary can write could take over the next launch outside every boundary, before
+        any check, so a launch through one refuses; meanwhile -S keeps its .pth files out of the launcher."""
+        venv = self.home.work / ".venv"
         mark = self.home.base / "planted.log"  # outside every writable path: only an unconfined process can write it
-        planted = "import os; open(%r, 'a').write('pth %%d\\n' %% os.getpid())\n" % str(mark)
+        terminal = self.start(env={"PATH": self.venv(venv, mark)})
+        terminal.expect("usage reserve protection refused: the launcher's Python %s lies inside %s, which the boundary "
+                        "can write; start codex-as with a python3 outside the workspace and the Codex homes first on "
+                        "PATH" % (re.escape(str(venv / "bin/python3")), re.escape(str(self.home.work))))
+        self.assertEqual(self.exit_code(), 1)
+        self.assertEqual(self.home.events(), [])
+        self.assertEqual(self.backend.seen(), [])
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
+
+    def test_a_venv_first_on_path_never_runs_planted_code_outside_the_boundary(self):
+        """With a virtual environment outside the boundary's reach first on PATH, neither the launcher
+        (python3 -S) nor the gate, monitor and readers (the base interpreter) process its .pth files."""
+        venv = self.home.base / "venv"
+        mark = self.home.base / "planted.log"
+        path = self.venv(venv, mark)
         ps = venv / "bin/ps"  # what the launcher would run by name on macOS
         ps.write_text("#!/bin/sh\necho ps >> '%s'\nexec /bin/ps \"$@\"\n" % mark)
         ps.chmod(0o755)
-        terminal = self.start(env={"PATH": os.pathsep.join((str(venv / "bin"), self.home.env["PATH"]))})
+        terminal = self.start(env={"PATH": path})
         terminal.expect("READY")
-        terminal.send("write %s %s\r" % (site / "probe.pth", base64.b64encode(planted.encode()).decode()))
-        terminal.expect("WRITE ok")
-        subprocess.run([str(venv / "bin/python3"), "-I", "-B", "-c", "pass"], check=True, timeout=30)
-        self.assertTrue(mark.exists())  # the venv's own interpreter would run it
-        mark.unlink()
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
         # A new gate and monitor, then a continuation's reader (and on macOS the supervisor's ps).
         for pid in self.kit_processes("monitor.py"):
             os.kill(pid, signal.SIGKILL)

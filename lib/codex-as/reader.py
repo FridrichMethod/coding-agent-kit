@@ -83,7 +83,12 @@ def sandbox_module():
 
 def confine(port, writable, profile, spec_file):
     """Enter the boundary: in process on Linux; on macOS by exec'ing this reader again, without
-    --confine, under the self-tested profile. Returns only on Linux, or never on macOS."""
+    --confine, under the self-tested profile. Returns only on Linux, or never on macOS. A writable
+    path that no longer resolves to itself (the launcher resolved them once; a process inside the
+    boundary may have replaced a nested one with a link) refuses before anything applies."""
+    for path in writable:
+        if os.path.realpath(path) != path:
+            raise ValueError("a writable path no longer resolves to itself")
     sandbox = sandbox_module()
     if sys.platform == "darwin":
         tested = sandbox.Tested(profile=profile, answers={})

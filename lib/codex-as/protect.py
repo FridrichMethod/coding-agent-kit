@@ -2,8 +2,10 @@
 
 A launch whose resolved policy (reserve.py) enables a reserve for either window runs through this
 module; with both windows off codex-as never calls it and behaves exactly as without it. The query
-forms (-h, --help, -V, --version and help, check.Plan.query) stay unprotected and unchanged; every
-other subcommand, update and completion included, refuses.
+forms (-h, --help, -V, --version and help, check.Plan.query) stay unprotected and unchanged, and so
+do update and completion (check.Plan.rootless), which launch.py runs as plain codex in codex_home
+before any protection: they are the same for every login and send no model request. Every other
+subcommand refuses.
 
 Refusals come first and change nothing (Session.check): the native release must be a reviewed one
 (REVIEWED, with an upper bound); the arguments an allowlisted interactive TUI form, parsed like
@@ -36,8 +38,11 @@ confines itself), so nothing they load code from may be in its reach: they run t
 interpreter of the Python running codex-as (interpreter: a virtual environment's site-packages and
 .pth files stay out), and the run refuses unless that interpreter, its prefixes, its module path
 and the kit's module directories lie outside every writable path, through every link on the way
-(unreachable). While the run lasts, commands the launcher itself runs by name resolve only in the
-system directories (launcher_path).
+(unreachable). The launcher itself runs before any check, as the python3 that bin/codex-as finds
+on PATH, started with -S so that no .pth file runs in it; the run refuses when that python3, its
+prefixes or its module path lie in the boundary's reach (launcher_sources), since a session could
+then replace them under the next launch. While the run lasts, commands the launcher itself runs by
+name resolve only in the system directories (launcher_path).
 """
 
 import contextlib
@@ -801,16 +806,38 @@ def code_sources(python, env):
             + [("the kit directory", str(path), True) for path in (HERE, KIT)])
 
 
-def unreachable(sources, writable_paths):
-    """Refused when a code source (code_sources), or a link on the way to it, lies inside a writable
-    path, or a writable path lies inside a directory of code."""
+LAUNCHER_HINT = ("; start codex-as with a python3 outside the workspace and the Codex homes first on PATH "
+                 "(deactivate a workspace virtual environment)")
+
+
+def launcher_sources():
+    """(what, path, holds code) for the launcher process itself, which runs outside every boundary
+    before any check: the python3 that bin/codex-as found on PATH, by the name it ran (so every link
+    on the way counts), its prefixes and its module path, which holds no site-packages: bin/codex-as
+    starts it as `python3 -I -B -S`. A protected session that could replace one of them would run
+    the next launch's code unconfined, so protected mode refuses such a launch. A python3 replaced
+    before this launch has run instead of it; the check cannot see that. Refused when the
+    interpreter does not report them."""
+    prefixes = [sys.prefix, sys.exec_prefix, sys.base_prefix, sys.base_exec_prefix]
+    entries = list(sys.path)
+    if not all(isinstance(path, str) and os.path.isabs(path) for path in [sys.executable, *prefixes, *entries]):
+        refuse("the Python running codex-as does not report where it loads code from")
+    return ([("the launcher's Python", sys.executable, False)]
+            + [("the launcher's Python prefix", path, False) for path in prefixes]
+            + [("the launcher's module path entry", path, True) for path in entries])
+
+
+def unreachable(sources, writable_paths, hint=CODE_HINT):
+    """Refused (reason ending in HINT) when a code source (code_sources, launcher_sources), or a link
+    on the way to it, lies inside a writable path, or a writable path lies inside a directory of
+    code."""
     for what, path, holds in sources:
         names, real = resolution(path), os.path.realpath(path)
         for root in writable_paths:
             if any(within(name, root) for name in names):
-                refuse(f"{what} {path} lies inside {root}, which the boundary can write" + CODE_HINT)
+                refuse(f"{what} {path} lies inside {root}, which the boundary can write" + hint)
             if holds and within(root, real):
-                refuse(f"{root}, which the boundary can write, lies inside {what} {path}" + CODE_HINT)
+                refuse(f"{root}, which the boundary can write, lies inside {what} {path}" + hint)
 
 
 SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
@@ -849,6 +876,17 @@ def writable(home, paths):
         if real not in result:
             result.append(real)
     return result
+
+
+def moved(paths, refusal):
+    """Raise REFUSAL("path", ...) when a writable path, which the launcher resolved once, no longer
+    resolves to itself: a process inside the boundary can replace a writable path nested in another
+    one with a link (to HOME, say), which would widen the boundary of every later confined start (the
+    monitor's readers, a continuation's read). Every confined start checks it first."""
+    for path in paths:
+        if os.path.realpath(path) != path:
+            raise refusal("path", f"the writable path {path} no longer resolves to itself; a process inside the "
+                                  "boundary may have replaced it with a link")
 
 
 # Caller variables an App Server reader keeps; everything else stays with the TUI alone.
@@ -894,7 +932,7 @@ class Session:
             self.sandbox = load(module, KIT / (module + ".py"))
         except (OSError, ImportError, SyntaxError):
             refuse(f"incomplete install at {HERE.parent.parent}")
-        if not (GATE.is_file() and READER.is_file()):
+        if not (GATE.is_file() and READER.is_file() and (KIT / "monitor.py").is_file()):
             refuse(f"incomplete install at {HERE.parent.parent}")
         try:
             self.sandbox.probe()
@@ -936,6 +974,7 @@ class Session:
         sandbox = self.sandbox
 
         def confine(port, argv):
+            moved(paths, sandbox.Refusal)
             if sys.platform == "darwin":
                 return sandbox.confine(port, paths, "codex", tested=tested) + list(argv)
             return sandbox.confine(port, paths, "codex") + list(argv)
@@ -1017,6 +1056,7 @@ class Session:
             # stay out of reach of every boundary process.
             outside(self.private, reach)
             gate_env = {name: self.env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR", "LANG") if name in self.env}
+            unreachable(launcher_sources(), reach, LAUNCHER_HINT)
             unreachable(code_sources(python, gate_env), reach)
             proxy = supervise.capture_proxy(self.env, self.kit_gate.parse_proxy)
             reserves = {setting.window: [None if setting.reserve is None else str(setting.reserve), setting.source]
@@ -1129,6 +1169,11 @@ EXPLAINED = {
     "unsupported_plan": "the account's plan is not one whose windows protected mode governs",
     "monitor_unheard": "the quota monitor did not start",
 }
+# Codex's own conditions, which the evaluator's line names only by their reason word.
+OWN_CONDITIONS = {
+    "limit_reached": "the quota reply reports a usage limit reached (limit_reached or allowed false) that no "
+                     "five-hour or weekly window at 100% accounts for",
+}
 
 
 def explain(reason, fields):
@@ -1136,6 +1181,8 @@ def explain(reason, fields):
     reason = str(reason)
     if reason.startswith("requirements_"):
         return BLOCKERS.get(reason[len("requirements_"):], BLOCKERS["requirements_unreadable"])
+    if reason in OWN_CONDITIONS:
+        return OWN_CONDITIONS[reason]
     detail = (fields or {}).get("detail")
     if isinstance(detail, str) and detail:
         return detail
