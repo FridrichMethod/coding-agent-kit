@@ -25,11 +25,16 @@ Session.run then, with the account lease held by the launcher for the whole run:
 The writable set is the workspace, codex_home (which holds the account home and shared sessions),
 the shared SQLite home and a private temporary directory; the refresh adds secrets_dir, where
 native writes the refreshed credential. None may be HOME, an ancestor of HOME, HOME/Library or
-lie at or inside HOME/Library/LaunchAgents.
+lie at or inside HOME/Library/LaunchAgents. The readers' specifications live in another private
+directory, which must lie outside every writable path (a TMPDIR inside the workspace refuses), and
+the monitor's reader takes its boundary from the argv the launcher builds, never from a file.
 """
 
+import contextlib
 from dataclasses import dataclass
 import base64
+import datetime
+import fcntl
 import importlib.util
 import json
 import os
@@ -41,6 +46,7 @@ import shutil
 import stat
 import sys
 import tempfile
+import time
 
 try:
     import tomllib
@@ -149,13 +155,18 @@ CONFIG_KEY = re.compile(r"[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*")
 
 def screen(args, native):
     """The user's native arguments as protected mode forwards them (without --no-daemon, which the
-    launcher adds once), or Refused.
+    launcher adds once), or Refused (see scan)."""
+    return scan(args, native)[0]
+
+
+def scan(args, native):
+    """(the arguments screen() forwards, the model they select or None), or Refused.
 
     An allowlist parsed like clap: `--name value`, `--name=value`, `-Xvalue` and `-X=value` for
     options with a value; a value from the next word never starts with '-'; before `--` every bare
     word that names a subcommand refuses, also after an option value or a prompt word (clap would
     run it), and so does a subcommand name given as an option value (stricter than clap)."""
-    index, dashes, kept = 0, False, []
+    index, dashes, kept, chosen = 0, False, [], None
 
     def value_of(name, attached):
         nonlocal index
@@ -167,6 +178,7 @@ def screen(args, native):
         return args[index - 1]
 
     def check(name, value):
+        nonlocal chosen
         if value in native.subcommands:
             refuse(f"{name} {value}: a subcommand name is not accepted as an option value")
         if name in ("-c", "--config"):
@@ -176,8 +188,10 @@ def screen(args, native):
             if key.split(".", 1)[0] in PROTECTED_KEYS:
                 refuse(f"protected mode sets {key.split('.', 1)[0]} itself; -c {key} is not accepted")
             if key == "model":
-                model(value.split("=", 1)[1].strip().strip("\"'"), native)
+                chosen = value.split("=", 1)[1].strip().strip("\"'")
+                model(chosen, native)
         elif name in ("-m", "--model"):
+            chosen = value
             model(value, native)
 
     while index < len(args):
@@ -224,7 +238,7 @@ def screen(args, native):
         if word in native.subcommands:
             refuse(f"protected mode runs only the interactive TUI, not codex {word}")
         kept.append(word)
-    return kept
+    return kept, chosen
 
 
 def shown(word):
@@ -297,6 +311,7 @@ FORCED_OFF = ("plugins", "recommended_plugins", "apps", "enable_mcp_apps", "memo
               "code_mode_prewarm")
 SANDBOX = "danger-full-access"
 SYSTEM_REQUIREMENTS = Path("/etc/codex/requirements.toml")
+SYSTEM_MANAGED_CONFIG = Path("/etc/codex/managed_config.toml")
 MANAGED_PREFERENCES = Path("/Library/Managed Preferences")
 MANAGED_DOMAIN = "com.openai.codex.plist"
 BUNDLE_CACHE = "cloud-config-bundle-cache.json"
@@ -318,6 +333,8 @@ BLOCKERS = {
     "pins_feature": "the account's managed requirements force on a feature protected mode turns off",
     "agent_identity": "the account's managed configuration enables agent identity, which replaces the login",
     "requirements_unreadable": "the account's managed requirements cannot be read or parsed",
+    "managed_config": "the managed configuration (managed_config.toml or MDM config_toml_base64), which "
+                      "overrides command-line settings, sets what protected mode must set itself",
 }
 
 
@@ -454,69 +471,181 @@ def bundle_blockers(bundle, sqlite_home):
     return found
 
 
-def read_document(path, limit=DOCUMENT_LIMIT):
-    """Bytes of a regular file of at most LIMIT bytes, None when absent; Refused otherwise."""
+def read_document(path, limit=DOCUMENT_LIMIT, reason=BLOCKERS["requirements_unreadable"]):
+    """Bytes of a regular file of at most LIMIT bytes, None when absent; Refused (REASON and the
+    path) otherwise. Links are followed, as native follows them (dotfile managers link config.toml)."""
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
     except FileNotFoundError:
         return None
     except OSError:
-        refuse(BLOCKERS["requirements_unreadable"] + f" ({path})")
+        refuse(reason + f" ({path})")
     with os.fdopen(fd, "rb") as stream:
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            refuse(BLOCKERS["requirements_unreadable"] + f" ({path})")
+            refuse(reason + f" ({path})")
         raw = stream.read(limit + 1)
     if len(raw) > limit:
-        refuse(BLOCKERS["requirements_unreadable"] + f" ({path})")
+        refuse(reason + f" ({path})")
     return raw
+
+
+def managed_preferences():
+    """The forced com.openai.codex managed preferences of macOS as (path, plist dict), else []."""
+    if sys.platform != "darwin":
+        return []
+    found = []
+    user = pwd.getpwuid(os.getuid()).pw_name
+    for path in (MANAGED_PREFERENCES / user / MANAGED_DOMAIN, MANAGED_PREFERENCES / MANAGED_DOMAIN):
+        raw = read_document(path)
+        if raw is None:
+            continue
+        try:
+            document = plistlib.loads(raw)
+        except (ValueError, plistlib.InvalidFileException):
+            document = None
+        if not isinstance(document, dict):
+            refuse(BLOCKERS["requirements_unreadable"] + f" ({path})")
+        found.append((path, document))
+    return found
+
+
+def preference_toml(path, document, key):
+    """The TOML table a managed preference holds base64-encoded under KEY ({} when unset)."""
+    encoded = document.get(key)
+    try:
+        table = {} if encoded is None else toml_document(base64.b64decode(encoded.strip()).decode("utf-8"))
+    except (ValueError, AttributeError, TypeError, UnicodeError):
+        table = None
+    if table is None:
+        refuse(BLOCKERS["requirements_unreadable"] + f" ({path})")
+    return table
+
+
+def toml_file(path):
+    raw = read_document(path)
+    if raw is None:
+        return None
+    table = toml_document(raw.decode("utf-8", "replace"))
+    if table is None:
+        refuse(BLOCKERS["requirements_unreadable"] + f" ({path})")
+    return table
 
 
 def local_requirements():
     """The requirements documents native composes around the cloud layers, as (where, table):
     /etc/codex/requirements.toml and, on macOS, the forced com.openai.codex managed preference."""
     found = []
-    raw = read_document(SYSTEM_REQUIREMENTS)
-    if raw is not None:
-        table = toml_document(raw.decode("utf-8", "replace"))
-        if table is None:
-            refuse(BLOCKERS["requirements_unreadable"] + f" ({SYSTEM_REQUIREMENTS})")
+    table = toml_file(SYSTEM_REQUIREMENTS)
+    if table is not None:
         found.append((str(SYSTEM_REQUIREMENTS), table))
-    if sys.platform == "darwin":
-        user = pwd.getpwuid(os.getuid()).pw_name
-        for path in (MANAGED_PREFERENCES / user / MANAGED_DOMAIN, MANAGED_PREFERENCES / MANAGED_DOMAIN):
-            raw = read_document(path)
-            if raw is None:
-                continue
-            try:
-                encoded = plistlib.loads(raw).get("requirements_toml_base64")
-                table = {} if encoded is None else toml_document(base64.b64decode(encoded.strip()).decode("utf-8"))
-            except (ValueError, AttributeError, TypeError, UnicodeError, plistlib.InvalidFileException):
-                table = None
-            if table is None:
-                refuse(BLOCKERS["requirements_unreadable"] + f" ({path})")
-            found.append((str(path), table))
+    for path, document in managed_preferences():
+        found.append((str(path), preference_toml(path, document, "requirements_toml_base64")))
     return found
 
 
-def requirement_check(account_home, sqlite_home):
-    """Refused when a local requirements document or the account's cached cloud bundle forbids
-    protected mode. The cache may be stale; the gate checks the bundle native fetches again."""
+def managed_configs():
+    """The legacy managed configuration layers, which take precedence over -c session flags
+    (codex-rs config_layer_source.rs: SessionFlags 30, managed_config.toml 40, MDM 50), as
+    (where, table): /etc/codex/managed_config.toml and, on macOS, the forced config_toml_base64.
+    The cloud bundle's config layer (EnterpriseManaged, 15) ranks below -c and cannot override it."""
+    found = []
+    table = toml_file(SYSTEM_MANAGED_CONFIG)
+    if table is not None:
+        found.append((str(SYSTEM_MANAGED_CONFIG), table))
+    for path, document in managed_preferences():
+        found.append((str(path), preference_toml(path, document, "config_toml_base64")))
+    return found
+
+
+def flatten(table, prefix=""):
+    """(dotted key, value) for every leaf of a TOML table; an empty table is a leaf."""
+    for name, value in table.items():
+        key = prefix + str(name)
+        if isinstance(value, dict) and value:
+            yield from flatten(value, key + ".")
+        else:
+            yield key, value
+
+
+def forced_settings(sqlite_home):
+    """What protected mode sets with -c, as {dotted key: value} (the gate URLs name port 0 here, so
+    a managed URL never equals one)."""
+    forced = {}
+    for pair in fixed(sqlite_home) + settings(0):
+        forced.update(flatten(tomllib.loads(pair)))
+    return forced
+
+
+def managed_conflicts(table, forced):
+    """The keys of one managed configuration table that would override what protected mode sets:
+    a different value for a key it sets, a table or value above or below one, or anything for its
+    own provider entry."""
     found = set()
+    own = "model_providers.%s" % PROVIDER
+    for key, value in flatten(table):
+        if key == own or key.startswith(own + "."):
+            found.add(own)
+            continue
+        for name, setting in forced.items():
+            if (key == name and value != setting) or key.startswith(name + ".") or name.startswith(key + "."):
+                found.add(name)
+    return found
+
+
+def cache_current(payload, identity, now=None):
+    """Whether native would load a cloud bundle cache payload: version 1, the login's identity
+    (when known) and an expiry in the future (codex-rs cloud-config/src/cache.rs; an expiry this
+    check cannot read counts as current, so the cache is checked). The signature is not checked:
+    a cache native rejects is refetched through the gate, which checks the bundle again."""
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        return False
+    user, account = payload.get("chatgpt_user_id"), payload.get("account_id")
+    if not (isinstance(user, str) and isinstance(account, str)):
+        return False
+    if identity is not None and (account, user) != (identity.account, identity.user):
+        return False
+    expires = payload.get("expires_at")
+    try:
+        text = re.sub(r"(\.\d{6})\d+", r"\1", expires).replace("Z", "+00:00")
+        moment = datetime.datetime.fromisoformat(text)
+        if moment.tzinfo is None:
+            return True
+    except (TypeError, ValueError):
+        return True
+    return moment.timestamp() > (time.time() if now is None else now)
+
+
+def requirement_check(account_home, sqlite_home, identity=None):
+    """Refused when a local requirements document, a managed configuration layer or the account's
+    current cloud bundle cache forbids protected mode. An expired cache, or one of another login,
+    is ignored as native ignores it (native then fetches the bundle through the gate, which checks
+    it again); a current one is what native will run under, without a fetch."""
+    found, notes = set(), []
     for _, table in local_requirements():
         layer = requirement_layer(table, cloud=False)
         found |= {"requirements_unreadable"} if layer is None else blockers(layer, sqlite_home, cloud=False)
-    raw = read_document(Path(account_home) / BUNDLE_CACHE)
+    forced = forced_settings(sqlite_home)
+    for where, table in managed_configs():
+        keys = managed_conflicts(table, forced)
+        if keys:
+            found.add("managed_config")
+            notes.append("%s sets %s" % (where, ", ".join(sorted(keys))))
+    cache = Path(account_home) / BUNDLE_CACHE
+    raw = read_document(cache)
     if raw is not None:
         try:
             document = json.loads(raw)
             payload = document.get("signed_payload") if isinstance(document, dict) else None
-            bundle = payload.get("bundle") if isinstance(payload, dict) and payload.get("version") == 1 else None
         except ValueError:
-            bundle = None
-        if bundle is not None:  # another cache version: native ignores it, and so does this check
-            found |= bundle_blockers(bundle, sqlite_home)
+            payload = None
+        if cache_current(payload, identity):
+            cached = bundle_blockers(payload.get("bundle"), sqlite_home)
+            if cached - found:
+                notes.append("from the cached cloud requirements in %s, which native uses until they expire; "
+                             "an unprotected launch refreshes them" % cache)
+            found |= cached
     if found:
-        refuse("; ".join(BLOCKERS[reason] for reason in sorted(found)))
+        refuse("; ".join(BLOCKERS[reason] for reason in sorted(found)) + "".join(" (%s)" % note for note in notes))
 
 
 # -- native configuration and write rules -----------------------------------------------------------
@@ -524,12 +653,20 @@ def requirement_check(account_home, sqlite_home):
 PROVIDER = "quota_gate"
 
 
-def overrides(port):
-    """-c pairs after codex-as's own fixed keys: every model, quota and realtime URL at the gate,
-    no native sandbox, and the reviewed quiet set (no analytics, telemetry, web search, plugins,
-    apps, memories or network proxy) for the TUI and every App Server reader alike."""
+def fixed(sqlite_home):
+    """codex-as's own -c pairs for every launch of an account, protected or not."""
+    return ['cli_auth_credentials_store="file"', "sqlite_home=" + json.dumps(str(sqlite_home), ensure_ascii=False),
+            "check_for_update_on_startup=false"]
+
+
+def settings(port):
+    """The -c pairs protected mode adds after codex-as's fixed ones: every model, quota and realtime
+    URL at the gate, no native sandbox, and the reviewed quiet set (no analytics, telemetry, web
+    search, plugins, apps, memories or network proxy) for the TUI and every App Server reader
+    alike. web_search="disabled" is always allowed: native adds Disabled to every
+    allowed_web_search_modes requirement (codex-rs config/src/config_requirements.rs)."""
     gate = "http://127.0.0.1:%d" % port
-    pairs = [
+    return [
         'chatgpt_base_url="%s/backend-api/"' % gate,
         'model_provider="%s"' % PROVIDER,
         'model_providers.%s.name="quota gate"' % PROVIDER,
@@ -551,7 +688,30 @@ def overrides(port):
         "memories.generate_memories=false",
         "memories.use_memories=false",
     ]
-    return [word for pair in pairs for word in ("-c", pair)]
+
+
+def overrides(port):
+    """settings(port) as -c words."""
+    return [word for pair in settings(port) for word in ("-c", pair)]
+
+
+def configured_model(table):
+    """The model a user config.toml selects: its selected profile's model, else its own (native
+    ranks the profile layer above the file)."""
+    profiles, chosen = table.get("profiles"), table.get("profile")
+    selected = profiles.get(chosen) if isinstance(chosen, str) and isinstance(profiles, dict) else None
+    if isinstance(selected, dict) and "model" in selected:
+        return selected["model"]
+    return table.get("model")
+
+
+def outside(path, writable_paths):
+    """Refused unless PATH, resolved, lies outside every (resolved) writable path."""
+    real = os.path.realpath(str(path))
+    for root in writable_paths:
+        if real == root or real.startswith(root.rstrip("/") + "/"):
+            refuse(f"the temporary directory {os.path.dirname(real)} lies inside {root}, which the boundary can "
+                   "write; set TMPDIR to a directory outside the workspace and the Codex homes")
 
 
 def writable(home, paths):
@@ -577,6 +737,7 @@ READER_ENV = ("HOME", "USER", "LOGNAME", "PATH", "LANG", "LC_ALL", "LC_CTYPE", "
               "SSL_CERT_DIR", "CODEX_CA_CERTIFICATE", "CODEX_HOME", "CODEX_SQLITE_HOME", "TMPDIR")
 REFRESH_HOSTS = {"auth.openai.com:443": ["auth.openai.com", 443]}
 REFRESH_TIMEOUT = 30.0
+REFRESH_LOCK_WAIT = REFRESH_TIMEOUT + 10.0  # another launch's refresh ends within its own bound
 READ_TIMEOUT = 45.0       # a reader allows native's bundle retries (D14: up to 40 s if it stalls)
 CONTINUE_TIMEOUT = 25.0   # a continuation read must answer within the 30 s continuation window
 MAX_AGE = 120.0
@@ -602,7 +763,7 @@ class Session:
         self.codex, self.env, self.sqlite, self.cwd = codex, dict(env), str(sqlite), Path(cwd)
         self.sandbox = self.supervise = self.kit_gate = None
         self.private = self.work = None
-        self.login = None
+        self.login = self.baseline = None
 
     # -- refusals before anything changes ------------------------------------------------------------
     def check(self):
@@ -622,12 +783,19 @@ class Session:
             refuse(str(error))
         if not os.isatty(0):
             refuse("protected mode needs an interactive terminal for continuation")
-        configured = read_document(self.config.codex_home / "config.toml")
-        chosen = (toml_document(configured.decode("utf-8", "replace")) or {}).get("model") if configured else None
-        if isinstance(chosen, str) and not any(word in ("-m", "--model") or word.startswith(("-m", "--model="))
-                                               for word in self.args):
-            model(chosen, self.native)  # check.py has already parsed this file
-        requirement_check(self.layout.home, self.sqlite)
+        identity = None
+        if os.path.lexists(self.layout.target):
+            identity = login(self.guard.credential(self.layout.target), self.native, self.storage)
+        # The model of the user config and its selected profile, unless -m or -c model= replaces it;
+        # project and managed layers can select another one, which the gate refuses per request.
+        path = self.config.codex_home / "config.toml"
+        raw = read_document(path, reason="the Codex configuration cannot be read")
+        configured = configured_model(toml_document(raw.decode("utf-8", "replace")) or {}) if raw else None
+        overridden = scan(self.args, self.native)[1] is not None
+        if not overridden and isinstance(configured, str) and configured not in self.native.models:
+            refuse(f"the model {shown(configured)} that {path} selects is not one whose quota protected mode "
+                   "governs (choose a reviewed one with -m)")
+        requirement_check(self.layout.home, self.sqlite, identity)
 
     # -- the run --------------------------------------------------------------------------------------
     def paths(self, refresh=False):
@@ -647,10 +815,12 @@ class Session:
 
         return confine
 
+    def codex_argv(self, port, *words):
+        """The codex argv with codex-as's fixed -c pairs and protected mode's, then WORDS."""
+        return [self.codex, *(word for pair in fixed(self.sqlite) for word in ("-c", pair)), *overrides(port), *words]
+
     def app_server(self, port):
-        return [self.codex, "-c", 'cli_auth_credentials_store="file"',
-                "-c", "sqlite_home=" + json.dumps(self.sqlite, ensure_ascii=False),
-                "-c", "check_for_update_on_startup=false", *overrides(port), "app-server", "--listen", "stdio://"]
+        return self.codex_argv(port, "app-server", "--listen", "stdio://")
 
     def reader_env(self, port, refresh=False):
         env = {name: self.env[name] for name in READER_ENV if name in self.env}
@@ -659,11 +829,10 @@ class Session:
             env.update(HTTPS_PROXY="http://127.0.0.1:%d" % port, https_proxy="http://127.0.0.1:%d" % port)
         return env
 
-    def spec(self, name, port, mode, timeout, paths=None, profile=None):
-        """A reader's specification, in the private directory the boundary cannot write."""
+    def spec(self, name, port, mode, timeout):
+        """A reader's specification, in the private directory outside every writable path."""
         spec = {"command": self.app_server(port), "env": self.reader_env(port, mode == "refresh"),
-                "cwd": str(self.cwd), "mode": mode, "timeout": timeout, "port": port,
-                "writable": paths or [], "profile": profile}
+                "cwd": str(self.cwd), "mode": mode, "timeout": timeout}
         path = Path(self.private) / (name + ".json")
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w") as stream:
@@ -673,16 +842,47 @@ class Session:
     def message(self, text):
         print(self.guard.styled("codex-as: " + text, "36", 2), file=sys.stderr)
 
+    @contextlib.contextmanager
+    def refresh_lock(self):
+        """The account's refresh lock, held across the pre-launch refresh, so that two protected
+        launches of one account never present the same refresh token (unprotected clients do not
+        take it)."""
+        path = self.config.codex_home / "accounts/.locks" / (".refresh-%s.lock" % self.layout.name)
+        try:
+            fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+        except OSError:
+            refuse(f"the account's refresh lock {path} cannot be opened")
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                refuse(f"the account's refresh lock {path} is not a regular file of this user")
+            deadline = time.monotonic() + REFRESH_LOCK_WAIT
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if time.monotonic() >= deadline:
+                        refuse("another launch of this account is still refreshing its credential")
+                    time.sleep(0.1)
+            yield
+        finally:
+            os.close(fd)
+
     def run(self, baseline):
-        """The whole protected invocation; returns the native's wait status."""
+        """The whole protected invocation; returns the native's wait status. self.baseline is then
+        the credential post-run repair compares with: the refreshed one once the refresh passed."""
         supervise, python = self.supervise, sys.executable
+        self.baseline = baseline
         self.login = login(baseline, self.native, self.storage)
         before = last_refresh(baseline)
-        self.private = tempfile.mkdtemp(prefix="codex-as-protect-")
-        self.work = tempfile.mkdtemp(prefix="codex-as-tmp-")
         sup = None
         try:
+            self.work = tempfile.mkdtemp(prefix="codex-as-tmp-")
+            self.private = tempfile.mkdtemp(prefix="codex-as-protect-")
             paths, refresh_paths = self.paths(), self.paths(refresh=True)
+            # Reader specifications must stay out of reach of every boundary process.
+            outside(self.private, paths + refresh_paths)
             proxy = supervise.capture_proxy(self.env, self.kit_gate.parse_proxy)
             gate_env = {name: self.env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR", "LANG") if name in self.env}
             reserves = {setting.window: [None if setting.reserve is None else str(setting.reserve), setting.source]
@@ -703,16 +903,18 @@ class Session:
                 refresh_tested = self.sandbox.self_test(port, refresh_paths, "codex", python=python)
             read_spec = self.spec("read", port, "read", READ_TIMEOUT)
             continue_spec = self.spec("continue", port, "read", CONTINUE_TIMEOUT)
-            poll_spec = self.spec("poll", port, "read", READ_TIMEOUT, paths,
-                                  tested.profile if tested is not None else None)
+            poll_spec = self.spec("poll", port, "read", READ_TIMEOUT)
             refresh_spec = self.spec("refresh", port, "refresh", REFRESH_TIMEOUT)
             reader = [python, "-I", "-B", str(READER)]
-            sup.monitor_reader = reader + ["--confine", poll_spec]
+            # The monitor runs outside the boundary: its reader takes the boundary from this argv.
+            limits = {"port": port, "writable": paths, "profile": tested.profile if tested is not None else None}
+            sup.monitor_reader = reader + ["--confine", json.dumps(limits), poll_spec]
 
             # D1 (a): the native refresh, confined, with the refresh gate as its only exit.
             sup.confine = self.hook(refresh_paths, refresh_tested)
-            code = sup.refresh(reader + [refresh_spec], self.reader_env(port, True), timeout=REFRESH_TIMEOUT + 5,
-                               cwd=str(self.cwd))
+            with self.refresh_lock():
+                code = sup.refresh(reader + [refresh_spec], self.reader_env(port, True),
+                                   timeout=REFRESH_TIMEOUT + 5, cwd=str(self.cwd))
             sup.confine = self.hook(paths, tested)
             # The refresh gate pauses on a config bundle that forbids protected mode; its report
             # is the clearer reason, and nothing of it may reach the run's relay.
@@ -721,7 +923,7 @@ class Session:
                 reason = str(event.get("reason")) if event.get("op") == "paused" else ""
                 if reason.startswith("requirements_"):
                     refuse(explain(reason, {}))
-            requirement_check(self.layout.home, self.sqlite)  # native may have cached a new bundle
+            requirement_check(self.layout.home, self.sqlite, self.login)  # native may have cached a new bundle
             try:
                 current = self.guard.credential(self.layout.target)
             except (OSError, ValueError):
@@ -735,6 +937,7 @@ class Session:
                        % (reader_status(code) if code else "the credential is unchanged"))
             if login(current, self.native, self.storage) != self.login:
                 refuse("the refreshed login names another workspace, user or plan")
+            self.baseline = current  # native wrote it through the link; a later replacement is newer
 
             def preflight(supervisor):
                 code = supervisor.confined(reader + [read_spec], self.reader_env(port), timeout=READ_TIMEOUT + 5,
@@ -751,9 +954,7 @@ class Session:
 
             sup.preflight, sup.reader = preflight, continue_read
             env = dict(self.env, CODEX_HOME=str(self.layout.home), CODEX_SQLITE_HOME=self.sqlite, TMPDIR=self.work)
-            command = [self.codex, "-c", 'cli_auth_credentials_store="file"',
-                       "-c", "sqlite_home=" + json.dumps(self.sqlite, ensure_ascii=False),
-                       "-c", "check_for_update_on_startup=false", *overrides(port), "--no-daemon", *self.args]
+            command = self.codex_argv(port, "--no-daemon", *self.args)
             self.message(self.policy.describe())
             self.message("protected mode: model requests pass through a local gate; after a pause press F12, "
                          "then type the code shown, to request a fresh quota check")

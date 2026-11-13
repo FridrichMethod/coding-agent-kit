@@ -104,6 +104,24 @@ class Backend:
                                "primary_window": window(self.used[0], 18000),
                                "secondary_window": window(self.used[1], 604800)}}
 
+    def stream(self, body):
+        """A model reply: JSON for the fake codex, a Responses event stream for a streaming request
+        (real codex), whose assistant message names the turn's number."""
+        try:
+            streaming = json.loads(body).get("stream") is True
+        except (ValueError, AttributeError):
+            streaming = False
+        if not streaming:
+            return b'{"output":"fixture"}'
+        with self.lock:
+            number = len([r for r in self.requests if r["path"].split("?")[0] == "/backend-api/codex/responses"])
+        item = {"type": "message", "role": "assistant", "id": "msg_fixture_%d" % number,
+                "content": [{"type": "output_text", "text": "fixture reply %d" % number}]}
+        events = (("response.created", {"type": "response.created", "response": {"id": "resp_fixture_%d" % number}}),
+                  ("response.output_item.done", {"type": "response.output_item.done", "item": item}),
+                  ("response.completed", {"type": "response.completed", "response": {"id": "resp_fixture_%d" % number}}))
+        return b"".join(b"event: %s\ndata: %s\n\n" % (name.encode(), json.dumps(data).encode()) for name, data in events)
+
     def _accept(self):
         while not self.closing:
             try:
@@ -136,8 +154,9 @@ class Backend:
                 self.requests.append({"method": method, "path": target, "headers": headers, "body": body,
                                       "at": time.monotonic()})
             status, payload = self.answer(method, target.split("?")[0], body)
-            sock.sendall(b"HTTP/1.1 %d X\r\nContent-Type: application/json\r\nContent-Length: %d\r\n"
-                         b"Connection: close\r\n\r\n" % (status, len(payload)) + payload)
+            kind = b"text/event-stream" if payload.startswith(b"event: ") else b"application/json"
+            sock.sendall(b"HTTP/1.1 %d X\r\nContent-Type: %s\r\nContent-Length: %d\r\n"
+                         b"Connection: close\r\n\r\n" % (status, kind, len(payload)) + payload)
         except (OSError, ssl.SSLError, ValueError):
             pass
         finally:
@@ -154,7 +173,7 @@ class Backend:
         if path == "/backend-api/wham/config/bundle":
             return (404, b"{}") if self.bundle is None else (200, json.dumps(self.bundle).encode())
         if path == "/backend-api/codex/responses" and method == "POST":
-            return 200, b'{"output":"fixture"}'
+            return 200, self.stream(body)
         if path == "/oauth/token" and method == "POST":
             if self.refresh_status != 200:
                 return self.refresh_status, b'{"error":"invalid_grant"}'

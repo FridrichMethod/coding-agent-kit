@@ -24,6 +24,7 @@ expected account, and no other credential; a bearer whose JWT claims name an acc
 same one. Refusals are 503, never 401 (a 401 would start a native refresh).
 """
 
+from dataclasses import replace
 from decimal import Decimal
 import base64
 import importlib.util
@@ -47,9 +48,16 @@ def load(name, path):
     return module
 
 
-kit = load("kit_gate", KIT / "gate.py")
-reserve = load("reserve", KIT / "reserve.py")
-protect = load("protect", HERE / "protect.py")
+if sys.version_info < (3, 11):
+    print("codex-as gate: protected mode needs Python 3.11 or later.", file=sys.stderr)
+    raise SystemExit(2)
+try:
+    kit = load("kit_gate", KIT / "gate.py")
+    reserve = load("reserve", KIT / "reserve.py")
+    protect = load("protect", HERE / "protect.py")
+except (OSError, ImportError, SyntaxError):
+    print("codex-as gate: incomplete install at %s" % HERE.parent.parent, file=sys.stderr)
+    raise SystemExit(2) from None
 
 UPSTREAM = kit.Upstream("chatgpt.com", 443)
 MODEL_PATH = "/backend-api/codex/responses"
@@ -58,7 +66,6 @@ BUNDLE_PATH = "/backend-api/wham/config/bundle"
 BUNDLE_LIMIT = 256 * 1024
 BEARER = re.compile(r"[A-Za-z0-9._~+/-]+=*")  # one RFC 6750 token: no second one after a space
 CLAIMS = "https://api.openai.com/auth"
-DURATIONS = {300 * 60: "five_hour", 10080 * 60: "weekly"}
 
 
 def routes(native, refresh):
@@ -89,6 +96,14 @@ def bearer_account(token):
     auth = payload.get(CLAIMS) if isinstance(payload, dict) else None
     account = auth.get("chatgpt_account_id") if isinstance(auth, dict) else None
     return account if isinstance(account, str) and account else None
+
+
+def unique(pairs):
+    """json object_pairs_hook: a JSON object without duplicate keys, else ValueError."""
+    result = dict(pairs)
+    if len(result) != len(pairs):
+        raise ValueError("duplicate key")
+    return result
 
 
 def number(value):
@@ -151,8 +166,10 @@ class CodexProvider(kit.BaseProvider):
             raise refuse("selector_conflict") from None
 
     def check_model(self, presented, body):
+        """The body's model must be a reviewed codex-family slug without a quota row of its own; a
+        body with a duplicate key anywhere is refused, so the slug judged is the one upstream reads."""
         try:
-            request = json.loads(body)
+            request = json.loads(body, object_pairs_hook=unique)
         except (ValueError, UnicodeError, RecursionError):
             request = None
         slug = request.get("model") if isinstance(request, dict) else None
@@ -326,14 +343,32 @@ def refusing(event):
 
 
 class CodexGate(kit.Gate):
-    """A refresh gate also forwards USAGE-kind reads, of which its route table has only the config
+    """The kit gate with two Codex rules.
+
+    A refresh gate also forwards USAGE-kind reads, of which its route table has only the config
     bundle: on a workspace plan native refuses every managed request, its refresh included, until it
-    has a bundle."""
+    has a bundle.
+
+    A blocking bundle verdict applies whatever quota reads finished meanwhile: the kit drops an
+    observation that started before the last fresh one as superseded, which is right for quota data
+    but would lose a requirement refusal, so the verdict is applied as of now (it only pauses and
+    never renews freshness)."""
 
     def read_allowed(self, kind):
         if self.mode == "refresh":
             return not self.closed and self.lost is None and self.state == "refresh" and kind == kit.USAGE
         return super().read_allowed(kind)
+
+    def observe(self, presented, observation, cause):
+        if requirement_verdict(observation):
+            observation = replace(observation, received_at=max(observation.received_at, self.clock()))
+        return super().observe(presented, observation, cause)
+
+
+def requirement_verdict(observation):
+    """Whether OBSERVATION is a bundle's requirement refusal (CodexProvider.bundle)."""
+    return (isinstance(observation, kit.Observation) and observation.permanent and not observation.ok
+            and str(observation.reason).startswith("requirements_"))
 
 
 def policy(config):

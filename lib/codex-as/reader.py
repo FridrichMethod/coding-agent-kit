@@ -1,25 +1,29 @@
 """codex-as protected mode: one fresh native App Server for a model-free quota read or the
 pre-launch credential refresh.
 
-    python3 -I -B reader.py [--confine] SPEC_FILE
+    python3 -I -B reader.py SPEC_FILE                      (already confined by the supervisor)
+    python3 -I -B reader.py --confine BOUNDARY SPEC_FILE   (the monitor's polls)
 
 A --no-daemon TUI runs its App Server in process, and a long-lived one keeps the bearer it loaded,
 so every controller read starts its own `codex app-server` (G0 D2): it loads the account's current
 credential, and the usage request it sends passes through the gate, which observes it. The reader
 itself sees only whether the request was answered.
 
-SPEC_FILE is JSON that protect.py writes into the invocation's private directory, which the
-boundary cannot write: command (the codex argv, ending in app-server and its options), env, cwd,
-mode ("read": account/rateLimits/read; "refresh": account/read with refreshToken, native's own
-refresh), timeout (seconds for the whole exchange), and for --confine: port, writable and, on
-macOS, profile (the self-tested profile text). The supervisor confines a reader it runs itself;
-the monitor, which runs outside the boundary, passes --confine, and the reader enters the
-boundary before it starts anything.
+SPEC_FILE is JSON that protect.py writes into the invocation's private directory, which lies
+outside every path the boundary can write: command (the codex argv, ending in app-server and its
+options), env, cwd, mode ("read": account/rateLimits/read; "refresh": account/read with
+refreshToken, native's own refresh) and timeout (seconds for the whole exchange). The supervisor
+confines a reader it runs itself. The monitor runs outside the boundary, so its reader argv, which
+the launcher builds, carries --confine and BOUNDARY, a JSON object {"port", "writable", "profile"}
+(the gate port, the writable paths and, on macOS, the self-tested profile text): the reader enters
+the boundary first and reads SPEC_FILE only inside it, so nothing in that file can widen the
+boundary.
 
 Exit status: 0 the request was answered, 2 the App Server did not start, 3 initialize failed, 4 the
 request failed or timed out, 5 the boundary refused, 6 unusable arguments or specification, and
-7 to 10 the request failed with one of native's four application network policy denials (POLICY,
-matched by their exact text; no other error text is kept).
+7 to 10 the request failed with one of native's four application network policy denials (POLICY:
+the exact denial text, which the App Server's error message contains after its own prefix; no other
+error text is kept).
 """
 
 import importlib.util
@@ -41,6 +45,8 @@ CLIENT_INFO = {"name": "quota-probe", "version": "1"}
 REQUESTS = {"read": ("account/rateLimits/read", {"excludeResetCreditDetails": True}),
             "refresh": ("account/read", {"refreshToken": True})}
 # codex 0.167.2 http-client NetworkPolicyDenied: unavailable, destination, revoked, unsupported transport.
+# The App Server wraps the denial in a message of its own ("failed to fetch codex rate limits: ..."),
+# so the exact denial text is looked for inside the message, never a looser pattern.
 POLICY = {"application network policy is unavailable": 7,
           "destination denied by application network policy": 8,
           "application network permission was revoked": 9,
@@ -49,18 +55,41 @@ LINE_LIMIT = 1024 * 1024
 CLOSE_GRACE = 5.0
 
 
-def confine(spec, spec_file):
-    """Enter the boundary: in process on Linux; on macOS by exec'ing this reader again under the
-    self-tested profile. Returns only on Linux, or never on macOS."""
+def boundary(text):
+    """The BOUNDARY argument as (port, writable, profile), or None when it is unusable."""
+    try:
+        value = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(value, dict) or set(value) != {"port", "writable", "profile"}:
+        return None
+    port, writable, profile = value["port"], value["writable"], value["profile"]
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        return None
+    if not isinstance(writable, list) or not all(isinstance(path, str) for path in writable):
+        return None
+    if profile is not None and not isinstance(profile, str):
+        return None
+    return port, writable, profile
+
+
+def sandbox_module():
     name = "sandbox_macos" if sys.platform == "darwin" else "sandbox_linux"
     module_spec = importlib.util.spec_from_file_location("codex_as_reader_" + name, KIT / (name + ".py"))
     sandbox = importlib.util.module_from_spec(module_spec)
     module_spec.loader.exec_module(sandbox)
+    return sandbox
+
+
+def confine(port, writable, profile, spec_file):
+    """Enter the boundary: in process on Linux; on macOS by exec'ing this reader again, without
+    --confine, under the self-tested profile. Returns only on Linux, or never on macOS."""
+    sandbox = sandbox_module()
     if sys.platform == "darwin":
-        tested = sandbox.Tested(profile=spec["profile"], answers={})
-        prefix = sandbox.confine(spec["port"], spec["writable"], "codex", tested=tested)
+        tested = sandbox.Tested(profile=profile, answers={})
+        prefix = sandbox.confine(port, writable, "codex", tested=tested)
         os.execv(prefix[0], prefix + [sys.executable, "-I", "-B", str(Path(__file__).resolve()), spec_file])
-    sandbox.confine(spec["port"], spec["writable"], "codex")
+    sandbox.confine(port, writable, "codex")
 
 
 class Server:
@@ -102,7 +131,8 @@ class Server:
                 self.buffer += data
 
     def close(self):
-        """Close stdin (the App Server exits on EOF), then end the group if it lingers."""
+        """Close stdin (the App Server exits on EOF), then send the App Server SIGTERM and SIGKILL if
+        it lingers."""
         try:
             self.process.stdin.close()
         except OSError:
@@ -144,11 +174,21 @@ def exchange(spec):
 
 
 def main(argv):
-    confined = argv[:1] == ["--confine"]
-    if confined:
-        argv = argv[1:]
+    limits = None
+    if argv[:1] == ["--confine"]:
+        if len(argv) != 3:
+            return 6
+        limits = boundary(argv[1])
+        if limits is None:
+            return 6
+        argv = argv[2:]
     if len(argv) != 1:
         return 6
+    if limits is not None:
+        try:
+            confine(*limits, argv[0])
+        except Exception:
+            return 5
     try:
         with open(argv[0], "rb") as stream:
             spec = json.load(stream)
@@ -156,11 +196,6 @@ def main(argv):
             return 6
     except (OSError, ValueError, KeyError, TypeError):
         return 6
-    if confined:
-        try:
-            confine(spec, argv[0])
-        except Exception:
-            return 5
     return exchange(spec)
 
 

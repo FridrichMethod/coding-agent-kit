@@ -11,11 +11,13 @@ base_url, CONNECT through HTTPS_PROXY for auth.openai.com:443 (verified with SSL
                                          refresh through the tunnel, written like native: a
                                          temporary file beside the resolved auth.json, renamed)
     codex [-c K=V]... --no-daemon ...    TUI: prints READY, then per line on its terminal:
-                                         usage | turn [MODEL] | net PORT | sleep | quit
+                                         usage | turn [MODEL] | net PORT | write PATH | spawn |
+                                         replace (auth.json becomes a regular file) | quit
 Protected mode gives App Server readers an allowlisted environment, so the knobs come from the
 environment or from <codex_home>/fake-codex.json (codex_home is the parent of accounts/NAME), and
 every action is appended to <codex_home>/fake-codex.log (JSON lines). FAKE_BUNDLE=1 fetches the
-config bundle at App Server and TUI start, as a workspace plan does.
+config bundle at App Server and TUI start, as a workspace plan does; FAKE_REPLACE_LINK=1 makes the
+refresh replace the auth.json link with a regular file instead of writing through it.
 """
 
 import json
@@ -172,14 +174,18 @@ def refresh():
     tokens = json.loads(payload)
     data["tokens"].update(tokens)
     data["last_refresh"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-    target = path.resolve()
+    save(path if knob("FAKE_REPLACE_LINK") else path.resolve(), data)
+    log("refresh", ok=True)
+    return True
+
+
+def save(target, data):
+    """Write like native: a temporary file beside TARGET, renamed over it (a link at TARGET is replaced)."""
     temporary = target.with_name(".auth.json.tmp-%d" % os.getpid())
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as stream:
         stream.write(json.dumps(data))
     os.replace(temporary, target)
-    log("refresh", ok=True)
-    return True
 
 
 def app_server(config):
@@ -246,6 +252,12 @@ def tui(config, rest):
         elif words[0] == "spawn":
             child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
             print("SPAWN %d" % child.pid, flush=True)
+        elif words[0] == "replace":
+            path, data = credential()
+            data["last_refresh"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            data["tokens"]["refresh_token"] = "fixture-refresh-replaced"
+            save(path, data)
+            print("REPLACED", flush=True)
         elif words[0] == "quit":
             break
     log("exit")

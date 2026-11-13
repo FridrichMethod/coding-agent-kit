@@ -91,13 +91,18 @@ RERAISED = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGKILL, signal
 class Supervision:
     """From just before native Codex starts until post-run repair ends: forward termination
     to it and ignore Ctrl-C, which the terminal already delivers to its whole process group.
-    Termination after it exits waits for the repair to finish, then ends the launcher."""
+    Termination after it exits waits for the repair to finish, then ends the launcher.
+    ended=True guards a repair after a native that already exited (protected mode's supervisor
+    runs it): every termination waits for the repair."""
 
-    def __init__(self):
+    def __init__(self, ended=False):
         self.child, self.pending, self.late, self.previous = None, [], [], {}
+        self.ended = ended
 
     def forward(self, signum, frame):
-        if self.child is None:
+        if self.ended:
+            self.late.append(signum)
+        elif self.child is None:
             self.pending.append(signum)
         elif self.child.poll() is None:
             self.child.send_signal(signum)
@@ -299,13 +304,16 @@ def main(args):
         raise
     started = time.time()
     if session is not None:
+        # The pre-launch refresh may already have written the credential when a refusal follows,
+        # so the repair runs however the protected run ends, and termination waits for it.
         try:
             status = session.run(baseline)
         finally:
             layout.close()
-        post_run(layout, baseline)
-        if os.path.lexists(layout.target):
-            remember(config, layout, plan=plan, started=started)
+            with Supervision(ended=True):
+                post_run(layout, baseline if session.baseline is None else session.baseline)
+                if os.path.lexists(layout.target):
+                    remember(config, layout, plan=plan, started=started)
         return -os.WTERMSIG(status) if os.WIFSIGNALED(status) else os.waitstatus_to_exitcode(status)
     with Supervision():
         try:

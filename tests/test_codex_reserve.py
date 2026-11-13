@@ -21,6 +21,7 @@ import select
 import shutil
 import signal
 import socket
+import stat
 import struct
 import subprocess
 import sys
@@ -28,6 +29,7 @@ import tempfile
 import termios
 import threading
 import time
+import types
 import unittest
 from unittest import mock
 
@@ -49,6 +51,7 @@ def load(name, path):
 
 
 protect = load("protect", ROOT / "lib/codex-as/protect.py")
+reader = load("reader", ROOT / "lib/codex-as/reader.py")
 provider_gate = load("provider_gate", ROOT / "lib/codex-as/gate.py")
 kit = provider_gate.kit
 reserve = provider_gate.reserve
@@ -90,6 +93,32 @@ class Screen(unittest.TestCase):
         self.assertEqual(protect.screen([], NATIVE), [])
         self.assertEqual(protect.screen(["--model=gpt-6-sol", "-c=model=gpt-5.5"], NATIVE),
                          ["--model=gpt-6-sol", "-c=model=gpt-5.5"])
+
+    def test_scan_names_the_model_the_arguments_select(self):
+        self.assertEqual(protect.scan(["-m", "gpt-5.5", "fix it"], NATIVE)[1], "gpt-5.5")
+        self.assertEqual(protect.scan(["-cmodel=gpt-6-sol"], NATIVE)[1], "gpt-6-sol")
+        self.assertEqual(protect.scan(["--config", 'model="gpt-5.5"'], NATIVE)[1], "gpt-5.5")
+        self.assertIsNone(protect.scan(["fix it", "-c", "model_reasoning_effort=high"], NATIVE)[1])
+
+    def test_a_selected_profile_model_wins_over_the_files_own(self):
+        profiles = {"p": {"model": "o3"}}
+        self.assertEqual(protect.configured_model({"model": "gpt-5.5", "profile": "p", "profiles": profiles}), "o3")
+        self.assertEqual(protect.configured_model({"model": "gpt-5.5", "profile": "q", "profiles": profiles}), "gpt-5.5")
+        self.assertIsNone(protect.configured_model({}))
+
+    def test_reader_specifications_must_lie_outside_every_writable_path(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work, other = base / "work", base / "tmp"
+            (work / "tmp/spec").mkdir(parents=True)
+            (other / "spec").mkdir(parents=True)
+            protect.outside(other / "spec", [str(work)])
+            for path in (work, work / "tmp/spec"):
+                with self.subTest(path=path):
+                    self.assertIn("set TMPDIR to a directory outside", refused(protect.outside, path, [str(work)]))
+            link = base / "link"
+            link.symlink_to(work / "tmp")
+            refused(protect.outside, link / "spec", [str(work)])
 
     def test_subcommands_and_headless_modes_refuse_wherever_clap_would_run_them(self):
         for args in (["resume"], ["fork", "x"], ["exec", "x"], ["e", "x"], ["review"], ["hello", "resume"],
@@ -174,6 +203,56 @@ class Screen(unittest.TestCase):
         self.assertIn("edu_pro", NATIVE.plans)
 
 
+class Reader(unittest.TestCase):
+    """The monitor's reader: its boundary comes from the argv the launcher builds, and it reads its
+    specification file only inside that boundary."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.spec = Path(temp.name) / "poll.json"
+        self.spec.write_text(json.dumps({"command": ["codex"], "env": {}, "cwd": "/", "mode": "read", "timeout": 1,
+                                         # what a boundary process could write there: ignored
+                                         "port": 443, "writable": ["/"], "profile": "(allow default)"}))
+        self.calls = []
+
+    def main(self, argv, refuse=False):
+        def confine(port, writable, provider):
+            self.calls.append(("confine", port, writable, provider))
+            if refuse:
+                raise RuntimeError("refused")
+
+        def exchange(spec):
+            self.calls.append(("exchange", spec["mode"]))
+            return 0
+
+        with mock.patch.object(reader, "sandbox_module", return_value=types.SimpleNamespace(confine=confine)), \
+                mock.patch.object(reader, "exchange", side_effect=exchange), \
+                mock.patch.object(reader.sys, "platform", "linux"):
+            return reader.main(argv)
+
+    def test_the_boundary_comes_from_the_argv_and_applies_before_the_spec_is_read(self):
+        limits = json.dumps({"port": 50123, "writable": ["/w"], "profile": None})
+        self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 0)
+        self.assertEqual(self.calls, [("confine", 50123, ["/w"], "codex"), ("exchange", "read")])
+        self.calls = []
+        self.spec.write_text("not json")
+        self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 6)
+        self.assertEqual(self.calls, [("confine", 50123, ["/w"], "codex")])
+
+    def test_an_unusable_or_refused_boundary_runs_nothing(self):
+        for limits in ("[]", "not json", '{"port": 0, "writable": [], "profile": null}',
+                       '{"port": true, "writable": [], "profile": null}', '{"port": 1, "writable": "/", "profile": null}',
+                       '{"port": 1, "writable": [], "profile": null, "command": ["sh"]}', '{"port": 1, "writable": []}'):
+            with self.subTest(limits=limits):
+                self.assertEqual(self.main(["--confine", limits, str(self.spec)]), 6)
+        self.assertEqual(self.main(["--confine", str(self.spec)]), 6)
+        self.assertEqual(self.calls, [])
+        limits = json.dumps({"port": 50123, "writable": [], "profile": None})
+        self.assertEqual(self.main(["--confine", limits, str(self.spec)], refuse=True), 5)
+        self.assertEqual([call[0] for call in self.calls], ["confine"])
+
+
 def fragment(text):
     return {"id": "fixture", "name": "fixture", "contents": text}
 
@@ -252,12 +331,70 @@ class Requirements(unittest.TestCase):
                 system.write_text("not toml [")
                 self.assertIn("cannot be read", refused(protect.requirement_check, home, self.sqlite))
                 system.unlink()
-                cache = {"signed_payload": {"version": 1, "bundle": bundle("[application.network]\n")}}
+                cache = {"signed_payload": dict(self.payload(), bundle=bundle("[application.network]\n"))}
                 (home / protect.BUNDLE_CACHE).write_text(json.dumps(cache))
-                self.assertIn("application network", refused(protect.requirement_check, home, self.sqlite))
+                message = refused(protect.requirement_check, home, self.sqlite)
+                self.assertIn("application network", message)
+                self.assertIn("from the cached cloud requirements in %s" % (home / protect.BUNDLE_CACHE), message)
                 cache["signed_payload"]["version"] = 2  # native ignores another cache version
                 (home / protect.BUNDLE_CACHE).write_text(json.dumps(cache))
                 protect.requirement_check(home, self.sqlite)
+                cache["signed_payload"].update(version=1, expires_at="2000-01-01T00:00:00Z")  # native refetches
+                (home / protect.BUNDLE_CACHE).write_text(json.dumps(cache))
+                protect.requirement_check(home, self.sqlite)
+
+    @staticmethod
+    def payload(**changes):
+        return dict({"version": 1, "chatgpt_user_id": USER, "account_id": ACCOUNT,
+                     "cached_at": "2026-11-12T00:00:00Z", "expires_at": "2999-01-01T00:00:00.123456789Z"}, **changes)
+
+    def test_only_a_bundle_cache_native_would_load_is_checked(self):
+        identity = protect.Login(ACCOUNT, USER, "edu_pro")
+        self.assertTrue(protect.cache_current(self.payload(), identity))
+        self.assertTrue(protect.cache_current(self.payload(), None))
+        self.assertTrue(protect.cache_current(self.payload(expires_at="2026-11-12T10:00:00+00:00"), identity,
+                                              now=time.mktime((2026, 11, 12, 0, 0, 0, 0, 0, 0))))
+        self.assertTrue(protect.cache_current(self.payload(expires_at="garbled"), identity))  # unreadable: checked
+        for changes in ({"expires_at": "2000-01-01T00:00:00Z"}, {"account_id": "acct-B"}, {"chatgpt_user_id": None},
+                        {"version": 2}):
+            with self.subTest(changes=changes):
+                self.assertFalse(protect.cache_current(self.payload(**changes), identity))
+        self.assertFalse(protect.cache_current(None, identity))
+
+    def test_linked_documents_are_followed_as_native_follows_them(self):
+        with tempfile.TemporaryDirectory() as temp:
+            real, link, home = Path(temp) / "real.toml", Path(temp) / "requirements.toml", Path(temp) / "account"
+            home.mkdir()
+            real.write_text('chatgpt_base_url = "https://x"\n')
+            link.symlink_to(real)
+            with mock.patch.object(protect, "SYSTEM_REQUIREMENTS", link), \
+                    mock.patch.object(protect, "SYSTEM_MANAGED_CONFIG", Path(temp) / "absent.toml"):
+                self.assertIn("pin chatgpt_base_url", refused(protect.requirement_check, home, self.sqlite))
+            (Path(temp) / "device.toml").symlink_to("/dev/null")
+            self.assertIn("cannot be read", refused(protect.read_document, Path(temp) / "device.toml"))
+
+    def test_managed_configuration_that_would_override_protected_settings_refuses(self):
+        with tempfile.TemporaryDirectory() as temp:
+            managed, home = Path(temp) / "managed_config.toml", Path(temp) / "account"
+            home.mkdir()
+            with mock.patch.object(protect, "SYSTEM_MANAGED_CONFIG", managed), \
+                    mock.patch.object(protect, "SYSTEM_REQUIREMENTS", Path(temp) / "absent.toml"):
+                for text, key in (('sandbox_mode = "workspace-write"\n', "sandbox_mode"),
+                                  ('chatgpt_base_url = "https://x"\n', "chatgpt_base_url"),
+                                  ('[model_providers.quota_gate]\nenv_key = "K"\n', "model_providers.quota_gate"),
+                                  ("[features]\nmemories = true\n", "features.memories"),
+                                  ('web_search = "live"\n', "web_search"), ("analytics = false\n", "analytics.enabled"),
+                                  ('sqlite_home = "/elsewhere"\n', "sqlite_home")):
+                    with self.subTest(text=text):
+                        managed.write_text(text)
+                        message = refused(protect.requirement_check, home, self.sqlite)
+                        self.assertIn("managed configuration", message)
+                        self.assertIn("%s sets %s" % (managed, key), message)
+                for text in ('model = "gpt-5.5"\n[analytics]\nenabled = false\n',
+                             'web_search = "disabled"\nsqlite_home = "/fixture/.codex"\n[otel]\nenvironment = "x"\n'):
+                    with self.subTest(text=text):
+                        managed.write_text(text)
+                        protect.requirement_check(home, self.sqlite)
 
     def test_macos_forced_managed_preferences_are_read_where_present(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -269,8 +406,12 @@ class Requirements(unittest.TestCase):
                 plistlib.dumps({"requirements_toml_base64": encoded}))
             with mock.patch.object(protect, "MANAGED_PREFERENCES", managed), \
                     mock.patch.object(protect, "SYSTEM_REQUIREMENTS", Path(temp) / "absent.toml"), \
+                    mock.patch.object(protect, "SYSTEM_MANAGED_CONFIG", Path(temp) / "absent.toml"), \
                     mock.patch.object(protect.sys, "platform", "darwin"):
                 self.assertIn("application network", refused(protect.requirement_check, home, self.sqlite))
+                config = base64.b64encode(b'sandbox_mode = "read-only"\n').decode()
+                (managed / pwd_name() / protect.MANAGED_DOMAIN).write_bytes(plistlib.dumps({"config_toml_base64": config}))
+                self.assertIn("sets sandbox_mode", refused(protect.requirement_check, home, self.sqlite))
                 (managed / protect.MANAGED_DOMAIN).write_bytes(b"not a plist")
                 self.assertIn("cannot be read", refused(protect.requirement_check, home, self.sqlite))
 
@@ -353,7 +494,7 @@ class Provider(unittest.TestCase):
         self.provider = provider_gate.CodexProvider(ACCOUNT, USER, NATIVE, "/fixture/.codex",
                                                     upstream=kit.Upstream("127.0.0.1", self.upstream.port, tls=False))
         self.decider = provider_gate.Decider(policy())
-        self.gate = kit.Gate(self.provider, self.decider, max_age=120)
+        self.gate = provider_gate.CodexGate(self.provider, self.decider, max_age=120)
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
         listener.listen(32)
@@ -372,7 +513,7 @@ class Provider(unittest.TestCase):
         if isinstance(headers, dict):
             headers = list(headers.items())
         lines += ["%s: %s" % pair for pair in headers]
-        data = b"" if body is None else json.dumps(body).encode()
+        data = b"" if body is None else body if isinstance(body, bytes) else json.dumps(body).encode()
         if body is not None:
             lines.append("Content-Length: %d" % len(data))
         with socket.create_connection(("127.0.0.1", self.port), timeout=10) as sock:
@@ -398,6 +539,15 @@ class Provider(unittest.TestCase):
         self.assertEqual(len(self.model_requests()), 1)
         usage = [r for r in self.upstream.requests if r[1] == "/backend-api/wham/usage"]
         self.assertNotIn("Accept-Encoding", usage[0][2])
+
+    def test_a_body_with_a_duplicate_key_is_refused(self):
+        self.request("GET", "/backend-api/wham/usage")
+        for body in (b'{"model":"gpt-4o","model":"gpt-5.5"}', b'{"model":"gpt-5.5","model":"gpt-4o"}',
+                     b'{"model":"gpt-5.5","input":{"a":1,"a":2}}'):
+            with self.subTest(body=body):
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, body)[0], 503)
+        self.assertEqual(self.model_requests(), [])
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, b'{"model":"gpt-5.5","input":"x"}')[0], 200)
 
     def test_unlisted_routes_and_upgrades_never_reach_upstream(self):
         self.request("GET", "/backend-api/wham/usage")
@@ -521,6 +671,19 @@ class Provider(unittest.TestCase):
         self.assertEqual((status, json.loads(body)), (200, self.upstream.bundle))  # never fabricated
         self.assertEqual(self.gate.status()["reason"], "requirements_application_network")
         self.assertIn("application network", protect.explain("requirements_application_network", {}))
+
+    def test_a_blocking_bundle_applies_although_a_later_quota_read_finished_first(self):
+        self.request("GET", "/backend-api/wham/usage")
+        presented = kit.Presented(kit.Secret(TOKEN), (ACCOUNT,))
+        started = self.gate.last_fresh - 1.0  # both requests started before the usage read that finished first
+        stale = self.provider.usage(200, json.dumps(usage_document(primary=95)).encode(), started)
+        self.assertEqual(self.gate.observe(presented, stale, "forwarded"), "superseded")  # quota data: newer stands
+        verdict = self.provider.bundle(200, json.dumps(bundle("[application.network]\n")).encode(), started)
+        self.assertEqual(self.gate.observe(presented, verdict, "forwarded"), "requirements_application_network")
+        status = self.gate.status()
+        self.assertEqual((status["state"], status["reason"]), ("paused", "requirements_application_network"))
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+        self.assertEqual(self.model_requests(), [])
 
     def test_the_bundle_route_stays_open_while_paused(self):
         self.request("GET", "/backend-api/wham/usage")
@@ -833,12 +996,16 @@ class Unprotected(unittest.TestCase):
                 self.assertIn(text, result.stderr)
                 self.assertEqual(self.home.events(), [])
 
-    def test_a_configured_model_outside_the_reviewed_table_refuses_unless_overridden(self):
+    def test_a_configured_model_outside_the_reviewed_table_refuses_also_through_a_link(self):
         missing = boundary_missing()
-        (self.home.codex_home / "config.toml").write_text('model = "gpt-4o"\n')
+        dotfile, config = self.home.base / "dotfiles-config.toml", self.home.codex_home / "config.toml"
+        dotfile.write_text('model = "gpt-4o"\n')
+        config.unlink()
+        config.symlink_to(dotfile)  # a dotfile manager's link is followed, as native follows it
         terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
         self.addCleanup(terminal.close)
-        terminal.expect("usage reserve protection refused: " + re.escape(missing or "the model gpt-4o is not one"))
+        terminal.expect("usage reserve protection refused: " + re.escape(
+            missing or "the model gpt-4o that %s selects is not one" % config))
         self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
         self.assertEqual(self.home.events(), [])
 
@@ -1046,6 +1213,108 @@ class Protected(Launch):
         else:
             self.fail("a detached descendant outlived the invocation")
 
+    def test_a_tmpdir_inside_the_workspace_refuses_before_anything_starts(self):
+        inside = self.home.work / "tmp"
+        inside.mkdir()
+        terminal = self.start(env={"TMPDIR": str(inside)})
+        terminal.expect("usage reserve protection refused: the temporary directory %s lies inside %s, which the "
+                        "boundary can write; set TMPDIR" % (re.escape(str(inside)), re.escape(str(self.home.work))))
+        self.assertEqual(self.exit_code(), 1)
+        self.assertEqual(self.home.events(), [])
+        self.assertEqual(self.backend.seen(), [])
+        self.assertEqual(list(inside.iterdir()), [])
+
+    def test_reader_specifications_are_out_of_reach_of_the_boundary(self):
+        terminal = self.start()
+        terminal.expect("READY")
+        (private,) = self.home.tmp.glob("codex-as-protect-*")
+        self.assertEqual(stat.S_IMODE(private.stat().st_mode), 0o700)
+        spec = private / "poll.json"
+        self.assertEqual(set(json.loads(spec.read_text())), {"command", "env", "cwd", "mode", "timeout"})
+        for path in (spec, private / "new.json"):
+            terminal.send("write %s\r" % path)
+            terminal.expect("WRITE (13|1)\\b")
+        if os.path.isdir("/proc"):  # the monitor's reader takes its boundary from its argv
+            monitors = [Path("/proc", str(pid), "cmdline").read_bytes().split(b"\0") for pid in leftovers(self.home.base)]
+            monitors = [argv for argv in monitors if any(word.endswith(b"monitor.py") for word in argv)]
+            self.assertTrue(monitors)
+            argv = json.loads(monitors[0][monitors[0].index(b"--reader-argv") + 1])
+            limits = json.loads(argv[argv.index("--confine") + 1])
+            self.assertEqual(set(limits), {"port", "writable", "profile"})
+            self.assertIn(str(self.home.work), limits["writable"])
+            self.assertEqual(argv[-1], str(spec))
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        self.assertFalse(private.exists())
+
+    def test_a_model_override_replaces_the_configured_model(self):
+        (self.home.codex_home / "config.toml").write_text('model = "gpt-4o"\n')
+        terminal = self.start(args=("--reserve-5h", "10", "A", "-c", 'model="gpt-5.5"'))
+        terminal.expect("READY")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+
+    def test_the_repair_restores_a_link_the_native_replaced(self):
+        terminal = self.start()
+        terminal.expect("READY")
+        terminal.send("replace\r")
+        terminal.expect("REPLACED")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        terminal.expect("Codex replaced the account auth.json link with a regular file; credentials were imported")
+        link = self.home.codex_home / "accounts/A/auth.json"
+        self.assertEqual(os.readlink(link), str(self.home.secrets / "codex-A.json"))
+        self.assertEqual(self.home.secret()["tokens"]["refresh_token"], "fixture-refresh-replaced")
+
+    def test_a_refusal_after_the_refresh_still_repairs_the_link(self):
+        self.home.knobs(FAKE_REPLACE_LINK="1")
+        terminal = self.start()
+        self.assertEqual(self.exit_code(), 1)
+        output = terminal.output.decode("utf-8", "replace")
+        self.assertIn("credentials were imported into secrets and the link restored", output)
+        self.assertIn("usage reserve protection refused: the pre-launch credential refresh failed", output)
+        self.assertEqual(self.home.events("tui"), [])
+        link = self.home.codex_home / "accounts/A/auth.json"
+        self.assertEqual(os.readlink(link), str(self.home.secrets / "codex-A.json"))
+        self.assertNotEqual(self.home.secret()["last_refresh"], "2026-10-01T00:00:00Z")
+
+    def test_an_unprotected_client_of_the_account_runs_beside_a_protected_one(self):
+        terminal = self.start()
+        terminal.expect("READY")
+        result = self.home.run(["A", "hello"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.home.events("tui")), 2)
+        terminal.send("turn\r")
+        terminal.expect("TURN 200")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        self.assertNotIn(b"Codex replaced", terminal.output)
+        link = self.home.codex_home / "accounts/A/auth.json"
+        self.assertEqual(os.readlink(link), str(self.home.secrets / "codex-A.json"))
+        info = (self.home.secrets / "codex-A.json").stat()
+        self.assertEqual((info.st_mode & 0o777, info.st_nlink), (0o600, 1))
+
+    def test_the_refresh_waits_for_another_launch_of_the_account(self):
+        locks = self.home.codex_home / "accounts/.locks"
+        locks.mkdir(parents=True, mode=0o700)
+        (self.home.codex_home / "accounts").chmod(0o700)
+        fd = os.open(locks / ".refresh-A.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        self.addCleanup(os.close, fd)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        terminal = self.start()
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            terminal.read(0.1)
+        self.assertEqual(self.backend.seen("/oauth/token"), [])
+        self.assertEqual(self.home.events("refresh"), [])
+        released = time.monotonic()
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        terminal.expect("READY")
+        (refresh,) = self.backend.seen("/oauth/token")
+        self.assertGreater(refresh["at"], released)
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+
 
 REAL_CODEX = shutil.which("codex")
 
@@ -1064,7 +1333,8 @@ def real_version():
 @unittest.skipIf(shutil.which("openssl") is None, "the fixture CA needs openssl")
 @unittest.skipUnless(real_version() == "codex-cli 0.167.2", "needs the reviewed codex 0.167.2 on PATH")
 class RealCodex(Launch):
-    """The reviewed native against loopback fixtures: a model-free protected start."""
+    """The reviewed native against loopback fixtures: a model-free protected start, and the in-TUI
+    /new, /resume and /fork commands (G0 D11) staying behind the gate, the account and the pause."""
 
     real_codex = REAL_CODEX
 
@@ -1094,6 +1364,117 @@ class RealCodex(Launch):
         time.sleep(0.5)
         self.terminal.send(b"\x03")
         self.assertEqual(os.waitstatus_to_exitcode(self.terminal.wait(timeout=30)), 0)
+
+    # The TUI redraws only the cells that change: words of one line may be separated by cursor moves.
+    GAP = r"(?:\s|\x1b\[[0-9;?]*[ -/]*[@-~])+"
+
+    def shows(self, phrase, timeout=60):
+        return self.terminal.expect(self.GAP.join(re.escape(word) for word in phrase.split()), timeout)
+
+    def type(self, text):
+        for char in text:
+            self.terminal.send(char)
+            time.sleep(0.03)
+        time.sleep(0.3)
+        self.terminal.send("\r")
+
+    def settle(self, seconds):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            self.terminal.read(0.1)
+
+    def turn(self, text, timeout=30):
+        """Type a prompt and return the body of the model request of its turn (not its title request)."""
+        self.type(text)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            for request in self.models():
+                body = json.loads(request["body"])
+                users = [item for item in body.get("input", []) if isinstance(item, dict)
+                         and item.get("type") == "message" and item.get("role") == "user"]
+                if users and users[-1].get("content") == [{"type": "input_text", "text": text}]:
+                    self.quiet()
+                    return json.dumps(body["input"])
+            self.terminal.read(0.1)
+        self.fail("no model request for %r; terminal output:\n%s" % (text, self.terminal.output.decode("utf-8", "replace")))
+
+    def quiet(self, seconds=2.0):
+        """Wait until no model request arrived for SECONDS (a turn is followed by its title request)."""
+        count, since = len(self.models()), time.monotonic()
+        while time.monotonic() - since < seconds:
+            self.terminal.read(0.1)
+            if len(self.models()) != count:
+                count, since = len(self.models()), time.monotonic()
+
+    def pause_and_refuse(self, text):
+        """Lose the monitor (a pause), check that a prompt gets the gate's 503 and reaches no upstream,
+        then continue from the launcher terminal."""
+        before = len(self.models())
+        commands = {pid: Path("/proc", str(pid), "cmdline").read_bytes().split(b"\0") for pid in leftovers(self.home.base)}
+        monitors = [pid for pid, argv in commands.items() if any(word.endswith(b"monitor.py") for word in argv)]
+        self.assertTrue(monitors)
+        for pid in monitors:
+            os.kill(pid, signal.SIGKILL)
+        self.terminal.expect("quota reserve paused \\(monitor_")
+        self.terminal.expect("gate restarted paused", timeout=30)
+        self.type(text)
+        self.shows("503 Service Unavailable: quota reserve: model requests are paused")
+        self.settle(2)
+        self.assertEqual(len(self.models()), before)
+        self.terminal.send(F12)
+        code = self.terminal.expect("type ([0-9a-f]{8}) then Enter").group(1).decode()
+        self.terminal.send(code + "\r")
+        self.terminal.expect("fresh quota check passed", timeout=40)
+
+    @unittest.skipUnless(os.path.isdir("/proc"), "finds the monitor through /proc")
+    def test_in_tui_new_resume_and_fork_stay_behind_the_gate_and_the_pause(self):
+        (self.home.codex_home / "config.toml").write_text(  # a current model: no migration prompt at start
+            'model = "gpt-6-sol"\n[projects."%s"]\ntrust_level = "trusted"\n' % self.home.work)
+        self.terminal = self.start(args=("--reserve-5h", "10", "A"))
+        self.terminal.answer = True
+        self.shows("Ask Codex", timeout=90)
+        self.settle(2)
+        self.assertIn("first prompt", self.turn("first prompt"))
+        self.shows("fixture reply")
+        self.type("/new")
+        self.shows("Ask Codex")
+        self.settle(1)
+        self.assertNotIn("first prompt", self.turn("second prompt"))  # a new chat: no earlier turn
+        self.pause_and_refuse("third prompt")
+        self.type("/resume")
+        self.shows("Resume a previous session")
+        self.shows("first prompt")
+        self.settle(1)
+        self.terminal.send(b"\x1b[B")  # by update time: the second chat, then the first one
+        time.sleep(0.5)
+        self.terminal.send("\r")
+        self.shows("Ask Codex")
+        self.settle(2)
+        resumed = self.turn("fourth prompt")
+        self.assertIn("first prompt", resumed)
+        self.assertNotIn("second prompt", resumed)
+        self.pause_and_refuse("fifth prompt")
+        self.type("/fork")
+        self.shows("Fork created")
+        self.settle(1)
+        forked = self.turn("sixth prompt")
+        self.assertIn("first prompt", forked)
+        self.assertIn("fourth prompt", forked)
+        # The refused fifth prompt stays in native's history and goes upstream only now, inside a
+        # turn admitted after the continuation; while paused nothing reached upstream (counted above).
+        self.assertIn("fifth prompt", forked)
+        for request in self.models():  # every model request: account A's bearer and account id, once each
+            headers = [(name.lower(), value) for name, value in request["headers"]]
+            (bearer,) = [value for name, value in headers if name == "authorization"]
+            self.assertEqual([value for name, value in headers if name == "chatgpt-account-id"], ["acct-fixture-A"])
+            claims = json.loads(base64.urlsafe_b64decode(bearer.split(".")[1] + "=="))
+            self.assertEqual(claims["https://api.openai.com/auth"]["chatgpt_account_id"], "acct-fixture-A")
+            self.assertTrue(claims["fixture"].startswith("A1r"))  # a token the fixture's refresh issued
+        self.terminal.send(b"\x03")
+        time.sleep(0.5)
+        self.terminal.send(b"\x03")
+        self.assertEqual(os.waitstatus_to_exitcode(self.terminal.wait(timeout=30)), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
