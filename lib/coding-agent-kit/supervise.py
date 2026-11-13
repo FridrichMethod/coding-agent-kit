@@ -620,8 +620,9 @@ class Supervisor:
     confine: callable(port, argv) -> argv, run in the native's child before exec.
     pid_env: name of an environment variable set to the native's own pid in its child.
     umask: None, or the file mode creation mask the native and every confined command get, set in
-        the child just before exec (codex-as passes the caller's: its launcher runs under 077). The
-        gate, the monitor and the launcher keep the launcher's own, so the kit's files stay private.
+        the child just before exec (codex-as passes the caller's: its launcher runs under 077); the
+        monitor's poll readers get it through --reader-umask. The gate, the monitor and the
+        launcher keep the launcher's own, so the kit's files stay private.
     style: callable(text) -> text for the launcher's terminal messages (the kit colour policy).
     restart_limit, restart_window: at most this many gate restarts per window seconds; past it the
         launcher asks once for a relaunch and stays paused until the window frees a restart.
@@ -889,6 +890,8 @@ class Supervisor:
             argv += ["--reader-argv", json.dumps(self.monitor_reader)]
             if self.monitor_reader_timeout:
                 argv += ["--reader-timeout", str(self.monitor_reader_timeout)]
+            if self.umask is not None:  # a poll reader is a confined command too
+                argv += ["--reader-umask", "%03o" % self.umask]
         try:
             self.monitor_pid = self.spawn(argv, self.gate_env, fds=[sock.fileno()], cwd="/")
         finally:

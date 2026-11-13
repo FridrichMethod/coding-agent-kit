@@ -1434,10 +1434,30 @@ class MonitorUnit(unittest.TestCase):
     def test_options(self):
         options = self.monitor.parse(["--fd", "5", "--reader-argv", '["a", "b"]'])
         self.assertEqual((options["--fd"], options["--reader-argv"], options["--heartbeat"]), (5, ["a", "b"], 0.25))
+        self.assertIsNone(options["--reader-umask"])
+        self.assertEqual(self.monitor.parse(["--fd", "5", "--reader-umask", "022"])["--reader-umask"], 0o022)
+        self.assertEqual(self.monitor.parse(["--reader-umask", "0", "--fd", "5"])["--reader-umask"], 0)
         for argv in ([], ["--fd"], ["--fd", "5", "--fd", "6"], ["--fd", "5", "--poll", "0"],
-                     ["--fd", "5", "--reader-argv", "[]"], ["--fd", "5", "--other", "1"]):
+                     ["--fd", "5", "--reader-argv", "[]"], ["--fd", "5", "--other", "1"],
+                     ["--fd", "5", "--reader-umask", "1000"], ["--fd", "5", "--reader-umask", "8"],
+                     ["--fd", "5", "--reader-umask", "-1"], ["--fd", "5", "--reader-umask", "0o22"]):
             with self.subTest(argv=argv), self.assertRaises((ValueError, TypeError)):
                 self.monitor.parse(argv)
+
+    def test_a_reader_gets_the_umask_it_is_given(self):
+        """Poll readers are confined commands like the launcher's own reads: with --reader-umask they
+        create files under the caller's umask, not the launcher's 077."""
+        old = os.umask(0o077)
+        self.addCleanup(os.umask, old)
+        stop = threading.Event()
+        with tempfile.TemporaryDirectory() as directory:
+            seen = Path(directory) / "umask"
+            code = "import os, sys; open(sys.argv[1], 'w').write(oct(os.umask(0)))"
+            reader = [sys.executable, "-I", "-B", "-c", code, str(seen)]
+            self.assertTrue(self.monitor.run_reader(reader, 10, stop, umask=0o022))
+            self.assertEqual(seen.read_text(), "0o22")
+            self.assertTrue(self.monitor.run_reader(reader, 10, stop))
+            self.assertEqual(seen.read_text(), "0o77")
 
     def test_reader_timeout_kills_the_reader_group(self):
         stop = threading.Event()

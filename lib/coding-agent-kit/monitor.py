@@ -5,12 +5,13 @@ alone. Every HEARTBEAT seconds it sends {"op": "hb"} to the gate on its inherite
 own thread, so a slow quota read never delays liveness (the gate latches when the heartbeat stops
 for longer than its liveness lease, or at EOF). Quota polls are separate: when one is due it asks
 the gate to poll ({"op": "poll"}) or, with --reader-argv, runs the provider's reader command (its
-own session, no terminal, killed with its group after --reader-timeout) and then reports
-{"op": "polled", "ok": B}. The gate answers each with {"op": "next", "after": SECONDS}, which sets
-the next poll; until it does, polls follow --poll. EOF from the gate ends the monitor.
+own session, no terminal, the umask --reader-umask gives in octal or else the monitor's own,
+killed with its group after --reader-timeout) and then reports {"op": "polled", "ok": B}. The gate
+answers each with {"op": "next", "after": SECONDS}, which sets the next poll; until it does, polls
+follow --poll. EOF from the gate ends the monitor.
 
     python3 -I -B monitor.py --fd N [--heartbeat S] [--poll S] [--reader-argv JSON]
-                             [--reader-timeout S]
+                             [--reader-timeout S] [--reader-umask OCTAL]
 """
 
 import json
@@ -32,7 +33,7 @@ LINE_LIMIT = 64 * 1024
 
 def parse(argv):
     options = {"--heartbeat": HEARTBEAT, "--poll": POLL, "--reader-timeout": READER_TIMEOUT,
-               "--reader-argv": None}
+               "--reader-argv": None, "--reader-umask": None}
     seen, index = set(), 0
     while index < len(argv):
         name = argv[index]
@@ -47,6 +48,12 @@ def parse(argv):
             if not isinstance(reader, list) or not reader or not all(isinstance(word, str) for word in reader):
                 raise ValueError("usage")
             options[name] = reader
+        elif name == "--reader-umask":
+            if not 1 <= len(value) <= 4 or not all(digit in "01234567" for digit in value):
+                raise ValueError("usage")
+            options[name] = int(value, 8)
+            if options[name] > 0o777:
+                raise ValueError("usage")
         else:
             options[name] = float(value)
             if not 0 < options[name] <= 3600:
@@ -57,11 +64,13 @@ def parse(argv):
     return options
 
 
-def run_reader(argv, timeout, stop):
-    """Run one reader command; True when it exits 0 within timeout. Its group dies on timeout."""
+def run_reader(argv, timeout, stop, umask=None):
+    """Run one reader command, with UMASK when given; True when it exits 0 within timeout. Its
+    group dies on timeout."""
     try:
         process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.DEVNULL, start_new_session=True)
+                                   stderr=subprocess.DEVNULL, start_new_session=True,
+                                   umask=-1 if umask is None else umask)
     except OSError:
         return False
     deadline = time.monotonic() + timeout
@@ -85,7 +94,7 @@ def main(argv):
         options = parse(argv)
     except (ValueError, TypeError):
         print("usage: monitor.py --fd N [--heartbeat S] [--poll S] [--reader-argv JSON] "
-              "[--reader-timeout S]", file=sys.stderr)
+              "[--reader-timeout S] [--reader-umask OCTAL]", file=sys.stderr)
         return 2
     sock = socket.socket(fileno=options["--fd"])
     stop, changed = threading.Event(), threading.Event()
@@ -138,7 +147,7 @@ def main(argv):
         if stop.is_set():
             break
         if options["--reader-argv"]:
-            ok = run_reader(options["--reader-argv"], options["--reader-timeout"], stop)
+            ok = run_reader(options["--reader-argv"], options["--reader-timeout"], stop, options["--reader-umask"])
             send({"op": "polled", "ok": ok})
         else:
             send({"op": "poll"})

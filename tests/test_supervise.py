@@ -590,6 +590,29 @@ class Spawn(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 supervise.Supervisor(["gate"], {}, umask=bad)
 
+    def test_the_monitor_passes_the_callers_umask_to_its_poll_readers(self):
+        """A poll reader is a confined command like the adapter's own reads, so it gets the umask the
+        adapter passed; without one, or without a reader, the monitor is told nothing."""
+        seen = []
+
+        def spawn(argv, env, **options):
+            seen.append(argv)
+            raise OSError(errno.ENOENT, "not started")
+
+        def monitor_argv(umask, reader):
+            sup = supervise.Supervisor(["gate"], {}, umask=umask)
+            sup.monitor_reader, sup.spawn = reader, spawn
+            left, right = socket.socketpair()
+            self.addCleanup(left.close)
+            with self.assertRaises(OSError):
+                sup.start_monitor(right)
+            return seen[-1]
+
+        argv = monitor_argv(0o022, ["/reader", "--confine"])
+        self.assertEqual(argv[argv.index("--reader-umask") + 1], "022")
+        self.assertNotIn("--reader-umask", monitor_argv(None, ["/reader", "--confine"]))
+        self.assertNotIn("--reader-umask", monitor_argv(0o022, None))  # the gate polls itself
+
     def test_exec_failure_and_hook_refusal(self):
         sup = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv)
         with self.assertRaises(OSError):
