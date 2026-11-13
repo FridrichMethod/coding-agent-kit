@@ -981,13 +981,8 @@ class GateProvider(unittest.TestCase):
                       "fabricated-refresh"):
             self.assertNotIn(token, text)
 
-    @unittest.expectedFailure
     def test_gate_fetch_survives_a_connection_close_reply(self):
-        """Known defect of the shared gate core (lib/coding-agent-kit/gate.py, Gate.fetch): http.client
-        closes the connection's socket when a reply says Connection: close, and the read loop's next
-        settimeout() fails with EBADF, so every such quota read is upstream_unavailable. Real servers
-        commonly answer a request that says Connection: close this way. Remove expectedFailure once the
-        core is fixed."""
+        """A quota read whose reply says Connection: close, as real servers commonly answer, starts the gate."""
         self.upstream.close_header = True
         _, g = self.started()
         self.assertEqual(g.state, "running", g.status())
