@@ -1126,6 +1126,80 @@ class ProtectScreens(unittest.TestCase):
             self.assertIn("did not answer", self.refused(protect.native_version, str(Path(temp) / "absent"), env))
 
 
+class MacosTemporaryCleanup(unittest.TestCase):
+    """The end-of-invocation cleanup of Claude's fixed /private/tmp/claude-UID, which a boundary process
+    can replace (its subpath rule covers the entry itself). The launcher runs outside the boundary, so it
+    removes only this invocation's entry, by descriptor, beneath the very directory it recorded before
+    the native started; these cases use a temporary root on any host."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.base = Path(temp.name).resolve()
+        self.root = self.base / "claude-501"
+        self.cwd = "/Users/me/proj.x"
+        self.name = "-Users-me-proj-x"
+        self.outside = self.base / "home/.claude/projects"  # what a link would expose: another session's history
+        (self.outside / self.name).mkdir(parents=True)
+        (self.outside / self.name / "session.jsonl").write_text("history")
+
+    def snapshot(self):
+        return protect.macos_temp_snapshot(str(self.root))
+
+    def clean(self, snapshot):
+        protect.clean_macos_temp(str(self.root), snapshot, self.cwd)
+
+    def assertOutsideIntact(self):
+        self.assertEqual((self.outside / self.name / "session.jsonl").read_text(), "history")
+
+    def test_only_this_invocations_new_entry_is_removed(self):
+        self.assertEqual(protect.temp_entry_name(self.cwd), self.name)
+        snapshot = self.snapshot()  # an absent root is created as native creates it, so it can be recorded
+        self.assertEqual(stat.S_IMODE(self.root.stat().st_mode), 0o700)
+        (self.root / self.name / "sub").mkdir(parents=True)
+        (self.root / self.name / "sub" / "out.txt").write_text("x")
+        (self.root / self.name / "link").symlink_to(self.outside)  # a link inside is removed, never followed
+        (self.root / "-other-session").mkdir()
+        self.clean(snapshot)
+        self.assertEqual(sorted(os.listdir(self.root)), ["-other-session"])
+        self.assertOutsideIntact()
+
+    def test_an_entry_that_existed_before_the_native_started_stays(self):
+        (self.root / self.name).mkdir(parents=True)
+        snapshot = self.snapshot()
+        (self.root / self.name / "new.txt").write_text("x")
+        self.clean(snapshot)
+        self.assertTrue((self.root / self.name / "new.txt").exists())
+
+    def test_a_root_replaced_by_a_link_is_never_followed(self):
+        snapshot = self.snapshot()
+        shutil.rmtree(self.root)
+        self.root.symlink_to(self.outside)  # what `rm -rf ROOT; ln -s ~/.claude/projects ROOT` leaves
+        self.clean(snapshot)
+        self.assertOutsideIntact()
+
+    def test_a_swapped_root_is_left_alone(self):
+        snapshot = self.snapshot()
+        self.root.rename(self.base / "claude-501.old")  # keeps the recorded directory, so the inode differs
+        (self.root / self.name).mkdir(parents=True)
+        self.clean(snapshot)
+        self.assertTrue((self.root / self.name).is_dir())
+
+    def test_an_entry_replaced_by_a_link_is_never_followed(self):
+        snapshot = self.snapshot()
+        (self.root / self.name).symlink_to(self.outside / self.name)
+        self.clean(snapshot)
+        self.assertOutsideIntact()
+        self.assertTrue((self.root / self.name).is_symlink())
+
+    def test_a_root_that_is_a_link_before_the_native_starts_records_nothing(self):
+        self.root.symlink_to(self.outside)
+        self.assertIsNone(self.snapshot())
+        self.clean(None)
+        self.assertOutsideIntact()
+        self.assertEqual(os.listdir(self.outside), [self.name])  # nothing was created through the link
+
+
 class ProtectedRefusals(Kit):
     """Refusals of the real launcher before any port, gate or native under the boundary."""
 

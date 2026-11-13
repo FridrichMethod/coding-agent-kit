@@ -50,9 +50,12 @@ the native resolve it once. While the run lasts the launcher's own PATH is the s
 
 macOS: Claude's Bash tool writes /private/tmp/claude-UID/<cwd with every non-alphanumeric byte as ->
 whatever TMPDIR says. That directory is writable inside the boundary, and at the end the entry named
-after this working directory is removed when it did not exist before the native started. Limits: a
-same-directory Claude session started meanwhile may be using that entry too, and when the entry
-existed before, what this invocation wrote inside it stays.
+after this working directory is removed when it did not exist before the native started. The
+launcher records the directory (creating it, 0700, when absent) just before the native starts and
+removes the entry by descriptor beneath that same directory only: a boundary process can replace the
+directory or the entry with a link, and the launcher, outside the boundary, then removes nothing.
+Limits: a same-directory Claude session started meanwhile may be using that entry too, and when the
+entry existed before, what this invocation wrote inside it stays.
 
 A refusal raises ValueError with one line (launch.py prints it, exit 1); nothing ran under the
 boundary then. Afterwards launch() returns the native's exit status (or leaves by the native's signal).
@@ -66,6 +69,7 @@ from pathlib import Path
 import pwd
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -103,6 +107,7 @@ SUBCOMMANDS = {"agents", "api", "apply-project-settings", "attach", "auth", "aut
 ENV_REFUSED = ("CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE", "CLAUDE_CODE_PROCESS_WRAPPER",
                "CLAUDE_CODE_HTTP_PROXY", "CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_CONFIG_DIR", "CLAUDE_CODE_TMPDIR")
 PLAIN = re.compile(r"-[A-Za-z0-9_.,:/@+-]*")
+DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 # Empty in every launch: only the in-process test driver (tests/fixtures/claude-reserve) sets these, to
 # point the gate at loopback fakes. No environment variable or file reaches them.
 GATE_EXTRA, REFRESH_EXTRA = {}, {}
@@ -244,27 +249,76 @@ def reach(writable, sandbox, uid, darwin):
     return result
 
 
-def macos_temp_entries(uid):
-    root = "/private/tmp/claude-%d" % uid
+def temp_entry_name(cwd):
+    """The entry Claude's Bash tool uses in /private/tmp/claude-UID for a working directory."""
+    return re.sub(r"[^A-Za-z0-9]", "-", cwd)
+
+
+def _owned_directory(path):
+    """A descriptor of PATH when it is a real directory (never through a link) owned by this user."""
+    fd = os.open(path, DIRECTORY)
     try:
-        return root, set(os.listdir(root))
+        info = os.fstat(fd)
+        if stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid():
+            return fd, info
     except OSError:
-        return root, set()
+        pass
+    os.close(fd)
+    raise OSError("not an owned directory")
 
 
-def clean_macos_temp(root, before, cwd):
+def macos_temp_snapshot(root):
+    """((st_dev, st_ino), entry names) of Claude's fixed temporary directory, taken just before the
+    native starts; None when it is not an owned real directory. An absent one is created first (0700,
+    as native creates it), so that the cleanup can recognize it."""
+    try:
+        os.mkdir(root, 0o700)
+    except FileExistsError:
+        pass
+    except OSError:
+        return None
+    try:
+        fd, info = _owned_directory(root)
+    except OSError:
+        return None
+    try:
+        return (info.st_dev, info.st_ino), frozenset(os.listdir(fd))
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def clean_macos_temp(root, snapshot, cwd):
     """Remove this invocation's entry in Claude's fixed /private/tmp/claude-UID: the one named after the
-    working directory, and only when it did not exist before the native started."""
-    name = re.sub(r"[^A-Za-z0-9]", "-", cwd)
-    path = os.path.join(root, name)
+    working directory, only when it did not exist at the snapshot, and only beneath the directory the
+    snapshot recorded. A boundary process can replace that directory or the entry (the profile's rule
+    covers them), so everything goes through a descriptor opened without following links, and a
+    replaced, linked or foreign directory is left alone."""
+    if snapshot is None:
+        return
+    identity, before = snapshot
+    name = temp_entry_name(cwd)
     if name in before:
         return
     try:
-        info = os.lstat(path)
+        fd, info = _owned_directory(root)
     except OSError:
         return
-    if os.path.isdir(path) and not os.path.islink(path) and info.st_uid == os.getuid():
-        shutil.rmtree(path, ignore_errors=True)
+    try:
+        if (info.st_dev, info.st_ino) != identity:
+            return
+        try:
+            entry = os.stat(name, dir_fd=fd, follow_symlinks=False)
+        except OSError:
+            return
+        if stat.S_ISDIR(entry.st_mode) and entry.st_uid == os.getuid():
+            try:
+                shutil.rmtree(name, ignore_errors=True, dir_fd=fd)  # descriptor-based: follows no link
+            except NotImplementedError:  # no descriptor-based removal on this platform: leave it
+                pass
+    finally:
+        os.close(fd)
 
 
 def organization_message(paths, machine=False):
@@ -388,7 +442,7 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                                    heartbeat=reserve.HEARTBEAT, style=style)
         print(style("claude-as: " + policy.describe() + "; protected mode: only the request gate is reachable, "
                     "and after a pause F12 then the code shown asks for a fresh check."), file=sys.stderr)
-        before = None
+        temp = None
         try:
             port = sup.prepare()
             if darwin:
@@ -406,7 +460,8 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
             settings["env"] = {"ANTHROPIC_BASE_URL": gate_url}
             native_env["ANTHROPIC_BASE_URL"] = gate_url
             if darwin:
-                temp_root, before = macos_temp_entries(uid)
+                root = sandbox.claude_temp(uid)
+                temp = root, macos_temp_snapshot(root)
             status = sup.run([executable, "--settings", json.dumps(settings, separators=(",", ":")), *args],
                              native_env, cwd=cwd)
         except supervise.Refused as error:
@@ -417,8 +472,8 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
             refuse(str(error))
         finally:
             sup.close()
-            if before is not None:
-                clean_macos_temp(temp_root, before, cwd)
+            if temp is not None:
+                clean_macos_temp(*temp, cwd)
         return status
     finally:
         shutil.rmtree(private_tmp, ignore_errors=True)
