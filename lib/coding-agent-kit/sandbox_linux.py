@@ -62,8 +62,9 @@ Public API (load this file by path; it is never on sys.path):
         before the native command, which is empty here (the macOS module
         returns its sandbox-exec prefix). Every host and input refusal comes
         before anything changes; a Refusal of kind "descriptors" or
-        "enforcement" may follow a partial confinement, so after any Refusal
-        the caller exits without starting the native. Those two kinds come
+        "enforcement", or of kind "path" when a writable path changed after
+        it was resolved, may follow a partial confinement, so after any
+        Refusal the caller exits without starting the native. Those come
         after every descriptor above 2 is closed, close-on-exec ones such as
         a status pipe included, so the supervisor learns of them only from
         the exit status and what the child writes to fd 0-2.
@@ -80,7 +81,10 @@ Public API (load this file by path; it is never on sys.path):
         each device in DEVICES that exists. A path that resolves through a
         link inside a writable path refuses: a process inside a previous
         boundary could have put it there, and confine() resolves the paths
-        again on every start (codex-as confines each quota reader).
+        again on every start (codex-as confines each quota reader). The
+        link check and the resolution are one walk (walk()), and confine()
+        opens each resolved path without following links (open_rule_path()),
+        so a link put there while a boundary runs refuses too.
     ruleset_plan(abi, gate_port, rules) -> dict
         The Landlock ruleset confine() creates.
     seccomp_program(arch) -> list
@@ -114,6 +118,7 @@ DEVICES = ("/dev/null", "/dev/tty", "/dev/ptmx", "/dev/pts", "/dev/shm")
 # Landlock (include/uapi/linux/landlock.h). The syscall numbers are the same on x86_64 and aarch64.
 SYS_LANDLOCK_CREATE_RULESET, SYS_LANDLOCK_ADD_RULE, SYS_LANDLOCK_RESTRICT_SELF = 444, 445, 446
 SYS_CLOSE_RANGE = 436
+SYS_OPENAT2, AT_FDCWD, RESOLVE_NO_SYMLINKS = 437, -100, 0x04  # openat2(2); the same on both arches
 LANDLOCK_CREATE_RULESET_VERSION = 1 << 0
 RULE_PATH_BENEATH, RULE_NET_PORT = 1, 2
 FS_WRITE_FILE = 1 << 1
@@ -292,9 +297,10 @@ def check_inputs(gate_port, writable_paths, provider):
         raise Refusal("input", "the writable paths must be a list of strings")
 
 
-def links_on_the_way(path, hops=40):
-    """The links that resolving the absolute PATH goes through, in order (physical "..", relative
-    and absolute targets, at most HOPS links)."""
+def walk(path, hops=40):
+    """(links, resolved) for the absolute PATH: the links its resolution goes through, in order
+    (physical "..", relative and absolute targets, at most HOPS links), and the path it resolves to
+    by that same walk, which names no link as the walk found it."""
     links, current, parts = [], "/", [part for part in path.split("/") if part not in ("", ".")]
     while parts:
         part = parts.pop(0)
@@ -313,7 +319,7 @@ def links_on_the_way(path, hops=40):
         links.append(name)
         parts[:0] = [item for item in target.split("/") if item not in ("", ".")]
         current = "/" if target.startswith("/") else current
-    return links
+    return links, current
 
 
 def writable_rules(paths):
@@ -321,7 +327,9 @@ def writable_rules(paths):
 
     Every confined start resolves the paths again, after processes inside may have run: a path
     whose resolution goes through a link inside a writable path (which such a process could have
-    put there) refuses, so a nested writable path replaced by a link never widens the boundary."""
+    put there) refuses. The check and the resolution are one walk, and confine() opens each
+    resolved path without following links (open_rule_path), so a nested writable path replaced by
+    a link, before or during the start, never widens the boundary."""
     rules, seen = [], set()
 
     def add(real, mode):
@@ -332,23 +340,21 @@ def writable_rules(paths):
     for path in paths:
         if not path.startswith("/") or "\0" in path:
             raise Refusal("path", "a writable path must be absolute: %s" % ascii(path))
-    roots = [os.path.realpath(path) for path in paths]
+    walks = [walk(path) for path in paths]
+    roots = [real for _, real in walks]
     if "/" in roots:
         raise Refusal("path", "the whole filesystem cannot be writable inside the boundary")
-    for path in paths:
-        for link in links_on_the_way(path):
+    for path, (links, real) in zip(paths, walks):
+        for link in links:
             for root in roots:
                 if link == root or link.startswith(root.rstrip("/") + "/"):
                     raise Refusal("path", "the writable path %s goes through %s, a link inside the writable path "
                                   "%s, which a process inside the boundary could have replaced"
                                   % (ascii(path), ascii(link), ascii(root)))
-        real = os.path.realpath(path)
         try:
             mode = os.stat(real).st_mode
         except OSError as error:
             raise Refusal("path", "the writable path %s cannot be used: %s" % (ascii(path), error.strerror)) from None
-        if real == "/":
-            raise Refusal("path", "the whole filesystem cannot be writable inside the boundary")
         add(real, mode)
     for device in DEVICES:
         try:
@@ -356,6 +362,17 @@ def writable_rules(paths):
         except OSError:
             pass
     return tuple(rules)
+
+
+def open_rule_path(path):
+    """An O_PATH descriptor of the resolved PATH, opened by openat2 with RESOLVE_NO_SYMLINKS, so a
+    link put on the way after writable_rules() resolved it refuses instead of moving the rule."""
+    how = ctypes.create_string_buffer(struct.pack("=QQQ", os.O_PATH | os.O_CLOEXEC, 0, RESOLVE_NO_SYMLINKS), 24)
+    try:
+        return _syscall(SYS_OPENAT2, AT_FDCWD, os.fsencode(path), how, 24)
+    except OSError as error:
+        raise Refusal("path", "the writable path %s changed while the boundary was built: %s"
+                      % (ascii(path), error.strerror)) from None
 
 
 def ruleset_plan(abi, gate_port, rules):
@@ -496,7 +513,7 @@ def confine(gate_port, writable_paths, provider):
         raise Refusal("enforcement", "the Landlock ruleset could not be created: %s" % error.strerror) from None
     try:
         for path, rights in plan["paths"]:
-            fd = os.open(path, os.O_PATH | os.O_CLOEXEC)
+            fd = open_rule_path(path)
             try:
                 beneath = ctypes.create_string_buffer(struct.pack("=Qi", rights, fd), 12)
                 _syscall(SYS_LANDLOCK_ADD_RULE, ruleset, RULE_PATH_BENEATH, beneath, 0)

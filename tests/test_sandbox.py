@@ -222,6 +222,34 @@ class LinuxInputs(unittest.TestCase):
             linux.writable_rules(paths)
         self.assertIn(str(outer / "deep"), str(caught.exception))
 
+    def test_the_link_check_and_the_resolution_are_one_walk(self):
+        (self.base / "real/sub").mkdir(parents=True)
+        (self.base / "abs").symlink_to(self.base / "real")
+        (self.base / "rel").symlink_to("real/sub/..")
+        (self.base / "chain").symlink_to("abs")
+        for name, links in (("real/sub", []), ("abs/sub", ["abs"]), ("rel", ["rel"]),
+                            ("chain/sub/../sub", ["chain", "abs"]), ("missing/x", [])):
+            with self.subTest(name=name):
+                path = str(self.base / name)
+                self.assertEqual(linux.walk(path), ([str(self.base / link) for link in links],
+                                                    os.path.realpath(path)))
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "openat2 is Linux's")
+    def test_a_rule_path_is_opened_without_following_links(self):
+        """confine() opens every resolved writable path with RESOLVE_NO_SYMLINKS, so a link put on
+        the way after writable_rules resolved it refuses instead of moving the rule."""
+        (self.base / "work").mkdir()
+        (self.base / "link").symlink_to(self.base / "work")
+        fd = linux.open_rule_path(str(self.base / "work"))
+        try:
+            self.assertEqual(os.fstat(fd).st_ino, (self.base / "work").stat().st_ino)
+        finally:
+            os.close(fd)
+        for path in (self.base / "link", self.base / "link/.."):
+            with self.subTest(path=path), self.assertRaises(linux.Refusal) as caught:
+                linux.open_rule_path(str(path))
+            self.assertEqual(caught.exception.kind, "path")
+
     def test_rights_never_cover_reads_execution_or_device_ioctl(self):
         unhandled = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 15)
         self.assertEqual(linux.DIR_RIGHTS & unhandled, 0)
@@ -361,6 +389,17 @@ loader = importlib.util.spec_from_file_location("sandbox_under_test", spec["modu
 module = importlib.util.module_from_spec(loader)
 loader.loader.exec_module(module)
 options = {"tested": module.Tested(profile=spec["tested"], answers={})} if "tested" in spec else {}
+if "swap" in spec:  # a process inside replaces a writable path with a link once it is resolved
+    resolve = module.writable_rules
+
+    def writable_rules(paths):
+        rules = resolve(paths)
+        path, target = spec["swap"]
+        os.rmdir(path)
+        os.symlink(target, path)
+        return rules
+
+    module.writable_rules = writable_rules
 try:
     prefix = module.confine(spec["gate"], spec["writable"], spec["provider"], **options)
 except module.Refusal as refusal:
@@ -652,6 +691,21 @@ class LinuxEnforcement(unittest.TestCase):
         self.assertEqual(os.listdir(self.base / "outside"), ["kept"])
         self.assertEqual((self.base / "outside/kept").read_text(), "outside")
         self.assertIsNone(self.outsider.poll())
+
+    def test_a_writable_path_replaced_by_a_link_after_it_was_resolved_refuses(self):
+        """A process in the running boundary may swap a nested writable path for a link to HOME
+        between writable_rules() and the rule's open; the next confined start then refuses instead
+        of granting writes beneath HOME."""
+        nested = self.base / "inside/sqlite"
+        nested.mkdir()
+        argv = [sys.executable, "-I", "-B", "-c",
+                "import sys; open(sys.argv[1], 'w').write('widened')", str(self.base / "outside/escaped")]
+        spec = self.spec(argv, writable=[str(self.base / "inside"), str(nested)],
+                         swap=[str(nested), str(self.base / "outside")])
+        done = self.run_child(spec, stdin=subprocess.DEVNULL)
+        self.assertEqual(done.returncode, 3, done.stdout + done.stderr)
+        self.assertEqual(json.loads(done.stdout.strip().splitlines()[-1])["refused"], "path")
+        self.assertFalse((self.base / "outside/escaped").exists())
 
     def test_socket_stdio_refuses_before_anything_changes(self):
         first, second = socket.socketpair()
