@@ -23,8 +23,9 @@ to exec the native, in this order:
   UDP, raw, MPTCP and SCTP sockets fail with EPROTONOSUPPORT, every other
   family and every AF_UNIX socket() with EAFNOSUPPORT, TCP Fast Open sends
   (they connect without the connect hook) with EOPNOTSUPP, io_uring with
-  ENOSYS and ioctl(TIOCSTI) with EPERM. A syscall of another architecture
-  kills the process.
+  ENOSYS and ioctl(TIOCSTI) with EPERM, whatever dev.tty.legacy_tiocsti
+  says, so no process inside can queue input for a shell outside. A syscall
+  of another architecture kills the process.
 
 Landlock names a port, not an address: an outside listener on the gate port
 at another loopback address stays reachable, so the launcher holds the port
