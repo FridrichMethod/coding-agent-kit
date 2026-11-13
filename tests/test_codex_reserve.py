@@ -1078,9 +1078,14 @@ class Home:
         (self.codex_home / "fake-codex.json").write_text(json.dumps(values))
 
     def config(self, text):
+        """The kit configuration file, private whatever the caller's umask: the loader refuses a
+        group-writable one unless the group is the user's private group, which a macOS group is not."""
         path = self.home / ".config/coding-agent-kit"
         path.mkdir(parents=True, exist_ok=True)
+        for directory in (path.parent, path):
+            directory.chmod(0o700)
         (path / "config.toml").write_text(text)
+        (path / "config.toml").chmod(0o600)
 
     def run(self, args, timeout=30, env=None):
         """A launch without a terminal (stdin is /dev/null)."""
