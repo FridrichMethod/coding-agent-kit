@@ -57,6 +57,7 @@ kit = provider_gate.kit
 reserve = provider_gate.reserve
 backend = load("backend", FIXTURES / "backend.py")
 layout = load("layout", ROOT / "lib/codex-as/layout.py")
+supervise = load("supervise", ROOT / "lib/coding-agent-kit/supervise.py")
 NATIVE = protect.V0_167_2
 
 
@@ -226,6 +227,26 @@ class Screen(unittest.TestCase):
                 hook(50123, ["codex"])
             self.assertIn("%s no longer resolves to itself" % inner, str(caught.exception))
             self.assertEqual(calls, [paths])
+
+    def test_the_gate_takes_the_proxy_codex_would_use_for_https(self):
+        """Codex reads HTTPS_PROXY, then ALL_PROXY (either spelling) for its HTTPS connections, and
+        HTTP_PROXY only for http:// URLs; the gate's upstream connections follow it."""
+        for env, expected in (({}, None),
+                              ({"HTTPS_PROXY": "http://a.test:1", "ALL_PROXY": "http://b.test:2"}, ("a.test", 1, ())),
+                              ({"https_proxy": "http://a.test:1", "HTTP_PROXY": "socks5h://c.test:3"}, ("a.test", 1, ())),
+                              ({"ALL_PROXY": "http://b.test:2", "HTTP_PROXY": "http://c.test:3"}, ("b.test", 2, ())),
+                              ({"all_proxy": "http://b.test:2", "NO_PROXY": ".chatgpt.com"},
+                               ("b.test", 2, ((".chatgpt.com",),))),
+                              ({"HTTP_PROXY": "socks5h://c.test:3", "http_proxy": "http://c.test:3"}, None)):
+            with self.subTest(env=env):
+                self.assertEqual(protect.gate_proxy(supervise, kit.parse_proxy, env), expected)
+        for env, reason in (({"ALL_PROXY": "socks5h://b.test:2"}, "unsupported ALL_PROXY"),
+                            ({"HTTPS_PROXY": "http://a.test:1", "https_proxy": "http://b.test:2"},
+                             "HTTPS_PROXY and https_proxy differ")):
+            with self.subTest(env=env), self.assertRaises(supervise.Refused) as caught:
+                protect.gate_proxy(supervise, kit.parse_proxy, env)
+            self.assertIn(reason, caught.exception.reason)
+            self.assertNotIn("b.test", caught.exception.reason)
 
     def test_the_launcher_runs_commands_by_name_from_system_directories_only_while_protected(self):
         with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
@@ -1156,6 +1177,21 @@ def leftovers(base):
     return found
 
 
+def command_lines(base):
+    """{pid: command line} of the processes whose command line names the test root."""
+    lines = {}
+    for pid in leftovers(base):
+        try:
+            if os.path.isdir("/proc"):
+                lines[pid] = Path("/proc", str(pid), "cmdline").read_bytes().replace(b"\0", b" ").decode()
+            else:
+                lines[pid] = subprocess.run(["ps", "-ww", "-o", "command=", "-p", str(pid)], capture_output=True,
+                                            text=True).stdout.strip()
+        except OSError:
+            continue
+    return lines
+
+
 class Unprotected(unittest.TestCase):
     """Launches with every window off are byte-identical to today's; refusals need no boundary."""
 
@@ -1477,6 +1513,44 @@ class Protected(Launch):
             time.sleep(0.05)
         else:
             self.fail("a detached descendant outlived the invocation")
+
+    def test_the_gate_reaches_upstream_through_all_proxy_as_codex_would(self):
+        """With no HTTPS_PROXY, Codex uses ALL_PROXY for HTTPS and ignores HTTP_PROXY, so the gate
+        does too (an unusable HTTP_PROXY would refuse under any other order); the native and its
+        readers never see the caller's proxy."""
+        del self.home.env["HTTPS_PROXY"]
+        terminal = self.start(env={"ALL_PROXY": "http://127.0.0.1:%d" % self.proxy.port,
+                                   "HTTP_PROXY": "socks5h://127.0.0.1:1"})
+        terminal.expect("READY")
+        terminal.send("turn\r")
+        terminal.expect("TURN 200")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        self.assertIn("auth.openai.com:443", self.proxy.targets)  # the pre-launch refresh
+        self.assertIn("chatgpt.com:443", self.proxy.targets)  # quota reads and the model request
+        (tui,) = self.home.events("tui")
+        self.assertEqual(tui["env_proxy"], [])
+
+    def test_the_native_and_its_readers_keep_the_callers_umask(self):
+        """The launcher runs under 077, but what the native and every confined command (the quota
+        readers the monitor starts included) create follows the caller's umask, as unprotected."""
+        old = os.umask(0o027)
+        try:
+            terminal = self.start()
+        finally:
+            os.umask(old)
+        terminal.expect("READY")
+        monitors = [line for line in command_lines(self.home.base).values() if "monitor.py" in line]
+        self.assertEqual(len(monitors), 1, monitors)
+        self.assertIn(" --reader-umask 027", monitors[0])
+        target = self.home.work / "made-in-session.txt"
+        terminal.send("write %s\r" % target)
+        terminal.expect("WRITE ok")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o640)
+        info = (self.home.secrets / "codex-A.json").stat()  # the refreshed credential stays private
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o600)
 
     def test_a_tmpdir_inside_the_workspace_refuses_before_anything_starts(self):
         inside = self.home.work / "tmp"

@@ -24,6 +24,9 @@ Session.run then, with the account lease held by the launcher for the whole run:
    the gate (overrides) and the native tool sandbox off (danger-full-access): the boundary and its
    write rules replace it. Pauses, continuation (F12 and a one-use code, then a fresh read), gate
    restarts and the end-of-run sweep belong to the shared supervisor (supervise.py).
+The TUI and every confined reader keep the caller's umask, as unprotected Codex does. The gate
+reaches the provider through the proxy Codex would use for HTTPS (gate_proxy), which neither the TUI
+nor a reader sees.
 
 The writable set is the workspace, codex_home (which holds the account home and shared sessions),
 the shared SQLite home and a private temporary directory; the refresh adds secrets_dir, where
@@ -860,6 +863,14 @@ def launcher_path():
             os.environ["PATH"] = saved
 
 
+def gate_proxy(supervise, parse, env):
+    """The caller's proxy for the gate's upstream connections, as Codex itself would use it for
+    HTTPS: HTTPS_PROXY, otherwise ALL_PROXY, each in either spelling (HTTP_PROXY serves only http://
+    URLs); None to connect directly. supervise.capture_proxy raises its Refused for a value the gate
+    cannot use (parse is gate.parse_proxy)."""
+    return supervise.capture_proxy(env, parse, provider="codex")
+
+
 def writable(home, paths):
     """The resolved writable paths, or Refused when one would reopen HOME-wide delegation."""
     homes = {os.path.normpath(str(home)), os.path.realpath(str(home))}
@@ -912,12 +923,16 @@ class Session:
     """One protected invocation of interactive Codex.
 
     check() runs every refusal that needs no state change; run() the refresh, gate, preflight and
-    the supervised TUI. guard is check.py, storage layout.py, reserve reserve.py."""
+    the supervised TUI. guard is check.py, storage layout.py, reserve reserve.py. umask is the
+    caller's file mode creation mask (launch.py's CALLER_UMASK; the launcher itself runs under
+    077), which the TUI and every confined reader get, as unprotected Codex does; None keeps 077."""
 
-    def __init__(self, guard, storage, reserve, config, layout, policy, native, args, codex, env, sqlite, cwd):
+    def __init__(self, guard, storage, reserve, config, layout, policy, native, args, codex, env, sqlite, cwd,
+                 umask=None):
         self.guard, self.storage, self.reserve, self.config = guard, storage, reserve, config
         self.layout, self.policy, self.native, self.args = layout, policy, native, args
         self.codex, self.env, self.sqlite, self.cwd = codex, dict(env), str(sqlite), Path(cwd)
+        self.umask = umask
         self.sandbox = self.supervise = self.kit_gate = None
         self.private = self.work = None
         self.login = self.baseline = None
@@ -1058,7 +1073,7 @@ class Session:
             gate_env = {name: self.env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR", "LANG") if name in self.env}
             unreachable(launcher_sources(), reach, LAUNCHER_HINT)
             unreachable(code_sources(python, gate_env), reach)
-            proxy = supervise.capture_proxy(self.env, self.kit_gate.parse_proxy)
+            proxy = gate_proxy(supervise, self.kit_gate.parse_proxy, self.env)
             reserves = {setting.window: [None if setting.reserve is None else str(setting.reserve), setting.source]
                         for setting in self.policy.settings()}
             config = {"max_age_s": MAX_AGE, "heartbeat_max_s": HEARTBEAT_MAX,
@@ -1069,7 +1084,8 @@ class Session:
             extra = self.sandbox.holder_addresses().reserve if sys.platform == "darwin" else ()
             sup = supervise.Supervisor([python, "-I", "-B", str(GATE)], config, refresh_config=refresh_config,
                                        python=python, monitor_reader_timeout=READ_TIMEOUT, holder_extra=extra,
-                                       gate_env=gate_env, style=lambda text: self.guard.styled(text, "33", 1))
+                                       gate_env=gate_env, style=lambda text: self.guard.styled(text, "33", 1),
+                                       umask=self.umask)
             port = sup.prepare()
             tested = refresh_tested = None
             if sys.platform == "darwin":
