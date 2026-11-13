@@ -11,7 +11,8 @@ Routes (codex 0.167.2, default deny, upstream chatgpt.com over verified TLS):
   bearer it carries, for a reviewed codex-family model;
 - GET /backend-api/wham/usage: forwarded while running, checking and paused; its reply is the
   quota observation (account_id and user_id must equal the launch claims, plan_type a reviewed
-  plan, windows mapped by their duration, never by slot);
+  plan, windows mapped by their duration, never by slot; limit_reached true or allowed false
+  pauses, or refuses at startup, unless a window at 100% accounts for it: limit_explained);
 - GET /backend-api/wham/config/bundle (D14): forwarded unchanged while running, checking and
   paused, never fabricated; a bundle whose requirements forbid protected mode (protect.py
   BLOCKERS) pauses, or refuses at startup;
@@ -126,6 +127,26 @@ def readings(rate_limit):
     return tuple(found)
 
 
+def limit_explained(found):
+    """Whether a window at its limit accounts for Codex's limit flags (limit_reached true or allowed
+    false, which concern its rate limit as a whole): every reading names one five-hour or weekly window
+    once, with a usage percentage, and one of them is at 100%. An enabled window at its limit pauses
+    on its own, since no reserve stays above 0% remaining, and one turned off is what the user left
+    unprotected, so the flags then add nothing; flags nothing accounts for pause (fail closed)."""
+    seen, exhausted = set(), False
+    for reading in found:
+        claims = reserve.windows_of(reading)
+        if len(claims) != 1:
+            return False
+        ((window, problem),) = claims.items()
+        used = reserve.number(reading.used)
+        if problem is not None or window in seen or used is None or not 0 <= used <= 100:
+            return False
+        seen.add(window)
+        exhausted = exhausted or used == 100
+    return exhausted
+
+
 class CodexProvider(kit.BaseProvider):
     name = "codex"
     upstream = UPSTREAM
@@ -211,9 +232,11 @@ class CodexProvider(kit.BaseProvider):
                     names |= {row.get(key) for key in ("limit_name", "normal_model_slug", "metered_feature")
                               if isinstance(row.get(key), str)}
             self.own_rows = frozenset(names)
-        limited = rate_limit.get("limit_reached") is True or rate_limit.get("allowed") is False
+        found = readings(rate_limit)
+        flagged = rate_limit.get("limit_reached") is True or rate_limit.get("allowed") is False
         return kit.Observation(at, True, identity=identity, family="codex",
-                               data={"readings": readings(rate_limit), "wall": time.time(), "limit_reached": limited})
+                               data={"readings": found, "wall": time.time(),
+                                     "limit_reached": flagged and not limit_explained(found)})
 
     def bundle(self, status, body, at):
         """Nothing for a bundle protected mode can run with (or a failed fetch: native then refuses
@@ -266,9 +289,11 @@ class Decider:
             data = observation.data if isinstance(observation.data, dict) else {}
             fresh = reserve.Observation(tuple(data.get("readings") or ()), event.at,
                                         data.get("wall", time.time()), True)
-            verdict = evaluator.observe(fresh)
+            # A condition the reply still carries applies before its reading: a start then refuses
+            # instead of running and pausing at once, and the reading never clears it.
             if data.get("limit_reached"):
-                verdict = evaluator.fault("limit_reached")
+                evaluator.fault("limit_reached")
+            verdict = evaluator.observe(fresh)
         else:
             verdict = self.health(event)
         return self.decision(verdict)

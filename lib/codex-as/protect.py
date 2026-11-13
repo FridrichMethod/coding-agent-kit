@@ -1129,6 +1129,11 @@ EXPLAINED = {
     "unsupported_plan": "the account's plan is not one whose windows protected mode governs",
     "monitor_unheard": "the quota monitor did not start",
 }
+# Codex's own conditions, which the evaluator's line names only by their reason word.
+OWN_CONDITIONS = {
+    "limit_reached": "the quota reply reports a usage limit reached (limit_reached or allowed false) that no "
+                     "five-hour or weekly window at 100% accounts for",
+}
 
 
 def explain(reason, fields):
@@ -1136,6 +1141,8 @@ def explain(reason, fields):
     reason = str(reason)
     if reason.startswith("requirements_"):
         return BLOCKERS.get(reason[len("requirements_"):], BLOCKERS["requirements_unreadable"])
+    if reason in OWN_CONDITIONS:
+        return OWN_CONDITIONS[reason]
     detail = (fields or {}).get("detail")
     if isinstance(detail, str) and detail:
         return detail

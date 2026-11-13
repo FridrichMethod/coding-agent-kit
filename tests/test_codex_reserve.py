@@ -550,16 +550,23 @@ def usage_document(primary=10, secondary=20, plan="pro", account=ACCOUNT, user=U
                                 "secondary_window": windows[1]}}, **extra)
 
 
+def limited(primary, secondary, limit_reached=True, allowed=False):
+    """A usage reply whose rate limit carries Codex's limit flags."""
+    document = usage_document(primary=primary, secondary=secondary)
+    document["rate_limit"].update(limit_reached=limit_reached, allowed=allowed)
+    return document
+
+
 class Provider(unittest.TestCase):
     """The Codex provider and decision adapter on the shared gate, in process, over HTTP."""
 
-    def setUp(self):
+    def setUp(self, reserves=None):
         self.upstream = Upstream()
         self.addCleanup(self.upstream.close)
         self.upstream.document = usage_document()
         self.provider = provider_gate.CodexProvider(ACCOUNT, USER, NATIVE, "/fixture/.codex",
                                                     upstream=kit.Upstream("127.0.0.1", self.upstream.port, tls=False))
-        self.decider = provider_gate.Decider(policy())
+        self.decider = provider_gate.Decider(reserves or policy())
         self.gate = provider_gate.CodexGate(self.provider, self.decider, max_age=120)
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
@@ -719,6 +726,66 @@ class Provider(unittest.TestCase):
         self.upstream.document = document
         self.request("GET", "/backend-api/wham/usage")
         self.assertEqual(self.gate.status()["reason"], "limit_reached")
+
+    def test_a_limit_flag_that_a_window_turned_off_accounts_for_neither_refuses_nor_pauses(self):
+        """Codex sets limit_reached and allowed for its rate limit as a whole: a window at its limit that
+        the user turned off accounts for them, so the enabled window alone decides, at the start and
+        during the run."""
+        for reserves, exhausted, flags in ((policy(five_hour=None), (100, 20), {"limit_reached": True, "allowed": False}),
+                                           (policy(weekly=None), (20, 100), {"limit_reached": True, "allowed": False}),
+                                           (policy(five_hour=None), (100, 20), {"limit_reached": False, "allowed": False}),
+                                           (policy(weekly=None), (20, 100), {"limit_reached": True, "allowed": True})):
+            with self.subTest(reserves=reserves, exhausted=exhausted, flags=flags):
+                self.setUp(reserves)
+                self.upstream.document = limited(*exhausted, **flags)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running", self.gate.status())
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running", self.gate.status())
+                self.setUp(reserves)  # mid-run: the window turned off runs out
+                self.request("GET", "/backend-api/wham/usage")
+                self.upstream.document = limited(*exhausted, **flags)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running", self.gate.status())
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
+
+    def test_an_enabled_window_at_its_limit_refuses_as_its_own_threshold(self):
+        self.setUp(policy(weekly=None))
+        self.upstream.document = limited(100, 20)
+        self.request("GET", "/backend-api/wham/usage")
+        status = self.gate.status()
+        self.assertEqual((status["state"], status["reason"], status["fields"]["window"]), ("paused", "threshold", "five-hour"))
+        self.assertTrue(status["fields"]["detail"].startswith("A: refused: five-hour window "), status["fields"])
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+        self.assertEqual(self.model_requests(), [])
+
+    def test_a_limit_flag_no_window_accounts_for_refuses_the_start_and_pauses_a_run(self):
+        """Fail closed when the flags cannot be attributed: no window at its limit, a turned-off window
+        just short of it, a window of another length, or a window without a usage number."""
+        other = dict(limited(10, 20), rate_limit=dict(limited(10, 20)["rate_limit"], primary_window=backend.window(100, 3600)))
+        broken = dict(limited(10, 20), rate_limit=dict(limited(10, 20)["rate_limit"], primary_window="exhausted"))
+        for reserves, document in ((policy(), limited(10, 20)), (policy(five_hour=None), limited(99, 20)),
+                                   (policy(five_hour=None), other), (policy(five_hour=None), broken)):
+            with self.subTest(reserves=reserves, document=document["rate_limit"]):
+                self.setUp(reserves)
+                self.upstream.document = document
+                self.request("GET", "/backend-api/wham/usage")
+                status = self.gate.status()
+                self.assertEqual((status["state"], status["reason"]), ("paused", "limit_reached"))
+                # A refusal of the start, not a run that paused at once.
+                self.assertTrue(status["fields"]["detail"].startswith("A: refused: "), status["fields"])
+                self.assertIn("usage limit reached", protect.explain(status["reason"], status["fields"]))
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+                self.setUp(reserves)
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.gate.status()["state"], "running")
+                self.upstream.document = document
+                self.request("GET", "/backend-api/wham/usage")
+                status = self.gate.status()
+                self.assertEqual((status["state"], status["reason"]), ("paused", "limit_reached"))
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+                self.assertEqual(self.model_requests(), [])
 
     def test_models_with_their_own_quota_row_are_refused(self):
         self.upstream.document = usage_document(additional_rate_limits=[
