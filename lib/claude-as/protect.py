@@ -18,10 +18,12 @@ with an enabled reserve. In order (reviewed design, section 2.1):
 4. the gate (provider.py) reads the token memory-only and refuses on its local checks; the monitor
    starts; once a heartbeat is heard the gate's first quota check must pass;
 5. the native runs on the launcher's PTY inside the boundary with ANTHROPIC_BASE_URL and HTTPS_PROXY
-   at the gate, its own sandbox off (the outer boundary confines writes to the workspace, the account
-   directory, a private temporary directory and any --add-dir), remoteControlAtStartup off and
-   CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1, so its exit dialog offers no "Move to background and exit"
-   (a session handed to the background would outlive the gate). CODING_AGENT_KIT_CLAUDE_PID is the
+   at the gate and NO_PROXY=127.0.0.1 (otherwise native sends its Messages requests to the proxy in
+   absolute form, which the gate's route table refuses), its own sandbox off (the outer boundary
+   confines writes to the workspace, the account directory, a private temporary directory and any
+   --add-dir), remoteControlAtStartup off and CLAUDE_DISABLE_ADOPT=1, which in 2.1.322 (S) turns off
+   the adoption of background work, so the exit dialog offers no "Move to background and exit" (a
+   session handed to the background would outlive the gate). CODING_AGENT_KIT_CLAUDE_PID is the
    native's own pid; CODING_AGENT_KIT_USAGE_FILE is not passed, because the status line helper cannot
    write the account metadata directory inside the boundary (the gate's own readings drive the
    reserves; --info keeps what the last unprotected session recorded). At the end every boundary
@@ -338,8 +340,8 @@ def run(config, policy, paths, record, args, executable, env, style=lambda text:
             if darwin:
                 tested["result"] = sandbox.self_test(port, writable, "claude")
             gate_url = "http://127.0.0.1:%d" % port
-            native_env = dict(env, HTTPS_PROXY=gate_url, https_proxy=gate_url, TMPDIR=private_tmp,
-                              CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF="1")
+            native_env = dict(env, HTTPS_PROXY=gate_url, https_proxy=gate_url, NO_PROXY="127.0.0.1",
+                              no_proxy="127.0.0.1", TMPDIR=private_tmp, CLAUDE_DISABLE_ADOPT="1")
             for name in ("ANTHROPIC_BASE_URL", "CODING_AGENT_KIT_USAGE_FILE"):
                 native_env.pop(name, None)
             code = sup.refresh([executable, "auth", "status"], native_env, timeout=REFRESH_TIMEOUT, cwd=cwd)

@@ -1,7 +1,10 @@
-"""claude-as native-login enrollment, reserve flags and protected mode, with fakes only.
+"""claude-as native-login enrollment, reserve flags and protected mode.
 
 Every case runs in a temporary HOME with a fake claude (tests/fixtures/claude-reserve) and, for
-protected mode, loopback fixtures; nothing reaches a real account, credential or provider.
+protected mode, loopback fixtures; nothing reaches a real account, credential or provider. RealClaude
+runs the reviewed Claude Code itself (KIT_REAL_CLAUDE, a path, or claude on PATH, used only at a
+version protect.REVIEWED_VERSIONS names; skipped otherwise, and always on macOS, where it would use the
+login Keychain) with a fabricated credential against the same loopback fixtures.
 """
 
 import errno
@@ -1175,7 +1178,8 @@ class Protected(Kit):
         self.assertEqual(env["CLAUDE_CONFIG_DIR"], str(self.native_config("N")))
         self.assertNotIn("CLAUDE_CODE_OAUTH_TOKEN", env)
         self.assertNotIn("CODING_AGENT_KIT_USAGE_FILE", env)  # the helper cannot write it inside the boundary
-        self.assertEqual(env["CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF"], "1")
+        self.assertEqual(env["CLAUDE_DISABLE_ADOPT"], "1")  # no "Move to background and exit"
+        self.assertEqual((env["NO_PROXY"], env["no_proxy"]), ("127.0.0.1", "127.0.0.1"))  # the gate, not by proxy
         self.assertFalse(os.path.exists(env["TMPDIR"]))  # the private temporary directory is gone
         self.assertEqual(seen["args"][0], "--settings")
         settings = json.loads(seen["args"][1])
@@ -1245,6 +1249,241 @@ class Protected(Kit):
         self.assertEqual(code, 1, output)
         self.assertIn("credential_credential_not_private", output)
         self.assertEqual(self.upstream.paths(), [])
+
+
+def reviewed_claude():
+    """The real Claude Code to run, or None: KIT_REAL_CLAUDE (a path) or claude on PATH, used only when
+    its --version (asked with a scratch HOME) is one protect.REVIEWED_VERSIONS names."""
+    candidate = os.environ.get("KIT_REAL_CLAUDE") or shutil.which("claude")
+    if not candidate or not os.access(candidate, os.X_OK):
+        return None
+    with tempfile.TemporaryDirectory() as home:
+        try:
+            result = subprocess.run([candidate, "--version"], capture_output=True, text=True, timeout=30, check=False,
+                                    stdin=subprocess.DEVNULL, env={"PATH": "/usr/bin:/bin", "HOME": home,
+                                                                   "DISABLE_AUTOUPDATER": "1"})
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+    match = protect.VERSION_LINE.fullmatch(result.stdout.strip())
+    return os.path.realpath(candidate) if match and match.group(1) in protect.REVIEWED_VERSIONS else None
+
+
+ANSI = re.compile(rb"\x1b\[[0-9;?<>=]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b[=>78]")
+
+
+class Screen:
+    """A real TUI on a PTY of its own: answers the terminal queries Claude Code sends at startup, and
+    matches text with escape sequences and whitespace removed."""
+
+    ANSWERS = ((b"\x1b]10;?", b"\x1b]10;rgb:cccc/cccc/cccc\x1b\\"), (b"\x1b]11;?", b"\x1b]11;rgb:0000/0000/0000\x1b\\"),
+               (b"\x1b[6n", b"\x1b[1;1R"), (b"\x1b[c", b"\x1b[?62;22c"), (b"\x1b[?u", b"\x1b[?0u"))
+
+    def __init__(self, argv, env, cwd):
+        self.pid, self.fd = spawn_on_terminal(argv, env, cwd, size=(40, 120))
+        self.raw, self.status = b"", None
+
+    def read(self, timeout):
+        if not select.select([self.fd], [], [], timeout)[0]:
+            return True
+        try:
+            data = os.read(self.fd, 65536)
+        except OSError:
+            data = b""
+        self.raw += data
+        for query, reply in self.ANSWERS:
+            for _ in range(data.count(query)):
+                os.write(self.fd, reply)
+        return bool(data)
+
+    def text(self):
+        return re.sub(r"\s+", "", ANSI.sub(b" ", self.raw).decode("utf-8", "replace"))
+
+    def expect(self, words, timeout=60):
+        wanted = re.sub(r"\s+", "", words)
+        deadline = time.monotonic() + timeout
+        while wanted not in self.text():
+            if time.monotonic() > deadline or not self.read(0.1):
+                raise AssertionError("expected %r; terminal text:\n%s" % (words, self.text()[-3000:]))
+
+    def type(self, line):
+        os.write(self.fd, line.encode())
+        time.sleep(0.5)
+        os.write(self.fd, b"\r")
+
+    def wait(self, timeout=60):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            pid, status = os.waitpid(self.pid, os.WNOHANG)
+            if pid:
+                self.status = status
+                while self.read(0.05) and select.select([self.fd], [], [], 0)[0]:
+                    pass
+                return os.waitstatus_to_exitcode(status)
+            self.read(0.05)
+        raise AssertionError("the launcher did not exit; terminal text:\n%s" % self.text()[-3000:])
+
+    def close(self):
+        if self.status is None:
+            try:
+                os.killpg(self.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            try:
+                os.waitpid(self.pid, 0)
+            except ChildProcessError:
+                pass
+        os.close(self.fd)
+
+
+def gone(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
+REAL_CLAUDE = None if sys.platform == "darwin" else reviewed_claude()
+DENIED = (errno.EACCES, errno.EPERM)
+
+
+@unittest.skipIf(sys.platform == "darwin", "a real Claude Code reads and writes the login Keychain on macOS")
+@unittest.skipUnless(REAL_CLAUDE, "needs a reviewed Claude Code (%s) as KIT_REAL_CLAUDE or claude on PATH"
+                     % ", ".join(protect.REVIEWED_VERSIONS))
+class RealClaude(Kit):
+    """The reviewed Claude Code itself in protected mode: the real boundary, gate and monitor, a
+    fabricated credential and the loopback Messages upstream; no account and no real provider."""
+
+    def setUp(self):
+        problem = boundary_problem()
+        if problem:
+            self.skipTest("protected-mode boundary unavailable: " + problem)
+        super().setUp()
+        self.enroll()  # with the fake native, which records the login; the real one runs from here on
+        (self.bin / "claude").unlink()
+        (self.bin / "claude").symlink_to(REAL_CLAUDE)
+        for name in ("cache", "data"):
+            (self.base / name).mkdir()
+        self.env.update(DISABLE_AUTOUPDATER="1", LANG="C.UTF-8", TERM="xterm-256color",
+                        XDG_CACHE_HOME=str(self.base / "cache"), XDG_DATA_HOME=str(self.base / "data"))
+        self.config_dir = self.native_config("N")
+        self.upstream = upstream_fixture.ClaudeUpstream()
+        self.upstream.messages = True
+        self.addCleanup(self.upstream.close)
+        inside = [sys.executable, "-I", str(FIXTURES / "inside.py")]
+        probe = lambda kind: [*inside, kind, str(self.cwd), str(self.upstream.port), str(self.home)]
+        self.private(".claude.json", {
+            "hasCompletedOnboarding": True, "theme": "dark",
+            "projects": {str(self.cwd): {"hasTrustDialogAccepted": True, "hasCompletedProjectOnboarding": True}},
+            "mcpServers": {"fixture": {"type": "stdio", "command": probe("mcp")[0], "args": probe("mcp")[1:]}},
+            "oauthAccount": {"accountUuid": ACCOUNT_UUID, "organizationUuid": ORGANIZATION_UUID,
+                             "emailAddress": "fixture@example.invalid"}})
+        self.private("settings.json", {"permissions": {"allow": ["Bash"]}, "hooks": {
+            event: [{"hooks": [{"type": "command", "command": " ".join(probe(kind))}]}]
+            for event, kind in (("SessionStart", "session"), ("UserPromptSubmit", "prompt"))}})
+
+    def private(self, name, document):
+        path = self.config_dir / name
+        path.write_text(json.dumps(document))
+        path.chmod(0o600)
+
+    def store(self, token, subscription, hours=1):
+        self.private(".credentials.json", {"claudeAiOauth": {
+            "accessToken": token, "refreshToken": "fabricated-refresh-" + token[-4:],
+            "expiresAt": int(time.time() * 1000) + hours * 3600_000,
+            "scopes": ["user:inference", "user:profile", "user:sessions:claude_code"], "subscriptionType": subscription}})
+
+    def launch(self, args=()):
+        spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"},
+                "args": ["--debug-file", str(self.cwd / "native-debug.log"), "--permission-mode", "default", *args],
+                "upstream_port": self.upstream.port}
+        screen = Screen([sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)], self.env,
+                        self.cwd)
+        self.addCleanup(screen.close)
+        screen.expect("Claude Code", 90)
+        screen.expect("v" + protect.REVIEWED_VERSIONS[0], 30)
+        return screen
+
+    def models(self, since=0):
+        found = []
+        for request in self.upstream.model_requests()[since:]:
+            body = json.loads(request["body"])
+            bearer = dict((k.lower(), v) for k, v in request["headers"])["authorization"][7:]
+            found.append((body.get("model"), body.get("max_tokens"), bool(body.get("tools")), bearer))
+        return found
+
+    def inside(self, kind):
+        self.assertTrue(wait_for(lambda: (self.cwd / ("inside-%s.json" % kind)).exists(), 30), kind)
+        return json.loads((self.cwd / ("inside-%s.json" % kind)).read_text())
+
+    def test_the_native_with_hooks_mcp_and_a_background_tool_reaches_only_the_gate(self):
+        self.store(upstream_fixture.BEARER_A, "enterprise")
+        caches = {"remote-settings.json": {}, "policy-limits.json": E0_LIMITS}
+        for name, document in caches.items():
+            self.private(name, document)
+        before = {name: (self.config_dir / name).read_bytes() for name in caches}
+        self.upstream.bash = "echo $$ > %s/bash-pid.txt; echo $TMPDIR > %s/bash-tmpdir.txt; exec sleep 120" % (
+            self.cwd, self.cwd)
+        screen = self.launch()
+        self.assertEqual(self.upstream.paths("GET")[:2], ["/api/oauth/profile", "/api/oauth/usage"])
+        for kind in ("session", "mcp"):  # started by native at startup, inside the boundary
+            seen = self.inside(kind)
+            self.assertIn(seen["direct"], DENIED, kind)
+            self.assertIn(seen["home_write"], DENIED, kind)
+            private_tmp = seen["tmpdir"]
+            self.assertTrue(os.path.basename(private_tmp).startswith("claude-as-"), private_tmp)
+        screen.type("fixture prompt one")
+        screen.expect("FIXTURE-ANSWER")
+        seen = self.inside("prompt")
+        self.assertEqual((seen["direct"] in DENIED, seen["home_write"] in DENIED, seen["tmpdir"]), (True, True, private_tmp))
+        screen.type("fixture background")
+        screen.expect("FIXTURE-DONE")
+        self.assertTrue(wait_for(lambda: (self.cwd / "bash-tmpdir.txt").exists(), 20))
+        self.assertEqual((self.cwd / "bash-tmpdir.txt").read_text().strip(), private_tmp)
+        shell = int((self.cwd / "bash-pid.txt").read_text())
+        screen.type("/exit")
+        screen.expect("Background work is running")
+        screen.expect("Exit and stop tasks")
+        screen.expect("Stay")
+        self.assertNotIn("Movetobackground", screen.text())  # CLAUDE_DISABLE_ADOPT=1
+        os.write(screen.fd, b"\r")
+        self.assertEqual(screen.wait(60), 0, screen.text()[-2000:])
+        models = self.models()
+        self.assertTrue(any(tokens == 1 and not tools for _, tokens, tools, _ in models), models)  # startup probe
+        self.assertTrue(any(not tools and tokens != 1 for _, tokens, tools, _ in models), models)  # session title
+        self.assertTrue(any(tools for _, _, tools, _ in models), models)  # the main thread, default model
+        for model, _, _, bearer in models:
+            self.assertIn(provider.family(model), provider.FAMILIES, model)
+            self.assertEqual(bearer, upstream_fixture.BEARER_A)
+        log = (self.cwd / "native-debug.log").read_text(errors="replace")
+        self.assertNotIn("quota reserve:", log)  # the gate refused no Messages request
+        self.assertIn("proxy refused the connection", log)  # auxiliary CONNECTs refused, native kept going
+        self.assertIn('MCP server "fixture": Successfully connected', log)
+        self.assertEqual({name: (self.config_dir / name).read_bytes() for name in caches}, before)
+        self.assertFalse(os.path.exists(private_tmp))
+        self.assertTrue(wait_for(lambda: gone(shell), 10), "the background shell outlived the invocation")
+
+    def test_the_running_native_adopts_a_rotated_store_token_through_a_rebind(self):
+        """D1 recovery (2), offline: what a launcher-side refresh would rely on."""
+        self.store(upstream_fixture.BEARER_A, "max")
+        screen = self.launch()
+        screen.type("fixture prompt one")
+        screen.expect("FIXTURE-ANSWER")
+        before = len(self.upstream.model_requests())
+        profiles = len([r for r in self.upstream.requests if r["path"] == "/api/oauth/profile"])
+        self.store(upstream_fixture.BEARER_A2, "max", hours=2)
+        del self.upstream.identities[upstream_fixture.BEARER_A]  # the old token is no longer accepted
+        screen.type("fixture prompt two")
+        self.assertTrue(wait_for(lambda: screen.read(0.05) and screen.text().count("FIXTURE-ANSWER") >= 2, 60),
+                        screen.text()[-2000:])
+        after = self.models(before)
+        self.assertTrue(after and all(bearer == upstream_fixture.BEARER_A2 for *_, bearer in after), after)
+        rebinds = [r for r in self.upstream.requests if r["path"] == "/api/oauth/profile"][profiles:]
+        self.assertIn(("Authorization", "Bearer " + upstream_fixture.BEARER_A2), rebinds[0]["headers"])
+        screen.type("/exit")
+        self.assertEqual(screen.wait(60), 0, screen.text()[-2000:])
 
 
 if __name__ == "__main__":
