@@ -947,7 +947,13 @@ class Gate:
         It carries the neutral User-Agent, counts against the usage-read cap, and is bounded by
         timeout (READ_TIMEOUT) in total: connect, proxy tunnel and TLS steps never wait past the
         deadline, and a watchdog shuts the socket when it passes, whatever is blocking then (name
-        resolution is bounded by the system resolver only). Never call it with the lock held."""
+        resolution is bounded by the system resolver only). A body shorter than its Content-Length
+        is unavailable. Never call it with the lock held.
+
+        The fetch owns its socket until it returns: the reply is parsed by an HTTPResponse of its
+        own rather than HTTPConnection.getresponse(), which hands the socket to a reply that says
+        Connection: close, so that reading its body to the end would close the socket under the
+        read loop."""
         if any(name.lower() in FETCH_RESERVED for name, _ in headers):
             raise ValueError("reserved header in a gate fetch")
         with self.lock:
@@ -958,7 +964,7 @@ class Gate:
                 raise Unavailable("usage_read_cap")
         upstream = upstream or self.provider.upstream
         deadline = self.clock() + (timeout or READ_TIMEOUT)
-        sock = connection = watchdog = None
+        sock = connection = response = watchdog = None
         expired = threading.Event()
         try:
             sock = self.open(upstream, deadline)
@@ -983,7 +989,8 @@ class Gate:
             for name, value in headers:
                 connection.putheader(name, value)
             connection.endheaders()
-            response = connection.getresponse()
+            response = http.client.HTTPResponse(sock, method=method)
+            response.begin()
             body = bytearray()
             while True:
                 remaining = deadline - self.clock()
@@ -998,6 +1005,8 @@ class Gate:
                     raise Unavailable("response_too_large")
             if expired.is_set():
                 raise Unavailable("timeout")
+            if response.length:  # the upstream closed before the Content-Length was reached
+                raise Unavailable("upstream_unavailable")
             return response.status, response.getheaders(), bytes(body)
         except (OSError, http.client.HTTPException, ValueError):
             late = expired.is_set() or self.clock() >= deadline
@@ -1005,8 +1014,10 @@ class Gate:
         finally:
             if watchdog is not None:
                 watchdog.cancel()
-            if connection is not None:
-                _quietly(connection.close)
+                watchdog.join()  # a running expire() shuts the socket before it is closed below
+            for part in (response, connection):
+                if part is not None:
+                    _quietly(part.close)
             _close(sock)
 
 
@@ -1222,6 +1233,8 @@ class _Handler(BaseHTTPRequestHandler):
                 if not chunk:
                     break
                 self.connection.sendall(chunk)
+            # The target ended its side: pass the end on now, not after the pump's join below.
+            _quietly(lambda: self.connection.shutdown(socket.SHUT_WR))
             thread.join(CONNECT_TIMEOUT)
         except (OSError, ValueError):
             pass

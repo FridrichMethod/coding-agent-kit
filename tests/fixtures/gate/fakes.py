@@ -2,7 +2,8 @@
 
 FakeUpstream records every byte it receives, per connection and with its arrival time, and answers
 GET /usage (identity and used percentages per bearer), POST /model (an endless or bounded event
-stream), GET /read and GET /bundle. FakeProvider is a small provider on that upstream: Codex-like
+stream), GET /read and GET /bundle; its replies can say Connection: close, as real servers commonly
+do. ScriptedUpstream answers every request with fixed bytes, then closes or stalls. FakeProvider is a small provider on that upstream: Codex-like
 (an optional X-Account selector, the native's own usage read binds) or Claude-like (the gate holds
 the bearer and checks itself). FakeEvaluator follows the reserve semantics closely enough for the
 gate: pause when remaining <= reserve, resume only after a continuation and a passing observation.
@@ -60,6 +61,8 @@ class FakeUpstream:
         self.stream_chunks = 3  # a body with "forever": true streams until the client goes away
         self.stream_interval = 0.02
         self.read_body = True
+        self.close_header = False  # every reply says Connection: close
+        self.usage_framing = "chunked"  # the /usage body: "chunked", "length" or "eof" (ended by the close)
         self.closing = False
         threading.Thread(target=self._accept, daemon=True).start()
 
@@ -135,9 +138,10 @@ class FakeUpstream:
             if identity is None or self.usage_status != 200:
                 return self._send(sock, self.usage_status if identity else 401, b'{"error":"unauthorized"}')
             payload = json.dumps({"identity": identity, "used": self.used}).encode()
-            return self._send(sock, 200, payload, chunked=True)
+            return self._send(sock, 200, payload, self.usage_framing)
         if target == "/model" and method == "POST":
-            sock.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n")
+            sock.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n" + self._close_line()
+                         + b"Transfer-Encoding: chunked\r\n\r\n")
             count = 0
             forever = b'"forever": true' in body
             while forever or count < self.stream_chunks:
@@ -151,21 +155,77 @@ class FakeUpstream:
             return self._send(sock, 200, b'{"ok":true,"path":"%s"}' % target.encode())
         return self._send(sock, 404, b"{}")
 
-    def _send(self, sock, status, body, chunked=False):
-        if chunked:
+    def _close_line(self):
+        return b"Connection: close\r\n" if self.close_header else b""
+
+    def _send(self, sock, status, body, framing="length"):
+        head = b"HTTP/1.1 %d X\r\nContent-Type: application/json\r\n" % status + self._close_line()
+        if framing == "chunked":
             half = len(body) // 2
             parts = b"".join(b"%x\r\n%s\r\n" % (len(p), p) for p in (body[:half], body[half:]) if p) + b"0\r\n\r\n"
-            sock.sendall(b"HTTP/1.1 %d X\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n"
-                         % status + parts)
+            sock.sendall(head + b"Transfer-Encoding: chunked\r\n\r\n" + parts)
+        elif framing == "eof":
+            sock.sendall(head + b"\r\n" + body)  # _serve closes the connection next, which ends the body
         else:
-            sock.sendall(b"HTTP/1.1 %d X\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n"
-                         % (status, len(body)) + body)
+            sock.sendall(head + b"Content-Length: %d\r\n\r\n" % len(body) + body)
+
+
+class ScriptedUpstream:
+    """An upstream on 127.0.0.1 that answers every request head with the fixed bytes REPLY and closes
+    the connection, or with hold=True keeps it open and silent (a server stalled mid-reply)."""
+
+    def __init__(self, reply, hold=False):
+        self.reply, self.hold, self.closing = reply, hold, False
+        self.listener = socket.socket()
+        self.listener.bind(("127.0.0.1", 0))
+        self.listener.listen(16)
+        self.port = self.listener.getsockname()[1]
+        self.heads, self.held, self.lock = [], [], threading.Lock()
+        threading.Thread(target=self._accept, daemon=True).start()
+
+    def close(self):
+        with self.lock:
+            self.closing = True
+            held, self.held = self.held, []
+        self.listener.close()
+        for sock in held:
+            sock.close()
+
+    def _accept(self):
+        while True:
+            try:
+                sock, _ = self.listener.accept()
+            except OSError:
+                return
+            threading.Thread(target=self._serve, args=(sock,), daemon=True).start()
+
+    def _serve(self, sock):
+        try:
+            sock.settimeout(10)
+            head = b""
+            while b"\r\n\r\n" not in head:
+                data = sock.recv(65536)
+                if not data:
+                    break
+                head += data
+            with self.lock:
+                self.heads.append(head.decode("latin-1"))
+            sock.sendall(self.reply)
+        except OSError:
+            pass
+        with self.lock:
+            if self.hold and not self.closing:
+                self.held.append(sock)
+                return
+        sock.close()
 
 
 class EchoServer:
-    """A raw TCP echo on 127.0.0.1 standing in for a refresh host behind a CONNECT tunnel."""
+    """A raw TCP echo on 127.0.0.1 standing in for a refresh host behind a CONNECT tunnel; with
+    once=True it closes the connection after echoing the first data it receives."""
 
-    def __init__(self):
+    def __init__(self, once=False):
+        self.once = once
         self.listener = socket.socket()
         self.listener.bind(("127.0.0.1", 0))
         self.listener.listen(16)
@@ -189,6 +249,8 @@ class EchoServer:
                     break
                 self.received += data
                 sock.sendall(data)
+                if self.once:
+                    break
         except OSError:
             pass
         finally:

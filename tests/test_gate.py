@@ -33,6 +33,28 @@ gate = fakes.gate
 MONITOR = ROOT / "lib/coding-agent-kit/monitor.py"
 MODEL_BODY = json.dumps({"model": "fixture-model", "input": "hello"}).encode()
 FOREVER_BODY = json.dumps({"model": "fixture-model", "forever": True}).encode()
+BIG_BODY = json.dumps({"identity": fakes.IDENTITY_A, "used": {"five_hour": 10.0, "weekly": 20.0},
+                       "pad": "x" * 150000}).encode()  # several reads of 64 KiB
+FRAMINGS = ("length", "chunked", "eof")
+
+
+def reply(body, framing, close=True):
+    """An HTTP/1.1 200 reply carrying BODY framed by Content-Length ("length"), by chunks of 40000
+    bytes ("chunked") or by the end of the connection ("eof"); close adds Connection: close."""
+    head = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" + (b"Connection: close\r\n" if close else b"")
+    if framing == "length":
+        return head + b"Content-Length: %d\r\n\r\n" % len(body) + body
+    if framing == "chunked":
+        parts = (body[start:start + 40000] for start in range(0, len(body), 40000))
+        return (head + b"Transfer-Encoding: chunked\r\n\r\n"
+                + b"".join(b"%x\r\n%s\r\n" % (len(part), part) for part in parts) + b"0\r\n\r\n")
+    return head + b"\r\n" + body
+
+
+def cut(body, framing):
+    """The reply of BODY in FRAMING up to the middle of its body."""
+    full = reply(body, framing)
+    return full[:len(full) - len(body) // 2]
 
 
 def wait_for(predicate, timeout=5.0, step=0.01):
@@ -768,6 +790,153 @@ class Upstreams(unittest.TestCase):
             sock.close()
 
 
+class ConnectionClose(unittest.TestCase):
+    """Upstream replies that say Connection: close, as real servers commonly answer the gate's own
+    Connection: close, in every body framing and on every upstream path of the gate."""
+
+    def scripted(self, data, hold=False):
+        upstream = fakes.ScriptedUpstream(data, hold=hold)
+        self.addCleanup(upstream.close)
+        return upstream
+
+    def proxy(self):
+        proxy = fakes.FakeProxy()
+        self.addCleanup(proxy.close)
+        return proxy
+
+    def fetch(self, port, proxy=None, **kwargs):
+        """(outcome, seconds) of one Gate.fetch: (status, body), or the Unavailable reason."""
+        built = gate.Gate(fakes.FakeProvider(port), fakes.FakeEvaluator(), max_age=120,
+                          proxy=None if proxy is None else ("127.0.0.1", proxy.port))
+        outcome, began = [], time.monotonic()
+
+        def run():
+            try:
+                status, _, body = built.fetch("GET", "/usage", secret=gate.Secret(fakes.BEARER_A), **kwargs)
+                outcome.append((status, body))
+            except gate.Unavailable as error:
+                outcome.append(error.reason)
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        thread.join(5)
+        self.assertFalse(thread.is_alive(), "the fetch outlived its total timeout")
+        return outcome[0], time.monotonic() - began
+
+    def test_gate_fetch_reads_a_connection_close_reply_in_every_framing(self):
+        proxy = self.proxy()
+        for framing in FRAMINGS:
+            for close in (True, False):
+                for via in (None, proxy):
+                    with self.subTest(framing=framing, close=close, proxy=via is not None):
+                        upstream = self.scripted(reply(BIG_BODY, framing, close))
+                        self.assertEqual(self.fetch(upstream.port, via)[0], (200, BIG_BODY))
+                        self.assertIn("\r\nConnection: close\r\n", upstream.heads[0])
+                        if via is not None:
+                            self.assertEqual(proxy.targets[-1], "127.0.0.1:%d" % upstream.port)
+
+    def test_gate_fetch_deadline_fires_when_a_connection_close_body_stalls(self):
+        proxy = self.proxy()
+        for framing in ("length", "chunked"):
+            for via in (None, proxy):
+                with self.subTest(framing=framing, proxy=via is not None):
+                    upstream = self.scripted(cut(BIG_BODY, framing), hold=True)
+                    outcome, seconds = self.fetch(upstream.port, via, timeout=0.6)
+                    self.assertEqual(outcome, "timeout")
+                    self.assertLess(seconds, 2.0)
+
+    def test_gate_fetch_releases_its_socket_on_every_outcome(self):
+        opened, original = [], gate.Gate.open
+
+        def spy(self_, upstream, deadline=None):
+            opened.append(original(self_, upstream, deadline))
+            return opened[-1]
+
+        cases = (("close", reply(BIG_BODY, "length"), False, {}, (200, BIG_BODY)),
+                 ("keep-alive", reply(BIG_BODY, "length", close=False), True, {}, (200, BIG_BODY)),
+                 ("cut short", cut(BIG_BODY, "length"), False, {}, "upstream_unavailable"),
+                 ("too large", reply(BIG_BODY, "length"), False, {"limit": 1000}, "response_too_large"),
+                 ("stalled", cut(BIG_BODY, "chunked"), True, {"timeout": 0.5}, "timeout"))
+        with mock.patch.object(gate.Gate, "open", spy):
+            for name, data, hold, kwargs, expected in cases:
+                with self.subTest(case=name):
+                    upstream = self.scripted(data, hold=hold)
+                    self.assertEqual(self.fetch(upstream.port, **kwargs)[0], expected)
+                    self.assertEqual(opened[-1].fileno(), -1, "the fetch left its socket open")
+
+    def test_gate_fetch_refuses_a_body_cut_short_by_the_close(self):
+        for framing in ("length", "chunked"):
+            with self.subTest(framing=framing):
+                upstream = self.scripted(cut(BIG_BODY, framing))
+                self.assertEqual(self.fetch(upstream.port)[0], "upstream_unavailable")
+
+    def test_a_holding_gate_checks_and_polls_through_connection_close_replies(self):
+        proxy = self.proxy()
+        for framing in FRAMINGS:
+            for via in (None, proxy):
+                with self.subTest(framing=framing, proxy=via is not None):
+                    upstream = fakes.FakeUpstream()
+                    upstream.close_header, upstream.usage_framing = True, framing
+                    h = Harness(self, holds_bearer=True, upstream=upstream,
+                                proxy=None if via is None else ("127.0.0.1", via.port))
+                    h.ready()
+                    self.assertEqual(h.gate.check(h.gate.lease.presented, "poll"), "fresh")
+                    self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 200)
+
+    def test_verified_tls_fetch_reads_a_connection_close_reply(self):
+        with tempfile.TemporaryDirectory() as directory:
+            made = fakes.make_ca(directory)
+            if made is None:
+                self.skipTest("openssl is not available to make a fixture CA")
+            ca_file, context = made
+            for framing in FRAMINGS:
+                with self.subTest(framing=framing):
+                    upstream = fakes.FakeUpstream(tls=context)
+                    upstream.close_header, upstream.usage_framing = True, framing
+                    provider = fakes.FakeProvider(upstream.port, holds_bearer=True, tls=True, ca_file=ca_file)
+                    h = Harness(self, upstream=upstream, provider=provider)
+                    h.ready()
+                    self.assertEqual(h.gate.check(h.gate.lease.presented, "poll"), "fresh")
+
+    def test_forwarded_reads_and_model_streams_relay_connection_close_replies(self):
+        for framing in FRAMINGS:
+            with self.subTest(framing=framing):
+                upstream = fakes.FakeUpstream()
+                upstream.close_header, upstream.usage_framing = True, framing
+                h = Harness(self, upstream=upstream)
+                h.ready()  # the native's own usage read, relayed and observed, binds the lease
+                self.assertEqual(h.request("GET", "/read", auth()), (200, b'{"ok":true,"path":"/read"}'))
+                self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY),
+                                 (200, b"data: 0\n\ndata: 1\n\ndata: 2\n\n"))
+
+    def test_a_tunnel_passes_on_the_target_closing_its_end(self):
+        echo = fakes.EchoServer(once=True)
+        self.addCleanup(echo.close)
+        upstream = fakes.FakeUpstream()
+        provider = fakes.FakeProvider(upstream.port, connect_allow={"auth.fixture:443": ("127.0.0.1", echo.port)})
+        h = Harness(self, upstream=upstream, provider=provider, mode="refresh")
+        h.gate.attach()
+        tunnel = h.raw(b"CONNECT auth.fixture:443 HTTP/1.1\r\n\r\n")
+        self.addCleanup(tunnel.close)
+        self.assertIn(b" 200 ", tunnel.recv(4096))
+        tunnel.sendall(b"ping")
+        tunnel.settimeout(gate.CONNECT_TIMEOUT / 2)  # less than the pump's join: the end itself must arrive
+        data, began = b"", time.monotonic()
+        try:
+            while True:
+                chunk = tunnel.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+        except (TimeoutError, socket.timeout):
+            self.fail("the target closed its end but the client saw no end of the tunnel")
+        self.assertEqual(data, b"ping")
+        self.assertLess(time.monotonic() - began, gate.CONNECT_TIMEOUT / 2)
+        tunnel.close()
+        self.assertTrue(wait_for(lambda: h.gate.status()["streams"] == 0, timeout=3))
+        self.assertTrue(wait_for(lambda: "tunnel_closed" in [event for event, _ in h.events], timeout=3))
+
+
 class EvaluatorOutput(unittest.TestCase):
     MALFORMED = ({"reset": datetime.datetime(2026, 11, 12, 18, 0)}, ["not", "a", "dict"], {1: "x"},
                  {"remaining": float("nan")}, {"window": {"nested": 1}}, None)
@@ -999,6 +1168,13 @@ class GateProcess(unittest.TestCase):
         refused = self.messages(lambda m: m["op"] == "refused")[-1]
         self.assertEqual(refused["reason"], "http_401")
         self.assertEqual(process.wait(5), 3)
+
+    def test_startup_check_reads_a_connection_close_reply(self):
+        self.upstream = fakes.FakeUpstream()
+        self.upstream.close_header, self.upstream.usage_framing = True, "length"
+        self.start(holds_bearer=True)
+        self.messages(lambda m: m["op"] == "ready")
+        self.assertTrue(wait_for(lambda: self.ask("status")["running"]))
 
     def test_bad_configuration_refuses(self):
         process = self.start(max_age_s=True)
