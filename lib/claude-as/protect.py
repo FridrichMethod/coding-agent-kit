@@ -38,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 HERE = Path(os.path.realpath(__file__)).parent
 KIT = HERE.parent / "coding-agent-kit"
@@ -284,7 +285,6 @@ def launch(config, policy, paths, record, args, executable, env, style=lambda te
             return sandbox.confine(port, writable, "claude") + argv
 
         def preflight(sup):
-            import time
             deadline = time.monotonic() + PREFLIGHT_TIMEOUT
             while time.monotonic() < deadline:
                 status = sup.request("status", 10)
@@ -297,7 +297,10 @@ def launch(config, policy, paths, record, args, executable, env, style=lambda te
                 time.sleep(0.05)
             raise supervise.Refused("no fresh quota check passed in time")
 
-        extra = sandbox.holder_addresses().reserve if darwin else ()
+        try:
+            extra = sandbox.holder_addresses().reserve if darwin else ()
+        except sandbox.Refusal as error:
+            refuse(str(error))
         gate_env = {name: env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR") if env.get(name)}
         sup = supervise.Supervisor([sys.executable, "-I", "-B", str(HERE / "provider.py")], gate_config,
                                    refresh_config=refresh_config, preflight=preflight, confine=confine,
