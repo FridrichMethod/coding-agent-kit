@@ -89,8 +89,9 @@ class Pure(unittest.TestCase):
                 supervise.capture_proxy(env, parse)
 
     def test_the_gate_takes_the_proxy_the_native_would_use_for_https(self):
-        """Codex (reqwest) falls back from HTTPS_PROXY to ALL_PROXY, Claude Code to HTTP_PROXY; without
-        a provider either fallback counts. A proxy the gate cannot use refuses instead of going direct."""
+        """Codex (reqwest) falls back from HTTPS_PROXY to ALL_PROXY, Claude Code to HTTP_PROXY and then
+        ALL_PROXY (its OAuth client keeps the environment proxy when only ALL_PROXY is set); without a
+        provider either fallback counts. A proxy the gate cannot use refuses instead of going direct."""
         parse = fakes.gate.parse_proxy
         cases = (
             ("codex", {"ALL_PROXY": "http://a.example:1"}, ("a.example", 1, ())),
@@ -100,7 +101,9 @@ class Pure(unittest.TestCase):
             ("codex", {"HTTPS_PROXY": "", "ALL_PROXY": "http://a:3"}, ("a", 3, ())),
             ("claude", {"HTTP_PROXY": "http://h.example:1"}, ("h.example", 1, ())),
             ("claude", {"http_proxy": "http://h.example:2"}, ("h.example", 2, ())),
-            ("claude", {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, None),
+            ("claude", {"ALL_PROXY": "http://a.example:1"}, ("a.example", 1, ())),
+            ("claude", {"all_proxy": "http://a.example:2"}, ("a.example", 2, ())),
+            ("claude", {"HTTP_PROXY": "http://h:1", "ALL_PROXY": "socks5://x:1"}, ("h", 1, ())),
             ("claude", {"https_proxy": "http://p:1", "HTTP_PROXY": "socks5://x:1"}, ("p", 1, ())),
             (None, {"ALL_PROXY": "http://a:1"}, ("a", 1, ())),
             (None, {"http_proxy": "http://h:1", "all_proxy": "http://h:1"}, ("h", 1, ())),
@@ -114,6 +117,8 @@ class Pure(unittest.TestCase):
             ("codex", {"ALL_PROXY": "http://a:1", "all_proxy": "http://b:1"}, "ALL_PROXY and all_proxy differ"),
             ("claude", {"HTTP_PROXY": "https://h:1"}, "unsupported HTTP_PROXY"),
             ("claude", {"http_proxy": "h.example:3128"}, "unsupported http_proxy"),
+            ("claude", {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, "unsupported ALL_PROXY"),
+            ("claude", {"ALL_PROXY": "http://a:1", "all_proxy": "http://b:1"}, "ALL_PROXY and all_proxy differ"),
             (None, {"HTTP_PROXY": "http://h:1", "ALL_PROXY": "http://a:1"}, "HTTP_PROXY and ALL_PROXY differ"),
             (None, {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, "unsupported ALL_PROXY"),
         )

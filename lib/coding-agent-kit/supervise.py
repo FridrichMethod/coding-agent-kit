@@ -103,11 +103,12 @@ LOOPBACK = ("127.0.0.1", "::1")
 PROXY_VARIABLES = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")
 # The variables a native reads for its HTTPS connections, group by group in precedence order (both
 # spellings of a name form one group): Codex (reqwest) falls back from HTTPS_PROXY to ALL_PROXY,
-# Claude Code from HTTPS_PROXY to HTTP_PROXY and never reads ALL_PROXY. Without a provider either
+# Claude Code from HTTPS_PROXY to HTTP_PROXY and then to ALL_PROXY (its OAuth client, which sends
+# the bearer, keeps the environment proxy when only ALL_PROXY is set). Without a provider either
 # fallback counts, so the gate never goes direct where one native would use a proxy.
 PROXY_ORDER = {
     "codex": (("HTTPS_PROXY", "https_proxy"), ("ALL_PROXY", "all_proxy")),
-    "claude": (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy")),
+    "claude": (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy"), ("ALL_PROXY", "all_proxy")),
     None: (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")),
 }
 NO_PROXY_VARIABLES = ("NO_PROXY", "no_proxy")
