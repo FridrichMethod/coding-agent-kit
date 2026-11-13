@@ -15,8 +15,10 @@ codex   Resolves the codex-as account home as codex-as does (the kit's configura
         Retained: the JSON key paths (array items as [], id-like segments as {id}) with value
         types and counts; the cache shape, identity-field presence and age; per fragment,
         whether its TOML parses, the ConfigRequirementsToml field names a requirements
-        fragment sets (other names counted), its [application.network] state and the forced
-        keys it pins; the D14 summary and verdict. Never a fragment id, name or contents,
+        fragment sets (other names counted), its [application.network] state (unset, true
+        or false kept apart), the forced keys it names, the cloud-ignored auth names and the
+        features.use_agent_identity state; the D14 summary and verdict, evaluated on the
+        fragments composed as native composes them. Never a fragment id, name or contents,
         a user or account id, the signature, a timestamp or any other value.
 claude  Resolves <secrets_dir>/native-claude-accounts/NAME/config through the kit loader and
         the QC harness's fixed alias paths (qc/n1_harness.py AccountPaths; walked from / with
@@ -26,9 +28,9 @@ claude  Resolves <secrets_dir>/native-claude-accounts/NAME/config through the ki
         SETTINGS_ACTIVE, REFUSED_ENV and SETTINGS_ENV_REFUSED for env names,
         forceLoginMethod, forceLoginOrgUUID) as refused, active, accepted or unknown, for
         the native and the bearer scope (G0 D15). QC reviewed no policy-limits key, so each
-        one is unknown and refuses until reviewed. Retained: key names, value types,
-        classifications, verdicts, env names as two counts, restriction and defaults names
-        of policy-limits.json. Never a value; never .credentials.json, account.json,
+        one is unknown and refuses until reviewed. Retained: key names, classifications,
+        verdicts, env names as two counts, restriction and defaults names of
+        policy-limits.json. Never a value, a value type or a length; never .credentials.json, account.json,
         .claude.json, the policy stamp or helper-consent sidecars or any other file. The
         organization pin is reported, not compared: that needs the registration file.
 
@@ -45,6 +47,10 @@ e0-STEP.attempt (0600, O_EXCL) is created before the first target file is looked
 e0-STEP.result.json (0600, O_EXCL). Either present refuses the step (exit 4). A refusal
 before the marker writes nothing (exit 2). Exit 0 when a clean result was written (its
 outcome says what was read), 3 when the marker exists but no clean result could be written.
+
+Output scan: known values (document strings of 12 or more characters, nested TOML names,
+env names and the resolved paths, minus the fixed vocabulary the result is built from) are
+matched against whole result strings and whole key-path segments; paths also as substrings.
 """
 import sys
 
@@ -99,16 +105,37 @@ FORCED_KEYS = ('chatgpt_base_url', 'model_provider', 'model_providers', 'cli_aut
                'enforce_residency', 'check_for_update_on_startup', 'config_server')
 # Config-layer names worth naming: the forced keys and the roots the LX probe overrides with -c.
 CONFIG_NAMES = frozenset(FORCED_KEYS + ('features', 'otel', 'analytics', 'web_search', 'memories'))
+# Native drops these from every cloud (EnterpriseManaged) requirements layer before validating it
+# (config/src/requirements_layers/layer.rs LOCAL_ONLY_AUTH_REQUIREMENTS, strip_cloud_auth_requirements).
+CLOUD_IGNORED = ('allowed_login_methods', 'allowed_chatgpt_workspaces', 'cli_auth_credentials_store',
+                 'chatgpt_base_url')
+# serde aliases that layer.rs folds into one key per layer before the merge.
+ALIASES = (('feature_requirements', 'features'), ('experimental_network', 'network_proxy'))
+AGENT_IDENTITY = 'use_agent_identity'  # lib/codex-as/check.py FEATURES: replaces the ChatGPT login
+# ApplicationRequirementsToml and its network table are deny_unknown_fields (application_requirements.rs).
+APPLICATION_KEYS = frozenset(('network', 'storage'))
+NETWORK_KEYS = frozenset(('enabled', 'domains'))
+NETWORK_ENABLED = {'network-enabled-unset': True, 'network-enabled-true': True, 'network-enabled-false': False}
 D14_REASONS = {'chatgpt_base_url': 'pins-chatgpt-base-url', 'model_provider': 'pins-model-provider',
                'model_providers': 'pins-model-provider', 'enforce_residency': 'pins-enforce-residency',
-               'config_server': 'requires-config-server'}
+               'config_server': 'config-server-in-cloud-layer'}
 # Pins whose codex-as value is known: a pin to that value does not conflict.
 D14_COMPATIBLE = {'cli_auth_credentials_store': 'pins-credential-store',
                   'check_for_update_on_startup': 'pins-update-check', 'sqlite_home': 'pins-sqlite-home'}
+# cache.rs field names of the v1 file.
+CACHE_FIELDS = frozenset(('signed_payload', 'signature', 'version', 'cached_at', 'expires_at', 'chatgpt_user_id',
+                          'account_id', 'bundle', 'config_toml', 'requirements_toml', 'enterprise_managed', 'id',
+                          'name', 'contents'))
 
 # policy-limits.json top-level names in the 2.1.322 zod schema (S, binary offset near 287881255).
 LIMITS_SCHEMA_2_1_322 = frozenset(('restrictions', 'compliance_taints', 'monitoring_notice', 'defaults', 'core_skills',
                                    'artifact_create_notice', 'upcoming_minimum_version'))
+FINDINGS = ('jwt-shaped', 'uuid-shaped', 'token-shaped', 'known-value')
+# Fixed names the result is built from: never treated as known values, so a document that uses
+# them (for example a [features] remote_control next to allow_remote_control) is not a leak.
+VOCABULARY = (REQUIREMENT_FIELDS | CONFIG_NAMES | frozenset(CLOUD_IGNORED) | frozenset(name for pair in ALIASES
+              for name in pair) | {AGENT_IDENTITY} | APPLICATION_KEYS | NETWORK_KEYS | CACHE_FIELDS
+              | LIMITS_SCHEMA_2_1_322 | frozenset(FINDINGS) | {'<redacted>'})
 
 JWT = re.compile(r'[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}')
 UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
@@ -212,11 +239,11 @@ def key_paths(document):
 
 
 def names_view(mapping):
+    """The key names of a nested object, never its values; names None when it is not an object."""
     if not isinstance(mapping, dict):
-        return {'type': json_type(mapping)}
+        return {'names': None}
     names = sorted({safe_name(name) for name in mapping})
-    return {'type': 'object', 'count': len(mapping), 'names': names[:NAME_LIMIT],
-            'names_truncated': max(0, len(names) - NAME_LIMIT)}
+    return {'names': names[:NAME_LIMIT], 'names_truncated': max(0, len(names) - NAME_LIMIT)}
 
 
 def strings(value, found, keys_too=False, depth=0):
@@ -237,7 +264,7 @@ def strings(value, found, keys_too=False, depth=0):
     return found
 
 
-def leaks(text, secrets):
+def shapes(text):
     found = set()
     if JWT.search(text):
         found.add('jwt-shaped')
@@ -246,9 +273,52 @@ def leaks(text, secrets):
     for run in RUN.findall(text):
         if (re.search(r'[0-9]', run) and re.search(r'[A-Z]', run)) or re.fullmatch(r'[0-9a-fA-F]{32,}', run):
             found.add('token-shaped')
-    if any(secret in text or json.dumps(secret, ensure_ascii=True)[1:-1] in text for secret in secrets):
-        found.add('known-value')
-    return sorted(found)
+    return found
+
+
+SEPARATORS = re.compile(r'(\.|\[\])')  # how key paths join names
+
+
+class KnownValues:
+    """Known values, matched against a whole result string or a whole key-path segment (the only
+    ways the reader places a document name in its result); absolute paths also as substrings."""
+
+    def __init__(self, secrets):
+        self.values = {secret for secret in secrets if secret not in VOCABULARY}
+        self.paths = sorted((secret for secret in self.values if secret.startswith('/')), key=len, reverse=True)
+
+    def found(self, text):
+        return (text in self.values or any(part in self.values for part in SEPARATORS.split(text))
+                or any(path in text for path in self.paths))
+
+    def redact(self, text):
+        if text in self.values:
+            return '<redacted>'
+        text = ''.join('<redacted>' if part in self.values else part for part in SEPARATORS.split(text))
+        for path in self.paths:
+            text = text.replace(path, '<redacted>')
+        return text
+
+    def walk(self, value, visit):
+        """The result with every key and string passed through visit."""
+        if isinstance(value, str):
+            return visit(value)
+        if isinstance(value, dict):
+            return {visit(key): self.walk(item, visit) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self.walk(item, visit) for item in value]
+        return value
+
+    def leaks(self, result):
+        hits = []
+        self.walk(result, lambda text: hits.append(text) if self.found(text) else None)
+        return {'known-value'} if hits else set()
+
+
+def leaks(result, secrets):
+    """The findings for one result object: token shapes in its text, known values in its strings."""
+    known = secrets if isinstance(secrets, KnownValues) else KnownValues(secrets)
+    return sorted(shapes(dump(result)) | known.leaks(result))
 
 
 def dump(document):
@@ -257,22 +327,21 @@ def dump(document):
 
 def sanitize(result, secrets):
     """Serialize and scan. On a finding, redact and rescan; if anything remains, keep only the findings."""
-    text = dump(result)
-    findings = leaks(text, secrets)
+    known = KnownValues(secrets)
+    findings = leaks(result, known)
     if not findings:
-        return text, []
-    for secret in sorted(secrets, key=len, reverse=True):
-        text = text.replace(json.dumps(secret, ensure_ascii=True)[1:-1], '<redacted>').replace(secret, '<redacted>')
+        return dump(result), []
+    text = dump(known.walk(result, known.redact))
     for pattern in (JWT, UUID):
         text = pattern.sub('<redacted>', text)
-    text = RUN.sub(lambda match: '<redacted>' if leaks(match[0], ()) else match[0], text)
+    text = RUN.sub(lambda match: '<redacted>' if shapes(match[0]) else match[0], text)
     try:
         data = json.loads(text)
         data['sanitizer_findings'] = findings
-        text = dump(data)
+        text = None if leaks(data, known) else dump(data)
     except ValueError:
         text = None
-    if text is None or leaks(text, secrets):
+    if text is None:
         text = dump({'schema': SCHEMA, 'probe': result.get('probe'), 'outcome': 'sanitizer-blocked',
                      'sanitizer_findings': findings})
     return text, findings
@@ -518,7 +587,8 @@ def _fragments(bundle, bucket):
 
 def cache_shape(document):
     """cache-v1 (exactly cache.rs's fields and types), cache-v1-extra-keys (more fields, which serde
-    ignores) or unrecognized."""
+    ignores), cache-version-unsupported (v1 fields with a version other than 1, which native
+    ignores: CacheVersionUnsupported) or unrecognized."""
     extra = []
 
     def holds(value, required):
@@ -545,25 +615,76 @@ def cache_shape(document):
             if not holds(fragment, {'id', 'name', 'contents'}) or not all(
                     isinstance(fragment[key], str) for key in ('id', 'name', 'contents')):
                 return 'unrecognized'
+    if payload['version'] != 1:
+        return 'cache-version-unsupported'
     return 'cache-v1-extra-keys' if any(extra) else 'cache-v1'
 
 
 def network_state(table):
-    """The fragment's [application.network] as native 0.167.2 reads it: enabled defaults to true."""
+    """[application.network] of one TOML table as native 0.167.2 deserializes it
+    (application_requirements.rs): unknown fields are errors, and an unset enabled means enabled.
+    Unset, true and false stay apart, so a composed table can be recomputed from them."""
     if 'application' not in table:
         return 'absent'
     application = table['application']
-    if not isinstance(application, dict):
+    if not isinstance(application, dict) or set(application) - APPLICATION_KEYS:
         return 'invalid'
     if 'network' not in application:
         return 'application-without-network'
     network = application['network']
-    if not isinstance(network, dict):
+    if (not isinstance(network, dict) or set(network) - NETWORK_KEYS
+            or not isinstance(network.get('domains', {}), dict)):
         return 'invalid'
-    enabled = network.get('enabled', True)
-    if not isinstance(enabled, bool):
+    if 'enabled' not in network:
+        return 'network-enabled-unset'
+    if not isinstance(network['enabled'], bool):
         return 'invalid'
-    return 'enabled' if enabled else 'disabled'
+    return 'network-enabled-true' if network['enabled'] else 'network-enabled-false'
+
+
+def agent_identity(table, aliases=True):
+    """features.use_agent_identity (requirements also spell the table feature_requirements)."""
+    features = table['features'] if 'features' in table else table.get('feature_requirements') if aliases else None
+    if features is None:
+        return 'absent'
+    if not isinstance(features, dict):
+        return 'invalid'
+    if AGENT_IDENTITY not in features:
+        return 'absent'
+    value = features[AGENT_IDENTITY]
+    return 'invalid' if not isinstance(value, bool) else 'enabled' if value else 'disabled'
+
+
+def requirement_layer(table):
+    """One requirements fragment as layer.rs prepares a cloud layer: the cloud-ignored auth fields
+    dropped and the serde aliases folded. None when both spellings of a field are set (serde
+    rejects the duplicate, so native rejects the bundle)."""
+    layer = {name: value for name, value in table.items() if name not in CLOUD_IGNORED}
+    for alias, name in ALIASES:
+        if alias in layer:
+            if name in layer:
+                return None
+            layer[name] = layer.pop(alias)
+    return layer
+
+
+def merge(base, overlay):
+    """merge_toml_values (config/src/merge.rs): tables extend recursively, anything else replaces."""
+    for name, value in overlay.items():
+        if isinstance(base.get(name), dict) and isinstance(value, dict):
+            merge(base[name], value)
+        else:
+            base[name] = merge({}, value) if isinstance(value, dict) else value
+    return base
+
+
+def compose(layers):
+    """Bundle fragments arrive highest priority first; native merges them lowest priority first
+    (cloud_config_bundle.rs into_layers, cloud_config_layers.rs, requirements_layers/stack.rs)."""
+    merged = {}
+    for layer in reversed(layers):
+        merge(merged, layer)
+    return merged
 
 
 def _compatible(key, value, codex_home):
@@ -597,8 +718,11 @@ def requirements_view(fragment, codex_home, secrets):
     known = sorted(name for name in table if name in REQUIREMENT_FIELDS)
     pins = [key for key in FORCED_KEYS if key in table]
     view = {'toml': 'ok', 'requirement_names': known, 'other_names': len(table) - len(known),
-            'application_network': network_state(table), 'pins': pins}
-    compatible = {key: _compatible(key, table[key], codex_home) for key in pins if key in D14_COMPATIBLE}
+            'application_network': network_state(table), 'agent_identity': agent_identity(table),
+            'aliases': 'ok' if requirement_layer(table) is not None else 'conflict', 'pins': pins,
+            'cloud_ignored_names': [name for name in CLOUD_IGNORED if name in table]}
+    compatible = {key: _compatible(key, table[key], codex_home) for key in pins
+                  if key in D14_COMPATIBLE and key not in CLOUD_IGNORED}
     if compatible:
         view['pin_matches_codex_as'] = compatible
     return view, table
@@ -607,51 +731,60 @@ def requirements_view(fragment, codex_home, secrets):
 def config_view(fragment, secrets):
     table, state = _toml(fragment, secrets)
     if table is None:
-        return {'toml': state}
+        return {'toml': state}, None
     named = sorted(name for name in table if name in CONFIG_NAMES)
-    return {'toml': 'ok', 'names': named, 'other_names': len(table) - len(named)}
+    return {'toml': 'ok', 'names': named, 'other_names': len(table) - len(named),
+            'agent_identity': agent_identity(table, aliases=False)}, table
 
 
-def d14_summary(shape, requirements, configs):
-    """The D14 answers for this cached bundle. Bundle order is highest priority first and
-    [application] merges as a whole table (S); local requirements are not read here."""
-    summary = {'application_network_any_enabled': any(view.get('application_network') == 'enabled'
-                                                      for view in requirements),
-               'application_network_any_disabled': any(view.get('application_network') == 'disabled'
-                                                       for view in requirements)}
-    effective = 'absent'
-    for view in requirements:
-        if view.get('application_network', 'absent') != 'absent':
-            effective = view['application_network']
-            break
-    summary['application_network_effective'] = effective
-    pinned = sorted({key for view in requirements for key in view.get('pins', ())}, key=FORCED_KEYS.index)
-    summary['pinned_forced_keys'] = pinned
-    matches = {}
-    for view in requirements:
-        for key, value in view.get('pin_matches_codex_as', {}).items():
-            matches[key] = matches.get(key, True) and bool(value)
-    summary['pin_matches_codex_as'] = matches
-    summary['config_layer_names'] = sorted({name for view in configs for name in view.get('names', ())})
-    unparsed = sum(view.get('toml') != 'ok' for view in requirements + configs)
+def d14_summary(shape, requirements, configs, codex_home):
+    """The D14 answers for this cached bundle: requirements and configs are (view, table) pairs in
+    bundle order (highest priority first), evaluated per fragment and on the fragments composed as
+    native 0.167.2 composes them (S). Local requirements and the user config.toml are not read."""
+    views = [view for view, _table in requirements]
+    config_views = [view for view, _table in configs]
+    layers = [requirement_layer(table) for _view, table in requirements if table is not None]
+    merged = compose([layer for layer in layers if layer is not None])
+    merged_config = compose([table for _view, table in configs if table is not None])
+    network = network_state(merged)
+    pinned = [key for key in FORCED_KEYS if key in merged]
+    matches = {key: _compatible(key, merged[key], codex_home) for key in pinned if key in D14_COMPATIBLE}
+    summary = {'application_network_effective': network,
+               'application_network_enabled': NETWORK_ENABLED.get(network),
+               'pinned_forced_keys': pinned, 'pin_matches_codex_as': matches,
+               'cloud_ignored_names': [name for name in CLOUD_IGNORED
+                                       if any(name in view.get('cloud_ignored_names', ()) for view in views)],
+               'agent_identity_requirement': agent_identity(merged),
+               'agent_identity_config': agent_identity(merged_config, aliases=False),
+               'config_layer_names': sorted({name for view in config_views for name in view.get('names', ())})}
+    unparsed = sum(view.get('toml') != 'ok' for view in views + config_views)
     summary['fragments_unparsed'] = unparsed
     reasons = []
-    if shape == 'unrecognized':
-        reasons.append('cache-shape-unrecognized')
+    if shape in ('unrecognized', 'cache-version-unsupported'):
+        reasons.append('cache-shape-unrecognized' if shape == 'unrecognized' else shape)
     if unparsed:
         reasons.append('fragment-toml-unparsed')
-    if effective == 'invalid':
+    if any(layer is None for layer in layers):
+        reasons.append('requirements-alias-conflict')
+    if 'invalid' in [network] + [view.get('application_network') for view in views]:
         reasons.append('application-network-invalid')
+    if 'invalid' in [summary['agent_identity_requirement'], summary['agent_identity_config']] + [
+            view.get('agent_identity') for view in views + config_views]:
+        reasons.append('agent-identity-invalid')
     if reasons:
         summary.update(verdict='unevaluable', reasons=reasons)
         return summary
-    if effective == 'enabled':
+    if summary['application_network_enabled']:
         reasons.append('application-network-enabled')
     for key in pinned:
         if key in D14_REASONS:
             reasons.append(D14_REASONS[key])
-        elif not matches.get(key, False):
+        elif not matches[key]:
             reasons.append(D14_COMPATIBLE[key])
+    if summary['agent_identity_requirement'] == 'enabled':
+        reasons.append('forces-agent-identity')
+    if summary['agent_identity_config'] == 'enabled':
+        reasons.append('enables-agent-identity')
     summary.update(verdict='refuse' if reasons else 'no-blocker-in-cache', reasons=sorted(set(reasons)))
     return summary
 
@@ -721,14 +854,14 @@ def codex_report(home, codex_home, uid, now, secrets):
     bundle = payload.get('bundle')
     requirement_items = _fragments(bundle, 'requirements_toml')
     config_items = _fragments(bundle, 'config_toml')
-    requirements = [requirements_view(item, codex_home, secrets)[0] for item in requirement_items or ()]
+    requirements = [requirements_view(item, codex_home, secrets) for item in requirement_items or ()]
     configs = [config_view(item, secrets) for item in config_items or ()]
     report['bundle'] = {
         'requirements_fragments': len(requirement_items) if requirement_items is not None else None,
         'config_fragments': len(config_items) if config_items is not None else None,
-        'requirements': requirements, 'config': configs}
-    report['d14'] = d14_summary(shape, requirements, configs)
-    document = None
+        'requirements': [view for view, _table in requirements], 'config': [view for view, _table in configs]}
+    report['d14'] = d14_summary(shape, requirements, configs, codex_home)
+    document = requirements = configs = None
     return report
 
 
@@ -759,7 +892,16 @@ def classify_setting(n1, name, value):
         if value is None:
             return 'accepted', 'accepted', 'organization-pin-null', None
         return 'unknown', 'unknown', 'organization-pin-not-compared', 'policy_organization_not_compared'
+    if not name.startswith('$') and isinstance(value, dict) and any(inner in reviewed_settings(n1) for inner in value):
+        # The traced 2.1.322 loader applies the bare object; a wrapper around reviewed keys would
+        # mean the on-disk shape differs from that trace (an envelope), which is not guessed at.
+        return 'unknown', 'unknown', 'wraps-reviewed-keys', 'server_policy_possible_envelope'
     return 'unknown', 'unknown', 'not-in-qc-review', None
+
+
+def reviewed_settings(n1):
+    return frozenset(n1.SETTINGS_REFUSED + n1.POLICY_HELPERS + n1.SETTINGS_ACTIVE
+                     + ('env', 'forceLoginMethod', 'forceLoginOrgUUID'))
 
 
 def verdicts(keys):
@@ -780,8 +922,8 @@ def settings_view(n1, document, secrets):
     keys = []
     for name, value in document.items():
         native, bearer, rule, reason = classify_setting(n1, name, value)
-        keys.append({'name': safe_name(name), 'type': json_type(value), 'native': native, 'bearer': bearer,
-                     'rule': rule, 'reason': reason, 'ignored_by_native': name.startswith('$') and name != '$schema'})
+        keys.append({'name': safe_name(name), 'native': native, 'bearer': bearer, 'rule': rule, 'reason': reason,
+                     'ignored_by_native': name.startswith('$') and name != '$schema'})
     env = document.get('env')
     view = {'keys': sorted(keys, key=lambda key: key['name'])}
     if isinstance(env, dict):
@@ -794,17 +936,14 @@ def settings_view(n1, document, secrets):
 
 
 def limits_view(document):
-    keys = [{'name': safe_name(name), 'type': json_type(value), 'native': 'unknown', 'bearer': 'unknown',
+    keys = [{'name': safe_name(name), 'native': 'unknown', 'bearer': 'unknown',
              'rule': 'policy-limits-not-in-qc-review', 'reason': 'policy_limits_unreviewed_keys',
              'in_native_2_1_322_schema': name in LIMITS_SCHEMA_2_1_322}
-            for name, value in document.items()]
+            for name in document]
     view = {'keys': sorted(keys, key=lambda key: key['name'])}
     for name in ('restrictions', 'defaults'):
         if name in document:
             view[name] = names_view(document[name])
-    for name in ('compliance_taints', 'core_skills'):
-        if isinstance(document.get(name), list):
-            view[name] = {'type': 'array', 'count': len(document[name])}
     scopes = {}
     for scope in ('native', 'bearer'):
         scopes[scope] = ({'verdict': 'refused', 'reasons': ['policy_limits_unreviewed_keys']} if keys
@@ -833,7 +972,7 @@ def claude_file(n1, directory, name, uid, now, secrets):
         else:
             strings(document, secrets, keys_too=False)
             if not isinstance(document, dict):
-                report.update(outcome='read', shape='not-an-object', type=json_type(document))
+                report.update(outcome='read', shape='not-an-object')
                 refusal = 'server_policy_shape_unrecognized'
             else:
                 report.update(outcome='read', shape='object')
@@ -882,8 +1021,16 @@ def _base(step, alias, now):
             'platform': {'system': platform.system().lower(), 'python': platform.python_version()}}
 
 
+def _close(fd):
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+
 def attempt(step, alias, out, now, body, path_secrets, stdout):
-    """Marker, body, sanitized result. Returns the exit code."""
+    """Marker, body, sanitized result. Returns the exit code; no OSError escapes once the marker
+    may exist."""
     attempt_name, result_name = marker_names(step)
     started = now()
     try:
@@ -891,6 +1038,21 @@ def attempt(step, alias, out, now, body, path_secrets, stdout):
                                                  'created_utc': utc(started)}))
     except FileExistsError:
         raise Refused('attempt-exists', EXIT_ATTEMPTED) from None
+    except OSError:  # ENOSPC, EDQUOT, EIO, ...: the create may have succeeded before the write failed
+        try:
+            present = _exists(out, attempt_name)
+        except Refused:
+            present = True
+        if present:
+            raise Refused('attempt-marker-incomplete', EXIT_INCOMPLETE) from None
+        raise Refused('attempt-marker-not-written') from None
+    try:
+        return _attempt_body(step, alias, out, now, body, path_secrets, stdout, started, result_name)
+    except OSError:
+        return EXIT_INCOMPLETE
+
+
+def _attempt_body(step, alias, out, now, body, path_secrets, stdout, started, result_name):
     result, secrets = _base(step, alias, started), set()
     try:
         result.update(body(secrets))
@@ -931,9 +1093,9 @@ def run_codex(alias, out_path, *, modules, config, uid=None, now=time.time, stdo
                            (str(config.home), str(config.codex_home), str(config.secrets_dir), str(home_path),
                             out_path, os.path.realpath(out_path)), stdout)
         finally:
-            os.close(home)
+            _close(home)
     finally:
-        os.close(out)
+        _close(out)
 
 
 def run_claude(alias, out_path, *, modules, config, uid=None, now=time.time, stdout=None):
@@ -959,9 +1121,9 @@ def run_claude(alias, out_path, *, modules, config, uid=None, now=time.time, std
                            (str(config.home), str(config.codex_home), str(config.secrets_dir), paths.config,
                             out_path, os.path.realpath(out_path)), stdout)
         finally:
-            os.close(directory)
+            _close(directory)
     finally:
-        os.close(out)
+        _close(out)
 
 
 def main(argv=None, *, modules=None, stdout=None, stderr=None, now=time.time):
@@ -985,6 +1147,9 @@ def main(argv=None, *, modules=None, stdout=None, stderr=None, now=time.time):
     except Refused as error:
         say(stderr, 'refused: ' + error.reason)
         return error.code
+    except OSError:  # only before the marker: attempt() keeps every later OSError
+        say(stderr, 'refused: os-error')
+        return EXIT_REFUSED
 
 
 if __name__ == '__main__':

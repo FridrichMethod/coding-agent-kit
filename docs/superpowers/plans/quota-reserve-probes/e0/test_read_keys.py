@@ -4,6 +4,7 @@ Run: python3 -I -B test_read_keys.py
 Every fabricated value contains "seed"; no result may contain that word in any case.
 """
 from datetime import datetime, timezone
+import errno
 import importlib.util
 import io
 import json
@@ -174,15 +175,21 @@ class CodexTest(Base):
         first, second = doc['bundle']['requirements']
         self.assertEqual(first['requirement_names'],
                          ['additional_developer_instructions', 'application', 'chatgpt_base_url', 'model_providers'])
-        self.assertEqual((first['other_names'], first['application_network'], first['pins']),
-                         (1, 'enabled', ['chatgpt_base_url', 'model_providers']))
+        self.assertEqual((first['other_names'], first['application_network'], first['pins'],
+                          first['cloud_ignored_names'], first['agent_identity'], first['aliases']),
+                         (1, 'network-enabled-unset', ['chatgpt_base_url', 'model_providers'], ['chatgpt_base_url'],
+                          'absent', 'ok'))
         self.assertEqual((second['requirement_names'], second['application_network']),
                          (['allowed_sandbox_modes'], 'absent'))
-        self.assertEqual(doc['bundle']['config'], [{'toml': 'ok', 'names': ['features'], 'other_names': 1}])
+        self.assertEqual(doc['bundle']['config'], [{'toml': 'ok', 'names': ['features'], 'other_names': 1,
+                                                    'agent_identity': 'absent'}])
         d14 = doc['d14']
+        # Native drops chatgpt_base_url from cloud layers (layer.rs LOCAL_ONLY_AUTH_REQUIREMENTS).
         self.assertEqual((d14['verdict'], d14['reasons']),
-                         ('refuse', ['application-network-enabled', 'pins-chatgpt-base-url', 'pins-model-provider']))
-        self.assertEqual((d14['application_network_effective'], d14['config_layer_names']), ('enabled', ['features']))
+                         ('refuse', ['application-network-enabled', 'pins-model-provider']))
+        self.assertEqual((d14['application_network_effective'], d14['application_network_enabled'],
+                          d14['pinned_forced_keys'], d14['cloud_ignored_names'], d14['config_layer_names']),
+                         ('network-enabled-unset', True, ['model_providers'], ['chatgpt_base_url'], ['features']))
         self.assertEqual(json.loads(stdout[len('e0: '):])['verdict'], 'refuse')
         self.assert_only_cache_opened()
         self.assertTrue((self.out / 'e0-codex.attempt').exists())
@@ -195,12 +202,12 @@ class CodexTest(Base):
         code, doc, *_ = self.run_step()
         self.assertEqual(code, 0)
         d14 = doc['d14']
-        self.assertEqual((d14['verdict'], d14['reasons'], d14['application_network_effective']),
-                         ('no-blocker-in-cache', [], 'disabled'))
-        self.assertEqual(d14['pinned_forced_keys'], ['cli_auth_credentials_store', 'sqlite_home',
-                                                     'check_for_update_on_startup'])
-        self.assertEqual(d14['pin_matches_codex_as'], {'cli_auth_credentials_store': True, 'sqlite_home': True,
-                                                       'check_for_update_on_startup': True})
+        self.assertEqual((d14['verdict'], d14['reasons'], d14['application_network_effective'],
+                          d14['application_network_enabled']),
+                         ('no-blocker-in-cache', [], 'network-enabled-false', False))
+        self.assertEqual(d14['pinned_forced_keys'], ['sqlite_home', 'check_for_update_on_startup'])
+        self.assertEqual(d14['pin_matches_codex_as'], {'sqlite_home': True, 'check_for_update_on_startup': True})
+        self.assertEqual(d14['cloud_ignored_names'], ['cli_auth_credentials_store'])
 
     def test_conflicting_pins_and_config_server_refuse(self):
         self.write_cache(cache_document(requirements=[
@@ -208,23 +215,124 @@ class CodexTest(Base):
             'model_provider = "seed-provider-name"\n[config_server]\nurl = "https://seed-config.example.invalid"\n']))
         code, doc, *_ = self.run_step()
         self.assertEqual(code, 0)
-        self.assertEqual(doc['d14']['reasons'], ['pins-credential-store', 'pins-enforce-residency',
-                                                 'pins-model-provider', 'pins-sqlite-home', 'requires-config-server'])
-        self.assertEqual(doc['d14']['pin_matches_codex_as'], {'cli_auth_credentials_store': False,
-                                                              'sqlite_home': False})
+        self.assertEqual(doc['d14']['reasons'], ['config-server-in-cloud-layer', 'pins-enforce-residency',
+                                                 'pins-model-provider', 'pins-sqlite-home'])
+        self.assertEqual(doc['d14']['pin_matches_codex_as'], {'sqlite_home': False})
+        self.assertEqual(doc['bundle']['requirements'][0]['pin_matches_codex_as'], {'sqlite_home': False})
 
-    def test_application_table_of_the_first_fragment_wins(self):
-        self.write_cache(cache_document(requirements=['[application]\n', '[application.network]\n']))
-        code, doc, *_ = self.run_step()
-        d14 = doc['d14']
-        self.assertEqual((d14['application_network_effective'], d14['application_network_any_enabled'],
-                          d14['verdict']), ('application-without-network', True, 'no-blocker-in-cache'))
+    def test_fragments_compose_as_native_merges_them(self):
+        # Bundle order is highest priority first; native merges lowest first, extending tables
+        # recursively and replacing scalars (requirements_layers/stack.rs, merge.rs).
+        home = json.dumps(str(self.codex_home))
+        cases = (
+            ('table-then-network', ['[application]\n', '[application.network]\n'],
+             'network-enabled-unset', 'refuse', ['application-network-enabled']),
+            ('higher-domains-lower-disabled',
+             ['[application.network.domains]\n"a.example.com" = "allow"\n', '[application.network]\nenabled = false\n'],
+             'network-enabled-false', 'no-blocker-in-cache', []),
+            ('higher-enables-lower-disabled',
+             ['[application.network]\nenabled = true\n', '[application.network]\nenabled = false\n'],
+             'network-enabled-true', 'refuse', ['application-network-enabled']),
+            ('higher-matching-pin-wins', ['sqlite_home = %s\n' % home, 'sqlite_home = "/seed/lower"\n'],
+             'absent', 'no-blocker-in-cache', []),
+            ('higher-conflicting-pin-wins', ['sqlite_home = "/seed/higher"\n', 'sqlite_home = %s\n' % home],
+             'absent', 'refuse', ['pins-sqlite-home']))
+        for name, fragments, network, verdict, reasons in cases:
+            with self.subTest(name):
+                self.write_cache(cache_document(requirements=fragments))
+                code, doc, *_ = self.run_step(out=self.fresh_out())
+                d14 = doc['d14']
+                self.assertEqual((code, d14['application_network_effective'], d14['verdict'], d14['reasons']),
+                                 (0, network, verdict, reasons))
+        states = [view['application_network'] for view in doc['bundle']['requirements']]
+        self.assertEqual(states, ['absent', 'absent'])
+        self.write_cache(cache_document(requirements=['[application.network]\nenabled = true\n',
+                                                      '[application.network]\n', '[application.network]\nenabled = false\n']))
+        doc = self.run_step(out=self.fresh_out())[1]
+        self.assertEqual([view['application_network'] for view in doc['bundle']['requirements']],
+                         ['network-enabled-true', 'network-enabled-unset', 'network-enabled-false'])
 
     def test_invalid_network_flag_is_unevaluable(self):
-        self.write_cache(cache_document(requirements=['[application.network]\nenabled = "yes"\n']))
-        doc = self.run_step()[1]
-        self.assertEqual((doc['d14']['verdict'], doc['d14']['reasons']),
-                         ('unevaluable', ['application-network-invalid']))
+        for name, fragment in (('flag', '[application.network]\nenabled = "yes"\n'),
+                               ('network-field', '[application.network]\nallowed_domains = ["a.example.com"]\n'),
+                               ('application-field', '[application]\nseed_field = 1\n')):
+            with self.subTest(name):
+                self.write_cache(cache_document(requirements=[fragment, '[application.network]\nenabled = false\n']))
+                doc = self.run_step(out=self.fresh_out())[1]
+                self.assertEqual((doc['d14']['verdict'], doc['d14']['reasons']),
+                                 ('unevaluable', ['application-network-invalid']))
+
+    def test_agent_identity_feature(self):
+        cases = (('requirement', ['[features]\nuse_agent_identity = true\n'], [], 'refuse', ['forces-agent-identity']),
+                 ('requirement-alias', ['[feature_requirements]\nuse_agent_identity = true\n'], [], 'refuse',
+                  ['forces-agent-identity']),
+                 ('requirement-overridden', ['[features]\nuse_agent_identity = false\n',
+                                             '[features]\nuse_agent_identity = true\n'], [], 'no-blocker-in-cache', []),
+                 ('config', [], ['[features]\nuse_agent_identity = true\n'], 'refuse', ['enables-agent-identity']),
+                 ('config-off', [], ['[features]\nuse_agent_identity = false\n'], 'no-blocker-in-cache', []),
+                 ('invalid', ['[features]\nuse_agent_identity = "yes"\n'], [], 'unevaluable', ['agent-identity-invalid']),
+                 ('alias-conflict', ['[features]\nx_flag = true\n[feature_requirements]\ny_flag = true\n'], [],
+                  'unevaluable', ['requirements-alias-conflict']))
+        for name, requirements, configs, verdict, reasons in cases:
+            with self.subTest(name):
+                self.write_cache(cache_document(requirements=requirements, configs=configs))
+                doc = self.run_step(out=self.fresh_out())[1]
+                self.assertEqual((doc['d14']['verdict'], doc['d14']['reasons']), (verdict, reasons))
+        self.assertEqual(doc['bundle']['requirements'][0]['aliases'], 'conflict')
+
+    def test_known_names_in_the_bundle_are_not_leaks(self):
+        # Nested TOML names that equal or sit inside retained requirement names (codex feature keys).
+        for name, requirements, configs, names in (
+                ('remote-control', ['allow_remote_control = false\n[features]\nremote_control = false\n'], [],
+                 ['allow_remote_control', 'features']),
+                ('computer-use', ['allow_browser_and_computer_use = false\n[computer_use]\nseed_x = 1\n'],
+                 ['[features]\ncomputer_use = false\nin_app_browser = false\n'],
+                 ['allow_browser_and_computer_use', 'computer_use'])):
+            with self.subTest(name):
+                self.write_cache(cache_document(requirements=requirements, configs=configs))
+                code, doc, _text, stdout, _err = self.run_step(out=self.fresh_out())
+                self.assertEqual((code, doc.get('sanitizer_findings')), (0, None))
+                self.assertEqual(doc['bundle']['requirements'][0]['requirement_names'], names)
+                self.assertEqual(json.loads(stdout[len('e0: '):])['sanitizer_findings'], [])
+
+    def test_a_value_in_the_result_is_redacted_and_exits_3(self):
+        document = cache_document(requirements=['allow_login_shell = false\n'])
+        document['signed_payload']['bundle']['requirements_toml']['enterprise_managed'][0]['name'] = 'leaked_seed_name'
+        document['signed_payload']['leaked_seed_name'] = 1  # a key path segment equal to a document value
+        self.write_cache(document)
+        code, doc, *_ = self.run_step()
+        self.assertEqual((code, doc['sanitizer_findings']), (3, ['known-value']))
+        self.assertIn(('signed_payload.<redacted>', 'integer'), {(item['path'], item['type'])
+                                                                 for item in doc['key_paths']})
+
+    def test_marker_write_failure(self):
+        self.write_cache(cache_document())
+
+        def full(*_args):
+            raise OSError(errno.ENOSPC, 'no space')
+        with mock.patch.object(rk, 'write_exclusive', full):
+            code, _doc, _text, _out, stderr = self.run_step()
+        self.assertEqual((code, stderr), (2, 'e0: refused: attempt-marker-not-written\n'))
+        self.assert_nothing_written()
+        with mock.patch.object(rk.os, 'fsync', full):
+            code, _doc, _text, _out, stderr = self.run_step()
+        self.assertEqual((code, stderr), (3, 'e0: refused: attempt-marker-incomplete\n'))
+        self.assertEqual(os.listdir(self.out), ['e0-codex.attempt'])
+        self.assertEqual(self.run_step()[0], 4)
+
+    def test_result_write_failure_after_the_marker(self):
+        self.write_cache(cache_document())
+        original = rk.write_exclusive
+
+        def marker_only(directory, name, text):
+            if name.endswith('.result.json'):
+                raise OSError(errno.EDQUOT, 'quota')
+            return original(directory, name, text)
+        with mock.patch.object(rk, 'write_exclusive', marker_only):
+            code, _doc, _text, stdout, stderr = self.run_step()
+        self.assertEqual((code, stderr), (3, ''))
+        self.assertEqual(json.loads(stdout[len('e0: '):])['outcome'], 'result-not-written')
+        self.assertEqual(os.listdir(self.out), ['e0-codex.attempt'])
 
     def test_stale_cache_age_and_expiry(self):
         self.write_cache(cache_document(cached_offset=-23.3 * 3600))
@@ -256,6 +364,14 @@ class CodexTest(Base):
                 self.assertEqual((code, doc['d14']['verdict']), (0, 'unevaluable'))
                 if name == 'toml':
                     self.assertEqual(doc['bundle']['requirements'], [{'toml': 'malformed'}])
+
+    def test_unsupported_cache_version_is_unevaluable(self):
+        document = cache_document(requirements=['allow_login_shell = false\n'])
+        document['signed_payload']['version'] = 2  # native: CacheVersionUnsupported, the cache is ignored
+        self.write_cache(document)
+        doc = self.run_step()[1]
+        self.assertEqual((doc['shape'], doc['cache']['version_is_1'], doc['d14']['verdict'], doc['d14']['reasons']),
+                         ('cache-version-unsupported', False, 'unevaluable', ['cache-version-unsupported']))
 
     def test_malformed_json_is_never_echoed(self):
         for raw, outcome in ((b'{"seed-key": "seed-value", ', 'parse-malformed'),
@@ -423,10 +539,15 @@ class ClaudeTest(Base):
                          [('compliance_taints', True, 'unknown', 'unknown'), ('defaults', True, 'unknown', 'unknown'),
                           ('futureKey', False, 'unknown', 'unknown'), ('monitoring_notice', True, 'unknown', 'unknown'),
                           ('restrictions', True, 'unknown', 'unknown')])
-        self.assertEqual(limits['restrictions']['names'], ['allow_remote_sessions', 'allow_web_fetch'])
-        self.assertEqual(limits['defaults']['count'], 1)
-        self.assertEqual(limits['compliance_taints'], {'type': 'array', 'count': 1})
+        self.assertEqual(limits['restrictions'], {'names': ['allow_remote_sessions', 'allow_web_fetch'],
+                                                  'names_truncated': 0})
+        self.assertEqual(limits['defaults'], {'names': ['someSettingName'], 'names_truncated': 0})
+        # Key names and verdicts only (g0-approval.json "e0"): no value type, count or length.
+        self.assertNotIn('compliance_taints', limits)
+        self.assertTrue(all('type' not in key for key in limits['keys']))
         self.assertNotIn('allowed', text)
+        self.assertNotIn('"type"', text)
+        self.assertNotIn('"count"', text)
         for scope in ('native', 'bearer'):
             self.assertEqual(doc['scopes'][scope], {'verdict': 'refused', 'reasons': ['policy_limits_unreviewed_keys']})
         self.assert_only_policy_opened('remote-settings.json', 'policy-limits.json')
@@ -459,6 +580,21 @@ class ClaudeTest(Base):
                           'policy_login_method_incompatible'])
         self.assertEqual([key['name'] for key in settings['keys'] if key['ignored_by_native']], ['$comment'])
         self.assertEqual(settings['unknown_keys'], 3)
+        self.assertTrue(all(set(key) == {'name', 'native', 'bearer', 'rule', 'reason', 'ignored_by_native'}
+                            for key in settings['keys']))
+
+    def test_a_wrapper_around_reviewed_keys_is_not_accepted(self):
+        # The traced loader applies the bare object; an envelope would hide reviewed keys one level down.
+        self.write_json(self.settings, {'settings': {'apiKeyHelper': 'seed-helper-command'},
+                                        'checksum': 'seed-checksum-value', 'permissions': {'deny': ['seed-rule']}})
+        doc = self.run_step()[1]
+        settings = doc['files']['remote-settings.json']
+        rules = {key['name']: key['rule'] for key in settings['keys']}
+        self.assertEqual(rules, {'settings': 'wraps-reviewed-keys', 'checksum': 'not-in-qc-review',
+                                 'permissions': 'not-in-qc-review'})
+        for scope in ('native', 'bearer'):
+            self.assertEqual(doc['scopes'][scope], {'verdict': 'unevaluated',
+                                                    'reasons': ['server_policy_possible_envelope']})
 
     def test_native_only_active_keys_pass_the_bearer_scope(self):
         self.write_json(self.settings, {'hooks': {'Stop': []}, 'forceRemoteSettingsRefresh': True,
@@ -592,15 +728,29 @@ class PureTest(unittest.TestCase):
         self.assertIsNone(rk.parse_stamp('yesterday'))
 
     def test_sanitizer_redacts_or_blocks(self):
-        text, findings = rk.sanitize({'probe': 'e0-x', 'name': 'value seed-known-value-123 end'},
-                                     {'seed-known-value-123'})
+        text, findings = rk.sanitize({'probe': 'e0-x', 'name': 'seed-known-value-123'}, {'seed-known-value-123'})
         self.assertEqual(findings, ['known-value'])
         self.assertNotIn('seed-known-value-123', text)
         self.assertEqual(json.loads(text)['sanitizer_findings'], ['known-value'])
+        text, findings = rk.sanitize({'probe': 'e0-x', 'paths': [{'path': 'a.seed_known_name_12[].b'}]},
+                                     {'seed_known_name_12'})
+        self.assertEqual((findings, json.loads(text)['paths']), (['known-value'], [{'path': 'a.<redacted>[].b'}]))
+        text, findings = rk.sanitize({'probe': 'e0-x', 'seed_known_key_name': 1}, {'seed_known_key_name'})
+        self.assertEqual((findings, '<redacted>' in json.loads(text)), (['known-value'], True))
         text, findings = rk.sanitize({'probe': 'e0-x', 'name': 'seed-café-value-12'}, {'seed-café-value-12'})
         self.assertEqual((findings, json.loads(text)['name']), (['known-value'], '<redacted>'))
+        text, findings = rk.sanitize({'probe': 'e0-x', 'name': 'in /seed/home/path/x too'}, {'/seed/home/path'})
+        self.assertEqual((findings, json.loads(text)['name']), (['known-value'], 'in <redacted>/x too'))
         text, findings = rk.sanitize({'probe': 'e0-x', 'name': 'eyJseedseed.eyJseedseed.sig0'}, set())
         self.assertEqual((findings, json.loads(text)['name']), (['jwt-shaped'], '<redacted>'))
+
+    def test_sanitizer_ignores_vocabulary_and_partial_names(self):
+        result = {'probe': 'e0-x', 'requirement_names': ['allow_remote_control', 'computer_use'],
+                  'key_paths': [{'path': 'signed_payload.bundle.requirements_toml'}]}
+        for secrets in ({'remote_control'}, {'computer_use'}, {'requirements_toml'}, {'token-shaped'},
+                        {'allow_remote'}):
+            with self.subTest(sorted(secrets)[0]):
+                self.assertEqual(rk.sanitize(result, secrets), (rk.dump(result), []))
 
 
 if __name__ == '__main__':
