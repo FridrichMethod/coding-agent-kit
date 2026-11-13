@@ -1125,9 +1125,10 @@ class Launchers(unittest.TestCase):
                                  (1, "", f"{tool}: incomplete install at {partial}\n"))
         self.assertEqual(self.records(), [])
 
-    def test_a_protected_launch_of_an_incomplete_install_names_the_root(self):
-        """A kit copy without a module of protected mode refuses a launch with a reserve in one line,
-        without a traceback and before any native session."""
+    def protected_accounts(self):
+        """Codex account A at the reviewed release and a ready native-login Claude account N, for launches
+        with a reserve; the environment keeps only what a launch needs (an inherited proxy or provider
+        variable would refuse first)."""
         write(self.fakes / "codex", f"#!{sys.executable}\nVERSION = 'codex-cli 0.167.2'\n" + FAKE, 0o700)
         config = self.home / ".secrets/native-claude-accounts/N/config"
         config.mkdir(mode=0o700, parents=True)
@@ -1139,14 +1140,18 @@ class Launchers(unittest.TestCase):
             "identity": {"account_uuid": "00000000-0000-4000-8000-000000000002",
                          "organization_uuid": "00000000-0000-4000-8000-000000000003"}}))
         self.configure('[claude_auth.accounts.N]\nmode = "native-login"\n')
+        self.env = {name: self.env[name] for name in ("HOME", "PATH", "FAKE_RECORD")}
+
+    def test_a_protected_launch_of_an_incomplete_install_names_the_root(self):
+        """A kit copy without a module of protected mode refuses a launch with a reserve in one line,
+        without a traceback and before any native session."""
+        self.protected_accounts()
         boundary = "lib/coding-agent-kit/" + ("sandbox_macos.py" if sys.platform == "darwin" else "sandbox_linux.py")
         shared = ["lib/coding-agent-kit/reserve.py", "lib/coding-agent-kit/gate.py",
                   "lib/coding-agent-kit/supervise.py", boundary]
         cases = [("codex-as", "A", [*shared, "lib/codex-as/protect.py", "lib/codex-as/gate.py", "lib/codex-as/reader.py"]),
                  ("claude-as", "N", [*shared, "lib/claude-as/native.py", "lib/claude-as/protect.py",
                                      "lib/claude-as/provider.py", "lib/claude-as/bearer.py", "lib/claude-as/policy.py"])]
-        # Only what a launch needs: an inherited proxy or provider variable would refuse first.
-        self.env = {name: self.env[name] for name in ("HOME", "PATH", "FAKE_RECORD")}
         for tool, account, modules in cases:
             for name in modules:
                 with self.subTest(tool=tool, missing=name):
@@ -1159,6 +1164,27 @@ class Launchers(unittest.TestCase):
                     self.assertEqual((result.returncode, result.stdout), (1, ""), result.stderr)
                     self.assertEqual(len(result.stderr.splitlines()), 1, result.stderr)
                     self.assertIn(f"incomplete install at {self.kit}", result.stderr)
+        self.assertEqual(self.records(), [])
+
+    def test_a_protected_launch_through_install_sh_links_reaches_protected_mode(self):
+        """Launchers that install.sh linked into a prefix find every protected-mode module beside their
+        own: a launch with a reserve gets protected mode's own refusal (no terminal here, or a host
+        without the boundary), never an incomplete install."""
+        kit = install(self.base / "linked kit", ("bin", "lib", "docs", "completions"))
+        shutil.copy2(ROOT / "install.sh", kit / "install.sh")
+        prefix = self.base / "prefix"
+        self.protected_accounts()
+        result = self.run_tool(["sh", kit / "install.sh", "--prefix", prefix], {"XDG_DATA_HOME": str(self.base / "share")})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for tool, account, refusal in (("codex-as", "A", "codex-as: usage reserve protection refused: "),
+                                       ("claude-as", "N", "claude-as: protected mode refused: ")):
+            with self.subTest(tool=tool):
+                self.assertEqual(os.path.realpath(prefix / "bin" / tool), str(kit / "bin" / tool))
+                result = self.run_tool([prefix / "bin" / tool, "--reserve-5h", "10", account])
+                self.assertEqual((result.returncode, result.stdout), (1, ""), result.stderr)
+                self.assertTrue(result.stderr.startswith(refusal), result.stderr)
+                self.assertEqual(len(result.stderr.splitlines()), 1, result.stderr)
+                self.assertNotIn("incomplete install", result.stderr)
         self.assertEqual(self.records(), [])
 
     def test_metadata_queries_start_nothing_and_ignore_launch_policy(self):
