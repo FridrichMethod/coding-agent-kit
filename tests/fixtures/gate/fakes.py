@@ -420,7 +420,7 @@ class FakeEvaluator:
                 return gate.Decision(False, "threshold", {"account": "A", "window": window, "remaining": remaining,
                                                           "reserve": reserve}, next_poll=self.next_poll)
         if self.state == "paused" and not self.continued:
-            return gate.Decision(False, "awaiting_continuation", next_poll=self.next_poll)
+            return gate.Decision(False, "awaiting_continuation", {"account": "A"}, next_poll=self.next_poll)
         self.state, self.continued = "running", False
         return gate.Decision(True, None, {"account": "A"}, next_poll=self.next_poll)
 

@@ -511,6 +511,33 @@ class Rotation(unittest.TestCase):
         rebinds = [r for r in h.upstream.requests("/usage") if dict(r["headers"])["User-Agent"] == gate.USER_AGENT]
         self.assertEqual(len(rebinds), 1)
 
+    def test_waiters_wait_for_a_rebind_that_makes_two_reads(self):
+        """A Claude rebind reads the profile and then usage, each bounded by rebind_timeout: a
+        request held behind it waits for both instead of giving up after one."""
+
+        class TwoReads(fakes.FakeProvider):
+            def read_quota(self, gate_, presented, cause):
+                if cause == "rebind":
+                    gate_.fetch("GET", "/usage", secret=presented.secret, timeout=self.rebind_timeout)
+                return super().read_quota(gate_, presented, cause)
+
+        upstream = fakes.FakeUpstream()
+        provider = TwoReads(upstream.port)
+        provider.rebind_timeout = 1.0
+        h = Harness(self, upstream=upstream, provider=provider)
+        h.ready()
+        h.upstream.usage_delay = 0.7  # two reads: about 1.4 s, past rebind_timeout plus the slack
+        results = []
+        with mock.patch.object(gate, "REBIND_SLACK", 0.2):
+            threads = [threading.Thread(target=lambda: results.append(
+                h.request("POST", "/model", auth(fakes.BEARER_A2), MODEL_BODY, timeout=10)[0])) for _ in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(15)
+        self.assertEqual(results, [200, 200])
+        self.assertEqual(provider.rebind_reads, 2)  # the default covers a two-read rebind
+
     def test_a_poll_for_a_replaced_bearer_never_rebinds_the_lease(self):
         h = Harness(self)
         h.ready()
@@ -584,6 +611,108 @@ class Continuation(unittest.TestCase):
         self.assertEqual(h.gate.status()["state"], "paused")
         self.assertIn(("continuation_expired", {}), h.events)
 
+    def test_an_armed_continuation_survives_a_read_that_started_before_it(self):
+        clock = Clock()
+        h = Harness(self, clock=clock)
+        h.ready()
+        h.gate.latch("threshold")
+        presented = gate.Presented(gate.Secret(fakes.BEARER_A), ("acct-A",))
+        started = clock()  # native's own usage read, in flight when the continuation is armed
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "needs_read": True, "reason": "armed"})
+        late = gate.Observation(started, True, identity=tuple(fakes.IDENTITY_A), data={"five_hour": 10, "weekly": 20})
+        self.assertEqual(h.gate.observe(presented, late, "forwarded"), "fresh")
+        self.assertEqual((h.gate.status()["state"], h.gate.status()["armed"]), ("paused", True))
+        h.gate.latch("selector_conflict")  # a refused request while paused voids nothing either
+        self.assertTrue(h.gate.status()["armed"])
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 200)  # the continuation's own read
+        self.assertEqual(h.gate.status()["state"], "running")
+        h.gate.latch("threshold")
+        h.gate.arm_continuation()
+        h.gate.lose("monitor_eof")  # a loss still voids it
+        self.assertFalse(h.gate.status()["armed"])
+
+    def test_a_pause_that_becomes_continuable_is_announced_rate_limited(self):
+        clock = Clock()
+        h = Harness(self, clock=clock, holds_bearer=True, notice_every=30.0)
+
+        def later(seconds):
+            clock.advance(seconds)
+            h.gate.heartbeat()
+            h.gate.tick()
+
+        def notices():
+            return [note for note in h.notes if note["op"] == "notice"]
+
+        h.upstream.used = {"five_hour": 96.0, "weekly": 20.0}
+        h.alive()
+        h.provider.startup(h.gate)
+        self.assertEqual([note["op"] for note in h.notes], ["paused"])
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()
+        self.assertEqual(h.gate.status()["reason"], "awaiting_continuation")
+        self.assertEqual(notices(), [])  # the pause line was shown a second ago
+        later(30)
+        self.assertEqual([(n["eligible"], n["reason"]) for n in notices()], [(True, "awaiting_continuation")])
+        self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 503)  # it resumes nothing
+        later(5)
+        h.gate.poll()
+        h.upstream.usage_status = 500
+        h.gate.poll()  # a failed read proves nothing either way
+        self.assertEqual(h.gate.status()["reason"], "quota_unavailable")
+        h.upstream.usage_status = 200
+        later(60)
+        self.assertEqual(len(notices()), 1)  # unchanged: nothing new to say
+        h.upstream.used = {"five_hour": 97.0, "weekly": 20.0}
+        h.gate.poll()
+        latest = notices()[-1]
+        self.assertEqual((latest["eligible"], latest["reason"], latest["fields"]["window"]),
+                         (False, "threshold", "five_hour"))
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()
+        h.upstream.used = {"five_hour": 97.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()
+        later(60)
+        self.assertEqual(len(notices()), 2)  # a flap inside the interval ends where it began: no line
+        self.assertEqual(h.gate.status()["state"], "paused")
+        self.assertNotIn("resumed", [note["op"] for note in h.notes])
+        h.gate.lose("monitor_eof")
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(60)
+        self.assertEqual(len(notices()), 2)  # nothing more once lost
+
+    def test_a_deferred_passes_notice_is_dropped_when_a_read_fails_after_it(self):
+        """A notice that the latest check passes, held back by the rate limit, is never sent once a
+        later read failed: the line would say the latest check passes when it did not."""
+        clock = Clock()
+        h = Harness(self, clock=clock, holds_bearer=True, notice_every=30.0)
+
+        def later(seconds):
+            clock.advance(seconds)
+            h.gate.heartbeat()
+            h.gate.tick()
+
+        def notices():
+            return [(note["eligible"], note["reason"]) for note in h.notes if note["op"] == "notice"]
+
+        h.upstream.used = {"five_hour": 96.0, "weekly": 20.0}
+        h.alive()
+        h.provider.startup(h.gate)
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        later(1)
+        h.gate.poll()  # passes, but the pause line was shown a second ago: the notice waits
+        later(1)
+        h.upstream.usage_status = 500
+        h.gate.poll()
+        self.assertEqual(h.gate.status()["reason"], "quota_unavailable")
+        later(60)
+        self.assertEqual(notices(), [])
+        h.upstream.usage_status = 200
+        h.gate.poll()
+        self.assertEqual(notices(), [(True, "awaiting_continuation")])
+
     def test_a_failed_check_uses_up_the_continuation(self):
         h = Harness(self)
         h.ready()
@@ -637,6 +766,59 @@ class Upstreams(unittest.TestCase):
         self.addCleanup(refusing.close)
         h.gate.proxy = ("127.0.0.1", refusing.port)
         self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 503)
+
+    def test_no_proxy_hosts_reach_the_upstream_directly(self):
+        proxy = fakes.FakeProxy()
+        self.addCleanup(proxy.close)
+        h = Harness(self, proxy=("127.0.0.1", proxy.port), no_proxy=(("localhost", "127.0.0.1"),))
+        h.ready()
+        self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 200)
+        self.assertEqual(proxy.targets, [])
+        self.assertEqual(len(h.upstream.requests("/model")), 1)
+        h.gate.no_proxy = (("127.0.0.1",), ("other.example",))  # every set spelling must exempt it
+        self.assertEqual(h.request("POST", "/model", auth(), MODEL_BODY)[0], 200)
+        self.assertEqual(proxy.targets, ["127.0.0.1:%d" % h.upstream.port])
+
+    def test_no_proxy_exempts_a_host_only_where_every_native_would(self):
+        """Claude Code matches a bare NAME as that host only and ".NAME" (in its other clients) as the
+        hosts below NAME; Codex reads neither ":PORT" nor "*.NAME" and splits on commas only. So the gate
+        goes direct only for what all of them exempt, and keeps every other host on the proxy."""
+        cases = (
+            ("anthropic.com", "anthropic.com", True),
+            ("api.anthropic.com", "API.Anthropic.com", True),
+            ("anthropic.com", "api.anthropic.com", False),
+            (".anthropic.com", "api.anthropic.com", True),
+            (".chatgpt.com", "chatgpt.com", False),
+            ("*.anthropic.com", "api.anthropic.com", False),
+            ("chatgpt.com.", "chatgpt.com", False),
+            ("gpt.com", "chatgpt.com", False),
+            (".gpt.com", "chatgpt.com", False),
+            ("chatgpt.com:443", "chatgpt.com", False),
+            ("10.0.0.0/8", "10.1.2.3", False),
+            ("127.0.0.1", "127.0.0.1", True),
+            ("127.0.0.1:8080", "127.0.0.1", False),
+            ("[::1]:443", "::1", False),
+            ("::1", "::1", False),
+            ("localhost", "api.anthropic.com", False),
+        )
+        for entry, host, expected in cases:
+            with self.subTest(entry=entry, host=host):
+                self.assertEqual(gate.bypasses(((entry,),), host), expected)
+        self.assertTrue(gate.bypasses((("*",),), "chatgpt.com"))
+        self.assertFalse(gate.bypasses((("localhost", "*"),), "chatgpt.com"))  # "*" only as the whole value
+        self.assertTrue(gate.bypasses((("localhost", "chatgpt.com"),), "chatgpt.com"))
+        self.assertFalse(gate.bypasses((), "chatgpt.com"))
+        self.assertFalse(gate.bypasses(((),), "chatgpt.com"))
+        self.assertFalse(gate.bypasses((("chatgpt.com",), ("localhost",)), "chatgpt.com"))
+
+    def test_the_proxy_configuration_value(self):
+        self.assertEqual(gate.proxy_setting(None), (None, ()))
+        self.assertEqual(gate.proxy_setting(["p.example", 3128]), (("p.example", 3128), ()))
+        self.assertEqual(gate.proxy_setting(["p", 1, [["localhost", ".example.com"], ["*"]]]),
+                         (("p", 1), (("localhost", ".example.com"), ("*",))))
+        for bad in (["p"], ["p", "x"], ["p", 1, "localhost"], ["p", 1, [[1]]], ["p", 1, [], []], "p:1"):
+            with self.subTest(bad=bad), self.assertRaises((ValueError, TypeError)):
+                gate.proxy_setting(bad)
 
     def test_parse_proxy_accepts_plain_http_host_port_only(self):
         self.assertIsNone(gate.parse_proxy(""))
@@ -1180,6 +1362,24 @@ class GateProcess(unittest.TestCase):
         process = self.start(max_age_s=True)
         self.assertEqual(self.messages(lambda m: m["op"] == "refused")[-1]["reason"], "config_invalid")
         self.assertEqual(process.wait(5), 3)
+        process = self.start(holds_bearer=True, proxy=["127.0.0.1", 1, "localhost"])
+        self.assertEqual(self.messages(lambda m: m["op"] == "refused")[-1]["reason"], "config_invalid")
+        self.assertEqual(process.wait(5), 3)
+
+    def test_the_captured_proxy_and_its_no_proxy_hosts_reach_the_gate(self):
+        proxy = fakes.FakeProxy()
+        self.addCleanup(proxy.close)
+        process = self.start(holds_bearer=True, proxy=["127.0.0.1", proxy.port, [["127.0.0.1"]]])
+        self.messages(lambda m: m["op"] == "ready")
+        self.assertTrue(wait_for(lambda: self.ask("status")["running"]))
+        self.assertEqual(proxy.targets, [])  # NO_PROXY: the startup check went direct
+        self.assertEqual(self.ask("shutdown")["ok"], True)
+        self.assertEqual(process.wait(5), 0)
+        self.upstream = None
+        process = self.start(holds_bearer=True, proxy=["127.0.0.1", proxy.port])
+        self.messages(lambda m: m["op"] == "ready")
+        self.assertTrue(wait_for(lambda: self.ask("status")["running"]))
+        self.assertEqual(proxy.targets, ["127.0.0.1:%d" % self.upstream.port])
 
     def test_monitor_kill_and_stall_latch(self):
         for how, reason in ((signal.SIGKILL, "monitor_eof"), (signal.SIGSTOP, "monitor_stale")):
@@ -1234,10 +1434,30 @@ class MonitorUnit(unittest.TestCase):
     def test_options(self):
         options = self.monitor.parse(["--fd", "5", "--reader-argv", '["a", "b"]'])
         self.assertEqual((options["--fd"], options["--reader-argv"], options["--heartbeat"]), (5, ["a", "b"], 0.25))
+        self.assertIsNone(options["--reader-umask"])
+        self.assertEqual(self.monitor.parse(["--fd", "5", "--reader-umask", "022"])["--reader-umask"], 0o022)
+        self.assertEqual(self.monitor.parse(["--reader-umask", "0", "--fd", "5"])["--reader-umask"], 0)
         for argv in ([], ["--fd"], ["--fd", "5", "--fd", "6"], ["--fd", "5", "--poll", "0"],
-                     ["--fd", "5", "--reader-argv", "[]"], ["--fd", "5", "--other", "1"]):
+                     ["--fd", "5", "--reader-argv", "[]"], ["--fd", "5", "--other", "1"],
+                     ["--fd", "5", "--reader-umask", "1000"], ["--fd", "5", "--reader-umask", "8"],
+                     ["--fd", "5", "--reader-umask", "-1"], ["--fd", "5", "--reader-umask", "0o22"]):
             with self.subTest(argv=argv), self.assertRaises((ValueError, TypeError)):
                 self.monitor.parse(argv)
+
+    def test_a_reader_gets_the_umask_it_is_given(self):
+        """Poll readers are confined commands like the launcher's own reads: with --reader-umask they
+        create files under the caller's umask, not the launcher's 077."""
+        old = os.umask(0o077)
+        self.addCleanup(os.umask, old)
+        stop = threading.Event()
+        with tempfile.TemporaryDirectory() as directory:
+            seen = Path(directory) / "umask"
+            code = "import os, sys; open(sys.argv[1], 'w').write(oct(os.umask(0)))"
+            reader = [sys.executable, "-I", "-B", "-c", code, str(seen)]
+            self.assertTrue(self.monitor.run_reader(reader, 10, stop, umask=0o022))
+            self.assertEqual(seen.read_text(), "0o22")
+            self.assertTrue(self.monitor.run_reader(reader, 10, stop))
+            self.assertEqual(seen.read_text(), "0o77")
 
     def test_reader_timeout_kills_the_reader_group(self):
         stop = threading.Event()

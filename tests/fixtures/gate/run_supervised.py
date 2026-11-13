@@ -1,6 +1,6 @@
 """Run one supervised invocation on the caller's terminal: python3 -I -B run_supervised.py SPEC.
 
-SPEC is JSON: upstream_port, store_bearer, next_poll, native (argv), env (extra native
+SPEC is JSON: upstream_port, store_bearer, next_poll, notice_every, native (argv), env (extra native
 environment; "{port}" in a value becomes the gate port), confine (null; "wrap" or "refuse";
 "close", "close-refuse" or "close-missing" first close every descriptor above 2 as the boundary
 modules do), pids (a file that SIGUSR1 fills with the gate and monitor pids and the port), extra
@@ -62,7 +62,8 @@ def main(spec):
     allow = spec.get("connect_allow", {})
     config = {"max_age_s": 120, "heartbeat_max_s": 1.5, "upstream_port": spec["upstream_port"],
               "holds_bearer": True, "store_bearer": spec.get("store_bearer", "fixture-bearer-A-0001"),
-              "next_poll": spec.get("next_poll"), "name": spec.get("name", "claude"),
+              "next_poll": spec.get("next_poll"), "notice_every": spec.get("notice_every"),
+              "name": spec.get("name", "claude"),
               "connect_allow": spec.get("run_connect_allow", allow)}
     sup = supervise.Supervisor([sys.executable, "-I", "-B", str(HERE / "provider_gate.py")], config,
                                refresh_config=dict(config, connect_allow=allow),

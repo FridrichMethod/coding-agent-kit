@@ -34,7 +34,8 @@ on macOS too; there a descendant that calls setsid is found only by periodic sna
 that detaches between two snapshots escapes.
 
 Boundary children get no proxy but the gate: native_environment() drops every proxy variable that
-does not name the gate (the launcher's own HTTPS_PROXY belongs to the gate's upstream connections).
+does not name the gate. The caller's own proxy, the one the native would use for HTTPS
+(capture_proxy()), belongs to the gate's upstream connections.
 
 Nothing the launcher starts outside the boundary resolves through a name the boundary could replace.
 The gate and monitor start in / with only gate_env; their interpreter is the caller's choice
@@ -66,6 +67,7 @@ import json
 import mmap
 import os
 from pathlib import Path
+import re
 import secrets
 import select
 import signal
@@ -88,13 +90,29 @@ PORTS = (49152, 60999)  # inside both the Linux and the macOS ephemeral ranges
 STARTUP_TIMEOUT = 60.0
 HEARD_TIMEOUT = 10.0
 CONTROL_TIMEOUT = 20.0
+# A continuation's reply comes after the provider's check: for Claude Code a store read (macOS
+# security, up to 10 s) and two reads of up to 10 s each, so the launcher waits longer for it.
+CONTINUE_TIMEOUT = 40.0
 RESTART_LIMIT, RESTART_WINDOW, RESTART_DELAY = 5, 600.0, 0.5  # at most 5 gate restarts per 10 minutes
 SWEEP_GRACE = 1.0
+SWEEP_LIMIT = 5.0  # the end-of-invocation sweep keeps ending processes for this long at most
 SNAPSHOT_EVERY = 1.0
 PR_SET_CHILD_SUBREAPER = 36
 PREFIX = "[coding-agent-kit] "
 LOOPBACK = ("127.0.0.1", "::1")
 PROXY_VARIABLES = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")
+# The variables a native reads for its HTTPS connections, group by group in precedence order (both
+# spellings of a name form one group): Codex (reqwest) falls back from HTTPS_PROXY to ALL_PROXY,
+# Claude Code from HTTPS_PROXY to HTTP_PROXY and then to ALL_PROXY (its OAuth client, which sends
+# the bearer, keeps the environment proxy when only ALL_PROXY is set). Without a provider either
+# fallback counts, so the gate never goes direct where one native would use a proxy.
+PROXY_ORDER = {
+    "codex": (("HTTPS_PROXY", "https_proxy"), ("ALL_PROXY", "all_proxy")),
+    "claude": (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy"), ("ALL_PROXY", "all_proxy")),
+    None: (("HTTPS_PROXY", "https_proxy"), ("HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")),
+}
+NO_PROXY_VARIABLES = ("NO_PROXY", "no_proxy")
+NO_PROXY_ENTRY = re.compile(r"[a-z0-9._-]{1,253}")  # the names gate.bypasses can exempt
 # What a forked child reports through a shared anonymous page, which survives a confine hook that
 # closes every descriptor: the hook is running, exec is next, the hook refused, exec failed.
 HOOK, EXEC, REFUSED, FAILED = b"H", b"X", b"R", b"E"
@@ -119,19 +137,46 @@ class Refused(Exception):
         self.reason = reason
 
 
-def capture_proxy(env, parse):
-    """The launcher's HTTPS_PROXY for the gate's upstream connections, captured once.
+def capture_proxy(env, parse, provider=None):
+    """The caller's proxy for the gate's upstream connections, captured once at startup: None (the
+    gate connects directly) or (host, port, no_proxy), the gate configuration's proxy value.
 
-    parse is gate.parse_proxy. HTTPS_PROXY and https_proxy must agree; an unsupported proxy refuses
-    instead of going direct. Boundary children never get it: run() and confined() pass them
-    native_environment(), whose only proxy is the gate."""
-    values = {env[name] for name in ("HTTPS_PROXY", "https_proxy") if env.get(name)}
-    if len(values) > 1:
-        raise Refused("HTTPS_PROXY and https_proxy differ")
-    try:
-        return parse(values.pop()) if values else None
-    except ValueError:
-        raise Refused("unsupported HTTPS_PROXY (only a plain http://HOST:PORT proxy)") from None
+    parse is gate.parse_proxy. The proxy is the one the PROVIDER's native ("codex", "claude", or
+    None for either) would use for HTTPS (PROXY_ORDER): the first group with a value set, whose set
+    values must agree. An unsupported value refuses instead of going direct, naming the variable but
+    never its value. no_proxy holds one entry list per set spelling of NO_PROXY (gate.bypasses).
+    Boundary children never get the proxy: run() and confined() pass them native_environment(),
+    whose only proxy is the gate."""
+    for names in PROXY_ORDER[provider]:
+        found = [(name, env[name]) for name in names if env.get(name)]
+        if not found:
+            continue
+        if len({value for _, value in found}) > 1:
+            raise Refused("%s differ" % " and ".join(name for name, _ in found))
+        name, value = found[0]
+        try:
+            host, port = parse(value)
+        except (ValueError, TypeError):
+            raise Refused("unsupported %s (only a plain http://HOST:PORT proxy)" % name) from None
+        return host, port, no_proxy_lists(env)
+    return None
+
+
+def no_proxy_lists(env):
+    """One tuple of lower-case entries per set spelling of NO_PROXY, in NO_PROXY_VARIABLES order,
+    split on commas only, as Codex splits them, or ("*",) for a value of exactly "*". An entry that
+    gate.bypasses would not exempt a host by (a port, a range, "*.NAME", "*" among other entries, two
+    names in one entry) is dropped, which only keeps that host on the proxy; a set spelling whose
+    entries are all dropped still counts."""
+    lists = []
+    for name in NO_PROXY_VARIABLES:
+        text = env.get(name)
+        if text == "*":
+            lists.append(("*",))
+        elif text:
+            entries = (entry.strip() for entry in text.lower().split(","))
+            lists.append(tuple(entry for entry in entries if NO_PROXY_ENTRY.fullmatch(entry))[:1024])
+    return tuple(lists)
 
 
 def native_environment(env, port):
@@ -343,6 +388,16 @@ def unreachable(sources, writable_paths, hint):
                 raise Refused("%s, which the boundary can write, lies inside %s %s%s" % (root, what, path, hint))
 
 
+def proc_entry(pid):
+    """(ppid, start) of PID from /proc, or None when it is not there."""
+    try:
+        with open(os.path.join(PROC, str(pid), "stat"), "rb") as stream:
+            fields = stream.read().rsplit(b")", 1)[1].split()
+        return int(fields[1]), fields[19].decode()
+    except (OSError, IndexError, ValueError):
+        return None
+
+
 def process_table():
     """{pid: (ppid, start)} of every visible process; start tells a reused pid apart. Without /proc
     it runs the system ps by absolute path, or returns {} when there is none (prepare() refuses
@@ -350,14 +405,10 @@ def process_table():
     table = {}
     if has_proc():
         for name in os.listdir(PROC):
-            if not name.isdigit():
-                continue
-            try:
-                with open(os.path.join(PROC, name, "stat"), "rb") as stream:
-                    fields = stream.read().rsplit(b")", 1)[1].split()
-                table[int(name)] = (int(fields[1]), fields[19].decode())
-            except (OSError, IndexError, ValueError):
-                continue
+            if name.isdigit():
+                entry = proc_entry(name)
+                if entry is not None:
+                    table[int(name)] = entry
         return table
     command = system_command(PS)
     if command is None:
@@ -421,6 +472,19 @@ def pause_message(reason, fields, key="F12"):
     if fields.get("last_fresh") is not None:
         parts.append("last fresh check " + _value(fields["last_fresh"]))
     parts.append("press %s, then type the code shown and Enter, to request a fresh check" % key)
+    return "; ".join(parts)
+
+
+def eligible_message(fields, key="F12"):
+    """The deterministic line for a pause whose latest quota check passes: only a continuation is
+    missing. Nothing resumes until the user asks."""
+    fields = fields or {}
+    parts = ["quota reserve: the latest quota check passes"]
+    if fields.get("account") is not None:
+        parts.append("account " + _value(fields["account"]))
+    if fields.get("last_fresh") is not None:
+        parts.append("last fresh check " + _value(fields["last_fresh"]))
+    parts.append("press %s, then type the code shown and Enter, to continue" % key)
     return "; ".join(parts)
 
 
@@ -555,6 +619,10 @@ class Supervisor:
         Refused. The gate must then report running.
     confine: callable(port, argv) -> argv, run in the native's child before exec.
     pid_env: name of an environment variable set to the native's own pid in its child.
+    umask: None, or the file mode creation mask the native and every confined command get, set in
+        the child just before exec (codex-as passes the caller's: its launcher runs under 077); the
+        monitor's poll readers get it through --reader-umask. The gate, the monitor and the
+        launcher keep the launcher's own, so the kit's files stay private.
     style: callable(text) -> text for the launcher's terminal messages (the kit colour policy).
     restart_limit, restart_window: at most this many gate restarts per window seconds; past it the
         launcher asks once for a relaunch and stays paused until the window frees a restart.
@@ -564,12 +632,15 @@ class Supervisor:
                  monitor_reader_timeout=None, reader=None, preflight=None, confine=None, pid_env=None,
                  holder_extra=(), gate_env=None, trigger=F12, key_name="F12", restart_limit=RESTART_LIMIT,
                  restart_window=RESTART_WINDOW, restart_delay=RESTART_DELAY, startup_timeout=STARTUP_TIMEOUT,
-                 terminal=(0, 1), heartbeat=None, style=None, refresh_config=None, clock=time.monotonic):
+                 terminal=(0, 1), heartbeat=None, style=None, refresh_config=None, umask=None,
+                 clock=time.monotonic):
+        if umask is not None and (isinstance(umask, bool) or not isinstance(umask, int) or not 0 <= umask <= 0o777):
+            raise ValueError("umask must be None or a mode from 0 through 0o777")
         self.gate_argv, self.gate_config = list(gate_argv), dict(gate_config)
         self.refresh_config = dict(gate_config if refresh_config is None else refresh_config)
         self.python, self.monitor_reader, self.reader = python, monitor_reader, reader
         self.monitor_reader_timeout, self.heartbeat = monitor_reader_timeout, heartbeat
-        self.preflight, self.confine, self.pid_env = preflight, confine, pid_env
+        self.preflight, self.confine, self.pid_env, self.umask = preflight, confine, pid_env, umask
         self.holder_extra, self.gate_env = tuple(holder_extra), dict(gate_env or {})
         self.trigger, self.key_name = trigger, key_name
         self.restart_limit, self.restart_delay, self.startup_timeout = restart_limit, restart_delay, startup_timeout
@@ -591,8 +662,9 @@ class Supervisor:
         """fork and exec ARGV in a new session with fds at 3.. and nothing else inherited.
 
         tty_fd becomes the controlling terminal and stdio. confine applies the confine hook in the
-        child just before exec; pid_env sets the pid variable to the child's own pid. Returns the
-        pid; raises Refused when the hook refuses and OSError when exec fails.
+        child just before exec, and then the supervisor's umask when it has one; pid_env sets the
+        pid variable to the child's own pid. Returns the pid; raises Refused when the hook refuses
+        and OSError when exec fails.
 
         The child reports on a shared anonymous page, because the confine hook may close every
         descriptor above 2 (the boundary modules do); the close-on-exec pipe only wakes the parent.
@@ -607,6 +679,7 @@ class Supervisor:
             stdio = [devnull if fd is None else fd for fd in (stdin, stdout, stderr)]
         hook, port, variable = self.confine if confine else None, self.holder.port if self.holder else None, \
             self.pid_env if pid_env else None
+        mask = self.umask if confine else None
         pid = os.fork()
         if pid == 0:
             kind = FAILED
@@ -629,6 +702,8 @@ class Supervisor:
                     page[0:1] = HOOK
                     final = list(hook(port, final))
                     kind = FAILED
+                if mask is not None:
+                    os.umask(mask)
                 page[0:1] = EXEC
                 os.execve(final[0], final, child_env)
             except BaseException as error:
@@ -745,8 +820,10 @@ class Supervisor:
         return self.hold()
 
     def start_gate(self, mode="startup"):
-        """Start a gate on the held port and wait for ready; raises Refused on a startup refusal."""
-        needed = [Path(self.gate_argv[-1]), GATE_CORE] + ([MONITOR] if mode != "refresh" else [])
+        """Start a gate on the held port and wait for ready; raises Refused on a startup refusal.
+        A refresh gate needs no monitor, but the run after it does: a missing monitor refuses
+        before the pre-launch refresh rotates any credential."""
+        needed = [Path(self.gate_argv[-1]), GATE_CORE, MONITOR]
         if not all(path.is_file() for path in needed):
             raise Refused("incomplete install at %s" % ROOT)
         self.prepare()
@@ -813,6 +890,8 @@ class Supervisor:
             argv += ["--reader-argv", json.dumps(self.monitor_reader)]
             if self.monitor_reader_timeout:
                 argv += ["--reader-timeout", str(self.monitor_reader_timeout)]
+            if self.umask is not None:  # a poll reader is a confined command too
+                argv += ["--reader-umask", "%03o" % self.umask]
         try:
             self.monitor_pid = self.spawn(argv, self.gate_env, fds=[sock.fileno()], cwd="/")
         finally:
@@ -857,7 +936,8 @@ class Supervisor:
         return found
 
     def request(self, op, timeout=CONTROL_TIMEOUT):
-        """One control round trip; a dead, restarting or silent gate answers gate_unavailable."""
+        """One control round trip; a dead, restarting or silent gate answers gate_unavailable (with
+        "timeout": true when the gate is still connected but did not answer in time)."""
         if self.control is None:
             return {"ok": False, "reason": "gate_unavailable"}
         self.sent += 1
@@ -876,7 +956,20 @@ class Supervisor:
                         return message
                     continue  # the late reply to a request that already timed out
                 self.events.append(message)
-        return {"ok": False, "reason": "gate_unavailable"}
+        if self.control is None:
+            return {"ok": False, "reason": "gate_unavailable"}
+        return {"ok": False, "reason": "gate_unavailable", "timeout": True}
+
+    def post(self, op):
+        """Send one control request without waiting; its reply is dropped as a late one."""
+        if self.control is None:
+            return
+        self.sent += 1
+        try:
+            self.control.sendall((json.dumps({"op": op, "id": self.sent}) + "\n").encode())
+        except OSError:
+            self.control.close()
+            self.control = None
 
     def wait_heard(self, timeout=HEARD_TIMEOUT):
         deadline = time.monotonic() + timeout
@@ -897,7 +990,9 @@ class Supervisor:
     def check(self):
         """TerminalControl's check: one verified continuation through the gate."""
         self.say("requesting a fresh quota check")
-        reply = self.request("continue")
+        reply = self.request("continue", CONTINUE_TIMEOUT)
+        if reply.get("timeout"):
+            self.post("disarm")  # a check still running must not resume after "still paused" below
         if reply.get("needs_read"):
             ran = False
             if self.reader is not None:
@@ -924,7 +1019,16 @@ class Supervisor:
             self.say(pause_message(message.get("reason"), message.get("fields"), self.key_name))
             if op == "latched":
                 self._gate_down()
+        elif op == "notice" and (self.ui is None or self.ui.paused):
+            # The pause line is out of date: a fresh check now passes, or no longer does. It
+            # neither flushes input nor resumes, so a code being typed stays valid.
+            if message.get("eligible") is True:
+                self.say(eligible_message(message.get("fields"), self.key_name))
+            else:
+                self.say(pause_message(message.get("reason"), message.get("fields"), self.key_name))
         elif op == "resumed" and self.ui is not None:
+            if self.ui.paused:  # a check the launcher had stopped waiting for passed after all
+                self.say("fresh quota check passed; model requests resume")
             self.ui.resume()
 
     def _gate_down(self, announce=True):
@@ -983,12 +1087,18 @@ class Supervisor:
         return pid, master
 
     def _snapshot(self):
-        """Without a subreaper: remember every descendant seen, so reparenting cannot hide it."""
+        """The run loop's check, once per SNAPSHOT_EVERY: forget the boundary sessions seen empty
+        (_prune_sessions) and, without a subreaper, remember every descendant seen, so reparenting
+        cannot hide it."""
         now = time.monotonic()
-        if self.subreaper or now - self.snapshot_at < SNAPSHOT_EVERY:
+        if now - self.snapshot_at < SNAPSHOT_EVERY:
             return
         self.snapshot_at = now
+        if self.subreaper:
+            self._prune_sessions()
+            return
         table = process_table()
+        self._prune_sessions(table)
         self.tracked = {pid: start for pid, start in self.tracked.items() if table.get(pid, (None, None))[1] == start}
         for pid in descendants(os.getpid(), table) - self._kit_tree(table):
             self.tracked[pid] = table[pid][1]
@@ -999,10 +1109,49 @@ class Supervisor:
             kit |= descendants(pid, table)
         return kit
 
+    def _prune_sessions(self, table=None):
+        """Forget every boundary session seen empty: its leader is gone and neither its process
+        group nor a member is left, or its number is now another process's (start time differs).
+        TABLE is a process_table(); without one the leaders are read from /proc. A session id is
+        never a new process's pid while the session or its group has members, so a session checked
+        this way by the run loop and in every sweep round is signalled only while it has existed
+        without a break, and once forgotten its number is never signalled again."""
+        if not self.sessions or (table is not None and not table):  # an empty table is a failed ps
+            return
+        if table is None and not has_proc():
+            table = process_table()
+            if not table:
+                return
+        in_use = None
+        for sid, start in list(self.sessions.items()):
+            entry = table.get(sid) if table is not None else proc_entry(sid)
+            if entry is not None:
+                if entry[1] != start:
+                    del self.sessions[sid]
+                continue
+            try:
+                os.killpg(sid, 0)
+                continue
+            except PermissionError:
+                continue
+            except ProcessLookupError:
+                pass
+            if in_use is None:
+                in_use = set()
+                pids = table if table is not None else [int(name) for name in os.listdir(PROC) if name.isdigit()]
+                for pid in pids:
+                    try:
+                        in_use.add(os.getsid(pid))
+                    except OSError:
+                        continue
+            if sid not in in_use:
+                del self.sessions[sid]
+
     def _session_members(self, table):
         """Processes still in a boundary child's session. A session id is never a new process's
         pid while the session has members; one whose number now leads a session of another
-        process (start time differs) is skipped."""
+        process (start time differs) is skipped, and sweep() forgets the sessions seen empty
+        before it looks (_prune_sessions)."""
         live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
         found = set()
         if live:
@@ -1014,42 +1163,88 @@ class Supervisor:
                     continue
         return found
 
-    def sweep(self, include_kit=False, grace=SWEEP_GRACE):
-        """End every boundary descendant (TERM, then KILL after grace); with include_kit also the
-        gate and monitor trees. A descendant is a process below the launcher, one a snapshot saw
-        below it (same start time), or a member of a boundary child's session. Processes that were
-        already the launcher's descendants before prepare() are left alone. Processes are told
-        apart by start time, never by pid alone. Returns how many processes were signalled."""
-        signalled = set()
+    def _signal_session_groups(self, table, sig):
+        """Signal whole process groups of the boundary sessions; returns how many were signalled.
+        A process that forks and exits at once is gone before any snapshot can name it, but the
+        group its child inherits stays: every boundary session's own group (its id is the session
+        id, which _prune_sessions keeps only while the session has existed without a break), and on
+        Linux every group a live member of such a session is in, read from /proc as that member is.
+        A chain that also leaves its group on every fork can still outrun this."""
+        live = {sid for sid, start in self.sessions.items() if table.get(sid, (None, start))[1] == start}
+        own = {os.getpgrp(), os.getsid(0)}
+        live -= own
+        done = set()
+
+        def end(group):
+            if group in done or group in own:
+                return
+            try:
+                os.killpg(group, sig)
+                done.add(group)
+            except (ProcessLookupError, PermissionError):
+                pass
+
+        for sid in live:
+            end(sid)
+        if live and has_proc():
+            for name in os.listdir(PROC):
+                if not name.isdigit():
+                    continue
+                try:
+                    with open(os.path.join(PROC, name, "stat"), "rb") as stream:
+                        fields = stream.read().rsplit(b")", 1)[1].split()
+                    state, group, session = fields[0], int(fields[2]), int(fields[3])
+                except (OSError, IndexError, ValueError):
+                    continue
+                if session in live and state != b"Z":
+                    end(group)
+        return len(done)
+
+    def sweep(self, include_kit=False, grace=SWEEP_GRACE, limit=SWEEP_LIMIT):
+        """End every boundary descendant (TERM, then KILL after grace, round after round until none
+        is left or LIMIT seconds passed); with include_kit also the gate and monitor trees. A
+        descendant is a process below the launcher, one a snapshot saw below it (same start time),
+        or a member of a boundary child's session, whose process groups are also signalled whole
+        (_signal_session_groups). Processes that were already the launcher's descendants before
+        prepare() are left alone. Processes are told apart by start time, never by pid alone.
+        Returns how many processes (or groups) were signalled."""
+        signalled, groups = set(), 0
         if not self.prepared:
             return 0
-        for round_ in range(6):
+        stop, round_ = time.monotonic() + limit, 0
+        while True:
             self.reap()
             table = process_table()
+            self._prune_sessions(table)
             found = descendants(os.getpid(), table) | self._session_members(table)
             found |= {pid for pid, start in self.tracked.items() if table.get(pid, (None, None))[1] == start}
             if not include_kit:
                 found -= self._kit_tree(table)
             victims = {pid: table[pid][1] for pid in found if pid in table and pid != os.getpid()
                        and self.baseline.get(pid, ()) != table[pid][1]}
-            if not victims:
-                break
             sig = signal.SIGTERM if round_ == 0 else signal.SIGKILL
+            hit = self._signal_session_groups(table, sig)
+            groups += hit
+            if not victims and not hit:
+                break
             for pid in victims:
                 try:
                     os.kill(pid, sig)
                 except (ProcessLookupError, PermissionError):
                     pass
             signalled |= set(victims)
-            deadline = time.monotonic() + (grace if round_ == 0 else 0.2)
+            if time.monotonic() >= stop:
+                break
+            deadline = min(stop, time.monotonic() + (grace if round_ == 0 else 0.2))
             while time.monotonic() < deadline:
                 self.reap()
                 table = process_table()
                 if not any(table.get(pid, (None, None))[1] == start for pid, start in victims.items()):
                     break
                 time.sleep(0.02)
+            round_ += 1
         self.reap()
-        return len(signalled)
+        return len(signalled) + groups
 
     def _winch(self):
         if self.master is None:

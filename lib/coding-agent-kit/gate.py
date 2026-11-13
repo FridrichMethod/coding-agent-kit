@@ -3,8 +3,9 @@
 Provider-neutral core shared by codex-as and claude-as (load this file by path; it is never on
 sys.path). A gate runs outside the boundary as its own process. It serves plain HTTP on the
 loopback listening sockets that the launcher holds for the whole invocation and originates every
-upstream connection itself, over verified TLS (HTTP/1.1, TLS 1.2 or later), through the launcher's
-plain http:// HTTPS_PROXY when the launcher captured one at startup.
+upstream connection itself, over verified TLS (HTTP/1.1, TLS 1.2 or later), through the caller's
+plain http:// proxy when the launcher captured one at startup (the one the native would use for
+HTTPS; a host goes direct only where every native's reading of NO_PROXY exempts it).
 
 Providers plug in through four interfaces; BaseProvider documents each method:
     a default-deny RouteTable per native version (Route kinds: model, usage, read, paused_read);
@@ -40,8 +41,9 @@ Process entry (a provider script loads this file and calls main(argv, make)):
     python3 -I -B PROVIDER_GATE --listen-fds A[,B...] --control-fd N [--monitor-fd N]
                                 --mode startup|restart|refresh
     stdin: one JSON object, at most CONFIG_LIMIT bytes, then EOF. Core keys: max_age_s,
-        heartbeat_max_s (optional), proxy ([host, port] or null); make(config) reads the rest and
-        may set the provider's tunables (BaseProvider lists them).
+        heartbeat_max_s (optional), proxy (null, [host, port] or [host, port, NO_PROXY lists]: see
+        proxy_setting); make(config) reads the rest and may set the provider's tunables
+        (BaseProvider lists them).
 
 Control channel (JSON lines on the inherited socket, section 10 of the reviewed design):
     launcher -> gate: {"op": "continue" | "disarm" | "status" | "shutdown", "id": N (optional)}
@@ -49,6 +51,9 @@ Control channel (JSON lines on the inherited socket, section 10 of the reviewed 
         {"op": "ready", "port": P, "pid": N, "mode": M} once serving;
         {"op": "paused", "reason": R, "at": T, "fields": {...}} on a pause;
         {"op": "latched", "reason": R, "at": T, "fields": {...}} on monitor or launcher loss;
+        {"op": "notice", "eligible": B, "reason": R, "at": T, "fields": {...}} while paused, when the
+            latest quota check starts (B true, R "awaiting_continuation") or stops passing, at most
+            once per notice_every seconds (a notice never pauses or resumes);
         {"op": "resumed", "at": T} after a verified continuation;
         {"op": "refused", "reason": R} and exit status 3 when startup refuses.
 Monitor channel: monitor -> gate {"op": "hb"} | {"op": "poll"} | {"op": "polled", "ok": B};
@@ -91,6 +96,8 @@ TICK = 0.02               # the independent deadline timer
 HEARTBEAT_MAX = 1.5       # monitor liveness lease
 ATTACH_GRACE = 10.0       # until the first heartbeat after the gate is ready
 CONTINUATION_WINDOW = 30.0
+NOTICE_EVERY = 30.0       # at most one paused-state notice to the launcher per this many seconds
+REBIND_SLACK = CONNECT_TIMEOUT  # a request held behind a rebind waits for its reads plus this
 USAGE_READS = (10, 60.0)  # gate-originated reads per sliding window (the usage-read cap)
 REVALIDATIONS = (4, 60.0)  # hold-and-rebind checks per sliding window
 POLL_RUNNING, POLL_PAUSED = 30.0, 60.0  # used when the evaluator names no next poll
@@ -303,7 +310,7 @@ class RouteTable:
 
 
 def parse_proxy(url):
-    """The launcher's HTTPS_PROXY as (host, port), or None when unset.
+    """The caller's proxy URL as (host, port), or None when unset.
 
     Only a plain http://HOST:PORT proxy without credentials or a path is supported; anything else
     raises ValueError, and protected mode refuses rather than going direct.
@@ -314,12 +321,52 @@ def parse_proxy(url):
         parts = urlsplit(url)
         port = parts.port
     except ValueError:
-        raise ValueError("unsupported HTTPS_PROXY") from None
+        raise ValueError("unsupported proxy") from None
     if (parts.scheme != "http" or not parts.hostname or not port or parts.username is not None
             or parts.password is not None or parts.path not in ("", "/") or parts.query
             or parts.fragment):
-        raise ValueError("unsupported HTTPS_PROXY")
+        raise ValueError("unsupported proxy")
     return (parts.hostname, port)
+
+
+def bypasses(no_proxy, host):
+    """Whether NO_PROXY exempts HOST from the proxy, which it does only where every native would.
+    NO_PROXY is one entry list per set spelling (supervise.no_proxy_lists), and every list must
+    exempt HOST. A list that is just "*" exempts every host; an entry NAME exempts the host NAME
+    itself, and ".NAME" the hosts below NAME but not NAME. Any other entry ("*.NAME", a ":PORT"
+    suffix, an address range, an IPv6 address, "*" among other entries) exempts nothing, because
+    Claude Code or Codex reads it differently or not at all."""
+    host = host.lower()
+    return bool(no_proxy) and all(_exempts(tuple(entries), host) for entries in no_proxy)
+
+
+NO_PROXY_NAME = re.compile(r"[a-z0-9._-]{1,253}")
+
+
+def _exempts(entries, host):
+    if entries == ("*",):
+        return True
+    return any(host.endswith(entry) if entry.startswith(".") else host == entry
+               for entry in entries if NO_PROXY_NAME.fullmatch(entry))
+
+
+def proxy_setting(value):
+    """(proxy, no_proxy) of the configuration's proxy value: null, [host, port] or [host, port,
+    [[entry, ...], ...]] (supervise.capture_proxy). Anything else raises ValueError."""
+    if value is None:
+        return None, ()
+    if not isinstance(value, (list, tuple)) or len(value) not in (2, 3):
+        raise ValueError("malformed proxy")
+    host, port = value[0], value[1]
+    if not isinstance(host, str) or not host or isinstance(port, bool) or not isinstance(port, int) \
+            or not 0 < port < 65536:
+        raise ValueError("malformed proxy")
+    lists = value[2] if len(value) == 3 else ()
+    if not isinstance(lists, (list, tuple)) or not all(
+            isinstance(entries, (list, tuple)) and all(isinstance(entry, str) for entry in entries)
+            for entries in lists):
+        raise ValueError("malformed no_proxy")
+    return (host, port), tuple(tuple(entries) for entries in lists)
 
 
 def values(headers, name):
@@ -439,9 +486,11 @@ class BaseProvider:
     expected_identity (what Observation.identity must equal); family (None or what
     Observation.family must equal); connect_allow ({"host:port": (host, port)}, the exact targets
     a CONNECT may reach, served by a refresh-mode gate only; empty by default); rebind_timeout
-    (seconds a gate-read rebind may take). Tunables, which make(config) may set per provider:
-    usage_reads and revalidations ((count, window seconds) budgets), continuation_window and
-    attach_grace (seconds).
+    (seconds each gate fetch of a rebind may take) and rebind_reads (the most fetches one rebind
+    makes, 2 by default: a request held behind it waits rebind_reads x rebind_timeout plus
+    REBIND_SLACK). Tunables, which make(config) may set per provider:
+    usage_reads and revalidations ((count, window seconds) budgets), continuation_window,
+    attach_grace and notice_every (seconds).
     """
 
     name = "codex"
@@ -451,10 +500,12 @@ class BaseProvider:
     family = None
     connect_allow = {}
     rebind_timeout = READ_TIMEOUT
+    rebind_reads = 2
     usage_reads = USAGE_READS
     revalidations = REVALIDATIONS
     continuation_window = CONTINUATION_WINDOW
     attach_grace = ATTACH_GRACE
+    notice_every = NOTICE_EVERY
 
     def present(self, route, headers):
         """Presented for a request, or raise Refusal (latch=True pauses). Default: exactly one
@@ -539,11 +590,12 @@ def _well_formed(decision):
 class Gate:
     """Lease, routes, admission lock, stream registry and latch of one gate instance."""
 
-    def __init__(self, provider, decide, *, max_age, mode="startup", proxy=None,
+    def __init__(self, provider, decide, *, max_age, mode="startup", proxy=None, no_proxy=(),
                  heartbeat_max=HEARTBEAT_MAX, attach_grace=None, continuation_window=None,
-                 usage_reads=None, revalidations=None, clock=time.monotonic, wall=time.time,
-                 notify=None, emit=None):
-        """Tunables left as None come from the provider's attributes (BaseProvider lists them)."""
+                 usage_reads=None, revalidations=None, notice_every=None, clock=time.monotonic,
+                 wall=time.time, notify=None, emit=None):
+        """Tunables left as None come from the provider's attributes (BaseProvider lists them).
+        proxy is (host, port) or None; no_proxy the hosts that bypass it (bypasses())."""
         if mode not in ("startup", "restart", "refresh"):
             raise ValueError("unknown gate mode")
         status, _ = provider.refusal("probe")
@@ -554,9 +606,10 @@ class Gate:
             return getattr(provider, name, getattr(BaseProvider, name)) if value is None else value
 
         self.provider, self._decider, self.mode = provider, decide, mode
-        self.max_age, self.proxy = _seconds(max_age, "max_age"), proxy
+        self.max_age, self.proxy, self.no_proxy = _seconds(max_age, "max_age"), proxy, tuple(no_proxy)
         self.heartbeat_max = _seconds(heartbeat_max, "heartbeat_max")
         self.attach_grace = _seconds(tunable(attach_grace, "attach_grace"), "attach_grace")
+        self.notice_every = _seconds(tunable(notice_every, "notice_every"), "notice_every")
         self.continuation_window = _seconds(tunable(continuation_window, "continuation_window"),
                                             "continuation_window")
         self.usage_reads = _budget(tunable(usage_reads, "usage_reads"), "usage_reads")
@@ -572,6 +625,11 @@ class Gate:
         self.lease, self.last_fresh, self.epoch = None, None, 0
         self.streams, self._ids = {}, itertools.count(1)
         self.armed, self._answered = None, None
+        # Whether the latest attributed quota observation of a pause passes (a failed read leaves
+        # it as it was, unless the launcher has not yet been told that it passes), and what the
+        # launcher's terminal last said about it: False once a pause line (or the restart line)
+        # said paused, True once a notice said it passes; and when.
+        self._eligible, self._shown, self._shown_at = False, False, clock()
         self.attached, self.next_poll = None, None
         self.rebinding = None
         self._reads, self._checks = collections.deque(), collections.deque()
@@ -592,18 +650,42 @@ class Gate:
         return decision
 
     def _pause(self, reason, fields=None, op="paused"):
-        self.armed = None
+        """Pause, or update the reason and fields of a pause. An armed continuation survives an
+        update (an observation that did not answer it, a refused request): only a new pause or a
+        loss voids it."""
+        if self.state != "paused" or op == "latched":
+            self.armed = None
         if fields is not None:
             self.fields = dict(fields)
         self.reason = reason if isinstance(reason, str) and reason else "paused"
         if self.state == "paused" and op != "latched":
+            self._notice()
             return
         self.state = "paused"
         closers, self.streams = list(self.streams.values()), {}
         for close in closers:  # first: no report below may leave a stream open
             _quietly(close)
         message = {"op": op, "reason": self.reason, "at": round(self.wall(), 3), "fields": dict(self.fields)}
+        self._eligible, self._shown, self._shown_at = False, False, self.clock()
         _quietly(lambda: self.emit(op, reason=self.reason, closed=len(closers)))
+        _quietly(lambda: self.notify(message))
+
+    def _notice(self):
+        """While paused (and not lost): tell the launcher when the latest attributed quota
+        observation starts or stops passing, so its line shows when a continuation can succeed. A
+        change is sent at most once per notice_every seconds after the previous line; tick() sends
+        a deferred one, and a change undone in between sends nothing, as does a deferred "passes"
+        after a failed read. It never resumes anything."""
+        if self.state != "paused" or self.lost is not None or self.closed:
+            return
+        eligible = self._eligible
+        now = self.clock()
+        if eligible == self._shown or now - self._shown_at < self.notice_every:
+            return
+        self._shown, self._shown_at = eligible, now
+        message = {"op": "notice", "eligible": eligible, "reason": self.reason, "at": round(self.wall(), 3),
+                   "fields": dict(self.fields)}
+        _quietly(lambda: self.emit("notice", eligible=eligible))
         _quietly(lambda: self.notify(message))
 
     def _resume(self, fields):
@@ -680,7 +762,8 @@ class Gate:
             self._pause(reason, decision.fields)
 
     def tick(self):
-        """One step of the independent timer: monitor silence and the lease deadline."""
+        """One step of the independent timer: monitor silence, the lease deadline and a deferred
+        paused-state notice."""
         with self.lock:
             if self.closed:
                 return
@@ -693,6 +776,8 @@ class Gate:
                     self.lose("monitor_stale")
             if self.state == "running" and (self.last_fresh is None or now >= self.last_fresh + self.max_age):
                 self._pause("stale", self._decide(Event("health", now, name="stale")).fields)
+            elif self.state == "paused":
+                self._notice()
 
     def poll_delay(self):
         with self.lock:
@@ -724,6 +809,8 @@ class Gate:
             answers = self._answers(at)
             if not observation.ok:
                 reason = observation.reason or "quota_unavailable"
+                if self._eligible and not self._shown:  # a held-back "passes" notice is stale now
+                    self._eligible = False
                 decision = self._decide(Event("health", at, name="quota_unavailable", observation=observation))
                 self.emit("unavailable", cause=cause, reason=reason)
                 forced = observation.permanent or cause in ("rebind", "startup")
@@ -733,9 +820,11 @@ class Gate:
             if observation.identity is None or observation.identity != self.provider.expected_identity:
                 reason = ("identity_unattributed" if observation.identity is None else
                           "bearer_identity_mismatch" if cause == "rebind" else "identity_mismatch")
+                self._eligible = False
                 self._pause(reason, self._decide(Event("health", at, name=reason)).fields)
                 return reason
             if self.provider.family is not None and observation.family != self.provider.family:
+                self._eligible = False
                 self._pause("unsupported_family", self._decide(Event("health", at, name="unsupported_family")).fields)
                 return "unsupported_family"
             if answers:
@@ -746,6 +835,7 @@ class Gate:
             self.lease = Lease(presented, observation.identity, observation.family, at, at + self.max_age, self.epoch)
             self.last_fresh = at
             self.emit("fresh", cause=cause, epoch=self.epoch, running=decision.running, answers=answers)
+            self._eligible = decision.running or decision.reason == "awaiting_continuation"
             if not decision.running:
                 self._pause(decision.reason or "paused", decision.fields)
             elif self.state == "checking":
@@ -754,7 +844,7 @@ class Gate:
                 if answers:
                     self._resume(decision.fields)
                 else:
-                    self.reason, self.fields = "awaiting_continuation", dict(decision.fields)
+                    self._pause("awaiting_continuation", decision.fields)
             else:
                 self.fields = dict(decision.fields)
             return "fresh"
@@ -825,7 +915,7 @@ class Gate:
                     with self.lock:
                         self.rebinding = None
                     wait.set()
-            elif not wait.wait(self.provider.rebind_timeout + CONNECT_TIMEOUT):
+            elif not wait.wait(self.provider.rebind_reads * self.provider.rebind_timeout + REBIND_SLACK):
                 return False, "rebind_timeout", None
         return False, "rebind_unresolved", None
 
@@ -922,10 +1012,15 @@ class Gate:
             _quietly(close)
 
     # -- upstream --------------------------------------------------------------------------------
+    def proxy_for(self, host, port):
+        """The proxy for a connection to HOST:PORT: the captured one, unless NO_PROXY exempts HOST."""
+        return None if self.proxy is None or bypasses(self.no_proxy, host) else self.proxy
+
     def open(self, upstream, deadline=None):
         """A connected upstream socket (TLS verified when upstream.tls); raises OSError. Each step
         takes at most CONNECT_TIMEOUT, and none runs past deadline (a clock() value) if given."""
-        sock = open_tcp(upstream.host, upstream.port, self.proxy, deadline=deadline, clock=self.clock)
+        sock = open_tcp(upstream.host, upstream.port, self.proxy_for(upstream.host, upstream.port),
+                        deadline=deadline, clock=self.clock)
         if not upstream.tls:
             return sock
         try:
@@ -1200,7 +1295,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             host, port = gate.provider.connect_allow[target]
             try:
-                sock = open_tcp(host, port, gate.proxy)
+                sock = open_tcp(host, port, gate.proxy_for(host, port))
                 writer = sock.dup()  # its own timeout: the writes never change the reader's
             except OSError:
                 _close(sock)
@@ -1369,9 +1464,8 @@ def main(argv, make, stdin=None):
     try:
         config = _read_config(stdin or sys.stdin.buffer)
         provider, decide = make(config)
-        proxy = config.get("proxy")
-        gate = Gate(provider, decide, max_age=config["max_age_s"], mode=mode,
-                    proxy=(str(proxy[0]), int(proxy[1])) if proxy else None,
+        proxy, no_proxy = proxy_setting(config.get("proxy"))
+        gate = Gate(provider, decide, max_age=config["max_age_s"], mode=mode, proxy=proxy, no_proxy=no_proxy,
                     heartbeat_max=float(config.get("heartbeat_max_s", HEARTBEAT_MAX)), notify=channel.send)
     except Refusal as error:
         return refuse(error.reason)

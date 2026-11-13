@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import termios
+import threading
 import time
 import tty
 import unittest
@@ -79,12 +80,70 @@ class Pure(unittest.TestCase):
     def test_capture_proxy(self):
         parse = fakes.gate.parse_proxy
         self.assertIsNone(supervise.capture_proxy({}, parse))
-        self.assertEqual(supervise.capture_proxy({"https_proxy": "http://p.example:3128"}, parse), ("p.example", 3128))
+        self.assertEqual(supervise.capture_proxy({"https_proxy": "http://p.example:3128"}, parse),
+                         ("p.example", 3128, ()))
         self.assertEqual(supervise.capture_proxy({"HTTPS_PROXY": "http://p:1", "https_proxy": "http://p:1"}, parse),
-                         ("p", 1))
+                         ("p", 1, ()))
         for env in ({"HTTPS_PROXY": "http://p:1", "https_proxy": "http://q:1"}, {"HTTPS_PROXY": "https://p:1"}):
             with self.subTest(env=env), self.assertRaises(supervise.Refused):
                 supervise.capture_proxy(env, parse)
+
+    def test_the_gate_takes_the_proxy_the_native_would_use_for_https(self):
+        """Codex (reqwest) falls back from HTTPS_PROXY to ALL_PROXY, Claude Code to HTTP_PROXY and then
+        ALL_PROXY (its OAuth client keeps the environment proxy when only ALL_PROXY is set); without a
+        provider either fallback counts. A proxy the gate cannot use refuses instead of going direct."""
+        parse = fakes.gate.parse_proxy
+        cases = (
+            ("codex", {"ALL_PROXY": "http://a.example:1"}, ("a.example", 1, ())),
+            ("codex", {"all_proxy": "http://a.example:2"}, ("a.example", 2, ())),
+            ("codex", {"HTTP_PROXY": "http://h.example:1"}, None),
+            ("codex", {"HTTPS_PROXY": "http://p:1", "ALL_PROXY": "socks5://x:1"}, ("p", 1, ())),
+            ("codex", {"HTTPS_PROXY": "", "ALL_PROXY": "http://a:3"}, ("a", 3, ())),
+            ("claude", {"HTTP_PROXY": "http://h.example:1"}, ("h.example", 1, ())),
+            ("claude", {"http_proxy": "http://h.example:2"}, ("h.example", 2, ())),
+            ("claude", {"ALL_PROXY": "http://a.example:1"}, ("a.example", 1, ())),
+            ("claude", {"all_proxy": "http://a.example:2"}, ("a.example", 2, ())),
+            ("claude", {"HTTP_PROXY": "http://h:1", "ALL_PROXY": "socks5://x:1"}, ("h", 1, ())),
+            ("claude", {"https_proxy": "http://p:1", "HTTP_PROXY": "socks5://x:1"}, ("p", 1, ())),
+            (None, {"ALL_PROXY": "http://a:1"}, ("a", 1, ())),
+            (None, {"http_proxy": "http://h:1", "all_proxy": "http://h:1"}, ("h", 1, ())),
+        )
+        for provider, env, expected in cases:
+            with self.subTest(provider=provider, env=env):
+                self.assertEqual(supervise.capture_proxy(env, parse, provider=provider), expected)
+        refused = (
+            ("codex", {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, "unsupported ALL_PROXY"),
+            ("codex", {"all_proxy": "socks5://127.0.0.1:9050"}, "unsupported all_proxy"),
+            ("codex", {"ALL_PROXY": "http://a:1", "all_proxy": "http://b:1"}, "ALL_PROXY and all_proxy differ"),
+            ("claude", {"HTTP_PROXY": "https://h:1"}, "unsupported HTTP_PROXY"),
+            ("claude", {"http_proxy": "h.example:3128"}, "unsupported http_proxy"),
+            ("claude", {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, "unsupported ALL_PROXY"),
+            ("claude", {"ALL_PROXY": "http://a:1", "all_proxy": "http://b:1"}, "ALL_PROXY and all_proxy differ"),
+            (None, {"HTTP_PROXY": "http://h:1", "ALL_PROXY": "http://a:1"}, "HTTP_PROXY and ALL_PROXY differ"),
+            (None, {"ALL_PROXY": "socks5h://127.0.0.1:9050"}, "unsupported ALL_PROXY"),
+        )
+        for provider, env, reason in refused:
+            with self.subTest(provider=provider, env=env), self.assertRaises(supervise.Refused) as raised:
+                supervise.capture_proxy(env, parse, provider=provider)
+            self.assertIn(reason, raised.exception.reason)
+            for value in env.values():
+                self.assertNotIn(value, raised.exception.reason)  # a proxy URL may carry a secret
+
+    def test_no_proxy_is_captured_with_the_proxy_one_list_per_spelling(self):
+        """Entries are split on commas only, as Codex splits them; an entry some native would not
+        exempt a host by (a port, a range, "*." or "*" among others, two names in one entry) is
+        dropped, which keeps the host on the proxy, and a spelling whose entries are all dropped
+        still counts."""
+        parse = fakes.gate.parse_proxy
+        env = {"HTTPS_PROXY": "http://p:1", "NO_PROXY": "localhost, .Example.com,,127.0.0.1:8080",
+               "no_proxy": "*"}
+        self.assertEqual(supervise.capture_proxy(env, parse),
+                         ("p", 1, (("localhost", ".example.com"), ("*",))))
+        env = {"HTTPS_PROXY": "http://p:1", "NO_PROXY": "a.example b.example,*.c.example,10.0.0.0/8,*,::1",
+               "no_proxy": " * "}
+        self.assertEqual(supervise.capture_proxy(env, parse), ("p", 1, ((), ())))
+        self.assertIsNone(supervise.capture_proxy({"NO_PROXY": "*"}, parse))
+        self.assertEqual(supervise.capture_proxy({"HTTPS_PROXY": "http://p:1", "NO_PROXY": ""}, parse), ("p", 1, ()))
 
     def test_descendants(self):
         table = {2: (1, "a"), 3: (2, "b"), 4: (3, "c"), 5: (1, "d"), 6: (5, "e")}
@@ -256,6 +315,81 @@ class Requests(unittest.TestCase):
         self.assertEqual(sup.request("continue"), {"ok": False, "reason": "gate_unavailable"})
 
 
+class ContinuationRequest(unittest.TestCase):
+    def test_the_check_waits_past_the_control_timeout_and_a_timed_out_check_is_disarmed(self):
+        sup = supervise.Supervisor(["gate"], {})
+        sup.control, peer = socket.socketpair()
+        self.addCleanup(peer.close)
+        said = []
+        sup.say = said.append
+        self.assertGreaterEqual(supervise.CONTINUE_TIMEOUT, 35.0)  # Claude: store read plus two 10 s reads
+
+        def answer(delay):
+            request = json.loads(peer.recv(4096).split(b"\n")[0])
+            time.sleep(delay)
+            peer.sendall(json.dumps({"op": "reply", "to": "continue", "id": request["id"], "ok": True,
+                                     "reason": "resumed"}).encode() + b"\n")
+
+        with mock.patch.object(supervise, "CONTINUE_TIMEOUT", 1.0):
+            thread = threading.Thread(target=answer, args=(0.3,))
+            thread.start()
+            self.assertTrue(sup.check())
+            thread.join()
+        with mock.patch.object(supervise, "CONTINUE_TIMEOUT", 0.3):
+            started = time.monotonic()
+            self.assertFalse(sup.check())
+            self.assertLess(time.monotonic() - started, 2.0)
+        self.assertEqual(said[-1], "still paused: gate_unavailable")
+        peer.settimeout(2)
+        sent = [json.loads(line) for line in peer.recv(4096).splitlines()]
+        self.assertEqual([message["op"] for message in sent], ["continue", "disarm"])  # no late resume
+        self.assertIsNotNone(sup.control)
+
+
+class Notices(unittest.TestCase):
+    """Gate messages that change the pause line without pausing or resuming anything."""
+
+    class UI:
+        def __init__(self, paused):
+            self.paused, self.calls = paused, []
+
+        def pause(self):
+            self.calls.append("pause")
+            self.paused = True
+
+        def resume(self):
+            self.calls.append("resume")
+            self.paused = False
+
+    def handled(self, message, paused=True):
+        sup = supervise.Supervisor(["gate"], {})
+        said, sup.ui = [], self.UI(paused)
+        sup.say = said.append
+        sup._handle(message)
+        return said, sup.ui.calls
+
+    def test_the_launcher_shows_when_a_pause_can_be_continued_without_resuming(self):
+        fields = {"account": "A", "last_fresh": "2026-11-12T13:00:01Z", "message": "ignored"}
+        said, calls = self.handled({"op": "notice", "eligible": True, "reason": "awaiting_continuation",
+                                    "fields": fields})
+        self.assertEqual(said, ["quota reserve: the latest quota check passes; account A; last fresh check "
+                                "2026-11-12T13:00:01Z; press F12, then type the code shown and Enter, to continue"])
+        self.assertEqual(said, [supervise.eligible_message(dict(reversed(list(fields.items()))))])
+        self.assertEqual(calls, [])  # no flush, no resume: a code being typed stays valid
+        fields = {"account": "A", "window": "five-hour", "remaining": "3", "reserve": "5"}
+        said, calls = self.handled({"op": "notice", "eligible": False, "reason": "threshold", "fields": fields})
+        self.assertEqual((said, calls), ([supervise.pause_message("threshold", fields)], []))
+        for eligible in (True, False):
+            with self.subTest(eligible=eligible):  # already resumed: an old notice says nothing
+                self.assertEqual(self.handled({"op": "notice", "eligible": eligible, "reason": "x", "fields": {}},
+                                              paused=False), ([], []))
+
+    def test_a_resume_the_launcher_did_not_see_coming_is_announced(self):
+        self.assertEqual(self.handled({"op": "resumed"}),
+                         (["fresh quota check passed; model requests resume"], ["resume"]))
+        self.assertEqual(self.handled({"op": "resumed"}, paused=False), ([], ["resume"]))
+
+
 class Restart(unittest.TestCase):
     def test_restarts_are_limited_per_window_and_ask_for_a_relaunch_once(self):
         now = [1000.0]
@@ -303,6 +437,22 @@ class Install(unittest.TestCase):
             self.assertEqual(raised.exception.reason, "incomplete install at %s" % Path(directory).resolve())
 
 
+    def test_a_missing_monitor_refuses_before_the_pre_launch_refresh_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lib = Path(directory) / "lib/coding-agent-kit"
+            lib.mkdir(parents=True)
+            for name in ("supervise.py", "gate.py"):
+                shutil.copy(HERE.parent / "lib/coding-agent-kit" / name, lib / name)
+            partial = fakes.load("kit_supervise_no_monitor", lib / "supervise.py")
+            sup = partial.Supervisor([sys.executable, "-I", "-B", str(FIXTURES / "provider_gate.py")], {})
+            marker = Path(directory) / "refreshed"
+            with self.assertRaises(partial.Refused) as raised:
+                sup.refresh(["/bin/sh", "-c", ": > '%s'" % marker], {"PATH": "/usr/bin:/bin"}, timeout=5)
+            self.assertEqual(raised.exception.reason, "incomplete install at %s" % Path(directory).resolve())
+            self.assertFalse(marker.exists())
+            self.assertIsNone(sup.holder)
+
+
 class Sweep(unittest.TestCase):
     def test_the_sweep_compares_start_times_not_pid_numbers(self):
         sup = supervise.Supervisor(["gate"], {})
@@ -315,6 +465,27 @@ class Sweep(unittest.TestCase):
         self.assertEqual(sup.sweep(grace=0.5), 1)
         self.assertTrue(fakes_wait(lambda: not alive(child.pid)))
 
+
+    @unittest.skipUnless(os.path.isdir("/proc/self"),
+                         "without /proc the process table comes from ps, too slow to see a fork chain's members")
+    def test_a_fork_chain_in_a_boundary_session_is_ended_before_the_port_is_released(self):
+        """Each member forks and exits at once, so every snapshot names only dead processes; the
+        sweep still ends the chain, through the process group a member was seen in."""
+        sup = supervise.Supervisor(["gate"], {})
+        table = supervise.process_table()
+        sup.baseline = {pid: table[pid][1] for pid in supervise.descendants(os.getpid(), table)}
+        sup.prepared = True
+        chain = ("import os, time\nend = time.monotonic() + 20\nwhile time.monotonic() < end:\n"
+                 "    if os.fork():\n        os._exit(0)\n")
+        beat_read, beat_write = os.pipe()  # every member holds the write end: EOF once all are gone
+        self.addCleanup(os.close, beat_read)
+        pid = sup.spawn([sys.executable, "-I", "-B", "-c", chain], {}, stdout=beat_write, confine=True)
+        os.close(beat_write)
+        self.addCleanup(lambda: _quiet_killpg(pid))
+        time.sleep(0.3)  # the chain is running: its first member is long gone
+        sup.sweep(grace=0.2)
+        self.assertTrue(select.select([beat_read], [], [], 3.0)[0] and os.read(beat_read, 64) == b"",
+                        "the fork chain outlived the sweep")
 
     def test_orphaned_members_of_a_boundary_session_are_found(self):
         sup = supervise.Supervisor(["gate"], {})
@@ -329,6 +500,45 @@ class Sweep(unittest.TestCase):
         table = supervise.process_table()
         self.assertNotIn(orphan, supervise.descendants(os.getpid(), table))
         self.assertIn(orphan, sup._session_members(table))
+        sup._snapshot()  # the run loop's check: a session with a member left is kept
+        self.assertIn(pid, sup.sessions)
+
+    def test_a_boundary_session_seen_empty_is_forgotten(self):
+        """A session id can come back as an unrelated process's pid once the session is empty, so
+        the run loop's check (with or without a subreaper) forgets an emptied session at once."""
+        for subreaper in (False, True):
+            with self.subTest(subreaper=subreaper):
+                sup = supervise.Supervisor(["gate"], {})
+                sup.subreaper = subreaper
+                pid = sup.spawn(["/bin/sh", "-c", "exit 0"], {"PATH": "/usr/bin:/bin"}, confine=True)
+                self.assertIn(pid, sup.sessions)
+                self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
+                sup._snapshot()
+                self.assertEqual(sup.sessions, {})
+
+    def test_an_orphaned_group_under_a_session_number_seen_empty_earlier_survives_the_sweep(self):
+        """After PID reuse an old boundary session's number may name an unrelated job's orphaned
+        process group (its leader gone, a member left, as in `git log | less` after git exits). The
+        session was seen empty before its number came back, so the sweep never signals it."""
+        job = subprocess.Popen(["/bin/sh", "-c", "sleep 30 </dev/null >/dev/null 2>&1 & echo $!"],
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, process_group=0)
+        member = int(job.stdout.readline())
+        job.stdout.close()
+        job.wait(10)
+        self.addCleanup(lambda: alive(member) and os.kill(member, signal.SIGKILL))
+        self.assertEqual(os.getpgid(member), job.pid)  # the group outlives its leader
+        sup = supervise.Supervisor(["gate"], {})
+        table = supervise.process_table()
+        sup.baseline = {pid: table[pid][1] for pid in supervise.descendants(os.getpid(), table)}
+        sup.prepared = True
+        sup.sessions = {job.pid: "a reader long gone"}
+        # The run loop's check while that reader's session was empty, before its number came back.
+        with mock.patch.object(supervise.os, "killpg", side_effect=ProcessLookupError):
+            sup._prune_sessions(supervise.process_table())
+        self.assertEqual(sup.sessions, {})
+        sup.sweep(grace=0.2, limit=1.0)
+        time.sleep(0.2)
+        self.assertTrue(alive(member), "the sweep signalled a process group outside the boundary")
 
 
 class Spawn(unittest.TestCase):
@@ -348,6 +558,60 @@ class Spawn(unittest.TestCase):
         os.close(out_write)
         self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
         self.assertEqual(os.read(out_read, 4096), b"done\n")
+
+    def test_boundary_children_get_the_callers_umask_and_kit_processes_the_launchers(self):
+        """codex-as runs under umask 077 and passes the caller's: the native and every confined
+        command (and what they start) create files as an unprotected launch would; the gate and the
+        monitor keep the launcher's 077."""
+        old = os.umask(0o077)
+        self.addCleanup(os.umask, old)
+
+        def umask_of(sup, confine):
+            out_read, out_write = os.pipe()
+            try:
+                pid = sup.spawn(["/bin/sh", "-c", "umask"], {"PATH": "/usr/bin:/bin"}, stdout=out_write,
+                                confine=confine)
+                os.close(out_write)
+                out_write = None
+                self.assertEqual(os.waitstatus_to_exitcode(sup._wait(pid, 10)), 0)
+                return int(os.read(out_read, 64).strip(), 8)
+            finally:
+                os.close(out_read)
+                if out_write is not None:
+                    os.close(out_write)
+
+        caller = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv, umask=0o022)
+        self.assertEqual(umask_of(caller, True), 0o022)
+        self.assertEqual(umask_of(caller, False), 0o077)
+        unchanged = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv)  # claude-as
+        self.assertEqual(umask_of(unchanged, True), 0o077)
+        self.assertEqual(os.umask(0o077), 0o077)  # the launcher's own umask is untouched
+        for bad in (-1, 0o1000, True, "022"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                supervise.Supervisor(["gate"], {}, umask=bad)
+
+    def test_the_monitor_passes_the_callers_umask_to_its_poll_readers(self):
+        """A poll reader is a confined command like the adapter's own reads, so it gets the umask the
+        adapter passed; without one, or without a reader, the monitor is told nothing."""
+        seen = []
+
+        def spawn(argv, env, **options):
+            seen.append(argv)
+            raise OSError(errno.ENOENT, "not started")
+
+        def monitor_argv(umask, reader):
+            sup = supervise.Supervisor(["gate"], {}, umask=umask)
+            sup.monitor_reader, sup.spawn = reader, spawn
+            left, right = socket.socketpair()
+            self.addCleanup(left.close)
+            with self.assertRaises(OSError):
+                sup.start_monitor(right)
+            return seen[-1]
+
+        argv = monitor_argv(0o022, ["/reader", "--confine"])
+        self.assertEqual(argv[argv.index("--reader-umask") + 1], "022")
+        self.assertNotIn("--reader-umask", monitor_argv(None, ["/reader", "--confine"]))
+        self.assertNotIn("--reader-umask", monitor_argv(0o022, None))  # the gate polls itself
 
     def test_exec_failure_and_hook_refusal(self):
         sup = supervise.Supervisor(["gate"], {}, confine=lambda port, argv: argv)
@@ -729,7 +993,7 @@ class Supervised(unittest.TestCase):
             self.assertTrue(fakes_wait(lambda: not alive(pid)), "pid %d outlived the launcher" % pid)
 
     def test_pause_shows_the_message_and_only_a_fresh_trusted_continuation_resumes(self):
-        self.launch(next_poll=1.0)
+        self.launch(next_poll=1.0, notice_every=0.5)
         self.ready()
         self.command("request")
         self.terminal.expect(r"STATUS 200")
@@ -746,7 +1010,9 @@ class Supervised(unittest.TestCase):
         self.continue_()
         self.terminal.expect(r"still paused: threshold")
         self.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
-        time.sleep(1.5)  # polls see the reset; they never resume
+        # Polls see the reset and the line says so; they never resume.
+        self.terminal.expect(r"quota reserve: the latest quota check passes; account A; press F12, then type the "
+                             r"code shown and Enter, to continue")
         self.command("request")
         self.terminal.expect(r"STATUS 400")
         self.continue_()
@@ -858,6 +1124,13 @@ class Supervised(unittest.TestCase):
         self.command("exit 0")
         self.assertEqual(self.wait_exit(), 0)
         self.assertTrue(fakes_wait(lambda: not alive(monitor)))
+
+
+def _quiet_killpg(group):
+    try:
+        os.killpg(group, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
 
 
 def fakes_wait(predicate, timeout=5.0):
