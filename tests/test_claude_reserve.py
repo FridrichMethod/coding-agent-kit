@@ -7,6 +7,7 @@ version protect.REVIEWED_VERSIONS names; skipped otherwise, and always on macOS,
 login Keychain) with a fabricated credential against the same loopback fixtures.
 """
 
+import contextlib
 import errno
 import fcntl
 import hashlib
@@ -1417,8 +1418,8 @@ class ProtectScreens(unittest.TestCase):
             self.assertIn("more than 4 interpreters", self.refused(protect.native_sources, str(bin_ / "claude"), env))
 
     def test_a_path_entry_searched_before_the_one_that_supplies_a_program_must_lie_out_of_reach(self):
-        """bin/claude-as runs python3, the launcher the claude key's command and a #!/usr/bin/env line its
-        command by name, from the first PATH entry holding it. An entry searched before that one which a
+        """bin/claude-as runs dirname, readlink and python3, the launcher the claude key's command and a
+        #!/usr/bin/env line its command by name, from the first PATH entry holding it. An entry searched before that one which a
         boundary process can write (by a name on the way to the program there, through links), or an
         empty or relative one (the working directory, or a path relative to it), would let a protected
         session plant the program for the next launch, or a plain run of it, to run unconfined. The
@@ -1464,6 +1465,45 @@ class ProtectScreens(unittest.TestCase):
                              "lies inside %s, which the boundary can write; a protected session could put a %s there "
                              "for the next launch to run outside the boundary; remove the entry from PATH to launch "
                              "with reserves" % (work / "bin", name, work, name))
+
+    def test_the_path_entry_that_supplies_a_program_must_lie_out_of_reach_and_be_absolute(self):
+        """The entry that supplies the program counts as well: a python3 wrapper script there (whose
+        sys.executable is what it execs, so launcher_sources never sees it), a link there to a program
+        in reach, or the entry itself in reach would let a protected session replace what the next
+        launch runs; an empty or relative supplier names another directory wherever claude-as starts
+        (../tools from a subdirectory of the working directory lies inside it)."""
+        name = "kit-cn3-probe"
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work, tools, relay, other = base / "work", base / "tools", base / "relay", base / "other"
+            for path in (work / "tools", work / "sub", tools, relay, other):
+                path.mkdir(parents=True)
+            for path in (work / "tools" / name, tools / name):
+                path.write_text("#!/bin/sh\nexec /usr/bin/python3 \"$@\"\n")
+                path.chmod(0o755)
+            (relay / name).symlink_to(work / "tools" / name)
+            (base / "linked").symlink_to(work / "tools")
+            reach = [str(work), "/dev/null"]
+            protect.path_order(supervise, name, f"{other}:{tools}:{work / 'tools'}", reach)
+            hint = ("; a protected session could replace that %s for the next launch to run outside the boundary; "
+                    "supply %s from a PATH entry outside every path the boundary can write to launch with reserves"
+                    % (name, name))
+            for start, value, text in (
+                    (None, f"{other}:{work / 'tools'}:{tools}", "the PATH entry %s, which supplies %s, lies inside %s, "
+                     "which the boundary can write" % (work / "tools", name, work)),
+                    (None, f"{base / 'linked'}:{tools}", "the PATH entry %s, which supplies %s, lies inside %s, which "
+                     "the boundary can write" % (base / "linked", name, work)),
+                    (None, f"{relay}:{tools}", "the PATH entry %s, which supplies %s, lies inside %s, which the "
+                     "boundary can write" % (relay, name, work)),
+                    (work, f"../tools:{other}", "the PATH entry ../tools, which supplies %s, is relative to the working "
+                     "directory, which the boundary can write" % name),
+                    (tools, f":{other}", "an empty PATH entry, which supplies %s, is the working directory, which the "
+                     "boundary can write" % name)):
+                with self.subTest(value=value):
+                    with contextlib.chdir(start or base):
+                        with self.assertRaises(supervise.Refused) as caught:
+                            protect.path_order(supervise, name, value, reach)
+                    self.assertEqual(caught.exception.reason, text + hint)
 
 
 class MacosTemporaryCleanup(unittest.TestCase):
@@ -1696,19 +1736,29 @@ class ProtectedRefusals(Kit):
         self.assertFalse(outside.exists())
 
     def test_a_writable_path_entry_searched_first_refuses_before_anything_runs(self):
-        """An empty directory of the working directory on PATH before the one that supplies the
-        launcher's python3, the claude it runs or the command a #!/usr/bin/env line of that claude names
-        refuses, naming the entry: a protected session could plant the program there, and the next
-        launch's python3 (before any check) or every unprotected claude or node would run it
-        unconfined."""
+        """An empty directory of the working directory on PATH before the one that supplies the dirname
+        and readlink bin/claude-as runs (readlink for each link on the way to it), its python3, the
+        claude the launcher runs or the command a #!/usr/bin/env line of that claude names refuses,
+        naming the entry: a protected session could plant the program there, and the next launch's
+        shell utilities and python3 (before any check) or every unprotected claude or node would run it
+        unconfined. Each case finds every other of these programs before the shadow."""
         if boundary_problem():
             self.skipTest(boundary_problem())
+        rest = self.env["PATH"]
         shadow = self.cwd / "bin"
         shadow.mkdir()
-        found = shutil.which("python3", path=self.env["PATH"])
-        python = self.base / "python"  # a python3 found before the shadow, out of reach
-        python.mkdir()
-        (python / "python3").symlink_to(found)
+
+        def tools(directory, *names):  # links to the programs PATH supplies, found before the shadow, out of reach
+            path = self.base / directory
+            path.mkdir()
+            for name in names:
+                (path / name).symlink_to(shutil.which(name, path=rest))
+            return path
+
+        def supplier(name):
+            return os.path.dirname(shutil.which(name, path=rest))
+
+        system = tools("system", "python3", "dirname", "readlink")
         node = self.base / "node"
         node.mkdir()
         (node / "fakenode").write_text(
@@ -1718,22 +1768,53 @@ class ProtectedRefusals(Kit):
         enveloped.mkdir()
         (enveloped / "claude").write_text("#!/usr/bin/env fakenode\n" + (self.bin / "claude").read_text().split("\n", 1)[1])
         (enveloped / "claude").chmod(0o700)
+        linked = self.base / "linked"  # a linked install: bin/claude-as runs readlink
+        linked.mkdir()
+        (linked / "claude-as").symlink_to(self.kit / "bin/claude-as")
         outside = self.base / "outside.log"
-        rest = self.env["PATH"]
-        for name, path, supplier in (("python3", f"{self.bin}:{shadow}:{rest}", os.path.dirname(found)),
-                                     ("claude", f"{python}:{shadow}:{self.bin}:{rest}", self.bin),
-                                     ("fakenode", f"{python}:{enveloped}:{shadow}:{node}:{rest}", node)):
+        cases = (("python3", f"{self.bin}:{tools('utilities', 'dirname', 'readlink')}:{shadow}:{rest}", None),
+                 ("claude", f"{system}:{shadow}:{self.bin}:{rest}", None),
+                 ("fakenode", f"{system}:{enveloped}:{shadow}:{node}:{rest}", None),
+                 ("dirname", f"{tools('without-dirname', 'python3', 'readlink')}:{self.bin}:{shadow}:{rest}", None),
+                 ("readlink", f"{tools('without-readlink', 'python3', 'dirname')}:{self.bin}:{shadow}:{rest}", linked))
+        for name, path, launcher in cases:
             with self.subTest(name):
                 env = dict(self.env, PATH=path, FAKE_OUTSIDE_MARK=str(outside), FAKE_RECORD=str(self.cwd / "record.json"))
-                code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+                argv = [str((launcher or self.kit / "bin") / "claude-as"), "--reserve-5h", "10", "N"]
+                code, output = self.terminal([], env=env, argv=argv)
                 output = output.replace("\n", " ")
                 self.assertEqual(code, 1, output)
+                found = {"claude": self.bin, "fakenode": node}.get(name) or supplier(name)
                 self.assertIn("protected mode refused: the PATH entry %s, searched for %s before %s, lies inside %s, "
                               "which the boundary can write; a protected session could put a %s there"
-                              % (shadow, name, supplier, self.cwd, name), output)
+                              % (shadow, name, found, self.cwd, name), output)
                 self.assertNotIn("only the request gate is reachable", output)  # refused before the supervisor
                 self.assertFalse((self.cwd / "record.json.auth").exists(), output)  # no refresh ran
                 self.assertFalse(outside.exists())
+
+    def test_a_python3_wrapper_in_reach_that_supplies_python3_refuses(self):
+        """A python3 wrapper script in the working directory, first on PATH for python3, execs a python3
+        out of reach, so the launcher's own sources pass; the PATH entry that supplies it refuses, since
+        a protected session could rewrite the wrapper for the next launch to run outside the boundary."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        rest = self.env["PATH"]
+        wrapped = self.cwd / "tools"
+        wrapped.mkdir()
+        (wrapped / "python3").write_text('#!/bin/sh\nexec %s "$@"\n' % shutil.which("python3", path=rest))
+        (wrapped / "python3").chmod(0o700)
+        utilities = self.base / "utilities"  # dirname and readlink found before the wrapper, out of reach
+        utilities.mkdir()
+        for name in ("dirname", "readlink"):
+            (utilities / name).symlink_to(shutil.which(name, path=rest))
+        env = dict(self.env, PATH=f"{self.bin}:{utilities}:{wrapped}:{rest}", FAKE_RECORD=str(self.cwd / "record.json"))
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        output = output.replace("\n", " ")
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the PATH entry %s, which supplies python3, lies inside %s, which the "
+                      "boundary can write; a protected session could replace that python3 for the next launch to run "
+                      "outside the boundary" % (wrapped, self.cwd), output)
+        self.assertFalse((self.cwd / "record.json.auth").exists(), output)
 
     def test_home_as_the_working_directory_refuses(self):
         if boundary_problem():
@@ -1767,6 +1848,27 @@ class ProtectedRefusals(Kit):
                               (Path(python).parent, "the Python %s lies inside %s" % (python, Path(python).parent))):
             with self.subTest(add_dir=add_dir):
                 self.assertIn(text, self.refused(["--add-dir", str(add_dir)]).replace("\n", " "))
+
+
+class LauncherCommands(Kit):
+    def test_the_launcher_needs_exactly_its_launcher_commands_on_path_to_start_python(self):
+        """bin/claude-as, reached through a link, runs no program by name before Python but
+        protect.LAUNCHER_COMMANDS, which protected mode checks the PATH order of, and needs each of
+        them: a PATH holding only them starts the launcher, and one without any of them does not."""
+        linked = self.base / "linked"
+        linked.mkdir()
+        (linked / "claude-as").symlink_to(self.kit / "bin/claude-as")
+        for missing in (None, *protect.LAUNCHER_COMMANDS):
+            with self.subTest(missing=missing):
+                only = self.base / f"only-{missing}"
+                only.mkdir()
+                for name in protect.LAUNCHER_COMMANDS:
+                    if name != missing:
+                        (only / name).symlink_to(shutil.which(name, path=self.env["PATH"]))
+                result = subprocess.run([str(linked / "claude-as"), "--list"], cwd=self.cwd,
+                                        env=dict(self.env, PATH=str(only)), stdin=subprocess.DEVNULL,
+                                        capture_output=True, text=True, timeout=60)
+                self.assertEqual(result.returncode == 0, missing is None, (result.returncode, result.stderr))
 
 
 class ConnectProxy:

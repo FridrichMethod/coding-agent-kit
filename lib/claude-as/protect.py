@@ -60,9 +60,10 @@ resolve it once, and the launch refuses when that path, any name on the way to i
 interpreter its #! line names (one `#!/usr/bin/env node` finds on the native's PATH included) lie in
 the same reach (native_sources): a session could replace it under the next launch, and every later
 unprotected one would run it unconfined. Programs run by name come from the first entry of the
-caller's PATH that holds them, so the launch also refuses when an entry searched before that one for
-python3, for the claude key's command (when it is a name) or for a `#!/usr/bin/env` command could
-take a program a session plants: an empty or relative entry, or one in the same reach (path_order).
+caller's PATH that holds them, so the launch also refuses when that entry, or one searched before it,
+for the dirname, readlink and python3 that bin/claude-as runs before any check (LAUNCHER_COMMANDS), for
+the claude key's command (when it is a name) or for a `#!/usr/bin/env` command could take a program a
+session plants or replaces: an empty or relative entry, or one in the same reach (path_order).
 While the run lasts the launcher's own PATH is the system directories (supervise.launcher_path); the
 native keeps the caller's.
 
@@ -108,6 +109,10 @@ VERSION_LIMIT = 4096  # bytes of --version output kept
 SHEBANG_LIMIT = 256  # a #! line must end within this many bytes (Linux reads no more)
 SHEBANG = re.compile(r"[A-Za-z0-9_./=:+,@%-]+(?:[ \t]+[A-Za-z0-9_./=:+,@%-]+)*")
 INTERPRETER_DEPTH = 4  # nested #! lines followed
+# The programs bin/claude-as runs by name on the caller's PATH, before any check: python3, which runs
+# this module, and the shell utilities it resolves its own location with (readlink for each link on
+# the way to it; checked for every launch, since the next one may come through a link).
+LAUNCHER_COMMANDS = ("python3", "dirname", "readlink")
 REFRESH_TARGET = "platform.claude.com:443"
 # Interactive option forms of Claude Code 2.1.322 (S: its --help) that keep one terminal session
 # whose model requests all reach the gate, among those launch.py's own preflight audits (it runs first
@@ -368,31 +373,37 @@ def path_search(name, value):
 
 
 def path_order(supervise, name, value, writable_paths):
-    """supervise.Refused when an entry of the PATH value VALUE searched for the command NAME before the
-    one that supplies it (path_search; every entry when none does) could take a NAME a boundary
-    process plants: an empty or relative entry, which names the working directory or a path relative
-    to it, or one where NAME, or a name on the way to it (supervise.resolution, through links),
-    lies inside WRITABLE_PATHS. The next launch, or a plain run of NAME, would find the planted
-    program first and run it outside the boundary. The reason names the entry, never what it holds.
-    The entry that supplies NAME is checked with the program itself (launcher_sources, native_sources)."""
+    """supervise.Refused when an entry of the PATH value VALUE that a run of the command NAME searches
+    (path_search: the entries before the one that supplies it, and that one; every entry when none
+    does) could take a NAME a boundary process plants or replaces: an empty or relative entry, which
+    names the working directory or a path relative to wherever the run starts, or one where NAME, or a
+    name on the way to it (supervise.resolution, through links), lies inside WRITABLE_PATHS. The next
+    launch, or a plain run of NAME, would run that program outside the boundary. The reason names the
+    entry, never what it holds. The supplying entry counts by name, since the program check cannot
+    always see it: a python3 wrapper script there leaves sys.executable naming what the script execs."""
     before, supplier = path_search(name, value)
     searched = ("searched for %s before %s" % (name, supplier or "an empty entry") if supplier is not None
                 else "searched for %s, which no PATH entry holds" % name)
     hint = ("; a protected session could put a %s there for the next launch to run outside the boundary; remove the "
             "entry from PATH%s to launch with reserves"
             % (name, "" if supplier is None else ", or move it after %s," % (supplier or "the empty entry")))
-    for entry in before:
+    checks = [(entry, searched, hint) for entry in before]
+    if supplier is not None:
+        checks.append((supplier, "which supplies %s" % name, "; a protected session could replace that %s for the next "
+                       "launch to run outside the boundary; supply %s from a PATH entry outside every path the boundary "
+                       "can write to launch with reserves" % (name, name)))
+    for entry, role, advice in checks:
         if not entry:
             raise supervise.Refused("an empty PATH entry, %s, is the working directory, which the boundary can write%s"
-                                    % (searched, hint))
+                                    % (role, advice))
         if not os.path.isabs(entry):
             raise supervise.Refused("the PATH entry %s, %s, is relative to the working directory, which the boundary "
-                                    "can write%s" % (entry, searched, hint))
+                                    "can write%s" % (entry, role, advice))
         names = supervise.resolution(os.path.join(entry, name))
         for root in writable_paths:
             if any(supervise.within(found, root) for found in names):
                 raise supervise.Refused("the PATH entry %s, %s, lies inside %s, which the boundary can write%s"
-                                        % (entry, searched, root, hint))
+                                        % (entry, role, root, advice))
 
 
 def _inside(path, parent):
@@ -596,9 +607,9 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
         # Nothing that kit processes outside the boundary load code from may be in its reach.
         python = supervise.interpreter()
         gate_env = {name: env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR") if env.get(name)}
-        # Nor any PATH entry searched before the one that supplies a program run by name: bin/claude-as's
-        # python3, the claude key's command and each #!/usr/bin/env command (all on the caller's PATH).
-        searched = ["python3"] + ([config.claude] if os.sep not in config.claude else [])
+        # Nor the PATH entry that supplies a program run by name, or one searched before it: bin/claude-as's
+        # own commands, the claude key's command and each #!/usr/bin/env command (all on the caller's PATH).
+        searched = [*LAUNCHER_COMMANDS] + ([config.claude] if os.sep not in config.claude else [])
         try:
             supervise.unreachable(supervise.code_sources(python, gate_env, (HERE, KIT)),
                                   reach(writable, sandbox, uid, darwin), CODE_HINT)
