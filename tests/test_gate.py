@@ -1044,15 +1044,52 @@ class Continuation(unittest.TestCase):
         self.assertEqual(notices(), [(True, "awaiting_continuation")])
 
     def test_a_failed_check_uses_up_the_continuation(self):
+        """The continuation's own failed check uses it up (the gate's check, or the launcher's disarm
+        after a read it drove failed); a later passing read resumes nothing."""
+        h = Harness(self, holds_bearer=True)
+        h.ready()
+        h.gate.latch("threshold")
+        h.upstream.usage_status = 500
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "reason": "http_500"})
+        self.assertFalse(h.gate.status()["armed"])
+        h.upstream.usage_status = 200
+        h.gate.poll()
+        self.assertEqual(h.gate.status()["state"], "paused")
         h = Harness(self)
         h.ready()
         h.gate.latch("threshold")
         h.gate.arm_continuation()
         h.upstream.usage_status = 500
         h.request("GET", "/usage", auth())
+        h.gate.disarm()
         h.upstream.usage_status = 200
         h.request("GET", "/usage", auth())
         self.assertEqual(h.gate.status()["state"], "paused")
+
+    def test_a_failed_read_that_is_not_the_continuations_leaves_it_armed(self):
+        """A poll or the native's own usage read that started after arming and failed proves nothing,
+        so the continuation stays armed for the read that answers it."""
+
+        class Racing(fakes.FakeProvider):
+            def continue_check(self, gate_):  # a poll that started after arming fails and lands first
+                gate_.observe(gate_.lease.presented, gate.Observation(gate_.clock(), False, reason="timeout"), "poll")
+                return super().continue_check(gate_)
+
+        upstream = fakes.FakeUpstream()
+        h = Harness(self, upstream=upstream, provider=Racing(upstream.port, holds_bearer=True))
+        h.ready()
+        h.gate.latch("threshold")
+        self.assertEqual(h.gate.arm_continuation(), {"ok": True, "reason": "resumed"})
+        h = Harness(self)
+        h.ready()
+        h.gate.latch("threshold")
+        h.gate.arm_continuation()
+        h.upstream.usage_status = 503
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 503)  # the native's own read, failing
+        self.assertTrue(h.gate.status()["armed"])
+        h.upstream.usage_status = 200
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 200)  # the read the launcher drove
+        self.assertEqual(h.gate.status()["state"], "running")
 
     def test_restarted_gate_starts_paused_and_needs_a_heartbeat(self):
         h = Harness(self, mode="restart", holds_bearer=True)
