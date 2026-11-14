@@ -12,9 +12,12 @@ With FAKE_MESSAGES=N it first sends N Messages requests to ANTHROPIC_BASE_URL wi
 and records each status in FAKE_RECORD. With FAKE_PAUSE_CYCLE=PATH it sends one request (printing
 "fake claude admitted" after a 200), waits until PATH exists, then sends a request every 0.2 s,
 printing "fake claude refused" after the first refusal, until one passes again; every status is
-recorded. FAKE_OUTSIDE_MARK=PATH, a path outside everything a protected boundary can write, gets one
-line per invocation with its arguments (written only when it runs unconfined: inside the boundary
-the write fails, silently).
+recorded. With FAKE_FAMILY_CYCLE=1 it holds an endless haiku and an endless sonnet stream open, sends
+an opus request (printing "fake claude opus refused" after a refusal), then one every 0.2 s until one
+passes ("fake claude opus admitted"), waits for the sonnet stream to end and sends one sonnet
+request; the statuses and how each stream ended are recorded. FAKE_OUTSIDE_MARK=PATH, a path outside
+everything a protected boundary can write, gets one line per invocation with its arguments (written
+only when it runs unconfined: inside the boundary the write fails, silently).
 """
 
 import json
@@ -33,7 +36,7 @@ def record(extra=None, suffix=""):
     Path(target).write_text(json.dumps(data))
 
 
-def messages(count):
+def messages(count, model=None):
     import http.client
     from urllib.parse import urlsplit
     base = urlsplit(os.environ["ANTHROPIC_BASE_URL"])
@@ -41,8 +44,8 @@ def messages(count):
     statuses = []
     for _ in range(count):
         connection = http.client.HTTPConnection(base.hostname, base.port, timeout=20)
-        body = json.dumps({"model": os.environ.get("FAKE_MODEL", "claude-sonnet-4-5-20250929"), "max_tokens": 1,
-                           "messages": [{"role": "user", "content": "fixture"}]})
+        body = json.dumps({"model": model or os.environ.get("FAKE_MODEL", "claude-sonnet-4-5-20250929"),
+                           "max_tokens": 1, "messages": [{"role": "user", "content": "fixture"}]})
         try:
             connection.request("POST", "/v1/messages?beta=true", body,
                                {"Authorization": "Bearer " + bearer, "Content-Type": "application/json"})
@@ -73,6 +76,61 @@ def pause_cycle(go):
             print("fake claude refused", flush=True)
         time.sleep(0.2)
     return statuses
+
+
+def hold(model, ended, sockets):
+    """One endless Messages stream of MODEL ("forever" in the body): ended[model] is "open" once its
+    first event arrived, then "closed" when the gate or the upstream ends it."""
+    import socket
+    from urllib.parse import urlsplit
+    base = urlsplit(os.environ["ANTHROPIC_BASE_URL"])
+    body = json.dumps({"model": model, "max_tokens": 1, "forever": True,
+                       "messages": [{"role": "user", "content": "fixture"}]}).encode()
+    sock = socket.create_connection((base.hostname, base.port), timeout=60)
+    sockets[model] = sock
+    sock.sendall(("POST /v1/messages?beta=true HTTP/1.1\r\nHost: gate\r\nAuthorization: Bearer %s\r\n"
+                  "Content-Type: application/json\r\nContent-Length: %d\r\n\r\n"
+                  % (os.environ.get("FAKE_BEARER", ""), len(body))).encode() + body)
+    seen = b""
+    try:
+        while True:
+            data = sock.recv(65536)
+            if not data:
+                break
+            seen += data
+            if b"event: ping" in seen:
+                ended[model] = "open"
+                seen = b""
+    except OSError:
+        pass
+    ended[model] = "closed"
+
+
+def family_cycle():
+    import threading
+    import time
+    opus, sonnet, haiku = "claude-opus-4-1", "claude-sonnet-4-5", "claude-haiku-4-5"
+    ended, sockets = {}, {}
+    for model in (haiku, sonnet):
+        threading.Thread(target=hold, args=(model, ended, sockets), daemon=True).start()
+    deadline = time.monotonic() + 100
+    while len(ended) < 2 and time.monotonic() < deadline:
+        time.sleep(0.02)
+    statuses = messages(1, opus)
+    if statuses[0][0] != 200:
+        print("fake claude opus refused", flush=True)
+    while statuses[-1][0] != 200 and time.monotonic() < deadline:
+        time.sleep(0.2)
+        statuses += messages(1, opus)
+    if statuses[-1][0] == 200:
+        print("fake claude opus admitted", flush=True)
+    while ended.get(sonnet) != "closed" and time.monotonic() < deadline:
+        time.sleep(0.02)
+    statuses += messages(1, sonnet)
+    streams = dict(ended)
+    if haiku in sockets:
+        sockets[haiku].close()
+    return {"statuses": statuses, "streams": streams}
 
 
 def renew(seconds, token):
@@ -129,6 +187,8 @@ def main():
         extra["statuses"] = messages(int(os.environ["FAKE_MESSAGES"]))
     if os.environ.get("FAKE_PAUSE_CYCLE"):
         extra["statuses"] = pause_cycle(os.environ["FAKE_PAUSE_CYCLE"])
+    if os.environ.get("FAKE_FAMILY_CYCLE"):
+        extra.update(family_cycle())
     record(extra)
     print("fake claude sentinel", flush=True)
     if os.environ.get("FAKE_SIGNAL"):

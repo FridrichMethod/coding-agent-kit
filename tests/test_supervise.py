@@ -85,6 +85,27 @@ class Pure(unittest.TestCase):
                          "limits_kind_daily_all, seven_day_cowork; last fresh check 2026-11-12T13:00:01Z; press F12, "
                          "then type the code shown and Enter, to request a fresh check")
 
+    def test_the_family_pause_line_is_deterministic(self):
+        fields = {"account": "N", "last_fresh": "2026-11-12T13:00:01Z", "message": "ignored", "window": "ignored"}
+        text = supervise.family_pause_message("opus", "family_at_reserve", fields)
+        self.assertEqual(text, supervise.family_pause_message("opus", "family_at_reserve",
+                                                              dict(reversed(list(fields.items())))))
+        self.assertEqual(text, "quota reserve paused the opus model family (family_at_reserve); account N; last fresh "
+                               "check 2026-11-12T13:00:01Z; the other model families go on; press F12, then type the "
+                               "code shown and Enter, to request a fresh check")
+        self.assertEqual(supervise.family_pause_message("sonnet", "family_window_unavailable", {}, "F9"),
+                         "quota reserve paused the sonnet model family (family_window_unavailable); the other model "
+                         "families go on; press F9, then type the code shown and Enter, to request a fresh check")
+        self.assertEqual(supervise.family_still_message({"sonnet": "family_window_unavailable",
+                                                         "opus": "family_at_reserve"}),
+                         "still paused: the opus model family (family_at_reserve), the sonnet model family "
+                         "(family_window_unavailable); press F12, then type the code shown and Enter, to request "
+                         "another fresh check")
+        self.assertEqual(supervise.family_still_message({"opus": "family_at_reserve"}, "http_503", "F9"),
+                         "the fresh quota check did not pass (http_503); still paused: the opus model family "
+                         "(family_at_reserve); press F9, then type the code shown and Enter, to request another fresh "
+                         "check")
+
     def test_capture_proxy(self):
         parse = fakes.gate.parse_proxy
         self.assertIsNone(supervise.capture_proxy({}, parse))
@@ -538,13 +559,49 @@ class ContinuationRequest(unittest.TestCase):
         self.assertEqual([message["op"] for message in sent], ["continue", "disarm"])  # no late resume
         self.assertIsNotNone(sup.control)
 
+    def test_a_continuation_while_running_reports_the_families_it_left_paused(self):
+        sup = supervise.Supervisor(["gate"], {})
+        sup.control, peer = socket.socketpair()
+        self.addCleanup(peer.close)
+        said, sup.ui = [], Notices.UI(False)
+        sup.say = said.append
+        sup.families = {"opus": "family_at_reserve", "sonnet": "family_at_reserve"}
+
+        def answer(**reply):
+            request = json.loads(peer.recv(4096).split(b"\n")[0])
+            peer.sendall(json.dumps(dict(reply, op="reply", to="continue", id=request["id"])).encode() + b"\n")
+
+        for reply, line in (({"ok": False, "running": True, "reason": "family_paused",
+                              "families": {"opus": "family_at_reserve"}},
+                             supervise.family_still_message({"opus": "family_at_reserve"})),
+                            ({"ok": False, "running": True, "reason": "http_503",
+                              "families": {"opus": "family_at_reserve"}},
+                             supervise.family_still_message({"opus": "family_at_reserve"}, "http_503"))):
+            with self.subTest(reply=reply):
+                thread = threading.Thread(target=answer, kwargs=reply)
+                thread.start()
+                self.assertTrue(sup.check())  # the session runs
+                thread.join()
+                self.assertEqual((said[-1], sup.later, sup.ui.offer), ("requesting a fresh quota check", [line], True))
+                sup.later = []
+        thread = threading.Thread(target=answer, kwargs={"ok": True, "reason": "resumed", "families": {}})
+        thread.start()
+        self.assertTrue(sup.check())
+        thread.join()
+        self.assertEqual((sup.later, sup.ui.offer), ([], False))
+        # Each lift is announced once, by the gate's own message.
+        sup._handle({"op": "family_resumed", "family": "opus"})
+        sup._handle({"op": "family_resumed", "family": "opus"})
+        self.assertEqual(said[-1], "fresh quota check passed for the opus model family; its requests resume")
+        self.assertEqual(said.count(said[-1]), 1)
+
 
 class Notices(unittest.TestCase):
     """Gate messages that change the pause line without pausing or resuming anything."""
 
     class UI:
         def __init__(self, paused):
-            self.paused, self.calls = paused, []
+            self.paused, self.offer, self.calls = paused, False, []
 
         def pause(self):
             self.calls.append("pause")
@@ -576,6 +633,30 @@ class Notices(unittest.TestCase):
             with self.subTest(eligible=eligible):  # already resumed: an old notice says nothing
                 self.assertEqual(self.handled({"op": "notice", "eligible": eligible, "reason": "x", "fields": {}},
                                               paused=False), ([], []))
+
+    def test_a_family_pause_shows_its_line_and_offers_the_key_without_pausing_the_session(self):
+        sup = supervise.Supervisor(["gate"], {})
+        said, sup.ui = [], self.UI(False)
+        sup.say = said.append
+        fields = {"account": "N", "last_fresh": "2026-11-12T13:00:01Z"}
+        paused = {"op": "family_paused", "family": "opus", "reason": "family_at_reserve", "fields": fields}
+        sup._handle(paused)
+        sup._handle(paused)  # the same pause again: already shown
+        self.assertEqual(said, [supervise.family_pause_message("opus", "family_at_reserve", fields)])
+        self.assertEqual((sup.ui.calls, sup.ui.offer, sup.families), ([], True, {"opus": "family_at_reserve"}))
+        sup._handle(dict(paused, reason="family_window_unavailable"))
+        self.assertEqual(said[-1], supervise.family_pause_message("opus", "family_window_unavailable", fields))
+        for bad in ({"family": "Opus 4"}, {"family": None}, {"reason": None}):
+            with self.subTest(bad=bad):
+                sup._handle(dict(paused, **bad))
+                self.assertEqual((len(said), sup.families), (2, {"opus": "family_window_unavailable"}))
+        sup._handle({"op": "family_resumed", "family": "opus"})
+        self.assertEqual(said[-1], "fresh quota check passed for the opus model family; its requests resume")
+        self.assertEqual((sup.ui.calls, sup.ui.offer, sup.families), ([], False, {}))
+        # A family the startup message already named is not shown again, but the key is offered.
+        sup.families = {"sonnet": "family_at_reserve"}
+        sup._handle(dict(paused, family="sonnet"))
+        self.assertEqual((len(said), sup.ui.offer), (3, True))
 
     def test_a_resume_the_launcher_did_not_see_coming_is_announced(self):
         self.assertEqual(self.handled({"op": "resumed"}),
@@ -912,6 +993,19 @@ class Control(unittest.TestCase):
         self.send(b"hello" + F12 + b"\r")
         self.assertEqual(b"".join(self.forwarded), b"hello" + F12 + b"\r")
         self.assertEqual(self.checks, [])
+
+    def test_the_key_is_offered_while_running_with_a_family_paused_and_forwarded_without_one(self):
+        self.ui.offer = True  # a model family is paused alone; the session runs
+        self.send(b"hello" + F12)
+        self.assertEqual(b"".join(self.forwarded), b"hello")
+        self.send(self.code() + b"\r")
+        self.assertEqual((len(self.checks), self.ui.paused), (1, False))
+        self.assertNotIn("fresh quota check passed; model requests resume", self.messages)  # nothing was paused
+        self.send(b"after")  # back to the native
+        self.ui.offer = False
+        self.send(F12 + b"\r")
+        self.assertEqual(b"".join(self.forwarded), b"hello" + b"after" + F12 + b"\r")
+        self.assertEqual(len(self.checks), 1)
 
     def test_fresh_code_checks_once_and_old_codes_never_grant(self):
         self.ui.pause()

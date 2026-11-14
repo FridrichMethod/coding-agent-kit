@@ -52,10 +52,13 @@ orphaned. A SIGTSTP it sends itself (a TUI's own suspend key) is discarded by th
 that stops itself with SIGSTOP is continued at once, and the launcher itself is never suspended:
 in raw mode Ctrl-Z reaches the native as a key.
 
-Continuation is a trusted-terminal action: after a pause, the trigger key (F12 unless the adapter
-chooses another) shows a fresh one-use code; typing it and Enter asks the gate for a fresh check.
-Input typed before the pause is flushed, a bracketed paste never confirms, native output never
-reaches this parser, and nothing but terminal input starts a check.
+Continuation is a trusted-terminal action: after a pause, and while a model family is paused alone
+(the session runs on), the trigger key (F12 unless the adapter chooses another) shows a fresh
+one-use code; typing it and Enter asks the gate for a fresh check, which answers every pause at
+once. With no pause the key reaches the native. Input typed before a pause is flushed (a family
+pause flushes nothing: the session runs), a bracketed paste never confirms, native output never
+reaches this parser, and nothing but terminal input starts a check. Each family pause gets its own
+deterministic line (family_pause_message), and its lift a line of its own.
 """
 
 import collections
@@ -114,6 +117,8 @@ PROXY_ORDER = {
 }
 NO_PROXY_VARIABLES = ("NO_PROXY", "no_proxy")
 NO_PROXY_ENTRY = re.compile(r"[a-z0-9._-]{1,253}")  # the names gate.bypasses can exempt
+FAMILY = re.compile(r"[a-z0-9_]{1,64}")  # a model family the gate pauses alone (gate.FAMILY)
+FAMILY_REASON = re.compile(r"[a-z][a-z0-9_]{0,63}")
 # macOS: the global proxy settings (SCDynamicStoreCopyProxies), which Codex's HTTP client also
 # reads when no HTTPS proxy variable is set (system_https_proxy).
 SCUTIL = "/usr/sbin/scutil"
@@ -685,18 +690,44 @@ def eligible_message(fields, key="F12"):
     return "; ".join(parts)
 
 
+def family_pause_message(family, reason, fields, key="F12"):
+    """The deterministic local line for a model family paused alone: family, reason, account, last
+    fresh observation, and how to request continuation; the session and the other families go on."""
+    fields = fields or {}
+    parts = ["quota reserve paused the %s model family (%s)" % (family, reason)]
+    if fields.get("account") is not None:
+        parts.append("account " + _value(fields["account"]))
+    if fields.get("last_fresh") is not None:
+        parts.append("last fresh check " + _value(fields["last_fresh"]))
+    parts.append("the other model families go on")
+    parts.append("press %s, then type the code shown and Enter, to request a fresh check" % key)
+    return "; ".join(parts)
+
+
+def family_still_message(families, failure=None, key="F12"):
+    """The line after a continuation that left model families ({family: reason}) paused; FAILURE: why
+    its fresh check did not pass, when it did not."""
+    text = "still paused: " + ", ".join("the %s model family (%s)" % (family, reason)
+                                        for family, reason in sorted(families.items()))
+    if failure:
+        text = "the fresh quota check did not pass (%s); %s" % (failure, text)
+    return text + "; press %s, then type the code shown and Enter, to request another fresh check" % key
+
+
 class TerminalControl:
     """The trusted-terminal parser: forwards user input to the native and owns continuation.
 
     Only bytes read from the user's terminal reach feed(). pause() flushes unread terminal input;
-    the trigger then shows a fresh code; Enter after the exact code calls check() once. A paste,
-    an old code, a repeated trigger or any other key grants nothing."""
+    the trigger then shows a fresh code, while paused or while offer is set (a model family paused
+    alone, the session running); Enter after the exact code calls check() once. A paste, an old
+    code, a repeated trigger or any other key grants nothing; with neither, the trigger reaches the
+    native."""
 
     def __init__(self, input_fd, forward, display, check, trigger=F12, key_name="F12", clock=time.monotonic):
         self.input_fd, self.forward, self.display, self.check = input_fd, forward, display, check
         self.trigger, self.key_name, self.clock = trigger, key_name, clock
         self.sequences = (trigger, PASTE_START, PASTE_END)
-        self.paused, self.challenge, self.pasting = False, None, False
+        self.paused, self.offer, self.challenge, self.pasting = False, False, None, False
         self.answer, self.pending, self.pending_since = bytearray(), bytearray(), 0.0
 
     def pause(self):
@@ -743,7 +774,7 @@ class TerminalControl:
         elif value == PASTE_END:
             self.pasting = False
             self.forward(value)
-        elif self.pasting or not self.paused:
+        elif self.pasting or not (self.paused or self.offer):
             self.forward(value)
         elif self.challenge is None:
             self.challenge = secrets.token_hex(4)
@@ -758,9 +789,11 @@ class TerminalControl:
             accepted = bytes(self.answer) == self.challenge.encode("ascii")
             self.challenge = None
             self.answer.clear()
+            paused = self.paused
             if accepted and self.check():
                 self.paused = False
-                self.display("fresh quota check passed; model requests resume")
+                if paused:  # a check for a family alone resumes no session
+                    self.display("fresh quota check passed; model requests resume")
             elif not accepted:
                 self.display("still paused: the code did not match; press %s for a new one" % self.key_name)
         elif byte in (8, 127):
@@ -852,6 +885,9 @@ class Supervisor:
         self.restarts, self.down_since, self.gave_up = collections.deque(), None, False
         self.subreaper, self.tracked, self.snapshot_at = False, {}, 0.0
         self.ui, self.master, self.to_native = None, None, bytearray()
+        # Model families paused alone, as the terminal was told (family -> reason), and lines a
+        # continuation leaves for after the terminal parser's own.
+        self.families, self.later = {}, []
 
     # -- children ----------------------------------------------------------------------------------
     def spawn(self, argv, env, *, fds=(), stdin=None, stdout=None, stderr=None, cwd=None, tty_fd=None,
@@ -1185,11 +1221,27 @@ class Supervisor:
             pass
 
     def check(self):
-        """TerminalControl's check: one verified continuation through the gate."""
+        """TerminalControl's check: one verified continuation through the gate. True once the session
+        runs; families it left paused are named after the terminal parser's own line (later)."""
         self.say("requesting a fresh quota check")
         reply = self.request("continue", CONTINUE_TIMEOUT)
         if reply.get("timeout"):
             self.post("disarm")  # a check still running must not resume after "still paused" below
+        families = reply.get("families")
+        if isinstance(families, dict):
+            remaining = {family: reason for family, reason in families.items() if self._family(family, reason)}
+            # The families paused before the check are named below; the gate's own messages announce the
+            # lifts and the families this check paused.
+            still = {family: reason for family, reason in remaining.items() if family in self.families}
+            self.families.update(still)
+            if self.ui is not None:
+                self.ui.offer = bool(remaining)
+            if not reply.get("ok") and reply.get("running") and still:
+                failure = reply.get("reason")
+                self.later.append(family_still_message(still, None if failure == "family_paused" else failure,
+                                                       self.key_name))
+        if reply.get("running"):
+            return True
         if reply.get("needs_read"):
             ran = False
             if self.reader is not None:
@@ -1227,6 +1279,28 @@ class Supervisor:
             if self.ui.paused:  # a check the launcher had stopped waiting for passed after all
                 self.say("fresh quota check passed; model requests resume")
             self.ui.resume()
+        elif op == "family_paused":
+            family, reason = message.get("family"), message.get("reason")
+            if self._family(family, reason):
+                if self.families.get(family) != reason:  # not shown yet (the startup message names some)
+                    self.families[family] = reason
+                    self.say(family_pause_message(family, reason, message.get("fields"), self.key_name))
+                self._offer()
+        elif op == "family_resumed":
+            family = message.get("family")
+            if self.families.pop(family, None) is not None:
+                self.say("fresh quota check passed for the %s model family; its requests resume" % family)
+            self._offer()
+
+    @staticmethod
+    def _family(family, reason):
+        return (isinstance(family, str) and FAMILY.fullmatch(family) is not None and isinstance(reason, str)
+                and FAMILY_REASON.fullmatch(reason) is not None)
+
+    def _offer(self):
+        """Offer the continuation key while any model family is paused alone."""
+        if self.ui is not None:
+            self.ui.offer = bool(self.families)
 
     def _gate_down(self, announce=True):
         """A dead, lost or silent gate: paused until a restarted gate passes a fresh check. A lost
@@ -1253,6 +1327,8 @@ class Supervisor:
         self.gave_up = False
         self.restarts.append(now)
         self._stop_gate()
+        self.families = {}  # the restarted gate pauses its families afresh from its first reading
+        self._offer()
         try:
             self.start_gate("restart")
             self.wait_heard()
@@ -1516,6 +1592,9 @@ class Supervisor:
                     data = b""
                 if data:
                     ui.feed(data)
+                    for line in self.later:  # what a continuation left paused, after the parser's line
+                        self.say(line)
+                    self.later = []
                 else:
                     terminal_open = False
                     self._kill(self.native_pid, signal.SIGHUP)
@@ -1577,6 +1656,11 @@ class Supervisor:
                 status = self.request("status", 10)
             if not status.get("running"):
                 raise Refused("preflight: %s" % (status.get("reason") or "no fresh passing quota check"))
+            # Families paused at startup: the adapter's startup message names them, so the gate's own
+            # messages about them show nothing new, and the key is offered from the start.
+            started = status.get("families")
+            self.families = {family: reason for family, reason in (started if isinstance(started, dict) else {}).items()
+                             if self._family(family, reason)}
             # From here on the launcher relays signals to the native instead of acting on them.
             wake_read, wake_write = os.pipe()
             for fd in (wake_read, wake_write):
@@ -1593,6 +1677,7 @@ class Supervisor:
                 self.to_native += data
 
             self.ui = TerminalControl(self.term_in, forward, self.say, self.check, self.trigger, self.key_name)
+            self._offer()
             outer = termios.tcgetattr(self.term_in)
             tty.setraw(self.term_in)
             self._winch()

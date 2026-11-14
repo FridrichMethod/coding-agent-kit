@@ -42,11 +42,13 @@ RQ; normalize_usage):
   weekly_all without a scope report them again: each window takes the more used of its reports.
 - seven_day_opus, seven_day_sonnet and limits[] weekly_scoped entries with a model scope are model
   families' own weekly limits; the family is the display name's first word (native names models
-  "Family version"). While the weekly reserve is on, a family is admitted while its own row is above
-  that reserve and refused alone otherwise (family_at_reserve; family_window_unavailable for a row
-  that is unavailable), with no pause and no continuation: the general windows decide everything
-  else. A weekly_scoped row of another known family (Fable, Mythos) is ignored, since family()
-  refuses those models anyway.
+  "Family version"). While the weekly reserve is on, a family whose own row is at or below that
+  reserve (family_at_reserve) or unavailable (family_window_unavailable) is paused alone and latched
+  (the coordinator's decision "family pause and census" (c); reserve.py, Quota families): the gate
+  refuses its requests with that reason and closes its running streams, the other families go on,
+  and only a continuation whose fresh check passes for that family lifts it, also after its weekly
+  reset. A family not ok at startup starts paused; the start is not refused. A weekly_scoped row of
+  another known family (Fable, Mythos) is ignored, since family() refuses those models anyway.
 - seven_day_oauth_apps, cinder_cove, wattle_ember and extra_usage are ignored: no Claude Code request is
   rejected by them (other surfaces' buckets and credit pools; native names no claim after them).
 - Every other present row (an unknown key, a limits[] entry of another kind or scope, with an unknown
@@ -131,10 +133,11 @@ CONTROL = {"monitor_eof": "monitor_lost", "monitor_stale": "monitor_stale", "lau
 IDENTITY = ("identity_unattributed", "identity_mismatch", "bearer_identity_mismatch")
 REFUSAL_TEXT = {
     "model_unproved": "protected mode does not cover this model; use a Claude opus, sonnet or haiku model",
-    "family_at_reserve": "this model family's own weekly limit is at or below the weekly reserve; use a model of "
-                         "another family",
-    "family_window_unavailable": "this model family's own weekly limit is unavailable in the usage report; use a "
-                                 "model of another family",
+    "family_at_reserve": "this model family is paused: its own weekly limit reached the weekly reserve; use a model "
+                         "of another family, or continue from the launcher terminal after a fresh quota check",
+    "family_window_unavailable": "this model family is paused: its own weekly limit was unavailable in the usage "
+                                 "report; use a model of another family, or continue from the launcher terminal "
+                                 "after a fresh quota check",
 }
 
 
@@ -291,7 +294,6 @@ class ClaudeProvider(gate.BaseProvider):
                               for target, address in (config.get("connect_allow") or {}).items()
                               if target in REFRESH_TARGETS or upstream}
         self.rebind_timeout = gate.READ_TIMEOUT
-        self.families = {}  # family -> reserve.WindowStatus of its own weekly limit; set under the gate lock
         self.gate = None
         self.token_expires = None  # epoch seconds of the token the launch started with
         self.clock_ms = lambda: int(time.time() * 1000)
@@ -309,6 +311,7 @@ class ClaudeProvider(gate.BaseProvider):
 
     # -- admission -------------------------------------------------------------------------------
     def check_model(self, presented, body):
+        """The request's model family; the gate refuses a family the evaluator paused alone."""
         try:  # a duplicated key could read differently upstream, so it refuses
             model = json.loads(body, object_pairs_hook=_unique).get("model")
         except (ValueError, AttributeError, UnicodeDecodeError, RecursionError):
@@ -316,9 +319,7 @@ class ClaudeProvider(gate.BaseProvider):
         kind = family(model)
         if kind is None:
             raise gate.Refusal("model_unproved")
-        own = self.families.get(kind)  # the latest attributed reading's, which the gate's lock orders
-        if own is not None and own.status != reserve.OK:
-            raise gate.Refusal("family_at_reserve" if own.status == reserve.AT_RESERVE else "family_window_unavailable")
+        return kind
 
     def refusal(self, reason):
         status, payload = gate.refusal_response(self.name, reason)
@@ -495,8 +496,6 @@ class Decider:
             return self.evaluator.fault("gate_fault")
 
     def _decision(self, verdict):
-        # Called under the gate's lock, as check_model is: a family is judged by the latest verdict.
-        self.provider.families = {status.family: status for status in verdict.families}
         fields = {"account": verdict.account}
         at = [window for window in verdict.windows if window.status == reserve.AT_RESERVE]
         if at:
@@ -515,7 +514,8 @@ class Decider:
         running = verdict.decision == "run"
         reason = None if running else (verdict.reason or ("awaiting_continuation" if verdict.eligible else verdict.cause)
                                        or verdict.decision)
-        return gate.Decision(running, reason, fields, next_poll=self.evaluator.next_poll(random.uniform))
+        return gate.Decision(running, reason, fields, next_poll=self.evaluator.next_poll(random.uniform),
+                             families=verdict.paused_families)
 
 
 def policy_of(config):

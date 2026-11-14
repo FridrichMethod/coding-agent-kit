@@ -664,6 +664,211 @@ class Latch(unittest.TestCase):
         self.assertEqual((len(sock.chunks), h.gate.status()["state"]), (2, "running"))
 
 
+class FamilyProvider(fakes.FakeProvider):
+    """A Claude-like fixture provider whose model requests name a quota family ("family" in the body)."""
+
+    def __init__(self, upstream, **kwargs):
+        super().__init__(upstream, holds_bearer=True, **kwargs)
+
+    def check_model(self, presented, body):
+        super().check_model(presented, body)
+        return json.loads(body).get("family")
+
+
+class FamilyEvaluator(fakes.FakeEvaluator):
+    """FakeEvaluator whose every decision names the families the test says are paused alone."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.families = ()
+
+    def __call__(self, event):
+        return replace(super().__call__(event), families=self.families)
+
+
+def family_body(family, forever=False):
+    document = {"model": "fixture-model"}
+    document.update({"family": family} if family else {}, **({"forever": True} if forever else {}))
+    return json.dumps(document).encode()
+
+
+class FamilyPauses(unittest.TestCase):
+    """A model family paused alone (Decision.families): its requests are refused and its streams closed,
+    the others go on, and a continuation is offered while the session runs."""
+
+    PAUSED = (("a", "family_at_reserve"),)
+
+    def harness(self, **kwargs):
+        upstream = fakes.FakeUpstream()
+        h = Harness(self, upstream=upstream, provider=FamilyProvider(upstream.port), evaluator=FamilyEvaluator(),
+                    **kwargs)
+        h.ready()
+        return h
+
+    def stream(self, h, family):
+        body = family_body(family, forever=True)
+        sock = h.raw(("POST /model HTTP/1.1\r\nHost: gate\r\nAuthorization: Bearer %s\r\nX-Account: acct-A\r\n"
+                      "Content-Length: %d\r\n\r\n" % (fakes.BEARER_A, len(body))).encode() + body)
+        data = b""
+        while b"data: 0" not in data:
+            chunk = sock.recv(65536)
+            if not chunk:
+                raise AssertionError("stream closed early: %r" % data)
+            data += chunk
+        return sock
+
+    def still_streaming(self, sock):
+        sock.settimeout(2)
+        return bool(sock.recv(65536))
+
+    def test_a_paused_family_closes_its_streams_and_refuses_its_requests_while_the_others_run(self):
+        h = self.harness()
+        a, b, plain = (self.stream(h, family) for family in ("a", "b", None))
+        self.addCleanup(b.close)
+        self.addCleanup(plain.close)
+        self.assertEqual(h.gate.status()["streams"], 3)
+        h.evaluator.families = self.PAUSED
+        h.gate.poll()
+        self.assertTrue(eof_within(a), "the paused family's stream stayed open")
+        status = h.gate.status()
+        self.assertEqual((status["state"], status["streams"], status["families"]),
+                         ("running", 2, {"a": "family_at_reserve"}))
+        self.assertTrue(self.still_streaming(b) and self.still_streaming(plain))
+        self.assertTrue(wait_for(lambda: sum(c.closed_at is None for c in h.upstream.connections) == 2))
+        self.assertEqual([(n["op"], n.get("family"), n.get("reason")) for n in h.notes],
+                         [("family_paused", "a", "family_at_reserve")])
+        self.assertEqual(h.notes[0]["fields"], {"account": "A"})
+        self.assertIn(("family_paused", {"family": "a", "reason": "family_at_reserve", "closed": 1}), h.events)
+        before = len(h.upstream.connections)
+        code, body = h.request("POST", "/model", auth(), family_body("a"))
+        self.assertEqual(code, 503)
+        self.assertIn(b"family_at_reserve", body)
+        self.assertEqual(len(h.upstream.connections), before)  # refused before any upstream connection
+        self.assertEqual(h.request("POST", "/model", auth(), family_body("b"))[0], 200)
+        self.assertEqual(h.request("POST", "/model", auth(), family_body(None))[0], 200)
+        # A later decision that still pauses it sends nothing; a session pause closes everything.
+        h.gate.poll()
+        self.assertEqual(len(h.notes), 1)
+        h.gate.latch("threshold")
+        self.assertTrue(eof_within(b) and eof_within(plain))
+        self.assertEqual(h.gate.status()["streams"], 0)
+
+    def test_a_family_pause_stops_its_write_within_one_chunk_and_leaves_another_familys_write_whole(self):
+        for family, chunks, closed_reason in (("a", 3, "family_at_reserve"), ("b", 16, None)):
+            with self.subTest(family=family):
+                h = self.harness()
+                ok, _, stream = h.gate.admit(gate.Presented(gate.Secret(fakes.BEARER_A), ("acct-A",)),
+                                             family_body(family), lambda: None)
+                self.assertTrue(ok)
+                # A read that returns at once, so applying it is all the poll takes the lock for.
+                observation = gate.Observation(0.0, True, identity=tuple(fakes.IDENTITY_A), data=dict(h.upstream.used))
+                h.provider.read_quota = lambda gate_, presented, cause: observation
+                presented = h.gate.lease.presented
+                lock = Contended(h.gate, writer_first=True)
+                started = []
+
+                def pause_a():
+                    h.evaluator.families = self.PAUSED
+                    h.gate.check(presented, "poll")
+
+                def chunk(count):
+                    if count == 3:
+                        thread, reached = lock.start(pause_a)
+                        started.append(thread)
+                        self.assertTrue(reached.wait(10))
+
+                sock, closed = Recorder(chunk), None
+                try:
+                    h.gate.send(stream, sock, b"x" * (gate.CHUNK * 16))
+                except gate.Closed as error:
+                    closed = error
+                started[0].join(10)
+                self.assertEqual((len(sock.chunks), closed and closed.reason), (chunks, closed_reason))
+                self.assertEqual((h.gate.status()["state"], h.gate.status()["families"]),
+                                 ("running", {"a": "family_at_reserve"}))
+
+    def test_a_stream_its_family_pause_closed_before_the_first_byte_sends_nothing(self):
+        h = self.harness()
+
+        def pause_a(stream):
+            h.evaluator.families = self.PAUSED
+            h.gate.poll()
+
+        h.server.after_connect = pause_a
+        try:
+            code, body = h.request("POST", "/model", auth(), family_body("a"))
+        except http.client.RemoteDisconnected:
+            code, body = None, b""  # the close shut the admitted client stream first
+        self.assertIn(code, (None, 503))
+        if code == 503:
+            self.assertIn(b"family_at_reserve", body)
+        self.assertTrue(wait_for(lambda: ("aborted_before_upstream", {"stream": 1}) in h.events))
+        self.assertTrue(wait_for(lambda: any(c.request is None and c.closed_at for c in h.upstream.connections)))
+        model = [c for c in h.upstream.connections if c.request is None or c.request["path"] == "/model"]
+        self.assertEqual([bytes(c.raw) for c in model], [b""])
+        self.assertEqual(h.gate.status()["streams"], 0)
+
+    def test_a_continuation_is_offered_while_running_and_answers_each_paused_family(self):
+        h = self.harness()
+        h.gate.heartbeat()
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "reason": "not_paused"})  # nothing paused
+        h.evaluator.families = (("a", "family_at_reserve"), ("b", "family_window_unavailable"))
+        h.gate.poll()
+        h.evaluator.families = (("b", "family_at_reserve"),)  # what the continuation's check finds
+        h.gate.heartbeat()
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "running": True, "reason": "family_paused",
+                                                     "families": {"b": "family_at_reserve"}})
+        self.assertEqual(h.gate.status()["state"], "running")
+        self.assertEqual([(n["op"], n.get("family"), n.get("reason")) for n in h.notes],
+                         [("family_paused", "a", "family_at_reserve"),
+                          ("family_paused", "b", "family_window_unavailable"),
+                          ("family_resumed", "a", None), ("family_paused", "b", "family_at_reserve")])
+        self.assertEqual(h.request("POST", "/model", auth(), family_body("a"))[0], 200)
+        h.evaluator.families = ()
+        h.gate.heartbeat()
+        self.assertEqual(h.gate.arm_continuation(), {"ok": True, "reason": "resumed", "families": {}})
+        self.assertEqual(h.notes[-1]["op"], "family_resumed")
+        # A failed check names its failure and keeps every pause.
+        h.evaluator.families = self.PAUSED
+        h.gate.poll()
+        h.upstream.usage_status = 500
+        h.gate.heartbeat()
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "running": True, "reason": "http_500",
+                                                     "families": {"a": "family_at_reserve"}})
+
+    def test_a_session_pause_and_a_family_pause_are_answered_together(self):
+        h = self.harness()
+        h.evaluator.families = self.PAUSED
+        h.upstream.used = {"five_hour": 99.0, "weekly": 20.0}
+        h.gate.poll()
+        self.assertEqual((h.gate.status()["state"], h.gate.status()["families"]),
+                         ("paused", {"a": "family_at_reserve"}))
+        h.upstream.used = {"five_hour": 10.0, "weekly": 20.0}
+        h.gate.heartbeat()
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "running": True, "reason": "family_paused",
+                                                     "families": {"a": "family_at_reserve"}})
+        h.evaluator.families = ()
+        h.gate.heartbeat()
+        self.assertEqual(h.gate.arm_continuation(), {"ok": True, "reason": "resumed", "families": {}})
+
+    def test_malformed_families_are_an_evaluator_error_and_keep_the_pauses(self):
+        h = self.harness()
+        h.evaluator.families = self.PAUSED
+        h.gate.poll()
+        for bad in ((("A", "family_at_reserve"),), (("a", "Bad reason"),), (("a", "x"), ("a", "y")), "a",
+                    (("a",),), (("x" * 65, "r"),)):
+            with self.subTest(bad=bad):
+                h.evaluator.families = bad
+                self.assertEqual(h.gate._decide(gate.Event("health", 0.0, name="x")).reason, "evaluator_error")
+                self.assertEqual(h.gate.paused_families, {"a": "family_at_reserve"})
+
+    def test_a_provider_that_names_no_valid_family_is_refused(self):
+        h = self.harness()
+        h.provider.check_model = lambda presented, body: 7
+        self.assertEqual(h.gate.admit(gate.Presented(gate.Secret(fakes.BEARER_A), ("acct-A",)), MODEL_BODY,
+                                      lambda: None)[:2], (False, "family_unproved"))
+
+
 class MonitorLoss(unittest.TestCase):
     def test_heartbeats_during_a_slow_upstream_write_keep_the_monitor_alive(self):
         clock = Clock()
