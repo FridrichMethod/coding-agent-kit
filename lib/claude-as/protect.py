@@ -163,8 +163,9 @@ REASONS = {
 }
 # The modules the gate and monitor processes load besides gate.py (which the launcher loads too),
 # checked before anything runs: the supervisor checks monitor.py only when the run gate starts, after
-# the pre-launch refresh.
-GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py", KIT / "monitor.py")
+# the pre-launch refresh. native.py loads config.py for the private-group rule of its directory walk.
+GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py", KIT / "monitor.py",
+                KIT / "config.py")
 CODE_HINT = ("; run claude-as with a Python and a kit installed outside the working directory, every --add-dir and the "
              "account directory")
 NATIVE_HINT = ("; run claude-as with a Claude Code installed outside the working directory, every --add-dir and the "

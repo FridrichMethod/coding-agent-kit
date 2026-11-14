@@ -4,7 +4,8 @@ The supervisor (supervise.py) starts it as `python3 -I -B gate.py GATE-OPTIONS`;
 (lib/coding-agent-kit/gate.py) documents the options and the core configuration keys. The
 launcher (protect.py) adds: account (the codex-as name), expected ([account_id, user_id] of the
 launch credential), reserves ({window: [value or null, source]}), native (a reviewed release),
-sqlite_home, mode ("run" or "refresh") and, for the refresh gate, connect_allow.
+sqlite_home, mode ("run" or "refresh"), requirement_file (the run's requirement record) and, for the
+refresh gate, connect_allow.
 
 Routes (codex 0.167.2, default deny, upstream chatgpt.com over verified TLS):
 - POST /backend-api/codex/responses: a model request, admitted only under a fresh lease whose
@@ -15,7 +16,13 @@ Routes (codex 0.167.2, default deny, upstream chatgpt.com over verified TLS):
   pauses, or refuses at startup, unless a window at 100% accounts for it: limit_explained);
 - GET /backend-api/wham/config/bundle (D14): forwarded unchanged while running, checking and
   paused, never fabricated; a bundle whose requirements forbid protected mode (protect.py
-  BLOCKERS) pauses, or refuses at startup;
+  BLOCKERS) pauses, or refuses at startup, until a later bundle without blockers lifts it, across
+  gate restarts too (U2): each run gate keeps the latest verdict in the requirement record, one word
+  ("none" or the requirements_* reason) in the launcher's private directory outside the boundary,
+  which it opens once and writes in place, and a restarted gate starts with it; a record it cannot
+  open for writing or read counts as an unreadable requirement (fail closed), and so does one a gate
+  could not update with a new blocking verdict (it removes the record then); a run gate without a
+  record is refused (requirement_record_invalid);
 - GET models, accounts/check, settings/user and rate-limit-reset-credits: forwarded while running.
 A refresh gate forwards the config bundle alone (native needs it before any managed request on a
 workspace plan, its refresh included) and tunnels only to auth.openai.com:443.
@@ -34,7 +41,9 @@ import os
 from pathlib import Path
 import random
 import re
+import stat
 import sys
+import threading
 import time
 
 
@@ -67,6 +76,9 @@ BUNDLE_PATH = "/backend-api/wham/config/bundle"
 BUNDLE_LIMIT = 256 * 1024
 BEARER = re.compile(r"[A-Za-z0-9._~+/-]+=*")  # one RFC 6750 token: no second one after a space
 CLAIMS = "https://api.openai.com/auth"
+NO_REQUIREMENT = "none"  # the requirement record's word while no bundle blocks
+UNREADABLE = "requirements_requirements_unreadable"  # an unreadable bundle's verdict, and an unreadable record's
+RECORD_LIMIT = 128
 
 
 def routes(native, refresh):
@@ -127,6 +139,36 @@ def readings(rate_limit):
     return tuple(found)
 
 
+def requirement_word(word):
+    """A requirement verdict as a record or a restart keeps it: a requirements_* reason of a protect.py
+    blocker, else None."""
+    prefix = "requirements_"
+    return word if isinstance(word, str) and word.startswith(prefix) and word[len(prefix):] in protect.BLOCKERS \
+        else None
+
+
+def open_record(path):
+    """(descriptor, verdict) of the run's requirement record at PATH (U2): opened read and write once,
+    never through a link and without blocking, it must be a regular file of this user that no other
+    user may read or write. The verdict is the one an earlier gate of the run recorded there: None for
+    none, an unreadable requirement for an unrecognized word (fail closed); a record that is missing,
+    of another kind or not writable gives no descriptor and an unreadable requirement."""
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError:
+        return None, UNREADABLE
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise OSError("not a private record")
+        raw = os.pread(fd, RECORD_LIMIT + 1, 0)
+    except OSError:
+        os.close(fd)
+        return None, UNREADABLE
+    word = raw.decode("ascii", "replace").strip() if len(raw) <= RECORD_LIMIT else ""
+    return fd, (None if word == NO_REQUIREMENT else requirement_word(word) or UNREADABLE)
+
+
 def limit_explained(found):
     """Whether a window at its limit accounts for Codex's limit flags (limit_reached true or allowed
     false, which concern its rate limit as a whole): every reading names one five-hour or weekly window
@@ -156,7 +198,8 @@ class CodexProvider(kit.BaseProvider):
     revalidations = (reserve.REVALIDATIONS_PER_MINUTE, 60.0)
     continuation_window = reserve.CONTINUATION_WINDOW
 
-    def __init__(self, account, user, native, sqlite_home, refresh=False, connect_allow=None, upstream=None):
+    def __init__(self, account, user, native, sqlite_home, refresh=False, connect_allow=None, upstream=None,
+                 carry=None):
         self.account, self.user, self.native, self.sqlite_home = account, user, native, sqlite_home
         self.expected_identity = (account, user)
         self.routes = routes(native, refresh)
@@ -164,7 +207,11 @@ class CodexProvider(kit.BaseProvider):
         if upstream is not None:
             self.upstream = upstream
         self.own_rows = frozenset()  # names of quota rows other than the codex family's
-        self.requirement = None      # the latest bundle's refusal reason while it applies
+        # The latest bundle's refusal reason while it applies; a run gate starts with the one its
+        # requirement record CARRY names, which an earlier gate of the run wrote (a refresh gate has none).
+        self.carry = carry
+        self.record_fd, self.requirement = (None, None) if carry is None else open_record(carry)
+        self._recording = threading.Lock()
 
     def present(self, route, headers):
         refuse = lambda reason: kit.Refusal(reason, route.kind == kit.MODEL)
@@ -251,10 +298,37 @@ class CodexProvider(kit.BaseProvider):
         except (ValueError, UnicodeError, RecursionError):
             document = None
         found = protect.bundle_blockers(document, self.sqlite_home)
-        self.requirement = "requirements_" + sorted(found)[0] if found else None
+        verdict = "requirements_" + sorted(found)[0] if found else None
+        with self._recording:  # concurrent bundle replies: the record ends with the verdict kept here
+            self.requirement = verdict
+            self.record(verdict)
         if not found:
             return None
-        return kit.Observation(at, False, reason=self.requirement, permanent=True)
+        return kit.Observation(at, False, reason=verdict, permanent=True)
+
+    def record(self, verdict):
+        """Write VERDICT (None: none) into the requirement record for a restarted gate, in place through
+        the descriptor this gate opened it with (no entry of the directory changes): the word, then the
+        length, so that every state in between reads as an unrecognized word (fail closed). When that
+        fails, a blocking verdict empties the record and removes it, so that a restart fails closed; a
+        lift that fails leaves the old verdict there, which fails closed too. Whether the record holds
+        VERDICT."""
+        if self.carry is None or self.record_fd is None:
+            return False
+        data = ((verdict or NO_REQUIREMENT) + "\n").encode("ascii")
+        try:
+            if os.pwrite(self.record_fd, data, 0) != len(data):
+                raise OSError("short write")
+            os.ftruncate(self.record_fd, len(data))
+            return True
+        except OSError:
+            if verdict:
+                for undo in (lambda: os.ftruncate(self.record_fd, 0), lambda: os.unlink(self.carry)):
+                    try:
+                        undo()
+                    except OSError:
+                        pass
+            return False
 
 
 class Decider:
@@ -263,10 +337,13 @@ class Decider:
     The gate admits no request and arms no continuation without a heard, current heartbeat, and
     the launcher starts the preflight only after the first one, so every event but a control loss
     reports control_up (which never clears a loss). A restarted gate's first event is health
-    "gate_restart": its evaluator then starts paused."""
+    "gate_restart": its evaluator then starts paused, and under the requirement verdict the gate's
+    record carried over (REQUIREMENT), if any, which every usage reply asserts again until a bundle
+    lifts it."""
 
-    def __init__(self, policy, clock=time.monotonic):
+    def __init__(self, policy, clock=time.monotonic, requirement=None):
         self.policy, self.clock, self.at = policy, clock, None
+        self.requirement = requirement  # a requirement verdict carried into a restarted gate (U2)
         self.evaluator = None
 
     def now(self):
@@ -278,6 +355,8 @@ class Decider:
             self.evaluator = reserve.Evaluator(self.policy, self.now, paused="gate_restarted" if restart else None,
                                                max_age=protect.MAX_AGE)
             if restart:
+                if self.requirement:  # paused by it at once; each usage reply asserts it again
+                    return self.decision(self.evaluator.fault(word(self.requirement)))
                 return self.decision(self.evaluator.verdict())
         evaluator = self.evaluator
         if not (event.kind == "health" and event.name in LOSSES):
@@ -415,9 +494,12 @@ def make(config):
     account, user = config["expected"]
     if not (isinstance(account, str) and account and isinstance(user, str) and user):
         raise kit.Refusal("expected_identity_missing")
+    carry = None if refresh else config.get("requirement_file")
+    if not refresh and not (isinstance(carry, str) and os.path.isabs(carry)):
+        raise kit.Refusal("requirement_record_invalid")  # a run gate always keeps one (U2)
     provider = CodexProvider(account, user, native, config["sqlite_home"], refresh=refresh,
-                             connect_allow=config.get("connect_allow") if refresh else None)
-    return provider, (refusing if refresh else Decider(policy(config)))
+                             connect_allow=config.get("connect_allow") if refresh else None, carry=carry)
+    return provider, (refusing if refresh else Decider(policy(config), requirement=provider.requirement))
 
 
 if __name__ == "__main__":

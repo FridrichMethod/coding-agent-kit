@@ -32,10 +32,26 @@ launcher refuses that case (policy.py, protect.py), since only it reads the mana
 
 Quota reads (QC option 3): GET https://api.anthropic.com/api/oauth/profile and /api/oauth/usage with
 the same in-memory bearer, the neutral User-Agent and the proxy Claude Code would use for HTTPS (HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY, a plain http:// one only), captured by the launcher. The profile proves
-the identity (the two UUIDs only; nothing else is kept), the usage response gives the five-hour and
-seven-day windows. A model with its own row (seven_day_opus, seven_day_sonnet) is refused; any other
-present row whose semantics nobody proved (seven_day_oauth_apps, cinder_cove, wattle_ember, limits,
-unknown ones) pauses every request. A poll with the lease's bearer reads usage only.
+the identity (the two UUIDs only; nothing else is kept), the usage response gives the windows (a window
+with utilization exactly 0 and resets_at null has not started: it counts as valid without a reset; any
+other null reset is unavailable). A poll with the lease's bearer reads usage only.
+
+Usage rows (the coordinator's decision "Claude usage rows", from the review of 2.1.322's parser, research
+RQ; normalize_usage):
+- five_hour and seven_day are the five-hour and weekly windows. limits[] entries of kind session and
+  weekly_all without a scope report them again: each window takes the more used of its reports.
+- seven_day_opus, seven_day_sonnet and limits[] weekly_scoped entries with a model scope are model
+  families' own weekly limits; the family is the display name's first word (native names models
+  "Family version"). While the weekly reserve is on, a family is admitted while its own row is above
+  that reserve and refused alone otherwise (family_at_reserve; family_window_unavailable for a row
+  that is unavailable), with no pause and no continuation: the general windows decide everything
+  else. A weekly_scoped row of another known family (Fable, Mythos) is ignored, since family()
+  refuses those models anyway.
+- seven_day_oauth_apps, cinder_cove, wattle_ember and extra_usage are ignored: no Claude Code request is
+  rejected by them (other surfaces' buckets and credit pools; native names no claim after them).
+- Every other present row (an unknown key, a limits[] entry of another kind or scope, with an unknown
+  family word, or malformed) pauses every request, or refuses the start (unproved_quota_row); the
+  message and the rows field name those rows (sanitized names, never a value).
 
 Token lifetime (D1): startup refuses a token that is inside native's 300 s refresh window
 (native_refresh_window: the pre-launch refresh did not renew it) or within MIN_SESSION_MS beyond it
@@ -96,9 +112,16 @@ ROUTES = gate.RouteTable("claude-" + VERSION, (
     gate.Route("POST", "/v1/messages/count_tokens", gate.MODEL, query=True),
 ))
 GENERAL = {"five_hour": "five_hour", "seven_day": "weekly"}
-MODEL_ROWS = {"seven_day_opus": "opus", "seven_day_sonnet": "sonnet"}
-NOT_ROWS = ("error", "type", "extra_usage")  # extra_usage: the overage credit pool, not a scope (I)
+FAMILY_ROWS = {"seven_day_opus": "opus", "seven_day_sonnet": "sonnet"}
+# Not quota rows of Claude Code's requests: error and type, the overage and credit pools (extra_usage,
+# cinder_cove, wattle_ember) and the third-party OAuth apps' bucket (seven_day_oauth_apps).
+IGNORED = ("error", "type", "extra_usage", "seven_day_oauth_apps", "cinder_cove", "wattle_ember")
+LIMIT_WINDOWS = {"session": "five_hour", "weekly_all": "weekly"}  # limits[] kinds of a general window
+SCOPED = "weekly_scoped"  # a limits[] kind whose model scope names a family's own weekly limit
 FAMILIES = ("opus", "sonnet", "haiku")
+OTHER_FAMILIES = ("fable", "mythos")  # 2.1.322's other model families, whose models family() refuses
+ROW_NAME = re.compile(r"[a-z0-9_]{1,64}")
+KIND_NAME = re.compile(r"[a-z0-9_]{1,52}")  # limits_kind_ + this stays a 64-character row name
 MODEL = re.compile(r"claude-[a-z0-9][a-z0-9.-]{0,95}")
 UUID_TEXT = re.compile(r"[A-Za-z0-9-]{1,64}")
 RFC3339 = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})")
@@ -108,7 +131,10 @@ CONTROL = {"monitor_eof": "monitor_lost", "monitor_stale": "monitor_stale", "lau
 IDENTITY = ("identity_unattributed", "identity_mismatch", "bearer_identity_mismatch")
 REFUSAL_TEXT = {
     "model_unproved": "protected mode does not cover this model; use a Claude opus, sonnet or haiku model",
-    "model_has_own_limit": "this model has a usage limit of its own, which the reserves do not cover",
+    "family_at_reserve": "this model family's own weekly limit is at or below the weekly reserve; use a model of "
+                         "another family",
+    "family_window_unavailable": "this model family's own weekly limit is unavailable in the usage report; use a "
+                                 "model of another family",
 }
 
 
@@ -144,29 +170,87 @@ def epoch(text):
     return Decimal(int(moment.timestamp() * 1000)) / 1000
 
 
+def _reading(value, used_key, name, family=None):
+    """The Reading of one row or limits[] entry; another shape is a malformed reading."""
+    if not isinstance(value, dict):
+        return reserve.Reading(used=None, name=name, family=family, merge=True)
+    used = value.get(used_key)
+    # A window not started yet (U1): used exactly 0 and resets_at null, as an idle account reports it;
+    # any other reading without a reset stays unavailable (reserve.judge).
+    idle = "resets_at" in value and value["resets_at"] is None and reserve.number(used) == 0
+    return reserve.Reading(used=used, resets_at=epoch(value.get("resets_at")), name=name, family=family,
+                           started=not idle, merge=True)
+
+
+def _scope(value):
+    """(none | model | surface | both | other, the model display name) of a limits[] entry's scope;
+    None when it is malformed."""
+    if value is None:
+        return "none", None
+    if not isinstance(value, dict):
+        return None
+    parts = {}
+    for key in ("model", "surface"):
+        part = value.get(key)
+        if part is None:
+            continue
+        if not isinstance(part, dict) or not isinstance(part.get("display_name"), str):
+            return None
+        parts[key] = part["display_name"]
+    if any(item is not None for key, item in value.items() if key not in ("model", "surface")):
+        return "other", None
+    kind = {0: "none", 2: "both"}.get(len(parts)) or next(iter(parts))
+    return kind, parts.get("model")
+
+
+def _limit(entry):
+    """(reading or None, unproved row name or None) of one limits[] entry."""
+    if not isinstance(entry, dict) or not isinstance(entry.get("kind"), str):
+        return None, "limits_malformed"
+    kind, scope = entry["kind"], _scope(entry.get("scope"))
+    if scope is None:
+        return None, "limits_malformed"
+    where, display = scope
+    if kind in LIMIT_WINDOWS and where == "none":
+        return _reading(entry, "percent", LIMIT_WINDOWS[kind]), None
+    if kind == SCOPED and where == "model":
+        words = display.split()
+        word = words[0].lower() if words else ""
+        if word in FAMILIES:
+            return _reading(entry, "percent", "weekly", family=word), None
+        return None, (None if word in OTHER_FAMILIES else "limits_weekly_scoped_model_unknown")
+    if kind in LIMIT_WINDOWS or kind == SCOPED:
+        return None, "limits_%s_%s" % (kind, "unscoped" if where == "none" else where)
+    return None, "limits_kind_" + (kind if KIND_NAME.fullmatch(kind) else "unknown")
+
+
 def normalize_usage(document):
-    """(readings, model families with their own row, unproved row names) of one usage response."""
+    """(readings, unproved row names) of one usage response, as the module docstring maps its rows. Every
+    reading has merge: a window may be reported twice (a row and its limits[] entry)."""
     if not isinstance(document, dict):
         raise ValueError("not an object")
-    readings, own, unproved = [], set(), []
+    readings, unproved = [], []
     for name, value in document.items():
         if name in GENERAL:
-            if value is None:
-                continue  # missing: the evaluator reports an enabled window as unavailable
-            if not isinstance(value, dict):
-                readings.append(reserve.Reading(used=None, name=GENERAL[name]))
+            if value is not None:  # missing: the evaluator reports an enabled window as unavailable
+                readings.append(_reading(value, "utilization", GENERAL[name]))
+        elif name in IGNORED or value is None or value == {} or value == []:
+            continue
+        elif name in FAMILY_ROWS:
+            readings.append(_reading(value, "utilization", "weekly", family=FAMILY_ROWS[name]))
+        elif name == "limits":
+            if not isinstance(value, list):
+                unproved.append("limits_malformed")
                 continue
-            readings.append(reserve.Reading(used=value.get("utilization"), resets_at=epoch(value.get("resets_at")),
-                                            name=GENERAL[name]))
-        elif name in NOT_ROWS:
-            continue
-        elif value is None or value == {} or value == []:
-            continue
-        elif name in MODEL_ROWS:
-            own.add(MODEL_ROWS[name])
+            for entry in value:
+                reading, row = _limit(entry)
+                if reading is not None:
+                    readings.append(reading)
+                if row is not None:
+                    unproved.append(row)
         else:
-            unproved.append(name if re.fullmatch(r"[a-z0-9_]{1,64}", name) else "unknown")
-    return tuple(readings), frozenset(own), tuple(sorted(set(unproved)))
+            unproved.append(name if ROW_NAME.fullmatch(name) else "unknown")
+    return tuple(readings), tuple(sorted(set(unproved)))
 
 
 def normalize_profile(document):
@@ -207,7 +291,7 @@ class ClaudeProvider(gate.BaseProvider):
                               for target, address in (config.get("connect_allow") or {}).items()
                               if target in REFRESH_TARGETS or upstream}
         self.rebind_timeout = gate.READ_TIMEOUT
-        self.own_rows = frozenset()
+        self.families = {}  # family -> reserve.WindowStatus of its own weekly limit; set under the gate lock
         self.gate = None
         self.token_expires = None  # epoch seconds of the token the launch started with
         self.clock_ms = lambda: int(time.time() * 1000)
@@ -232,8 +316,9 @@ class ClaudeProvider(gate.BaseProvider):
         kind = family(model)
         if kind is None:
             raise gate.Refusal("model_unproved")
-        if kind in self.own_rows:
-            raise gate.Refusal("model_has_own_limit")
+        own = self.families.get(kind)  # the latest attributed reading's, which the gate's lock orders
+        if own is not None and own.status != reserve.OK:
+            raise gate.Refusal("family_at_reserve" if own.status == reserve.AT_RESERVE else "family_window_unavailable")
 
     def refusal(self, reason):
         status, payload = gate.refusal_response(self.name, reason)
@@ -272,14 +357,14 @@ class ClaudeProvider(gate.BaseProvider):
         document = self._get(gate_, USAGE_PATH, presented, cause)
         wall = time.time()
         try:
-            readings, own, unproved = normalize_usage(document)
+            readings, unproved = normalize_usage(document)
         except ValueError:
             raise gate.Unavailable("response_malformed") from None
         finally:
             document = None
-        if unproved:
-            return gate.Observation(0.0, False, identity=identity, reason="unproved_quota_row", permanent=True)
-        self.own_rows = own
+        if unproved:  # the sanitized row names, never a value, so that the message can name them
+            return gate.Observation(0.0, False, identity=identity, reason="unproved_quota_row", permanent=True,
+                                    data={"rows": unproved})
         return gate.Observation(0.0, True, identity=identity, data={"readings": readings, "wall_at": wall})
 
     # -- lifecycle --------------------------------------------------------------------------------
@@ -388,7 +473,9 @@ class Decider:
             observation = event.observation
             reason = observation.reason if isinstance(observation.reason, str) and REASON.fullmatch(observation.reason) \
                 else "quota_unavailable"
-            verdict = (self._fault(reason) if observation.permanent else evaluator.failure(reason, at=event.at))
+            data = observation.data if isinstance(observation.data, dict) else {}
+            verdict = (self._fault(reason, data.get("rows") or ()) if observation.permanent
+                       else evaluator.failure(reason, at=event.at))
         elif event.name in CONTROL:
             verdict = evaluator.control_down(CONTROL[event.name])
         elif event.name in IDENTITY:
@@ -397,19 +484,29 @@ class Decider:
             verdict = self._fault(event.name if isinstance(event.name, str) else "gate_fault")
         return self._decision(verdict)
 
-    def _fault(self, reason):
+    def _fault(self, reason, names=()):
         try:
-            return self.evaluator.fault(reason)
+            return self.evaluator.fault(reason, names=names)
+        except ValueError:
+            pass
+        try:
+            return self.evaluator.fault(reason)  # names the evaluator refuses never cost the reason
         except ValueError:
             return self.evaluator.fault("gate_fault")
 
     def _decision(self, verdict):
+        # Called under the gate's lock, as check_model is: a family is judged by the latest verdict.
+        self.provider.families = {status.family: status for status in verdict.families}
         fields = {"account": verdict.account}
         at = [window for window in verdict.windows if window.status == reserve.AT_RESERVE]
         if at:
             window = at[0]
             fields.update(window=reserve.LABELS[window.window], remaining=reserve.percent(window.remaining, floor=True),
-                          reserve=reserve.percent(window.reserve), reset=reserve.timestamp(window.resets_at))
+                          reserve=reserve.percent(window.reserve))
+            if window.resets_at is not None:  # None: a window not started yet
+                fields["reset"] = reserve.timestamp(window.resets_at)
+        if verdict.names:
+            fields["rows"] = ", ".join(verdict.names)  # what an unproved_quota_row pause names
         if verdict.last_fresh is not None:
             fields["last_fresh"] = reserve.timestamp(verdict.last_fresh)
         if self.provider.token_expires is not None:
