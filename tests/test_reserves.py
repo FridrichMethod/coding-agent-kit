@@ -411,6 +411,44 @@ class Evaluation(unittest.TestCase):
         edge = [reserve.Reading(used=1, resets_at=wall - 119, name="weekly")]
         self.assertEqual(evaluator.observe(observation(self.clock, weekly=None, extra=edge)).decision, "run")
 
+    def test_a_window_not_started_is_valid_without_a_reset_only_at_exactly_zero(self):
+        """A provider that reports a window as not started (Claude: utilization exactly 0 and resets_at
+        null) gets a valid reading with no reset; any other reading without a reset stays unavailable."""
+        idle = [reserve.Reading(used=0, resets_at=None, name="weekly", started=False)]
+        for used in (0, 0.0, D("0.000"), D("-0")):
+            with self.subTest(used=used):
+                evaluator = self.evaluator()
+                evaluator.control_up()
+                readings = [reserve.Reading(used=used, resets_at=None, name="weekly", started=False)]
+                verdict = evaluator.observe(observation(self.clock, weekly=None, extra=readings))
+                self.assertEqual(verdict.decision, "run", verdict)
+                self.assertEqual((verdict.windows[1].status, verdict.windows[1].remaining, verdict.windows[1].resets_at),
+                                 ("ok", 100, None))
+                self.assertEqual(verdict.message(), "borrowed: running: five-hour 90% remaining (reserve 10%), "
+                                                    "weekly 100% remaining (reserve 40%).")
+        for case, readings in (("used", [reserve.Reading(used=0.5, resets_at=None, name="weekly", started=False)]),
+                               ("started", [reserve.Reading(used=0, resets_at=None, name="weekly")]),
+                               ("bool", [reserve.Reading(used=False, resets_at=None, name="weekly", started=False)])):
+            with self.subTest(case=case):
+                evaluator = self.evaluator()
+                evaluator.control_up()
+                verdict = evaluator.observe(observation(self.clock, weekly=None, extra=readings))
+                self.assertEqual((verdict.decision, verdict.reason), ("refuse", "window_unavailable"))
+                self.assertEqual(verdict.windows[1].status, "malformed" if case == "bool" else "reset_unknown")
+        # A reset given for a window not started is checked as any other.
+        late = [reserve.Reading(used=0, resets_at=self.clock.wall() + WEEK + 121, name="weekly", started=False)]
+        evaluator = self.evaluator()
+        evaluator.control_up()
+        self.assertEqual(evaluator.observe(observation(self.clock, weekly=None, extra=late)).windows[1].status,
+                         "reset_anomaly")
+        # At its reserve (100% keeps nothing for use), the message names no reset.
+        evaluator = self.evaluator(five=None, weekly=D(100))
+        evaluator.control_up()
+        verdict = evaluator.observe(observation(self.clock, five=None, weekly=None, extra=idle))
+        self.assertEqual((verdict.decision, verdict.reason), ("refuse", "threshold"))
+        self.assertEqual(verdict.message(), "borrowed: refused: weekly window 100% remaining, at or below its 100% "
+                                            "reserve.")
+
     def test_a_reading_with_another_name_is_never_ours_whatever_its_length(self):
         wall = self.clock.wall()
         for name in ("seven_day_opus", "seven_day_sonnet", "Weekly", "", 7):

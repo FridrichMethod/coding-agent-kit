@@ -855,6 +855,30 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.state, "paused")
         self.assertIn(g.reason, ("identity_mismatch", "identity_changed"))
 
+    def test_a_window_not_started_is_accepted_only_at_exactly_zero_with_a_null_reset(self):
+        """U1 (a): an idle window (utilization exactly 0, resets_at null) starts the session and its
+        message names no reset; any other null or missing reset leaves the window unavailable."""
+        self.upstream.extra = {"five_hour": {"utilization": 0, "resets_at": None}}
+        _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        self.assertEqual(g.fields["message"], "N: running: five-hour 100% remaining (reserve 10%), weekly 80% remaining "
+                                              "(reserve 5%).")
+        for value, status in (({"utilization": 0.5, "resets_at": None}, "reset unknown"),
+                              ({"utilization": 0}, "reset unknown"),
+                              ({"utilization": 1, "resets_at": None}, "reset unknown")):
+            with self.subTest(value=value):
+                self.upstream.extra = {"five_hour": value}
+                _, g = self.started()
+                self.assertEqual((g.state, g.reason), ("paused", "window_unavailable"))
+                self.assertIn("five-hour window unavailable (%s)" % status, g.fields["message"])
+        # A reserve of 100% keeps nothing for use: the refusal names no reset.
+        self.upstream.extra = {"five_hour": {"utilization": 0.0, "resets_at": None}}
+        _, g = self.started(reserves={"five_hour": "100", "weekly": None})
+        self.assertEqual((g.state, g.reason), ("paused", "threshold"))
+        self.assertEqual(g.fields["message"], "N: refused: five-hour window 100% remaining, at or below its 100% "
+                                              "reserve.")
+        self.assertNotIn("reset", g.fields)
+
     def test_a_token_inside_natives_refresh_window_refuses_before_any_read(self):
         self.store(upstream_fixture.BEARER_A, expires_in=200)
         prov, g = self.make()
@@ -1178,6 +1202,12 @@ class GateProvider(unittest.TestCase):
         self.assertEqual([(r.name, r.used) for r in readings], [("five_hour", 12.5)])
         self.assertEqual(readings[0].resets_at, 1794477600)
         self.assertEqual((own, unproved), (frozenset({"sonnet"}), ("wattle_ember",)))
+        self.assertTrue(readings[0].started)
+        for window, started in (({"utilization": 0, "resets_at": None}, False), ({"utilization": 0}, True),
+                                ({"utilization": 0.25, "resets_at": None}, True), ({"utilization": False,
+                                                                                    "resets_at": None}, True)):
+            with self.subTest(window=window):
+                self.assertEqual(provider.normalize_usage({"seven_day": window})[0][0].started, started)
         self.assertIsNone(provider.normalize_profile({"account": {"uuid": "a b"}, "organization": {"uuid": "o"}}))
         self.assertEqual(provider.family("claude-3-5-haiku-20241022"), "haiku")
         self.assertIsNone(provider.family("claude-sonnet-4-5[1m]"))

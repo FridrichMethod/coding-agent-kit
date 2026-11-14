@@ -33,7 +33,8 @@ launcher refuses that case (policy.py, protect.py), since only it reads the mana
 Quota reads (QC option 3): GET https://api.anthropic.com/api/oauth/profile and /api/oauth/usage with
 the same in-memory bearer, the neutral User-Agent and the proxy Claude Code would use for HTTPS (HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY, a plain http:// one only), captured by the launcher. The profile proves
 the identity (the two UUIDs only; nothing else is kept), the usage response gives the five-hour and
-seven-day windows. A model with its own row (seven_day_opus, seven_day_sonnet) is refused; any other
+seven-day windows (a window with utilization exactly 0 and resets_at null has not started: it counts as
+valid without a reset; any other null reset is unavailable). A model with its own row (seven_day_opus, seven_day_sonnet) is refused; any other
 present row whose semantics nobody proved (seven_day_oauth_apps, cinder_cove, wattle_ember, limits,
 unknown ones) pauses every request, or refuses the start (unproved_quota_row); the message and the rows
 field name those rows (normalize_usage's sanitized names, never a value). A poll with the lease's bearer
@@ -158,8 +159,12 @@ def normalize_usage(document):
             if not isinstance(value, dict):
                 readings.append(reserve.Reading(used=None, name=GENERAL[name]))
                 continue
-            readings.append(reserve.Reading(used=value.get("utilization"), resets_at=epoch(value.get("resets_at")),
-                                            name=GENERAL[name]))
+            used = value.get("utilization")
+            # A window not started yet (U1): utilization exactly 0 and resets_at null, as an idle account
+            # reports it; any other reading without a reset stays unavailable (reserve.judge).
+            idle = "resets_at" in value and value["resets_at"] is None and reserve.number(used) == 0
+            readings.append(reserve.Reading(used=used, resets_at=epoch(value.get("resets_at")), name=GENERAL[name],
+                                            started=not idle))
         elif name in NOT_ROWS:
             continue
         elif value is None or value == {} or value == []:
@@ -418,7 +423,9 @@ class Decider:
         if at:
             window = at[0]
             fields.update(window=reserve.LABELS[window.window], remaining=reserve.percent(window.remaining, floor=True),
-                          reserve=reserve.percent(window.reserve), reset=reserve.timestamp(window.resets_at))
+                          reserve=reserve.percent(window.reserve))
+            if window.resets_at is not None:  # None: a window not started yet
+                fields["reset"] = reserve.timestamp(window.resets_at)
         if verdict.names:
             fields["rows"] = ", ".join(verdict.names)  # what an unproved_quota_row pause names
         if verdict.last_fresh is not None:

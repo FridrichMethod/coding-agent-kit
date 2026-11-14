@@ -280,11 +280,15 @@ class Reading:
     epoch seconds. name ("five_hour" or "weekly") or, without a name, duration (seconds)
     identifies the window. A reading with any other name (another quota family, such as
     a per-model weekly limit) is not ours whatever its duration, nor is one with neither
-    or with another length; a window name with another length is a mismatch."""
+    or with another length; a window name with another length is a mismatch. started:
+    False only when the provider reports the window as not started yet (Claude:
+    utilization exactly 0 and resets_at null); a reading without a reset is valid only
+    then and only at exactly 0 used, and its messages name no reset."""
     used: object
     resets_at: object = None
     name: object = None
     duration: object = None
+    started: bool = True
 
 
 @dataclass(frozen=True)
@@ -304,7 +308,8 @@ class Observation:
 class WindowStatus:
     """An enabled window in the latest response. status: "ok", "at_reserve", or why it is
     unavailable: missing, malformed, out_of_range, reset_unknown, reset_anomaly,
-    ambiguous (reported twice) or mismatch (name and duration disagree)."""
+    ambiguous (reported twice) or mismatch (name and duration disagree). resets_at is
+    None for a valid window not started yet."""
     window: str
     reserve: Decimal
     status: str
@@ -351,7 +356,8 @@ class Verdict:
         last = f" (last error: {self.failure})" if self.failure else ""
         if reason == "threshold":
             return "; ".join(f"{LABELS[w.window]} window {percent(w.remaining, floor=True)}% remaining, "
-                             f"at or below its {percent(w.reserve)}% reserve, resets {timestamp(w.resets_at)}"
+                             f"at or below its {percent(w.reserve)}% reserve"
+                             + ("" if w.resets_at is None else f", resets {timestamp(w.resets_at)}")
                              for w in self.windows if w.status == AT_RESERVE)
         if reason == "stale":
             return f"no fresh quota reading for {int(self.age)} s, last at {timestamp(self.last_fresh)}{last}"
@@ -436,13 +442,16 @@ def judge(reading, window, reserve, wall_at):
     if not 0 <= used <= 100:
         return WindowStatus(window, reserve, "out_of_range")
     if reading.resets_at is None:
-        return WindowStatus(window, reserve, "reset_unknown")
-    reset = number(reading.resets_at)
-    if reset is None:
-        return WindowStatus(window, reserve, "malformed")
-    wall = Decimal(repr(float(wall_at)))
-    if reset <= wall - Decimal(repr(RESET_SKEW)) or reset > wall + DURATIONS[window] + Decimal(repr(RESET_SKEW)):
-        return WindowStatus(window, reserve, "reset_anomaly")
+        if reading.started is not False or used != 0:
+            return WindowStatus(window, reserve, "reset_unknown")
+        # A window not started yet: nothing used, so no reset to report (U1).
+    else:
+        reset = number(reading.resets_at)
+        if reset is None:
+            return WindowStatus(window, reserve, "malformed")
+        wall = Decimal(repr(float(wall_at)))
+        if reset <= wall - Decimal(repr(RESET_SKEW)) or reset > wall + DURATIONS[window] + Decimal(repr(RESET_SKEW)):
+            return WindowStatus(window, reserve, "reset_anomaly")
     # remaining <= reserve is used + reserve >= 100; rounding down keeps that comparison
     # exact at any precision, and the remaining value shown is never above the true one.
     at_reserve = FLOOR.add(used, reserve) >= 100
