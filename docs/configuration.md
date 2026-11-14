@@ -88,6 +88,8 @@ Rules for every key:
   interpreter, that lies inside a path the protected session can write, and
   for a bare name an empty, relative or boundary-writable `PATH` entry
   searched before the one that supplies it; see [protected mode requirements](account-launchers.md#protected-mode-requirements).
+  It also needs the executable at protected mode's minimum release or newer
+  (codex-cli 0.167.2, Claude Code 2.1.322), with no upper bound.
 
 `codex_home` and `secrets_dir`:
 
