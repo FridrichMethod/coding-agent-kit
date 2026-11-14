@@ -268,6 +268,21 @@ class Evaluation(unittest.TestCase):
         self.assertEqual((reserve.REVALIDATIONS_PER_MINUTE, reserve.USAGE_READS_PER_MINUTE), (4, 10))
         self.assertEqual((reserve.SELF_TEST_BOUND, reserve.RESET_SKEW), (20, 120))
 
+    def test_the_runtime_constants_are_these_tunables(self):
+        """The gate, the monitor and the macOS boundary never import this module; their own copies of
+        the timing values must stay these."""
+        gate = load_module("kit_gate_for_reserves", "lib/coding-agent-kit/gate.py")
+        monitor = load_module("kit_monitor_for_reserves", "lib/coding-agent-kit/monitor.py")
+        macos = load_module("kit_sandbox_macos_for_reserves", "lib/coding-agent-kit/sandbox_macos.py")
+        self.assertEqual((gate.READ_TIMEOUT, gate.CONNECT_TIMEOUT, gate.CONTINUATION_WINDOW, gate.HEARTBEAT_MAX),
+                         (reserve.QUERY_TIMEOUT, reserve.CONNECT_TIMEOUT, reserve.CONTINUATION_WINDOW,
+                          reserve.HEARTBEAT_LOSS))
+        self.assertEqual((gate.USAGE_READS, gate.REVALIDATIONS),
+                         ((reserve.USAGE_READS_PER_MINUTE, 60), (reserve.REVALIDATIONS_PER_MINUTE, 60)))
+        self.assertEqual((gate.POLL_RUNNING, gate.POLL_PAUSED), (reserve.POLL_RUNNING, reserve.POLL_PAUSED))
+        self.assertEqual((monitor.HEARTBEAT, monitor.POLL), (reserve.HEARTBEAT, reserve.POLL_RUNNING))
+        self.assertEqual(macos.SELF_TEST_TIMEOUT, reserve.SELF_TEST_BOUND)
+
     def test_an_evaluator_needs_an_enabled_window(self):
         with self.assertRaises(ValueError):
             reserve.Evaluator(policy(), self.clock)

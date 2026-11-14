@@ -97,7 +97,9 @@ FLAGS = {"--reserve-5h": "five_hour", "--reserve-weekly": "weekly"}
 OFF = "off"
 SOURCES = ("invocation", "account", "global", "default")
 
-# Tunables (G0 section 7). Seconds unless noted; nothing else sets them.
+# Tunables (G0 section 7), seconds unless noted. The evaluator reads the poll, backoff, age and
+# continuation ones, and the adapters pass some on; the gate, the monitor and the macOS boundary keep
+# their own constants for the others (they never import this module), which the suite ties to these.
 POLL_RUNNING = 30.0           # quota read interval while running
 POLL_NEAR = 15.0              # ... when a window is within NEAR_POINTS of its reserve
 NEAR_POINTS = Decimal(10)     # percentage points
@@ -114,7 +116,7 @@ CONNECT_TIMEOUT = 5.0         # each connect or TLS handshake within it
 CONTINUATION_WINDOW = 30.0    # a continuation is answered only by a read within this
 HEARTBEAT = 0.25              # monitor liveness interval, decoupled from polls
 HEARTBEAT_LOSS = 1.5          # silence that counts as monitor loss
-REBIND_HOLD = 3.0             # Codex: hold a request while its new bearer is bound
+REBIND_HOLD = 3.0             # Codex: the bound of the read that binds a held request's new bearer
 REVALIDATIONS_PER_MINUTE = 4  # credential revalidations, one per rotation
 USAGE_READS_PER_MINUTE = 10   # usage-read cap per invocation
 SELF_TEST_BOUND = 20.0        # macOS startup self-test
