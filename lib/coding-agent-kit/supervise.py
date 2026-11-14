@@ -101,6 +101,9 @@ F12 = b"\x1b[24~"
 # and event type, and with event types on it also reports every key's repeat (:2) and release (:3).
 TRIGGER_FORMS = {F12: (F12, b"\x1b[24;1~", b"\x1b[24;1:1~")}
 KEY_EVENT = re.compile(rb"\x1b\[[0-9]*(?::[0-9]*)*;[0-9]*:([1-3])(?:;[0-9:]*)?[u~A-DFHPQS]")
+# Ctrl-C pressed, as the keyboard protocol reports it: key 99 with the alternate keys it may add
+# (shifted, base layout), the Ctrl modifier and no event type or the press (:1).
+CTRL_C = re.compile(rb"\x1b\[99(?::[0-9]*){0,2};5(?::1)?u")
 CSI_PARAMETERS = re.compile(rb"\x1b\[[0-9:;<=>?]{0,61}")  # a control sequence before its final byte
 PASTE_START, PASTE_END = b"\x1b[200~", b"\x1b[201~"
 PORTS = (49152, 60999)  # inside both the Linux and the macOS ephemeral ranges
@@ -771,12 +774,13 @@ class TerminalControl:
     the trigger then shows a fresh code, while paused or while offer is set (a model family paused
     alone, the session running); Enter after the exact code calls check() once. A paste, an old
     code, a repeated trigger or any other key grants nothing; with neither, the trigger reaches the
-    native. Ctrl-C cancels the code and reaches the native; any other key but the code's characters,
+    native. Ctrl-C cancels the code and reaches the native as the terminal sent it, the legacy 0x03 or
+    the keyboard protocol's report of its press (CTRL_C); any other key but the code's characters,
     Backspace and Enter cancels it and is consumed whole (rest), so the rest of its escape sequence or
     UTF-8 character never reaches the native as typed text. The keyboard protocol's reports of a key's
-    repeat or release (KEY_EVENT, event type 2 or 3) are no key typed: at the code they change nothing
-    and reach nothing. The trigger also counts in the forms TRIGGER_FORMS lists. Input before the
-    trigger is forwarded as it comes."""
+    repeat or release (KEY_EVENT, event type 2 or 3), Ctrl-C's included, are no key typed: at the code
+    they change nothing and reach nothing. The trigger also counts in the forms TRIGGER_FORMS lists.
+    Input before the trigger is forwarded as it comes."""
 
     def __init__(self, input_fd, forward, display, check, trigger=F12, key_name="F12", clock=time.monotonic):
         self.input_fd, self.forward, self.display, self.check = input_fd, forward, display, check
@@ -830,6 +834,12 @@ class TerminalControl:
                     event = KEY_EVENT.fullmatch(value)
                     if event and event[1] != b"1":
                         self.pending.clear()
+                        break
+                    if CTRL_C.fullmatch(value):  # as the legacy 0x03 (_ordinary)
+                        self.pending.clear()
+                        self.challenge, self.rest = None, None
+                        self.answer.clear()
+                        self.forward(value)
                         break
                     if CSI_PARAMETERS.fullmatch(value):
                         break
