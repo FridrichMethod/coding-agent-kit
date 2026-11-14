@@ -60,6 +60,8 @@ def layers(text):
         home = Path(top).resolve()
         file = home / ".config/coding-agent-kit/config.toml"
         file.parent.mkdir(parents=True)
+        for directory in (file.parent, file.parent.parent):
+            directory.chmod(0o700)  # whatever the umask: a shared group (macOS staff) may not write them
         file.write_text(text)
         file.chmod(0o600)
         with patch.dict(os.environ, {"HOME": str(home), "PATH": os.environ.get("PATH", "/usr/bin:/bin")}, clear=True):
