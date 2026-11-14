@@ -362,6 +362,41 @@ class Screen(unittest.TestCase):
             self.assertTrue((root / "agent_message_board_1.sqlite-wal").is_file())
             self.assertFalse((root / "later_1.sqlite-wal").exists())
 
+    def test_a_missing_database_of_the_tables_refuses_with_advice_for_the_release_installed(self):
+        """A database the tables in use name that native has not created refuses, naming the file and
+        the directory. Under the reviewed release the advice is what creates it; under a newer release
+        it may no longer create that file, so the refusal says so too, and that a kit release has to
+        review that release if the advice does not create it."""
+        later = ("send one prompt in a Codex session without reserves first (native creates it with its first "
+                 "thread)")
+        for names, advice in ((("thread_history_1",), later), (("state_5",), "start Codex once without reserves first"),
+                              (("state_5", "thread_history_1"), "start Codex once without reserves first")):
+            for release in ("0.167.2", "0.169.0", "0.168.0-alpha.1"):
+                with self.subTest(names=names, release=release), tempfile.TemporaryDirectory() as temp:
+                    base = Path(temp).resolve()
+                    session = self.session(base)
+                    session.release = release
+                    root = base / "home/.codex"
+                    session.missing_databases()  # all there
+                    for name in names:
+                        (root / (name + ".sqlite")).unlink()
+                    files = ", ".join(name + ".sqlite" for name in names)
+                    text = ("native Codex has not created %s in %s yet, and the boundary lets it write its databases "
+                            "but not create them; " % (files, root))
+                    if release == "0.167.2":
+                        text += advice
+                    else:
+                        one = len(names) == 1
+                        text += ("Codex %s is newer than 0.167.2, whose tables name %s, and may no longer create %s: "
+                                 "%s, and if %s still missing then, a kit release has to review Codex %s before it "
+                                 "runs with reserves" % (release, "that file" if one else "those files",
+                                                         "it" if one else "them", advice, "it is" if one else "they are",
+                                                         release))
+                    with self.assertRaises(protect.Refused) as caught:
+                        session.missing_databases()
+                    self.assertEqual(str(caught.exception), "usage reserve protection refused: %s. (--reserve-5h off "
+                                     "--reserve-weekly off launches unprotected)" % text)
+
     def test_a_reader_that_fails_to_start_under_a_newer_release_names_the_database_advice(self):
         later = "the App Server did not initialize; a Codex newer than 0.167.2 may need a database it has not " \
                 "created yet: start Codex once without reserves first"
@@ -1950,22 +1985,29 @@ class Unprotected(unittest.TestCase):
         self.assertFalse((self.home.secrets / "codex-A.json").exists())
 
     def test_databases_native_has_not_created_yet_refuse(self):
-        """The boundary names native's databases as files, which native can write but not create."""
+        """The boundary names native's databases as files, which native can write but not create. Under
+        a newer release than the tables' the refusal adds that it may no longer create the file."""
         missing = boundary_missing()
         for name, advice in (("thread_history_1", "send one prompt in a Codex session without reserves first"),
                              ("state_5", "start Codex once without reserves first")):
-            with self.subTest(name=name):
-                for database in (*NATIVE.databases, *NATIVE.later_databases):
-                    (self.home.codex_home / (database + ".sqlite")).touch()
-                (self.home.codex_home / (name + ".sqlite")).unlink()
-                terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
-                self.addCleanup(terminal.close)
-                terminal.expect("usage reserve protection refused: " + re.escape(
-                    missing or "native Codex has not created %s.sqlite in %s yet" % (name, self.home.codex_home)))
-                if not missing:  # without a boundary the refusal above is the only line
-                    terminal.expect(re.escape(advice))
-                self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
-                self.assertEqual(self.home.events(), [])
+            for version in ("0.167.2", "0.169.0"):
+                with self.subTest(name=name, version=version):
+                    for database in (*NATIVE.databases, *NATIVE.later_databases):
+                        (self.home.codex_home / (database + ".sqlite")).touch()
+                    (self.home.codex_home / (name + ".sqlite")).unlink()
+                    terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"],
+                                        dict(self.home.env, FAKE_VERSION="codex-cli " + version), self.home.work)
+                    self.addCleanup(terminal.close)
+                    terminal.expect("usage reserve protection refused: " + re.escape(
+                        missing or "native Codex has not created %s.sqlite in %s yet" % (name, self.home.codex_home)))
+                    if not missing:  # without a boundary the refusal above is the only line
+                        newer = "Codex 0.169.0 is newer than 0.167.2, whose tables name that file, and may no longer " \
+                                "create it: "
+                        terminal.expect(re.escape((newer if version != "0.167.2" else "") + advice))
+                        terminal.expect(re.escape("a kit release has to review Codex 0.169.0") if version != "0.167.2"
+                                        else r"\. \(--reserve-5h off")
+                    self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
+                    self.assertEqual(self.home.events(), [])
 
     def test_a_configuration_that_follows_system_proxy_settings_refuses(self):
         """With respect_system_proxy native would take system, PAC and WPAD settings first, which the
