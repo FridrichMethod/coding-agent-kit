@@ -60,6 +60,8 @@ def layers(text):
         home = Path(top).resolve()
         file = home / ".config/coding-agent-kit/config.toml"
         file.parent.mkdir(parents=True)
+        for directory in (file.parent, file.parent.parent):
+            directory.chmod(0o700)  # whatever the umask: a shared group (macOS staff) may not write them
         file.write_text(text)
         file.chmod(0o600)
         with patch.dict(os.environ, {"HOME": str(home), "PATH": os.environ.get("PATH", "/usr/bin:/bin")}, clear=True):
@@ -267,6 +269,21 @@ class Evaluation(unittest.TestCase):
         self.assertEqual((reserve.HEARTBEAT, reserve.HEARTBEAT_LOSS, reserve.REBIND_HOLD), (0.25, 1.5, 3))
         self.assertEqual((reserve.REVALIDATIONS_PER_MINUTE, reserve.USAGE_READS_PER_MINUTE), (4, 10))
         self.assertEqual((reserve.SELF_TEST_BOUND, reserve.RESET_SKEW), (20, 120))
+
+    def test_the_runtime_constants_are_these_tunables(self):
+        """The gate, the monitor and the macOS boundary never import this module; their own copies of
+        the timing values must stay these."""
+        gate = load_module("kit_gate_for_reserves", "lib/coding-agent-kit/gate.py")
+        monitor = load_module("kit_monitor_for_reserves", "lib/coding-agent-kit/monitor.py")
+        macos = load_module("kit_sandbox_macos_for_reserves", "lib/coding-agent-kit/sandbox_macos.py")
+        self.assertEqual((gate.READ_TIMEOUT, gate.CONNECT_TIMEOUT, gate.CONTINUATION_WINDOW, gate.HEARTBEAT_MAX),
+                         (reserve.QUERY_TIMEOUT, reserve.CONNECT_TIMEOUT, reserve.CONTINUATION_WINDOW,
+                          reserve.HEARTBEAT_LOSS))
+        self.assertEqual((gate.USAGE_READS, gate.REVALIDATIONS),
+                         ((reserve.USAGE_READS_PER_MINUTE, 60), (reserve.REVALIDATIONS_PER_MINUTE, 60)))
+        self.assertEqual((gate.POLL_RUNNING, gate.POLL_PAUSED), (reserve.POLL_RUNNING, reserve.POLL_PAUSED))
+        self.assertEqual((monitor.HEARTBEAT, monitor.POLL), (reserve.HEARTBEAT, reserve.POLL_RUNNING))
+        self.assertEqual(macos.SELF_TEST_TIMEOUT, reserve.SELF_TEST_BOUND)
 
     def test_an_evaluator_needs_an_enabled_window(self):
         with self.assertRaises(ValueError):
@@ -818,6 +835,18 @@ class Evaluation(unittest.TestCase):
                          "resets 2027-01-16T08:00:01Z. Press F12 to continue.")
         self.assertEqual(running(self.clock).verdict().message(),
                          "borrowed: running: five-hour 90% remaining (reserve 10%), weekly 90% remaining (reserve 40%).")
+
+    def test_an_exhausted_window_shows_zero_remaining_never_minus_zero(self):
+        for used in (100, 100.0, D("100.000")):
+            with self.subTest(used=used):
+                evaluator = running(self.clock)
+                self.clock.advance(1)
+                verdict = evaluator.observe(observation(self.clock, five=used, weekly=10))
+                self.assertEqual(verdict.windows[0].remaining, 0)
+                self.assertFalse(verdict.windows[0].remaining.is_signed())
+                self.assertEqual(reserve.percent(verdict.windows[0].remaining, floor=True), "0")
+                self.assertIn("five-hour window 0% remaining, at or below its 10% reserve", verdict.message())
+                self.assertNotIn(" -0", verdict.message())
 
     def test_a_running_window_is_shown_above_its_reserve(self):
         # Rounded down to one decimal, with more decimals only where one would reach the

@@ -7,6 +7,7 @@ version protect.REVIEWED_VERSIONS names; skipped otherwise, and always on macOS,
 login Keychain) with a fabricated credential against the same loopback fixtures.
 """
 
+import contextlib
 import errno
 import fcntl
 import hashlib
@@ -797,15 +798,15 @@ class GateProvider(unittest.TestCase):
         config.update(extra)
         return config
 
-    def make(self, mode="startup", **extra):
+    def make(self, mode="startup", gate_options=None, **extra):
         prov, decide = provider.make(self.config(**extra))
         g = gate.Gate(prov, decide, max_age=self.config(**extra)["max_age_s"], mode=mode, notify=self.messages.append,
-                      emit=lambda event, **fields: self.events.append((event, fields)))
+                      emit=lambda event, **fields: self.events.append((event, fields)), **(gate_options or {}))
         self.addCleanup(g.shutdown)
         return prov, g
 
-    def started(self, **extra):
-        prov, g = self.make(**extra)
+    def started(self, gate_options=None, **extra):
+        prov, g = self.make(gate_options=gate_options, **extra)
         prov.startup(g)
         g.attach()
         g.heartbeat()
@@ -949,6 +950,47 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(self.upstream.model_requests(), [])
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (False, "bearer_identity_mismatch"))
 
+    def test_after_another_account_signs_in_polls_reprove_the_store_bearer_and_never_say_a_check_passes(self):
+        """Once the native presents another account's bearer (a /login inside the session), the old
+        lease no longer proves the enrolled account: paused polls check the store's bearer with its
+        profile read, never the signed-out one, and read no usage of an account the profile shows is
+        not the enrolled one; no notice says that a check passes until the store holds the enrolled
+        account again; then a continuation resumes on the re-proved bearer."""
+        prov, g = self.started(gate_options={"notice_every": 0.01})
+        self.assertEqual(g.state, "running", g.status())
+        self.store(upstream_fixture.BEARER_B)
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_B)[:2], (False, "bearer_identity_mismatch"))
+        start = len(self.upstream.requests)
+
+        def poll():
+            time.sleep(0.02)
+            g.heartbeat()
+            prov.poll(g)
+            g.tick()
+
+        for _ in range(3):
+            poll()
+        reads = self.upstream.requests[start:]
+        self.assertEqual([r["path"] for r in reads], ["/api/oauth/profile"] * 3)
+        self.assertEqual({dict((k.lower(), v) for k, v in r["headers"])["authorization"] for r in reads},
+                         {"Bearer " + upstream_fixture.BEARER_B})
+        self.assertEqual((g.state, g.reason), ("paused", "bearer_identity_mismatch"))
+        self.assertIn("the signed-in account changed", g.fields["message"])
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": False, "reason": "identity_mismatch"})
+        poll()
+        self.assertEqual([m for m in self.messages if m["op"] == "notice"], [])
+        self.store(upstream_fixture.BEARER_A2)  # signed in to the enrolled account again
+        start = len(self.upstream.requests)
+        poll()
+        self.assertEqual([r["path"] for r in self.upstream.requests[start:]], ["/api/oauth/profile", "/api/oauth/usage"])
+        self.assertEqual((g.state, g.reason), ("paused", "awaiting_continuation"))
+        self.assertEqual([(m["eligible"], m["reason"]) for m in self.messages if m["op"] == "notice"],
+                         [(True, "awaiting_continuation")])
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A2)[:2], (True, "admitted"))
+
     def test_a_pause_resumes_only_through_a_continuation_and_a_fresh_pass(self):
         prov, g = self.started()
         self.upstream.used["seven_day"] = 96
@@ -1002,27 +1044,59 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
 
     def test_rebind_and_continuation_reads_fit_the_bounds_their_waiters_use(self):
-        """A rebind's two GETs together stay within rebind_timeout, which held requests wait for (plus
-        the connect timeout); a continuation's store read and two GETs stay within the launcher's 20 s
-        control timeout, so it never reports gate_unavailable while the check can still pass."""
+        """No read is cut shorter than a poll's: each GET of a rebind or a continuation gets the gate's
+        READ_TIMEOUT. A rebind's GETs fit what its held requests wait for (rebind_reads per-fetch
+        bounds plus the slack), and a continuation's store read and GETs fit the launcher's wait for
+        it, so a slow link that lets polls pass lets a continuation pass too."""
         prov, _ = self.make()
         seen = []
+        account, organization = prov.expected_identity  # a profile of the enrolled account: both reads run
 
         class Fetching:
             lease = None
 
             def fetch(self, method, path, **options):
                 seen.append((path, options["timeout"]))
-                body = {"account": {"uuid": "a"}, "organization": {"uuid": "o"}} if "profile" in path else {}
+                body = {"account": {"uuid": account}, "organization": {"uuid": organization}} if "profile" in path else {}
                 return 200, [("Content-Type", "application/json")], json.dumps(body).encode()
 
         for cause in ("startup", "rebind", "continuation"):
             prov.read_quota(Fetching(), gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), cause)
+        self.assertEqual([path for path, _ in seen], ["/api/oauth/profile", "/api/oauth/usage"] * 3)
         timeouts = {cause: [timeout for _, timeout in seen[index * 2:index * 2 + 2]]
                     for index, cause in enumerate(("startup", "rebind", "continuation"))}
-        self.assertEqual(timeouts["startup"], [None, None])  # the gate's READ_TIMEOUT each
-        self.assertLessEqual(sum(timeouts["rebind"]), prov.rebind_timeout)
-        self.assertLessEqual(bearer.KEYCHAIN_TIMEOUT + sum(timeouts["continuation"]), 20.0 - 1.0)
+        bound = {timeout or gate.READ_TIMEOUT for times in timeouts.values() for timeout in times}
+        self.assertEqual(bound, {gate.READ_TIMEOUT})
+        self.assertEqual(timeouts["rebind"], [prov.rebind_timeout] * 2)
+        self.assertLessEqual(len(timeouts["rebind"]), prov.rebind_reads)  # each waiter allows this many fetches
+        continuation = bearer.KEYCHAIN_TIMEOUT + len(timeouts["continuation"]) * gate.READ_TIMEOUT
+        self.assertLessEqual(continuation + 1.0, supervise.CONTINUE_TIMEOUT)
+
+    def test_a_profile_of_another_account_ends_the_read_before_its_usage(self):
+        """A read that checks the bearer's profile (startup, rebind, continuation) stops when the profile
+        proves another account, or none: the gate pauses on the identity alone, so the usage of an
+        account that is not the enrolled one is never read."""
+        prov, _ = self.make()
+        organization = prov.expected_identity[1]
+        for profile, identity in (({"account": {"uuid": "acct-0000-other"}, "organization": {"uuid": organization}},
+                                   ("acct-0000-other", organization)),
+                                  ({"account": {}}, None)):
+            seen = []
+
+            class Fetching:
+                lease = None
+
+                def fetch(self, method, path, **options):
+                    seen.append(path)
+                    return 200, [("Content-Type", "application/json")], json.dumps(profile).encode()
+
+            for cause in ("startup", "rebind", "continuation"):
+                with self.subTest(identity=identity, cause=cause):
+                    del seen[:]
+                    observation = prov.read_quota(Fetching(), gate.Presented(gate.Secret(upstream_fixture.BEARER_B)),
+                                                  cause)
+                    self.assertEqual(seen, ["/api/oauth/profile"])
+                    self.assertEqual((observation.ok, observation.identity, observation.data), (True, identity, None))
 
     def test_a_rejected_lease_bearer_is_reread_from_the_store_and_rebound(self):
         prov, g = self.started()
@@ -1263,19 +1337,173 @@ class ProtectScreens(unittest.TestCase):
                 self.assertIn("cannot be writable in protected mode", self.refused(protect.check_writable, [path], home))
 
     def test_only_a_reviewed_native_version_passes(self):
+        """native_version judges what `claude --version` printed; the launcher runs it inside the
+        boundary (confined_version), never outside."""
+        self.assertEqual(protect.native_version(lambda: (0, b"2.1.322 (Claude Code)\n")), "2.1.322")
+        for result, text in (((0, b"2.1.323 (Claude Code)\n"), "Claude Code 2.1.323 is not a version"),
+                             ((0, b"2.1.322\n"), "did not print a Claude Code version"),
+                             ((1, b"2.1.322 (Claude Code)\n"), "did not print a Claude Code version"),
+                             ((None, b""), "did not answer")):
+            with self.subTest(result):
+                self.assertIn(text, self.refused(protect.native_version, lambda: result))
+
+    def test_everything_running_the_native_executes_is_checked_for_reach(self):
+        """native_sources lists the native by the name the launcher runs, so every link on the way
+        counts, its directory, and each interpreter a #! line names: an absolute one, or the one
+        `#!/usr/bin/env NAME` finds on the native's PATH, through nested scripts. A boundary process
+        that could replace any of them would have the next launch run its code."""
         with tempfile.TemporaryDirectory() as temp:
-            native = Path(temp) / "claude"
-            native.write_text(f"#!{sys.executable}\nimport os, sys\nprint(os.environ['V'])\n"
-                              "sys.exit(int(os.environ.get('C', '0')))\n")
-            native.chmod(0o700)
-            env = dict(os.environ, V="2.1.322 (Claude Code)")
-            self.assertEqual(protect.native_version(str(native), env), "2.1.322")
-            for change, text in (({"V": "2.1.323 (Claude Code)"}, "Claude Code 2.1.323 is not a version"),
-                                 ({"V": "2.1.322"}, "did not print a Claude Code version"),
-                                 ({"C": "1"}, "did not print a Claude Code version")):
-                with self.subTest(change):
-                    self.assertIn(text, self.refused(protect.native_version, str(native), dict(env, **change)))
-            self.assertIn("did not answer", self.refused(protect.native_version, str(Path(temp) / "absent"), env))
+            base = Path(temp).resolve()
+            work, lib, bin_, tools = base / "work", base / "lib/claude-code", base / "bin", base / "tools"
+            for path in (work / "node_modules/.bin", lib, bin_, tools):
+                path.mkdir(parents=True)
+
+            def script(path, first_line, mode=0o755):
+                path.write_text(first_line + "\nexit 0\n")
+                path.chmod(mode)
+                return path
+
+            node = script(tools / "node", f"#!{sys.executable}")
+            cli = script(lib / "cli.js", "#!/usr/bin/env node")
+            (bin_ / "claude").symlink_to("../lib/claude-code/cli.js")
+            env = {"PATH": f"{work / 'node_modules/.bin'}:{tools}:/usr/bin:/bin"}
+            searched = ["python3"]
+            sources = protect.native_sources(str(bin_ / "claude"), env, searched)
+            self.assertEqual(searched, ["python3", "node"])  # each name a #!/usr/bin/env line looked up on PATH
+            self.assertEqual(sources[:5], [
+                ("the Claude Code program", str(bin_ / "claude"), False),
+                ("the Claude Code directory", str(lib), True),
+                ("the Claude Code interpreter", "/usr/bin/env", False),
+                ("the Claude Code interpreter", str(node), False),
+                ("the Claude Code interpreter", sys.executable, False)])
+            for first_line, found in (("#!/usr/bin/env -S node --no-warnings", str(node)),
+                                      ("#! /usr/bin/env -S NODE_NO_WARNINGS=1 node", str(node)),
+                                      (f"#!{node} --flag", str(node))):
+                with self.subTest(first_line):
+                    script(cli, first_line)
+                    self.assertIn(("the Claude Code interpreter", found, False),
+                                  protect.native_sources(str(bin_ / "claude"), env))
+            script(cli, "#!/usr/bin/env node")
+            for root in (str(work), str(lib), str(bin_), str(tools), str(lib / "vendor")):
+                with self.subTest(root=root):
+                    if root == str(work):
+                        script(work / "node_modules/.bin/node", "#!/bin/sh")  # first on PATH, in reach
+                    with self.assertRaises(supervise.Refused) as caught:
+                        supervise.unreachable(protect.native_sources(str(bin_ / "claude"), env), [root],
+                                              protect.NATIVE_HINT)
+                    self.assertTrue(caught.exception.reason.endswith(protect.NATIVE_HINT), caught.exception.reason)
+                    (work / "node_modules/.bin/node").unlink(missing_ok=True)
+            supervise.unreachable(protect.native_sources(str(bin_ / "claude"), env), [str(work)], protect.NATIVE_HINT)
+            self.assertTrue(protect.NATIVE_HINT.startswith("; run claude-as with a Claude Code installed outside the "
+                                                           "working directory, every --add-dir and the account directory"))
+            binary = bin_ / "native"
+            binary.write_bytes(b"\x7fELF\x02\x01\x01" + bytes(64))
+            binary.chmod(0o755)
+            self.assertEqual(protect.native_sources(str(binary), env), [
+                ("the Claude Code program", str(binary), False), ("the Claude Code directory", str(bin_), True)])
+            for first_line, text in (("#!/usr/bin/env -i node", "an env option"), ("#!node", "not an absolute path"),
+                                     ("#!/usr/bin/env -S PATH=/opt/node/bin node", "sets PATH for its command"),
+                                     ("#!/usr/bin/env NODE_OPTIONS=x PATH=/opt/node/bin node", "sets PATH"),
+                                     ("#!/usr/bin/env nodejs-absent", "not on the native's PATH"),
+                                     ("#!/usr/bin/env", "names no command"),
+                                     ("#!/usr/bin/env -S 'node' x", "not one protected mode can follow"),
+                                     ("#!/usr/bin/env " + "x" * 300, "not one protected mode can follow")):
+                with self.subTest(first_line):
+                    script(cli, first_line)
+                    message = self.refused(protect.native_sources, str(bin_ / "claude"), env)
+                    self.assertIn("the #! line of", message)
+                    self.assertIn(text, message)
+            loop = script(tools / "loop", f"#!{tools / 'loop'}")
+            script(cli, f"#!{loop}")
+            self.assertIn("more than 4 interpreters", self.refused(protect.native_sources, str(bin_ / "claude"), env))
+
+    def test_a_path_entry_searched_before_the_one_that_supplies_a_program_must_lie_out_of_reach(self):
+        """bin/claude-as runs dirname, readlink and python3, the launcher the claude key's command and a
+        #!/usr/bin/env line its command by name, from the first PATH entry holding it. An entry searched before that one which a
+        boundary process can write (by a name on the way to the program there, through links), or an
+        empty or relative one (the working directory, or a path relative to it), would let a protected
+        session plant the program for the next launch, or a plain run of it, to run unconfined. The
+        refusal names the entry, never what it holds; entries after the one that supplies it do not
+        count, and when no entry holds the program, every entry does."""
+        name = "kit-cn3-probe"  # absent from the test's working directory
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work, tools, other, dangling = base / "work", base / "tools", base / "other", base / "dangling"
+            for path in (work / "bin", tools, other, dangling):
+                path.mkdir(parents=True)
+            (tools / name).write_text("#!/bin/sh\n")
+            (tools / name).chmod(0o755)
+            (other / name).write_text("#!/bin/sh\n")  # not executable: searched past, as the shell does
+            (other / name).chmod(0o644)
+            (base / "linked").symlink_to(work / "bin")
+            (dangling / name).symlink_to(work / name)  # missing now; a boundary process could create it
+            reach = [str(work), "/dev/null"]
+            self.assertEqual(protect.path_search(name, f"{other}:{tools}:{work / 'bin'}"), ([str(other)], str(tools)))
+            self.assertEqual(protect.path_search(name, f"{other}::{work}"), ([str(other), "", str(work)], None))
+            for value in (f"{other}:{tools}:{work / 'bin'}::bin", None, f"{tools}:{work}"):
+                with self.subTest(value=value):
+                    protect.path_order(supervise, name, value, reach)
+            hint = ("; a protected session could put a %s there for the next launch to run outside the boundary; "
+                    "remove the entry from PATH, or move it after %s, to launch with reserves" % (name, tools))
+            for value, text in ((f"{work / 'bin'}:{tools}", "the PATH entry %s, searched for %s before %s, lies inside "
+                                 "%s, which the boundary can write" % (work / "bin", name, tools, work)),
+                                (f"{other}:{base / 'linked'}:{tools}", "the PATH entry %s, searched for %s before %s, "
+                                 "lies inside %s, which the boundary can write" % (base / "linked", name, tools, work)),
+                                (f"{dangling}:{tools}", "the PATH entry %s, searched for %s before %s, lies inside %s, "
+                                 "which the boundary can write" % (dangling, name, tools, work)),
+                                (f":{tools}", "an empty PATH entry, searched for %s before %s, is the working directory, "
+                                 "which the boundary can write" % (name, tools)),
+                                (f"bin:{tools}", "the PATH entry bin, searched for %s before %s, is relative to the "
+                                 "working directory, which the boundary can write" % (name, tools))):
+                with self.subTest(value=value):
+                    with self.assertRaises(supervise.Refused) as caught:
+                        protect.path_order(supervise, name, value, reach)
+                    self.assertEqual(caught.exception.reason, text + hint)
+            with self.assertRaises(supervise.Refused) as caught:
+                protect.path_order(supervise, name, f"{other}:{work / 'bin'}", reach)
+            self.assertEqual(caught.exception.reason, "the PATH entry %s, searched for %s, which no PATH entry holds, "
+                             "lies inside %s, which the boundary can write; a protected session could put a %s there "
+                             "for the next launch to run outside the boundary; remove the entry from PATH to launch "
+                             "with reserves" % (work / "bin", name, work, name))
+
+    def test_the_path_entry_that_supplies_a_program_must_lie_out_of_reach_and_be_absolute(self):
+        """The entry that supplies the program counts as well: a python3 wrapper script there (whose
+        sys.executable is what it execs, so launcher_sources never sees it), a link there to a program
+        in reach, or the entry itself in reach would let a protected session replace what the next
+        launch runs; an empty or relative supplier names another directory wherever claude-as starts
+        (../tools from a subdirectory of the working directory lies inside it)."""
+        name = "kit-cn3-probe"
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work, tools, relay, other = base / "work", base / "tools", base / "relay", base / "other"
+            for path in (work / "tools", work / "sub", tools, relay, other):
+                path.mkdir(parents=True)
+            for path in (work / "tools" / name, tools / name):
+                path.write_text("#!/bin/sh\nexec /usr/bin/python3 \"$@\"\n")
+                path.chmod(0o755)
+            (relay / name).symlink_to(work / "tools" / name)
+            (base / "linked").symlink_to(work / "tools")
+            reach = [str(work), "/dev/null"]
+            protect.path_order(supervise, name, f"{other}:{tools}:{work / 'tools'}", reach)
+            hint = ("; a protected session could replace that %s for the next launch to run outside the boundary; "
+                    "supply %s from a PATH entry outside every path the boundary can write to launch with reserves"
+                    % (name, name))
+            for start, value, text in (
+                    (None, f"{other}:{work / 'tools'}:{tools}", "the PATH entry %s, which supplies %s, lies inside %s, "
+                     "which the boundary can write" % (work / "tools", name, work)),
+                    (None, f"{base / 'linked'}:{tools}", "the PATH entry %s, which supplies %s, lies inside %s, which "
+                     "the boundary can write" % (base / "linked", name, work)),
+                    (None, f"{relay}:{tools}", "the PATH entry %s, which supplies %s, lies inside %s, which the "
+                     "boundary can write" % (relay, name, work)),
+                    (work, f"../tools:{other}", "the PATH entry ../tools, which supplies %s, is relative to the working "
+                     "directory, which the boundary can write" % name),
+                    (tools, f":{other}", "an empty PATH entry, which supplies %s, is the working directory, which the "
+                     "boundary can write" % name)):
+                with self.subTest(value=value):
+                    with contextlib.chdir(start or base):
+                        with self.assertRaises(supervise.Refused) as caught:
+                            protect.path_order(supervise, name, value, reach)
+                    self.assertEqual(caught.exception.reason, text + hint)
 
 
 class MacosTemporaryCleanup(unittest.TestCase):
@@ -1353,7 +1581,8 @@ class MacosTemporaryCleanup(unittest.TestCase):
 
 
 class ProtectedRefusals(Kit):
-    """Refusals of the real launcher before any port, gate or native under the boundary."""
+    """Refusals of the real launcher before the session starts (the version check and the pre-launch
+    refresh, where a case reaches them, run confined)."""
 
     def setUp(self):
         super().setUp()
@@ -1442,6 +1671,151 @@ class ProtectedRefusals(Kit):
         self.assertEqual(unprotected.returncode, 0, unprotected.stderr)
         self.assertEqual(stat.S_IMODE(record.stat().st_mode), 0o600)
 
+    def test_the_version_check_runs_the_native_inside_the_boundary_only(self):
+        """The kit never runs the native outside the boundary: its --version check runs confined like
+        the pre-launch refresh, so a native a protected session replaced would run confined too. The
+        refresh runs here (the version check passed), then the gate refuses: no credential is stored."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        outside = self.base / "outside.log"  # not writable inside the boundary
+        env = dict(self.env, FAKE_OUTSIDE_MARK=str(outside), FAKE_RECORD=str(self.cwd / "record.json"))
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused", output)
+        self.assertTrue((self.cwd / "record.json.auth").exists(), output)  # the refresh ran: the version passed
+        self.assertFalse(outside.exists(), outside.read_text() if outside.exists() else "")
+        self.assertEqual(self.run_kit(["N", "--version"], env=env).returncode, 0)  # unprotected: runs outside
+        self.assertEqual(outside.read_text(), '["--version"]\n')
+
+    def test_a_native_the_boundary_can_replace_refuses_before_it_runs(self):
+        """A Claude Code program in reach of the boundary (by any name on its way, or the interpreter of
+        its #! line) refuses before anything runs: a protected session could replace it under the next
+        launch, protected or not."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        source = (self.bin / "claude").read_text()
+        outside = self.base / "outside.log"
+        local = self.native_config("N") / "local"  # Claude Code's older local install, in the account directory
+        local.mkdir()
+        (local / "claude").write_text(source)
+        (local / "claude").chmod(0o700)
+        linked = self.base / "linked"
+        linked.mkdir()
+        (linked / "claude").symlink_to(local / "claude")
+        project = self.cwd / "node_modules/.bin"  # a project-local install, first on PATH
+        project.mkdir(parents=True)
+        shutil.copy2(self.bin / "claude", project / "claude")
+        node = self.base / "node"  # a #!/usr/bin/env interpreter: in reach first, then outside
+        node.mkdir()
+        interpreter = f"#!{sys.executable}\nimport os, sys\nos.execv(sys.executable, [sys.executable, *sys.argv[1:]])\n"
+        enveloped = self.base / "enveloped"
+        enveloped.mkdir()
+        (enveloped / "claude").write_text("#!/usr/bin/env fakenode\n" + source.split("\n", 1)[1])
+        (enveloped / "claude").chmod(0o700)
+        for path in (project / "fakenode", node / "fakenode"):
+            path.write_text(interpreter)
+            path.chmod(0o700)
+        cases = ((linked, str(linked / "claude"), str(self.native_config("N"))),  # named as run, linked inside
+                 (project, str(project / "claude"), str(self.cwd)),
+                 (f"{enveloped}:{project}:{node}", str(project / "fakenode"), str(self.cwd)))
+        for path, inside, root in cases:
+            with self.subTest(path=path):
+                env = dict(self.env, PATH=f"{path}:{self.env['PATH']}", FAKE_OUTSIDE_MARK=str(outside))
+                output = self.refused([], env=env).replace("\n", " ")
+                self.assertIn("lies inside %s, which the boundary can write; run claude-as with a Claude Code installed "
+                              "outside the working directory" % root, output)
+                self.assertIn(inside, output)
+                self.assertFalse(outside.exists())
+                self.assertFalse((self.cwd / "record.json.auth").exists())
+        env = dict(self.env, PATH=f"{enveloped}:{node}:{self.env['PATH']}", FAKE_OUTSIDE_MARK=str(outside),
+                   FAKE_RECORD=str(self.cwd / "record.json"))
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)  # the interpreter out of reach
+        self.assertEqual(code, 1, output)
+        self.assertNotIn("which the boundary can write", output)
+        self.assertTrue((self.cwd / "record.json.auth").exists(), output)
+        self.assertFalse(outside.exists())
+
+    def test_a_writable_path_entry_searched_first_refuses_before_anything_runs(self):
+        """An empty directory of the working directory on PATH before the one that supplies the dirname
+        and readlink bin/claude-as runs (readlink for each link on the way to it), its python3, the
+        claude the launcher runs or the command a #!/usr/bin/env line of that claude names refuses,
+        naming the entry: a protected session could plant the program there, and the next launch's
+        shell utilities and python3 (before any check) or every unprotected claude or node would run it
+        unconfined. Each case finds every other of these programs before the shadow."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        rest = self.env["PATH"]
+        shadow = self.cwd / "bin"
+        shadow.mkdir()
+
+        def tools(directory, *names):  # links to the programs PATH supplies, found before the shadow, out of reach
+            path = self.base / directory
+            path.mkdir()
+            for name in names:
+                (path / name).symlink_to(shutil.which(name, path=rest))
+            return path
+
+        def supplier(name):
+            return os.path.dirname(shutil.which(name, path=rest))
+
+        system = tools("system", "python3", "dirname", "readlink")
+        node = self.base / "node"
+        node.mkdir()
+        (node / "fakenode").write_text(
+            f"#!{sys.executable}\nimport os, sys\nos.execv(sys.executable, [sys.executable, *sys.argv[1:]])\n")
+        (node / "fakenode").chmod(0o700)
+        enveloped = self.base / "enveloped"
+        enveloped.mkdir()
+        (enveloped / "claude").write_text("#!/usr/bin/env fakenode\n" + (self.bin / "claude").read_text().split("\n", 1)[1])
+        (enveloped / "claude").chmod(0o700)
+        linked = self.base / "linked"  # a linked install: bin/claude-as runs readlink
+        linked.mkdir()
+        (linked / "claude-as").symlink_to(self.kit / "bin/claude-as")
+        outside = self.base / "outside.log"
+        cases = (("python3", f"{self.bin}:{tools('utilities', 'dirname', 'readlink')}:{shadow}:{rest}", None),
+                 ("claude", f"{system}:{shadow}:{self.bin}:{rest}", None),
+                 ("fakenode", f"{system}:{enveloped}:{shadow}:{node}:{rest}", None),
+                 ("dirname", f"{tools('without-dirname', 'python3', 'readlink')}:{self.bin}:{shadow}:{rest}", None),
+                 ("readlink", f"{tools('without-readlink', 'python3', 'dirname')}:{self.bin}:{shadow}:{rest}", linked))
+        for name, path, launcher in cases:
+            with self.subTest(name):
+                env = dict(self.env, PATH=path, FAKE_OUTSIDE_MARK=str(outside), FAKE_RECORD=str(self.cwd / "record.json"))
+                argv = [str((launcher or self.kit / "bin") / "claude-as"), "--reserve-5h", "10", "N"]
+                code, output = self.terminal([], env=env, argv=argv)
+                output = output.replace("\n", " ")
+                self.assertEqual(code, 1, output)
+                found = {"claude": self.bin, "fakenode": node}.get(name) or supplier(name)
+                self.assertIn("protected mode refused: the PATH entry %s, searched for %s before %s, lies inside %s, "
+                              "which the boundary can write; a protected session could put a %s there"
+                              % (shadow, name, found, self.cwd, name), output)
+                self.assertNotIn("only the request gate is reachable", output)  # refused before the supervisor
+                self.assertFalse((self.cwd / "record.json.auth").exists(), output)  # no refresh ran
+                self.assertFalse(outside.exists())
+
+    def test_a_python3_wrapper_in_reach_that_supplies_python3_refuses(self):
+        """A python3 wrapper script in the working directory, first on PATH for python3, execs a python3
+        out of reach, so the launcher's own sources pass; the PATH entry that supplies it refuses, since
+        a protected session could rewrite the wrapper for the next launch to run outside the boundary."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        rest = self.env["PATH"]
+        wrapped = self.cwd / "tools"
+        wrapped.mkdir()
+        (wrapped / "python3").write_text('#!/bin/sh\nexec %s "$@"\n' % shutil.which("python3", path=rest))
+        (wrapped / "python3").chmod(0o700)
+        utilities = self.base / "utilities"  # dirname and readlink found before the wrapper, out of reach
+        utilities.mkdir()
+        for name in ("dirname", "readlink"):
+            (utilities / name).symlink_to(shutil.which(name, path=rest))
+        env = dict(self.env, PATH=f"{self.bin}:{utilities}:{wrapped}:{rest}", FAKE_RECORD=str(self.cwd / "record.json"))
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        output = output.replace("\n", " ")
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: the PATH entry %s, which supplies python3, lies inside %s, which the "
+                      "boundary can write; a protected session could replace that python3 for the next launch to run "
+                      "outside the boundary" % (wrapped, self.cwd), output)
+        self.assertFalse((self.cwd / "record.json.auth").exists(), output)
+
     def test_home_as_the_working_directory_refuses(self):
         if boundary_problem():
             self.skipTest(boundary_problem())
@@ -1474,6 +1848,27 @@ class ProtectedRefusals(Kit):
                               (Path(python).parent, "the Python %s lies inside %s" % (python, Path(python).parent))):
             with self.subTest(add_dir=add_dir):
                 self.assertIn(text, self.refused(["--add-dir", str(add_dir)]).replace("\n", " "))
+
+
+class LauncherCommands(Kit):
+    def test_the_launcher_needs_exactly_its_launcher_commands_on_path_to_start_python(self):
+        """bin/claude-as, reached through a link, runs no program by name before Python but
+        protect.LAUNCHER_COMMANDS, which protected mode checks the PATH order of, and needs each of
+        them: a PATH holding only them starts the launcher, and one without any of them does not."""
+        linked = self.base / "linked"
+        linked.mkdir()
+        (linked / "claude-as").symlink_to(self.kit / "bin/claude-as")
+        for missing in (None, *protect.LAUNCHER_COMMANDS):
+            with self.subTest(missing=missing):
+                only = self.base / f"only-{missing}"
+                only.mkdir()
+                for name in protect.LAUNCHER_COMMANDS:
+                    if name != missing:
+                        (only / name).symlink_to(shutil.which(name, path=self.env["PATH"]))
+                result = subprocess.run([str(linked / "claude-as"), "--list"], cwd=self.cwd,
+                                        env=dict(self.env, PATH=str(only)), stdin=subprocess.DEVNULL,
+                                        capture_output=True, text=True, timeout=60)
+                self.assertEqual(result.returncode == 0, missing is None, (result.returncode, result.stderr))
 
 
 class ConnectProxy:
@@ -1612,8 +2007,12 @@ class Protected(Kit):
         self.assertEqual(reads[:2], ["/api/oauth/profile", "/api/oauth/usage"])
         self.assertIn("usage reserves for N: five-hour 10% (--reserve-5h), weekly 5% (--reserve-weekly)", output)
         expires = json.loads((self.native_config("N") / ".credentials.json").read_text())["claudeAiOauth"]["expiresAt"]
+        # A relaunch renews the token only once it is due (native's refresh window) or gone, so the line
+        # says when the session stops working and when relaunching helps, never "relaunch before then".
         self.assertIn("claude-as: the account's access token expires at %s, and Claude Code cannot renew it inside "
-                      "protected mode; unless another session of this account renews it, relaunch before then."
+                      "protected mode, so model requests stop then unless another session of this account renews "
+                      "it first; to go on after that, exit and launch again, whose pre-launch refresh renews the "
+                      "token within its last five minutes or once it expired."
                       % reserve.timestamp(expires // 1000), output.replace("\r\n", " ").replace("\n", " "))
 
     def test_a_window_at_its_reserve_refuses_before_the_native_starts(self):

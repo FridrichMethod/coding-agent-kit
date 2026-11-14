@@ -40,14 +40,19 @@ Invariants:
   derived from one. Matching uses a keyed digest whose key never leaves this process.
 - Monitor loss (EOF, silence past HEARTBEAT_MAX, or launcher EOF) is final for a gate instance;
   a restarted gate starts paused ("gate_restart").
+- The lease goes when an observation fails to prove the expected identity (another identity, or
+  none) or a rebind read fails: polls never read the old bearer's quota after that, and only a read
+  that proves the identity again binds a new lease.
 - CONNECT tunnels exist only in refresh mode (the D1 pre-launch refresh): a startup or restart
   gate refuses every CONNECT, so no opaque tunnel is open while model work runs.
 - Evaluator output is checked: a Decision whose running flag, reason or fields (a dict of str keys
   to JSON scalars) is malformed counts as Decision(False, "evaluator_error").
 - Leaving a pause needs a continuation armed through the launcher's control channel, while the
   monitor is alive and has been heard, answered within CONTINUATION_WINDOW by the first quota
-  observation whose request started after it, and a passing evaluator decision on that
-  observation. Polls and resets never resume work.
+  observation whose request started after it and that the gate applies (available, of the
+  expected identity and family), and a passing evaluator decision on that observation. Any other
+  observation uses the continuation up only when it is the continuation's own check. Polls and
+  resets never resume work.
 
 Process entry (a provider script loads this file and calls main(argv, make)):
     python3 -I -B PROVIDER_GATE --listen-fds A[,B...] --control-fd N [--monitor-fd N]
@@ -916,27 +921,43 @@ class Gate:
             at = observation.received_at
             if self.last_fresh is not None and at < self.last_fresh:
                 return "superseded"  # an older read answered late; newer data stands
-            answers = self._answers(at)
+            # Only an observation the gate applies below answers an armed continuation. A failed one,
+            # or one of another identity or family, proves nothing and leaves it armed for the read
+            # that answers it, unless it is the continuation's own check, which any answer uses up (a
+            # read the launcher drove for it ends with the launcher's disarm instead).
+            own = cause == "continuation"
             if not observation.ok:
+                if own:
+                    self._answers(at)
                 reason = observation.reason or "quota_unavailable"
                 if self._eligible and not self._shown:  # a held-back "passes" notice is stale now
                     self._eligible = False
                 decision = self._decide(Event("health", at, name="quota_unavailable", observation=observation))
                 self.emit("unavailable", cause=cause, reason=reason)
                 forced = observation.permanent or cause in ("rebind", "startup")
+                if cause == "rebind":
+                    self.lease = None  # a new bearer went unverified: the old one may be signed out
                 if forced or not decision.running:
                     self._pause(reason if forced else (decision.reason or reason), decision.fields)
                 return reason
             if observation.identity is None or observation.identity != self.provider.expected_identity:
+                if own:
+                    self._answers(at)
                 reason = ("identity_unattributed" if observation.identity is None else
                           "bearer_identity_mismatch" if cause == "rebind" else "identity_mismatch")
-                self._eligible = False
+                # The lease no longer proves the expected identity (another account signed in, or a
+                # read did not attribute the bearer): no poll may read the old bearer's quota or make
+                # the pause continuable with it, so only a read that proves the identity again binds.
+                self.lease, self._eligible = None, False
                 self._pause(reason, self._decide(Event("health", at, name=reason)).fields)
                 return reason
             if self.provider.family is not None and observation.family != self.provider.family:
+                if own:
+                    self._answers(at)
                 self._eligible = False
                 self._pause("unsupported_family", self._decide(Event("health", at, name="unsupported_family")).fields)
                 return "unsupported_family"
+            answers = self._answers(at)
             if answers:
                 self._decide(Event("continuation", self._answered))
             decision = self._decide(Event("observation", at, observation=observation))

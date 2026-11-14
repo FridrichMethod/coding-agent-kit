@@ -7,13 +7,15 @@ with an enabled reserve. In order (reviewed design, section 2.1):
    macOS release with sandbox-exec), an interactive terminal, the native arguments (an allowlist of
    the interactive forms of Claude Code 2.1.322, parsed as its option parser does; every subcommand,
    print, background, remote, cloud, resume and settings form refuses), the caller environment
-   (credential, provider, store, endpoint and proxy selectors), the native version (only the reviewed
-   2.1.322: a disclosed upper bound, since a new subcommand typed as a bare word looks like a prompt),
-   the working directory (never HOME, an ancestor of it or HOME/Library), and the policy evaluator
-   (policy.py) for the account's server-managed policy and the local settings sources, including a
-   machine that pins the sign-in organization (see Organization policy below);
+   (credential, provider, store, endpoint and proxy selectors), the working directory (never HOME, an
+   ancestor of it or HOME/Library), the policy evaluator (policy.py) for the account's server-managed
+   policy and the local settings sources, including a machine that pins the sign-in organization (see
+   Organization policy below), and the reach of the code that runs outside the boundary or that the
+   next launch runs (see Code run outside the boundary below);
 2. the port: the launcher becomes the child subreaper and holds a random loopback port (on macOS also
-   every interface address), then runs the macOS boundary self-test;
+   every interface address), then runs the macOS boundary self-test; then `claude --version` runs
+   confined, and only the reviewed 2.1.322 passes (a disclosed upper bound, since a new subcommand
+   typed as a bare word looks like a prompt);
 3. the D1 refresh: `claude auth status` runs confined behind a refresh gate that tunnels only
    platform.claude.com:443, so native renews its own token before model work when it is inside its
    five-minute refresh window (native renews it then only); it must exit 0, but its exit status does
@@ -52,9 +54,18 @@ the boundary's devices and, on macOS, Claude's fixed temporary directory), throu
 way (supervise.unreachable). The launcher itself runs before any check, as the python3 that
 bin/claude-as finds on PATH, started with -S so that no .pth file runs in it; the launch refuses when
 that python3, its prefixes or its module path lie in the same reach (launcher_sources), since a
-session could then replace them under the next launch. The native path is made absolute, so the
-version check, the refresh and the native resolve it once. While the run lasts the launcher's own PATH
-is the system directories (supervise.launcher_path); the native keeps the caller's.
+session could then replace them under the next launch. The native itself never runs outside: its
+version check, the refresh and the session all run confined. Its path is made absolute, so the three
+resolve it once, and the launch refuses when that path, any name on the way to it, its directory or an
+interpreter its #! line names (one `#!/usr/bin/env node` finds on the native's PATH included) lie in
+the same reach (native_sources): a session could replace it under the next launch, and every later
+unprotected one would run it unconfined. Programs run by name come from the first entry of the
+caller's PATH that holds them, so the launch also refuses when that entry, or one searched before it,
+for the dirname, readlink and python3 that bin/claude-as runs before any check (LAUNCHER_COMMANDS), for
+the claude key's command (when it is a name) or for a `#!/usr/bin/env` command could take a program a
+session plants or replaces: an empty or relative entry, or one in the same reach (path_order).
+While the run lasts the launcher's own PATH is the system directories (supervise.launcher_path); the
+native keeps the caller's.
 
 Proxy: the gate reaches the provider through the proxy Claude Code itself would use for HTTPS
 (gate_proxy: HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY), captured once; the native sees only the
@@ -69,8 +80,9 @@ directory or the entry with a link, and the launcher, outside the boundary, then
 Limits: a same-directory Claude session started meanwhile may be using that entry too, and when the
 entry existed before, what this invocation wrote inside it stays.
 
-A refusal raises ValueError with one line (launch.py prints it, exit 1); nothing ran under the
-boundary then. Afterwards launch() returns the native's exit status (or leaves by the native's signal).
+A refusal raises ValueError with one line (launch.py prints it, exit 1); the session never started
+then, and whatever the version check or the refresh started under the boundary has been ended.
+Afterwards launch() returns the native's exit status (or leaves by the native's signal).
 """
 
 from dataclasses import dataclass
@@ -82,7 +94,6 @@ import pwd
 import re
 import shutil
 import stat
-import subprocess
 import sys
 import tempfile
 import time
@@ -93,6 +104,15 @@ REVIEWED_VERSIONS = ("2.1.322",)
 VERSION_LINE = re.compile(r"([0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,6}) \(Claude Code\)")
 REFRESH_TIMEOUT = 30.0
 PREFLIGHT_TIMEOUT = 45.0
+VERSION_TIMEOUT = 20.0
+VERSION_LIMIT = 4096  # bytes of --version output kept
+SHEBANG_LIMIT = 256  # a #! line must end within this many bytes (Linux reads no more)
+SHEBANG = re.compile(r"[A-Za-z0-9_./=:+,@%-]+(?:[ \t]+[A-Za-z0-9_./=:+,@%-]+)*")
+INTERPRETER_DEPTH = 4  # nested #! lines followed
+# The programs bin/claude-as runs by name on the caller's PATH, before any check: python3, which runs
+# this module, and the shell utilities it resolves its own location with (readlink for each link on
+# the way to it; checked for every launch, since the next one may come through a link).
+LAUNCHER_COMMANDS = ("python3", "dirname", "readlink")
 REFRESH_TARGET = "platform.claude.com:443"
 # Interactive option forms of Claude Code 2.1.322 (S: its --help) that keep one terminal session
 # whose model requests all reach the gate, among those launch.py's own preflight audits (it runs first
@@ -147,6 +167,8 @@ REASONS = {
 GATE_MODULES = (HERE / "provider.py", HERE / "bearer.py", HERE / "native.py", KIT / "reserve.py", KIT / "monitor.py")
 CODE_HINT = ("; run claude-as with a Python and a kit installed outside the working directory, every --add-dir and the "
              "account directory")
+NATIVE_HINT = ("; run claude-as with a Claude Code installed outside the working directory, every --add-dir and the "
+               "account directory (the claude key of the kit configuration can name it), and its interpreter too")
 LAUNCHER_HINT = ("; start claude-as with a python3 outside the working directory, every --add-dir and the account "
                  "directory first on PATH (deactivate a workspace virtual environment)")
 
@@ -229,20 +251,159 @@ def screen_environment(env):
         refuse("environment selector " + ", ".join(found) + " (values hidden); unset it.")
 
 
-def native_version(executable, env):
-    try:
-        result = subprocess.run([executable, "--version"], env=env, stdin=subprocess.DEVNULL, capture_output=True,
-                                timeout=20, check=False)
-    except (OSError, subprocess.TimeoutExpired):
+def native_version(run):
+    """The reviewed version `claude --version` reports. run() -> (its exit code, or None when it did
+    not finish, and the start of its output) runs it inside the boundary (confined_version)."""
+    code, output = run()
+    if code is None:
         refuse("claude --version did not answer.")
-    match = VERSION_LINE.fullmatch(result.stdout.decode("utf-8", "replace").strip())
-    if result.returncode or not match:
+    match = VERSION_LINE.fullmatch(output.decode("utf-8", "replace").strip())
+    if code or not match:
         refuse("claude --version did not print a Claude Code version.")
     if match.group(1) not in REVIEWED_VERSIONS:
         refuse(f"Claude Code {match.group(1)} is not a version this kit release reviewed for protected mode "
                f"({', '.join(REVIEWED_VERSIONS)}); point the claude key at a reviewed version or launch without "
                "reserves.")
     return match.group(1)
+
+
+def confined_version(sup, executable, env, cwd):
+    """native_version's run(): `EXECUTABLE --version` once under the boundary (Supervisor.confined),
+    its output in an unnamed temporary file; whatever it started is swept."""
+    def run():
+        with tempfile.TemporaryFile() as output:
+            try:
+                code = sup.confined([executable, "--version"], env, VERSION_TIMEOUT, cwd=cwd, stdout=output.fileno())
+            finally:
+                sup.sweep()
+            output.seek(0)
+            return code, output.read(VERSION_LIMIT)
+    return run
+
+
+def _shebang(path):
+    """The (interpreter, argument) of PATH's #! line, split as the kernel splits it, or None for a
+    file without one (a binary). Refused when the line is not one this can follow."""
+    try:
+        with open(path, "rb") as stream:
+            head = stream.read(SHEBANG_LIMIT)
+    except OSError:
+        refuse(f"cannot read {path} to check what it runs.")
+    if not head.startswith(b"#!"):
+        return None
+    line, newline, _ = head[2:].partition(b"\n")
+    try:
+        text = line.decode("ascii").strip(" \t")
+    except UnicodeDecodeError:
+        text = ""
+    if not newline or not SHEBANG.fullmatch(text):
+        refuse(f"the #! line of {path} is not one protected mode can follow.")
+    interpreter, *argument = re.split(r"[ \t]+", text, maxsplit=1)
+    if not os.path.isabs(interpreter):
+        refuse(f"the #! line of {path} names an interpreter that is not an absolute path.")
+    return interpreter, "".join(argument)
+
+
+def _env_command(path, argument, env, searched):
+    """The command `#!/usr/bin/env ARGUMENT` (PATH's line) runs, looked up on the native's PATH as env
+    looks it up (its name is appended to SEARCHED). The -S form and NAME=VALUE words before the
+    command are followed; any other option, and a PATH=VALUE word (env would look the command up
+    there), refuses."""
+    words = argument.split()
+    if words and words[0] in ("-S", "--split-string"):
+        words = words[1:]
+    while words and "=" in words[0] and not words[0].startswith("-"):
+        if words[0].startswith("PATH="):
+            refuse(f"the #! line of {path} sets PATH for its command, which protected mode does not follow.")
+        words = words[1:]
+    if not words:
+        refuse(f"the #! line of {path} names no command.")
+    name = words[0]
+    if name.startswith("-"):
+        refuse(f"the #! line of {path} uses an env option protected mode does not follow.")
+    if "/" in name:
+        return os.path.abspath(name)
+    entry = path_search(name, env.get("PATH"))[1]
+    if entry is None:
+        refuse(f"the #! line of {path} names {name}, which is not on the native's PATH.")
+    searched.append(name)
+    return os.path.abspath(os.path.join(entry, name))
+
+
+def native_sources(executable, env, searched=None):
+    """(what, path, holds code) for everything that running EXECUTABLE runs, for supervise.unreachable:
+    the program by the name the launcher runs (every link on the way counts), the directory of its
+    real file (where an installation keeps the rest of its code) and, through nested #! lines, each
+    interpreter: an absolute one, or the command `#!/usr/bin/env NAME` finds on the native's PATH
+    (ENV's; each such NAME is appended to SEARCHED, for path_order). A protected session that could
+    replace one of them would have the next launch run it, and every unprotected one run it
+    unconfined, so protected mode refuses such a launch. The kit itself runs the native only under
+    the boundary (confined_version, the refresh and the session)."""
+    searched = [] if searched is None else searched
+    sources = [("the Claude Code program", executable, False),
+               ("the Claude Code directory", os.path.dirname(os.path.realpath(executable)), True)]
+    current = executable
+    for _ in range(INTERPRETER_DEPTH):
+        script = os.path.realpath(current)
+        line = _shebang(script)
+        if line is None:
+            return sources
+        current, argument = line
+        sources.append(("the Claude Code interpreter", current, False))
+        if os.path.basename(current) == "env":
+            current = _env_command(script, argument, env, searched)
+            sources.append(("the Claude Code interpreter", current, False))
+    if _shebang(os.path.realpath(current)) is None:
+        return sources
+    refuse(f"the #! line of {executable} leads through more than {INTERPRETER_DEPTH} interpreters.")
+
+
+def path_search(name, value):
+    """(the entries of the PATH value VALUE searched for the command NAME before the one that supplies
+    it, that entry or None) as the shell, shutil.which and env's execvp search it: in order, an empty
+    entry naming the working directory, the first entry holding an executable file NAME supplying it.
+    An unset PATH (None) is os.defpath."""
+    before = []
+    for entry in (os.defpath if value is None else value).split(os.pathsep):
+        candidate = os.path.join(entry or ".", name)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return before, entry
+        before.append(entry)
+    return before, None
+
+
+def path_order(supervise, name, value, writable_paths):
+    """supervise.Refused when an entry of the PATH value VALUE that a run of the command NAME searches
+    (path_search: the entries before the one that supplies it, and that one; every entry when none
+    does) could take a NAME a boundary process plants or replaces: an empty or relative entry, which
+    names the working directory or a path relative to wherever the run starts, or one where NAME, or a
+    name on the way to it (supervise.resolution, through links), lies inside WRITABLE_PATHS. The next
+    launch, or a plain run of NAME, would run that program outside the boundary. The reason names the
+    entry, never what it holds. The supplying entry counts by name, since the program check cannot
+    always see it: a python3 wrapper script there leaves sys.executable naming what the script execs."""
+    before, supplier = path_search(name, value)
+    searched = ("searched for %s before %s" % (name, supplier or "an empty entry") if supplier is not None
+                else "searched for %s, which no PATH entry holds" % name)
+    hint = ("; a protected session could put a %s there for the next launch to run outside the boundary; remove the "
+            "entry from PATH%s to launch with reserves"
+            % (name, "" if supplier is None else ", or move it after %s," % (supplier or "the empty entry")))
+    checks = [(entry, searched, hint) for entry in before]
+    if supplier is not None:
+        checks.append((supplier, "which supplies %s" % name, "; a protected session could replace that %s for the next "
+                       "launch to run outside the boundary; supply %s from a PATH entry outside every path the boundary "
+                       "can write to launch with reserves" % (name, name)))
+    for entry, role, advice in checks:
+        if not entry:
+            raise supervise.Refused("an empty PATH entry, %s, is the working directory, which the boundary can write%s"
+                                    % (role, advice))
+        if not os.path.isabs(entry):
+            raise supervise.Refused("the PATH entry %s, %s, is relative to the working directory, which the boundary "
+                                    "can write%s" % (entry, role, advice))
+        names = supervise.resolution(os.path.join(entry, name))
+        for root in writable_paths:
+            if any(supervise.within(found, root) for found in names):
+                raise supervise.Refused("the PATH entry %s, %s, lies inside %s, which the boundary can write%s"
+                                        % (entry, role, root, advice))
 
 
 def _inside(path, parent):
@@ -426,7 +587,6 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
         refuse("protected mode needs an interactive terminal for continuation.")
     screened = screen_arguments(args)
     screen_environment(env)
-    native_version(executable, env)
     identity = (record["identity"]["account_uuid"], record["identity"]["organization_uuid"])
     cwd = os.path.realpath(os.getcwd())
     judge_policy(policies.evaluate(paths.config, identity[1], cwd), paths)
@@ -447,10 +607,17 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
         # Nothing that kit processes outside the boundary load code from may be in its reach.
         python = supervise.interpreter()
         gate_env = {name: env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR") if env.get(name)}
+        # Nor the PATH entry that supplies a program run by name, or one searched before it: bin/claude-as's
+        # own commands, the claude key's command and each #!/usr/bin/env command (all on the caller's PATH).
+        searched = [*LAUNCHER_COMMANDS] + ([config.claude] if os.sep not in config.claude else [])
         try:
             supervise.unreachable(supervise.code_sources(python, gate_env, (HERE, KIT)),
                                   reach(writable, sandbox, uid, darwin), CODE_HINT)
             supervise.unreachable(launcher_sources(), reach(writable, sandbox, uid, darwin), LAUNCHER_HINT)
+            supervise.unreachable(native_sources(executable, env, searched), reach(writable, sandbox, uid, darwin),
+                                  NATIVE_HINT)
+            for name in searched:
+                path_order(supervise, name, env.get("PATH"), reach(writable, sandbox, uid, darwin))
         except supervise.Refused as error:
             refuse(error.reason + ".")
         settings = {"sandbox": {"enabled": False}, "remoteControlAtStartup": False}
@@ -481,8 +648,10 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                         expires = (status.get("fields") or {}).get("token_expires")
                         if isinstance(expires, str):
                             notice(f"claude-as: the account's access token expires at {expires}, and Claude Code "
-                                   "cannot renew it inside protected mode; unless another session of this account "
-                                   "renews it, relaunch before then.")
+                                   "cannot renew it inside protected mode, so model requests stop then unless another "
+                                   "session of this account renews it first; to go on after that, exit and launch "
+                                   "again, whose pre-launch refresh renews the token within its last five minutes or "
+                                   "once it expired.")
                         return
                     fields = status.get("fields") or {}
                     raise supervise.Refused("%s (%s)" % (fields.get("message") or explain(status.get("reason")),
@@ -510,6 +679,7 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                               no_proxy="127.0.0.1", TMPDIR=private_tmp, CLAUDE_DISABLE_ADOPT="1")
             for name in ("ANTHROPIC_BASE_URL", "CODING_AGENT_KIT_USAGE_FILE"):
                 native_env.pop(name, None)
+            native_version(confined_version(sup, executable, native_env, cwd))
             code = sup.refresh([executable, "auth", "status"], native_env, timeout=REFRESH_TIMEOUT, cwd=cwd)
             if code != 0:
                 refuse(f"the pre-launch native refresh (claude auth status) failed ({'timeout' if code is None else code});"

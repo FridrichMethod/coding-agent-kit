@@ -786,6 +786,46 @@ class Rotation(unittest.TestCase):
                   if dict(r["headers"]).get("Authorization") == "Bearer " + fakes.BEARER_B]
         self.assertEqual(bodies, [])
 
+    def test_an_identity_pause_drops_the_lease_so_no_poll_reads_the_old_bearer(self):
+        """After another identity's bearer (or an unattributed read) pauses, the old lease proves
+        nothing: it is dropped, a poll with its bearer (even one in flight before) is superseded and
+        never makes the pause continuable, and only a read that proves the expected identity again
+        binds a lease."""
+        clock = Clock()
+        h = Harness(self, clock=clock, notice_every=0.01)
+        h.ready()
+        old = h.gate.lease.presented
+        in_flight = clock()  # a poll with the lease's bearer, started before the pause
+        self.assertEqual(h.request("POST", "/model", auth(fakes.BEARER_B), MODEL_BODY)[0], 503)
+        self.assertIsNone(h.gate.lease)
+        late = gate.Observation(in_flight, True, identity=tuple(fakes.IDENTITY_A), data={"five_hour": 10, "weekly": 20})
+        self.assertEqual(h.gate.observe(old, late, "poll"), "superseded")
+        self.assertEqual(h.gate.check(old, "poll"), "superseded")
+        clock.advance(1)
+        h.gate.heartbeat()
+        h.gate.tick()
+        self.assertEqual(h.gate.status()["reason"], "bearer_identity_mismatch")
+        self.assertNotIn("notice", [note["op"] for note in h.notes])
+        unattributed = gate.Observation(clock(), True, identity=None, data={"five_hour": 10, "weekly": 20})
+        self.assertEqual(h.gate.observe(old, unattributed, "forwarded"), "identity_unattributed")
+        self.assertIsNone(h.gate.lease)
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 200)  # the native's own read proves A again
+        self.assertTrue(h.gate.lease.secret.matches(gate.Secret(fakes.BEARER_A)))
+        self.assertEqual(h.gate.status()["reason"], "awaiting_continuation")
+
+    def test_a_failed_rebind_drops_the_lease_too(self):
+        """A new bearer whose rebind read fails is unresolved, and the old one may be signed out, so
+        the lease goes as with an identity pause."""
+        h = Harness(self)
+        h.ready()
+        old = h.gate.lease.presented
+        h.upstream.usage_status = 500
+        self.assertEqual(h.request("POST", "/model", auth(fakes.BEARER_B), MODEL_BODY)[0], 503)
+        self.assertEqual(h.gate.status()["reason"], "http_500")
+        self.assertIsNone(h.gate.lease)
+        h.upstream.usage_status = 200
+        self.assertEqual(h.gate.check(old, "poll"), "superseded")
+
     def test_concurrent_requests_share_one_rebind_read(self):
         h = Harness(self)
         h.ready()
@@ -1004,15 +1044,52 @@ class Continuation(unittest.TestCase):
         self.assertEqual(notices(), [(True, "awaiting_continuation")])
 
     def test_a_failed_check_uses_up_the_continuation(self):
+        """The continuation's own failed check uses it up (the gate's check, or the launcher's disarm
+        after a read it drove failed); a later passing read resumes nothing."""
+        h = Harness(self, holds_bearer=True)
+        h.ready()
+        h.gate.latch("threshold")
+        h.upstream.usage_status = 500
+        self.assertEqual(h.gate.arm_continuation(), {"ok": False, "reason": "http_500"})
+        self.assertFalse(h.gate.status()["armed"])
+        h.upstream.usage_status = 200
+        h.gate.poll()
+        self.assertEqual(h.gate.status()["state"], "paused")
         h = Harness(self)
         h.ready()
         h.gate.latch("threshold")
         h.gate.arm_continuation()
         h.upstream.usage_status = 500
         h.request("GET", "/usage", auth())
+        h.gate.disarm()
         h.upstream.usage_status = 200
         h.request("GET", "/usage", auth())
         self.assertEqual(h.gate.status()["state"], "paused")
+
+    def test_a_failed_read_that_is_not_the_continuations_leaves_it_armed(self):
+        """A poll or the native's own usage read that started after arming and failed proves nothing,
+        so the continuation stays armed for the read that answers it."""
+
+        class Racing(fakes.FakeProvider):
+            def continue_check(self, gate_):  # a poll that started after arming fails and lands first
+                gate_.observe(gate_.lease.presented, gate.Observation(gate_.clock(), False, reason="timeout"), "poll")
+                return super().continue_check(gate_)
+
+        upstream = fakes.FakeUpstream()
+        h = Harness(self, upstream=upstream, provider=Racing(upstream.port, holds_bearer=True))
+        h.ready()
+        h.gate.latch("threshold")
+        self.assertEqual(h.gate.arm_continuation(), {"ok": True, "reason": "resumed"})
+        h = Harness(self)
+        h.ready()
+        h.gate.latch("threshold")
+        h.gate.arm_continuation()
+        h.upstream.usage_status = 503
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 503)  # the native's own read, failing
+        self.assertTrue(h.gate.status()["armed"])
+        h.upstream.usage_status = 200
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 200)  # the read the launcher drove
+        self.assertEqual(h.gate.status()["state"], "running")
 
     def test_restarted_gate_starts_paused_and_needs_a_heartbeat(self):
         h = Harness(self, mode="restart", holds_bearer=True)
