@@ -483,6 +483,28 @@ class OutsideCommands(unittest.TestCase):
         self.assertIn("the #! line of the interpreter %s of the X runs /usr/bin/env in a form protected mode does not "
                       "follow" % inner, self.refused(supervise.native_sources, script, env, "the X"))
 
+    @unittest.skipIf(os.geteuid() == 0, "root reads every file")
+    def test_an_unreadable_file_on_the_way_refuses_and_a_missing_one_stays_listed(self):
+        """The kernel runs the interpreter of an execute-only #! script without the user's read
+        permission, so an existing file the check cannot read could hide its own interpreter: it
+        refuses at any level, the native itself included, as claude-as refuses it. A missing path has
+        nothing to hide; it stays listed, and its reach is checked."""
+        base = self.scratch()
+        script, outer = base / "script", base / "outer"
+        script.write_text("#!%s\n" % outer)
+        outer.write_text("#!/bin/sh\n")
+        for path in (outer, script):
+            with self.subTest(path=path):
+                path.chmod(0o111)
+                try:
+                    self.assertEqual("cannot read %s to check what it runs" % path,
+                                     self.refused(supervise.native_sources, script, {}, "the X"))
+                finally:
+                    path.chmod(0o644)
+        script.write_text("#!%s/absent\n" % base)
+        self.assertEqual(supervise.native_sources(script, {}, "the X")[-1],
+                         ("the interpreter of the X", str(base / "absent"), False))
+
     def test_path_entries_searched_before_a_commands_supplier_must_lie_out_of_reach(self):
         """A PATH entry the boundary can write that a lookup searches before the entry supplying the
         command would let a protected session plant a file of that name, which the next lookup outside

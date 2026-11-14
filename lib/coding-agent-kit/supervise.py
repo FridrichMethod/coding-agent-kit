@@ -426,14 +426,15 @@ def script_interpreter(path):
     """(interpreter, NAME) of the #! script at PATH: the interpreter its #! line names, as written
     (a relative one too, which native_sources refuses) and, when that is an absolute env, the
     command NAME it runs, which env looks up on its PATH; (None, None) when PATH is no such script
-    or cannot be read. The env forms followed are `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]`
-    (-S also attached), split at blanks as macOS splits the line and as -S splits it on Linux;
-    Unfollowed for any other option (-i, -u, -C, -P and the rest can change where or whether env
-    looks NAME up), a PATH assignment, quoting or no plain NAME."""
+    or does not exist. OSError when an existing PATH cannot be read. The env forms followed are
+    `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]` (-S also attached), split at blanks as macOS
+    splits the line and as -S splits it on Linux; Unfollowed for any other option (-i, -u, -C, -P
+    and the rest can change where or whether env looks NAME up), a PATH assignment, quoting or no
+    plain NAME."""
     try:
         with open(path, "rb") as stream:
             head = stream.read(256)
-    except OSError:
+    except (FileNotFoundError, NotADirectoryError):
         return None, None
     if not head.startswith(b"#!"):
         return None, None
@@ -461,8 +462,10 @@ def native_sources(path, env, what="the native", searched=None):
     protected session that could replace one of them, or a link on the way, would have the next
     unprotected run of the native execute its code unconfined, so an adapter refuses when one lies in
     the boundary's reach (unreachable). Refused for a relative interpreter, which the kernel looks up
-    from the working directory, an env line script_interpreter does not follow, and more nested
-    interpreters than INTERPRETER_DEPTH."""
+    from the working directory, an env line script_interpreter does not follow, more nested
+    interpreters than INTERPRETER_DEPTH, and an existing file on the way that cannot be read: the
+    kernel runs the interpreter of an execute-only #! script, which would stay hidden. A missing
+    path ends the walk; it is listed, so its reach is checked."""
     searched = [] if searched is None else searched
     sources, current, shown = [(what, str(path), False)], str(path), what
     for level in range(INTERPRETER_DEPTH + 1):
@@ -471,6 +474,8 @@ def native_sources(path, env, what="the native", searched=None):
         except Unfollowed as error:
             raise Refused("the #! line of %s runs %s in a form protected mode does not follow (use "
                           "`#!%s NAME` or `#!%s -S NAME ARGS`)" % (shown, error, error, error)) from None
+        except OSError:
+            raise Refused("cannot read %s to check what it runs" % current) from None
         if interpreter is None:
             return sources
         if level == INTERPRETER_DEPTH:

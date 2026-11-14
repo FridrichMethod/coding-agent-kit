@@ -1749,6 +1749,25 @@ class Unprotected(unittest.TestCase):
                 self.assertFalse(mark.exists())
                 self.assertEqual(self.home.events(), [])
 
+    @unittest.skipIf(os.geteuid() == 0, "root reads every file")
+    def test_an_unreadable_interpreter_of_the_native_refuses_before_anything_runs(self):
+        """The kernel runs the interpreter of an execute-only #! script without the user's read
+        permission, so one the check cannot read could hide an interpreter in the boundary's reach:
+        it refuses, as claude-as refuses it. Nothing runs."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        outer = self.home.base / "outer"
+        outer.write_text("#!%s\n" % (self.home.work / "fakepython"))
+        outer.chmod(0o111)
+        self.addCleanup(outer.chmod, 0o700)
+        (self.home.bin / "codex").write_text("#!%s\n" % outer + (FIXTURES / "fake_codex.py").read_text())
+        result = self.home.run(["--reserve-5h", "10", "A"], env={"FAKE_VERSION_MARK": str(mark)})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("usage reserve protection refused: " + (missing or "cannot read %s to check what it runs. "
+                      % outer), result.stderr)
+        self.assertFalse(mark.exists())
+        self.assertEqual(self.home.events(), [])
+
     def test_shared_state_replaced_by_a_link_refuses_before_anything_runs(self):
         """A shared entry beneath codex_home that became a link (a protected session on macOS can do
         that; planted from outside here, so it runs on every platform) would put the link's target in
