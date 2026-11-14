@@ -946,7 +946,7 @@ REFRESH_LOCK_WAIT = REFRESH_TIMEOUT + 10.0  # another launch's refresh ends with
 READ_TIMEOUT = 45.0       # a reader allows native's bundle retries (D14: up to 40 s if it stalls)
 VERSION_TIMEOUT = 20.0
 VERSION_LIMIT = 4096
-CONTINUE_TIMEOUT = 25.0   # a continuation read must answer within the 30 s continuation window
+CONTINUE_READ_TIMEOUT = 25.0  # a continuation read must answer within the 30 s continuation window
 MAX_AGE = 120.0
 HEARTBEAT_MAX = 1.5
 
@@ -1240,7 +1240,7 @@ class Session:
                 tested = self.sandbox.self_test(port, paths, "codex", python=python)
                 refresh_tested = self.sandbox.self_test(port, refresh_paths, "codex", python=python)
             read_spec = self.spec("read", port, "read", READ_TIMEOUT)
-            continue_spec = self.spec("continue", port, "read", CONTINUE_TIMEOUT)
+            continue_spec = self.spec("continue", port, "read", CONTINUE_READ_TIMEOUT)
             poll_spec = self.spec("poll", port, "read", READ_TIMEOUT)
             refresh_spec = self.spec("refresh", port, "refresh", REFRESH_TIMEOUT)
             reader = [python, "-I", "-B", str(READER)]
@@ -1287,7 +1287,7 @@ class Session:
                     raise supervise.Refused(explain(reason, status.get("fields")) + detail)
 
             def continue_read():
-                return sup.confined(reader + [continue_spec], self.reader_env(port), timeout=CONTINUE_TIMEOUT + 5,
+                return sup.confined(reader + [continue_spec], self.reader_env(port), timeout=CONTINUE_READ_TIMEOUT + 5,
                                     cwd=str(self.cwd)) == 0
 
             sup.preflight, sup.reader = preflight, continue_read
