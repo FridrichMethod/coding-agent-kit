@@ -91,11 +91,34 @@ class Screen(unittest.TestCase):
     def test_interactive_forms_pass_and_lose_their_no_daemon(self):
         self.assertEqual(protect.screen(["-m", "gpt-5.5", "fix it", "--no-daemon", "-cmodel_reasoning_effort=high",
                                          "-C", "/w", "--image=a.png", "--no-alt-screen", "--", "resume"], NATIVE),
-                         ["-m", "gpt-5.5", "fix it", "-cmodel_reasoning_effort=high", "-C", "/w", "--image=a.png",
-                          "--no-alt-screen", "--", "resume"])
+                         ["-m", "gpt-5.5", "-cmodel_reasoning_effort=high", "-C", "/w", "--image=a.png",
+                          "--no-alt-screen", "--", "fix it", "resume"])
         self.assertEqual(protect.screen([], NATIVE), [])
         self.assertEqual(protect.screen(["--model=gpt-6-sol", "-c=model=gpt-5.5"], NATIVE),
                          ["--model=gpt-6-sol", "-c=model=gpt-5.5"])
+
+    def test_prompt_words_go_after_a_double_dash_so_no_release_runs_one_as_a_subcommand(self):
+        """clap runs a bare word that names a subcommand as that subcommand, and a newer release may add
+        one the tables do not list; after `--` every word is the prompt in every release (N: codex
+        0.167.2 and 0.169.0 run `codex help` as help and `codex -- help` as the TUI). The options keep
+        their order before it, and -i/--image takes every following word that is no option, as clap
+        does (an attached value is one word)."""
+        for args, forwarded in (
+                (["fix"], ["--", "fix"]),
+                (["future-subcommand", "-m", "gpt-5.5"], ["-m", "gpt-5.5", "--", "future-subcommand"]),
+                (["-i", "a.png", "b.png", "-m", "gpt-5.5", "go"], ["-i", "a.png", "b.png", "-m", "gpt-5.5", "--", "go"]),
+                (["--image", "a.png", "b.png"], ["--image", "a.png", "b.png"]),
+                (["-ia.png", "b.png"], ["-ia.png", "--", "b.png"]),
+                (["-i=a.png", "b.png"], ["-i=a.png", "--", "b.png"]),
+                (["--image=a.png", "b.png"], ["--image=a.png", "--", "b.png"]),
+                (["--", "-x", "--"], ["--", "-x", "--"]),
+                (["-C", "/w", "--", "fix", "--no-alt-screen"], ["-C", "/w", "--", "fix", "--no-alt-screen"])):
+            with self.subTest(args=args):
+                self.assertEqual(protect.screen(args, NATIVE), forwarded)
+                self.assertEqual(protect.screen(forwarded, NATIVE), forwarded)  # the launcher screens twice
+        for args in (["-i", "a.png", "resume"], ["--image", "a.png", "fork"], ["-i"], ["-i", "-m", "gpt-5.5"]):
+            with self.subTest(args=args):
+                refused(protect.screen, args, NATIVE)
 
     def test_scan_names_the_model_the_arguments_select(self):
         self.assertEqual(protect.scan(["-m", "gpt-5.5", "fix it"], NATIVE)[1], "gpt-5.5")
@@ -617,6 +640,39 @@ class Requirements(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(self.blockers(text), {reason})
         self.assertEqual(self.blockers(config=("[features]\nuse_agent_identity = true\n",)), {"agent_identity"})
+
+    def test_a_requirement_key_outside_the_reviewed_set_refuses(self):
+        """Native's requirements document has 46 keys (codex-rs ConfigRequirementsToml, S: the same at
+        0.167.2 and 0.169.0) and ignores others; a newer release may honor a key the kit has not
+        reviewed, so any other key refuses (fail closed), in a bundle and a local document alike. The
+        local refusal names the keys (printable, cut short); a value never shows."""
+        names = ("config_server allowed_login_methods allowed_chatgpt_workspaces cli_auth_credentials_store "
+                 "chatgpt_base_url sqlite_home unsafe_enforce_sqlite_journal_mode log_dir model_catalog_json "
+                 "model_provider model_providers check_for_update_on_startup allow_login_shell feedback "
+                 "allowed_approval_policies allowed_approvals_reviewers allowed_sandbox_modes "
+                 "allowed_permission_profiles default_permissions remote_sandbox_config allowed_web_search_modes "
+                 "allow_managed_hooks_only allow_browser_and_computer_use allow_appshots allow_remote_control "
+                 "computer_use browser_use in_app_browser windows features hooks mcp_servers plugins marketplaces otel "
+                 "apps rules enforce_residency network_proxy application permissions auto_review models "
+                 "additional_developer_instructions guardian_policy_config guardian_extra_policy").split()
+        self.assertEqual(len(names), 46)
+        self.assertEqual(protect.REQUIREMENT_KEYS, frozenset(names) | {"feature_requirements", "experimental_network"})
+        for name in sorted(protect.REQUIREMENT_KEYS):
+            with self.subTest(name=name):
+                self.assertNotIn("unreviewed_requirement", protect.blockers({name: {}}, self.sqlite, cloud=False))
+        for text in ("future_requirement = true\n", "[future_table]\nx = 1\n",
+                     'allowed_sandbox_modes = ["danger-full-access"]\nfuture_requirement = "secret-value"\n'):
+            with self.subTest(text=text):
+                self.assertEqual(self.blockers(text), {"unreviewed_requirement"})
+        with tempfile.TemporaryDirectory() as temp:
+            system, home = Path(temp) / "requirements.toml", Path(temp) / "account"
+            home.mkdir()
+            system.write_text('future_requirement = "secret-value"\n"odd key\\u0007" = 1\n')
+            with mock.patch.object(protect, "SYSTEM_REQUIREMENTS", system):
+                message = refused(protect.requirement_check, home, self.sqlite)
+        self.assertIn("set a key this kit release has not reviewed, which a newer Codex may honor", message)
+        self.assertIn("%s sets future_requirement, odd?key?" % system, message)
+        self.assertNotIn("secret-value", message)
 
     def test_unreadable_bundles_refuse(self):
         for document in (None, [], {"requirements_toml": []}, {"requirements_toml": {"enterprise_managed": {}}},
@@ -1980,7 +2036,8 @@ class Protected(Launch):
     """Whole protected launches with the fake codex."""
 
     def test_a_model_free_start_then_turns_and_the_native_exit_status(self):
-        terminal = self.start(env={"FAKE_EXIT": "7"})
+        terminal = self.start(args=("--reserve-5h", "10", "--reserve-weekly", "10", "A", "first prompt"),
+                              env={"FAKE_EXIT": "7"})
         terminal.expect("usage reserves for A: five-hour 10% \\(--reserve-5h\\), weekly 10% \\(--reserve-weekly\\)")
         terminal.expect("READY")
         self.assertEqual(self.models(), [])
@@ -2001,6 +2058,7 @@ class Protected(Launch):
         self.assertEqual(self.exit_code(), 7)
         (tui,) = self.home.events("tui")
         self.assertEqual(tui["argv"].count("--no-daemon"), 1)
+        self.assertEqual(tui["raw"][-2:], ["--", "first prompt"])  # a prompt word never names a subcommand
         self.assertEqual(tui["env_proxy"], [])
         self.assertNotEqual(tui["tmpdir"], str(self.home.tmp))
         self.assertFalse(Path(tui["tmpdir"]).exists())

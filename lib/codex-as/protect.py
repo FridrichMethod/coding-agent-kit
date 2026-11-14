@@ -8,7 +8,8 @@ before any protection: they are the same for every login and send no model reque
 subcommand refuses.
 
 Refusals come first and change nothing (Session.check): the arguments an allowlisted interactive
-TUI form, parsed like clap 0.167.2 (screen); the environment may name no other endpoint; the host
+TUI form, parsed like clap 0.167.2, forwarded with the prompt after `--`, so that no release runs a
+prompt word as a subcommand (screen); the environment may name no other endpoint; the host
 must carry the OS boundary; no name on the way to the native executable (or to an interpreter its
 nested #! lines name, four levels deep) may lie in the boundary's reach, nor that reach inside the
 directory of the real codex file, where an installation keeps the rest of its code, since a session
@@ -125,8 +126,9 @@ class Native:
     subcommands: frozenset   # every subcommand name and alias, hidden ones and clap's help included
     long_flags: frozenset    # accepted options without a value
     short_flags: frozenset
-    long_values: frozenset   # accepted options that take one value
+    long_values: frozenset   # accepted options that take a value
     short_values: frozenset
+    variadic: frozenset      # ... of those, the ones that also take the following words (clap num_args 1..)
     refused: frozenset       # known options refused with their own message
     models: frozenset        # model slugs that draw from the codex quota family
     plans: frozenset         # plan_type values whose codex windows protected mode governs
@@ -152,6 +154,7 @@ V0_167_2 = Native(
     short_flags=frozenset({"-h", "-V"}),
     long_values=frozenset({"--config", "--model", "--cd", "--image"}),
     short_values=frozenset({"-c", "-m", "-C", "-i"}),
+    variadic=frozenset({"--image", "-i"}),
     refused=frozenset({
         "--remote", "--remote-auth-token-env", "--oss", "--local-provider", "-p", "--profile", "--enable",
         "--disable", "-s", "--sandbox", "-a", "--ask-for-approval", "--search", "--approve-for-me",
@@ -218,19 +221,33 @@ def scan(args, native):
     """(the arguments screen() forwards, the model they select or None), or Refused.
 
     An allowlist parsed like clap: `--name value`, `--name=value`, `-Xvalue` and `-X=value` for
-    options with a value; a value from the next word never starts with '-'; before `--` every bare
-    word that names a subcommand refuses, also after an option value or a prompt word (clap would
-    run it), and so does a subcommand name given as an option value (stricter than clap)."""
-    index, dashes, kept, chosen = 0, False, [], None
+    options with a value; a value from the next word never starts with '-', and a variadic option
+    given without an attached value takes every following word that does not either; before `--`
+    every bare word that names a subcommand refuses, also after an option value or a prompt word
+    (clap would run it), and so does a subcommand name given as an option value (stricter than clap).
+    The options are forwarded in their order, then `--` and the prompt words (every bare word, and
+    every word after the caller's own `--`): after `--` clap runs no subcommand, so a word that names
+    one only a newer release has stays the prompt (N: 0.167.2 and 0.169.0 run `codex -- help` as
+    the TUI)."""
+    index, dashes, kept, prompt, chosen = 0, False, [], [], None
+
+    def next_is_value():
+        return index < len(args) and not (args[index].startswith("-") and args[index] != "-")
 
     def value_of(name, attached):
         nonlocal index
         if attached is not None:
             return attached
-        if index >= len(args) or (args[index].startswith("-") and args[index] != "-"):
+        if not next_is_value():
             refuse(f"{name} needs a value")
         index += 1
         return args[index - 1]
+
+    def more_of(name, attached):
+        nonlocal index
+        while attached is None and name in native.variadic and next_is_value():
+            index += 1
+            check(name, args[index - 1])
 
     def check(name, value):
         nonlocal chosen
@@ -253,11 +270,10 @@ def scan(args, native):
         word = args[index]
         index += 1
         if dashes:
-            kept.append(word)
+            prompt.append(word)
             continue
         if word == "--":
             dashes = True
-            kept.append(word)
             continue
         if word.startswith("--"):
             name, equals, attached = word.partition("=")
@@ -271,8 +287,9 @@ def scan(args, native):
                 continue
             if name not in native.long_values:
                 refuse(f"protected mode does not accept the option {shown(name)}")
-            start = index
-            check(name, value_of(name, attached if equals else None))
+            start, attached = index, attached if equals else None
+            check(name, value_of(name, attached))
+            more_of(name, attached)
             kept.extend(args[start - 1:index])
             continue
         if word.startswith("-") and word != "-":
@@ -286,14 +303,15 @@ def scan(args, native):
                 continue
             if name not in native.short_values:
                 refuse(f"protected mode does not accept the option {shown(name)}")
-            start = index
-            check(name, value_of(name, (rest[1:] if rest.startswith("=") else rest) if rest else None))
+            start, attached = index, (rest[1:] if rest.startswith("=") else rest) if rest else None
+            check(name, value_of(name, attached))
+            more_of(name, attached)
             kept.extend(args[start - 1:index])
             continue
         if word in native.subcommands:
             refuse(f"protected mode runs only the interactive TUI, not codex {word}")
-        kept.append(word)
-    return kept, chosen
+        prompt.append(word)
+    return kept + (["--", *prompt] if prompt else []), chosen
 
 
 def shown(word):
@@ -359,6 +377,20 @@ def last_refresh(raw):
 CLOUD_IGNORED = ("allowed_login_methods", "allowed_chatgpt_workspaces", "cli_auth_credentials_store",
                  "chatgpt_base_url")
 ALIASES = (("feature_requirements", "features"), ("experimental_network", "network_proxy"))
+# Every top-level key of a requirements document native reads (codex-rs config_requirements.rs,
+# ConfigRequirementsToml, S: the same 46 at 0.167.2 and 0.169.0), with the two aliases. Native ignores
+# any other key, but a newer release may honor one the kit has not reviewed, so another key refuses.
+REQUIREMENT_KEYS = frozenset((
+    "config_server", "allowed_login_methods", "allowed_chatgpt_workspaces", "cli_auth_credentials_store",
+    "chatgpt_base_url", "sqlite_home", "unsafe_enforce_sqlite_journal_mode", "log_dir", "model_catalog_json",
+    "model_provider", "model_providers", "check_for_update_on_startup", "allow_login_shell", "feedback",
+    "allowed_approval_policies", "allowed_approvals_reviewers", "allowed_sandbox_modes", "allowed_permission_profiles",
+    "default_permissions", "remote_sandbox_config", "allowed_web_search_modes", "allow_managed_hooks_only",
+    "allow_browser_and_computer_use", "allow_appshots", "allow_remote_control", "computer_use", "browser_use",
+    "in_app_browser", "windows", "features", "hooks", "mcp_servers", "plugins", "marketplaces", "otel", "apps", "rules",
+    "enforce_residency", "network_proxy", "application", "permissions", "auto_review", "models",
+    "additional_developer_instructions", "guardian_policy_config", "guardian_extra_policy",
+    "feature_requirements", "experimental_network"))
 APPLICATION_KEYS = frozenset(("network", "storage"))
 NETWORK_KEYS = frozenset(("enabled", "domains"))
 # Features overrides() turns off; a requirement that forces one on conflicts. respect_system_proxy
@@ -391,6 +423,8 @@ BLOCKERS = {
     "pins_feature": "the account's managed requirements force on a feature protected mode turns off",
     "agent_identity": "the account's managed configuration enables agent identity, which replaces the login",
     "requirements_unreadable": "the account's managed requirements cannot be read or parsed",
+    "unreviewed_requirement": "the account's managed requirements set a key this kit release has not reviewed, "
+                              "which a newer Codex may honor",
     "managed_config": "the managed configuration (managed_config.toml or MDM config_toml_base64), which "
                       "overrides command-line settings, sets what protected mode must set itself",
 }
@@ -444,7 +478,7 @@ def network_state(table):
 
 def blockers(table, sqlite_home, cloud):
     """Reasons (BLOCKERS keys) why one composed requirements table forbids protected mode."""
-    found = set()
+    found = {"unreviewed_requirement"} if unreviewed(table) else set()
     state = network_state(table)
     if state == "invalid":
         found.add("requirements_unreadable")
@@ -484,6 +518,11 @@ def blockers(table, sqlite_home, cloud):
             if features.get("use_agent_identity") is True:
                 found.add("agent_identity")
     return found
+
+
+def unreviewed(table):
+    """The top-level keys of a requirements table outside REQUIREMENT_KEYS, for a message (shown)."""
+    return sorted(shown(str(name)) for name in table if name not in REQUIREMENT_KEYS)
 
 
 def toml_document(text):
@@ -679,9 +718,11 @@ def requirement_check(account_home, sqlite_home, identity=None):
     is ignored as native ignores it (native then fetches the bundle through the gate, which checks
     it again); a current one is what native will run under, without a fetch."""
     found, notes = set(), []
-    for _, table in local_requirements():
+    for where, table in local_requirements():
         layer = requirement_layer(table, cloud=False)
         found |= {"requirements_unreadable"} if layer is None else blockers(layer, sqlite_home, cloud=False)
+        if unreviewed(table):
+            notes.append("%s sets %s" % (where, ", ".join(unreviewed(table))))
     forced = forced_settings(sqlite_home)
     for where, table in managed_configs():
         keys = managed_conflicts(table, forced)
