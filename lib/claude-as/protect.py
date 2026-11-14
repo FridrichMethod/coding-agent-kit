@@ -668,9 +668,12 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                                    "session of this account renews it first; to go on after that, exit and launch "
                                    "again, whose pre-launch refresh renews the token within its last five minutes or "
                                    "once it expired.")
-                        for line in family_notices(status.get("families")):
+                        # The families named here are those the supervisor counts as shown: one the gate
+                        # pauses after this read still gets the gate's own line.
+                        families = status.get("families") if isinstance(status.get("families"), dict) else {}
+                        for line in family_notices(families):
                             notice(line)
-                        return
+                        return families
                     fields = status.get("fields") or {}
                     raise supervise.Refused("%s (%s)" % (fields.get("message") or explain(status.get("reason")),
                                                          status.get("reason")))

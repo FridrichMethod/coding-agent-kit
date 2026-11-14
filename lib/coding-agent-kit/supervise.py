@@ -58,7 +58,10 @@ one-use code; typing it and Enter asks the gate for a fresh check, which answers
 once. With no pause the key reaches the native. Input typed before a pause is flushed (a family
 pause flushes nothing: the session runs), a bracketed paste never confirms, native output never
 reaches this parser, and nothing but terminal input starts a check. Each family pause gets its own
-deterministic line (family_pause_message), and its lift a line of its own.
+deterministic line (family_pause_message), and its lift a line of its own. The check runs in the
+relay loop, so while it waits for the gate's answer (normally well under a second, at most
+CONTINUE_TIMEOUT) the native's output, forwarded input and relayed signals wait too, the session's
+also when only a family is paused and the session runs.
 """
 
 import collections
@@ -717,16 +720,17 @@ def eligible_message(fields, key="F12"):
     return "; ".join(parts)
 
 
-def family_pause_message(family, reason, fields, key="F12"):
+def family_pause_message(family, reason, fields, key="F12", running=True):
     """The deterministic local line for a model family paused alone: family, reason, account, last
-    fresh observation, and how to request continuation; the session and the other families go on."""
+    fresh observation, whether the session and the other families go on (RUNNING) or the session is
+    paused too, and how to request continuation."""
     fields = fields or {}
     parts = ["quota reserve paused the %s model family (%s)" % (family, reason)]
     if fields.get("account") is not None:
         parts.append("account " + _value(fields["account"]))
     if fields.get("last_fresh") is not None:
         parts.append("last fresh check " + _value(fields["last_fresh"]))
-    parts.append("the other model families go on")
+    parts.append("the session and the other model families go on" if running else "the session is paused too")
     parts.append("press %s, then type the code shown and Enter, to request a fresh check" % key)
     return "; ".join(parts)
 
@@ -873,7 +877,9 @@ class Supervisor:
         anything that talks to the provider.
     reader: callable() -> bool that drives one fresh in-boundary read when a continuation needs it.
     preflight: callable(supervisor) run after the first heartbeat, before the native; may raise
-        Refused. The gate must then report running.
+        Refused. The gate must then report running. It may return the model families ({family:
+        reason}) its startup message named paused, from its own status read; a family paused after
+        that read then still gets its line.
     confine: callable(port, argv) -> argv, run in the native's child before exec.
     pid_env: name of an environment variable set to the native's own pid in its child.
     umask: None, or the file mode creation mask the native and every confined command get, set in
@@ -1311,7 +1317,10 @@ class Supervisor:
             if self._family(family, reason):
                 if self.families.get(family) != reason:  # not shown yet (the startup message names some)
                     self.families[family] = reason
-                    self.say(family_pause_message(family, reason, message.get("fields"), self.key_name))
+                    session = message.get("session")  # the gate's view once the same reading applied
+                    running = (session == "running" if session in ("running", "paused")
+                               else self.ui is None or not self.ui.paused)
+                    self.say(family_pause_message(family, reason, message.get("fields"), self.key_name, running))
                 self._offer()
         elif op == "family_resumed":
             family = message.get("family")
@@ -1678,14 +1687,16 @@ class Supervisor:
             self.prepare()
             self.start_gate("startup")
             status = self.wait_heard()
+            announced = None
             if self.preflight is not None:
-                self.preflight(self)
+                announced = self.preflight(self)
                 status = self.request("status", 10)
             if not status.get("running"):
                 raise Refused("preflight: %s" % (status.get("reason") or "no fresh passing quota check"))
-            # Families paused at startup: the adapter's startup message names them, so the gate's own
-            # messages about them show nothing new, and the key is offered from the start.
-            started = status.get("families")
+            # Families paused at startup: the adapter's startup message names those of the read it
+            # returns (else those of the status above), so the gate's own messages about them show
+            # nothing new, while one paused after that read gets its line; the key is offered from the start.
+            started = announced if isinstance(announced, dict) else status.get("families")
             self.families = {family: reason for family, reason in (started if isinstance(started, dict) else {}).items()
                              if self._family(family, reason)}
             # From here on the launcher relays signals to the native instead of acting on them.

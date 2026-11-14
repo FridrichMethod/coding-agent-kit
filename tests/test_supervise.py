@@ -91,11 +91,15 @@ class Pure(unittest.TestCase):
         self.assertEqual(text, supervise.family_pause_message("opus", "family_at_reserve",
                                                               dict(reversed(list(fields.items())))))
         self.assertEqual(text, "quota reserve paused the opus model family (family_at_reserve); account N; last fresh "
-                               "check 2026-11-12T13:00:01Z; the other model families go on; press F12, then type the "
-                               "code shown and Enter, to request a fresh check")
+                               "check 2026-11-12T13:00:01Z; the session and the other model families go on; press "
+                               "F12, then type the code shown and Enter, to request a fresh check")
         self.assertEqual(supervise.family_pause_message("sonnet", "family_window_unavailable", {}, "F9"),
-                         "quota reserve paused the sonnet model family (family_window_unavailable); the other model "
-                         "families go on; press F9, then type the code shown and Enter, to request a fresh check")
+                         "quota reserve paused the sonnet model family (family_window_unavailable); the session and "
+                         "the other model families go on; press F9, then type the code shown and Enter, to request a "
+                         "fresh check")
+        self.assertEqual(supervise.family_pause_message("sonnet", "family_at_reserve", {}, running=False),
+                         "quota reserve paused the sonnet model family (family_at_reserve); the session is paused "
+                         "too; press F12, then type the code shown and Enter, to request a fresh check")
         self.assertEqual(supervise.family_still_message({"sonnet": "family_window_unavailable",
                                                          "opus": "family_at_reserve"}),
                          "still paused: the opus model family (family_at_reserve), the sonnet model family "
@@ -723,6 +727,50 @@ class Notices(unittest.TestCase):
         sup.families = {"sonnet": "family_at_reserve"}
         sup._handle(dict(paused, family="sonnet"))
         self.assertEqual((len(said), sup.ui.offer), (3, True))
+
+    def test_a_family_pause_line_says_whether_the_session_runs(self):
+        """The gate tags a family pause with the session state its reading leaves (a reading can pause
+        the session too, and a restarted gate's first one starts paused); untagged, the launcher's own
+        view decides."""
+        sup = supervise.Supervisor(["gate"], {})
+        said, sup.ui = [], self.UI(False)
+        sup.say = said.append
+        paused = {"op": "family_paused", "reason": "family_at_reserve", "fields": {}}
+        sup._handle(dict(paused, family="opus", session="paused"))
+        sup._handle(dict(paused, family="sonnet", session="running"))
+        sup.ui = self.UI(True)
+        sup._handle(dict(paused, family="haiku"))
+        self.assertEqual(said, [supervise.family_pause_message("opus", "family_at_reserve", {}, running=False),
+                                supervise.family_pause_message("sonnet", "family_at_reserve", {}),
+                                supervise.family_pause_message("haiku", "family_at_reserve", {}, running=False)])
+
+    def test_a_family_paused_after_the_read_the_startup_message_named_gets_its_line(self):
+        """The startup message names the families of the preflight's own status read, which it returns;
+        a family the gate paused before run()'s later status read still gets the gate's line. A preflight
+        that returns nothing (codex-as, which has no families) leaves run()'s read to count as shown."""
+
+        class Stop(Exception):
+            pass
+
+        both = {"opus": "family_at_reserve", "sonnet": "family_at_reserve"}
+        for announced, shown in (({"opus": "family_at_reserve"}, ["sonnet"]), (None, [])):
+            with self.subTest(announced=announced):
+                sup = supervise.Supervisor(["gate"], {})
+                sup.prepare, sup.start_gate, sup.close = (lambda: 0), (lambda mode: None), (lambda: None)
+                sup.wait_heard = lambda: {"running": True}
+                sup.request = lambda op, timeout=None: {"running": True, "families": dict(both)}
+                sup.preflight = lambda supervisor, announced=announced: announced
+                with mock.patch.object(supervise.os, "isatty", return_value=True), \
+                        mock.patch.object(supervise.os, "pipe", side_effect=Stop):  # stop before the native
+                    with self.assertRaises(Stop):
+                        sup.run(["native"], {})
+                said = []
+                sup.say = said.append
+                for family in sorted(both):
+                    sup._handle({"op": "family_paused", "family": family, "reason": "family_at_reserve", "fields": {}})
+                self.assertEqual(said, [supervise.family_pause_message(family, "family_at_reserve", {})
+                                        for family in shown])
+                self.assertEqual(sup.families, both)
 
     def test_a_resume_the_launcher_did_not_see_coming_is_announced(self):
         self.assertEqual(self.handled({"op": "resumed"}),

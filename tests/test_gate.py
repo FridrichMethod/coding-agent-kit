@@ -851,6 +851,23 @@ class FamilyPauses(unittest.TestCase):
         h.gate.heartbeat()
         self.assertEqual(h.gate.arm_continuation(), {"ok": True, "reason": "resumed", "families": {}})
 
+    def test_a_family_pause_follows_the_sessions_own_change_and_says_whether_the_session_runs(self):
+        """A reading that pauses the session and a family reports the session's pause first and tags the
+        family pause with the session state it leaves, so the launcher's family line never says the
+        session runs while it is paused; a family paused while the session runs says so."""
+        h = self.harness()
+
+        def shown():
+            return [(n["op"], n.get("family"), n.get("session")) for n in h.notes if n["op"] != "notice"]
+
+        h.evaluator.families = self.PAUSED
+        h.gate.poll()
+        self.assertEqual(shown(), [("family_paused", "a", "running")])
+        h.evaluator.families = self.PAUSED + (("b", "family_at_reserve"),)
+        h.upstream.used = {"five_hour": 99.0, "weekly": 20.0}
+        h.gate.poll()
+        self.assertEqual(shown()[1:], [("paused", None, None), ("family_paused", "b", "paused")])
+
     def test_malformed_families_are_an_evaluator_error_and_keep_the_pauses(self):
         h = self.harness()
         h.evaluator.families = self.PAUSED

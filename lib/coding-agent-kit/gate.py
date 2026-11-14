@@ -80,9 +80,10 @@ Control channel (JSON lines on the inherited socket, section 10 of the reviewed 
             latest quota check starts (B true, R "awaiting_continuation") or stops passing, at most
             once per notice_every seconds (a notice never pauses or resumes);
         {"op": "resumed", "at": T} after a verified continuation;
-        {"op": "family_paused", "family": F, "reason": R, "at": T, "fields": {...}} when a model family
-            is paused alone or its reason changes; {"op": "family_resumed", "family": F, "at": T} when
-            a continuation lifted its pause;
+        {"op": "family_paused", "family": F, "reason": R, "at": T, "session": S, "fields": {...}} when a
+            model family is paused alone or its reason changes, S ("running" or "paused") being the
+            session's state once the same reading is applied (its own paused or resumed comes first);
+            {"op": "family_resumed", "family": F, "at": T} when a continuation lifted its pause;
         {"op": "refused", "reason": R} and exit status 3 when startup refuses.
     The reply to "continue" says "ok": true once the session runs with no family paused; while it
     runs with a family paused it says "ok": false, "running": true; and whenever a family was or is
@@ -725,6 +726,7 @@ class Gate:
         # Model families paused alone (family -> reason), the family of each admitted stream that has
         # one, and why a family pause closed a stream, until the stream is released.
         self.paused_families, self.stream_families, self._ended = {}, {}, {}
+        self._family_notes = []  # family changes to report once the session's own change is applied
         self.armed, self._answered = None, None
         # Whether the latest attributed quota observation of a pause passes (a failed read leaves
         # it as it was, unless the launcher has not yet been told that it passes), and what the
@@ -739,7 +741,10 @@ class Gate:
             self._decide(Event("health", clock(), name="gate_restart"))
 
     # -- evaluator and transitions (lock held) --------------------------------------------------
-    def _decide(self, event):
+    def _decide(self, event, announce=True):
+        """The evaluator's decision for EVENT; the paused families it names apply at once. Their
+        reports wait, without ANNOUNCE, for the caller's _announce_families after it applied the
+        session's own change for the same reading."""
         try:
             decision = self._decider(event)
         except Exception:
@@ -749,11 +754,14 @@ class Gate:
         if isinstance(decision.next_poll, (int, float)) and not isinstance(decision.next_poll, bool):
             self.next_poll = float(decision.next_poll)
         self._families(dict(decision.families), decision.fields)
+        if announce:
+            self._announce_families()
         return decision
 
     def _families(self, paused, fields):
         """Make PAUSED (family -> reason) the families paused alone. A family that joins has its
-        registered streams closed first; then each lift and each new pause or reason is reported."""
+        registered streams closed first; then each lift and each new pause or reason is queued for
+        _announce_families."""
         before, self.paused_families = self.paused_families, paused
         if paused == before:
             return
@@ -771,14 +779,23 @@ class Gate:
         at = round(self.wall(), 3)
         for family in sorted(set(before) - set(paused)):
             _quietly(lambda: self.emit("family_resumed", family=family))
-            _quietly(lambda: self.notify({"op": "family_resumed", "family": family, "at": at}))
+            self._family_notes.append({"op": "family_resumed", "family": family, "at": at})
         for family in sorted(paused):
             if before.get(family) == paused[family]:
                 continue
             reason = paused[family]
             _quietly(lambda: self.emit("family_paused", family=family, reason=reason, closed=closed.get(family, 0)))
-            _quietly(lambda: self.notify({"op": "family_paused", "family": family, "reason": reason, "at": at,
-                                          "fields": dict(fields)}))
+            self._family_notes.append({"op": "family_paused", "family": family, "reason": reason, "at": at,
+                                       "fields": dict(fields)})
+
+    def _announce_families(self):
+        """Report the queued family changes; a family pause names the session's state now, so a line
+        for it never says the session runs while the same reading paused it."""
+        notes, self._family_notes = self._family_notes, []
+        for note in notes:
+            if note["op"] == "family_paused":
+                note["session"] = "running" if self.state == "running" else "paused"
+            _quietly(lambda: self.notify(note))
 
     def _pause(self, reason, fields=None, op="paused"):
         """Pause, or update the reason and fields of a pause. An armed continuation survives an
@@ -996,13 +1013,15 @@ class Gate:
                 reason = observation.reason or "quota_unavailable"
                 if self._eligible and not self._shown:  # a held-back "passes" notice is stale now
                     self._eligible = False
-                decision = self._decide(Event("health", at, name="quota_unavailable", observation=observation))
+                decision = self._decide(Event("health", at, name="quota_unavailable", observation=observation),
+                                        announce=False)
                 self.emit("unavailable", cause=cause, reason=reason)
                 forced = observation.permanent or cause in ("rebind", "startup")
                 if cause == "rebind":
                     self.lease = None  # a new bearer went unverified: the old one may be signed out
                 if forced or not decision.running:
                     self._pause(reason if forced else (decision.reason or reason), decision.fields)
+                self._announce_families()
                 return reason
             if observation.identity is None or observation.identity != self.provider.expected_identity:
                 if own:
@@ -1023,8 +1042,8 @@ class Gate:
                 return "unsupported_family"
             answers = self._answers(at)
             if answers:
-                self._decide(Event("continuation", self._answered))
-            decision = self._decide(Event("observation", at, observation=observation))
+                self._decide(Event("continuation", self._answered), announce=False)
+            decision = self._decide(Event("observation", at, observation=observation), announce=False)
             if self.lease is None or not self.lease.secret.matches(presented.secret):
                 self.epoch += 1
             self.lease = Lease(presented, observation.identity, observation.family, at, at + self.max_age, self.epoch)
@@ -1042,6 +1061,7 @@ class Gate:
                     self._pause("awaiting_continuation", decision.fields)
             else:
                 self.fields = dict(decision.fields)
+            self._announce_families()
             return "fresh"
 
     def check(self, presented, cause):
