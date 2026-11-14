@@ -1202,6 +1202,47 @@ class Control(unittest.TestCase):
         self.send(self.code() + b"\r")
         self.assertEqual((len(self.checks), self.ui.paused), (2, False))
 
+    def test_a_key_that_cancels_the_code_is_consumed_whole(self):
+        """Any other key typed at the code cancels it, and none of its bytes reach the native: the rest
+        of an escape sequence (an arrow key's "[A"), of an Alt combination or of a UTF-8 character would
+        read as typed text. What follows the key, and what was typed before F12 (an arrow key
+        included), reaches the native unchanged."""
+        keys = (b"\x1b[A", b"\x1b[1;5A", b"\x1bOP", b"\x1b[15~", b"\x1b[2~", b"\x1bx", b"\x1b\x1b[A", b"\t",
+                "é".encode(), "€".encode())
+        for key in keys:
+            for paused in (False, True):
+                with self.subTest(key=key, paused=paused):
+                    self.forwarded.clear()
+                    self.ui.offer = not paused  # a model family paused alone, the session running
+                    if paused:
+                        self.ui.pause()
+                    self.send(b"ab\x1b[D" + F12)
+                    self.send(self.code()[:3] + key + b"cd\x1b[B")
+                    self.assertIsNone(self.ui.challenge)
+                    self.assertEqual(b"".join(self.forwarded), b"ab\x1b[D" + b"cd\x1b[B")
+                    self.assertEqual(self.checks, [])
+                    self.ui.resume()
+
+    def test_a_cancelling_key_ends_when_nothing_follows_within_50_ms(self):
+        """A lone Escape is a key of its own, and so is whatever stalls 50 ms: what comes later reaches
+        the native."""
+        now = [0.0]
+        ui = supervise.TerminalControl(self.slave, self.forwarded.append, self.messages.append, lambda: True,
+                                       clock=lambda: now[0])
+        ui.pause()
+        for first in (b"\x1b", b"\x1b[1"):
+            with self.subTest(first=first):
+                self.forwarded.clear()
+                ui.feed(F12)
+                ui.feed(first)
+                now[0] += 0.1
+                ui.tick()
+                self.assertIsNone(ui.challenge)
+                now[0] += 0.1
+                ui.tick()
+                ui.feed(b"x[A")  # typed later: keys of their own
+                self.assertEqual(b"".join(self.forwarded), b"x[A")
+
     def test_ctrl_c_cancels_the_challenge_and_reaches_the_native(self):
         self.ui.pause()
         self.send(F12)

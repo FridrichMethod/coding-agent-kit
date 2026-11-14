@@ -57,7 +57,9 @@ Continuation is a trusted-terminal action: after a pause, and while a model fami
 one-use code; typing it and Enter asks the gate for a fresh check, which answers every pause at
 once. With no pause the key reaches the native. Input typed before a pause is flushed (a family
 pause flushes nothing: the session runs), a bracketed paste never confirms, native output never
-reaches this parser, and nothing but terminal input starts a check. Each family pause gets its own
+reaches this parser, and nothing but terminal input starts a check. A key typed at the code that is
+not part of it cancels the code and is consumed whole, so the rest of its escape sequence never
+reaches the native as text (Ctrl-C cancels it and reaches the native). Each family pause gets its own
 deterministic line (family_pause_message), and its lift a line of its own. The check runs in the
 relay loop, so while it waits for the gate's answer (normally well under a second, at most
 CONTINUE_TIMEOUT) the native's output, forwarded input and relayed signals wait too, the session's
@@ -760,7 +762,10 @@ class TerminalControl:
     the trigger then shows a fresh code, while paused or while offer is set (a model family paused
     alone, the session running); Enter after the exact code calls check() once. A paste, an old
     code, a repeated trigger or any other key grants nothing; with neither, the trigger reaches the
-    native."""
+    native. Ctrl-C cancels the code and reaches the native; any other key but the code's characters,
+    Backspace and Enter cancels it and is consumed whole (rest), so the rest of its escape sequence or
+    UTF-8 character never reaches the native as typed text. Input before the trigger is forwarded as
+    it comes."""
 
     def __init__(self, input_fd, forward, display, check, trigger=F12, key_name="F12", clock=time.monotonic):
         self.input_fd, self.forward, self.display, self.check = input_fd, forward, display, check
@@ -768,9 +773,10 @@ class TerminalControl:
         self.sequences = (trigger, PASTE_START, PASTE_END)
         self.paused, self.offer, self.challenge, self.pasting = False, False, None, False
         self.answer, self.pending, self.pending_since = bytearray(), bytearray(), 0.0
+        self.rest, self.rest_since = None, 0.0  # what is still to come of a key that cancelled the code
 
     def pause(self):
-        self.paused, self.challenge = True, None
+        self.paused, self.challenge, self.rest = True, None, None
         self.answer.clear()
         self.pending.clear()
         try:
@@ -779,16 +785,22 @@ class TerminalControl:
             pass
 
     def resume(self):
-        self.paused, self.challenge = False, None
+        self.paused, self.challenge, self.rest = False, None, None
         self.answer.clear()
 
     def tick(self):
-        """Release a lone escape prefix after 50 ms (it was a key, not a sequence)."""
-        if self.pending and self.clock() - self.pending_since >= 0.05:
+        """Release a lone escape prefix after 50 ms (it was a key, not a sequence). A key that
+        cancelled the code ends there too, or 50 ms after its last byte: what comes later is a key
+        of its own."""
+        now = self.clock()
+        if self.pending and now - self.pending_since >= 0.05:
             data = bytes(self.pending)
             self.pending.clear()
             for byte in data:
                 self._ordinary(byte)
+            self.rest = None
+        elif self.rest is not None and now - self.rest_since >= 0.05:
+            self.rest = None
 
     def feed(self, data):
         for byte in data:
@@ -806,6 +818,7 @@ class TerminalControl:
                 self._ordinary(self.pending.pop(0))
 
     def _sequence(self, value):
+        self.rest = None
         if value == PASTE_START:
             self.pasting, self.challenge = True, None
             self.answer.clear()
@@ -821,6 +834,8 @@ class TerminalControl:
             self.display("type %s then Enter to request a fresh quota check" % self.challenge)
 
     def _ordinary(self, byte):
+        if self.rest is not None and self._rest(byte):
+            return
         if self.pasting or self.challenge is None:
             self.forward(bytes([byte]))
             return
@@ -843,9 +858,42 @@ class TerminalControl:
             self.forward(bytes([byte]))
         elif 32 <= byte < 127 and len(self.answer) < 64:
             self.answer.append(byte)
-        else:
+        else:  # any other key cancels the code and is consumed whole
             self.challenge = None
             self.answer.clear()
+            self.rest, self.rest_since = ("escape" if byte == 27 else _continuations(byte)), self.clock()
+
+    def _rest(self, byte):
+        """Whether BYTE belongs to the key that cancelled the code, and so is consumed with it. After
+        ESC: `[` and a control sequence's parameter, intermediate and final bytes, `O` and one more
+        byte, a further ESC (a meta prefix), or any other one key (Alt and that key); after a UTF-8
+        lead byte, its continuation bytes. Any other byte is a key of its own."""
+        rest, self.rest, self.rest_since = self.rest, None, self.clock()
+        if rest == "escape":
+            self.rest = {0x5B: "control", 0x4F: "single", 27: "escape"}.get(byte) or _continuations(byte)
+            return True
+        if rest == "control":
+            if 0x20 <= byte <= 0x3F:
+                self.rest = "control"
+                return True
+            return 0x40 <= byte <= 0x7E
+        if rest == "single":
+            return 0x20 <= byte <= 0x7E
+        if 0x80 <= byte <= 0xBF:  # REST continuation bytes are still to come
+            self.rest = rest - 1 or None
+            return True
+        return False
+
+
+def _continuations(byte):
+    """How many continuation bytes follow BYTE when it leads a UTF-8 character, else None."""
+    if 0xC2 <= byte <= 0xDF:
+        return 1
+    if 0xE0 <= byte <= 0xEF:
+        return 2
+    if 0xF0 <= byte <= 0xF4:
+        return 3
+    return None
 
 
 def _child_fds(fds, stdio, report):
