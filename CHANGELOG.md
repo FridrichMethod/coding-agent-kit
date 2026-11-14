@@ -141,10 +141,11 @@ Added:
   ignored, its `limits` list counts with the five-hour and weekly windows,
   and the refusal for a row the kit has not reviewed names the rows. An
   idle usage window (0% used, no reset time) counts as available. Local
-  settings files, the directories above a native-login account and its
-  `.claude.json` may be group-writable when the group is your user private
-  group without an access ACL; other refusals of a file other users can
-  write name it and suggest `chmod go-w`. A launch
+  settings files, a native-login account's `.claude.json` and the
+  directories above the parent of `<secrets_dir>` may be group-writable
+  when the group is your user private group without an access ACL; other
+  refusals of a file other users can write name it and suggest
+  `chmod go-w`. A launch
   is refused when the account's token, after the pre-launch refresh,
   expires within fifteen minutes, and the start line names the time it
   expires, when the session needs a relaunch. The status line keeps working
