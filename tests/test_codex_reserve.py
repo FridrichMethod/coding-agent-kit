@@ -2389,13 +2389,17 @@ REAL_CODEX = shutil.which("codex")
 
 
 def real_version():
+    """What the host's codex reports, run in a HOME of its own that is removed afterwards: codex
+    writes CODEX_HOME/tmp (arg0-macos on macOS) even for --version, so the temporary directory itself
+    would keep a .codex."""
     if not REAL_CODEX:
         return None
-    try:
-        return subprocess.run([REAL_CODEX, "--version"], capture_output=True, text=True, timeout=20,
-                              env={"PATH": "/usr/bin:/bin", "HOME": tempfile.gettempdir()}).stdout.strip()
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    with tempfile.TemporaryDirectory(prefix="quota-x-version-", ignore_cleanup_errors=True) as home:
+        try:
+            return subprocess.run([REAL_CODEX, "--version"], capture_output=True, text=True, timeout=20,
+                                  env={"PATH": "/usr/bin:/bin", "HOME": home}).stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return None
 
 
 @unittest.skipIf(boundary_missing(), "protected mode needs the OS boundary")
