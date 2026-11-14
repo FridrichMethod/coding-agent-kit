@@ -951,9 +951,10 @@ class GateProvider(unittest.TestCase):
 
     def test_after_another_account_signs_in_polls_reprove_the_store_bearer_and_never_say_a_check_passes(self):
         """Once the native presents another account's bearer (a /login inside the session), the old
-        lease no longer proves the enrolled account: paused polls check the store's bearer with both
-        reads, never the signed-out one, and no notice says that a check passes until the store holds
-        the enrolled account again; then a continuation resumes on the re-proved bearer."""
+        lease no longer proves the enrolled account: paused polls check the store's bearer with its
+        profile read, never the signed-out one, and read no usage of an account the profile shows is
+        not the enrolled one; no notice says that a check passes until the store holds the enrolled
+        account again; then a continuation resumes on the re-proved bearer."""
         prov, g = self.started(gate_options={"notice_every": 0.01})
         self.assertEqual(g.state, "running", g.status())
         self.store(upstream_fixture.BEARER_B)
@@ -969,7 +970,7 @@ class GateProvider(unittest.TestCase):
         for _ in range(3):
             poll()
         reads = self.upstream.requests[start:]
-        self.assertEqual([r["path"] for r in reads], ["/api/oauth/profile", "/api/oauth/usage"] * 3)
+        self.assertEqual([r["path"] for r in reads], ["/api/oauth/profile"] * 3)
         self.assertEqual({dict((k.lower(), v) for k, v in r["headers"])["authorization"] for r in reads},
                          {"Bearer " + upstream_fixture.BEARER_B})
         self.assertEqual((g.state, g.reason), ("paused", "bearer_identity_mismatch"))
@@ -979,7 +980,9 @@ class GateProvider(unittest.TestCase):
         poll()
         self.assertEqual([m for m in self.messages if m["op"] == "notice"], [])
         self.store(upstream_fixture.BEARER_A2)  # signed in to the enrolled account again
+        start = len(self.upstream.requests)
         poll()
+        self.assertEqual([r["path"] for r in self.upstream.requests[start:]], ["/api/oauth/profile", "/api/oauth/usage"])
         self.assertEqual((g.state, g.reason), ("paused", "awaiting_continuation"))
         self.assertEqual([(m["eligible"], m["reason"]) for m in self.messages if m["op"] == "notice"],
                          [(True, "awaiting_continuation")])
@@ -1046,17 +1049,19 @@ class GateProvider(unittest.TestCase):
         it, so a slow link that lets polls pass lets a continuation pass too."""
         prov, _ = self.make()
         seen = []
+        account, organization = prov.expected_identity  # a profile of the enrolled account: both reads run
 
         class Fetching:
             lease = None
 
             def fetch(self, method, path, **options):
                 seen.append((path, options["timeout"]))
-                body = {"account": {"uuid": "a"}, "organization": {"uuid": "o"}} if "profile" in path else {}
+                body = {"account": {"uuid": account}, "organization": {"uuid": organization}} if "profile" in path else {}
                 return 200, [("Content-Type", "application/json")], json.dumps(body).encode()
 
         for cause in ("startup", "rebind", "continuation"):
             prov.read_quota(Fetching(), gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), cause)
+        self.assertEqual([path for path, _ in seen], ["/api/oauth/profile", "/api/oauth/usage"] * 3)
         timeouts = {cause: [timeout for _, timeout in seen[index * 2:index * 2 + 2]]
                     for index, cause in enumerate(("startup", "rebind", "continuation"))}
         bound = {timeout or gate.READ_TIMEOUT for times in timeouts.values() for timeout in times}
@@ -1065,6 +1070,32 @@ class GateProvider(unittest.TestCase):
         self.assertLessEqual(len(timeouts["rebind"]), prov.rebind_reads)  # each waiter allows this many fetches
         continuation = bearer.KEYCHAIN_TIMEOUT + len(timeouts["continuation"]) * gate.READ_TIMEOUT
         self.assertLessEqual(continuation + 1.0, supervise.CONTINUE_TIMEOUT)
+
+    def test_a_profile_of_another_account_ends_the_read_before_its_usage(self):
+        """A read that checks the bearer's profile (startup, rebind, continuation) stops when the profile
+        proves another account, or none: the gate pauses on the identity alone, so the usage of an
+        account that is not the enrolled one is never read."""
+        prov, _ = self.make()
+        organization = prov.expected_identity[1]
+        for profile, identity in (({"account": {"uuid": "acct-0000-other"}, "organization": {"uuid": organization}},
+                                   ("acct-0000-other", organization)),
+                                  ({"account": {}}, None)):
+            seen = []
+
+            class Fetching:
+                lease = None
+
+                def fetch(self, method, path, **options):
+                    seen.append(path)
+                    return 200, [("Content-Type", "application/json")], json.dumps(profile).encode()
+
+            for cause in ("startup", "rebind", "continuation"):
+                with self.subTest(identity=identity, cause=cause):
+                    del seen[:]
+                    observation = prov.read_quota(Fetching(), gate.Presented(gate.Secret(upstream_fixture.BEARER_B)),
+                                                  cause)
+                    self.assertEqual(seen, ["/api/oauth/profile"])
+                    self.assertEqual((observation.ok, observation.identity, observation.data), (True, identity, None))
 
     def test_a_rejected_lease_bearer_is_reread_from_the_store_and_rebound(self):
         prov, g = self.started()

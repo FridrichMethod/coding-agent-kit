@@ -265,6 +265,10 @@ class ClaudeProvider(gate.BaseProvider):
             identity = lease.identity  # this bearer's identity was proved when the lease took it
         else:
             identity = normalize_profile(self._get(gate_, PROFILE_PATH, presented, cause))
+            if identity != self.expected_identity:
+                # Not the enrolled account's bearer (another account signed in, or an unattributed
+                # profile): the gate pauses on the identity alone, so its usage is never read.
+                return gate.Observation(0.0, True, identity=identity)
         document = self._get(gate_, USAGE_PATH, presented, cause)
         wall = time.time()
         try:
