@@ -217,6 +217,11 @@ class Pure(unittest.TestCase):
         self.assertEqual(supervise.system_https_proxy(on, parse), ("secure.proxy.test", 3128))
         self.assertIsNone(supervise.system_https_proxy(supervise.parse_scutil(self.SCUTIL_OFF), parse))
         self.assertIsNone(supervise.system_https_proxy({"HTTPSEnable": 2, "HTTPSProxy": "p", "HTTPSPort": 1}, parse))
+        # A host without any proxy settings lists only these (a hosted macOS runner, for one).
+        bare = supervise.parse_scutil("<dictionary> {\n  ExceptionsList : <array> {\n    0 : *.local\n"
+                                      "    1 : 169.254/16\n  }\n  FTPPassive : 1\n}\n")
+        self.assertEqual(bare, {"ExceptionsList": None, "FTPPassive": 1})
+        self.assertIsNone(supervise.system_https_proxy(bare, parse))
         for settings, reason in (({"ProxyAutoConfigEnable": 1}, "automatic proxy configuration (PAC or WPAD)"),
                                  (dict(on, ProxyAutoDiscoveryEnable=1), "automatic proxy configuration"),
                                  ({"HTTPSEnable": 1, "HTTPSProxy": "p.test"}, "only a plain HOST and PORT"),
@@ -408,8 +413,19 @@ class OutsideCommands(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "darwin" and os.access(supervise.SCUTIL, os.X_OK), "needs macOS scutil")
     def test_the_real_scutil_reports_settings_that_parse(self):
+        """Whatever this host has set (a host without any proxy may list neither HTTPSEnable nor
+        ProxyAutoConfigEnable), the output parses and the system proxy is decided from it."""
         settings = supervise.macos_proxies()
-        self.assertIn("HTTPSEnable" if "HTTPSEnable" in settings else "ProxyAutoConfigEnable", settings)
+        self.assertTrue(settings)
+        for key, value in settings.items():
+            with self.subTest(key=key):
+                self.assertTrue(value is None or isinstance(value, (int, str)))
+        try:
+            proxy = supervise.system_https_proxy(settings, fakes.gate.parse_proxy)
+        except supervise.Refused as refused:
+            self.assertRegex(refused.reason, "automatic proxy configuration|only a plain HOST and PORT")
+        else:
+            self.assertTrue(proxy is None or isinstance(proxy, tuple))
 
     def test_the_native_and_a_script_natives_interpreter_count_as_its_sources(self):
         base = self.scratch()
