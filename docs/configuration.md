@@ -84,6 +84,10 @@ Rules for every key:
   the launcher runs.
 - Anything else must be an absolute path or start with `~/`. The path names
   one executable file; it is not a command line and takes no arguments.
+- A launch with a usage reserve on refuses an executable, or its `#!`
+  interpreter, that lies inside a path the protected session can write, and
+  for a bare name an empty, relative or boundary-writable `PATH` entry
+  searched before the one that supplies it; see [protected mode requirements](account-launchers.md#protected-mode-requirements).
 
 `codex_home` and `secrets_dir`:
 
@@ -113,7 +117,9 @@ Rules for every key:
 
 An unknown key prints a warning and the run continues, so a file written for
 a newer kit still works with an older one. `python3` is always found on
-`PATH`; the interpreter is not configurable.
+`PATH`; the interpreter is not configurable. A protected launch checks where
+it comes from and the `PATH` entries searched for it (see
+[what protected mode costs](account-launchers.md#what-protected-mode-costs)).
 
 ## Usage reserves
 
@@ -180,7 +186,8 @@ mode = "native-login"
 
 - `mode` is `"setup-token"` (the default, also when the field, the account
   table or `[claude_auth]` is missing) or `"native-login"`. `NAME` follows the
-  account-name rule.
+  account-name rule. For `mode = "native-login"`, `NAME` has at most 64
+  characters.
 - A `native-login` account keeps Claude Code's login in its own fixed
   configuration directory, `<secrets_dir>/native-claude-accounts/NAME/config`,
   which `claude-as` passes as `CLAUDE_CONFIG_DIR`, next to its registration

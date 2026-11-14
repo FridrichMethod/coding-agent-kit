@@ -38,12 +38,16 @@ your own with `install.sh`, or link or copy its files.
 - Optional: bash-completion or zsh for account-name completion.
 - Usage reserves (protected mode) need more, and refuse to start without it:
   Linux on x86_64 with Landlock ABI 6 or newer and seccomp (not WSL), or
-  macOS 27.2, the reviewed release (older and newer ones are refused), on
-  Apple silicon with `/usr/bin/sandbox-exec`; an interactive terminal; a
-  `python3` first on `PATH` and a kit outside every path the session can
-  write; and exactly the reviewed native release, codex-cli 0.167.2 or
-  Claude Code 2.1.322 with a Pro or Max account enrolled through native
-  login. Nothing is installed for it.
+  macOS 27.2 (any 27.2.x update), the reviewed release (older and newer ones
+  are refused), on Apple silicon with `/usr/bin/sandbox-exec`; an
+  interactive terminal; the launcher's `python3`, the kit and the native
+  outside every path the session can write, with no empty, relative or
+  session-writable `PATH` entry before the one that supplies `python3` or
+  the native; and
+  exactly the reviewed native release, codex-cli 0.167.2 with a saved login
+  and the databases a first unprotected prompt creates, or Claude Code
+  2.1.322 with a Pro or Max account enrolled through native login. Nothing
+  is installed for it.
 
 ## Install
 
