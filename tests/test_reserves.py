@@ -819,6 +819,18 @@ class Evaluation(unittest.TestCase):
         self.assertEqual(running(self.clock).verdict().message(),
                          "borrowed: running: five-hour 90% remaining (reserve 10%), weekly 90% remaining (reserve 40%).")
 
+    def test_an_exhausted_window_shows_zero_remaining_never_minus_zero(self):
+        for used in (100, 100.0, D("100.000")):
+            with self.subTest(used=used):
+                evaluator = running(self.clock)
+                self.clock.advance(1)
+                verdict = evaluator.observe(observation(self.clock, five=used, weekly=10))
+                self.assertEqual(verdict.windows[0].remaining, 0)
+                self.assertFalse(verdict.windows[0].remaining.is_signed())
+                self.assertEqual(reserve.percent(verdict.windows[0].remaining, floor=True), "0")
+                self.assertIn("five-hour window 0% remaining, at or below its 10% reserve", verdict.message())
+                self.assertNotIn(" -0", verdict.message())
+
     def test_a_running_window_is_shown_above_its_reserve(self):
         # Rounded down to one decimal, with more decimals only where one would reach the
         # reserve; never above the value observed.

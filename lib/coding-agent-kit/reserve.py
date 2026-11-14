@@ -433,6 +433,8 @@ def judge(reading, window, reserve, wall_at):
     # exact at any precision, and the remaining value shown is never above the true one.
     at_reserve = FLOOR.add(used, reserve) >= 100
     remaining = FLOOR.subtract(Decimal(100), used)
+    if not remaining:
+        remaining = Decimal(0)  # rounding down makes an exact 100 - 100 a negative zero
     return WindowStatus(window, reserve, AT_RESERVE if at_reserve else OK, remaining, reading.resets_at)
 
 
