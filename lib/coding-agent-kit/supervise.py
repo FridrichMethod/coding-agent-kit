@@ -57,7 +57,9 @@ Continuation is a trusted-terminal action: after a pause, and while a model fami
 one-use code; typing it and Enter asks the gate for a fresh check, which answers every pause at
 once. With no pause the key reaches the native. Input typed before a pause is flushed (a family
 pause flushes nothing: the session runs), a bracketed paste never confirms, native output never
-reaches this parser, and nothing but terminal input starts a check. Each family pause gets its own
+reaches this parser, and nothing but terminal input starts a check. A key typed at the code that is
+not part of it cancels the code and is consumed whole, so the rest of its escape sequence never
+reaches the native as text (Ctrl-C cancels it and reaches the native). Each family pause gets its own
 deterministic line (family_pause_message), and its lift a line of its own. The check runs in the
 relay loop, so while it waits for the gate's answer (normally well under a second, at most
 CONTINUE_TIMEOUT) the native's output, forwarded input and relayed signals wait too, the session's
@@ -426,14 +428,15 @@ def script_interpreter(path):
     """(interpreter, NAME) of the #! script at PATH: the interpreter its #! line names, as written
     (a relative one too, which native_sources refuses) and, when that is an absolute env, the
     command NAME it runs, which env looks up on its PATH; (None, None) when PATH is no such script
-    or cannot be read. The env forms followed are `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]`
-    (-S also attached), split at blanks as macOS splits the line and as -S splits it on Linux;
-    Unfollowed for any other option (-i, -u, -C, -P and the rest can change where or whether env
-    looks NAME up), a PATH assignment, quoting or no plain NAME."""
+    or does not exist. OSError when an existing PATH cannot be read. The env forms followed are
+    `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]` (-S also attached), split at blanks as macOS
+    splits the line and as -S splits it on Linux; Unfollowed for any other option (-i, -u, -C, -P
+    and the rest can change where or whether env looks NAME up), a PATH assignment, quoting or no
+    plain NAME."""
     try:
         with open(path, "rb") as stream:
             head = stream.read(256)
-    except OSError:
+    except (FileNotFoundError, NotADirectoryError):
         return None, None
     if not head.startswith(b"#!"):
         return None, None
@@ -455,22 +458,29 @@ def script_interpreter(path):
 
 
 def native_sources(path, env, what="the native", searched=None):
-    """(what, path, holds code) for the native executable PATH and, through nested #! lines (at most
-    INTERPRETER_DEPTH), each interpreter: the absolute one a line names or, for `#!/usr/bin/env
-    NAME`, NAME as ENV's PATH finds it (each such NAME is appended to SEARCHED, for path_order). A
-    protected session that could replace one of them, or a link on the way, would have the next
-    unprotected run of the native execute its code unconfined, so an adapter refuses when one lies in
-    the boundary's reach (unreachable). Refused for a relative interpreter, which the kernel looks up
-    from the working directory, an env line script_interpreter does not follow, and more nested
-    interpreters than INTERPRETER_DEPTH."""
+    """(what, path, holds code) for the native executable PATH, the directory of its real file (where
+    an installation keeps the rest of its code, so a writable path inside it counts too, as claude-as
+    counts its native's) and, through nested #! lines (at most INTERPRETER_DEPTH), each interpreter:
+    the absolute one a line names or, for `#!/usr/bin/env NAME`, NAME as ENV's PATH finds it (each
+    such NAME is appended to SEARCHED, for path_order). A protected session that could replace one of
+    them, or a link on the way, would have the next unprotected run of the native execute its code
+    unconfined, so an adapter refuses when one lies in the boundary's reach (unreachable). Refused
+    for a relative interpreter, which the kernel looks up from the working directory, an env line
+    script_interpreter does not follow, more nested interpreters than INTERPRETER_DEPTH, and an
+    existing file on the way that cannot be read: the kernel runs the interpreter of an
+    execute-only #! script, which would stay hidden. A missing path ends the walk; it is listed, so
+    its reach is checked."""
     searched = [] if searched is None else searched
-    sources, current, shown = [(what, str(path), False)], str(path), what
+    sources = [(what, str(path), False), ("the directory of " + what, os.path.dirname(os.path.realpath(path)), True)]
+    current, shown = str(path), what
     for level in range(INTERPRETER_DEPTH + 1):
         try:
             interpreter, name = script_interpreter(current)
         except Unfollowed as error:
             raise Refused("the #! line of %s runs %s in a form protected mode does not follow (use "
                           "`#!%s NAME` or `#!%s -S NAME ARGS`)" % (shown, error, error, error)) from None
+        except OSError:
+            raise Refused("cannot read %s to check what it runs" % current) from None
         if interpreter is None:
             return sources
         if level == INTERPRETER_DEPTH:
@@ -722,15 +732,16 @@ def eligible_message(fields, key="F12"):
 
 def family_pause_message(family, reason, fields, key="F12", running=True):
     """The deterministic local line for a model family paused alone: family, reason, account, last
-    fresh observation, whether the session and the other families go on (RUNNING) or the session is
-    paused too, and how to request continuation."""
+    fresh observation, what goes on (RUNNING: the session and the families not paused, worded to stay
+    true when one reading pauses several families) or that the session is paused too, and how to
+    request continuation."""
     fields = fields or {}
     parts = ["quota reserve paused the %s model family (%s)" % (family, reason)]
     if fields.get("account") is not None:
         parts.append("account " + _value(fields["account"]))
     if fields.get("last_fresh") is not None:
         parts.append("last fresh check " + _value(fields["last_fresh"]))
-    parts.append("the session and the other model families go on" if running else "the session is paused too")
+    parts.append("the session and the model families not paused go on" if running else "the session is paused too")
     parts.append("press %s, then type the code shown and Enter, to request a fresh check" % key)
     return "; ".join(parts)
 
@@ -752,7 +763,10 @@ class TerminalControl:
     the trigger then shows a fresh code, while paused or while offer is set (a model family paused
     alone, the session running); Enter after the exact code calls check() once. A paste, an old
     code, a repeated trigger or any other key grants nothing; with neither, the trigger reaches the
-    native."""
+    native. Ctrl-C cancels the code and reaches the native; any other key but the code's characters,
+    Backspace and Enter cancels it and is consumed whole (rest), so the rest of its escape sequence or
+    UTF-8 character never reaches the native as typed text. Input before the trigger is forwarded as
+    it comes."""
 
     def __init__(self, input_fd, forward, display, check, trigger=F12, key_name="F12", clock=time.monotonic):
         self.input_fd, self.forward, self.display, self.check = input_fd, forward, display, check
@@ -760,9 +774,10 @@ class TerminalControl:
         self.sequences = (trigger, PASTE_START, PASTE_END)
         self.paused, self.offer, self.challenge, self.pasting = False, False, None, False
         self.answer, self.pending, self.pending_since = bytearray(), bytearray(), 0.0
+        self.rest, self.rest_since = None, 0.0  # what is still to come of a key that cancelled the code
 
     def pause(self):
-        self.paused, self.challenge = True, None
+        self.paused, self.challenge, self.rest = True, None, None
         self.answer.clear()
         self.pending.clear()
         try:
@@ -771,16 +786,22 @@ class TerminalControl:
             pass
 
     def resume(self):
-        self.paused, self.challenge = False, None
+        self.paused, self.challenge, self.rest = False, None, None
         self.answer.clear()
 
     def tick(self):
-        """Release a lone escape prefix after 50 ms (it was a key, not a sequence)."""
-        if self.pending and self.clock() - self.pending_since >= 0.05:
+        """Release a lone escape prefix after 50 ms (it was a key, not a sequence). A key that
+        cancelled the code ends there too, or 50 ms after its last byte: what comes later is a key
+        of its own."""
+        now = self.clock()
+        if self.pending and now - self.pending_since >= 0.05:
             data = bytes(self.pending)
             self.pending.clear()
             for byte in data:
                 self._ordinary(byte)
+            self.rest = None
+        elif self.rest is not None and now - self.rest_since >= 0.05:
+            self.rest = None
 
     def feed(self, data):
         for byte in data:
@@ -798,6 +819,7 @@ class TerminalControl:
                 self._ordinary(self.pending.pop(0))
 
     def _sequence(self, value):
+        self.rest = None
         if value == PASTE_START:
             self.pasting, self.challenge = True, None
             self.answer.clear()
@@ -813,6 +835,8 @@ class TerminalControl:
             self.display("type %s then Enter to request a fresh quota check" % self.challenge)
 
     def _ordinary(self, byte):
+        if self.rest is not None and self._rest(byte):
+            return
         if self.pasting or self.challenge is None:
             self.forward(bytes([byte]))
             return
@@ -835,9 +859,42 @@ class TerminalControl:
             self.forward(bytes([byte]))
         elif 32 <= byte < 127 and len(self.answer) < 64:
             self.answer.append(byte)
-        else:
+        else:  # any other key cancels the code and is consumed whole
             self.challenge = None
             self.answer.clear()
+            self.rest, self.rest_since = ("escape" if byte == 27 else _continuations(byte)), self.clock()
+
+    def _rest(self, byte):
+        """Whether BYTE belongs to the key that cancelled the code, and so is consumed with it. After
+        ESC: `[` and a control sequence's parameter, intermediate and final bytes, `O` and one more
+        byte, a further ESC (a meta prefix), or any other one key (Alt and that key); after a UTF-8
+        lead byte, its continuation bytes. Any other byte is a key of its own."""
+        rest, self.rest, self.rest_since = self.rest, None, self.clock()
+        if rest == "escape":
+            self.rest = {0x5B: "control", 0x4F: "single", 27: "escape"}.get(byte) or _continuations(byte)
+            return True
+        if rest == "control":
+            if 0x20 <= byte <= 0x3F:
+                self.rest = "control"
+                return True
+            return 0x40 <= byte <= 0x7E
+        if rest == "single":
+            return 0x20 <= byte <= 0x7E
+        if 0x80 <= byte <= 0xBF:  # REST continuation bytes are still to come
+            self.rest = rest - 1 or None
+            return True
+        return False
+
+
+def _continuations(byte):
+    """How many continuation bytes follow BYTE when it leads a UTF-8 character, else None."""
+    if 0xC2 <= byte <= 0xDF:
+        return 1
+    if 0xE0 <= byte <= 0xEF:
+        return 2
+    if 0xF0 <= byte <= 0xF4:
+        return 3
+    return None
 
 
 def _child_fds(fds, stdio, report):

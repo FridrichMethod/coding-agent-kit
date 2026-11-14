@@ -1603,6 +1603,17 @@ class ProtectScreens(unittest.TestCase):
             with self.subTest(args):
                 self.assertEqual(protect.screen_arguments(args).add_dirs, add_dirs)
 
+    def test_the_startup_line_of_a_family_paused_alone_is_true_whatever_else_starts_paused(self):
+        self.assertEqual(protect.family_notices({"sonnet": "family_window_unavailable", "opus": "family_at_reserve",
+                                                 "haiku": None}), [
+            "claude-as: the opus model family starts paused (family_at_reserve: its own weekly limit is at or below "
+            "the weekly reserve); requests of the model families not paused run, and F12 then the code shown asks "
+            "for a fresh check that can resume it.",
+            "claude-as: the sonnet model family starts paused (family_window_unavailable: its own weekly limit is "
+            "unavailable in the usage report); requests of the model families not paused run, and F12 then the code "
+            "shown asks for a fresh check that can resume it."])
+        self.assertEqual(protect.family_notices(None), [])
+
     def test_the_gate_tables_are_those_of_the_one_reviewed_version(self):
         """provider.py's routes, families and policy shapes are one table, so adding a release to
         REVIEWED_VERSIONS needs those tables keyed by release first."""
@@ -2537,8 +2548,8 @@ class Protected(Kit):
         self.assertEqual(status, 0, output)
         text = output.replace("\n", " ")
         self.assertIn("claude-as: the opus model family starts paused (family_at_reserve: its own weekly limit is at or "
-                      "below the weekly reserve); requests of the other families run, and F12 then the code shown asks "
-                      "for a fresh check that can resume it.", text)
+                      "below the weekly reserve); requests of the model families not paused run, and F12 then the code "
+                      "shown asks for a fresh check that can resume it.", text)
         self.assertNotIn("quota reserve paused the opus model family", text)  # named once, by the startup message
         self.assertIn("fresh quota check passed for the opus model family; its requests resume", text)
         self.assertIn("quota reserve paused the sonnet model family (family_at_reserve); account N; last fresh check ",

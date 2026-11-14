@@ -1600,7 +1600,8 @@ class Unprotected(unittest.TestCase):
         path = self.home.env["PATH"]
         python = tools / "fakepython"
         python.symlink_to(sys.executable)
-        script = self.home.base / "script-codex"
+        script = self.home.base / "scripts/script-codex"  # in a directory of its own, which holds no writable path
+        script.parent.mkdir()
         script.write_text("#!/usr/bin/env fakepython\n" + (FIXTURES / "fake_codex.py").read_text())
         script.chmod(0o700)
         cases = (("in the workspace", os.pathsep.join((str(tools), path)), "the Codex executable %s" % (tools / "codex")),
@@ -1637,7 +1638,8 @@ class Unprotected(unittest.TestCase):
         tools = self.home.base / "tools"
         tools.mkdir()
         (tools / "fakepython").symlink_to(sys.executable)
-        script = self.home.base / "script-codex"
+        script = self.home.base / "scripts/script-codex"  # in a directory of its own, which holds no writable path
+        script.parent.mkdir()
         script.write_text("#!/usr/bin/env fakepython\n" + (FIXTURES / "fake_codex.py").read_text())
         script.chmod(0o700)
         fake, held = self.home.bin / "codex", self.home.base / "fake-codex"
@@ -1748,6 +1750,42 @@ class Unprotected(unittest.TestCase):
                 self.assertIn("usage reserve protection refused: " + (missing or text), result.stderr)
                 self.assertFalse(mark.exists())
                 self.assertEqual(self.home.events(), [])
+
+    def test_a_writable_path_inside_the_directory_of_the_real_codex_file_refuses_before_anything_runs(self):
+        """An installation keeps the rest of its code beside the real codex file, so a workspace (or any
+        path the boundary can write) inside that directory refuses, as claude-as refuses it for its
+        native; the codex on PATH is a link to that file. Nothing runs."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        fake, real = self.home.bin / "codex", self.home.base / "codex"
+        shutil.move(str(fake), real)
+        fake.symlink_to(real)
+        result = self.home.run(["--reserve-5h", "10", "A"], env={"FAKE_VERSION_MARK": str(mark)})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("usage reserve protection refused: " + (missing or "%s, which the boundary can write, lies inside "
+                      "the directory of the Codex executable %s; protected mode refuses a Codex that a protected "
+                      "session could replace" % (self.home.work, self.home.base)), result.stderr)
+        self.assertFalse(mark.exists())
+        self.assertEqual(self.home.events(), [])
+
+    @unittest.skipIf(os.geteuid() == 0, "root reads every file")
+    def test_an_unreadable_interpreter_of_the_native_refuses_before_anything_runs(self):
+        """The kernel runs the interpreter of an execute-only #! script without the user's read
+        permission, so one the check cannot read could hide an interpreter in the boundary's reach:
+        it refuses, as claude-as refuses it. Nothing runs."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        outer = self.home.base / "outer"
+        outer.write_text("#!%s\n" % (self.home.work / "fakepython"))
+        outer.chmod(0o111)
+        self.addCleanup(outer.chmod, 0o700)
+        (self.home.bin / "codex").write_text("#!%s\n" % outer + (FIXTURES / "fake_codex.py").read_text())
+        result = self.home.run(["--reserve-5h", "10", "A"], env={"FAKE_VERSION_MARK": str(mark)})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("usage reserve protection refused: " + (missing or "cannot read %s to check what it runs. "
+                      % outer), result.stderr)
+        self.assertFalse(mark.exists())
+        self.assertEqual(self.home.events(), [])
 
     def test_shared_state_replaced_by_a_link_refuses_before_anything_runs(self):
         """A shared entry beneath codex_home that became a link (a protected session on macOS can do

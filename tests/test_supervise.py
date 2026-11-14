@@ -90,13 +90,14 @@ class Pure(unittest.TestCase):
         text = supervise.family_pause_message("opus", "family_at_reserve", fields)
         self.assertEqual(text, supervise.family_pause_message("opus", "family_at_reserve",
                                                               dict(reversed(list(fields.items())))))
+        # True whatever else is paused: one reading can pause two families, each with a line of its own.
         self.assertEqual(text, "quota reserve paused the opus model family (family_at_reserve); account N; last fresh "
-                               "check 2026-11-12T13:00:01Z; the session and the other model families go on; press "
-                               "F12, then type the code shown and Enter, to request a fresh check")
+                               "check 2026-11-12T13:00:01Z; the session and the model families not paused go on; "
+                               "press F12, then type the code shown and Enter, to request a fresh check")
         self.assertEqual(supervise.family_pause_message("sonnet", "family_window_unavailable", {}, "F9"),
                          "quota reserve paused the sonnet model family (family_window_unavailable); the session and "
-                         "the other model families go on; press F9, then type the code shown and Enter, to request a "
-                         "fresh check")
+                         "the model families not paused go on; press F9, then type the code shown and Enter, to "
+                         "request a fresh check")
         self.assertEqual(supervise.family_pause_message("sonnet", "family_at_reserve", {}, running=False),
                          "quota reserve paused the sonnet model family (family_at_reserve); the session is paused "
                          "too; press F12, then type the code shown and Enter, to request a fresh check")
@@ -432,19 +433,21 @@ class OutsideCommands(unittest.TestCase):
         (base / "bin").mkdir()
         binary = base / "codex"
         binary.write_bytes(b"\x7fELF fake")
-        self.assertEqual(supervise.native_sources(binary, {}, "the X"), [("the X", str(binary), False)])
+        here = ("the directory of the X", str(base), True)
+        self.assertEqual(supervise.native_sources(binary, {}, "the X"), [("the X", str(binary), False), here])
         script = base / "script"
         script.write_text("#!/opt/node/bin/node --flag\n")
         self.assertEqual(supervise.native_sources(script, {}, "the X"),
-                         [("the X", str(script), False), ("the interpreter of the X", "/opt/node/bin/node", False)])
+                         [("the X", str(script), False), here,
+                          ("the interpreter of the X", "/opt/node/bin/node", False)])
         interpreter = base / "bin/node"
         interpreter.write_text("")
         interpreter.chmod(0o755)
         script.write_text("#!/usr/bin/env -S node --x\nrest\n")
         self.assertEqual(supervise.native_sources(script, {"PATH": str(base / "bin")}, "the X"),
-                         [("the X", str(script), False), ("the interpreter of the X", "/usr/bin/env", False),
+                         [("the X", str(script), False), here, ("the interpreter of the X", "/usr/bin/env", False),
                           ("the interpreter of the X", str(interpreter), False)])
-        self.assertEqual(len(supervise.native_sources(script, {"PATH": str(base / "none")}, "the X")), 2)
+        self.assertEqual(len(supervise.native_sources(script, {"PATH": str(base / "none")}, "the X")), 3)
         # env's own words: -S splitting (attached too), assignments and -- keep NAME the command.
         for line in ("-Snode --x", "LANG=C node", "-S LANG=C node", "-- node", "-S -- node --x"):
             with self.subTest(line=line):
@@ -464,7 +467,8 @@ class OutsideCommands(unittest.TestCase):
         self.assertEqual("the #! line of the X names an interpreter that is not an absolute path, which the kernel "
                          "looks up from the working directory; protected mode does not follow it",
                          self.refused(supervise.native_sources, script, {}, "the X"))
-        self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"), [("the X", str(base / "absent"), False)])
+        self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"),
+                         [("the X", str(base / "absent"), False), here])
 
     def test_nested_interpreters_count_four_levels_deep_and_each_env_command_is_searched(self):
         """An interpreter that is a #! script itself runs its own interpreter (Linux nests four levels),
@@ -483,7 +487,8 @@ class OutsideCommands(unittest.TestCase):
         env = {"PATH": str(base / "bin")}
         searched = []
         self.assertEqual(supervise.native_sources(script, env, "the X", searched), [
-            ("the X", str(script), False), ("the interpreter of the X", str(outer), False),
+            ("the X", str(script), False), ("the directory of the X", str(base), True),
+            ("the interpreter of the X", str(outer), False),
             ("the interpreter of the X", "/usr/bin/env", False), ("the interpreter of the X", str(node), False),
             ("the interpreter of the X", str(inner), False), ("the interpreter of the X", str(base / "absent"), False)])
         self.assertEqual(searched, ["node"])
@@ -498,6 +503,47 @@ class OutsideCommands(unittest.TestCase):
         inner.write_text("#!/usr/bin/env -i sh\n")
         self.assertIn("the #! line of the interpreter %s of the X runs /usr/bin/env in a form protected mode does not "
                       "follow" % inner, self.refused(supervise.native_sources, script, env, "the X"))
+
+    def test_the_directory_of_the_natives_real_file_counts_as_code(self):
+        """An installation keeps the rest of its code beside the native's real file (a Node package's
+        modules, a standalone release's helpers), so a writable path inside that directory refuses, as
+        claude-as treats its native's directory; the link the launcher runs it by counts by name."""
+        base = self.scratch()
+        release = base / "opt/codex/bin"
+        release.mkdir(parents=True)
+        (base / "bin").mkdir()
+        native = release / "codex"
+        native.write_bytes(b"\x7fELF fake")
+        (base / "bin/codex").symlink_to(native)
+        sources = supervise.native_sources(base / "bin/codex", {}, "the X")
+        self.assertEqual(sources, [("the X", str(base / "bin/codex"), False),
+                                   ("the directory of the X", str(release), True)])
+        supervise.unreachable(sources, [str(base / "work"), str(base / "opt/other")], "; HINT")
+        self.assertEqual("%s, which the boundary can write, lies inside the directory of the X %s; HINT"
+                         % (release / "work", release),
+                         self.refused(supervise.unreachable, sources, [str(release / "work")], "; HINT"))
+
+    @unittest.skipIf(os.geteuid() == 0, "root reads every file")
+    def test_an_unreadable_file_on_the_way_refuses_and_a_missing_one_stays_listed(self):
+        """The kernel runs the interpreter of an execute-only #! script without the user's read
+        permission, so an existing file the check cannot read could hide its own interpreter: it
+        refuses at any level, the native itself included, as claude-as refuses it. A missing path has
+        nothing to hide; it stays listed, and its reach is checked."""
+        base = self.scratch()
+        script, outer = base / "script", base / "outer"
+        script.write_text("#!%s\n" % outer)
+        outer.write_text("#!/bin/sh\n")
+        for path in (outer, script):
+            with self.subTest(path=path):
+                path.chmod(0o111)
+                try:
+                    self.assertEqual("cannot read %s to check what it runs" % path,
+                                     self.refused(supervise.native_sources, script, {}, "the X"))
+                finally:
+                    path.chmod(0o644)
+        script.write_text("#!%s/absent\n" % base)
+        self.assertEqual(supervise.native_sources(script, {}, "the X")[-1],
+                         ("the interpreter of the X", str(base / "absent"), False))
 
     def test_path_entries_searched_before_a_commands_supplier_must_lie_out_of_reach(self):
         """A PATH entry the boundary can write that a lookup searches before the entry supplying the
@@ -1171,6 +1217,47 @@ class Control(unittest.TestCase):
         self.send(F12)
         self.send(self.code() + b"\r")
         self.assertEqual((len(self.checks), self.ui.paused), (2, False))
+
+    def test_a_key_that_cancels_the_code_is_consumed_whole(self):
+        """Any other key typed at the code cancels it, and none of its bytes reach the native: the rest
+        of an escape sequence (an arrow key's "[A"), of an Alt combination or of a UTF-8 character would
+        read as typed text. What follows the key, and what was typed before F12 (an arrow key
+        included), reaches the native unchanged."""
+        keys = (b"\x1b[A", b"\x1b[1;5A", b"\x1bOP", b"\x1b[15~", b"\x1b[2~", b"\x1bx", b"\x1b\x1b[A", b"\t",
+                "é".encode(), "€".encode())
+        for key in keys:
+            for paused in (False, True):
+                with self.subTest(key=key, paused=paused):
+                    self.forwarded.clear()
+                    self.ui.offer = not paused  # a model family paused alone, the session running
+                    if paused:
+                        self.ui.pause()
+                    self.send(b"ab\x1b[D" + F12)
+                    self.send(self.code()[:3] + key + b"cd\x1b[B")
+                    self.assertIsNone(self.ui.challenge)
+                    self.assertEqual(b"".join(self.forwarded), b"ab\x1b[D" + b"cd\x1b[B")
+                    self.assertEqual(self.checks, [])
+                    self.ui.resume()
+
+    def test_a_cancelling_key_ends_when_nothing_follows_within_50_ms(self):
+        """A lone Escape is a key of its own, and so is whatever stalls 50 ms: what comes later reaches
+        the native."""
+        now = [0.0]
+        ui = supervise.TerminalControl(self.slave, self.forwarded.append, self.messages.append, lambda: True,
+                                       clock=lambda: now[0])
+        ui.pause()
+        for first in (b"\x1b", b"\x1b[1"):
+            with self.subTest(first=first):
+                self.forwarded.clear()
+                ui.feed(F12)
+                ui.feed(first)
+                now[0] += 0.1
+                ui.tick()
+                self.assertIsNone(ui.challenge)
+                now[0] += 0.1
+                ui.tick()
+                ui.feed(b"x[A")  # typed later: keys of their own
+                self.assertEqual(b"".join(self.forwarded), b"x[A")
 
     def test_ctrl_c_cancels_the_challenge_and_reaches_the_native(self):
         self.ui.pause()
