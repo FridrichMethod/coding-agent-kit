@@ -6,7 +6,8 @@ with an enabled reserve. In order (reviewed design, section 2.1):
 1. refusals: the platform boundary's host checks (Linux Landlock ABI 6+ on x86_64, or macOS 27.2 or
    newer with sandbox-exec), an interactive terminal, the native arguments (an allowlist of
    the interactive forms of Claude Code 2.1.322, parsed as its option parser does; every subcommand,
-   print, background, remote, cloud, resume and settings form refuses), the caller environment
+   print, background, remote, cloud, resume and settings form refuses, and a first operand that a newer
+   release could take for a command it added is passed so that it cannot), the caller environment
    (credential, provider, store, endpoint and proxy selectors), the working directory (never HOME, an
    ancestor of it or HOME/Library), the policy evaluator (policy.py) for the account's server-managed
    policy and the local settings sources, including a machine that pins the sign-in organization (see
@@ -128,16 +129,20 @@ VARIADIC = {"--allowedTools", "--allowed-tools", "--disallowedTools", "--disallo
 OPTIONAL = {"-d", "--debug"}
 SWITCHES = {"--verbose", "--dangerously-skip-permissions", "--allow-dangerously-skip-permissions",
             "--disable-slash-commands", "--strict-mcp-config"}
-# The first operand native dispatches as a command: every top-level command Claude Code 2.1.322
-# registers, visible and hidden, with its aliases (S: the root program and the registration functions it
-# calls), the two other names its root handling treats like install and update (rollback,
-# forward-home-settings), and the hidden login words.
+# The first operand native dispatches as a command, refused with its own message: every top-level
+# command Claude Code 2.1.322 registers, visible and hidden, with its aliases (S: the root program and
+# the registration functions it calls), the two other names its root handling treats like install and
+# update (rollback, forward-home-settings), the hidden login words, and the hidden commands 2.1.325
+# adds (workspace-trust, worktree-hook; S). A command a later release adds cannot run either: a first
+# operand without whitespace is passed with a trailing space (screen_arguments).
 SUBCOMMANDS = {"agents", "api", "apply-project-settings", "attach", "auth", "auto-mode", "config", "design-login",
                "doctor", "drop-worktree-registrations", "edit-chrome-settings", "edit-hook", "edit-memory-settings",
                "edit-permission-rules", "edit-sandbox-settings", "edit-skill-overrides", "forward-home-settings",
                "gateway", "import", "import-conversations", "install", "kill", "login", "logout", "logs", "mcp",
                "plugin", "plugins", "project", "purge", "rc", "remote-control", "respawn", "rm", "rollback",
-               "sandbox", "setup-token", "stop", "ultrareview", "update", "upgrade"}
+               "sandbox", "setup-token", "stop", "ultrareview", "update", "upgrade", "workspace-trust",
+               "worktree-hook"}
+WHITESPACE = re.compile(r"\s")
 # Caller variables that select another credential store, endpoint, transport or process wrapper
 # (launch.py's preflight refuses the credential and provider ones first).
 ENV_REFUSED = ("CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE", "CLAUDE_CODE_PROCESS_WRAPPER",
@@ -221,11 +226,18 @@ def family_notices(families):
 @dataclass
 class Arguments:
     add_dirs: list
+    forwarded: list  # the arguments the native gets
 
 
 def screen_arguments(args):
-    """Arguments(add_dirs) for an allowlisted interactive invocation; Refused otherwise."""
+    """Arguments(add_dirs, forwarded) for an allowlisted interactive invocation; Refused otherwise.
+
+    The first operand (the prompt) never runs as a command: a known command word refuses, and any
+    other first operand without whitespace is forwarded with one trailing space, since no command name
+    holds whitespace (native matches command names exactly), so that a command a newer release adds
+    stays the prompt (N: 2.1.322 and 2.1.325 print the root usage for `claude "doctor " --help`)."""
     add_dirs, index, options, first = [], 0, True, True
+    forwarded = list(args)
     while index < len(args):
         arg = args[index]
         index += 1
@@ -261,8 +273,10 @@ def screen_arguments(args):
             # Native dispatches the first operand as a command, even after options or --.
             if arg in SUBCOMMANDS:
                 refuse(f"the claude {arg} command does not run in protected mode; launch without reserves for it.")
+            if arg and not WHITESPACE.search(arg):
+                forwarded[index - 1] = arg + " "
             first = False
-    return Arguments(add_dirs)
+    return Arguments(add_dirs, forwarded)
 
 
 def screen_environment(env):
@@ -720,8 +734,8 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
             if darwin:
                 root = sandbox.claude_temp(uid)
                 temp = root, macos_temp_snapshot(root)
-            status = sup.run([executable, "--settings", json.dumps(settings, separators=(",", ":")), *args],
-                             native_env, cwd=cwd)
+            status = sup.run([executable, "--settings", json.dumps(settings, separators=(",", ":")),
+                              *screened.forwarded], native_env, cwd=cwd)
         except supervise.Refused as error:
             if error.reason == "organization_policy":
                 refuse(organization_message(paths))

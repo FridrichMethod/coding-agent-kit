@@ -1649,15 +1649,18 @@ class ProtectScreens(unittest.TestCase):
                 self.assertTrue(message.startswith("protected mode refused: "))
                 self.assertNotIn("secret", message)
 
-    def test_every_top_level_command_of_the_reviewed_version_refuses(self):
+    def test_every_top_level_command_of_the_reviewed_versions_refuses(self):
         """Every top-level command Claude Code 2.1.322 registers, visible and hidden, with its aliases (S),
-        plus the hidden login words and the two other names its root handling treats as commands."""
+        plus the hidden login words and the two other names its root handling treats as commands, and
+        the two hidden commands 2.1.325 adds (S; N: 2.1.325 runs `claude worktree-hook --help` as that
+        command)."""
         reviewed = {"agents", "attach", "auth", "auto-mode", "doctor", "gateway", "import", "install", "logs", "mcp",
                     "plugin", "plugins", "purge", "respawn", "rm", "setup-token", "stop", "kill", "ultrareview",
                     "update", "upgrade", "remote-control", "rc", "project", "sandbox", "edit-hook",
                     "edit-chrome-settings", "edit-memory-settings", "edit-permission-rules", "edit-sandbox-settings",
                     "edit-skill-overrides", "design-login", "drop-worktree-registrations", "import-conversations",
-                    "apply-project-settings", "rollback", "forward-home-settings", "login", "logout", "config", "api"}
+                    "apply-project-settings", "rollback", "forward-home-settings", "login", "logout", "config", "api",
+                    "workspace-trust", "worktree-hook"}
         self.assertEqual(protect.SUBCOMMANDS, reviewed)
         for word in sorted(reviewed):
             with self.subTest(word):
@@ -1665,6 +1668,21 @@ class ProtectScreens(unittest.TestCase):
                               self.refused(protect.screen_arguments, [word, "--json"]))
                 self.assertIn(f"the claude {word} command", self.refused(protect.screen_arguments, ["--", word]))
         self.assertEqual(protect.screen_arguments(["edit the hook", "project"]).add_dirs, [])  # prompts stay prompts
+
+    def test_a_first_operand_without_whitespace_is_passed_so_that_no_release_can_run_it_as_a_command(self):
+        """Native dispatches its first operand as a command, even after `--`, and a newer release may
+        register one SUBCOMMANDS does not list (2.1.325 did). No command name holds whitespace, so a
+        first operand without any is passed with one trailing space: it stays the prompt in every
+        release (N: 2.1.322 and 2.1.325 print the root usage for `claude "doctor " --help`)."""
+        for args, forwarded in ((["hello"], ["hello "]), (["--model", "x", "fix"], ["--model", "x", "fix "]),
+                                (["fix", "the", "mcp"], ["fix ", "the", "mcp"]), (["--", "go"], ["--", "go "]),
+                                (["-d", "api", "hi"], ["-d", "api", "hi "]), (["-"], ["- "]),
+                                (["--add-dir", "a", "b", "--verbose", "go"], ["--add-dir", "a", "b", "--verbose", "go "]),
+                                (["--permission-mode", "plan", "/review"], ["--permission-mode", "plan", "/review "]),
+                                (["hello world"], ["hello world"]), (["fix\tit"], ["fix\tit"]), ([""], [""]), ([], []),
+                                (["--verbose"], ["--verbose"])):
+            with self.subTest(args):
+                self.assertEqual(protect.screen_arguments(args).forwarded, forwarded)
 
     def test_a_refusing_policy_verdict_or_a_machine_organization_pin_refuses(self):
         paths = types.SimpleNamespace(name="N")
@@ -2405,7 +2423,7 @@ class Protected(Kit):
         return self.terminal([], answers, env=dict(self.env, **(env or {})), argv=argv, timeout=timeout)
 
     def test_a_passing_check_runs_the_native_behind_the_gate_with_its_own_pid(self):
-        code, output = self.protected(["--model", "claude-sonnet-4-5"], env={
+        code, output = self.protected(["--model", "claude-sonnet-4-5", "hello"], env={
             "FAKE_MESSAGES": "2", "FAKE_BEARER": upstream_fixture.BEARER_A, "FAKE_DIRECT": str(self.upstream.port)})
         self.assertEqual(code, 0, output)
         self.assertIn("fake claude sentinel", output)
@@ -2426,7 +2444,7 @@ class Protected(Kit):
         settings = json.loads(seen["args"][1])
         self.assertEqual(settings, {"sandbox": {"enabled": False}, "remoteControlAtStartup": False,
                                     "env": {"ANTHROPIC_BASE_URL": base}})
-        self.assertEqual(seen["args"][2:], ["--model", "claude-sonnet-4-5"])
+        self.assertEqual(seen["args"][2:], ["--model", "claude-sonnet-4-5", "hello "])  # never a command word
         self.assertNotEqual(seen["direct"], "connected")  # only the gate port is reachable
         refresh = json.loads(Path(str(self.record) + ".auth").read_text())
         self.assertEqual(refresh["env"]["HTTPS_PROXY"].rsplit(":", 1)[1], base.rsplit(":", 1)[1])
