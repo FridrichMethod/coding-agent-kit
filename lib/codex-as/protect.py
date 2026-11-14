@@ -10,9 +10,10 @@ subcommand refuses.
 Refusals come first and change nothing (Session.check): the arguments an allowlisted interactive
 TUI form, parsed like clap 0.167.2 (screen); the environment may name no other endpoint; the host
 must carry the OS boundary; no name on the way to the native executable (or to an interpreter its
-nested #! lines name, four levels deep) may lie in the boundary's reach, since a session could then
-replace the native under the user's next plain codex run, and each existing file on that way must be
-readable, so that no #! line stays unchecked; no PATH entry in that reach may supply,
+nested #! lines name, four levels deep) may lie in the boundary's reach, nor that reach inside the
+directory of the real codex file, where an installation keeps the rest of its code, since a session
+could then replace the native under the user's next plain codex run, and each existing file on that
+way must be readable, so that no #! line stays unchecked; no PATH entry in that reach may supply,
 or come before the one that supplies, the python3, dirname and readlink that bin/codex-as runs by
 name before any check (LAUNCHER_COMMANDS), codex or a #!/usr/bin/env interpreter, where a session
 could plant or replace one (supervise.path_order);

@@ -417,19 +417,21 @@ class OutsideCommands(unittest.TestCase):
         (base / "bin").mkdir()
         binary = base / "codex"
         binary.write_bytes(b"\x7fELF fake")
-        self.assertEqual(supervise.native_sources(binary, {}, "the X"), [("the X", str(binary), False)])
+        here = ("the directory of the X", str(base), True)
+        self.assertEqual(supervise.native_sources(binary, {}, "the X"), [("the X", str(binary), False), here])
         script = base / "script"
         script.write_text("#!/opt/node/bin/node --flag\n")
         self.assertEqual(supervise.native_sources(script, {}, "the X"),
-                         [("the X", str(script), False), ("the interpreter of the X", "/opt/node/bin/node", False)])
+                         [("the X", str(script), False), here,
+                          ("the interpreter of the X", "/opt/node/bin/node", False)])
         interpreter = base / "bin/node"
         interpreter.write_text("")
         interpreter.chmod(0o755)
         script.write_text("#!/usr/bin/env -S node --x\nrest\n")
         self.assertEqual(supervise.native_sources(script, {"PATH": str(base / "bin")}, "the X"),
-                         [("the X", str(script), False), ("the interpreter of the X", "/usr/bin/env", False),
+                         [("the X", str(script), False), here, ("the interpreter of the X", "/usr/bin/env", False),
                           ("the interpreter of the X", str(interpreter), False)])
-        self.assertEqual(len(supervise.native_sources(script, {"PATH": str(base / "none")}, "the X")), 2)
+        self.assertEqual(len(supervise.native_sources(script, {"PATH": str(base / "none")}, "the X")), 3)
         # env's own words: -S splitting (attached too), assignments and -- keep NAME the command.
         for line in ("-Snode --x", "LANG=C node", "-S LANG=C node", "-- node", "-S -- node --x"):
             with self.subTest(line=line):
@@ -449,7 +451,8 @@ class OutsideCommands(unittest.TestCase):
         self.assertEqual("the #! line of the X names an interpreter that is not an absolute path, which the kernel "
                          "looks up from the working directory; protected mode does not follow it",
                          self.refused(supervise.native_sources, script, {}, "the X"))
-        self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"), [("the X", str(base / "absent"), False)])
+        self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"),
+                         [("the X", str(base / "absent"), False), here])
 
     def test_nested_interpreters_count_four_levels_deep_and_each_env_command_is_searched(self):
         """An interpreter that is a #! script itself runs its own interpreter (Linux nests four levels),
@@ -468,7 +471,8 @@ class OutsideCommands(unittest.TestCase):
         env = {"PATH": str(base / "bin")}
         searched = []
         self.assertEqual(supervise.native_sources(script, env, "the X", searched), [
-            ("the X", str(script), False), ("the interpreter of the X", str(outer), False),
+            ("the X", str(script), False), ("the directory of the X", str(base), True),
+            ("the interpreter of the X", str(outer), False),
             ("the interpreter of the X", "/usr/bin/env", False), ("the interpreter of the X", str(node), False),
             ("the interpreter of the X", str(inner), False), ("the interpreter of the X", str(base / "absent"), False)])
         self.assertEqual(searched, ["node"])
@@ -483,6 +487,25 @@ class OutsideCommands(unittest.TestCase):
         inner.write_text("#!/usr/bin/env -i sh\n")
         self.assertIn("the #! line of the interpreter %s of the X runs /usr/bin/env in a form protected mode does not "
                       "follow" % inner, self.refused(supervise.native_sources, script, env, "the X"))
+
+    def test_the_directory_of_the_natives_real_file_counts_as_code(self):
+        """An installation keeps the rest of its code beside the native's real file (a Node package's
+        modules, a standalone release's helpers), so a writable path inside that directory refuses, as
+        claude-as treats its native's directory; the link the launcher runs it by counts by name."""
+        base = self.scratch()
+        release = base / "opt/codex/bin"
+        release.mkdir(parents=True)
+        (base / "bin").mkdir()
+        native = release / "codex"
+        native.write_bytes(b"\x7fELF fake")
+        (base / "bin/codex").symlink_to(native)
+        sources = supervise.native_sources(base / "bin/codex", {}, "the X")
+        self.assertEqual(sources, [("the X", str(base / "bin/codex"), False),
+                                   ("the directory of the X", str(release), True)])
+        supervise.unreachable(sources, [str(base / "work"), str(base / "opt/other")], "; HINT")
+        self.assertEqual("%s, which the boundary can write, lies inside the directory of the X %s; HINT"
+                         % (release / "work", release),
+                         self.refused(supervise.unreachable, sources, [str(release / "work")], "; HINT"))
 
     @unittest.skipIf(os.geteuid() == 0, "root reads every file")
     def test_an_unreadable_file_on_the_way_refuses_and_a_missing_one_stays_listed(self):
