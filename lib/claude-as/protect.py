@@ -59,8 +59,12 @@ version check, the refresh and the session all run confined. Its path is made ab
 resolve it once, and the launch refuses when that path, any name on the way to it, its directory or an
 interpreter its #! line names (one `#!/usr/bin/env node` finds on the native's PATH included) lie in
 the same reach (native_sources): a session could replace it under the next launch, and every later
-unprotected one would run it unconfined. While the run lasts the launcher's own PATH is the system
-directories (supervise.launcher_path); the native keeps the caller's.
+unprotected one would run it unconfined. Programs run by name come from the first entry of the
+caller's PATH that holds them, so the launch also refuses when an entry searched before that one for
+python3, for the claude key's command (when it is a name) or for a `#!/usr/bin/env` command could
+take a program a session plants: an empty or relative entry, or one in the same reach (path_order).
+While the run lasts the launcher's own PATH is the system directories (supervise.launcher_path); the
+native keeps the caller's.
 
 Proxy: the gate reaches the provider through the proxy Claude Code itself would use for HTTPS
 (gate_proxy: HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY), captured once; the native sees only the
@@ -295,14 +299,17 @@ def _shebang(path):
     return interpreter, "".join(argument)
 
 
-def _env_command(path, argument, env):
+def _env_command(path, argument, env, searched):
     """The command `#!/usr/bin/env ARGUMENT` (PATH's line) runs, looked up on the native's PATH as env
-    looks it up. The -S form and NAME=VALUE words before the command are followed; any other option
-    refuses."""
+    looks it up (its name is appended to SEARCHED). The -S form and NAME=VALUE words before the
+    command are followed; any other option, and a PATH=VALUE word (env would look the command up
+    there), refuses."""
     words = argument.split()
     if words and words[0] in ("-S", "--split-string"):
         words = words[1:]
     while words and "=" in words[0] and not words[0].startswith("-"):
+        if words[0].startswith("PATH="):
+            refuse(f"the #! line of {path} sets PATH for its command, which protected mode does not follow.")
         words = words[1:]
     if not words:
         refuse(f"the #! line of {path} names no command.")
@@ -311,21 +318,23 @@ def _env_command(path, argument, env):
         refuse(f"the #! line of {path} uses an env option protected mode does not follow.")
     if "/" in name:
         return os.path.abspath(name)
-    for directory in env.get("PATH", os.defpath).split(os.pathsep):
-        candidate = os.path.abspath(os.path.join(directory, name))
-        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-            return candidate
-    refuse(f"the #! line of {path} names {name}, which is not on the native's PATH.")
+    entry = path_search(name, env.get("PATH"))[1]
+    if entry is None:
+        refuse(f"the #! line of {path} names {name}, which is not on the native's PATH.")
+    searched.append(name)
+    return os.path.abspath(os.path.join(entry, name))
 
 
-def native_sources(executable, env):
+def native_sources(executable, env, searched=None):
     """(what, path, holds code) for everything that running EXECUTABLE runs, for supervise.unreachable:
     the program by the name the launcher runs (every link on the way counts), the directory of its
     real file (where an installation keeps the rest of its code) and, through nested #! lines, each
     interpreter: an absolute one, or the command `#!/usr/bin/env NAME` finds on the native's PATH
-    (ENV's). A protected session that could replace one of them would have the next launch run it,
-    and every unprotected one run it unconfined, so protected mode refuses such a launch. The kit
-    itself runs the native only under the boundary (confined_version, the refresh and the session)."""
+    (ENV's; each such NAME is appended to SEARCHED, for path_order). A protected session that could
+    replace one of them would have the next launch run it, and every unprotected one run it
+    unconfined, so protected mode refuses such a launch. The kit itself runs the native only under
+    the boundary (confined_version, the refresh and the session)."""
+    searched = [] if searched is None else searched
     sources = [("the Claude Code program", executable, False),
                ("the Claude Code directory", os.path.dirname(os.path.realpath(executable)), True)]
     current = executable
@@ -337,11 +346,53 @@ def native_sources(executable, env):
         current, argument = line
         sources.append(("the Claude Code interpreter", current, False))
         if os.path.basename(current) == "env":
-            current = _env_command(script, argument, env)
+            current = _env_command(script, argument, env, searched)
             sources.append(("the Claude Code interpreter", current, False))
     if _shebang(os.path.realpath(current)) is None:
         return sources
     refuse(f"the #! line of {executable} leads through more than {INTERPRETER_DEPTH} interpreters.")
+
+
+def path_search(name, value):
+    """(the entries of the PATH value VALUE searched for the command NAME before the one that supplies
+    it, that entry or None) as the shell, shutil.which and env's execvp search it: in order, an empty
+    entry naming the working directory, the first entry holding an executable file NAME supplying it.
+    An unset PATH (None) is os.defpath."""
+    before = []
+    for entry in (os.defpath if value is None else value).split(os.pathsep):
+        candidate = os.path.join(entry or ".", name)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return before, entry
+        before.append(entry)
+    return before, None
+
+
+def path_order(supervise, name, value, writable_paths):
+    """supervise.Refused when an entry of the PATH value VALUE searched for the command NAME before the
+    one that supplies it (path_search; every entry when none does) could take a NAME a boundary
+    process plants: an empty or relative entry, which names the working directory or a path relative
+    to it, or one where NAME, or a name on the way to it (supervise.resolution, through links),
+    lies inside WRITABLE_PATHS. The next launch, or a plain run of NAME, would find the planted
+    program first and run it outside the boundary. The reason names the entry, never what it holds.
+    The entry that supplies NAME is checked with the program itself (launcher_sources, native_sources)."""
+    before, supplier = path_search(name, value)
+    searched = ("searched for %s before %s" % (name, supplier or "an empty entry") if supplier is not None
+                else "searched for %s, which no PATH entry holds" % name)
+    hint = ("; a protected session could put a %s there for the next launch to run outside the boundary; remove the "
+            "entry from PATH%s to launch with reserves"
+            % (name, "" if supplier is None else ", or move it after %s," % (supplier or "the empty entry")))
+    for entry in before:
+        if not entry:
+            raise supervise.Refused("an empty PATH entry, %s, is the working directory, which the boundary can write%s"
+                                    % (searched, hint))
+        if not os.path.isabs(entry):
+            raise supervise.Refused("the PATH entry %s, %s, is relative to the working directory, which the boundary "
+                                    "can write%s" % (entry, searched, hint))
+        names = supervise.resolution(os.path.join(entry, name))
+        for root in writable_paths:
+            if any(supervise.within(found, root) for found in names):
+                raise supervise.Refused("the PATH entry %s, %s, lies inside %s, which the boundary can write%s"
+                                        % (entry, searched, root, hint))
 
 
 def _inside(path, parent):
@@ -545,11 +596,17 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
         # Nothing that kit processes outside the boundary load code from may be in its reach.
         python = supervise.interpreter()
         gate_env = {name: env[name] for name in ("SSL_CERT_FILE", "SSL_CERT_DIR") if env.get(name)}
+        # Nor any PATH entry searched before the one that supplies a program run by name: bin/claude-as's
+        # python3, the claude key's command and each #!/usr/bin/env command (all on the caller's PATH).
+        searched = ["python3"] + ([config.claude] if os.sep not in config.claude else [])
         try:
             supervise.unreachable(supervise.code_sources(python, gate_env, (HERE, KIT)),
                                   reach(writable, sandbox, uid, darwin), CODE_HINT)
             supervise.unreachable(launcher_sources(), reach(writable, sandbox, uid, darwin), LAUNCHER_HINT)
-            supervise.unreachable(native_sources(executable, env), reach(writable, sandbox, uid, darwin), NATIVE_HINT)
+            supervise.unreachable(native_sources(executable, env, searched), reach(writable, sandbox, uid, darwin),
+                                  NATIVE_HINT)
+            for name in searched:
+                path_order(supervise, name, env.get("PATH"), reach(writable, sandbox, uid, darwin))
         except supervise.Refused as error:
             refuse(error.reason + ".")
         settings = {"sandbox": {"enabled": False}, "remoteControlAtStartup": False}

@@ -1335,7 +1335,9 @@ class ProtectScreens(unittest.TestCase):
             cli = script(lib / "cli.js", "#!/usr/bin/env node")
             (bin_ / "claude").symlink_to("../lib/claude-code/cli.js")
             env = {"PATH": f"{work / 'node_modules/.bin'}:{tools}:/usr/bin:/bin"}
-            sources = protect.native_sources(str(bin_ / "claude"), env)
+            searched = ["python3"]
+            sources = protect.native_sources(str(bin_ / "claude"), env, searched)
+            self.assertEqual(searched, ["python3", "node"])  # each name a #!/usr/bin/env line looked up on PATH
             self.assertEqual(sources[:5], [
                 ("the Claude Code program", str(bin_ / "claude"), False),
                 ("the Claude Code directory", str(lib), True),
@@ -1368,6 +1370,8 @@ class ProtectScreens(unittest.TestCase):
             self.assertEqual(protect.native_sources(str(binary), env), [
                 ("the Claude Code program", str(binary), False), ("the Claude Code directory", str(bin_), True)])
             for first_line, text in (("#!/usr/bin/env -i node", "an env option"), ("#!node", "not an absolute path"),
+                                     ("#!/usr/bin/env -S PATH=/opt/node/bin node", "sets PATH for its command"),
+                                     ("#!/usr/bin/env NODE_OPTIONS=x PATH=/opt/node/bin node", "sets PATH"),
                                      ("#!/usr/bin/env nodejs-absent", "not on the native's PATH"),
                                      ("#!/usr/bin/env", "names no command"),
                                      ("#!/usr/bin/env -S 'node' x", "not one protected mode can follow"),
@@ -1380,6 +1384,55 @@ class ProtectScreens(unittest.TestCase):
             loop = script(tools / "loop", f"#!{tools / 'loop'}")
             script(cli, f"#!{loop}")
             self.assertIn("more than 4 interpreters", self.refused(protect.native_sources, str(bin_ / "claude"), env))
+
+    def test_a_path_entry_searched_before_the_one_that_supplies_a_program_must_lie_out_of_reach(self):
+        """bin/claude-as runs python3, the launcher the claude key's command and a #!/usr/bin/env line its
+        command by name, from the first PATH entry holding it. An entry searched before that one which a
+        boundary process can write (by a name on the way to the program there, through links), or an
+        empty or relative one (the working directory, or a path relative to it), would let a protected
+        session plant the program for the next launch, or a plain run of it, to run unconfined. The
+        refusal names the entry, never what it holds; entries after the one that supplies it do not
+        count, and when no entry holds the program, every entry does."""
+        name = "kit-cn3-probe"  # absent from the test's working directory
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            work, tools, other, dangling = base / "work", base / "tools", base / "other", base / "dangling"
+            for path in (work / "bin", tools, other, dangling):
+                path.mkdir(parents=True)
+            (tools / name).write_text("#!/bin/sh\n")
+            (tools / name).chmod(0o755)
+            (other / name).write_text("#!/bin/sh\n")  # not executable: searched past, as the shell does
+            (other / name).chmod(0o644)
+            (base / "linked").symlink_to(work / "bin")
+            (dangling / name).symlink_to(work / name)  # missing now; a boundary process could create it
+            reach = [str(work), "/dev/null"]
+            self.assertEqual(protect.path_search(name, f"{other}:{tools}:{work / 'bin'}"), ([str(other)], str(tools)))
+            self.assertEqual(protect.path_search(name, f"{other}::{work}"), ([str(other), "", str(work)], None))
+            for value in (f"{other}:{tools}:{work / 'bin'}::bin", None, f"{tools}:{work}"):
+                with self.subTest(value=value):
+                    protect.path_order(supervise, name, value, reach)
+            hint = ("; a protected session could put a %s there for the next launch to run outside the boundary; "
+                    "remove the entry from PATH, or move it after %s, to launch with reserves" % (name, tools))
+            for value, text in ((f"{work / 'bin'}:{tools}", "the PATH entry %s, searched for %s before %s, lies inside "
+                                 "%s, which the boundary can write" % (work / "bin", name, tools, work)),
+                                (f"{other}:{base / 'linked'}:{tools}", "the PATH entry %s, searched for %s before %s, "
+                                 "lies inside %s, which the boundary can write" % (base / "linked", name, tools, work)),
+                                (f"{dangling}:{tools}", "the PATH entry %s, searched for %s before %s, lies inside %s, "
+                                 "which the boundary can write" % (dangling, name, tools, work)),
+                                (f":{tools}", "an empty PATH entry, searched for %s before %s, is the working directory, "
+                                 "which the boundary can write" % (name, tools)),
+                                (f"bin:{tools}", "the PATH entry bin, searched for %s before %s, is relative to the "
+                                 "working directory, which the boundary can write" % (name, tools))):
+                with self.subTest(value=value):
+                    with self.assertRaises(supervise.Refused) as caught:
+                        protect.path_order(supervise, name, value, reach)
+                    self.assertEqual(caught.exception.reason, text + hint)
+            with self.assertRaises(supervise.Refused) as caught:
+                protect.path_order(supervise, name, f"{other}:{work / 'bin'}", reach)
+            self.assertEqual(caught.exception.reason, "the PATH entry %s, searched for %s, which no PATH entry holds, "
+                             "lies inside %s, which the boundary can write; a protected session could put a %s there "
+                             "for the next launch to run outside the boundary; remove the entry from PATH to launch "
+                             "with reserves" % (work / "bin", name, work, name))
 
 
 class MacosTemporaryCleanup(unittest.TestCase):
@@ -1610,6 +1663,46 @@ class ProtectedRefusals(Kit):
         self.assertNotIn("which the boundary can write", output)
         self.assertTrue((self.cwd / "record.json.auth").exists(), output)
         self.assertFalse(outside.exists())
+
+    def test_a_writable_path_entry_searched_first_refuses_before_anything_runs(self):
+        """An empty directory of the working directory on PATH before the one that supplies the
+        launcher's python3, the claude it runs or the command a #!/usr/bin/env line of that claude names
+        refuses, naming the entry: a protected session could plant the program there, and the next
+        launch's python3 (before any check) or every unprotected claude or node would run it
+        unconfined."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        shadow = self.cwd / "bin"
+        shadow.mkdir()
+        found = shutil.which("python3", path=self.env["PATH"])
+        python = self.base / "python"  # a python3 found before the shadow, out of reach
+        python.mkdir()
+        (python / "python3").symlink_to(found)
+        node = self.base / "node"
+        node.mkdir()
+        (node / "fakenode").write_text(
+            f"#!{sys.executable}\nimport os, sys\nos.execv(sys.executable, [sys.executable, *sys.argv[1:]])\n")
+        (node / "fakenode").chmod(0o700)
+        enveloped = self.base / "enveloped"
+        enveloped.mkdir()
+        (enveloped / "claude").write_text("#!/usr/bin/env fakenode\n" + (self.bin / "claude").read_text().split("\n", 1)[1])
+        (enveloped / "claude").chmod(0o700)
+        outside = self.base / "outside.log"
+        rest = self.env["PATH"]
+        for name, path, supplier in (("python3", f"{self.bin}:{shadow}:{rest}", os.path.dirname(found)),
+                                     ("claude", f"{python}:{shadow}:{self.bin}:{rest}", self.bin),
+                                     ("fakenode", f"{python}:{enveloped}:{shadow}:{node}:{rest}", node)):
+            with self.subTest(name):
+                env = dict(self.env, PATH=path, FAKE_OUTSIDE_MARK=str(outside), FAKE_RECORD=str(self.cwd / "record.json"))
+                code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+                output = output.replace("\n", " ")
+                self.assertEqual(code, 1, output)
+                self.assertIn("protected mode refused: the PATH entry %s, searched for %s before %s, lies inside %s, "
+                              "which the boundary can write; a protected session could put a %s there"
+                              % (shadow, name, supplier, self.cwd, name), output)
+                self.assertNotIn("only the request gate is reachable", output)  # refused before the supervisor
+                self.assertFalse((self.cwd / "record.json.auth").exists(), output)  # no refresh ran
+                self.assertFalse(outside.exists())
 
     def test_home_as_the_working_directory_refuses(self):
         if boundary_problem():
