@@ -5,7 +5,9 @@ Public API (load this file by path; it is never on sys.path):
     directory(config, create=False) -> Path
         config.state_dir / "accounts". With create, makes it 0700 (and its
         parents under the launcher's umask) and checks that it is an owned,
-        real 0700 directory whose parent other users cannot change. Either
+        real 0700 directory whose parent other users cannot change: owned by
+        this user or root, no other write, and group write only by the user's
+        private group without an access ACL (config.py's rule). Either
         way it raises ValueError when it is config.secrets_dir, also through
         a link: its files carry the Codex credentials' names.
     read(path) -> dict | None
@@ -37,12 +39,14 @@ Times in them come from a token, a Codex rollout or the status line, never
 from the launcher's clock; one from year 10000 on is ignored.
 """
 
+import importlib.util
 import json
 import math
 import os
 from pathlib import Path
 import re
 import secrets
+import shlex
 import stat
 import time
 
@@ -53,6 +57,39 @@ CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 WINDOWS = {"codex-as": ("primary", "secondary"), "claude-as": ("five_hour", "seven_day")}
 NAMES = {"five_hour": "5h", "seven_day": "weekly"}
 LAST = 253402300800  # 10000-01-01 UTC: no calendar time from here on
+
+
+_KIT_CONFIG = []
+
+
+def _kit_config():
+    """config.py beside this file, loaded once: its private_group and access_acl are the kit's
+    private-group rule. None when it cannot be loaded (group write then counts as other users')."""
+    if not _KIT_CONFIG:
+        spec = importlib.util.spec_from_file_location(
+            "coding_agent_kit_accounts_config", Path(os.path.realpath(__file__)).parent / "config.py")
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except (OSError, ImportError, SyntaxError):
+            module = None
+        _KIT_CONFIG.append(module)
+    return _KIT_CONFIG[0]
+
+
+def _others_can_write(info, path):
+    if info.st_mode & stat.S_IWOTH:
+        return True
+    if not info.st_mode & stat.S_IWGRP:
+        return False
+    settings = _kit_config()
+    if settings is None:
+        return True
+    settings.private_group.cache_clear()  # one check, one reading of the group database
+    try:
+        return not settings.private_group(info.st_gid) or settings.access_acl(path)
+    except OSError:
+        return True
 
 
 def directory(config, create=False):
@@ -69,8 +106,11 @@ def directory(config, create=False):
         return path
     uid = os.getuid()
     parent, info = path.parent.lstat(), path.lstat()
-    if not stat.S_ISDIR(parent.st_mode) or parent.st_uid not in (uid, 0) or parent.st_mode & 0o022:
+    if not stat.S_ISDIR(parent.st_mode) or parent.st_uid not in (uid, 0):
         raise ValueError(f"{path.parent}: must be a real directory that other users cannot change.")
+    if _others_can_write(parent, path.parent):
+        raise ValueError(f"{path.parent}: must be a real directory that other users cannot change; run "
+                         f"chmod go-w {shlex.quote(str(path.parent))}.")
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != uid or stat.S_IMODE(info.st_mode) != 0o700:
         raise ValueError(f"{path}: must be an owned, real directory with permissions 0700.")
     return path

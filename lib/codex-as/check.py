@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import stat
 import sys
 import uuid
@@ -286,12 +287,47 @@ def harmless(command, rest):
     return False
 
 
+_KIT_CONFIG = []
+
+
+def kit_config():
+    """lib/coding-agent-kit/config.py by path, loaded once when first needed: its private_group and
+    access_acl are the kit's private-group rule. None when it cannot be loaded (group write then
+    counts as other users' write)."""
+    if not _KIT_CONFIG:
+        lib = Path(os.path.realpath(__file__)).parent.parent
+        spec = importlib.util.spec_from_file_location("codex_as_check_config", lib / "coding-agent-kit/config.py")
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except (OSError, ImportError, SyntaxError):
+            module = None
+        _KIT_CONFIG.append(module)
+    return _KIT_CONFIG[0]
+
+
+def others_can_write(info, path):
+    """Whether a user other than this one can write the directory INFO describes (PATH): other write,
+    or group write unless the group is the user's private group without an access ACL (config.py's
+    rule, as a 002 umask gives on a user-private-group system); an unreadable ACL counts."""
+    if info.st_mode & stat.S_IWOTH:
+        return True
+    if not info.st_mode & stat.S_IWGRP:
+        return False
+    settings = kit_config()
+    try:
+        return settings is None or not settings.private_group(info.st_gid) or settings.access_acl(path)
+    except OSError:
+        return True
+
+
 def directory(path, private=False):
     info = path.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
         fail(f"{path}: must be an owned directory, never a symlink.")
-    if info.st_mode & 0o022:
-        fail(f"{path}: directory is group/other writable; review and restrict it first.")
+    if others_can_write(info, path):
+        fail(f"{path}: directory must not be writable by other users (other write, or group write by a group "
+             f"that is not your private group); run chmod go-w {shlex.quote(str(path))}.")
     if private and stat.S_IMODE(info.st_mode) != 0o700:
         fail(f"{path}: private credential/account directory must have permissions 0700; review it before changing permissions.")
 
