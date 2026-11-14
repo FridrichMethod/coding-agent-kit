@@ -1040,9 +1040,10 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
 
     def test_rebind_and_continuation_reads_fit_the_bounds_their_waiters_use(self):
-        """A rebind's two GETs together stay within rebind_timeout, which held requests wait for (plus
-        the connect timeout); a continuation's store read and two GETs stay within the launcher's 20 s
-        control timeout, so it never reports gate_unavailable while the check can still pass."""
+        """No read is cut shorter than a poll's: each GET of a rebind or a continuation gets the gate's
+        READ_TIMEOUT. A rebind's GETs fit what its held requests wait for (rebind_reads per-fetch
+        bounds plus the slack), and a continuation's store read and GETs fit the launcher's wait for
+        it, so a slow link that lets polls pass lets a continuation pass too."""
         prov, _ = self.make()
         seen = []
 
@@ -1058,9 +1059,12 @@ class GateProvider(unittest.TestCase):
             prov.read_quota(Fetching(), gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), cause)
         timeouts = {cause: [timeout for _, timeout in seen[index * 2:index * 2 + 2]]
                     for index, cause in enumerate(("startup", "rebind", "continuation"))}
-        self.assertEqual(timeouts["startup"], [None, None])  # the gate's READ_TIMEOUT each
-        self.assertLessEqual(sum(timeouts["rebind"]), prov.rebind_timeout)
-        self.assertLessEqual(bearer.KEYCHAIN_TIMEOUT + sum(timeouts["continuation"]), 20.0 - 1.0)
+        bound = {timeout or gate.READ_TIMEOUT for times in timeouts.values() for timeout in times}
+        self.assertEqual(bound, {gate.READ_TIMEOUT})
+        self.assertEqual(timeouts["rebind"], [prov.rebind_timeout] * 2)
+        self.assertLessEqual(len(timeouts["rebind"]), prov.rebind_reads)  # each waiter allows this many fetches
+        continuation = bearer.KEYCHAIN_TIMEOUT + len(timeouts["continuation"]) * gate.READ_TIMEOUT
+        self.assertLessEqual(continuation + 1.0, supervise.CONTINUE_TIMEOUT)
 
     def test_a_rejected_lease_bearer_is_reread_from_the_store_and_rebound(self):
         prov, g = self.started()

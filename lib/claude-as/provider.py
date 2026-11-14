@@ -90,10 +90,6 @@ OAUTH_BETA = "oauth-2025-04-20"
 REFRESH_TARGETS = {"platform.claude.com:443": ("platform.claude.com", 443)}
 NATIVE_REFRESH_WINDOW_MS = 300000  # native refreshes when now + 300000 >= expiresAt (S, 2.1.322)
 MIN_SESSION_MS = 600000  # what a protected session gets at least beyond native's window (a tunable, I)
-# A continuation's store read (up to bearer.KEYCHAIN_TIMEOUT on macOS) and its two GETs stay within
-# the launcher's 20 s control timeout, so it never reports gate_unavailable while the check can still
-# pass. (A rebind's two GETs take half of rebind_timeout each; see _get.)
-CONTINUATION_GET_TIMEOUT = 4.0
 PERSONAL_PLANS = frozenset(("pro", "max"))  # native applies no organization policy to these (S, 2.1.322)
 ROUTES = gate.RouteTable("claude-" + VERSION, (
     gate.Route("POST", "/v1/messages", gate.MODEL, query=True),
@@ -249,9 +245,11 @@ class ClaudeProvider(gate.BaseProvider):
 
     # -- quota reads -------------------------------------------------------------------------------
     def _get(self, gate_, path, presented, cause):
-        # A rebind's profile and usage GETs together stay within rebind_timeout, which the gate's held
-        # requests wait for (plus the connect timeout); other causes get the gate's READ_TIMEOUT.
-        timeout = {"rebind": self.rebind_timeout / 2, "continuation": CONTINUATION_GET_TIMEOUT}.get(cause)
+        # Every GET gets the gate's READ_TIMEOUT, as a poll's does: a rebind's each get rebind_timeout
+        # (the same), the per-fetch bound its held requests wait for rebind_reads times plus
+        # REBIND_SLACK, and a continuation's store read and two GETs stay within the launcher's
+        # continuation wait (supervise.CONTINUE_TIMEOUT), so a check that can pass is never cut short.
+        timeout = self.rebind_timeout if cause == "rebind" else None
         status, headers, body = gate_.fetch("GET", path, secret=presented.secret, timeout=timeout,
                                             headers=(("Accept", "application/json"), ("anthropic-beta", OAUTH_BETA)))
         if status != 200:
