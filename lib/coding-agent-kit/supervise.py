@@ -727,15 +727,16 @@ def eligible_message(fields, key="F12"):
 
 def family_pause_message(family, reason, fields, key="F12", running=True):
     """The deterministic local line for a model family paused alone: family, reason, account, last
-    fresh observation, whether the session and the other families go on (RUNNING) or the session is
-    paused too, and how to request continuation."""
+    fresh observation, what goes on (RUNNING: the session and the families not paused, worded to stay
+    true when one reading pauses several families) or that the session is paused too, and how to
+    request continuation."""
     fields = fields or {}
     parts = ["quota reserve paused the %s model family (%s)" % (family, reason)]
     if fields.get("account") is not None:
         parts.append("account " + _value(fields["account"]))
     if fields.get("last_fresh") is not None:
         parts.append("last fresh check " + _value(fields["last_fresh"]))
-    parts.append("the session and the other model families go on" if running else "the session is paused too")
+    parts.append("the session and the model families not paused go on" if running else "the session is paused too")
     parts.append("press %s, then type the code shown and Enter, to request a fresh check" % key)
     return "; ".join(parts)
 

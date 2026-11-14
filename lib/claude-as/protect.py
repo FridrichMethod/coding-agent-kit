@@ -205,12 +205,13 @@ def explain(reason):
 
 
 def family_notices(families):
-    """The startup lines for the model families a protected session starts with paused alone."""
+    """The startup lines for the model families a protected session starts with paused alone, each
+    true whatever else starts paused."""
     if not isinstance(families, dict):
         return []
     return [f"claude-as: the {family} model family starts paused ({reason}: "
-            f"{FAMILY_REASONS.get(reason, reason.replace('_', ' '))}); requests of the other families run, and F12 "
-            "then the code shown asks for a fresh check that can resume it."
+            f"{FAMILY_REASONS.get(reason, reason.replace('_', ' '))}); requests of the model families not paused "
+            "run, and F12 then the code shown asks for a fresh check that can resume it."
             for family, reason in sorted(families.items()) if isinstance(family, str) and isinstance(reason, str)]
 
 

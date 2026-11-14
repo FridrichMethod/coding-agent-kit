@@ -90,13 +90,14 @@ class Pure(unittest.TestCase):
         text = supervise.family_pause_message("opus", "family_at_reserve", fields)
         self.assertEqual(text, supervise.family_pause_message("opus", "family_at_reserve",
                                                               dict(reversed(list(fields.items())))))
+        # True whatever else is paused: one reading can pause two families, each with a line of its own.
         self.assertEqual(text, "quota reserve paused the opus model family (family_at_reserve); account N; last fresh "
-                               "check 2026-11-12T13:00:01Z; the session and the other model families go on; press "
-                               "F12, then type the code shown and Enter, to request a fresh check")
+                               "check 2026-11-12T13:00:01Z; the session and the model families not paused go on; "
+                               "press F12, then type the code shown and Enter, to request a fresh check")
         self.assertEqual(supervise.family_pause_message("sonnet", "family_window_unavailable", {}, "F9"),
                          "quota reserve paused the sonnet model family (family_window_unavailable); the session and "
-                         "the other model families go on; press F9, then type the code shown and Enter, to request a "
-                         "fresh check")
+                         "the model families not paused go on; press F9, then type the code shown and Enter, to "
+                         "request a fresh check")
         self.assertEqual(supervise.family_pause_message("sonnet", "family_at_reserve", {}, running=False),
                          "quota reserve paused the sonnet model family (family_at_reserve); the session is paused "
                          "too; press F12, then type the code shown and Enter, to request a fresh check")
