@@ -12,7 +12,9 @@ With FAKE_MESSAGES=N it first sends N Messages requests to ANTHROPIC_BASE_URL wi
 and records each status in FAKE_RECORD. With FAKE_PAUSE_CYCLE=PATH it sends one request (printing
 "fake claude admitted" after a 200), waits until PATH exists, then sends a request every 0.2 s,
 printing "fake claude refused" after the first refusal, until one passes again; every status is
-recorded.
+recorded. FAKE_OUTSIDE_MARK=PATH, a path outside everything a protected boundary can write, gets one
+line per invocation with its arguments (written only when it runs unconfined: inside the boundary
+the write fails, silently).
 """
 
 import json
@@ -85,8 +87,20 @@ def renew(seconds, token):
     os.replace(fresh, target)
 
 
+def mark_outside():
+    target = os.environ.get("FAKE_OUTSIDE_MARK")
+    if not target:
+        return
+    try:
+        with open(target, "a") as stream:
+            stream.write(json.dumps(sys.argv[1:]) + "\n")
+    except OSError:
+        pass  # inside the boundary
+
+
 def main():
     args = sys.argv[1:]
+    mark_outside()
     if args == ["--version"]:
         print(os.environ.get("CLAUDE_FAKE_VERSION", "2.1.322 (Claude Code)"))
         return 0

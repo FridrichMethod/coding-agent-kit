@@ -1301,19 +1301,81 @@ class ProtectScreens(unittest.TestCase):
                 self.assertIn("cannot be writable in protected mode", self.refused(protect.check_writable, [path], home))
 
     def test_only_a_reviewed_native_version_passes(self):
+        """native_version judges what `claude --version` printed; the launcher runs it inside the
+        boundary (confined_version), never outside."""
+        self.assertEqual(protect.native_version(lambda: (0, b"2.1.322 (Claude Code)\n")), "2.1.322")
+        for result, text in (((0, b"2.1.323 (Claude Code)\n"), "Claude Code 2.1.323 is not a version"),
+                             ((0, b"2.1.322\n"), "did not print a Claude Code version"),
+                             ((1, b"2.1.322 (Claude Code)\n"), "did not print a Claude Code version"),
+                             ((None, b""), "did not answer")):
+            with self.subTest(result):
+                self.assertIn(text, self.refused(protect.native_version, lambda: result))
+
+    def test_everything_running_the_native_executes_is_checked_for_reach(self):
+        """native_sources lists the native by the name the launcher runs, so every link on the way
+        counts, its directory, and each interpreter a #! line names: an absolute one, or the one
+        `#!/usr/bin/env NAME` finds on the native's PATH, through nested scripts. A boundary process
+        that could replace any of them would have the next launch run its code."""
         with tempfile.TemporaryDirectory() as temp:
-            native = Path(temp) / "claude"
-            native.write_text(f"#!{sys.executable}\nimport os, sys\nprint(os.environ['V'])\n"
-                              "sys.exit(int(os.environ.get('C', '0')))\n")
-            native.chmod(0o700)
-            env = dict(os.environ, V="2.1.322 (Claude Code)")
-            self.assertEqual(protect.native_version(str(native), env), "2.1.322")
-            for change, text in (({"V": "2.1.323 (Claude Code)"}, "Claude Code 2.1.323 is not a version"),
-                                 ({"V": "2.1.322"}, "did not print a Claude Code version"),
-                                 ({"C": "1"}, "did not print a Claude Code version")):
-                with self.subTest(change):
-                    self.assertIn(text, self.refused(protect.native_version, str(native), dict(env, **change)))
-            self.assertIn("did not answer", self.refused(protect.native_version, str(Path(temp) / "absent"), env))
+            base = Path(temp).resolve()
+            work, lib, bin_, tools = base / "work", base / "lib/claude-code", base / "bin", base / "tools"
+            for path in (work / "node_modules/.bin", lib, bin_, tools):
+                path.mkdir(parents=True)
+
+            def script(path, first_line, mode=0o755):
+                path.write_text(first_line + "\nexit 0\n")
+                path.chmod(mode)
+                return path
+
+            node = script(tools / "node", f"#!{sys.executable}")
+            cli = script(lib / "cli.js", "#!/usr/bin/env node")
+            (bin_ / "claude").symlink_to("../lib/claude-code/cli.js")
+            env = {"PATH": f"{work / 'node_modules/.bin'}:{tools}:/usr/bin:/bin"}
+            sources = protect.native_sources(str(bin_ / "claude"), env)
+            self.assertEqual(sources[:5], [
+                ("the Claude Code program", str(bin_ / "claude"), False),
+                ("the Claude Code directory", str(lib), True),
+                ("the Claude Code interpreter", "/usr/bin/env", False),
+                ("the Claude Code interpreter", str(node), False),
+                ("the Claude Code interpreter", sys.executable, False)])
+            for first_line, found in (("#!/usr/bin/env -S node --no-warnings", str(node)),
+                                      ("#! /usr/bin/env -S NODE_NO_WARNINGS=1 node", str(node)),
+                                      (f"#!{node} --flag", str(node))):
+                with self.subTest(first_line):
+                    script(cli, first_line)
+                    self.assertIn(("the Claude Code interpreter", found, False),
+                                  protect.native_sources(str(bin_ / "claude"), env))
+            script(cli, "#!/usr/bin/env node")
+            for root in (str(work), str(lib), str(bin_), str(tools), str(lib / "vendor")):
+                with self.subTest(root=root):
+                    if root == str(work):
+                        script(work / "node_modules/.bin/node", "#!/bin/sh")  # first on PATH, in reach
+                    with self.assertRaises(supervise.Refused) as caught:
+                        supervise.unreachable(protect.native_sources(str(bin_ / "claude"), env), [root],
+                                              protect.NATIVE_HINT)
+                    self.assertTrue(caught.exception.reason.endswith(protect.NATIVE_HINT), caught.exception.reason)
+                    (work / "node_modules/.bin/node").unlink(missing_ok=True)
+            supervise.unreachable(protect.native_sources(str(bin_ / "claude"), env), [str(work)], protect.NATIVE_HINT)
+            self.assertTrue(protect.NATIVE_HINT.startswith("; run claude-as with a Claude Code installed outside the "
+                                                           "working directory, every --add-dir and the account directory"))
+            binary = bin_ / "native"
+            binary.write_bytes(b"\x7fELF\x02\x01\x01" + bytes(64))
+            binary.chmod(0o755)
+            self.assertEqual(protect.native_sources(str(binary), env), [
+                ("the Claude Code program", str(binary), False), ("the Claude Code directory", str(bin_), True)])
+            for first_line, text in (("#!/usr/bin/env -i node", "an env option"), ("#!node", "not an absolute path"),
+                                     ("#!/usr/bin/env nodejs-absent", "not on the native's PATH"),
+                                     ("#!/usr/bin/env", "names no command"),
+                                     ("#!/usr/bin/env -S 'node' x", "not one protected mode can follow"),
+                                     ("#!/usr/bin/env " + "x" * 300, "not one protected mode can follow")):
+                with self.subTest(first_line):
+                    script(cli, first_line)
+                    message = self.refused(protect.native_sources, str(bin_ / "claude"), env)
+                    self.assertIn("the #! line of", message)
+                    self.assertIn(text, message)
+            loop = script(tools / "loop", f"#!{tools / 'loop'}")
+            script(cli, f"#!{loop}")
+            self.assertIn("more than 4 interpreters", self.refused(protect.native_sources, str(bin_ / "claude"), env))
 
 
 class MacosTemporaryCleanup(unittest.TestCase):
@@ -1391,7 +1453,8 @@ class MacosTemporaryCleanup(unittest.TestCase):
 
 
 class ProtectedRefusals(Kit):
-    """Refusals of the real launcher before any port, gate or native under the boundary."""
+    """Refusals of the real launcher before the session starts (the version check and the pre-launch
+    refresh, where a case reaches them, run confined)."""
 
     def setUp(self):
         super().setUp()
@@ -1479,6 +1542,70 @@ class ProtectedRefusals(Kit):
         self.assertEqual(stat.S_IMODE(refreshed.stat().st_mode), 0o600)
         self.assertEqual(unprotected.returncode, 0, unprotected.stderr)
         self.assertEqual(stat.S_IMODE(record.stat().st_mode), 0o600)
+
+    def test_the_version_check_runs_the_native_inside_the_boundary_only(self):
+        """The kit never runs the native outside the boundary: its --version check runs confined like
+        the pre-launch refresh, so a native a protected session replaced would run confined too. The
+        refresh runs here (the version check passed), then the gate refuses: no credential is stored."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        outside = self.base / "outside.log"  # not writable inside the boundary
+        env = dict(self.env, FAKE_OUTSIDE_MARK=str(outside), FAKE_RECORD=str(self.cwd / "record.json"))
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused", output)
+        self.assertTrue((self.cwd / "record.json.auth").exists(), output)  # the refresh ran: the version passed
+        self.assertFalse(outside.exists(), outside.read_text() if outside.exists() else "")
+        self.assertEqual(self.run_kit(["N", "--version"], env=env).returncode, 0)  # unprotected: runs outside
+        self.assertEqual(outside.read_text(), '["--version"]\n')
+
+    def test_a_native_the_boundary_can_replace_refuses_before_it_runs(self):
+        """A Claude Code program in reach of the boundary (by any name on its way, or the interpreter of
+        its #! line) refuses before anything runs: a protected session could replace it under the next
+        launch, protected or not."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        source = (self.bin / "claude").read_text()
+        outside = self.base / "outside.log"
+        local = self.native_config("N") / "local"  # Claude Code's older local install, in the account directory
+        local.mkdir()
+        (local / "claude").write_text(source)
+        (local / "claude").chmod(0o700)
+        linked = self.base / "linked"
+        linked.mkdir()
+        (linked / "claude").symlink_to(local / "claude")
+        project = self.cwd / "node_modules/.bin"  # a project-local install, first on PATH
+        project.mkdir(parents=True)
+        shutil.copy2(self.bin / "claude", project / "claude")
+        node = self.base / "node"  # a #!/usr/bin/env interpreter: in reach first, then outside
+        node.mkdir()
+        interpreter = f"#!{sys.executable}\nimport os, sys\nos.execv(sys.executable, [sys.executable, *sys.argv[1:]])\n"
+        enveloped = self.base / "enveloped"
+        enveloped.mkdir()
+        (enveloped / "claude").write_text("#!/usr/bin/env fakenode\n" + source.split("\n", 1)[1])
+        (enveloped / "claude").chmod(0o700)
+        for path in (project / "fakenode", node / "fakenode"):
+            path.write_text(interpreter)
+            path.chmod(0o700)
+        cases = ((linked, str(linked / "claude"), str(self.native_config("N"))),  # named as run, linked inside
+                 (project, str(project / "claude"), str(self.cwd)),
+                 (f"{enveloped}:{project}:{node}", str(project / "fakenode"), str(self.cwd)))
+        for path, inside, root in cases:
+            with self.subTest(path=path):
+                env = dict(self.env, PATH=f"{path}:{self.env['PATH']}", FAKE_OUTSIDE_MARK=str(outside))
+                output = self.refused([], env=env).replace("\n", " ")
+                self.assertIn("lies inside %s, which the boundary can write; run claude-as with a Claude Code installed "
+                              "outside the working directory" % root, output)
+                self.assertIn(inside, output)
+                self.assertFalse(outside.exists())
+                self.assertFalse((self.cwd / "record.json.auth").exists())
+        env = dict(self.env, PATH=f"{enveloped}:{node}:{self.env['PATH']}", FAKE_OUTSIDE_MARK=str(outside),
+                   FAKE_RECORD=str(self.cwd / "record.json"))
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)  # the interpreter out of reach
+        self.assertEqual(code, 1, output)
+        self.assertNotIn("which the boundary can write", output)
+        self.assertTrue((self.cwd / "record.json.auth").exists(), output)
+        self.assertFalse(outside.exists())
 
     def test_home_as_the_working_directory_refuses(self):
         if boundary_problem():
