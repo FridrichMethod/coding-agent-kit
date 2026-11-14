@@ -786,6 +786,46 @@ class Rotation(unittest.TestCase):
                   if dict(r["headers"]).get("Authorization") == "Bearer " + fakes.BEARER_B]
         self.assertEqual(bodies, [])
 
+    def test_an_identity_pause_drops_the_lease_so_no_poll_reads_the_old_bearer(self):
+        """After another identity's bearer (or an unattributed read) pauses, the old lease proves
+        nothing: it is dropped, a poll with its bearer (even one in flight before) is superseded and
+        never makes the pause continuable, and only a read that proves the expected identity again
+        binds a lease."""
+        clock = Clock()
+        h = Harness(self, clock=clock, notice_every=0.01)
+        h.ready()
+        old = h.gate.lease.presented
+        in_flight = clock()  # a poll with the lease's bearer, started before the pause
+        self.assertEqual(h.request("POST", "/model", auth(fakes.BEARER_B), MODEL_BODY)[0], 503)
+        self.assertIsNone(h.gate.lease)
+        late = gate.Observation(in_flight, True, identity=tuple(fakes.IDENTITY_A), data={"five_hour": 10, "weekly": 20})
+        self.assertEqual(h.gate.observe(old, late, "poll"), "superseded")
+        self.assertEqual(h.gate.check(old, "poll"), "superseded")
+        clock.advance(1)
+        h.gate.heartbeat()
+        h.gate.tick()
+        self.assertEqual(h.gate.status()["reason"], "bearer_identity_mismatch")
+        self.assertNotIn("notice", [note["op"] for note in h.notes])
+        unattributed = gate.Observation(clock(), True, identity=None, data={"five_hour": 10, "weekly": 20})
+        self.assertEqual(h.gate.observe(old, unattributed, "forwarded"), "identity_unattributed")
+        self.assertIsNone(h.gate.lease)
+        self.assertEqual(h.request("GET", "/usage", auth())[0], 200)  # the native's own read proves A again
+        self.assertTrue(h.gate.lease.secret.matches(gate.Secret(fakes.BEARER_A)))
+        self.assertEqual(h.gate.status()["reason"], "awaiting_continuation")
+
+    def test_a_failed_rebind_drops_the_lease_too(self):
+        """A new bearer whose rebind read fails is unresolved, and the old one may be signed out, so
+        the lease goes as with an identity pause."""
+        h = Harness(self)
+        h.ready()
+        old = h.gate.lease.presented
+        h.upstream.usage_status = 500
+        self.assertEqual(h.request("POST", "/model", auth(fakes.BEARER_B), MODEL_BODY)[0], 503)
+        self.assertEqual(h.gate.status()["reason"], "http_500")
+        self.assertIsNone(h.gate.lease)
+        h.upstream.usage_status = 200
+        self.assertEqual(h.gate.check(old, "poll"), "superseded")
+
     def test_concurrent_requests_share_one_rebind_read(self):
         h = Harness(self)
         h.ready()

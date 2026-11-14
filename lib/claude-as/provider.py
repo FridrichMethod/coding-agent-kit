@@ -315,15 +315,18 @@ class ClaudeProvider(gate.BaseProvider):
 
     def poll(self, gate_):
         """The monitor's poll: the lease's bearer; a rejected or rotated one is re-read from the store
-        and checked as a rebind (never as a poll, which cannot rebind). A restarted gate has no lease
-        until a check binds one, so its polls check the store's bearer as a rebind, which keeps the
-        pause (a restarted gate leaves it only through a continuation) but keeps its readings fresh."""
+        and checked as a rebind (never as a poll, which cannot rebind). A paused gate without a lease
+        (a restarted one until a check binds one, or one whose lease an identity pause dropped: another
+        account signed in) checks the store's bearer as a rebind, with its profile read, which keeps
+        the pause (only a continuation leaves it) but keeps its readings fresh, and never reads the
+        signed-out bearer's quota."""
         self.gate = gate_
         with gate_.lock:
             ended = gate_.lost is not None or gate_.closed
             lease = None if ended else gate_.lease
+            paused = gate_.state == "paused"
         if lease is None:
-            if not ended and gate_.mode == "restart":
+            if not ended and paused:
                 try:
                     current = self.stored()
                 except gate.Refusal:

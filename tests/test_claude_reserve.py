@@ -797,15 +797,15 @@ class GateProvider(unittest.TestCase):
         config.update(extra)
         return config
 
-    def make(self, mode="startup", **extra):
+    def make(self, mode="startup", gate_options=None, **extra):
         prov, decide = provider.make(self.config(**extra))
         g = gate.Gate(prov, decide, max_age=self.config(**extra)["max_age_s"], mode=mode, notify=self.messages.append,
-                      emit=lambda event, **fields: self.events.append((event, fields)))
+                      emit=lambda event, **fields: self.events.append((event, fields)), **(gate_options or {}))
         self.addCleanup(g.shutdown)
         return prov, g
 
-    def started(self, **extra):
-        prov, g = self.make(**extra)
+    def started(self, gate_options=None, **extra):
+        prov, g = self.make(gate_options=gate_options, **extra)
         prov.startup(g)
         g.attach()
         g.heartbeat()
@@ -948,6 +948,44 @@ class GateProvider(unittest.TestCase):
         self.assertEqual((g.state, closed), ("paused", [1]))
         self.assertEqual(self.upstream.model_requests(), [])
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (False, "bearer_identity_mismatch"))
+
+    def test_after_another_account_signs_in_polls_reprove_the_store_bearer_and_never_say_a_check_passes(self):
+        """Once the native presents another account's bearer (a /login inside the session), the old
+        lease no longer proves the enrolled account: paused polls check the store's bearer with both
+        reads, never the signed-out one, and no notice says that a check passes until the store holds
+        the enrolled account again; then a continuation resumes on the re-proved bearer."""
+        prov, g = self.started(gate_options={"notice_every": 0.01})
+        self.assertEqual(g.state, "running", g.status())
+        self.store(upstream_fixture.BEARER_B)
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_B)[:2], (False, "bearer_identity_mismatch"))
+        start = len(self.upstream.requests)
+
+        def poll():
+            time.sleep(0.02)
+            g.heartbeat()
+            prov.poll(g)
+            g.tick()
+
+        for _ in range(3):
+            poll()
+        reads = self.upstream.requests[start:]
+        self.assertEqual([r["path"] for r in reads], ["/api/oauth/profile", "/api/oauth/usage"] * 3)
+        self.assertEqual({dict((k.lower(), v) for k, v in r["headers"])["authorization"] for r in reads},
+                         {"Bearer " + upstream_fixture.BEARER_B})
+        self.assertEqual((g.state, g.reason), ("paused", "bearer_identity_mismatch"))
+        self.assertIn("the signed-in account changed", g.fields["message"])
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": False, "reason": "identity_mismatch"})
+        poll()
+        self.assertEqual([m for m in self.messages if m["op"] == "notice"], [])
+        self.store(upstream_fixture.BEARER_A2)  # signed in to the enrolled account again
+        poll()
+        self.assertEqual((g.state, g.reason), ("paused", "awaiting_continuation"))
+        self.assertEqual([(m["eligible"], m["reason"]) for m in self.messages if m["op"] == "notice"],
+                         [(True, "awaiting_continuation")])
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A2)[:2], (True, "admitted"))
 
     def test_a_pause_resumes_only_through_a_continuation_and_a_fresh_pass(self):
         prov, g = self.started()
