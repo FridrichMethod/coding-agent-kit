@@ -77,6 +77,14 @@ class Pure(unittest.TestCase):
                          "quota reserve paused (monitor_stale); press F9, then type the code shown and Enter, "
                          "to request a fresh check")
 
+    def test_the_pause_line_names_the_unreviewed_quota_rows(self):
+        fields = {"account": "N", "rows": "limits_kind_daily_all, seven_day_cowork",
+                  "last_fresh": "2026-11-12T13:00:01Z"}
+        self.assertEqual(supervise.pause_message("unproved_quota_row", fields),
+                         "quota reserve paused (unproved_quota_row); account N; unreviewed quota rows "
+                         "limits_kind_daily_all, seven_day_cowork; last fresh check 2026-11-12T13:00:01Z; press F12, "
+                         "then type the code shown and Enter, to request a fresh check")
+
     def test_capture_proxy(self):
         parse = fakes.gate.parse_proxy
         self.assertIsNone(supervise.capture_proxy({}, parse))

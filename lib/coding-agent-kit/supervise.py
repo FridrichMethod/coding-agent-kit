@@ -655,6 +655,8 @@ def pause_message(reason, fields, key="F12"):
     parts = ["quota reserve paused (%s)" % reason]
     if fields.get("account") is not None:
         parts.append("account " + _value(fields["account"]))
+    if fields.get("rows") is not None:  # the unreviewed rows of an unproved_quota_row pause
+        parts.append("unreviewed quota rows " + _value(fields["rows"]))
     if fields.get("window") is not None:
         parts.append("window " + _value(fields["window"]))
     if fields.get("remaining") is not None:
