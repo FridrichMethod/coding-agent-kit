@@ -34,11 +34,11 @@ Quota reads (QC option 3): GET https://api.anthropic.com/api/oauth/profile and /
 the same in-memory bearer, the neutral User-Agent and the proxy Claude Code would use for HTTPS (HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY, a plain http:// one only), captured by the launcher. The profile proves
 the identity (the two UUIDs only; nothing else is kept), the usage response gives the five-hour and
 seven-day windows (a window with utilization exactly 0 and resets_at null has not started: it counts as
-valid without a reset; any other null reset is unavailable). A model with its own row (seven_day_opus, seven_day_sonnet) is refused; any other
-present row whose semantics nobody proved (seven_day_oauth_apps, cinder_cove, wattle_ember, limits,
-unknown ones) pauses every request, or refuses the start (unproved_quota_row); the message and the rows
-field name those rows (normalize_usage's sanitized names, never a value). A poll with the lease's bearer
-reads usage only.
+valid without a reset; any other null reset is unavailable). A model with its own row (seven_day_opus,
+seven_day_sonnet) is refused; any other present row whose semantics nobody proved (seven_day_oauth_apps,
+cinder_cove, wattle_ember, limits, unknown ones) pauses every request, or refuses the start
+(unproved_quota_row); the message and the rows field name those rows (normalize_usage's sanitized
+names, never a value). A poll with the lease's bearer reads usage only.
 
 Token lifetime (D1): startup refuses a token that is inside native's 300 s refresh window
 (native_refresh_window: the pre-launch refresh did not renew it) or within MIN_SESSION_MS beyond it
