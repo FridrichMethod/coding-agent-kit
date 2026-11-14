@@ -19,6 +19,7 @@ import pwd
 import re
 import select
 import shutil
+import shlex
 import signal
 import socket
 import stat
@@ -1641,11 +1642,21 @@ class Unprotected(unittest.TestCase):
         script.chmod(0o700)
         fake, held = self.home.bin / "codex", self.home.base / "fake-codex"
         system = ("/usr/bin", "/bin")
+        # dirname and readlink, which bin/codex-as runs too, from an entry before the shadow, so that
+        # each case reaches the command it names.
+        utilities = self.home.base / "utilities"
+        utilities.mkdir()
+        for utility in ("dirname", "readlink"):
+            found = shutil.which(utility, path=os.pathsep.join(system))
+            if found is None:
+                self.skipTest("%s is not in /usr/bin or /bin" % utility)
+            (utilities / utility).symlink_to(found)
         cases = (("python3", (shadow, self.home.bin, python, *system), "the PATH entry %s comes before %s, which "
                   "supplies python3, and lies inside %s" % (shadow, python, self.home.work)),
-                 ("codex", (python, shadow, self.home.bin, *system), "the PATH entry %s comes before %s, which "
-                  "supplies codex, and lies inside %s" % (shadow, self.home.bin, self.home.work)),
-                 ("interpreter", (python, self.home.bin, shadow, tools, *system), "the PATH entry %s comes before %s, "
+                 ("codex", (python, utilities, shadow, self.home.bin, *system), "the PATH entry %s comes before %s, "
+                  "which supplies codex, and lies inside %s" % (shadow, self.home.bin, self.home.work)),
+                 ("interpreter", (python, utilities, self.home.bin, shadow, tools, *system), "the PATH entry %s comes "
+                  "before %s, "
                   "which supplies fakepython (the interpreter of the Codex executable), and lies inside %s"
                   % (shadow, tools, self.home.work)),
                  ("relative", ("", self.home.bin, python, *system), "the empty PATH entry (the current directory) "
@@ -1666,6 +1677,77 @@ class Unprotected(unittest.TestCase):
                 self.assertFalse(mark.exists())
                 self.assertEqual(self.home.events(), [])
                 self.assertEqual(list(shadow.iterdir()), [])
+
+    def test_a_path_entry_the_boundary_can_write_before_dirname_or_readlink_or_supplying_python3_refuses(self):
+        """bin/codex-as runs dirname, readlink and python3 by name before any check, as bin/claude-as
+        does, so an entry the boundary can write that is searched before the one supplying dirname or
+        readlink refuses too, and so does such an entry that supplies python3: a python3 wrapper script
+        there leaves the launcher's Python naming what the script execs, which lies outside. Nothing
+        runs."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        shadow = self.home.work / "bin"
+        shadow.mkdir()
+        python = os.path.realpath(sys.executable)
+        tools = self.home.base / "tools"
+        tools.mkdir()
+        (tools / "python3").symlink_to(python)
+        system = ("/usr/bin", "/bin")
+        found = {name: shutil.which(name, path=os.pathsep.join(system)) for name in ("dirname", "readlink")}
+        if None in found.values():
+            self.skipTest("dirname and readlink are not in /usr/bin or /bin")
+        cases = (("dirname", (self.home.bin, tools, shadow, *system), "the PATH entry %s comes before %s, which "
+                  "supplies dirname, and lies inside %s" % (shadow, os.path.dirname(found["dirname"]), self.home.work)),
+                 ("readlink", (self.home.bin, tools, shadow, *system), "the PATH entry %s comes before %s, which "
+                  "supplies readlink, and lies inside %s" % (shadow, os.path.dirname(found["readlink"]),
+                                                             self.home.work)),
+                 ("wrapper", (self.home.bin, shadow, *system), "the PATH entry %s, which supplies python3, lies "
+                  "inside %s, which the boundary can write: a protected session could replace that python3, which "
+                  "the next run outside the boundary would execute unconfined; supply python3 from a PATH entry "
+                  "outside every path the boundary can write" % (shadow, self.home.work)))
+        for name, entries, text in cases:
+            with self.subTest(name=name):
+                if name == "readlink":
+                    (tools / "dirname").symlink_to(found["dirname"])
+                elif name == "wrapper":
+                    wrapper = shadow / "python3"
+                    wrapper.write_text('#!/bin/sh\nexec %s "$@"\n' % shlex.quote(python))
+                    wrapper.chmod(0o755)
+                search = os.pathsep.join(str(entry) for entry in entries)
+                result = self.home.run(["--reserve-5h", "10", "A"], env={"PATH": search, "FAKE_VERSION_MARK": str(mark)})
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("usage reserve protection refused: " + (missing or text), result.stderr)
+                self.assertFalse(mark.exists())
+                self.assertEqual(self.home.events(), [])
+
+    def test_a_nested_or_relative_interpreter_of_the_native_refuses_before_anything_runs(self):
+        """An interpreter that is a #! script itself runs its own interpreter (Linux nests four levels),
+        so one in the boundary's reach refuses at any level, as claude-as follows them; a relative #!
+        interpreter, which the kernel looks up from the working directory, refuses too. Nothing runs."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        fake = self.home.bin / "codex"
+        tools = self.home.work / "tools"
+        tools.mkdir()
+        (tools / "fakepython").symlink_to(sys.executable)
+        outer = self.home.base / "outer"
+        outer.write_text("#!%s\n" % (tools / "fakepython"))
+        outer.chmod(0o700)
+        source = (FIXTURES / "fake_codex.py").read_text()
+        cases = (("nested", "#!%s\n" % outer, "the interpreter of the Codex executable %s lies inside %s, which the "
+                  "boundary can write; protected mode refuses a Codex that a protected session could replace"
+                  % (tools / "fakepython", self.home.work)),
+                 ("relative", "#!fakepython\n", "the #! line of the Codex executable names an interpreter that is not "
+                  "an absolute path, which the kernel looks up from the working directory; protected mode does not "
+                  "follow it"))
+        for name, line, text in cases:
+            with self.subTest(name=name):
+                fake.write_text(line + source)
+                result = self.home.run(["--reserve-5h", "10", "A"], env={"FAKE_VERSION_MARK": str(mark)})
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("usage reserve protection refused: " + (missing or text), result.stderr)
+                self.assertFalse(mark.exists())
+                self.assertEqual(self.home.events(), [])
 
     def test_shared_state_replaced_by_a_link_refuses_before_anything_runs(self):
         """A shared entry beneath codex_home that became a link (a protected session on macOS can do

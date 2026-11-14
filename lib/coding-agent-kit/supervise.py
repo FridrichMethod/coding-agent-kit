@@ -412,6 +412,7 @@ def resolution(path, hops=40):
 
 ENV_COMMAND = re.compile(r"[A-Za-z0-9._+-]+")
 ENV_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=[^'\"\\$`]*")
+INTERPRETER_DEPTH = 4  # nested #! lines followed (Linux nests four interpreters), as claude-as follows them
 
 
 class Unfollowed(ValueError):
@@ -419,9 +420,10 @@ class Unfollowed(ValueError):
 
 
 def script_interpreter(path):
-    """(interpreter, NAME) of the #! script at PATH: the absolute interpreter its #! line names and,
-    when that is env, the command NAME it runs, which env looks up on its PATH; (None, None) when
-    PATH is no such script. The env forms followed are `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]`
+    """(interpreter, NAME) of the #! script at PATH: the interpreter its #! line names, as written
+    (a relative one too, which native_sources refuses) and, when that is an absolute env, the
+    command NAME it runs, which env looks up on its PATH; (None, None) when PATH is no such script
+    or cannot be read. The env forms followed are `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]`
     (-S also attached), split at blanks as macOS splits the line and as -S splits it on Linux;
     Unfollowed for any other option (-i, -u, -C, -P and the rest can change where or whether env
     looks NAME up), a PATH assignment, quoting or no plain NAME."""
@@ -433,9 +435,9 @@ def script_interpreter(path):
     if not head.startswith(b"#!"):
         return None, None
     words = head[2:].split(b"\n", 1)[0].decode("utf-8", "replace").split()
-    if not words or not os.path.isabs(words[0]):
+    if not words:
         return None, None
-    if os.path.basename(words[0]) != "env":
+    if not os.path.isabs(words[0]) or os.path.basename(words[0]) != "env":
         return words[0], None
     rest = words[1:]
     if rest and rest[0].startswith("-S"):
@@ -449,25 +451,41 @@ def script_interpreter(path):
     return words[0], rest[0]
 
 
-def native_sources(path, env, what="the native"):
-    """(what, path, holds code) for the native executable PATH and, when it is a #! script, its
-    interpreter: the absolute one it names or, for `#!/usr/bin/env NAME`, NAME as ENV's PATH finds
-    it (one level; an interpreter that is a script itself is not followed). A protected session
-    that could replace one of them, or a link on the way, would have the next unprotected run of
-    the native execute its code unconfined, so an adapter refuses when one lies in the boundary's
-    reach (unreachable). Refused for an env line script_interpreter does not follow."""
-    sources = [(what, str(path), False)]
-    try:
-        interpreter, name = script_interpreter(path)
-    except Unfollowed as error:
-        raise Refused("the #! line of %s runs %s in a form protected mode does not follow (use "
-                      "`#!%s NAME` or `#!%s -S NAME ARGS`)" % (what, error, error, error)) from None
-    if interpreter is not None:
+def native_sources(path, env, what="the native", searched=None):
+    """(what, path, holds code) for the native executable PATH and, through nested #! lines (at most
+    INTERPRETER_DEPTH), each interpreter: the absolute one a line names or, for `#!/usr/bin/env
+    NAME`, NAME as ENV's PATH finds it (each such NAME is appended to SEARCHED, for path_order). A
+    protected session that could replace one of them, or a link on the way, would have the next
+    unprotected run of the native execute its code unconfined, so an adapter refuses when one lies in
+    the boundary's reach (unreachable). Refused for a relative interpreter, which the kernel looks up
+    from the working directory, an env line script_interpreter does not follow, and more nested
+    interpreters than INTERPRETER_DEPTH."""
+    searched = [] if searched is None else searched
+    sources, current, shown = [(what, str(path), False)], str(path), what
+    for level in range(INTERPRETER_DEPTH + 1):
+        try:
+            interpreter, name = script_interpreter(current)
+        except Unfollowed as error:
+            raise Refused("the #! line of %s runs %s in a form protected mode does not follow (use "
+                          "`#!%s NAME` or `#!%s -S NAME ARGS`)" % (shown, error, error, error)) from None
+        if interpreter is None:
+            return sources
+        if level == INTERPRETER_DEPTH:
+            break
+        if not os.path.isabs(interpreter):
+            raise Refused("the #! line of %s names an interpreter that is not an absolute path, which the kernel "
+                          "looks up from the working directory; protected mode does not follow it" % shown)
         sources.append(("the interpreter of " + what, interpreter, False))
-    found = shutil.which(name, path=env.get("PATH", os.defpath)) if name else None
-    if found:
-        sources.append(("the interpreter of " + what, os.path.abspath(found), False))
-    return sources
+        current = interpreter
+        if name:
+            searched.append(name)
+            found = shutil.which(name, path=env.get("PATH", os.defpath))
+            if not found:
+                return sources
+            current = os.path.abspath(found)
+            sources.append(("the interpreter of " + what, current, False))
+        shown = "the interpreter %s of %s" % (current, what)
+    raise Refused("the #! lines of %s lead through more than %d interpreters" % (what, INTERPRETER_DEPTH))
 
 
 def _runnable(path):
@@ -476,14 +494,17 @@ def _runnable(path):
 
 
 def path_order(lookups, env, writable_paths, hint=""):
-    """Refused (reason ending in HINT) when a PATH entry of ENV that a lookup of a command searches
-    before the entry supplying it lies inside a writable path, through every link, or is relative
-    (an empty one is the current directory, the workspace for a later run there): a protected
-    session could put a file of that name there, and the next lookup outside the boundary (the
-    next launch, or a plain run of the native) would execute it unconfined. LOOKUPS are (name,
-    label) pairs, label naming the command in a message; a name with a slash is never looked up.
-    When no entry supplies a name, every entry counts. The supplier itself is unreachable's to
-    check, as the resolved command."""
+    """Refused when a PATH entry of ENV that a lookup of a command searches could take a program a
+    protected session plants or replaces, which the next lookup outside the boundary (the next
+    launch, or a plain run of the native) would execute unconfined: a relative entry searched before
+    the one supplying it (an empty one is the current directory, the workspace for a later run
+    there), or an entry searched before it, or that one, where the command, or a name on the way to
+    it (resolution, through links), lies inside a writable path. The reason for an entry searched
+    before ends in HINT. The supplying entry counts by name, as claude-as counts it, since the
+    program check cannot always see it: a python3 wrapper script there leaves the launcher's Python
+    naming what the script execs. LOOKUPS are (name, label) pairs, label naming the command in a
+    message; a name with a slash is never looked up. When no entry supplies a name, every entry
+    counts."""
     entries = env.get("PATH", os.defpath).split(os.pathsep)
     for name, label in lookups:
         if not name or "/" in name:
@@ -497,19 +518,25 @@ def path_order(lookups, env, writable_paths, hint=""):
                 raise Refused("%s %s; a later run from the workspace would search the workspace there, which a "
                               "protected session can write%s" % (shown, before or "is searched for %s, which no "
                                                                   "PATH entry supplies" % label, hint))
+            names = resolution(os.path.join(entry, name))
+            for root in writable_paths:
+                if not any(within(item, root) for item in names):
+                    continue
+                if entry == supplier:
+                    raise Refused("the PATH entry %s, which supplies %s, lies inside %s, which the boundary can write: "
+                                  "a protected session could replace that %s, which the next run outside the boundary "
+                                  "would execute unconfined; supply %s from a PATH entry outside every path the "
+                                  "boundary can write" % (entry, label, root, name, name))
+                if before:
+                    place = "the PATH entry %s %s, and lies inside %s, which the boundary can write" % (
+                        entry, before, root)
+                else:
+                    place = ("the PATH entry %s lies inside %s, which the boundary can write, and no PATH entry "
+                             "supplies %s" % (entry, root, label))
+                raise Refused("%s: a protected session could put a %s there that the next run outside the "
+                              "boundary would execute unconfined%s" % (place, name, hint))
             if entry == supplier:
                 break
-            names = resolution(entry)
-            for root in writable_paths:
-                if any(within(item, root) for item in names):
-                    if before:
-                        place = "the PATH entry %s %s, and lies inside %s, which the boundary can write" % (
-                            entry, before, root)
-                    else:
-                        place = ("the PATH entry %s lies inside %s, which the boundary can write, and no PATH entry "
-                                 "supplies %s" % (entry, root, label))
-                    raise Refused("%s: a protected session could put a %s there that the next run outside the "
-                                  "boundary would execute unconfined%s" % (place, name, hint))
 
 
 def system_command(candidates):

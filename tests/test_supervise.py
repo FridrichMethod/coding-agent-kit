@@ -441,9 +441,43 @@ class OutsideCommands(unittest.TestCase):
                 self.assertIn("the #! line of the X runs /usr/bin/env in a form protected mode does not follow",
                               self.refused(supervise.native_sources, script, {"PATH": str(base / "bin")}, "the X"))
         script.write_text("#!relative\n")
-        self.assertEqual(len(supervise.native_sources(script, {}, "the X")), 1)
-        self.assertEqual(supervise.script_interpreter(script), (None, None))
+        self.assertEqual("the #! line of the X names an interpreter that is not an absolute path, which the kernel "
+                         "looks up from the working directory; protected mode does not follow it",
+                         self.refused(supervise.native_sources, script, {}, "the X"))
         self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"), [("the X", str(base / "absent"), False)])
+
+    def test_nested_interpreters_count_four_levels_deep_and_each_env_command_is_searched(self):
+        """An interpreter that is a #! script itself runs its own interpreter (Linux nests four levels),
+        so each one counts, as claude-as follows them, and each command an env line names joins the
+        PATH lookups; a fifth level, or a relative interpreter at any level (the kernel would look it
+        up from the working directory), refuses."""
+        base = self.scratch()
+        (base / "bin").mkdir()
+        script, outer, node, inner, fifth = (base / "script", base / "outer", base / "bin/node", base / "inner",
+                                             base / "fifth")
+        script.write_text("#!%s\n" % outer)
+        outer.write_text("#!/usr/bin/env -S node --x\n")
+        node.write_text("#!%s -y\n" % inner)  # the command env finds is a script itself
+        node.chmod(0o755)
+        inner.write_text("#!%s/absent\n" % base)  # a binary or nothing: not followed further
+        env = {"PATH": str(base / "bin")}
+        searched = []
+        self.assertEqual(supervise.native_sources(script, env, "the X", searched), [
+            ("the X", str(script), False), ("the interpreter of the X", str(outer), False),
+            ("the interpreter of the X", "/usr/bin/env", False), ("the interpreter of the X", str(node), False),
+            ("the interpreter of the X", str(inner), False), ("the interpreter of the X", str(base / "absent"), False)])
+        self.assertEqual(searched, ["node"])
+        inner.write_text("#!%s\n" % fifth)
+        fifth.write_text("#!/bin/sh\n")
+        self.assertEqual("the #! lines of the X lead through more than 4 interpreters",
+                         self.refused(supervise.native_sources, script, env, "the X"))
+        inner.write_text("#!bin/node\n")
+        self.assertEqual("the #! line of the interpreter %s of the X names an interpreter that is not an absolute "
+                         "path, which the kernel looks up from the working directory; protected mode does not follow "
+                         "it" % inner, self.refused(supervise.native_sources, script, env, "the X"))
+        inner.write_text("#!/usr/bin/env -i sh\n")
+        self.assertIn("the #! line of the interpreter %s of the X runs /usr/bin/env in a form protected mode does not "
+                      "follow" % inner, self.refused(supervise.native_sources, script, env, "the X"))
 
     def test_path_entries_searched_before_a_commands_supplier_must_lie_out_of_reach(self):
         """A PATH entry the boundary can write that a lookup searches before the entry supplying the
@@ -485,6 +519,38 @@ class OutsideCommands(unittest.TestCase):
         self.assertIn("the empty PATH entry (the current directory) is searched for codex, which no PATH entry supplies",
                       self.refused(supervise.path_order, [("codex", "codex")], order(system, ""), roots, ""))
         supervise.path_order(lookups, order(system, late, ""), roots, "")  # after both suppliers
+
+    def test_the_entry_that_supplies_a_command_and_a_link_of_its_name_before_it_must_lie_out_of_reach(self):
+        """As claude-as checks them: the entry that supplies a command counts by name, since the program
+        check cannot always see it (a python3 wrapper script there leaves the launcher's Python naming
+        what the script execs), and an entry searched before it counts by every name on the way to the
+        command in it, so a link of that name pointing into the reach, dangling until a session creates
+        its target, refuses too."""
+        base = self.scratch()
+        work, system, early = base / "work", base / "system", base / "early"
+        for path in (work / "bin", system, early):
+            path.mkdir(parents=True)
+        for directory in (system, work / "bin"):
+            (directory / "python3").write_text("#!/bin/sh\n")
+            (directory / "python3").chmod(0o755)
+        (base / "linked").symlink_to(work / "bin")
+        roots, lookups = [str(work)], [("python3", "python3")]
+
+        def order(*entries):
+            return {"PATH": os.pathsep.join(str(entry) for entry in entries)}
+
+        self.assertEqual("the PATH entry %s, which supplies python3, lies inside %s, which the boundary can write: a "
+                         "protected session could replace that python3, which the next run outside the boundary would "
+                         "execute unconfined; supply python3 from a PATH entry outside every path the boundary can "
+                         "write" % (work / "bin", work),
+                         self.refused(supervise.path_order, lookups, order(work / "bin", system), roots, "; HINT"))
+        self.assertIn("the PATH entry %s, which supplies python3, lies inside %s" % (base / "linked", work),
+                      self.refused(supervise.path_order, lookups, order(base / "linked", system), roots, ""))
+        (early / "python3").symlink_to(work / "planted")
+        self.assertIn("the PATH entry %s comes before %s, which supplies python3, and lies inside %s"
+                      % (early, system, work),
+                      self.refused(supervise.path_order, lookups, order(early, system), roots, ""))
+        supervise.path_order(lookups, order(system, early, work / "bin"), roots, "")  # never searched for python3
 
     def test_code_run_outside_the_boundary_must_lie_out_of_its_reach_through_every_link(self):
         base = self.scratch()
