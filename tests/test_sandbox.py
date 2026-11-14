@@ -1284,9 +1284,9 @@ class MacEnforcement(unittest.TestCase):
         try:
             macos.probe()
         except macos.Refusal as refusal:
-            cls.unreviewed = str(refusal)
+            cls.host_refusal = str(refusal)
         else:
-            cls.unreviewed = None
+            cls.host_refusal = None
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="kit-sandbox-test-")
@@ -1314,21 +1314,21 @@ class MacEnforcement(unittest.TestCase):
 
     def settle(self, observed, expected, detail=""):
         """Fail on a host protected mode accepts; on any other, skip and name every difference."""
-        if observed == expected or self.unreviewed is None:
+        if observed == expected or self.host_refusal is None:
             self.assertEqual(observed, expected, detail)
             return
         differences = {key: observed.get(key, "missing") for key in sorted(set(observed) | set(expected))
                        if observed.get(key, "missing") != expected.get(key, "missing")}
         self.skipTest("a host protected mode refuses (%s); differs from the reviewed expectation: %s %s"
-                      % (self.unreviewed, json.dumps(differences, sort_keys=True), detail))
+                      % (self.host_refusal, json.dumps(differences, sort_keys=True), detail))
 
     def require_profile(self):
         try:
             tested = macos.self_test(self.gate.port, [str(self.base / "inside")], "codex")
         except macos.Refusal as refusal:
-            if self.unreviewed is None:
+            if self.host_refusal is None:
                 raise
-            self.skipTest("a host protected mode refuses (%s); its self-test failed: %s" % (self.unreviewed, refusal))
+            self.skipTest("a host protected mode refuses (%s); its self-test failed: %s" % (self.host_refusal, refusal))
         # The self-test connected to the gate once and sent nothing; let the listener record that, then start afresh.
         wait_for(lambda: self.gate.received, 100)
         self.assertEqual(self.gate.received, [b""])
@@ -1339,7 +1339,7 @@ class MacEnforcement(unittest.TestCase):
         tested = self.require_profile()
         sys.stderr.write("\nMacEnforcement: macOS %s %s, %s; self-test answers %s\n"
                          % (platform.mac_ver()[0], platform.machine(),
-                            "reviewed" if self.unreviewed is None else "unreviewed (%s)" % self.unreviewed,
+                            "accepted" if self.host_refusal is None else "refused (%s)" % self.host_refusal,
                             json.dumps(tested.answers, sort_keys=True)))
         self.assertEqual(tested.answers, PASS_RESULT)
         self.assertEqual(sorted(os.listdir(self.base / "inside")), [])
