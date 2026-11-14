@@ -1,0 +1,206 @@
+{
+  "about": "Fabricated GET /api/oauth/usage documents, one per row shape Claude Code 2.1.322 reads (research RQ section 1), with the readings and unproved row names lib/claude-as/provider.py normalize_usage must give. A reading is [name, family, used]: name five_hour or weekly, family null for a general window.",
+  "cases": [
+    {
+      "case": "general windows",
+      "document": {
+        "five_hour": {"utilization": 12.5, "resets_at": "2026-11-20T10:00:00Z"},
+        "seven_day": {"utilization": 40, "resets_at": "2026-11-24T10:00:00.123456+00:00"}
+      },
+      "readings": [["five_hour", null, 12.5], ["weekly", null, 40]],
+      "unproved": []
+    },
+    {
+      "case": "general windows null",
+      "document": {"five_hour": null, "seven_day": null},
+      "readings": [],
+      "unproved": []
+    },
+    {
+      "case": "model family rows",
+      "document": {
+        "seven_day_sonnet": {"utilization": 61.25, "resets_at": "2026-11-24T10:00:00Z"},
+        "seven_day_opus": {"utilization": 3, "resets_at": "2026-11-24T10:00:00Z"}
+      },
+      "readings": [["weekly", "sonnet", 61.25], ["weekly", "opus", 3]],
+      "unproved": []
+    },
+    {
+      "case": "model family rows absent",
+      "document": {"seven_day_opus": null, "seven_day_sonnet": {}},
+      "readings": [],
+      "unproved": []
+    },
+    {
+      "case": "a model family row of another shape",
+      "document": {"seven_day_opus": "full"},
+      "readings": [["weekly", "opus", null]],
+      "unproved": []
+    },
+    {
+      "case": "other-surface and credit rows",
+      "document": {
+        "seven_day_oauth_apps": {"utilization": 37.25, "resets_at": "2026-11-24T10:00:00Z"},
+        "cinder_cove": {"utilization": 99, "resets_at": "2026-12-01T00:00:00Z"},
+        "wattle_ember": {
+          "utilization": 61.5, "resets_at": "2026-12-01T00:00:00Z", "label": "Fixture credit",
+          "limit_dollars": 50, "used_dollars": 30.75, "remaining_dollars": 19.25,
+          "periods": [{"starts_at": "2026-11-01T00:00:00Z", "ends_at": "2026-12-01T00:00:00Z"}],
+          "used_up_notice": "fixture notice", "approaching_notice": "fixture notice",
+          "covered_models_label": "Fable", "offer_ends_at": "2026-12-15T00:00:00Z"
+        },
+        "extra_usage": {
+          "is_enabled": true, "monthly_limit": 10000, "used_credits": 2500, "utilization": 25,
+          "currency": "USD", "disabled_reason": null
+        }
+      },
+      "readings": [],
+      "unproved": []
+    },
+    {
+      "case": "limits session and weekly_all",
+      "document": {
+        "limits": [
+          {"kind": "session", "group": "session", "percent": 14, "resets_at": "2026-11-20T10:00:00Z",
+           "severity": "normal", "is_active": false},
+          {"kind": "weekly_all", "group": "weekly", "percent": 41.5, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": true, "scope": null}
+        ]
+      },
+      "readings": [["five_hour", null, 14], ["weekly", null, 41.5]],
+      "unproved": []
+    },
+    {
+      "case": "limits weekly_scoped model rows",
+      "document": {
+        "limits": [
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 7, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": false, "scope": {"model": {"display_name": "Sonnet 4.5"}}},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 8, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": false, "scope": {"model": {"display_name": "Opus"}, "surface": null}},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 9, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": false, "scope": {"model": {"display_name": "haiku 4.5"}}},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 80, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "warning", "is_active": false, "scope": {"model": {"display_name": "Fable"}}},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 81, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "warning", "is_active": false, "scope": {"model": {"display_name": "Fable 5.1"}}},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 82, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "warning", "is_active": false, "scope": {"model": {"display_name": "Mythos 1"}}}
+        ]
+      },
+      "readings": [["weekly", "sonnet", 7], ["weekly", "opus", 8], ["weekly", "haiku", 9]],
+      "unproved": []
+    },
+    {
+      "case": "limits surface rows",
+      "document": {
+        "limits": [
+          {"kind": "session", "group": "session", "percent": 5, "resets_at": "2026-11-20T10:00:00Z",
+           "scope": {"surface": {"display_name": "Claude Code"}}},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 6, "resets_at": "2026-11-24T10:00:00Z",
+           "scope": {"model": {"display_name": "Sonnet"}, "surface": {"display_name": "Cowork"}}}
+        ]
+      },
+      "readings": [],
+      "unproved": ["limits_session_surface", "limits_weekly_scoped_both"]
+    },
+    {
+      "case": "limits scopes no row of that kind has",
+      "document": {
+        "limits": [
+          {"kind": "session", "group": "session", "percent": 5, "resets_at": "2026-11-20T10:00:00Z",
+           "scope": {"model": {"display_name": "Sonnet"}}},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 6, "resets_at": "2026-11-24T10:00:00Z"},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 6, "resets_at": "2026-11-24T10:00:00Z",
+           "scope": {"model": {"display_name": "Claude Sonnet"}}},
+          {"kind": "weekly_all", "group": "weekly", "percent": 6, "resets_at": "2026-11-24T10:00:00Z",
+           "scope": {"workspace": {"display_name": "Fixture"}}}
+        ]
+      },
+      "readings": [],
+      "unproved": ["limits_session_model", "limits_weekly_all_other", "limits_weekly_scoped_model_unknown",
+                   "limits_weekly_scoped_unscoped"]
+    },
+    {
+      "case": "limits unknown kinds",
+      "document": {
+        "limits": [
+          {"kind": "daily_all", "group": "daily", "percent": 5, "resets_at": "2026-11-20T10:00:00Z"},
+          {"kind": "Fixture Kind", "group": "weekly", "percent": 5, "resets_at": "2026-11-20T10:00:00Z"}
+        ]
+      },
+      "readings": [],
+      "unproved": ["limits_kind_daily_all", "limits_kind_unknown"]
+    },
+    {
+      "case": "limits malformed entries",
+      "document": {
+        "limits": [
+          "session",
+          {"group": "session", "percent": 5},
+          {"kind": 7, "percent": 5},
+          {"kind": "session", "percent": 5, "scope": "Claude Code"},
+          {"kind": "weekly_scoped", "percent": 5, "scope": {"model": {"name": "Sonnet"}}},
+          {"kind": "weekly_scoped", "percent": 5, "scope": {"model": "Sonnet"}}
+        ]
+      },
+      "readings": [],
+      "unproved": ["limits_malformed"]
+    },
+    {
+      "case": "limits of another type",
+      "document": {"limits": {"kind": "session", "percent": 5}},
+      "readings": [],
+      "unproved": ["limits_malformed"]
+    },
+    {
+      "case": "limits empty",
+      "document": {"limits": []},
+      "readings": [],
+      "unproved": []
+    },
+    {
+      "case": "unknown top-level rows",
+      "document": {
+        "seven_day_cowork": {"utilization": 1, "resets_at": "2026-11-24T10:00:00Z"},
+        "seven_day_omelette": {"utilization": 2, "resets_at": "2026-11-24T10:00:00Z"},
+        "seven_day_overage_included": {"utilization": 3, "resets_at": "2026-11-24T10:00:00Z"},
+        "Odd Row": {"utilization": 4},
+        "seven_day_empty": {},
+        "seven_day_null": null
+      },
+      "readings": [],
+      "unproved": ["seven_day_cowork", "seven_day_omelette", "seven_day_overage_included", "unknown"]
+    },
+    {
+      "case": "error and type keys",
+      "document": {"type": "usage", "error": null, "five_hour": {"utilization": 1, "resets_at": "2026-11-20T10:00:00Z"}},
+      "readings": [["five_hour", null, 1]],
+      "unproved": []
+    },
+    {
+      "case": "a Max account",
+      "document": {
+        "five_hour": {"utilization": 23, "resets_at": "2026-11-20T10:00:00Z"},
+        "seven_day": {"utilization": 31, "resets_at": "2026-11-24T10:00:00Z"},
+        "seven_day_oauth_apps": {"utilization": 0, "resets_at": null},
+        "seven_day_opus": null,
+        "seven_day_sonnet": {"utilization": 12, "resets_at": "2026-11-24T10:00:00Z"},
+        "cinder_cove": null,
+        "wattle_ember": null,
+        "extra_usage": {"is_enabled": false, "monthly_limit": null, "used_credits": null, "utilization": null},
+        "limits": [
+          {"kind": "session", "group": "session", "percent": 23, "resets_at": "2026-11-20T10:00:00Z",
+           "severity": "normal", "is_active": false},
+          {"kind": "weekly_all", "group": "weekly", "percent": 31, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": true},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 2, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": false, "scope": {"model": {"display_name": "Fable"}}}
+        ]
+      },
+      "readings": [["five_hour", null, 23], ["weekly", null, 31], ["weekly", "sonnet", 12], ["five_hour", null, 23],
+                   ["weekly", null, 31]],
+      "unproved": []
+    }
+  ]
+}

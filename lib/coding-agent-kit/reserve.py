@@ -68,6 +68,13 @@ Evaluator (one per gate instance; not thread-safe, the gate serializes it):
     verdict() -> Verdict; admits() -> bool, the admission test; next_poll(jitter=None)
         -> seconds until the next quota read.
 
+Quota families: a reading with a family (Claude: a model family's own weekly limit, such as
+seven_day_sonnet) never counts for the general windows. While the weekly reserve is on, the
+latest attributed response's family readings are judged against it, each family on its own, and
+Verdict.families lists them; a family at or below the reserve, or whose reading is unavailable,
+is the provider's to refuse alone (its requests), while the general windows decide everything
+else as above. Without the weekly reserve they are not judged.
+
 States: "checking" until the first fresh passing reading with healthy control
 ("run"), or a refusal ("refuse"); "running"; "paused". While checking, a
 threshold, an unavailable or unattributed response, a fault or control loss
@@ -283,12 +290,19 @@ class Reading:
     or with another length; a window name with another length is a mismatch. started:
     False only when the provider reports the window as not started yet (Claude:
     utilization exactly 0 and resets_at null); a reading without a reset is valid only
-    then and only at exactly 0 used, and its messages name no reset."""
+    then and only at exactly 0 used, and its messages name no reset. family: None, or the
+    quota family ([a-z0-9_]{1,64}) whose own weekly limit this reading is: it never counts
+    for a general window, whatever its name or duration (see Quota families). merge: the
+    provider reports this window more than once by design (Claude: five_hour and a limits[]
+    session row); when every report of a window has it, the more-used valid report decides
+    and any invalid one makes the window unavailable; otherwise a second report is ambiguous."""
     used: object
     resets_at: object = None
     name: object = None
     duration: object = None
     started: bool = True
+    family: object = None
+    merge: bool = False
 
 
 @dataclass(frozen=True)
@@ -309,12 +323,14 @@ class WindowStatus:
     """An enabled window in the latest response. status: "ok", "at_reserve", or why it is
     unavailable: missing, malformed, out_of_range, reset_unknown, reset_anomaly,
     ambiguous (reported twice) or mismatch (name and duration disagree). resets_at is
-    None for a valid window not started yet."""
+    None for a valid window not started yet. family: None for a general window, else the
+    quota family whose own weekly limit this is (window is then "weekly")."""
     window: str
     reserve: Decimal
     status: str
     remaining: object = None
     resets_at: object = None
+    family: object = None
 
 
 @dataclass(frozen=True)
@@ -326,7 +342,9 @@ class Verdict:
     latest attributed response. last_fresh: wall-clock time of the last valid reading;
     age: seconds since it. failure: the latest failed read since the latest response.
     continuation: "armed" while a continuation waits for its check. names: the sorted
-    names of the fault that blocks now (reason), else ()."""
+    names of the fault that blocks now (reason), else (). families: WindowStatus per quota
+    family of the latest attributed response, sorted by family, judged against the weekly
+    reserve (empty while it is off); a family whose status is not "ok" is refused alone."""
     account: str
     state: str
     decision: str
@@ -339,6 +357,7 @@ class Verdict:
     continuation: object
     eligible: bool
     names: tuple = ()
+    families: tuple = ()
 
     def message(self, how=""):
         """One deterministic line; HOW (for example the continuation key) follows it."""
@@ -346,6 +365,7 @@ class Verdict:
         if self.decision == "run":
             detail = ", ".join(f"{LABELS[w.window]} {above_reserve(w)}% remaining "
                                f"(reserve {percent(w.reserve)}%)" for w in self.windows)
+            detail += "".join("; " + family_text(status) for status in self.families)
         elif self.reason is None:
             detail = f"{cause_text(self.cause)}; the latest quota check passes; a continuation resumes"
         else:
@@ -377,6 +397,17 @@ class Verdict:
         if self.last_fresh is None:
             return text
         return f"{text}; last valid reading at {timestamp(self.last_fresh)}"
+
+
+def family_text(status):
+    """How one quota family's own weekly limit stands, in a running message."""
+    if status.status == OK:
+        return f"{status.family} models: their weekly limit {above_reserve(status)}% remaining"
+    if status.status == AT_RESERVE:
+        return (f"{status.family} models paused: their weekly limit {percent(status.remaining, floor=True)}% "
+                f"remaining, at or below the {percent(status.reserve)}% weekly reserve"
+                + ("" if status.resets_at is None else f", resets {timestamp(status.resets_at)}"))
+    return f"{status.family} models paused: their weekly limit is unavailable ({status.status.replace('_', ' ')})"
 
 
 def cause_text(cause):
@@ -422,6 +453,8 @@ def number(value):
 
 def windows_of(reading):
     """{window: problem or None} for the enabled-or-not windows this reading claims."""
+    if reading.family is not None:
+        return {}  # a quota family's own limit, never a general window
     if reading.name is not None and not (isinstance(reading.name, str) and reading.name in DURATIONS):
         return {}  # another family's or window's name: not ours, whatever its duration
     named, timed = reading.name, None
@@ -434,31 +467,44 @@ def windows_of(reading):
     return {} if window is None else {window: None}
 
 
-def judge(reading, window, reserve, wall_at):
+def judge_all(found, window, reserve, wall_at, family=None):
+    """WindowStatus of the readings FOUND for WINDOW (or for FAMILY's own weekly limit): a single
+    one as judge() says; several only when each has merge, and then the first unavailable one, else
+    the most used (the least remaining, the first of equals); otherwise ambiguous."""
+    if len(found) > 1 and not all(reading.merge is True for reading in found):
+        return WindowStatus(window, reserve, "ambiguous", family=family)
+    statuses = [judge(reading, window, reserve, wall_at, family) for reading in found]
+    unavailable = [status for status in statuses if status.status not in (OK, AT_RESERVE)]
+    if unavailable:
+        return unavailable[0]
+    return min(statuses, key=lambda status: status.remaining)
+
+
+def judge(reading, window, reserve, wall_at, family=None):
     """WindowStatus of the one reading for WINDOW."""
     used = number(reading.used)
     if used is None:
-        return WindowStatus(window, reserve, "malformed")
+        return WindowStatus(window, reserve, "malformed", family=family)
     if not 0 <= used <= 100:
-        return WindowStatus(window, reserve, "out_of_range")
+        return WindowStatus(window, reserve, "out_of_range", family=family)
     if reading.resets_at is None:
         if reading.started is not False or used != 0:
-            return WindowStatus(window, reserve, "reset_unknown")
+            return WindowStatus(window, reserve, "reset_unknown", family=family)
         # A window not started yet: nothing used, so no reset to report (U1).
     else:
         reset = number(reading.resets_at)
         if reset is None:
-            return WindowStatus(window, reserve, "malformed")
+            return WindowStatus(window, reserve, "malformed", family=family)
         wall = Decimal(repr(float(wall_at)))
         if reset <= wall - Decimal(repr(RESET_SKEW)) or reset > wall + DURATIONS[window] + Decimal(repr(RESET_SKEW)):
-            return WindowStatus(window, reserve, "reset_anomaly")
+            return WindowStatus(window, reserve, "reset_anomaly", family=family)
     # remaining <= reserve is used + reserve >= 100; rounding down keeps that comparison
     # exact at any precision, and the remaining value shown is never above the true one.
     at_reserve = FLOOR.add(used, reserve) >= 100
     remaining = FLOOR.subtract(Decimal(100), used)
     if not remaining:
         remaining = Decimal(0)  # rounding down makes an exact 100 - 100 a negative zero
-    return WindowStatus(window, reserve, AT_RESERVE if at_reserve else OK, remaining, reading.resets_at)
+    return WindowStatus(window, reserve, AT_RESERVE if at_reserve else OK, remaining, reading.resets_at, family)
 
 
 def reason_word(reason, reserved=frozenset()):
@@ -500,6 +546,7 @@ class Evaluator:
         self.latest_at = None        # receipt time of the latest response taken
         self.problem = None          # None, "unattributed" or "window_unavailable" for it
         self.windows = ()            # its WindowStatus per enabled window
+        self.families = ()           # ... and per quota family (judged against the weekly reserve)
         self.last_fresh = None       # receipt time of the latest valid response ...
         self.last_fresh_wall = None  # ... and its wall-clock time
         self.failure_reason, self.failures = None, 0
@@ -515,7 +562,9 @@ class Evaluator:
         fresh_at = observation.fresh_at
         if not (finite(fresh_at) and finite(observation.wall_at) and 0 <= observation.wall_at <= LATEST_WALL
                 and isinstance(observation.attributed, bool) and isinstance(observation.readings, (tuple, list))
-                and all(isinstance(reading, Reading) for reading in observation.readings)):
+                and all(isinstance(reading, Reading) and (reading.family is None or isinstance(reading.family, str)
+                                                          and NAME.fullmatch(reading.family))
+                        for reading in observation.readings)):
             return self._failed("invalid_observation", now, now)
         if fresh_at > now:
             return self._failed("invalid_time", now, now)
@@ -527,9 +576,10 @@ class Evaluator:
         self._count_paused_poll(answered)
         self.latest_at, self.failure_reason, self.failures = fresh_at, None, 0
         if not observation.attributed:
-            self.problem, self.windows = "unattributed", ()
+            self.problem, self.windows, self.families = "unattributed", (), ()
         else:
             self.windows = self._judge(observation)
+            self.families = self._judge_families(observation)
             if any(status.status not in (OK, AT_RESERVE) for status in self.windows):
                 self.problem = "window_unavailable"
             else:
@@ -609,7 +659,7 @@ class Evaluator:
         if self.state == CHECKING and self.refused is None and (self.last_fresh is None or self._stale(now)):
             return 0.0  # no usable reading yet
         near = any(status.remaining is not None and status.remaining - status.reserve <= NEAR_POINTS
-                   for status in self.windows)
+                   for status in self.windows + self.families)
         return POLL_NEAR if near else POLL_RUNNING
 
     # -- internals ----------------------------------------------------------
@@ -629,11 +679,20 @@ class Evaluator:
                 statuses.append(WindowStatus(window, reserve, "missing"))
             elif any(problem for _, problem in found):
                 statuses.append(WindowStatus(window, reserve, "mismatch"))
-            elif len(found) > 1:
-                statuses.append(WindowStatus(window, reserve, "ambiguous"))
             else:
-                statuses.append(judge(found[0][0], window, reserve, observation.wall_at))
+                statuses.append(judge_all([reading for reading, _ in found], window, reserve, observation.wall_at))
         return tuple(statuses)
+
+    def _judge_families(self, observation):
+        """WindowStatus per quota family, each judged against the weekly reserve; () while it is off."""
+        if "weekly" not in self.reserves:
+            return ()
+        found = {}
+        for reading in observation.readings:
+            if reading.family is not None:
+                found.setdefault(reading.family, []).append(reading)
+        return tuple(judge_all(found[family], "weekly", self.reserves["weekly"], observation.wall_at, family)
+                     for family in sorted(found))
 
     def _failed(self, reason, now, at):
         answered = self._answers(at)
@@ -707,4 +766,4 @@ class Evaluator:
         names = self.fault_names if reason is not None and reason == self.fault_reason else ()
         return Verdict(self.account, self.state, decision, reason, self.cause, self.windows, self.last_fresh_wall,
                        age, self.failure_reason, "armed" if self.armed is not None else None,
-                       self.state == PAUSED and condition is None, names)
+                       self.state == PAUSED and condition is None, names, self.families)

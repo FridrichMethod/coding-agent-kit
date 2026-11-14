@@ -469,6 +469,70 @@ class Evaluation(unittest.TestCase):
                 self.assertEqual((verdict.decision, verdict.reason), ("refuse", "window_unavailable"))
                 self.assertEqual([w.status for w in verdict.windows], ["missing", "missing"])
 
+    def test_a_window_reported_twice_by_design_takes_the_more_used_valid_report(self):
+        """A provider that reports a window more than once on purpose (Claude: five_hour and a limits[]
+        session row) marks every report merge=True: the more-used valid report decides, and any invalid
+        report makes the window unavailable. A second report without merge stays ambiguous."""
+        wall = self.clock.wall()
+        twice = [reserve.Reading(used=20, resets_at=wall + 60, name="weekly", merge=True),
+                 reserve.Reading(used=D("35.5"), resets_at=wall + 120, name="weekly", merge=True)]
+        _, verdict = self.started(weekly=None, extra=twice)
+        self.assertEqual(verdict.decision, "run", verdict)
+        self.assertEqual((verdict.windows[1].remaining, verdict.windows[1].resets_at), (D("64.5"), wall + 120))
+        crossing = [twice[0], reserve.Reading(used=61, resets_at=wall + 120, name="weekly", merge=True)]
+        _, verdict = self.started(weekly=None, extra=crossing)
+        self.assertEqual((verdict.decision, verdict.reason, verdict.windows[1].remaining), ("refuse", "threshold", 39))
+        for case, second in (("malformed", reserve.Reading(used=None, name="weekly", merge=True)),
+                             ("reset_unknown", reserve.Reading(used=1, resets_at=None, name="weekly", merge=True)),
+                             ("ambiguous", reserve.Reading(used=1, resets_at=wall + 60, name="weekly"))):
+            with self.subTest(case=case):
+                _, verdict = self.started(weekly=None, extra=[twice[1], second])
+                self.assertEqual((verdict.decision, verdict.reason), ("refuse", "window_unavailable"))
+                self.assertEqual(verdict.windows[1].status, case)
+
+    def test_a_family_row_is_judged_against_the_weekly_reserve_on_its_own(self):
+        """A reading of a quota family's own weekly limit (Claude: seven_day_sonnet) never counts for the
+        general windows; while the weekly reserve is on it is judged against it, and the verdict lists
+        it in families, so that the provider refuses that family's requests alone."""
+        wall = self.clock.wall()
+        rows = [reserve.Reading(used=50, resets_at=wall + 3600, family="sonnet", merge=True),
+                reserve.Reading(used=10, resets_at=wall + 3600, family="opus", merge=True),
+                reserve.Reading(used=D("70.25"), resets_at=wall + 7200, family="opus", merge=True)]
+        evaluator, verdict = self.started(extra=rows)
+        self.assertEqual(verdict.decision, "run", verdict)
+        self.assertEqual([(w.window, w.status) for w in verdict.windows], [("five_hour", "ok"), ("weekly", "ok")])
+        self.assertEqual([(f.family, f.window, f.status, f.remaining, f.resets_at) for f in verdict.families],
+                         [("opus", "weekly", "at_reserve", D("29.75"), wall + 7200),
+                          ("sonnet", "weekly", "ok", D(50), wall + 3600)])
+        self.assertEqual(verdict.message(), "borrowed: running: five-hour 90% remaining (reserve 10%), weekly 90% "
+                                            "remaining (reserve 40%); opus models paused: their weekly limit 29.7% "
+                                            "remaining, at or below the 40% weekly reserve, resets "
+                                            f"{reserve.timestamp(wall + 7200)}; sonnet models: their weekly limit 50% "
+                                            "remaining.")
+        self.assertEqual(evaluator.next_poll(), reserve.POLL_NEAR)  # sonnet is within ten points
+        # A family row never stands in for the general weekly window.
+        _, verdict = self.started(weekly=None, extra=rows)
+        self.assertEqual((verdict.decision, verdict.reason, verdict.windows[1].status),
+                         ("refuse", "window_unavailable", "missing"))
+        # An unavailable family row blocks that family alone, and names its problem.
+        _, verdict = self.started(extra=[reserve.Reading(used=3, resets_at=None, family="opus", merge=True)])
+        self.assertEqual(verdict.decision, "run")
+        self.assertEqual([(f.family, f.status) for f in verdict.families], [("opus", "reset_unknown")])
+        self.assertTrue(verdict.message().endswith("; opus models paused: their weekly limit is unavailable "
+                                                   "(reset unknown)."), verdict.message())
+        # Without the weekly reserve, family rows are not judged; an unattributed response has none.
+        evaluator = self.evaluator(weekly=None)
+        evaluator.control_up()
+        verdict = evaluator.observe(observation(self.clock, extra=rows))
+        self.assertEqual((verdict.decision, verdict.families), ("run", ()))
+        _, verdict = self.started(extra=rows, attributed=False)
+        self.assertEqual(verdict.families, ())
+        # A family is an identifier; anything else is an invalid observation.
+        for bad in ("Opus", "", 7, True):
+            with self.subTest(family=bad):
+                _, verdict = self.started(extra=[reserve.Reading(used=1, resets_at=wall + 60, family=bad)])
+                self.assertEqual((verdict.decision, verdict.failure), ("check", "invalid_observation"))
+
     def test_a_running_reading_without_an_enabled_window_pauses_at_once(self):
         evaluator = running(self.clock)
         self.clock.advance(1)
@@ -817,28 +881,30 @@ class Evaluation(unittest.TestCase):
         deterministic line for a refused start and a pause alike, and only while that fault blocks."""
         checking = self.evaluator()
         checking.control_up()
-        verdict = checking.fault("unproved_quota_row", names=("seven_day_oauth_apps", "cinder_cove", "cinder_cove"))
+        verdict = checking.fault("unproved_quota_row",
+                                 names=("seven_day_omelette", "seven_day_cowork", "seven_day_cowork"))
         self.assertEqual((verdict.decision, verdict.reason, verdict.names),
-                         ("refuse", "unproved_quota_row", ("cinder_cove", "seven_day_oauth_apps")))
+                         ("refuse", "unproved_quota_row", ("seven_day_cowork", "seven_day_omelette")))
         self.assertEqual(verdict.message(), "borrowed: refused: the usage report has a limit row protected mode has "
-                                            "not reviewed (cinder_cove, seven_day_oauth_apps).")
+                                            "not reviewed (seven_day_cowork, seven_day_omelette).")
         evaluator = running(self.clock)
         self.clock.advance(1)
-        verdict = evaluator.fault("unproved_quota_row", names=["wattle_ember"])
+        verdict = evaluator.fault("unproved_quota_row", names=["limits_kind_meter"])
         self.assertEqual(verdict.message(), "borrowed: paused: the usage report has a limit row protected mode has "
-                                            "not reviewed (wattle_ember); last valid reading at 2027-01-15T08:00:00Z.")
+                                            "not reviewed (limits_kind_meter); last valid reading at "
+                                            "2027-01-15T08:00:00Z.")
         # Names belong to the fault that brought them: another fault and a control loss show none.
         self.assertEqual(evaluator.fault("identity_changed").names, ())
-        verdict = evaluator.fault("unproved_quota_row", names=("wattle_ember",))
+        verdict = evaluator.fault("unproved_quota_row", names=("limits_kind_meter",))
         verdict = evaluator.control_down("monitor_lost")
         self.assertEqual((verdict.reason, verdict.names), ("monitor_lost", ()))
-        self.assertNotIn("wattle_ember", verdict.message())
+        self.assertNotIn("limits_kind_meter", verdict.message())
         # A long list stays one bounded line.
         many = tuple("row_%02d" % index for index in range(20))
         message = self.evaluator().fault("unproved_quota_row", names=many).message()
         self.assertIn("(row_00, row_01, row_02, row_03, row_04, row_05, row_06, row_07, and 12 more)", message)
         # Only sanitized names are accepted, never a value or free text.
-        for bad in (("Seven_Day",), ("a b",), ("x" * 65,), ("",), (3,), "cinder_cove", ("cinder_cove", None)):
+        for bad in (("Seven_Day",), ("a b",), ("x" * 65,), ("",), (3,), "seven_day_cowork", ("seven_day_cowork", None)):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 self.evaluator().fault("unproved_quota_row", names=bad)
 

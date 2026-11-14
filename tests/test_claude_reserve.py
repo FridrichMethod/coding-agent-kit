@@ -8,6 +8,7 @@ login Keychain) with a fabricated credential against the same loopback fixtures.
 """
 
 import contextlib
+from decimal import Decimal
 import errno
 import fcntl
 import hashlib
@@ -964,15 +965,18 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.fields["window"], "five-hour")
         self.assertEqual((g.fields["remaining"], g.fields["reserve"]), ("10", "10"))
         self.upstream.used["five_hour"] = 10
-        self.upstream.extra = {"cinder_cove": {"utilization": 1}, "seven_day_oauth_apps": {"utilization": 37.25},
-                               "Odd Row": {"utilization": 2}}
+        # Unknown rows and limits[] kinds refuse; the rows decided as ignored (credits, other surfaces) do not.
+        self.upstream.extra = {"seven_day_cowork": {"utilization": 37.25}, "Odd Row": {"utilization": 2},
+                               "limits": [{"kind": "daily_all", "group": "daily", "percent": 41.75}],
+                               "cinder_cove": {"utilization": 1}, "seven_day_oauth_apps": {"utilization": 3}}
         _, g = self.started()
         self.assertEqual((g.state, g.reason), ("paused", "unproved_quota_row"))
         # The refusal names the unreviewed rows (sanitized names only, never a value).
         self.assertEqual(g.fields["message"], "N: refused: the usage report has a limit row protected mode has not "
-                                              "reviewed (cinder_cove, seven_day_oauth_apps, unknown).")
-        self.assertEqual(g.fields["rows"], "cinder_cove, seven_day_oauth_apps, unknown")
+                                              "reviewed (limits_kind_daily_all, seven_day_cowork, unknown).")
+        self.assertEqual(g.fields["rows"], "limits_kind_daily_all, seven_day_cowork, unknown")
         self.assertNotIn("37.25", json.dumps(g.status()))
+        self.assertNotIn("41.75", json.dumps(g.status()))
         self.upstream.extra = {}
         self.upstream.identities[upstream_fixture.BEARER_A] = upstream_fixture.IDENTITY_B
         _, g = self.started()
@@ -1038,12 +1042,15 @@ class GateProvider(unittest.TestCase):
         # The launcher shows when the session will need a relaunch: the expiry, never a bearer-derived value.
         self.assertEqual(g.status()["fields"]["token_expires"], reserve.timestamp(expires // 1000))
 
-    def test_models_outside_the_families_or_with_their_own_row_are_refused(self):
+    def test_models_outside_the_families_are_refused_and_an_unavailable_family_row_refuses_that_family(self):
         self.upstream.extra = {"seven_day_opus": {"utilization": 3, "resets_at": None}}
         _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        self.assertTrue(g.fields["message"].endswith("; opus models paused: their weekly limit is unavailable "
+                                                     "(reset unknown)."), g.fields)
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (True, "admitted"))
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-haiku-4-5")[:2], (True, "admitted"))
-        for model, reason in (("gpt-4", "model_unproved"), ("claude-opus-4-1", "model_has_own_limit"),
+        for model, reason in (("gpt-4", "model_unproved"), ("claude-opus-4-1", "family_window_unavailable"),
                               ("claude-opus-sonnet-x", "model_unproved"), (None, "model_unproved")):
             self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, model)[:2], (False, reason))
         for body in (b'{"model": "claude-sonnet-4-5", "model": "claude-opus-4-1"}',
@@ -1052,6 +1059,70 @@ class GateProvider(unittest.TestCase):
             self.assertEqual(g.admit(gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), body, lambda: None)[:2],
                              (False, "model_unproved"))
         self.assertEqual(g.state, "running")
+
+    def test_a_family_at_its_weekly_reserve_is_refused_alone_while_the_others_run(self):
+        """gate-decisions "Claude usage rows" (a), option B: a model family with a row of its own
+        (seven_day_sonnet, seven_day_opus, a limits[] weekly_scoped model row) is admitted while that row
+        is above the weekly reserve, and refused alone otherwise; the general windows decide the rest."""
+        now = time.time()
+        week = upstream_fixture.stamp(now + 86400)
+        opus = {"kind": "weekly_scoped", "group": "weekly", "percent": 99.5, "resets_at": week, "severity": "warning",
+                "is_active": True, "scope": {"model": {"display_name": "Opus 4.1"}}}
+        self.upstream.extra = {"seven_day_sonnet": {"utilization": 90, "resets_at": week}, "limits": [opus]}
+        prov, g = self.started()  # reserves: five-hour 10%, weekly 5%
+        self.assertEqual(g.state, "running", g.status())
+        self.assertEqual(g.fields["message"], "N: running: five-hour 90% remaining (reserve 10%), weekly 80% remaining "
+                                              "(reserve 5%); opus models paused: their weekly limit 0.5% remaining, at "
+                                              f"or below the 5% weekly reserve, resets {week}; sonnet models: their "
+                                              "weekly limit 10% remaining.")
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-sonnet-4-5")[:2], (True, "admitted"))
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-haiku-4-5")[:2], (True, "admitted"))
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (False, "family_at_reserve"))
+        self.assertEqual(g.state, "running")
+        self.assertFalse(any(m["op"] == "paused" for m in self.messages))
+        # The row above its reserve again admits the family on the next fresh check; nothing is continued.
+        opus["percent"] = 50
+        prov.poll(g)
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (True, "admitted"))
+        # The more-used of two rows of one family decides it.
+        self.upstream.extra["limits"] = [opus, dict(opus, percent=96)]
+        prov.poll(g)
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (False, "family_at_reserve"))
+        # Without the weekly reserve a family row is not judged, as the general weekly window is not.
+        _, g = self.started(reserves={"five_hour": "10", "weekly": None})
+        self.assertEqual(g.state, "running", g.status())
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (True, "admitted"))
+        for reason in ("family_at_reserve", "family_window_unavailable"):
+            status, body = prov.refusal(reason)
+            message = json.loads(body)["error"]["message"]
+            self.assertEqual(status, 400)
+            self.assertTrue(message.startswith("quota reserve: ") and message.endswith("(%s)" % reason), message)
+
+    def test_a_max_accounts_report_runs_with_its_ignored_and_duplicated_rows(self):
+        """The row set a Max account reports (research RQ section 1): credits, other surfaces and extra
+        usage are ignored; limits[] session and weekly_all count with five_hour and seven_day, the more
+        used of each pair deciding; a weekly_scoped Fable row is ignored (Fable models are refused)."""
+        now = time.time()
+        hours, week = upstream_fixture.stamp(now + 3600), upstream_fixture.stamp(now + 86400)
+        self.upstream.extra = {
+            "seven_day_oauth_apps": {"utilization": 0, "resets_at": None}, "seven_day_opus": None,
+            "seven_day_sonnet": {"utilization": 12, "resets_at": week}, "cinder_cove": None,
+            "wattle_ember": {"utilization": 61.5, "resets_at": week, "label": "Fixture credit", "limit_dollars": 50,
+                             "used_dollars": 30.75, "remaining_dollars": 19.25, "periods": []},
+            "extra_usage": {"is_enabled": True, "monthly_limit": 10000, "used_credits": 2500, "utilization": 25,
+                            "currency": "USD"},
+            "limits": [{"kind": "session", "group": "session", "percent": 14.5, "resets_at": hours},
+                       {"kind": "weekly_all", "group": "weekly", "percent": 19, "resets_at": week, "is_active": True},
+                       {"kind": "weekly_scoped", "group": "weekly", "percent": 99, "resets_at": week,
+                        "scope": {"model": {"display_name": "Fable"}}}]}
+        _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        self.assertEqual(g.fields["message"], "N: running: five-hour 85.5% remaining (reserve 10%), weekly 80% "
+                                              "remaining (reserve 5%); sonnet models: their weekly limit 88% "
+                                              "remaining.")
+        self.assertNotIn("rows", g.fields)
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (True, "admitted"))
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-fable-5")[:2], (False, "model_unproved"))
 
     def test_an_organization_account_refuses_before_any_read_even_with_policy_caches(self):
         """Native applies no organization policy behind the gate (custom ANTHROPIC_BASE_URL, S), so every
@@ -1166,15 +1237,16 @@ class GateProvider(unittest.TestCase):
 
     def test_an_unproved_row_mid_run_pauses_naming_the_row_until_a_report_without_it(self):
         prov, g = self.started()
-        self.upstream.extra = {"wattle_ember": {"utilization": 61.5}}
+        self.upstream.extra = {"limits": [{"kind": "session", "group": "session", "percent": 61.5,
+                                           "scope": {"surface": {"display_name": "Cowork"}}}]}
         prov.poll(g)
         self.assertEqual((g.state, g.reason), ("paused", "unproved_quota_row"))
         paused = [m for m in self.messages if m["op"] == "paused"][-1]
         self.assertEqual(paused["reason"], "unproved_quota_row")
         self.assertTrue(paused["fields"]["message"].startswith(
-            "N: paused: the usage report has a limit row protected mode has not reviewed (wattle_ember); last valid "
-            "reading at "), paused["fields"])
-        self.assertEqual(paused["fields"]["rows"], "wattle_ember")
+            "N: paused: the usage report has a limit row protected mode has not reviewed (limits_session_surface); "
+            "last valid reading at "), paused["fields"])
+        self.assertEqual(paused["fields"]["rows"], "limits_session_surface")
         self.assertNotIn("61.5", json.dumps(paused))
         g.heartbeat()
         self.assertEqual((g.arm_continuation()["ok"], g.state), (False, "paused"))
@@ -1300,7 +1372,7 @@ class GateProvider(unittest.TestCase):
 
     def test_refusals_are_400_errors_without_a_login_hint_and_carry_no_bearer(self):
         prov, g = self.started()
-        for reason in ("threshold", "model_unproved", "model_has_own_limit"):
+        for reason in ("threshold", "model_unproved", "family_at_reserve", "family_window_unavailable"):
             status, body = prov.refusal(reason)
             payload = json.loads(body)
             self.assertEqual((status, payload["type"], payload["error"]["type"]), (400, "error", "invalid_request_error"))
@@ -1319,22 +1391,42 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.state, "running", g.status())
 
     def test_usage_normalization(self):
-        readings, own, unproved = provider.normalize_usage({
+        readings, unproved = provider.normalize_usage({
             "five_hour": {"utilization": 12.5, "resets_at": "2026-11-12T10:00:00Z"}, "seven_day": None,
             "seven_day_sonnet": {"utilization": 1}, "extra_usage": {"is_enabled": True}, "limits": [],
-            "wattle_ember": {"x": 1}, "type": "usage"})
-        self.assertEqual([(r.name, r.used) for r in readings], [("five_hour", 12.5)])
+            "wattle_ember": {"x": 1}, "seven_day_cowork": {"utilization": 2}, "type": "usage"})
+        self.assertEqual([(r.name, r.family, r.used) for r in readings], [("five_hour", None, 12.5),
+                                                                         ("weekly", "sonnet", 1)])
         self.assertEqual(readings[0].resets_at, 1794477600)
-        self.assertEqual((own, unproved), (frozenset({"sonnet"}), ("wattle_ember",)))
+        self.assertEqual(unproved, ("seven_day_cowork",))
         self.assertTrue(readings[0].started)
         for window, started in (({"utilization": 0, "resets_at": None}, False), ({"utilization": 0}, True),
                                 ({"utilization": 0.25, "resets_at": None}, True), ({"utilization": False,
                                                                                     "resets_at": None}, True)):
             with self.subTest(window=window):
                 self.assertEqual(provider.normalize_usage({"seven_day": window})[0][0].started, started)
+                entry = {"kind": "weekly_all", "percent": window["utilization"]}
+                entry.update({"resets_at": window["resets_at"]} if "resets_at" in window else {})
+                self.assertEqual(provider.normalize_usage({"limits": [entry]})[0][0].started, started)
         self.assertIsNone(provider.normalize_profile({"account": {"uuid": "a b"}, "organization": {"uuid": "o"}}))
         self.assertEqual(provider.family("claude-3-5-haiku-20241022"), "haiku")
         self.assertIsNone(provider.family("claude-sonnet-4-5[1m]"))
+
+    def test_every_row_shape_of_the_reviewed_usage_report_maps_as_decided(self):
+        """gate-decisions "Claude usage rows" (b), per fixture document (tests/fixtures/claude-reserve/
+        usage-rows.json, one per row shape of research RQ section 1): every reading may be reported twice
+        (merge), and unknown keys, limits[] kinds and scopes, and malformed entries are named."""
+        cases = json.loads((FIXTURES / "usage-rows.json").read_text())["cases"]
+        self.assertEqual(len({case["case"] for case in cases}), len(cases))
+        for case in cases:
+            with self.subTest(case["case"]):
+                readings, unproved = provider.normalize_usage(case["document"])
+                self.assertEqual([[r.name, r.family, r.used] for r in readings], case["readings"])
+                self.assertTrue(all(r.merge is True and (r.resets_at is None or isinstance(r.resets_at, Decimal))
+                                    for r in readings), readings)
+                self.assertEqual(list(unproved), case["unproved"])
+        with self.assertRaises(ValueError):
+            provider.normalize_usage([{"five_hour": None}])
 
 
 
@@ -2207,11 +2299,12 @@ class Protected(Kit):
         self.assertEqual(self.upstream.model_requests(), [])
 
     def test_an_unproved_quota_row_refuses_naming_the_row_before_the_native_starts(self):
-        self.upstream.extra = {"seven_day_oauth_apps": {"utilization": 12.75, "resets_at": None}}
+        self.upstream.extra = {"seven_day_cowork": {"utilization": 12.75, "resets_at": None},
+                               "seven_day_oauth_apps": {"utilization": 3, "resets_at": None}}
         code, output = self.protected()
         self.assertEqual(code, 1, output)
         self.assertIn("claude-as: protected mode refused: N: refused: the usage report has a limit row protected mode "
-                      "has not reviewed (seven_day_oauth_apps). (unproved_quota_row)", output)
+                      "has not reviewed (seven_day_cowork). (unproved_quota_row)", output)
         self.assertNotIn("12.75", output)
         self.assertFalse(self.record.exists())
         self.assertEqual(self.upstream.model_requests(), [])
