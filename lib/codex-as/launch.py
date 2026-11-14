@@ -56,10 +56,12 @@ def shown(word):
     return None if "sk-" in word.lower() or word in OPTIONS else word
 
 
-def enroll(layout, codex):
+def enroll(layout, codex, protected=False):
     if os.path.lexists(layout.target):
         guard.credential(layout.target)
         return
+    if protected:  # Session.check found the login; it went since, and no login runs outside the boundary
+        protect.no_login(layout.name)
     tty = guard.terminal()
     try:
         tty.write("Existing accounts: " + (", ".join(guard.accounts(layout.secrets)) or "(none)") + "\n")
@@ -281,7 +283,7 @@ def main(args):
     baseline = None
     try:
         if layout.acquire():
-            enroll(layout, codex)
+            enroll(layout, codex, protected=session is not None)
             layout.prepare()
             fcntl.flock(layout.fd, fcntl.LOCK_SH)
         elif not layout.auth.is_symlink():

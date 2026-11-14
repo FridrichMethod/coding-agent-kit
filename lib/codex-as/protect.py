@@ -11,7 +11,10 @@ Refusals come first and change nothing (Session.check): the arguments an allowli
 TUI form, parsed like clap 0.167.2 (screen); the environment may name no other endpoint; the host
 must carry the OS boundary; no name on the way to the native executable (or to the interpreter of a
 #! script native) may lie in the boundary's reach, since a session could then replace the native
-under the user's next plain codex run; the native release, which `codex --version` reports from
+under the user's next plain codex run, and no PATH entry in that reach may come before the one that
+supplies python3, codex or that interpreter, where a session could plant one (supervise.path_order);
+the shared entries the writable set names beneath codex_home must be plain directories and files of
+this user, not links (shared_entries); the native release, which `codex --version` reports from
 inside a boundary of its own (native_version: the kit never runs the native outside a boundary),
 must be a reviewed one (REVIEWED, with an upper bound); the account must already hold a saved
 login (the native device login cannot run inside the boundary); the login must be a ChatGPT login
@@ -42,7 +45,8 @@ launcher creates when missing; the SQLite home is codex_home itself by default, 
 rule there would reach everything beneath it) and a private temporary directory; the refresh
 adds secrets_dir, where native writes the refreshed credential. Everything else under codex_home
 stays read-only: packages/ (Codex's standalone install), config.toml, hooks.json, mcp.json,
-skills, rules, agents, themes, worktrees, the other accounts and the root auth.json. None may be
+skills, rules, agents, themes, worktrees, memories, the rest of .tmp (plain codex's plugin staging
+area), the other accounts and the root auth.json. None may be
 HOME, an ancestor of HOME, HOME/Library or lie at or inside HOME/Library/LaunchAgents. The
 boundary also leaves its devices writable (fixed_writable: /dev/shm and /dev/pts on Linux). The
 readers' specifications live in another private directory, which must lie outside all of it (a
@@ -73,6 +77,7 @@ from pathlib import Path
 import plistlib
 import pwd
 import re
+import select
 import shutil
 import stat
 import subprocess
@@ -898,14 +903,24 @@ def gate_proxy(supervise, parse, env, darwin=None):
 
 # What native writes under codex_home besides the account home, through the account home's links
 # (layout.py), as the reviewed release does (N: 0.167.2 under strace). Everything else there stays
-# read-only. The databases come from Native.databases, as files (DATABASE_FILES suffixes).
-SHARED_WRITABLE_DIRS = ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks", "memories",
-                        "memories_v2", ".tmp")
-SHARED_WRITABLE_FILES = ("history.jsonl", "session_index.jsonl")
+# read-only: memories and memories_v2, which protected mode turns off and native never wrote, and
+# the rest of .tmp, plain codex's plugin staging area (plugins, plugins.sha, marketplaces), which
+# its later starts copy plugin code from. The databases come from Native.databases, as files
+# (DATABASE_FILES suffixes).
+SHARED_WRITABLE_DIRS = ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks")
+SHARED_WRITABLE_FILES = ("history.jsonl", "session_index.jsonl", ".tmp/rollout-maintenance.lock")
 DATABASE_FILES = (".sqlite", ".sqlite-wal", ".sqlite-shm")
 NATIVE_HINT = ("; protected mode refuses a Codex that a protected session could replace, because the next "
                "plain codex would run it unconfined: install Codex outside the workspace and the directories "
                "the boundary writes")
+PATH_HINT = "; move that entry after the one that supplies the command on PATH, or drop it"
+
+
+def no_login(name):
+    """Refused: protected mode never runs the native device login, which needs more network than the
+    boundary allows, and never runs it outside the boundary either."""
+    refuse(f"the account {name} has no saved login yet, and protected mode never runs the native login, which "
+           "needs more network than the boundary allows; log in with one launch without reserves first")
 
 
 def writable(home, paths):
@@ -1003,16 +1018,21 @@ class Session:
             self.sandbox.probe()
         except self.sandbox.Refusal as error:
             refuse(str(error))
-        unreachable(self.supervise.native_sources(self.codex, self.env, "the Codex executable"), self.reach(),
-                    NATIVE_HINT)
+        reach = self.reach()
+        try:
+            unreachable(self.supervise.native_sources(self.codex, self.env, "the Codex executable"), reach,
+                        NATIVE_HINT)
+            unreachable(launcher_sources(), reach, LAUNCHER_HINT)
+            self.supervise.path_order(self.lookups(), self.env, reach, PATH_HINT)
+        except self.supervise.Refused as error:
+            refuse(error.reason)
+        self.shared_entries(created=False)
         self.native = reviewed(self.native_version())
         self.args = screen(self.given, self.native)
         if not os.isatty(0):
             refuse("protected mode needs an interactive terminal for continuation")
         if not os.path.lexists(self.layout.target):
-            refuse(f"the account {self.layout.name} has no saved login yet, and protected mode never runs the "
-                   "native login, which needs more network than the boundary allows; log in with one unprotected "
-                   "launch first")
+            no_login(self.layout.name)
         identity = login(self.guard.credential(self.layout.target), self.native, self.storage)
         missing = [path for path in self.database_files() if path.suffix == ".sqlite" and not path.is_file()]
         if missing:
@@ -1047,7 +1067,8 @@ class Session:
     def native_version(self):
         """What `codex --version` prints, run inside a boundary of its own: nothing writable but the
         boundary's devices, and a held port that nothing serves as its only exit, in /, with stdin
-        and stderr on /dev/null. Refused unless it exits 0 within VERSION_TIMEOUT."""
+        and stderr on /dev/null. Refused unless it exits 0 and its output ends within VERSION_TIMEOUT:
+        its remaining descendants end before the output is read, and the read is bounded too."""
         supervise, python = self.supervise, interpreter()
         darwin = sys.platform == "darwin"
         read_end, write_end = os.pipe()
@@ -1057,13 +1078,18 @@ class Session:
             sup = supervise.Supervisor([python, "-I", "-B", str(GATE)], {}, python=python, holder_extra=extra)
             port = sup.prepare()
             sup.confine = self.hook([], self.sandbox.self_test(port, [], "codex", python=python) if darwin else None)
+            deadline = time.monotonic() + VERSION_TIMEOUT
             with launcher_path():
                 code = sup.confined([self.codex, "--version"], self.env, timeout=VERSION_TIMEOUT, cwd="/",
                                     stdout=write_end)
+                sup.sweep()  # a descendant that kept the output open ends with the rest of the boundary
             os.close(write_end)
             write_end = None
             output = b""
             while len(output) <= VERSION_LIMIT:
+                if not select.select([read_end], [], [], max(0.0, deadline - time.monotonic()))[0]:
+                    code = None
+                    break
                 chunk = os.read(read_end, 4096)
                 if not chunk:
                     break
@@ -1105,6 +1131,53 @@ class Session:
     def reach(self):
         """Everything a boundary process of this run can write: both writable sets and the devices."""
         return self.paths() + self.paths(refresh=True) + fixed_writable(self.sandbox)
+
+    def lookups(self):
+        """(name, label) of the commands run by name through the caller's PATH outside the boundary,
+        which no PATH entry the boundary can write may shadow (supervise.path_order): the launcher's
+        python3 (bin/codex-as runs it by name), codex when the configuration names it by name (the
+        next launch and a plain codex alike) and the command a `#!/usr/bin/env NAME` codex runs."""
+        found = [("python3", "python3")]
+        name = getattr(self.config, "codex", "codex")
+        if "/" not in name:
+            found.append((name, name))
+        try:
+            command = self.supervise.script_interpreter(self.codex)[1]
+        except self.supervise.Unfollowed:  # native_sources accepted it a moment ago
+            refuse("the #! line of the Codex executable changed during the launch")
+        if command is not None:
+            found.append((command, "%s (the interpreter of the Codex executable)" % command))
+        return found
+
+    def shared_entries(self, created=True):
+        """Refused unless each shared entry the writable set names beneath codex_home
+        (SHARED_WRITABLE_DIRS, SHARED_WRITABLE_FILES and their parents below codex_home) is a
+        directory or regular file of this user, not a link: every launch resolves them again, and on
+        macOS, whose rule for a path also covers the name itself, a session can replace one with a
+        link, which would make the link's target writable in the next launch. With created false
+        (before the launcher lays out the account) a missing entry passes: the launcher creates it."""
+        root = self.config.codex_home
+        entries = [(name, "a directory") for name in SHARED_WRITABLE_DIRS]
+        entries += [(name, "a regular file") for name in SHARED_WRITABLE_FILES]
+        for name, kind in entries:
+            path, parts = Path(root), Path(name).parts
+            for index, part in enumerate(parts):
+                path = path / part
+                want = kind if index == len(parts) - 1 else "a directory"
+                try:
+                    info = os.lstat(path)
+                except FileNotFoundError:
+                    if created:
+                        refuse(f"{path} is missing; start Codex once without reserves to create it")
+                    break
+                except OSError:
+                    info = None
+                test = stat.S_ISDIR if want == "a directory" else stat.S_ISREG
+                if info is None or not test(info.st_mode) or info.st_uid != os.getuid():
+                    found = "a link, not " if info is not None and stat.S_ISLNK(info.st_mode) else "not "
+                    refuse(f"{path} is {found}{want} of this user: protected mode makes it writable, and through a "
+                           "link the boundary would make the link's target writable instead (a protected session can "
+                           f"put one there on macOS); make it {want} again")
 
     def prepare_databases(self):
         """Create the -wal and -shm files native would create beside each database, as SQLite does
@@ -1209,12 +1282,14 @@ class Session:
         before = last_refresh(baseline)
         sup = None
         try:
+            self.shared_entries()  # laid out now; the boundary resolves them below
             self.prepare_databases()
             self.work = tempfile.mkdtemp(prefix="codex-as-tmp-")
             self.private = tempfile.mkdtemp(prefix="codex-as-protect-")
             paths, refresh_paths = self.paths(), self.paths(refresh=True)
             reach = paths + refresh_paths + fixed_writable(self.sandbox)
             unreachable(supervise.native_sources(self.codex, self.env, "the Codex executable"), reach, NATIVE_HINT)
+            supervise.path_order(self.lookups(), self.env, reach, PATH_HINT)
             # Reader specifications, and the code of every kit process outside the boundary, must
             # stay out of reach of every boundary process.
             outside(self.private, reach)

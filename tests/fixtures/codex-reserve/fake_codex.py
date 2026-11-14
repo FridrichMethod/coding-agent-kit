@@ -7,7 +7,9 @@ base_url, CONNECT through HTTPS_PROXY for auth.openai.com:443 (verified with SSL
 
     codex --version                      FAKE_VERSION, default codex-cli 0.167.2 (with FAKE_VERSION_MARK
                                          set, it first tries to append to that file and prints
-                                         VERSION-MARK and the errno on stderr)
+                                         VERSION-MARK and the errno on stderr; with FAKE_VERSION_LINGER
+                                         set, it leaves a sleeping child, whose argv carries that value,
+                                         holding its output open)
     codex [-c K=V]... app-server ...     JSON-RPC on stdio: initialize, account/rateLimits/read
                                          (one usage GET), account/read with refreshToken (one
                                          refresh through the tunnel, written like native: a
@@ -271,6 +273,8 @@ def tui(config, rest):
 
 def main(argv):
     if argv == ["--version"]:
+        if knob("FAKE_VERSION_LINGER"):
+            subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", knob("FAKE_VERSION_LINGER")])
         if knob("FAKE_VERSION_MARK"):
             try:
                 with open(knob("FAKE_VERSION_MARK"), "a") as stream:

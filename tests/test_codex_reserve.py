@@ -269,11 +269,10 @@ class Screen(unittest.TestCase):
         root = home / ".codex"
         account = root / "accounts/A"
         account.mkdir(parents=True)
-        for name in layout.SHARED_DIRS:
+        for name in (*layout.SHARED_DIRS, ".tmp"):
             (root / name).mkdir()
         for name in (*layout.SHARED_FILES, *protect.SHARED_WRITABLE_FILES):
             (root / name).touch()
-        (root / ".tmp").mkdir()
         (root / "packages/standalone").mkdir(parents=True)
         (base / "work").mkdir()
         if databases:
@@ -292,14 +291,16 @@ class Screen(unittest.TestCase):
             root = base / "home/.codex"
             paths = session.paths()
             self.assertEqual(paths[:2], [str(base / "work"), str(root / "accounts/A")])
-            for name in ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks", "memories",
-                         "memories_v2", ".tmp", "history.jsonl", "session_index.jsonl", "state_5.sqlite",
+            for name in ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks",
+                         ".tmp/rollout-maintenance.lock", "history.jsonl", "session_index.jsonl", "state_5.sqlite",
                          "state_5.sqlite-wal", "state_5.sqlite-shm", "queue_1.sqlite-shm"):
                 self.assertIn(str(root / name), paths)
             self.assertNotIn(str(root), paths)
+            # .tmp is plain codex's plugin staging area (plugins, marketplaces), memories a prompt
+            # context that protected mode turns off: native writes neither through the account home.
             for name in ("packages/standalone/x", "config.toml", "hooks.json", "mcp.json", "skills/x", "rules/x",
                          "agents/x", "themes/x", "worktrees/x", "accounts/B/x", "accounts/.locks/x", "auth.json",
-                         "new.sqlite"):
+                         "new.sqlite", ".tmp/plugins/x", ".tmp/plugins.sha", ".tmp/x", "memories/x", "memories_v2/x"):
                 with self.subTest(name=name):
                     self.assertFalse(any(protect.within(str(root / name), path) for path in paths))
             self.assertIn(str(root / "thread_history_1.sqlite-wal"), paths)
@@ -325,6 +326,53 @@ class Screen(unittest.TestCase):
                     self.assertFalse((base / "home/.bashrc").exists())
                     (root / name).unlink()
                     (root / name).write_bytes(b"")
+
+    def test_the_shared_entries_the_boundary_names_must_be_plain_entries_of_this_user(self):
+        """Each launch resolves the shared entries beneath read-only codex_home again; on macOS a
+        session can replace one with a link (its rule covers the name itself), which would make the
+        link's target writable in the next launch. A link, another type or a missing entry refuses;
+        before the layout exists a missing one passes (the launcher creates it)."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            session = self.session(base)
+            root = base / "home/.codex"
+            session.shared_entries()
+            ssh, rc = base / "home/.ssh", base / "home/.zshrc"
+            ssh.mkdir()
+            rc.write_text("# rc\n")
+            for name, target, kind in (("sessions", ssh, "a directory"), ("history.jsonl", rc, "a regular file"),
+                                       (".tmp", ssh, "a directory"),
+                                       (".tmp/rollout-maintenance.lock", rc, "a regular file")):
+                with self.subTest(name=name):
+                    held = base / "held"
+                    (root / name).rename(held)
+                    (root / name).symlink_to(target)
+                    self.assertIn("%s is a link, not %s of this user: protected mode makes it writable" % (root / name,
+                                                                                                    kind),
+                                  refused(session.shared_entries))
+                    self.assertIn("is a link", refused(session.shared_entries, False))
+                    (root / name).unlink()
+                    held.rename(root / name)
+            (root / "history.jsonl").unlink()
+            (root / "history.jsonl").mkdir()
+            self.assertIn("%s is not a regular file of this user" % (root / "history.jsonl"),
+                          refused(session.shared_entries))
+            (root / "history.jsonl").rmdir()
+            self.assertIn("%s is missing" % (root / "history.jsonl"), refused(session.shared_entries))
+            session.shared_entries(False)
+            self.assertEqual(rc.read_text(), "# rc\n")
+
+    def test_a_protected_launch_never_logs_in_also_when_the_login_disappears_after_the_check(self):
+        """check() refuses an account without a saved login; one removed after it reaches enroll(),
+        which refuses too instead of running the native device login outside the boundary."""
+        launch = load("launch", ROOT / "lib/codex-as/launch.py")
+        with tempfile.TemporaryDirectory() as temp:
+            account = types.SimpleNamespace(target=Path(temp) / "codex-A.json", name="A")
+            with mock.patch.object(launch.guard, "terminal", side_effect=AssertionError("the login started")), \
+                    self.assertRaises(launch.protect.Refused) as caught:
+                launch.enroll(account, "codex", protected=True)
+            self.assertIn("the account A has no saved login yet, and protected mode never runs the native login",
+                          str(caught.exception))
 
     def test_the_launcher_runs_commands_by_name_from_system_directories_only_while_protected(self):
         with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
@@ -1397,6 +1445,82 @@ class Unprotected(unittest.TestCase):
                 self.assertFalse(mark.exists())
                 self.assertEqual(self.home.events(), [])
 
+    def test_a_path_entry_the_boundary_can_write_before_python3_codex_or_its_interpreter_refuses(self):
+        """The reviewer's PATH-shadow shape: a workspace directory searched before the one that supplies
+        the launcher's python3, codex or the #!/usr/bin/env interpreter of a script codex would let a
+        session plant that command there for the next launch or plain codex to run unconfined; so does
+        a relative entry, which a later run from the workspace resolves there. Nothing runs."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        shadow = self.home.work / "bin"
+        shadow.mkdir()
+        python = os.path.dirname(os.path.realpath(sys.executable))
+        tools = self.home.base / "tools"
+        tools.mkdir()
+        (tools / "fakepython").symlink_to(sys.executable)
+        script = self.home.base / "script-codex"
+        script.write_text("#!/usr/bin/env fakepython\n" + (FIXTURES / "fake_codex.py").read_text())
+        script.chmod(0o700)
+        fake, held = self.home.bin / "codex", self.home.base / "fake-codex"
+        system = ("/usr/bin", "/bin")
+        cases = (("python3", (shadow, self.home.bin, python, *system), "the PATH entry %s comes before %s, which "
+                  "supplies python3, and lies inside %s" % (shadow, python, self.home.work)),
+                 ("codex", (python, shadow, self.home.bin, *system), "the PATH entry %s comes before %s, which "
+                  "supplies codex, and lies inside %s" % (shadow, self.home.bin, self.home.work)),
+                 ("interpreter", (python, self.home.bin, shadow, tools, *system), "the PATH entry %s comes before %s, "
+                  "which supplies fakepython (the interpreter of the Codex executable), and lies inside %s"
+                  % (shadow, tools, self.home.work)),
+                 ("relative", ("", self.home.bin, python, *system), "the empty PATH entry (the current directory) "
+                  "comes before %s, which supplies python3; a later run from the workspace would search the "
+                  "workspace there" % python))
+        for name, entries, text in cases:
+            with self.subTest(name=name):
+                if name == "interpreter":
+                    fake.rename(held)
+                    fake.symlink_to(script)
+                search = os.pathsep.join(str(entry) for entry in entries)
+                result = self.home.run(["--reserve-5h", "10", "A"], env={"PATH": search, "FAKE_VERSION_MARK": str(mark)})
+                if name == "interpreter":
+                    fake.unlink()
+                    held.rename(fake)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("usage reserve protection refused: " + (missing or text), result.stderr)
+                self.assertFalse(mark.exists())
+                self.assertEqual(self.home.events(), [])
+                self.assertEqual(list(shadow.iterdir()), [])
+
+    def test_shared_state_replaced_by_a_link_refuses_before_anything_runs(self):
+        """A shared entry beneath codex_home that became a link (a protected session on macOS can do
+        that; planted from outside here, so it runs on every platform) would put the link's target in
+        the next launch's writable set."""
+        missing = boundary_missing()
+        root = self.home.codex_home
+        ssh, rc = self.home.home / ".ssh", self.home.home / ".zshrc"
+        ssh.mkdir()
+        rc.write_text("# rc\n")
+        for name, target in (("sessions", ssh), ("history.jsonl", rc), (".tmp", ssh)):
+            with self.subTest(name=name):
+                (root / name).symlink_to(target)
+                result = self.home.run(["--reserve-5h", "10", "A"])
+                (root / name).unlink()
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("usage reserve protection refused: " + (missing or "%s is a link" % (root / name)),
+                              result.stderr)
+                self.assertEqual(rc.read_text(), "# rc\n")
+                self.assertEqual(list(ssh.iterdir()), [])
+
+    def test_a_version_check_whose_descendant_keeps_its_output_open_still_ends(self):
+        """`codex --version` runs confined; a descendant that keeps its output open is ended with the
+        boundary's other processes before the output is read, so the read never waits for it."""
+        missing = boundary_missing()
+        started = time.monotonic()
+        result = self.home.run(["--reserve-5h", "10", "A"], timeout=45,
+                               env={"FAKE_VERSION_LINGER": str(self.home.base)})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(missing or "needs an interactive terminal", result.stderr)  # the version passed
+        self.assertLess(time.monotonic() - started, protect.VERSION_TIMEOUT)
+        self.assertEqual(leftovers(self.home.base), [])
+
     def test_protected_mode_never_runs_the_native_login(self):
         """codex login needs more network than the boundary allows, so an account without a saved
         login refuses instead of logging in outside the boundary."""
@@ -1675,18 +1799,21 @@ class Protected(Launch):
         (self.home.bin / "codex").symlink_to(release.parent.parent / "current/bin/codex")
         before = native.read_bytes()
         mark = self.home.home / "version-mark"
+        root = self.home.codex_home
+        (root / ".tmp").mkdir(mode=0o700)
+        (root / ".tmp/plugins").mkdir()  # plain codex's plugin checkout, which its later starts sync from
         terminal = self.start(env={"FAKE_VERSION_MARK": str(mark)})
         terminal.expect("READY")
-        root = self.home.codex_home
         denied = (native, release.parent.parent / "current-new", root / "config.toml", root / "hooks.json",
                   root / "mcp.json", root / "skills/planted", root / "rules/planted", root / "agents/planted",
-                  root / "accounts/planted", root / "new.sqlite", root / "auth.json")
+                  root / "accounts/planted", root / "new.sqlite", root / "auth.json", root / ".tmp/plugins/x",
+                  root / ".tmp/plugins.sha", root / "memories/planted", root / "memories_v2/planted")
         for path in denied:
             terminal.send("write %s\r" % path)
             terminal.expect("WRITE (13|1)\\b")
         allowed = (root / "sessions/written", root / "accounts/A/written", root / "history.jsonl",
-                   root / "session_index.jsonl", root / ".tmp/written", root / "state_5.sqlite-wal",
-                   root / "archived_sessions/written", root / "thread-writer-locks/written")
+                   root / "session_index.jsonl", root / ".tmp/rollout-maintenance.lock", root / "accounts/A/.tmp/x",
+                   root / "state_5.sqlite-wal", root / "archived_sessions/written", root / "thread-writer-locks/written")
         for path in allowed:
             terminal.send("write %s\r" % path)
             terminal.expect("WRITE ok")
@@ -1695,6 +1822,7 @@ class Protected(Launch):
         self.assertEqual(native.read_bytes(), before)
         self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
         self.assertFalse(os.path.lexists(release.parent.parent / "current-new"))
+        self.assertEqual(list((root / ".tmp/plugins").iterdir()), [])
         for name in NATIVE.databases:
             database = root / (name + ".sqlite")
             for suffix in ("-wal", "-shm"):  # made by the launcher, as SQLite makes them
@@ -1992,17 +2120,22 @@ class RealCodex(Launch):
         """Native's databases, which protected mode lets native write but not create: one direct
         native session in codex_home with one prompt (native creates thread_history_1 with its first
         thread), through a fixture provider over HTTP (on chatgpt.com native would use a WebSocket,
-        which the backend does not serve). Its root auth.json goes again, and so does what it sent
-        upstream."""
+        which the backend does not serve). It runs outside any boundary, so it gets protected mode's
+        quiet set (no plugins, apps, memories, analytics, telemetry or web search; no update check),
+        and the fixture proxy, the only exit it is given, must see nothing but the fixture names. Its
+        root auth.json goes again, and so does what it sent upstream."""
         root = self.home.codex_home
         auth = root / "auth.json"
         shutil.copy(self.home.secrets / "codex-A.json", auth)
         auth.chmod(0o600)
+        quiet = [pair for pair in protect.settings(0) if pair.startswith(("features.", "analytics.", "otel.",
+                                                                          "memories.", "web_search="))]
         provider = ['model_provider="fixture"', 'model_providers.fixture.name="fixture"',
                     'model_providers.fixture.base_url="https://chatgpt.com/backend-api/codex"',
                     "model_providers.fixture.requires_openai_auth=true",
                     "model_providers.fixture.supports_websockets=false", 'model_providers.fixture.wire_api="responses"',
-                    'cli_auth_credentials_store="file"', 'model="gpt-6-sol"']  # a current model: no migration prompt
+                    'cli_auth_credentials_store="file"', 'model="gpt-6-sol"',  # a current model: no migration prompt
+                    "check_for_update_on_startup=false", *quiet]
         argv = [REAL_CODEX, *(word for pair in provider for word in ("-c", pair)), "--no-daemon"]
         self.terminal = Terminal(argv, dict(self.home.env, CODEX_HOME=str(root)), self.home.work)
         self.terminal.answer = True
@@ -2020,6 +2153,12 @@ class RealCodex(Launch):
         auth.unlink()
         for name in (*NATIVE.databases, *NATIVE.later_databases):
             self.assertTrue((root / (name + ".sqlite")).is_file(), name)
+        # Besides the fixture names, only the TUI's start-up announcement tip, which 0.167.2 fetches
+        # whatever the configuration (S: raw.githubusercontent.com/openai/codex/main/announcement_tip.toml)
+        # and the fixture proxy refuses with 403. Plugin sync, GitHub releases or anything else fails here.
+        self.assertTrue(self.proxy.targets)
+        self.assertLessEqual(set(self.proxy.targets),
+                             {"chatgpt.com:443", "auth.openai.com:443", "raw.githubusercontent.com:443"})
         with self.backend.lock:
             del self.backend.requests[:]
 

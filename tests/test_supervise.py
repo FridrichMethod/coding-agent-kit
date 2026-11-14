@@ -396,9 +396,66 @@ class OutsideCommands(unittest.TestCase):
                          [("the X", str(script), False), ("the interpreter of the X", "/usr/bin/env", False),
                           ("the interpreter of the X", str(interpreter), False)])
         self.assertEqual(len(supervise.native_sources(script, {"PATH": str(base / "none")}, "the X")), 2)
+        # env's own words: -S splitting (attached too), assignments and -- keep NAME the command.
+        for line in ("-Snode --x", "LANG=C node", "-S LANG=C node", "-- node", "-S -- node --x"):
+            with self.subTest(line=line):
+                script.write_text("#!/usr/bin/env %s\n" % line)
+                self.assertEqual(supervise.script_interpreter(script), ("/usr/bin/env", "node"))
+                self.assertEqual(supervise.native_sources(script, {"PATH": str(base / "bin")}, "the X")[-1],
+                                 ("the interpreter of the X", str(interpreter), False))
+        # Options that take a value, change the search path or the environment, a PATH assignment,
+        # quoting and a missing command: env would not look NAME up on the caller's PATH as read.
+        for line in ("-u VAR node", "-i node", "-C /tmp node", "-P /opt/bin node", "--unset=VAR node",
+                     "PATH=/opt/bin node", "-S 'node' --x", "", "-S", "LANG=C"):
+            with self.subTest(line=line):
+                script.write_text("#!/usr/bin/env %s\n" % line)
+                self.assertIn("the #! line of the X runs /usr/bin/env in a form protected mode does not follow",
+                              self.refused(supervise.native_sources, script, {"PATH": str(base / "bin")}, "the X"))
         script.write_text("#!relative\n")
         self.assertEqual(len(supervise.native_sources(script, {}, "the X")), 1)
+        self.assertEqual(supervise.script_interpreter(script), (None, None))
         self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"), [("the X", str(base / "absent"), False)])
+
+    def test_path_entries_searched_before_a_commands_supplier_must_lie_out_of_reach(self):
+        """A PATH entry the boundary can write that a lookup searches before the entry supplying the
+        command would let a protected session plant a file of that name, which the next lookup outside
+        the boundary runs unconfined; after the supplier it is never searched for that name."""
+        base = self.scratch()
+        work, system, late = base / "work", base / "system", base / "late"
+        for path in (work / "bin", system, late):
+            path.mkdir(parents=True)
+        for directory, name in ((system, "python3"), (late, "node")):
+            (directory / name).write_text("#!/bin/sh\n")
+            (directory / name).chmod(0o755)
+        (base / "linked").symlink_to(work / "bin")
+        roots = [str(work)]
+        lookups = [("python3", "python3"), ("node", "node (the interpreter of the X)")]
+
+        def order(*entries):
+            return {"PATH": os.pathsep.join(str(entry) for entry in entries)}
+
+        supervise.path_order(lookups, order(system, late, work / "bin"), roots, "; HINT")  # all after their suppliers
+        supervise.path_order([("codex", "codex"), ("/abs/codex", "x")], order(system, late), roots, "")
+        self.assertEqual("the PATH entry %s comes before %s, which supplies python3, and lies inside %s, which the "
+                         "boundary can write: a protected session could put a python3 there that the next run outside "
+                         "the boundary would execute unconfined; HINT" % (work / "bin", system, work),
+                         self.refused(supervise.path_order, lookups, order(work / "bin", system, late), roots, "; HINT"))
+        self.assertIn("the PATH entry %s comes before %s, which supplies node (the interpreter of the X), and lies "
+                      "inside %s" % (base / "linked", late, work),
+                      self.refused(supervise.path_order, lookups, order(system, base / "linked", late), roots, ""))
+        self.assertIn("the PATH entry %s lies inside %s, which the boundary can write, and no PATH entry supplies "
+                      "codex: a protected session could put a codex there" % (work / "bin", work),
+                      self.refused(supervise.path_order, [("codex", "codex")], order(system, work / "bin"), roots, ""))
+        self.assertIn("the PATH entry %s comes before" % (work / "absent"),
+                      self.refused(supervise.path_order, lookups, order(work / "absent", system), roots, ""))
+        for entry, shown in (("", "the empty PATH entry (the current directory)"), ("bin", "the relative PATH entry bin")):
+            with self.subTest(entry=entry):
+                self.assertIn("%s comes before %s, which supplies python3; a later run from the workspace would "
+                              "search the workspace there" % (shown, system),
+                              self.refused(supervise.path_order, lookups, order(entry, system), roots, ""))
+        self.assertIn("the empty PATH entry (the current directory) is searched for codex, which no PATH entry supplies",
+                      self.refused(supervise.path_order, [("codex", "codex")], order(system, ""), roots, ""))
+        supervise.path_order(lookups, order(system, late, ""), roots, "")  # after both suppliers
 
     def test_code_run_outside_the_boundary_must_lie_out_of_its_reach_through_every_link(self):
         base = self.scratch()
