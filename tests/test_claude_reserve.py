@@ -1781,8 +1781,12 @@ class Protected(Kit):
         self.assertEqual(reads[:2], ["/api/oauth/profile", "/api/oauth/usage"])
         self.assertIn("usage reserves for N: five-hour 10% (--reserve-5h), weekly 5% (--reserve-weekly)", output)
         expires = json.loads((self.native_config("N") / ".credentials.json").read_text())["claudeAiOauth"]["expiresAt"]
+        # A relaunch renews the token only once it is due (native's refresh window) or gone, so the line
+        # says when the session stops working and when relaunching helps, never "relaunch before then".
         self.assertIn("claude-as: the account's access token expires at %s, and Claude Code cannot renew it inside "
-                      "protected mode; unless another session of this account renews it, relaunch before then."
+                      "protected mode, so model requests stop then unless another session of this account renews "
+                      "it first; to go on after that, exit and launch again, whose pre-launch refresh renews the "
+                      "token within its last five minutes or once it expired."
                       % reserve.timestamp(expires // 1000), output.replace("\r\n", " ").replace("\n", " "))
 
     def test_a_window_at_its_reserve_refuses_before_the_native_starts(self):

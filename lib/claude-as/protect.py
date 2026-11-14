@@ -580,8 +580,10 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                         expires = (status.get("fields") or {}).get("token_expires")
                         if isinstance(expires, str):
                             notice(f"claude-as: the account's access token expires at {expires}, and Claude Code "
-                                   "cannot renew it inside protected mode; unless another session of this account "
-                                   "renews it, relaunch before then.")
+                                   "cannot renew it inside protected mode, so model requests stop then unless another "
+                                   "session of this account renews it first; to go on after that, exit and launch "
+                                   "again, whose pre-launch refresh renews the token within its last five minutes or "
+                                   "once it expired.")
                         return
                     fields = status.get("fields") or {}
                     raise supervise.Refused("%s (%s)" % (fields.get("message") or explain(status.get("reason")),
