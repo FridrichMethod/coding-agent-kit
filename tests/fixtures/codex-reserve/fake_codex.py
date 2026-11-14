@@ -5,7 +5,9 @@ reads the -c overrides codex-as and protected mode pass, the account credential 
 and talks to the gate the way native 0.167.2 does: plain HTTP to chatgpt_base_url and the provider
 base_url, CONNECT through HTTPS_PROXY for auth.openai.com:443 (verified with SSL_CERT_FILE).
 
-    codex --version                      FAKE_VERSION, default codex-cli 0.167.2
+    codex --version                      FAKE_VERSION, default codex-cli 0.167.2 (with FAKE_VERSION_MARK
+                                         set, it first tries to append to that file and prints
+                                         VERSION-MARK and the errno on stderr)
     codex [-c K=V]... app-server ...     JSON-RPC on stdio: initialize, account/rateLimits/read
                                          (one usage GET), account/read with refreshToken (one
                                          refresh through the tunnel, written like native: a
@@ -15,7 +17,8 @@ base_url, CONNECT through HTTPS_PROXY for auth.openai.com:443 (verified with SSL
                                          spawn | replace (auth.json becomes a regular file) | quit
 Protected mode gives App Server readers an allowlisted environment, so the knobs come from the
 environment or from <codex_home>/fake-codex.json (codex_home is the parent of accounts/NAME), and
-every action is appended to <codex_home>/fake-codex.log (JSON lines). FAKE_BUNDLE=1 fetches the
+every action is appended to <codex_home>/sessions/fake-codex.log (JSON lines; protected mode leaves
+codex_home itself read-only, its sessions directory writable). FAKE_BUNDLE=1 fetches the
 config bundle at App Server and TUI start, as a workspace plan does; FAKE_REPLACE_LINK=1 makes the
 refresh replace the auth.json link with a regular file instead of writing through it.
 """
@@ -46,7 +49,8 @@ def knob(name, default=None):
 
 
 def log(event, **fields):
-    with open(root() / "fake-codex.log", "a") as stream:
+    (root() / "sessions").mkdir(exist_ok=True)
+    with open(root() / "sessions/fake-codex.log", "a") as stream:
         stream.write(json.dumps(dict(fields, event=event, pid=os.getpid())) + "\n")
 
 
@@ -267,6 +271,13 @@ def tui(config, rest):
 
 def main(argv):
     if argv == ["--version"]:
+        if knob("FAKE_VERSION_MARK"):
+            try:
+                with open(knob("FAKE_VERSION_MARK"), "a") as stream:
+                    stream.write("version ran unconfined\n")
+                print("VERSION-MARK ok", file=sys.stderr)
+            except OSError as error:
+                print("VERSION-MARK %s" % error.errno, file=sys.stderr)
         print(knob("FAKE_VERSION", "codex-cli 0.167.2"))
         return 0
     config, rest = parse(argv)

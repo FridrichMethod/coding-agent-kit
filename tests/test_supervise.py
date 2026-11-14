@@ -143,7 +143,82 @@ class Pure(unittest.TestCase):
                "no_proxy": " * "}
         self.assertEqual(supervise.capture_proxy(env, parse), ("p", 1, ((), ())))
         self.assertIsNone(supervise.capture_proxy({"NO_PROXY": "*"}, parse))
-        self.assertEqual(supervise.capture_proxy({"HTTPS_PROXY": "http://p:1", "NO_PROXY": ""}, parse), ("p", 1, ()))
+
+    def test_a_no_proxy_that_is_set_but_empty_exempts_nothing(self):
+        """Codex takes the first NO_PROXY spelling that is set, even an empty one, so NO_PROXY=""
+        hides a lowercase no_proxy there; an empty spelling counts as a list that exempts nothing."""
+        parse = fakes.gate.parse_proxy
+        self.assertEqual(supervise.capture_proxy({"HTTPS_PROXY": "http://p:1", "NO_PROXY": ""}, parse),
+                         ("p", 1, ((),)))
+        env = {"HTTPS_PROXY": "http://p:1", "NO_PROXY": "", "no_proxy": "chatgpt.com,auth.openai.com"}
+        self.assertEqual(supervise.capture_proxy(env, parse, provider="codex"),
+                         ("p", 1, ((), ("chatgpt.com", "auth.openai.com"))))
+        self.assertEqual(supervise.no_proxy_lists({"no_proxy": "*", "NO_PROXY": ""}), ((), ("*",)))
+
+    # What `scutil --proxy` prints on macOS 27.2 (values replaced), with and without a system proxy.
+    SCUTIL_OFF = ("<dictionary> {\n  ExceptionsList : <array> {\n    0 : 127.0.0.1\n    1 : *.local\n  }\n"
+                  "  HTTPEnable : 0\n  HTTPSEnable : 0\n  ProxyAutoConfigEnable : 0\n  SOCKSEnable : 0\n}\n")
+    SCUTIL_ON = ("<dictionary> {\n  ExceptionsList : <array> {\n    0 : chatgpt.com\n  }\n  HTTPEnable : 1\n"
+                 "  HTTPPort : 8080\n  HTTPProxy : web.proxy.test\n  HTTPSEnable : 1\n  HTTPSPort : 3128\n"
+                 "  HTTPSProxy : secure.proxy.test\n  ProxyAutoConfigEnable : 0\n  SOCKSEnable : 1\n"
+                 "  SOCKSPort : 1080\n  SOCKSProxy : socks.proxy.test\n  __SCOPED__ : <dictionary> {\n"
+                 "    en0 : <dictionary> {\n      HTTPSEnable : 1\n      HTTPSProxy : scoped.test\n    }\n  }\n}\n")
+
+    def test_scutil_proxy_output_parses_to_its_top_level_settings(self):
+        self.assertEqual(supervise.parse_scutil(self.SCUTIL_OFF),
+                         {"ExceptionsList": None, "HTTPEnable": 0, "HTTPSEnable": 0, "ProxyAutoConfigEnable": 0,
+                          "SOCKSEnable": 0})
+        settings = supervise.parse_scutil(self.SCUTIL_ON)
+        self.assertEqual((settings["HTTPSProxy"], settings["HTTPSPort"], settings["__SCOPED__"]),
+                         ("secure.proxy.test", 3128, None))
+        for text in ("", "No proxy settings\n", "<dictionary> {\n  HTTPSEnable : 1\n", "<dictionary> {\n}\n}\n",
+                     "<dictionary> {\n  HTTPSEnable\n}\n", "<dictionary> {\n  A : <array> {\n}\n"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                supervise.parse_scutil(text)
+
+    def test_the_system_https_proxy_is_the_one_codex_reads_and_automatic_configuration_refuses(self):
+        """hyper-util 0.1.20 (Codex's client) reads HTTPSEnable, HTTPSProxy and HTTPSPort and no
+        exceptions list; a PAC file or WPAD, or a proxy without a plain host and port, refuses."""
+        parse = fakes.gate.parse_proxy
+        on = supervise.parse_scutil(self.SCUTIL_ON)
+        self.assertEqual(supervise.system_https_proxy(on, parse), ("secure.proxy.test", 3128))
+        self.assertIsNone(supervise.system_https_proxy(supervise.parse_scutil(self.SCUTIL_OFF), parse))
+        self.assertIsNone(supervise.system_https_proxy({"HTTPSEnable": 2, "HTTPSProxy": "p", "HTTPSPort": 1}, parse))
+        for settings, reason in (({"ProxyAutoConfigEnable": 1}, "automatic proxy configuration (PAC or WPAD)"),
+                                 (dict(on, ProxyAutoDiscoveryEnable=1), "automatic proxy configuration"),
+                                 ({"HTTPSEnable": 1, "HTTPSProxy": "p.test"}, "only a plain HOST and PORT"),
+                                 ({"HTTPSEnable": 1, "HTTPSPort": 3128}, "only a plain HOST and PORT"),
+                                 ({"HTTPSEnable": 1, "HTTPSProxy": "user:pw@p.test", "HTTPSPort": 1}, "plain HOST"),
+                                 ({"HTTPSEnable": 1, "HTTPSProxy": "p.test", "HTTPSPort": "x"}, "plain HOST")):
+            with self.subTest(settings=settings), self.assertRaises(supervise.Refused) as raised:
+                supervise.system_https_proxy(settings, parse)
+            self.assertIn(reason, raised.exception.reason)
+            self.assertNotIn("p.test", raised.exception.reason)
+
+    def test_codex_takes_the_system_https_proxy_after_https_proxy_and_before_all_proxy(self):
+        parse = fakes.gate.parse_proxy
+        calls = []
+
+        def system(settings):
+            return lambda: calls.append(1) or supervise.parse_scutil(settings)
+
+        on, off = system(self.SCUTIL_ON), system(self.SCUTIL_OFF)
+        for env, settings, expected, asked in (
+                ({}, on, ("secure.proxy.test", 3128, ()), True),
+                ({"ALL_PROXY": "http://a:1", "NO_PROXY": ".chatgpt.com"}, on,
+                 ("secure.proxy.test", 3128, ((".chatgpt.com",),)), True),
+                ({"ALL_PROXY": "http://a:1"}, off, ("a", 1, ()), True),
+                ({}, off, None, True),
+                ({"HTTPS_PROXY": "http://p:1"}, on, ("p", 1, ()), False),
+                ({"https_proxy": "http://p:1", "ALL_PROXY": "socks5h://x:1"}, on, ("p", 1, ()), False)):
+            with self.subTest(env=env):
+                del calls[:]
+                self.assertEqual(supervise.capture_proxy(env, parse, provider="codex", system=settings), expected)
+                self.assertEqual(bool(calls), asked)
+        del calls[:]
+        self.assertEqual(supervise.capture_proxy({"ALL_PROXY": "http://a:1"}, parse, provider="claude", system=on),
+                         ("a", 1, ()))
+        self.assertEqual(calls, [])
 
     def test_descendants(self):
         table = {2: (1, "a"), 3: (2, "b"), 4: (3, "c"), 5: (1, "d"), 6: (5, "e")}
@@ -271,6 +346,59 @@ class OutsideCommands(unittest.TestCase):
                             for path, _ in kinds["the Python module path entry"]))
         self.assertIn("did not report where it loads code from",
                       self.refused(supervise.code_sources, str(self.scratch() / "python3"), {}, kit))
+
+    def fake_scutil(self, base, body):
+        scutil = base / "scutil"
+        scutil.write_text("#!/bin/sh\n" + body)
+        scutil.chmod(0o755)
+        return str(scutil)
+
+    def test_the_system_proxy_settings_come_from_a_root_owned_scutil_run_bounded_in_a_fixed_environment(self):
+        base = self.scratch()
+        trusted = lambda candidates: candidates[0]  # noqa: E731 (the scratch directory is not root's)
+        scutil = self.fake_scutil(base, 'pwd > "%s/cwd"; env > "%s/env"\n[ "$1" = --proxy ] || exit 9\n'
+                                        "printf '%s'\n" % (base, base, Pure.SCUTIL_ON.replace("\n", "\\n")))
+        with mock.patch.dict(os.environ, {"HOME": str(base), "PATH": str(base)}):
+            settings = supervise.macos_proxies(scutil, trusted=trusted)
+        self.assertEqual(settings["HTTPSProxy"], "secure.proxy.test")
+        self.assertEqual((base / "cwd").read_text().strip(), "/")
+        variables = dict(line.split("=", 1) for line in (base / "env").read_text().splitlines() if "=" in line)
+        self.assertEqual(variables.get("PATH"), "/usr/bin:/bin:/usr/sbin:/sbin")
+        self.assertNotIn("HOME", variables)
+        self.assertIn("not a root-owned system command", self.refused(supervise.macos_proxies, scutil))
+        for body, reason in (("exit 1\n", "gave no settings it could parse"), ("echo nonsense\n", "gave no settings"),
+                             ("exec sleep 5\n", "did not finish within 0.5 s")):
+            with self.subTest(body=body):
+                failing = self.fake_scutil(base, body)
+                self.assertIn(reason, self.refused(supervise.macos_proxies, failing, 0.5, trusted))
+        self.assertIn("could not run", self.refused(supervise.macos_proxies, str(base / "absent"), 1, trusted))
+
+    @unittest.skipUnless(sys.platform == "darwin" and os.access(supervise.SCUTIL, os.X_OK), "needs macOS scutil")
+    def test_the_real_scutil_reports_settings_that_parse(self):
+        settings = supervise.macos_proxies()
+        self.assertIn("HTTPSEnable" if "HTTPSEnable" in settings else "ProxyAutoConfigEnable", settings)
+
+    def test_the_native_and_a_script_natives_interpreter_count_as_its_sources(self):
+        base = self.scratch()
+        (base / "bin").mkdir()
+        binary = base / "codex"
+        binary.write_bytes(b"\x7fELF fake")
+        self.assertEqual(supervise.native_sources(binary, {}, "the X"), [("the X", str(binary), False)])
+        script = base / "script"
+        script.write_text("#!/opt/node/bin/node --flag\n")
+        self.assertEqual(supervise.native_sources(script, {}, "the X"),
+                         [("the X", str(script), False), ("the interpreter of the X", "/opt/node/bin/node", False)])
+        interpreter = base / "bin/node"
+        interpreter.write_text("")
+        interpreter.chmod(0o755)
+        script.write_text("#!/usr/bin/env -S node --x\nrest\n")
+        self.assertEqual(supervise.native_sources(script, {"PATH": str(base / "bin")}, "the X"),
+                         [("the X", str(script), False), ("the interpreter of the X", "/usr/bin/env", False),
+                          ("the interpreter of the X", str(interpreter), False)])
+        self.assertEqual(len(supervise.native_sources(script, {"PATH": str(base / "none")}, "the X")), 2)
+        script.write_text("#!relative\n")
+        self.assertEqual(len(supervise.native_sources(script, {}, "the X")), 1)
+        self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"), [("the X", str(base / "absent"), False)])
 
     def test_code_run_outside_the_boundary_must_lie_out_of_its_reach_through_every_link(self):
         base = self.scratch()

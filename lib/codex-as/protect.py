@@ -7,12 +7,17 @@ do update and completion (check.Plan.rootless), which launch.py runs as plain co
 before any protection: they are the same for every login and send no model request. Every other
 subcommand refuses.
 
-Refusals come first and change nothing (Session.check): the native release must be a reviewed one
-(REVIEWED, with an upper bound); the arguments an allowlisted interactive TUI form, parsed like
-clap 0.167.2 (screen); the environment may name no other endpoint; the login must be a ChatGPT
-login of a reviewed plan, not FedRAMP; the host must carry the OS boundary; and no managed
-requirement (local requirements.toml, macOS managed preferences, the account's cached cloud
-bundle) may forbid what protected mode sets (blockers).
+Refusals come first and change nothing (Session.check): the arguments an allowlisted interactive
+TUI form, parsed like clap 0.167.2 (screen); the environment may name no other endpoint; the host
+must carry the OS boundary; no name on the way to the native executable (or to the interpreter of a
+#! script native) may lie in the boundary's reach, since a session could then replace the native
+under the user's next plain codex run; the native release, which `codex --version` reports from
+inside a boundary of its own (native_version: the kit never runs the native outside a boundary),
+must be a reviewed one (REVIEWED, with an upper bound); the account must already hold a saved
+login (the native device login cannot run inside the boundary); the login must be a ChatGPT login
+of a reviewed plan, not FedRAMP; the release's databases must exist in the shared SQLite home;
+and no managed requirement (local requirements.toml, macOS managed preferences, the account's
+cached cloud bundle) may forbid what protected mode sets (blockers).
 
 Session.run then, with the account lease held by the launcher for the whole run:
 1. holds a loopback port and refreshes the credential natively (reader.py, refresh mode) behind a
@@ -28,13 +33,21 @@ The TUI and every confined reader keep the caller's umask, as unprotected Codex 
 reaches the provider through the proxy Codex would use for HTTPS (gate_proxy), which neither the TUI
 nor a reader sees.
 
-The writable set is the workspace, codex_home (which holds the account home and shared sessions),
-the shared SQLite home and a private temporary directory; the refresh adds secrets_dir, where
-native writes the refreshed credential. None may be HOME, an ancestor of HOME, HOME/Library or
-lie at or inside HOME/Library/LaunchAgents. The boundary also leaves its devices writable
-(fixed_writable: /dev/shm and /dev/pts on Linux). The readers' specifications live in another
-private directory, which must lie outside all of it (a TMPDIR inside the workspace refuses), and
-the monitor's reader takes its boundary from the argv the launcher builds, never from a file.
+The writable set is what the reviewed TUI, its tools, its App Server readers and the refresh write
+(N: codex 0.167.2 under strace against loopback fixtures): the workspace, the account home
+(codex_home/accounts/NAME, native's CODEX_HOME), the shared directories and files native writes
+through the account home's links (SHARED_WRITABLE_DIRS, SHARED_WRITABLE_FILES), the release's
+databases in the shared SQLite home as files (each NAME.sqlite with its -wal and -shm, which the
+launcher creates when missing; the SQLite home is codex_home itself by default, and a directory
+rule there would reach everything beneath it) and a private temporary directory; the refresh
+adds secrets_dir, where native writes the refreshed credential. Everything else under codex_home
+stays read-only: packages/ (Codex's standalone install), config.toml, hooks.json, mcp.json,
+skills, rules, agents, themes, worktrees, the other accounts and the root auth.json. None may be
+HOME, an ancestor of HOME, HOME/Library or lie at or inside HOME/Library/LaunchAgents. The
+boundary also leaves its devices writable (fixed_writable: /dev/shm and /dev/pts on Linux). The
+readers' specifications live in another private directory, which must lie outside all of it (a
+TMPDIR inside the workspace refuses), and the monitor's reader takes its boundary from the argv
+the launcher builds, never from a file.
 
 The gate, the monitor and the monitor's reader run outside the boundary (the reader until it
 confines itself), so nothing they load code from may be in its reach: they run the base
@@ -105,6 +118,8 @@ class Native:
     refused: frozenset       # known options refused with their own message
     models: frozenset        # model slugs that draw from the codex quota family
     plans: frozenset         # plan_type values whose codex windows protected mode governs
+    databases: tuple         # the SQLite databases native keeps in sqlite_home (NAME.sqlite) from its start on
+    later_databases: tuple   # ... and those it creates only with its first thread
 
     @property
     def name(self):
@@ -137,6 +152,11 @@ V0_167_2 = Native(
     plans=frozenset({
         "plus", "pro", "prolite", "promax", "team", "self_serve_business_prolite", "business", "ent26",
         "enterprise", "edu", "edu_plus", "edu_pro", "sci", "sci_plus"}),
+    # N: what 0.167.2 opens in sqlite_home: five databases from every start on (its App Server does
+    # not initialize without them) and thread_history_1 from the first thread on (resuming a thread
+    # fails without it). Protected mode needs them all.
+    databases=("state_5", "logs_2", "goals_1", "memories_1", "queue_1"),
+    later_databases=("thread_history_1",),
 )
 REVIEWED = {native.version: native for native in (V0_167_2,)}
 BY_NAME = {native.name: native for native in REVIEWED.values()}
@@ -325,9 +345,12 @@ CLOUD_IGNORED = ("allowed_login_methods", "allowed_chatgpt_workspaces", "cli_aut
 ALIASES = (("feature_requirements", "features"), ("experimental_network", "network_proxy"))
 APPLICATION_KEYS = frozenset(("network", "storage"))
 NETWORK_KEYS = frozenset(("enabled", "domains"))
-# Features overrides() turns off; a requirement that forces one on conflicts.
+# Features overrides() turns off; a requirement that forces one on conflicts. respect_system_proxy
+# would have native resolve system, PAC and WPAD proxy settings, which only the gate may use.
 FORCED_OFF = ("plugins", "recommended_plugins", "apps", "enable_mcp_apps", "memories", "network_proxy",
-              "code_mode_prewarm")
+              "code_mode_prewarm", "respect_system_proxy")
+# The user configuration's keys for that feature (system_proxy_fallback is its older name).
+SYSTEM_PROXY_FEATURES = ("respect_system_proxy", "system_proxy_fallback")
 SANDBOX = "danger-full-access"
 SYSTEM_REQUIREMENTS = Path("/etc/codex/requirements.toml")
 SYSTEM_MANAGED_CONFIG = Path("/etc/codex/managed_config.toml")
@@ -863,12 +886,26 @@ def launcher_path():
             os.environ["PATH"] = saved
 
 
-def gate_proxy(supervise, parse, env):
+def gate_proxy(supervise, parse, env, darwin=None):
     """The caller's proxy for the gate's upstream connections, as Codex itself would use it for
-    HTTPS: HTTPS_PROXY, otherwise ALL_PROXY, each in either spelling (HTTP_PROXY serves only http://
+    HTTPS: HTTPS_PROXY, otherwise on macOS the system HTTPS proxy (scutil --proxy, read outside the
+    boundary), otherwise ALL_PROXY, each variable in either spelling (HTTP_PROXY serves only http://
     URLs); None to connect directly. supervise.capture_proxy raises its Refused for a value the gate
     cannot use (parse is gate.parse_proxy)."""
-    return supervise.capture_proxy(env, parse, provider="codex")
+    darwin = sys.platform == "darwin" if darwin is None else darwin
+    return supervise.capture_proxy(env, parse, provider="codex", system=supervise.macos_proxies if darwin else None)
+
+
+# What native writes under codex_home besides the account home, through the account home's links
+# (layout.py), as the reviewed release does (N: 0.167.2 under strace). Everything else there stays
+# read-only. The databases come from Native.databases, as files (DATABASE_FILES suffixes).
+SHARED_WRITABLE_DIRS = ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks", "memories",
+                        "memories_v2", ".tmp")
+SHARED_WRITABLE_FILES = ("history.jsonl", "session_index.jsonl")
+DATABASE_FILES = (".sqlite", ".sqlite-wal", ".sqlite-shm")
+NATIVE_HINT = ("; protected mode refuses a Codex that a protected session could replace, because the next "
+               "plain codex would run it unconfined: install Codex outside the workspace and the directories "
+               "the boundary writes")
 
 
 def writable(home, paths):
@@ -907,6 +944,8 @@ REFRESH_HOSTS = {"auth.openai.com:443": ["auth.openai.com", 443]}
 REFRESH_TIMEOUT = 30.0
 REFRESH_LOCK_WAIT = REFRESH_TIMEOUT + 10.0  # another launch's refresh ends within its own bound
 READ_TIMEOUT = 45.0       # a reader allows native's bundle retries (D14: up to 40 s if it stalls)
+VERSION_TIMEOUT = 20.0
+VERSION_LIMIT = 4096
 CONTINUE_TIMEOUT = 25.0   # a continuation read must answer within the 30 s continuation window
 MAX_AGE = 120.0
 HEARTBEAT_MAX = 1.5
@@ -927,18 +966,29 @@ class Session:
     caller's file mode creation mask (launch.py's CALLER_UMASK; the launcher itself runs under
     077), which the TUI and every confined reader get, as unprotected Codex does; None keeps 077."""
 
-    def __init__(self, guard, storage, reserve, config, layout, policy, native, args, codex, env, sqlite, cwd,
-                 umask=None):
+    def __init__(self, guard, storage, reserve, config, layout, policy, args, codex, env, sqlite, cwd, umask=None):
         self.guard, self.storage, self.reserve, self.config = guard, storage, reserve, config
-        self.layout, self.policy, self.native, self.args = layout, policy, native, args
+        self.layout, self.policy, self.given = layout, policy, list(args)
         self.codex, self.env, self.sqlite, self.cwd = codex, dict(env), str(sqlite), Path(cwd)
         self.umask = umask
+        self.native = self.args = None  # check() reads the release and screens the arguments with its tables
         self.sandbox = self.supervise = self.kit_gate = None
         self.private = self.work = None
         self.login = self.baseline = None
 
     # -- refusals before anything changes ------------------------------------------------------------
     def check(self):
+        # The arguments fail first when no reviewed release accepts them; the release's own tables
+        # screen them again once native_version() has read it.
+        failures = []
+        for native in sorted(REVIEWED.values(), key=lambda item: item.version, reverse=True):
+            try:
+                screen(self.given, native)
+                break
+            except Refused as error:
+                failures.append(error)
+        else:
+            raise failures[0]
         environment(self.env)
         try:
             self.supervise = load("supervise", KIT / "supervise.py")
@@ -953,11 +1003,24 @@ class Session:
             self.sandbox.probe()
         except self.sandbox.Refusal as error:
             refuse(str(error))
+        unreachable(self.supervise.native_sources(self.codex, self.env, "the Codex executable"), self.reach(),
+                    NATIVE_HINT)
+        self.native = reviewed(self.native_version())
+        self.args = screen(self.given, self.native)
         if not os.isatty(0):
             refuse("protected mode needs an interactive terminal for continuation")
-        identity = None
-        if os.path.lexists(self.layout.target):
-            identity = login(self.guard.credential(self.layout.target), self.native, self.storage)
+        if not os.path.lexists(self.layout.target):
+            refuse(f"the account {self.layout.name} has no saved login yet, and protected mode never runs the "
+                   "native login, which needs more network than the boundary allows; log in with one unprotected "
+                   "launch first")
+        identity = login(self.guard.credential(self.layout.target), self.native, self.storage)
+        missing = [path for path in self.database_files() if path.suffix == ".sqlite" and not path.is_file()]
+        if missing:
+            later = all(path.stem in self.native.later_databases for path in missing)
+            refuse(f"native Codex has not created {', '.join(path.name for path in missing)} in {self.sqlite} yet, "
+                   "and the boundary lets it write its databases but not create them; "
+                   + ("send one prompt in a Codex session without reserves first (native creates it with its first "
+                      "thread)" if later else "start Codex once without reserves first"))
         # The model of the user config and its selected profile, unless -m or -c model= replaces it;
         # project and managed layers can select another one, which the gate refuses per request.
         path = self.config.codex_home / "config.toml"
@@ -970,6 +1033,10 @@ class Session:
         if keys:
             refuse(f"the profile {shown(name)} that {path} selects sets {', '.join(keys)}, which protected mode "
                    "sets itself")
+        features = table.get("features")
+        if isinstance(features, dict) and any(features.get(name) is True for name in SYSTEM_PROXY_FEATURES):
+            refuse(f"{path} enables features.respect_system_proxy (system, PAC and WPAD proxy settings), which the "
+                   "gate cannot follow; set HTTPS_PROXY to the proxy to use instead")
         configured = configured_model(table)
         overridden = scan(self.args, self.native)[1] is not None
         if not overridden and isinstance(configured, str) and configured not in self.native.models:
@@ -977,13 +1044,92 @@ class Session:
                    "governs (choose a reviewed one with -m)")
         requirement_check(self.layout.home, self.sqlite, identity)
 
+    def native_version(self):
+        """What `codex --version` prints, run inside a boundary of its own: nothing writable but the
+        boundary's devices, and a held port that nothing serves as its only exit, in /, with stdin
+        and stderr on /dev/null. Refused unless it exits 0 within VERSION_TIMEOUT."""
+        supervise, python = self.supervise, interpreter()
+        darwin = sys.platform == "darwin"
+        read_end, write_end = os.pipe()
+        sup = None
+        try:
+            extra = self.sandbox.holder_addresses().reserve if darwin else ()
+            sup = supervise.Supervisor([python, "-I", "-B", str(GATE)], {}, python=python, holder_extra=extra)
+            port = sup.prepare()
+            sup.confine = self.hook([], self.sandbox.self_test(port, [], "codex", python=python) if darwin else None)
+            with launcher_path():
+                code = sup.confined([self.codex, "--version"], self.env, timeout=VERSION_TIMEOUT, cwd="/",
+                                    stdout=write_end)
+            os.close(write_end)
+            write_end = None
+            output = b""
+            while len(output) <= VERSION_LIMIT:
+                chunk = os.read(read_end, 4096)
+                if not chunk:
+                    break
+                output += chunk
+        except supervise.Refused as error:
+            refuse("the Codex version check could not run inside the boundary: %s" % error.reason)
+        except self.sandbox.Refusal as error:
+            refuse(str(error))
+        finally:
+            if sup is not None:
+                sup.close()
+            for fd in (read_end, write_end):
+                if fd is not None:
+                    os.close(fd)
+        if code != 0 or len(output) > VERSION_LIMIT:
+            refuse("the Codex version check inside the boundary %s"
+                   % ("timed out" if code is None else "failed" if code else "printed too much"))
+        return output.decode("utf-8", "replace")
+
     # -- the run --------------------------------------------------------------------------------------
+    def database_files(self):
+        """The release's databases in the shared SQLite home, NAME.sqlite, -wal and -shm each (before
+        check() has read the release, the newest reviewed one's)."""
+        native = self.native or REVIEWED[max(REVIEWED)]
+        return [Path(self.sqlite) / (name + suffix) for name in (*native.databases, *native.later_databases)
+                for suffix in DATABASE_FILES]
+
     def paths(self, refresh=False):
         """The writable set (refresh adds secrets_dir, where native writes the credential)."""
-        paths = [self.cwd, self.config.codex_home, self.sqlite, self.work]
+        root = self.config.codex_home
+        paths = [self.cwd, self.layout.home, *(root / name for name in SHARED_WRITABLE_DIRS),
+                 *(root / name for name in SHARED_WRITABLE_FILES), *self.database_files()]
+        if self.work is not None:
+            paths.append(self.work)
         if refresh:
             paths.append(self.config.secrets_dir)
         return writable(self.config.home, paths)
+
+    def reach(self):
+        """Everything a boundary process of this run can write: both writable sets and the devices."""
+        return self.paths() + self.paths(refresh=True) + fixed_writable(self.sandbox)
+
+    def prepare_databases(self):
+        """Create the -wal and -shm files native would create beside each database, as SQLite does
+        (empty, with the database's mode), so that the boundary can name them as files. Each of the
+        three must be a regular file of this user, not a link (SQLite opens them O_NOFOLLOW, and the
+        boundary would make a link's target writable)."""
+        for path in self.database_files():
+            if path.suffix != ".sqlite":
+                try:
+                    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                except FileExistsError:
+                    fd = None
+                if fd is not None:
+                    try:
+                        os.fchmod(fd, mode)
+                    finally:
+                        os.close(fd)
+            try:
+                info = os.lstat(path)
+            except OSError:
+                info = None
+            if info is None or not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                refuse(f"the database file {path} is not a regular file of this user")
+            if path.suffix == ".sqlite":
+                mode = stat.S_IMODE(info.st_mode)
 
     def hook(self, paths, tested):
         sandbox = self.sandbox
@@ -1063,10 +1209,12 @@ class Session:
         before = last_refresh(baseline)
         sup = None
         try:
+            self.prepare_databases()
             self.work = tempfile.mkdtemp(prefix="codex-as-tmp-")
             self.private = tempfile.mkdtemp(prefix="codex-as-protect-")
             paths, refresh_paths = self.paths(), self.paths(refresh=True)
             reach = paths + refresh_paths + fixed_writable(self.sandbox)
+            unreachable(supervise.native_sources(self.codex, self.env, "the Codex executable"), reach, NATIVE_HINT)
             # Reader specifications, and the code of every kit process outside the boundary, must
             # stay out of reach of every boundary process.
             outside(self.private, reach)
