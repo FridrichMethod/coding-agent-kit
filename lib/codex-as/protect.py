@@ -47,9 +47,10 @@ The writable set is what the reviewed TUI, its tools, its App Server readers and
 (N: codex 0.167.2 under strace against loopback fixtures): the workspace, the account home
 (codex_home/accounts/NAME, native's CODEX_HOME), the shared directories and files native writes
 through the account home's links (SHARED_WRITABLE_DIRS, SHARED_WRITABLE_FILES), the release's
-databases in the shared SQLite home as files (each NAME.sqlite with its -wal and -shm, which the
-launcher creates when missing; the SQLite home is codex_home itself by default, and a directory
-rule there would reach everything beneath it) and a private temporary directory; the refresh
+databases in the shared SQLite home and every other NAME_N.sqlite native created there (a newer release
+may keep more) as files (each NAME.sqlite with its -wal and -shm, which the launcher creates when
+missing; the SQLite home is codex_home itself by default, and a directory rule there would reach
+everything beneath it) and a private temporary directory; the refresh
 adds secrets_dir, where native writes the refreshed credential. Everything else under codex_home
 stays read-only: packages/ (Codex's standalone install), config.toml, hooks.json, mcp.json,
 skills, rules, agents, themes, worktrees, memories, the rest of .tmp (plain codex's plugin staging
@@ -960,6 +961,10 @@ def gate_proxy(supervise, parse, env, darwin=None):
 # its later starts copy plugin code from. The databases come from Native.databases, as files
 # (DATABASE_FILES suffixes).
 SHARED_WRITABLE_DIRS = ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks")
+# A database native keeps in sqlite_home: NAME_N.sqlite (state_5, thread_history_1, ...). Besides the
+# reviewed release's own (Native.databases), every regular one of this user that native created there
+# is writable too, since a newer release may keep another (Session.created_databases).
+DATABASE_NAME = re.compile(r"[a-z][a-z0-9_]*_[0-9]+")
 SHARED_WRITABLE_FILES = ("history.jsonl", "session_index.jsonl", ".tmp/rollout-maintenance.lock")
 DATABASE_FILES = (".sqlite", ".sqlite-wal", ".sqlite-shm")
 NATIVE_HINT = ("; protected mode refuses a Codex that a protected session could replace, because the next "
@@ -1043,6 +1048,8 @@ class Session:
         self.codex, self.env, self.sqlite, self.cwd = codex, dict(env), str(sqlite), Path(cwd)
         self.umask = umask
         self.native = self.args = None  # check() reads the release and screens the arguments with its tables
+        self.release = None  # the X.Y.Z the installed native reported
+        self.created = None  # the other databases native created in sqlite_home, read once per run
         self.sandbox = self.supervise = self.kit_gate = None
         self.private = self.work = None
         self.login = self.baseline = None
@@ -1083,7 +1090,9 @@ class Session:
         except self.supervise.Refused as error:
             refuse(error.reason)
         self.shared_entries(created=False)
-        self.native = native_tables(self.native_version())
+        printed = self.native_version()
+        self.native = native_tables(printed)
+        self.release = printed.strip()[len("codex-cli "):]
         self.args = screen(self.given, self.native)
         if not os.isatty(0):
             refuse("protected mode needs an interactive terminal for continuation")
@@ -1167,11 +1176,37 @@ class Session:
 
     # -- the run --------------------------------------------------------------------------------------
     def database_files(self):
-        """The release's databases in the shared SQLite home, NAME.sqlite, -wal and -shm each (before
-        check() has read the release, the newest reviewed tables')."""
+        """The databases in the shared SQLite home, NAME.sqlite, -wal and -shm each: the release's own
+        (before check() has read the release, the newest reviewed tables'), then the others native
+        created there (created_databases)."""
         native = self.native or REVIEWED[max(REVIEWED)]
-        return [Path(self.sqlite) / (name + suffix) for name in (*native.databases, *native.later_databases)
-                for suffix in DATABASE_FILES]
+        names = [*native.databases, *native.later_databases]
+        names += [name for name in self.created_databases() if name not in names]
+        return [Path(self.sqlite) / (name + suffix) for name in names for suffix in DATABASE_FILES]
+
+    def created_databases(self):
+        """The names of the regular NAME_N.sqlite files of this user in the shared SQLite home, read on
+        the first call of a run: a newer release may keep databases the reviewed tables do not name,
+        which native can write but, inside the boundary, not create. A link, another type or another
+        owner's file is not one of them and stays read-only."""
+        if self.created is None:
+            found = []
+            try:
+                entries = sorted(os.listdir(self.sqlite))
+            except OSError:
+                entries = []
+            for entry in entries:
+                name, dot, suffix = entry.rpartition(".")
+                if not (dot and suffix == "sqlite" and DATABASE_NAME.fullmatch(name)):
+                    continue
+                try:
+                    info = os.lstat(os.path.join(self.sqlite, entry))
+                except OSError:
+                    continue
+                if stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid():
+                    found.append(name)
+            self.created = tuple(found)
+        return self.created
 
     def paths(self, refresh=False):
         """The writable set (refresh adds secrets_dir, where native writes the credential)."""
@@ -1423,7 +1458,7 @@ class Session:
                 status = supervisor.request("status", 10)
                 if not status.get("running"):
                     reason = status.get("reason") or "no fresh passing quota check"
-                    detail = "" if code == 0 else " (quota read: %s)" % reader_status(code)
+                    detail = "" if code == 0 else " (quota read: %s)" % reader_status(code, self.release, self.native)
                     raise supervise.Refused(explain(reason, status.get("fields")) + detail)
 
             def continue_read():
@@ -1462,8 +1497,15 @@ READER_STATUS = {
 }
 
 
-def reader_status(code):
-    return "timed out" if code is None else READER_STATUS.get(code, "ended with status %d" % code)
+def reader_status(code, release=None, native=None):
+    """A reader's exit status for a message. An App Server that did not start or initialize under a
+    release newer than its tables' (RELEASE, NATIVE) may lack a database it has not created yet, which
+    the boundary does not let it create: the message gives the advice for that too."""
+    text = "timed out" if code is None else READER_STATUS.get(code, "ended with status %d" % code)
+    if code in (2, 3) and native is not None and release not in (None, native.name):
+        text += ("; a Codex newer than %s may need a database it has not created yet: start Codex once without "
+                 "reserves first" % native.name)
+    return text
 
 
 EXPLAINED = {

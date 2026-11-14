@@ -2,8 +2,9 @@
 the decision adapter and whole protected launches.
 
 Fabricated credentials only, a temporary HOME and 127.0.0.1 fixtures. Whole launches need the OS
-boundary (Linux Landlock ABI 6+ on x86_64, or a reviewed macOS release) and openssl for the fixture
-CA, and skip cleanly without them; with a real codex 0.167.2 on PATH one case runs it too.
+boundary (Linux Landlock ABI 6+ on x86_64, or macOS 27.2 or newer) and openssl for the fixture CA, and
+skip cleanly without them; with a real codex 0.167.2 or newer (KIT_REAL_CODEX, a path, or codex on
+PATH) the RealCodex cases run it too.
 """
 
 import base64
@@ -330,6 +331,45 @@ class Screen(unittest.TestCase):
                     self.assertFalse(any(protect.within(str(root / name), path) for path in paths))
             self.assertIn(str(root / "thread_history_1.sqlite-wal"), paths)
             self.assertEqual(session.paths(refresh=True), session.paths() + [str(base / "home/.secrets")])
+
+    def test_the_databases_a_newer_release_created_are_writable_too(self):
+        """A newer release may keep more databases in sqlite_home (0.169.0's binary names
+        memories_v2_1 and agent_message_board_1, S), which native writes but the boundary does not let
+        it create: protected mode follows what native created there. Every regular NAME_N.sqlite file of
+        this user joins the reviewed ones, each with its -wal and -shm, read once per run; anything else
+        stays read-only, and a missing reviewed one still refuses (check)."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            session = self.session(base)
+            root = base / "home/.codex"
+            for name in ("agent_message_board_1.sqlite", "state_6.sqlite", "notes.sqlite", "Upper_1.sqlite",
+                         "other_1.sqlite-wal", "x_1.sqlite.bak"):
+                (root / name).write_bytes(b"")
+            (root / "linked_1.sqlite").symlink_to(base / "home/.bashrc")
+            (root / "dir_1.sqlite").mkdir()
+            paths = session.paths()
+            for name in ("agent_message_board_1.sqlite", "agent_message_board_1.sqlite-wal",
+                         "agent_message_board_1.sqlite-shm", "state_6.sqlite", "state_6.sqlite-shm", "state_5.sqlite"):
+                with self.subTest(name=name):
+                    self.assertIn(str(root / name), paths)
+            for name in ("notes.sqlite", "Upper_1.sqlite", "other_1.sqlite-wal", "other_1.sqlite", "x_1.sqlite.bak",
+                         "linked_1.sqlite", "dir_1.sqlite", "linked_1.sqlite-wal"):
+                with self.subTest(name=name):
+                    self.assertFalse(any(protect.within(str(root / name), path) for path in paths))
+            (root / "later_1.sqlite").write_bytes(b"")  # created after the first read: not this run's
+            self.assertEqual(session.paths(), paths)
+            session.prepare_databases()
+            self.assertTrue((root / "agent_message_board_1.sqlite-wal").is_file())
+            self.assertFalse((root / "later_1.sqlite-wal").exists())
+
+    def test_a_reader_that_fails_to_start_under_a_newer_release_names_the_database_advice(self):
+        later = "the App Server did not initialize; a Codex newer than 0.167.2 may need a database it has not " \
+                "created yet: start Codex once without reserves first"
+        self.assertEqual(protect.reader_status(3, "0.169.0", NATIVE), later)
+        self.assertEqual(protect.reader_status(2, "0.169.0", NATIVE), later.replace("did not initialize", "did not start"))
+        self.assertEqual(protect.reader_status(3, "0.167.2", NATIVE), "the App Server did not initialize")
+        self.assertEqual(protect.reader_status(4, "0.169.0", NATIVE), "the request failed")
+        self.assertEqual(protect.reader_status(None), "timed out")
 
     def test_the_databases_wal_and_shm_files_are_made_beside_them_with_their_mode(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -2218,18 +2258,21 @@ class Protected(Launch):
         root = self.home.codex_home
         (root / ".tmp").mkdir(mode=0o700)
         (root / ".tmp/plugins").mkdir()  # plain codex's plugin checkout, which its later starts sync from
+        (root / "agent_message_board_1.sqlite").write_bytes(b"")  # a database a newer release created
         terminal = self.start(env={"FAKE_VERSION_MARK": str(mark)})
         terminal.expect("READY")
         denied = (native, release.parent.parent / "current-new", root / "config.toml", root / "hooks.json",
                   root / "mcp.json", root / "skills/planted", root / "rules/planted", root / "agents/planted",
-                  root / "accounts/planted", root / "new.sqlite", root / "auth.json", root / ".tmp/plugins/x",
-                  root / ".tmp/plugins.sha", root / "memories/planted", root / "memories_v2/planted")
+                  root / "accounts/planted", root / "new.sqlite", root / "new_1.sqlite", root / "auth.json",
+                  root / ".tmp/plugins/x", root / ".tmp/plugins.sha", root / "memories/planted",
+                  root / "memories_v2/planted")
         for path in denied:
             terminal.send("write %s\r" % path)
             terminal.expect("WRITE (13|1)\\b")
         allowed = (root / "sessions/written", root / "accounts/A/written", root / "history.jsonl",
                    root / "session_index.jsonl", root / ".tmp/rollout-maintenance.lock", root / "accounts/A/.tmp/x",
-                   root / "state_5.sqlite-wal", root / "archived_sessions/written", root / "thread-writer-locks/written")
+                   root / "state_5.sqlite-wal", root / "archived_sessions/written", root / "thread-writer-locks/written",
+                   root / "agent_message_board_1.sqlite", root / "agent_message_board_1.sqlite-wal")
         for path in allowed:
             terminal.send("write %s\r" % path)
             terminal.expect("WRITE ok")
@@ -2503,13 +2546,13 @@ class Protected(Launch):
         self.assertEqual(self.exit_code(), 0)
 
 
-REAL_CODEX = shutil.which("codex")
+REAL_CODEX = os.environ.get("KIT_REAL_CODEX") or shutil.which("codex")
 
 
 def real_version():
-    """What the host's codex reports, run in a HOME of its own that is removed afterwards: codex
-    writes CODEX_HOME/tmp (arg0-macos on macOS) even for --version, so the temporary directory itself
-    would keep a .codex."""
+    """What the host's codex (KIT_REAL_CODEX, a path, or codex on PATH) reports, run in a HOME of its
+    own that is removed afterwards: codex writes CODEX_HOME/tmp (arg0-macos on macOS) even for
+    --version, so the temporary directory itself would keep a .codex."""
     if not REAL_CODEX:
         return None
     with tempfile.TemporaryDirectory(prefix="quota-x-version-", ignore_cleanup_errors=True) as home:
@@ -2520,14 +2563,27 @@ def real_version():
             return None
 
 
+def protected_release(text):
+    """The X.Y.Z a real codex reports when protected mode runs it (the minimum or newer), else None."""
+    try:
+        protect.native_tables(text or "")
+    except protect.Refused:
+        return None
+    return protect.VERSION_OUTPUT.fullmatch(text.strip()).group(0)[len("codex-cli "):]
+
+
+REAL_RELEASE = protected_release(real_version())
+
+
 @unittest.skipIf(boundary_missing(), "protected mode needs the OS boundary")
 @unittest.skipIf(shutil.which("openssl") is None, "the fixture CA needs openssl")
-@unittest.skipUnless(real_version() == "codex-cli 0.167.2", "needs the reviewed codex 0.167.2 on PATH")
+@unittest.skipUnless(REAL_RELEASE, "needs codex %d.%d.%d or newer as KIT_REAL_CODEX or codex on PATH" % protect.MINIMUM)
 class RealCodex(Launch):
-    """The reviewed native against loopback fixtures: a model-free protected start, and the in-TUI
-    /new, /resume and /fork commands (G0 D11) staying behind the gate, the account and the pause."""
+    """A real native (the minimum release or newer) against loopback fixtures: a model-free protected
+    start, and the in-TUI /new, /resume and /fork commands (G0 D11) staying behind the gate, the
+    account and the pause."""
 
-    real_codex = REAL_CODEX
+    real_codex = os.path.realpath(REAL_CODEX) if REAL_CODEX else None
 
     def setUp(self):
         super().setUp()
@@ -2587,7 +2643,7 @@ class RealCodex(Launch):
         self.terminal.answer = True
         self.terminal.expect("usage reserves for A", timeout=60)
         self.terminal.expect("OpenAI Codex", timeout=60)
-        self.terminal.expect("v0\\.167\\.2", timeout=10)
+        self.terminal.expect("v" + re.escape(REAL_RELEASE), timeout=10)
         self.terminal.expect("Ask Codex", timeout=30)
         self.assertTrue(self.backend.seen("/oauth/token"))  # D1 (a): native's own refresh, before the TUI
         self.assertTrue(self.backend.seen("/backend-api/wham/usage"))
