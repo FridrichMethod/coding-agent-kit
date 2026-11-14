@@ -64,3 +64,6 @@ coverage.xml
 
 # Isolated task worktrees
 /.worktrees/
+
+# Local scratch and task handoff files
+/tmp/
