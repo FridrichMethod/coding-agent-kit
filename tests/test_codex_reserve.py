@@ -2223,6 +2223,21 @@ class Protected(Launch):
                 self.assertEqual(self.models(), [])
                 terminal.close()
 
+    def test_an_app_server_that_cannot_start_under_a_newer_release_names_the_database_advice(self):
+        """A newer release may need a database it has not created yet, which the boundary does not let
+        it create; its App Server then fails before it answers, and the refusal says what to do."""
+        self.home.knobs(FAKE_APP_SERVER_EXIT="1")
+        for version, advice in (("codex-cli 0.169.0", True), ("codex-cli 0.167.2", False)):
+            with self.subTest(version=version):
+                terminal = self.start(env={"FAKE_VERSION": version})
+                line = terminal.expect("usage reserve protection refused: the pre-launch credential refresh failed "
+                                       "\\(the App Server did not (start|initialize)([^)]*)\\)", timeout=90)
+                self.assertEqual(line.group(2).decode(), "; a Codex newer than 0.167.2 may need a database it has "
+                                 "not created yet: start Codex once without reserves first" if advice else "")
+                self.assertEqual(self.exit_code(), 1)
+                self.assertEqual((self.home.events("tui"), self.models()), ([], []))
+                terminal.close()
+
     def test_workspace_plans_forward_the_config_bundle_and_refuse_blocking_requirements(self):
         self.home.write_credential(backend.credential(plan="edu_pro"))
         self.backend.plan = "edu_pro"

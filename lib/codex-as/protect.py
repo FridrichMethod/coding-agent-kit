@@ -1447,7 +1447,7 @@ class Session:
             # answers only the bundle and the tunnel); the refreshed credential is the verdict.
             if last_refresh(current) == before:
                 refuse("the pre-launch credential refresh failed (%s)"
-                       % (reader_status(code) if code else "the credential is unchanged"))
+                       % (reader_status(code, self.release, self.native) if code else "the credential is unchanged"))
             if login(current, self.native, self.storage) != self.login:
                 refuse("the refreshed login names another workspace, user or plan")
             self.baseline = current  # native wrote it through the link; a later replacement is newer
