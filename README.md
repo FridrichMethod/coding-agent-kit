@@ -38,16 +38,16 @@ your own with `install.sh`, or link or copy its files.
 - Optional: bash-completion or zsh for account-name completion.
 - Usage reserves (protected mode) need more, and refuse to start without it:
   Linux on x86_64 with Landlock ABI 6 or newer and seccomp (not WSL), or
-  macOS 27.2 (any 27.2.x update), the reviewed release (older and newer ones
-  are refused), on Apple silicon with `/usr/bin/sandbox-exec`; an
-  interactive terminal; the launcher's `python3`, the kit and the native
-  outside every path the session can write, with no empty, relative or
-  session-writable `PATH` entry before the one that supplies `python3` or
-  the native; and
-  exactly the reviewed native release, codex-cli 0.167.2 with a saved login
-  and the databases a first unprotected prompt creates, or Claude Code
-  2.1.322 with a Pro or Max account enrolled through native login. Nothing
-  is installed for it.
+  macOS 27.2 or newer on Apple silicon with `/usr/bin/sandbox-exec` and a
+  boundary self-test that passes; an interactive terminal; the launcher's
+  `python3`, the kit and the native outside every path the session can
+  write, with no empty, relative or session-writable `PATH` entry before the
+  one that supplies `python3` or the native; and codex-cli 0.167.2 or newer
+  with a saved login and the databases a first unprotected prompt creates,
+  or Claude Code 2.1.322 or newer with a Pro or Max account enrolled through
+  native login. These are minimums, with no upper limit: what a newer
+  release adds that the kit has not reviewed is refused or paused, never
+  let through. Nothing is installed for it.
 
 ## Install
 
@@ -426,9 +426,10 @@ pre-commit run --all-files
   `codex-reserve.sh`, `claude-reserve.sh`) run whole launches on a PTY inside
   the real OS boundary where the host has it, and skip those cases with the
   reason in their output where it does not (a hosted Linux runner's kernel
-  may lack Landlock ABI 6). With codex-cli 0.167.2 on `PATH`, and Claude Code
-  2.1.322 as `KIT_REAL_CLAUDE=/path/to/claude` or on `PATH` (Linux only),
-  they also run the real natives against local fixtures. They take a few
+  may lack Landlock ABI 6). With codex-cli 0.167.2 or newer as
+  `KIT_REAL_CODEX=/path/to/codex` or on `PATH`, and Claude Code 2.1.322 or
+  newer as `KIT_REAL_CLAUDE=/path/to/claude` or on `PATH` (Linux only), they
+  also run the real natives against local fixtures. They take a few
   minutes in all; their pre-commit hooks run only when their sources change.
 - Every suite runs in a temporary HOME with fake CLIs and fictitious
   credentials, reaches no network beyond local fixtures, and first unsets

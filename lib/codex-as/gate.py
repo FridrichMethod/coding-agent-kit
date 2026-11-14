@@ -3,11 +3,12 @@
 The supervisor (supervise.py) starts it as `python3 -I -B gate.py GATE-OPTIONS`; the kit gate
 (lib/coding-agent-kit/gate.py) documents the options and the core configuration keys. The
 launcher (protect.py) adds: account (the codex-as name), expected ([account_id, user_id] of the
-launch credential), reserves ({window: [value or null, source]}), native (a reviewed release),
-sqlite_home, mode ("run" or "refresh"), requirement_file (the run's requirement record) and, for the
-refresh gate, connect_allow.
+launch credential), reserves ({window: [value or null, source]}), native (the reviewed release whose
+tables govern the installed one, protect.native_tables), sqlite_home, mode ("run" or "refresh"),
+requirement_file (the run's requirement record) and, for the refresh gate, connect_allow.
 
-Routes (codex 0.167.2, default deny, upstream chatgpt.com over verified TLS):
+Routes (reviewed at codex 0.167.2, the same for every newer release; default deny, upstream chatgpt.com
+over verified TLS):
 - POST /backend-api/codex/responses: a model request, admitted only under a fresh lease whose
   bearer it carries, for a reviewed codex-family model;
 - GET /backend-api/wham/usage: forwarded while running, checking and paused; its reply is the

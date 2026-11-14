@@ -9,8 +9,8 @@ runner: every call of confine() runs in a child process.
 Enforcement cases run the real boundary in a child against 127.0.0.1
 listeners that the test owns outside it, and skip cleanly where the host
 cannot carry it (Linux without Landlock ABI 6, seccomp or x86_64; a host
-without /usr/bin/sandbox-exec). On a macOS release outside
-REVIEWED_RELEASES the macOS cases run and skip with what they observed
+without /usr/bin/sandbox-exec). On a macOS release older than
+MINIMUM_RELEASE the macOS cases run and skip with what they observed
 whenever it differs from the reviewed expectation (see MacEnforcement).
 Every listener, fixture and temporary directory is removed again.
 """
@@ -817,20 +817,20 @@ class MacHost(unittest.TestCase):
         self.assertTrue(message and message.isascii() and message.isprintable(), message)
         return message
 
-    def test_reviewed_release(self):
-        self.assertEqual(macos.assess(mac_facts()), macos.Host(version="27.2", arch="arm64"))
-        self.assertEqual(macos.assess(mac_facts(version="27.2.1")), macos.Host(version="27.2.1", arch="arm64"))
+    def test_the_minimum_release_and_every_newer_one_pass(self):
+        """A minimum, never an upper bound: the startup self-test runs on every launch, so a release on
+        which the profile does not hold refuses there."""
+        for version in ("27.2", "27.2.1", "27.3", "28", "28.0.1", "30.1"):
+            with self.subTest(version=version):
+                self.assertEqual(macos.assess(mac_facts(version=version)), macos.Host(version=version, arch="arm64"))
 
-    def test_other_systems_architectures_and_releases(self):
+    def test_other_systems_architectures_and_older_releases(self):
         self.assertIn("macOS", self.refused("platform", system="Linux"))
         self.assertIn("x86_64", self.refused("architecture", machine="x86_64"))
-        for version in ("27.3", "28", "28.0.1", "30.1"):
+        for version in ("27.1", "27.1.9", "27.0", "27", "26.4", "15.5", "10.16"):
             with self.subTest(version=version):
-                message = self.refused("version", version=version)
-                self.assertIn("newer than the newest reviewed release (27.2)", message)
-        for version in ("27.1", "27.0", "27", "26.4", "15.5", "10.16"):
-            with self.subTest(version=version):
-                self.assertIn("not a reviewed release", self.refused("version", version=version))
+                self.assertIn("macOS %s is older than the minimum 27.2 protected mode needs" % version,
+                              self.refused("version", version=version))
         for version in ("", None, "27.2-beta", "27.2.1.4", "x", "27.2\n"):
             with self.subTest(version=version):
                 self.assertIn("could not be read", self.refused("version", version=version))
@@ -842,7 +842,7 @@ class MacHost(unittest.TestCase):
     def test_order(self):
         self.refused("platform", system="Linux", machine="x86_64", version="")
         self.refused("architecture", machine="x86_64", version="28.0", sandbox_exec=False)
-        self.refused("version", version="28.0", sandbox_exec=False, ifconfig=False)
+        self.refused("version", version="27.1", sandbox_exec=False, ifconfig=False)
         self.refused("sandbox-exec", sandbox_exec=False, ifconfig=False)
 
     def test_probe_changes_nothing(self):
@@ -1265,13 +1265,14 @@ def wait_for(condition, tries):
 class MacEnforcement(unittest.TestCase):
     """The real profile under /usr/bin/sandbox-exec, against listeners outside it.
 
-    On a release in REVIEWED_RELEASES every difference from the reviewed
-    expectation fails. Protected mode refuses every other host (an unreviewed
+    On a host protected mode accepts (MINIMUM_RELEASE or newer on Apple
+    silicon) every difference from the reviewed expectation fails: such a
+    host runs the profile. Protected mode refuses every other host (an older
     release, an Intel Mac), so there a failing self-test or a difference
     skips the case and names what it observed, which a -v run prints;
     test_self_test_passes also writes the host and the self-test answers to
     stderr. Hosted macOS CI thus records evidence without turning red, and
-    the reviewed host is where these cases decide.
+    an accepted host is where these cases decide.
     """
 
     maxDiff = None
@@ -1283,9 +1284,9 @@ class MacEnforcement(unittest.TestCase):
         try:
             macos.probe()
         except macos.Refusal as refusal:
-            cls.unreviewed = str(refusal)
+            cls.host_refusal = str(refusal)
         else:
-            cls.unreviewed = None
+            cls.host_refusal = None
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="kit-sandbox-test-")
@@ -1312,22 +1313,22 @@ class MacEnforcement(unittest.TestCase):
         self.addCleanup(LinuxEnforcement.reap, self.outsider)
 
     def settle(self, observed, expected, detail=""):
-        """Fail on a reviewed release; on any other, skip and name every difference."""
-        if observed == expected or self.unreviewed is None:
+        """Fail on a host protected mode accepts; on any other, skip and name every difference."""
+        if observed == expected or self.host_refusal is None:
             self.assertEqual(observed, expected, detail)
             return
         differences = {key: observed.get(key, "missing") for key in sorted(set(observed) | set(expected))
                        if observed.get(key, "missing") != expected.get(key, "missing")}
-        self.skipTest("unreviewed host (%s); differs from the reviewed expectation: %s %s"
-                      % (self.unreviewed, json.dumps(differences, sort_keys=True), detail))
+        self.skipTest("a host protected mode refuses (%s); differs from the reviewed expectation: %s %s"
+                      % (self.host_refusal, json.dumps(differences, sort_keys=True), detail))
 
     def require_profile(self):
         try:
             tested = macos.self_test(self.gate.port, [str(self.base / "inside")], "codex")
         except macos.Refusal as refusal:
-            if self.unreviewed is None:
+            if self.host_refusal is None:
                 raise
-            self.skipTest("unreviewed host (%s); its self-test failed: %s" % (self.unreviewed, refusal))
+            self.skipTest("a host protected mode refuses (%s); its self-test failed: %s" % (self.host_refusal, refusal))
         # The self-test connected to the gate once and sent nothing; let the listener record that, then start afresh.
         wait_for(lambda: self.gate.received, 100)
         self.assertEqual(self.gate.received, [b""])
@@ -1338,7 +1339,7 @@ class MacEnforcement(unittest.TestCase):
         tested = self.require_profile()
         sys.stderr.write("\nMacEnforcement: macOS %s %s, %s; self-test answers %s\n"
                          % (platform.mac_ver()[0], platform.machine(),
-                            "reviewed" if self.unreviewed is None else "unreviewed (%s)" % self.unreviewed,
+                            "accepted" if self.host_refusal is None else "refused (%s)" % self.host_refusal,
                             json.dumps(tested.answers, sort_keys=True)))
         self.assertEqual(tested.answers, PASS_RESULT)
         self.assertEqual(sorted(os.listdir(self.base / "inside")), [])

@@ -72,35 +72,44 @@ Added:
   minutes). The native interface stays usable. Nothing resumes by itself:
   while paused the launcher says when the latest quota check passes, F12
   shows a one-use code, and typing it asks for a fresh check that must
-  pass. At exit every process left inside the boundary is ended.
+  pass; the terminal's reports of a key's repeat or release, which the
+  extended keyboard protocol Codex turns on sends, never cancel the code.
+  At exit every process left inside the boundary is ended.
 - Protected mode requires Linux on x86_64 with Landlock ABI 6 or newer and
-  seccomp (not WSL), or macOS 27.2 (any 27.2.x update) on Apple silicon with
-  `/usr/bin/sandbox-exec`, a root-owned `/bin/ps` and a passing startup
-  self-test, an interactive terminal, and exactly the reviewed native
-  release: codex-cli 0.167.2, or Claude Code 2.1.322 with a `native-login`
-  account. Only these reviewed releases are accepted: an older release
-  (macOS 15, for example) is refused as unreviewed, and a newer native or
-  macOS release refuses protected launches until a kit patch reviews it.
-  Anything else is refused before the session starts, with one line, exit 1:
+  seccomp (not WSL), or macOS 27.2 or newer on Apple silicon with
+  `/usr/bin/sandbox-exec`, a root-owned `/bin/ps` and a startup self-test
+  that passes on every launch, an interactive terminal, and codex-cli
+  0.167.2 or newer, or Claude Code 2.1.322 or newer with a `native-login`
+  account. These are minimums, never an exact release or an upper bound: an
+  older release is refused (`... is older than the minimum ... protected
+  mode needs`; a Codex pre-release counts as older than its release), and a
+  newer one runs under the tables reviewed at the minimum, refusing or
+  pausing whatever it adds that they do not know: options, commands,
+  routes, models, plans, usage rows, Codex requirement keys and policy
+  limits. Anything else is refused before the session starts, with one
+  line, exit 1:
   `codex-as: usage reserve protection refused: REASON. (--reserve-5h off --reserve-weekly off launches unprotected)`
   or `claude-as: protected mode refused: REASON.` The boundary is the
   kit's own code (Landlock and seccomp through `ctypes`, a Seatbelt
   profile); nothing is installed.
 - Protected `codex-as` runs only the interactive TUI with an allowlist of
-  options parsed as codex-cli 0.167.2 parses them; every other subcommand,
-  `resume` and `fork` included, is refused, while `/new`, `/resume` and
-  `/fork` inside the TUI stay protected. It refuses API-key and FedRAMP
-  logins, unreviewed plans and models, profiles and overrides of the keys
-  it sets, and, before any model request, accounts whose managed
-  requirements forbid what it sets (application network restrictions,
-  network controls, provider, residency, base URL, credential store or
-  `sqlite_home` pins, among others), naming the requirement. The gate
-  forwards the workspace configuration bundle; one that forbids protected
+  options parsed as codex-cli 0.167.2 parses them, and passes the prompt
+  after `--`, so that no release runs a prompt word as a subcommand; every
+  other subcommand, `resume` and `fork` included, is refused, while `/new`,
+  `/resume` and `/fork` inside the TUI stay protected. It refuses API-key
+  and FedRAMP logins, unreviewed plans and models, profiles and overrides
+  of the keys it sets, and, before any model request, accounts whose
+  managed requirements forbid what it sets (application network
+  restrictions, network controls, provider, residency, base URL, credential
+  store or `sqlite_home` pins, a requirement key outside the 46 that Codex
+  0.167.2 reads, among others), naming the requirement. The gate forwards
+  the workspace configuration bundle; one that forbids protected
   mode pauses a running session until a later bundle lifts it, also across
   a restart of the request gate. Protected codex-as never runs the native
   outside the boundary: `codex --version` runs inside one, and the boundary
-  writes only the account home, the shared session state and the release's
-  databases in `<codex_home>`, never `packages/`, `config.toml`, hooks,
+  writes only the account home, the shared session state, the release's
+  databases and any other `NAME_N.sqlite` Codex created in `<codex_home>`,
+  never `packages/`, `config.toml`, hooks,
   MCP, skills, rules, agents, memories or the plugin staging in `.tmp`. A
   `codex`, or an interpreter of its nested `#!` lines, that the boundary
   could replace, a path the boundary can write inside the directory of the
@@ -123,7 +132,9 @@ Added:
   an account whose recorded subscription is not Pro or Max, and every
   account on a machine that pins the sign-in organization, is refused with a
   message that names it and says to launch without reserves. Print, resume,
-  settings, remote and background forms and every command are refused;
+  settings, remote and background forms and every command are refused,
+  and a one-word first operand reaches Claude Code with a trailing space,
+  so that a command a newer release adds cannot run;
   hooks, stdio MCP servers and plugins run inside the boundary. As in
   protected `codex-as`, the gate and the monitor run the base interpreter of
   the launcher's Python, and a launch is refused when that Python, the
@@ -182,8 +193,8 @@ Added:
   `tests/run.sh` and a pre-commit hook scoped to its sources:
   `tests/reserves.sh`, `reserve-completion.sh`, `sandbox.sh`, `gate.sh`,
   `supervise.sh`, `codex-reserve.sh` and `claude-reserve.sh`. Cases that need
-  the boundary, a PTY or a reviewed native skip with the reason where the
-  host lacks them. `tests/test-entrypoints.sh` also checks that every entry
+  the boundary, a PTY or a real native at the minimum release or newer skip
+  with the reason where the host lacks them. `tests/test-entrypoints.sh` also checks that every entry
   point is in the suite list of `tests/run.sh` and that every
   `tests/test_*.py` has an entry point.
 
@@ -200,8 +211,9 @@ Changed:
   to it.
 - AGENTS.md records protected mode's scoped exceptions to the dependency
   rules: per-invocation gate and monitor processes, the gate as a protocol
-  client, the kit's own boundary code, refusing instead of falling back, and
-  accepting only the reviewed native and macOS releases.
+  client, the kit's own boundary code, and refusing instead of falling
+  back; protected mode keeps the rule of minimum versions, with no upper
+  bound, because whatever a newer release adds fails closed.
 
 Known limits: with live accounts, protected `codex-as` has been exercised
 only on the refusal of a workspace account whose requirements set network

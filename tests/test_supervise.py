@@ -1259,6 +1259,46 @@ class Control(unittest.TestCase):
                 ui.feed(b"x[A")  # typed later: keys of their own
                 self.assertEqual(b"".join(self.forwarded), b"x[A")
 
+    def test_key_release_and_repeat_reports_never_cancel_the_code(self):
+        """With the keyboard protocol's event types on (Codex's TUI turns them on where the terminal
+        supports it, S: codex-rs tui keyboard_modes.rs at 0.167.2 and 0.169.0, as any release may),
+        the terminal also reports each key's repeat and release (CSI ...;MODS:2 or :3 FINAL): F12's
+        own release after the code is shown, and each code character's. They are no key typed, so
+        they leave the code alone and reach nothing; a reported press of another key still cancels
+        it."""
+        self.ui.pause()
+        self.send(F12 + b"\x1b[24;1:3~")
+        code = self.code()
+        typed = [bytes([char]) + b"\x1b[%d;1:3u" % char for char in code]
+        self.send(b"\x1b[24;1:2~" + b"".join(typed[:3]) + b"\x1b[97:65;2:3u" + b"".join(typed[3:]) + b"\r")
+        self.assertEqual((len(self.checks), self.ui.paused), (1, False))
+        self.assertEqual(self.forwarded, [])
+        for press in (b"\x1b[97;1:1u", b"\x1b[1;1:1A", b"\x1b[27u"):
+            with self.subTest(press=press):
+                self.ui.pause()
+                self.send(F12)
+                self.send(self.code()[:3] + press + b"x")
+                self.assertIsNone(self.ui.challenge)
+                self.assertEqual(self.forwarded, [b"x"])
+                self.forwarded.clear()
+
+    def test_f12_reported_with_its_default_modifiers_or_event_type_is_the_key(self):
+        """The keyboard protocol may report F12 pressed as CSI 24;1~ or CSI 24;1:1~; both offer the
+        code while paused and reach the native unchanged otherwise, as does a modified F12."""
+        for form in (b"\x1b[24;1~", b"\x1b[24;1:1~"):
+            with self.subTest(form=form):
+                self.ui.resume()
+                self.forwarded.clear()
+                self.send(b"a" + form + b"\x1b[24;1:3~" + b"\x1b[24;2~")
+                self.assertEqual(b"".join(self.forwarded), b"a" + form + b"\x1b[24;1:3~" + b"\x1b[24;2~")
+                self.ui.pause()
+                self.send(form)
+                self.send(self.code() + b"\r")
+                self.assertFalse(self.ui.paused)
+        self.ui.pause()
+        self.send(b"\x1b[24;2~")  # Shift-F12 is another key
+        self.assertIsNone(self.ui.challenge)
+
     def test_ctrl_c_cancels_the_challenge_and_reaches_the_native(self):
         self.ui.pause()
         self.send(F12)

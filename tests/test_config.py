@@ -1210,7 +1210,7 @@ class Launchers(unittest.TestCase):
         self.assertEqual(self.records(), [])
 
     def protected_accounts(self):
-        """Codex account A at the reviewed release and a ready native-login Claude account N, for launches
+        """Codex account A at protected mode's minimum release and a ready native-login Claude account N, for launches
         with a reserve; the environment keeps only what a launch needs (an inherited proxy or provider
         variable would refuse first)."""
         write(self.fakes / "codex", f"#!{sys.executable}\nVERSION = 'codex-cli 0.167.2'\n" + FAKE, 0o700)

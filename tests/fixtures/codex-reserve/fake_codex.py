@@ -23,7 +23,9 @@ environment or from <codex_home>/fake-codex.json (codex_home is the parent of ac
 every action is appended to <codex_home>/sessions/fake-codex.log (JSON lines; protected mode leaves
 codex_home itself read-only, its sessions directory writable). FAKE_BUNDLE=1 fetches the
 config bundle at App Server and TUI start, as a workspace plan does; FAKE_REPLACE_LINK=1 makes the
-refresh replace the auth.json link with a regular file instead of writing through it.
+refresh replace the auth.json link with a regular file instead of writing through it;
+FAKE_APP_SERVER_EXIT=1 makes the App Server exit before it answers anything, as one that cannot open
+a database it needs does.
 """
 
 import base64
@@ -197,6 +199,8 @@ def save(target, data):
 
 
 def app_server(config):
+    if knob("FAKE_APP_SERVER_EXIT"):
+        raise SystemExit(1)
     bundle(config)
     for line in sys.stdin:
         try:

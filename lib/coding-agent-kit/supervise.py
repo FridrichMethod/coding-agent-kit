@@ -59,7 +59,9 @@ once. With no pause the key reaches the native. Input typed before a pause is fl
 pause flushes nothing: the session runs), a bracketed paste never confirms, native output never
 reaches this parser, and nothing but terminal input starts a check. A key typed at the code that is
 not part of it cancels the code and is consumed whole, so the rest of its escape sequence never
-reaches the native as text (Ctrl-C cancels it and reaches the native). Each family pause gets its own
+reaches the native as text (Ctrl-C cancels it and reaches the native), while the keyboard protocol's
+reports of a key's repeat or release, which a native may turn on, leave the code alone and F12 reported
+with its default modifiers still counts. Each family pause gets its own
 deterministic line (family_pause_message), and its lift a line of its own. The check runs in the
 relay loop, so while it waits for the gate's answer (normally well under a second, at most
 CONTINUE_TIMEOUT) the native's output, forwarded input and relayed signals wait too, the session's
@@ -94,6 +96,12 @@ HERE = Path(os.path.realpath(__file__)).parent
 ROOT = HERE.parent.parent
 MONITOR, GATE_CORE = HERE / "monitor.py", HERE / "gate.py"
 F12 = b"\x1b[24~"
+# The keyboard protocol (kitty's progressive enhancement, which Codex's TUI turns on where the terminal
+# supports it, S: codex-rs tui keyboard_modes.rs) may report the F12 press with its default modifiers
+# and event type, and with event types on it also reports every key's repeat (:2) and release (:3).
+TRIGGER_FORMS = {F12: (F12, b"\x1b[24;1~", b"\x1b[24;1:1~")}
+KEY_EVENT = re.compile(rb"\x1b\[[0-9]*(?::[0-9]*)*;[0-9]*:([1-3])(?:;[0-9:]*)?[u~A-DFHPQS]")
+CSI_PARAMETERS = re.compile(rb"\x1b\[[0-9:;<=>?]{0,61}")  # a control sequence before its final byte
 PASTE_START, PASTE_END = b"\x1b[200~", b"\x1b[201~"
 PORTS = (49152, 60999)  # inside both the Linux and the macOS ephemeral ranges
 STARTUP_TIMEOUT = 60.0
@@ -765,13 +773,16 @@ class TerminalControl:
     code, a repeated trigger or any other key grants nothing; with neither, the trigger reaches the
     native. Ctrl-C cancels the code and reaches the native; any other key but the code's characters,
     Backspace and Enter cancels it and is consumed whole (rest), so the rest of its escape sequence or
-    UTF-8 character never reaches the native as typed text. Input before the trigger is forwarded as
-    it comes."""
+    UTF-8 character never reaches the native as typed text. The keyboard protocol's reports of a key's
+    repeat or release (KEY_EVENT, event type 2 or 3) are no key typed: at the code they change nothing
+    and reach nothing. The trigger also counts in the forms TRIGGER_FORMS lists. Input before the
+    trigger is forwarded as it comes."""
 
     def __init__(self, input_fd, forward, display, check, trigger=F12, key_name="F12", clock=time.monotonic):
         self.input_fd, self.forward, self.display, self.check = input_fd, forward, display, check
         self.trigger, self.key_name, self.clock = trigger, key_name, clock
-        self.sequences = (trigger, PASTE_START, PASTE_END)
+        self.triggers = TRIGGER_FORMS.get(trigger, (trigger,))
+        self.sequences = (*self.triggers, PASTE_START, PASTE_END)
         self.paused, self.offer, self.challenge, self.pasting = False, False, None, False
         self.answer, self.pending, self.pending_since = bytearray(), bytearray(), 0.0
         self.rest, self.rest_since = None, 0.0  # what is still to come of a key that cancelled the code
@@ -814,6 +825,14 @@ class TerminalControl:
                     self.pending.clear()
                     self._sequence(value)
                     break
+                if self.challenge is not None and not self.pasting:
+                    # At the code a key's reported repeat or release is no key typed: it changes nothing.
+                    event = KEY_EVENT.fullmatch(value)
+                    if event and event[1] != b"1":
+                        self.pending.clear()
+                        break
+                    if CSI_PARAMETERS.fullmatch(value):
+                        break
                 if any(sequence.startswith(value) for sequence in self.sequences):
                     break
                 self._ordinary(self.pending.pop(0))
@@ -828,7 +847,7 @@ class TerminalControl:
             self.pasting = False
             self.forward(value)
         elif self.pasting or not (self.paused or self.offer):
-            self.forward(value)
+            self.forward(value)  # as the terminal sent it
         elif self.challenge is None:
             self.challenge = secrets.token_hex(4)
             self.answer.clear()

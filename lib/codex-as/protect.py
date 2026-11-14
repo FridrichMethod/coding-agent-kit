@@ -8,7 +8,8 @@ before any protection: they are the same for every login and send no model reque
 subcommand refuses.
 
 Refusals come first and change nothing (Session.check): the arguments an allowlisted interactive
-TUI form, parsed like clap 0.167.2 (screen); the environment may name no other endpoint; the host
+TUI form, parsed like clap 0.167.2, forwarded with the prompt after `--`, so that no release runs a
+prompt word as a subcommand (screen); the environment may name no other endpoint; the host
 must carry the OS boundary; no name on the way to the native executable (or to an interpreter its
 nested #! lines name, four levels deep) may lie in the boundary's reach, nor that reach inside the
 directory of the real codex file, where an installation keeps the rest of its code, since a session
@@ -20,7 +21,9 @@ could plant or replace one (supervise.path_order);
 the shared entries the writable set names beneath codex_home must be plain directories and files of
 this user, not links (shared_entries); the native release, which `codex --version` reports from
 inside a boundary of its own (native_version: the kit never runs the native outside a boundary),
-must be a reviewed one (REVIEWED, with an upper bound); the account must already hold a saved
+must be MINIMUM or newer, never an exact pin or an upper bound: it runs under the tables of the
+newest reviewed release at or below it (native_tables), and whatever a newer release adds that
+those tables do not know refuses or pauses; the account must already hold a saved
 login (the native device login cannot run inside the boundary); the login must be a ChatGPT login
 of a reviewed plan, not FedRAMP; the release's databases must exist in the shared SQLite home;
 and no managed requirement (local requirements.toml, macOS managed preferences, the account's
@@ -44,9 +47,10 @@ The writable set is what the reviewed TUI, its tools, its App Server readers and
 (N: codex 0.167.2 under strace against loopback fixtures): the workspace, the account home
 (codex_home/accounts/NAME, native's CODEX_HOME), the shared directories and files native writes
 through the account home's links (SHARED_WRITABLE_DIRS, SHARED_WRITABLE_FILES), the release's
-databases in the shared SQLite home as files (each NAME.sqlite with its -wal and -shm, which the
-launcher creates when missing; the SQLite home is codex_home itself by default, and a directory
-rule there would reach everything beneath it) and a private temporary directory; the refresh
+databases in the shared SQLite home and every other NAME_N.sqlite native created there (a newer release
+may keep more) as files (each NAME.sqlite with its -wal and -shm, which the launcher creates when
+missing; the SQLite home is codex_home itself by default, and a directory rule there would reach
+everything beneath it) and a private temporary directory; the refresh
 adds secrets_dir, where native writes the refreshed credential. Everything else under codex_home
 stays read-only: packages/ (Codex's standalone install), config.toml, hooks.json, mcp.json,
 skills, rules, agents, themes, worktrees, memories, the rest of .tmp (plain codex's plugin staging
@@ -112,7 +116,7 @@ def refuse(reason):
                   "(--reserve-5h off --reserve-weekly off launches unprotected)")
 
 
-# -- reviewed native releases -----------------------------------------------------------------------
+# -- native releases ----------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -123,8 +127,9 @@ class Native:
     subcommands: frozenset   # every subcommand name and alias, hidden ones and clap's help included
     long_flags: frozenset    # accepted options without a value
     short_flags: frozenset
-    long_values: frozenset   # accepted options that take one value
+    long_values: frozenset   # accepted options that take a value
     short_values: frozenset
+    variadic: frozenset      # ... of those, the ones that also take the following words (clap num_args 1..)
     refused: frozenset       # known options refused with their own message
     models: frozenset        # model slugs that draw from the codex quota family
     plans: frozenset         # plan_type values whose codex windows protected mode governs
@@ -150,6 +155,7 @@ V0_167_2 = Native(
     short_flags=frozenset({"-h", "-V"}),
     long_values=frozenset({"--config", "--model", "--cd", "--image"}),
     short_values=frozenset({"-c", "-m", "-C", "-i"}),
+    variadic=frozenset({"--image", "-i"}),
     refused=frozenset({
         "--remote", "--remote-auth-token-env", "--oss", "--local-provider", "-p", "--profile", "--enable",
         "--disable", "-s", "--sandbox", "-a", "--ask-for-approval", "--search", "--approve-for-me",
@@ -170,22 +176,26 @@ V0_167_2 = Native(
 )
 REVIEWED = {native.version: native for native in (V0_167_2,)}
 BY_NAME = {native.name: native for native in REVIEWED.values()}
+MINIMUM = min(REVIEWED)  # the oldest release protected mode runs; every newer one runs too
+# `codex --version`: codex-cli X.Y.Z, with an optional pre-release suffix (-alpha.1), as check.py reads it.
+VERSION_OUTPUT = re.compile(r"codex-cli ([0-9]{1,6})\.([0-9]{1,6})\.([0-9]{1,6})(-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?")
 
 
-def reviewed(text):
-    """The Native tables for `codex --version` output, or Refused (D7: a disclosed upper bound)."""
-    match = re.fullmatch(r"codex-cli (\d+)\.(\d+)\.(\d+)(\S*)", text.strip())
-    names = ", ".join(native.name for native in REVIEWED.values())
+def native_tables(text):
+    """The Native tables that govern the release `codex --version` printed (TEXT): those of the newest
+    reviewed release at or below it. A pre-release precedes its release (as codex-as's own minimum in
+    check.py has it): 0.168.0-alpha.1 is newer than 0.167.2 and passes, 0.167.2-alpha.1 is older and
+    refuses. Refused for output that is not one such version line (a build suffix included) and for
+    a release older than MINIMUM."""
+    match = VERSION_OUTPUT.fullmatch(text.strip())
     if not match:
         refuse("the Codex version output is not recognized")
     version = tuple(int(part) for part in match.groups()[:3])
-    shown = "%d.%d.%d" % version + ("" if not match[4] else " (with a suffix)")
-    if match[4] or version not in REVIEWED:
-        if version > max(REVIEWED):
-            refuse(f"Codex {shown} is newer than the newest reviewed release ({names}); "
-                   "a kit update has to review it first")
-        refuse(f"Codex {shown} is not a reviewed release (reviewed: {names})")
-    return REVIEWED[version]
+    order = (*version, match[4] is None)  # a pre-release sorts below its release
+    if order < (*MINIMUM, True):
+        shown = "%d.%d.%d" % version + ("%s (a pre-release)" % match[4] if match[4] else "")
+        refuse("Codex %s is older than the minimum %d.%d.%d protected mode needs" % ((shown,) + MINIMUM))
+    return REVIEWED[max(release for release in REVIEWED if (*release, True) <= order)]
 
 
 # -- the invocation form ----------------------------------------------------------------------------
@@ -212,19 +222,33 @@ def scan(args, native):
     """(the arguments screen() forwards, the model they select or None), or Refused.
 
     An allowlist parsed like clap: `--name value`, `--name=value`, `-Xvalue` and `-X=value` for
-    options with a value; a value from the next word never starts with '-'; before `--` every bare
-    word that names a subcommand refuses, also after an option value or a prompt word (clap would
-    run it), and so does a subcommand name given as an option value (stricter than clap)."""
-    index, dashes, kept, chosen = 0, False, [], None
+    options with a value; a value from the next word never starts with '-', and a variadic option
+    given without an attached value takes every following word that does not either; before `--`
+    every bare word that names a subcommand refuses, also after an option value or a prompt word
+    (clap would run it), and so does a subcommand name given as an option value (stricter than clap).
+    The options are forwarded in their order, then `--` and the prompt words (every bare word, and
+    every word after the caller's own `--`): after `--` clap runs no subcommand, so a word that names
+    one only a newer release has stays the prompt (N: 0.167.2 and 0.169.0 run `codex -- help` as
+    the TUI)."""
+    index, dashes, kept, prompt, chosen = 0, False, [], [], None
+
+    def next_is_value():
+        return index < len(args) and not (args[index].startswith("-") and args[index] != "-")
 
     def value_of(name, attached):
         nonlocal index
         if attached is not None:
             return attached
-        if index >= len(args) or (args[index].startswith("-") and args[index] != "-"):
+        if not next_is_value():
             refuse(f"{name} needs a value")
         index += 1
         return args[index - 1]
+
+    def more_of(name, attached):
+        nonlocal index
+        while attached is None and name in native.variadic and next_is_value():
+            index += 1
+            check(name, args[index - 1])
 
     def check(name, value):
         nonlocal chosen
@@ -247,11 +271,10 @@ def scan(args, native):
         word = args[index]
         index += 1
         if dashes:
-            kept.append(word)
+            prompt.append(word)
             continue
         if word == "--":
             dashes = True
-            kept.append(word)
             continue
         if word.startswith("--"):
             name, equals, attached = word.partition("=")
@@ -265,8 +288,9 @@ def scan(args, native):
                 continue
             if name not in native.long_values:
                 refuse(f"protected mode does not accept the option {shown(name)}")
-            start = index
-            check(name, value_of(name, attached if equals else None))
+            start, attached = index, attached if equals else None
+            check(name, value_of(name, attached))
+            more_of(name, attached)
             kept.extend(args[start - 1:index])
             continue
         if word.startswith("-") and word != "-":
@@ -280,14 +304,15 @@ def scan(args, native):
                 continue
             if name not in native.short_values:
                 refuse(f"protected mode does not accept the option {shown(name)}")
-            start = index
-            check(name, value_of(name, (rest[1:] if rest.startswith("=") else rest) if rest else None))
+            start, attached = index, (rest[1:] if rest.startswith("=") else rest) if rest else None
+            check(name, value_of(name, attached))
+            more_of(name, attached)
             kept.extend(args[start - 1:index])
             continue
         if word in native.subcommands:
             refuse(f"protected mode runs only the interactive TUI, not codex {word}")
-        kept.append(word)
-    return kept, chosen
+        prompt.append(word)
+    return kept + (["--", *prompt] if prompt else []), chosen
 
 
 def shown(word):
@@ -353,6 +378,20 @@ def last_refresh(raw):
 CLOUD_IGNORED = ("allowed_login_methods", "allowed_chatgpt_workspaces", "cli_auth_credentials_store",
                  "chatgpt_base_url")
 ALIASES = (("feature_requirements", "features"), ("experimental_network", "network_proxy"))
+# Every top-level key of a requirements document native reads (codex-rs config_requirements.rs,
+# ConfigRequirementsToml, S: the same 46 at 0.167.2 and 0.169.0), with the two aliases. Native ignores
+# any other key, but a newer release may honor one the kit has not reviewed, so another key refuses.
+REQUIREMENT_KEYS = frozenset((
+    "config_server", "allowed_login_methods", "allowed_chatgpt_workspaces", "cli_auth_credentials_store",
+    "chatgpt_base_url", "sqlite_home", "unsafe_enforce_sqlite_journal_mode", "log_dir", "model_catalog_json",
+    "model_provider", "model_providers", "check_for_update_on_startup", "allow_login_shell", "feedback",
+    "allowed_approval_policies", "allowed_approvals_reviewers", "allowed_sandbox_modes", "allowed_permission_profiles",
+    "default_permissions", "remote_sandbox_config", "allowed_web_search_modes", "allow_managed_hooks_only",
+    "allow_browser_and_computer_use", "allow_appshots", "allow_remote_control", "computer_use", "browser_use",
+    "in_app_browser", "windows", "features", "hooks", "mcp_servers", "plugins", "marketplaces", "otel", "apps", "rules",
+    "enforce_residency", "network_proxy", "application", "permissions", "auto_review", "models",
+    "additional_developer_instructions", "guardian_policy_config", "guardian_extra_policy",
+    "feature_requirements", "experimental_network"))
 APPLICATION_KEYS = frozenset(("network", "storage"))
 NETWORK_KEYS = frozenset(("enabled", "domains"))
 # Features overrides() turns off; a requirement that forces one on conflicts. respect_system_proxy
@@ -385,6 +424,8 @@ BLOCKERS = {
     "pins_feature": "the account's managed requirements force on a feature protected mode turns off",
     "agent_identity": "the account's managed configuration enables agent identity, which replaces the login",
     "requirements_unreadable": "the account's managed requirements cannot be read or parsed",
+    "unreviewed_requirement": "the account's managed requirements set a key this kit release has not reviewed, "
+                              "which a newer Codex may honor",
     "managed_config": "the managed configuration (managed_config.toml or MDM config_toml_base64), which "
                       "overrides command-line settings, sets what protected mode must set itself",
 }
@@ -438,7 +479,7 @@ def network_state(table):
 
 def blockers(table, sqlite_home, cloud):
     """Reasons (BLOCKERS keys) why one composed requirements table forbids protected mode."""
-    found = set()
+    found = {"unreviewed_requirement"} if unreviewed(table) else set()
     state = network_state(table)
     if state == "invalid":
         found.add("requirements_unreadable")
@@ -478,6 +519,11 @@ def blockers(table, sqlite_home, cloud):
             if features.get("use_agent_identity") is True:
                 found.add("agent_identity")
     return found
+
+
+def unreviewed(table):
+    """The top-level keys of a requirements table outside REQUIREMENT_KEYS, for a message (shown)."""
+    return sorted(shown(str(name)) for name in table if name not in REQUIREMENT_KEYS)
 
 
 def toml_document(text):
@@ -673,9 +719,11 @@ def requirement_check(account_home, sqlite_home, identity=None):
     is ignored as native ignores it (native then fetches the bundle through the gate, which checks
     it again); a current one is what native will run under, without a fetch."""
     found, notes = set(), []
-    for _, table in local_requirements():
+    for where, table in local_requirements():
         layer = requirement_layer(table, cloud=False)
         found |= {"requirements_unreadable"} if layer is None else blockers(layer, sqlite_home, cloud=False)
+        if unreviewed(table):
+            notes.append("%s sets %s" % (where, ", ".join(unreviewed(table))))
     forced = forced_settings(sqlite_home)
     for where, table in managed_configs():
         keys = managed_conflicts(table, forced)
@@ -913,6 +961,10 @@ def gate_proxy(supervise, parse, env, darwin=None):
 # its later starts copy plugin code from. The databases come from Native.databases, as files
 # (DATABASE_FILES suffixes).
 SHARED_WRITABLE_DIRS = ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks")
+# A database native keeps in sqlite_home: NAME_N.sqlite (state_5, thread_history_1, ...). Besides the
+# reviewed release's own (Native.databases), every regular one of this user that native created there
+# is writable too, since a newer release may keep another (Session.created_databases).
+DATABASE_NAME = re.compile(r"[a-z][a-z0-9_]*_[0-9]+")
 SHARED_WRITABLE_FILES = ("history.jsonl", "session_index.jsonl", ".tmp/rollout-maintenance.lock")
 DATABASE_FILES = (".sqlite", ".sqlite-wal", ".sqlite-shm")
 NATIVE_HINT = ("; protected mode refuses a Codex that a protected session could replace, because the next "
@@ -996,14 +1048,16 @@ class Session:
         self.codex, self.env, self.sqlite, self.cwd = codex, dict(env), str(sqlite), Path(cwd)
         self.umask = umask
         self.native = self.args = None  # check() reads the release and screens the arguments with its tables
+        self.release = None  # the X.Y.Z the installed native reported
+        self.created = None  # the other databases native created in sqlite_home, read once per run
         self.sandbox = self.supervise = self.kit_gate = None
         self.private = self.work = None
         self.login = self.baseline = None
 
     # -- refusals before anything changes ------------------------------------------------------------
     def check(self):
-        # The arguments fail first when no reviewed release accepts them; the release's own tables
-        # screen them again once native_version() has read it.
+        # The arguments fail first when no reviewed release's tables accept them; the tables of the
+        # installed release screen them again once native_version() has read it.
         failures = []
         for native in sorted(REVIEWED.values(), key=lambda item: item.version, reverse=True):
             try:
@@ -1036,7 +1090,9 @@ class Session:
         except self.supervise.Refused as error:
             refuse(error.reason)
         self.shared_entries(created=False)
-        self.native = reviewed(self.native_version())
+        printed = self.native_version()
+        self.native = native_tables(printed)
+        self.release = printed.strip()[len("codex-cli "):]
         self.args = screen(self.given, self.native)
         if not os.isatty(0):
             refuse("protected mode needs an interactive terminal for continuation")
@@ -1120,11 +1176,37 @@ class Session:
 
     # -- the run --------------------------------------------------------------------------------------
     def database_files(self):
-        """The release's databases in the shared SQLite home, NAME.sqlite, -wal and -shm each (before
-        check() has read the release, the newest reviewed one's)."""
+        """The databases in the shared SQLite home, NAME.sqlite, -wal and -shm each: the release's own
+        (before check() has read the release, the newest reviewed tables'), then the others native
+        created there (created_databases)."""
         native = self.native or REVIEWED[max(REVIEWED)]
-        return [Path(self.sqlite) / (name + suffix) for name in (*native.databases, *native.later_databases)
-                for suffix in DATABASE_FILES]
+        names = [*native.databases, *native.later_databases]
+        names += [name for name in self.created_databases() if name not in names]
+        return [Path(self.sqlite) / (name + suffix) for name in names for suffix in DATABASE_FILES]
+
+    def created_databases(self):
+        """The names of the regular NAME_N.sqlite files of this user in the shared SQLite home, read on
+        the first call of a run: a newer release may keep databases the reviewed tables do not name,
+        which native can write but, inside the boundary, not create. A link, another type or another
+        owner's file is not one of them and stays read-only."""
+        if self.created is None:
+            found = []
+            try:
+                entries = sorted(os.listdir(self.sqlite))
+            except OSError:
+                entries = []
+            for entry in entries:
+                name, dot, suffix = entry.rpartition(".")
+                if not (dot and suffix == "sqlite" and DATABASE_NAME.fullmatch(name)):
+                    continue
+                try:
+                    info = os.lstat(os.path.join(self.sqlite, entry))
+                except OSError:
+                    continue
+                if stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid():
+                    found.append(name)
+            self.created = tuple(found)
+        return self.created
 
     def paths(self, refresh=False):
         """The writable set (refresh adds secrets_dir, where native writes the credential)."""
@@ -1365,7 +1447,7 @@ class Session:
             # answers only the bundle and the tunnel); the refreshed credential is the verdict.
             if last_refresh(current) == before:
                 refuse("the pre-launch credential refresh failed (%s)"
-                       % (reader_status(code) if code else "the credential is unchanged"))
+                       % (reader_status(code, self.release, self.native) if code else "the credential is unchanged"))
             if login(current, self.native, self.storage) != self.login:
                 refuse("the refreshed login names another workspace, user or plan")
             self.baseline = current  # native wrote it through the link; a later replacement is newer
@@ -1376,7 +1458,7 @@ class Session:
                 status = supervisor.request("status", 10)
                 if not status.get("running"):
                     reason = status.get("reason") or "no fresh passing quota check"
-                    detail = "" if code == 0 else " (quota read: %s)" % reader_status(code)
+                    detail = "" if code == 0 else " (quota read: %s)" % reader_status(code, self.release, self.native)
                     raise supervise.Refused(explain(reason, status.get("fields")) + detail)
 
             def continue_read():
@@ -1415,8 +1497,15 @@ READER_STATUS = {
 }
 
 
-def reader_status(code):
-    return "timed out" if code is None else READER_STATUS.get(code, "ended with status %d" % code)
+def reader_status(code, release=None, native=None):
+    """A reader's exit status for a message. An App Server that did not start or initialize under a
+    release newer than its tables' (RELEASE, NATIVE) may lack a database it has not created yet, which
+    the boundary does not let it create: the message gives the advice for that too."""
+    text = "timed out" if code is None else READER_STATUS.get(code, "ended with status %d" % code)
+    if code in (2, 3) and native is not None and release not in (None, native.name):
+        text += ("; a Codex newer than %s may need a database it has not created yet: start Codex once without "
+                 "reserves first" % native.name)
+    return text
 
 
 EXPLAINED = {

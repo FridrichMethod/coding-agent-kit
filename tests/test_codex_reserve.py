@@ -2,12 +2,14 @@
 the decision adapter and whole protected launches.
 
 Fabricated credentials only, a temporary HOME and 127.0.0.1 fixtures. Whole launches need the OS
-boundary (Linux Landlock ABI 6+ on x86_64, or a reviewed macOS release) and openssl for the fixture
-CA, and skip cleanly without them; with a real codex 0.167.2 on PATH one case runs it too.
+boundary (Linux Landlock ABI 6+ on x86_64, or macOS 27.2 or newer) and openssl for the fixture CA, and
+skip cleanly without them; with a real codex 0.167.2 or newer (KIT_REAL_CODEX, a path, or codex on
+PATH) the RealCodex cases run it too.
 """
 
 import base64
 import contextlib
+import dataclasses
 import fcntl
 import importlib.util
 import json
@@ -90,11 +92,34 @@ class Screen(unittest.TestCase):
     def test_interactive_forms_pass_and_lose_their_no_daemon(self):
         self.assertEqual(protect.screen(["-m", "gpt-5.5", "fix it", "--no-daemon", "-cmodel_reasoning_effort=high",
                                          "-C", "/w", "--image=a.png", "--no-alt-screen", "--", "resume"], NATIVE),
-                         ["-m", "gpt-5.5", "fix it", "-cmodel_reasoning_effort=high", "-C", "/w", "--image=a.png",
-                          "--no-alt-screen", "--", "resume"])
+                         ["-m", "gpt-5.5", "-cmodel_reasoning_effort=high", "-C", "/w", "--image=a.png",
+                          "--no-alt-screen", "--", "fix it", "resume"])
         self.assertEqual(protect.screen([], NATIVE), [])
         self.assertEqual(protect.screen(["--model=gpt-6-sol", "-c=model=gpt-5.5"], NATIVE),
                          ["--model=gpt-6-sol", "-c=model=gpt-5.5"])
+
+    def test_prompt_words_go_after_a_double_dash_so_no_release_runs_one_as_a_subcommand(self):
+        """clap runs a bare word that names a subcommand as that subcommand, and a newer release may add
+        one the tables do not list; after `--` every word is the prompt in every release (N: codex
+        0.167.2 and 0.169.0 run `codex help` as help and `codex -- help` as the TUI). The options keep
+        their order before it, and -i/--image takes every following word that is no option, as clap
+        does (an attached value is one word)."""
+        for args, forwarded in (
+                (["fix"], ["--", "fix"]),
+                (["future-subcommand", "-m", "gpt-5.5"], ["-m", "gpt-5.5", "--", "future-subcommand"]),
+                (["-i", "a.png", "b.png", "-m", "gpt-5.5", "go"], ["-i", "a.png", "b.png", "-m", "gpt-5.5", "--", "go"]),
+                (["--image", "a.png", "b.png"], ["--image", "a.png", "b.png"]),
+                (["-ia.png", "b.png"], ["-ia.png", "--", "b.png"]),
+                (["-i=a.png", "b.png"], ["-i=a.png", "--", "b.png"]),
+                (["--image=a.png", "b.png"], ["--image=a.png", "--", "b.png"]),
+                (["--", "-x", "--"], ["--", "-x", "--"]),
+                (["-C", "/w", "--", "fix", "--no-alt-screen"], ["-C", "/w", "--", "fix", "--no-alt-screen"])):
+            with self.subTest(args=args):
+                self.assertEqual(protect.screen(args, NATIVE), forwarded)
+                self.assertEqual(protect.screen(forwarded, NATIVE), forwarded)  # the launcher screens twice
+        for args in (["-i", "a.png", "resume"], ["--image", "a.png", "fork"], ["-i"], ["-i", "-m", "gpt-5.5"]):
+            with self.subTest(args=args):
+                refused(protect.screen, args, NATIVE)
 
     def test_scan_names_the_model_the_arguments_select(self):
         self.assertEqual(protect.scan(["-m", "gpt-5.5", "fix it"], NATIVE)[1], "gpt-5.5")
@@ -307,6 +332,45 @@ class Screen(unittest.TestCase):
             self.assertIn(str(root / "thread_history_1.sqlite-wal"), paths)
             self.assertEqual(session.paths(refresh=True), session.paths() + [str(base / "home/.secrets")])
 
+    def test_the_databases_a_newer_release_created_are_writable_too(self):
+        """A newer release may keep more databases in sqlite_home (0.169.0's binary names
+        memories_v2_1 and agent_message_board_1, S), which native writes but the boundary does not let
+        it create: protected mode follows what native created there. Every regular NAME_N.sqlite file of
+        this user joins the reviewed ones, each with its -wal and -shm, read once per run; anything else
+        stays read-only, and a missing reviewed one still refuses (check)."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            session = self.session(base)
+            root = base / "home/.codex"
+            for name in ("agent_message_board_1.sqlite", "state_6.sqlite", "notes.sqlite", "Upper_1.sqlite",
+                         "other_1.sqlite-wal", "x_1.sqlite.bak"):
+                (root / name).write_bytes(b"")
+            (root / "linked_1.sqlite").symlink_to(base / "home/.bashrc")
+            (root / "dir_1.sqlite").mkdir()
+            paths = session.paths()
+            for name in ("agent_message_board_1.sqlite", "agent_message_board_1.sqlite-wal",
+                         "agent_message_board_1.sqlite-shm", "state_6.sqlite", "state_6.sqlite-shm", "state_5.sqlite"):
+                with self.subTest(name=name):
+                    self.assertIn(str(root / name), paths)
+            for name in ("notes.sqlite", "Upper_1.sqlite", "other_1.sqlite-wal", "other_1.sqlite", "x_1.sqlite.bak",
+                         "linked_1.sqlite", "dir_1.sqlite", "linked_1.sqlite-wal"):
+                with self.subTest(name=name):
+                    self.assertFalse(any(protect.within(str(root / name), path) for path in paths))
+            (root / "later_1.sqlite").write_bytes(b"")  # created after the first read: not this run's
+            self.assertEqual(session.paths(), paths)
+            session.prepare_databases()
+            self.assertTrue((root / "agent_message_board_1.sqlite-wal").is_file())
+            self.assertFalse((root / "later_1.sqlite-wal").exists())
+
+    def test_a_reader_that_fails_to_start_under_a_newer_release_names_the_database_advice(self):
+        later = "the App Server did not initialize; a Codex newer than 0.167.2 may need a database it has not " \
+                "created yet: start Codex once without reserves first"
+        self.assertEqual(protect.reader_status(3, "0.169.0", NATIVE), later)
+        self.assertEqual(protect.reader_status(2, "0.169.0", NATIVE), later.replace("did not initialize", "did not start"))
+        self.assertEqual(protect.reader_status(3, "0.167.2", NATIVE), "the App Server did not initialize")
+        self.assertEqual(protect.reader_status(4, "0.169.0", NATIVE), "the request failed")
+        self.assertEqual(protect.reader_status(None), "timed out")
+
     def test_the_databases_wal_and_shm_files_are_made_beside_them_with_their_mode(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp).resolve()
@@ -419,14 +483,34 @@ class Screen(unittest.TestCase):
             with self.subTest(args=args):
                 self.assertIn("is not one whose quota", refused(protect.screen, args, NATIVE))
 
-    def test_only_reviewed_releases_start_and_newer_ones_name_the_upper_bound(self):
-        self.assertIs(protect.reviewed("codex-cli 0.167.2\n"), NATIVE)
-        self.assertIn("newer than the newest reviewed release (0.167.2)", refused(protect.reviewed, "codex-cli 0.168.0"))
-        self.assertIn("not a reviewed release", refused(protect.reviewed, "codex-cli 0.166.0"))
-        self.assertIn("with a suffix", refused(protect.reviewed, "codex-cli 0.167.2-alpha.1"))
-        self.assertIn("not recognized", refused(protect.reviewed, "codex 0.167.2"))
-        message = refused(protect.reviewed, "codex-cli 0.168.0")
-        self.assertIn("--reserve-5h off --reserve-weekly off launches unprotected", message)
+    def test_the_minimum_release_and_every_newer_one_start_with_the_newest_tables_at_or_below_it(self):
+        """A minimum, never an upper bound or an exact pin: a newer release runs under the tables of the
+        newest reviewed release at or below it, since every unknown form, model, plan, route and
+        requirement refuses or pauses. A pre-release precedes its release (as codex-as's own minimum
+        has it), so a suffix above the minimum passes and the minimum's own pre-release refuses."""
+        for text in ("codex-cli 0.167.2\n", "codex-cli 0.167.3", "codex-cli 0.168.0-alpha.1", "codex-cli 0.169.0",
+                     "codex-cli 0.170.2-alpha.3", "codex-cli 1.0.0", "codex-cli 10.0.0-beta"):
+            with self.subTest(text=text):
+                self.assertIs(protect.native_tables(text), NATIVE)
+        for text, shown in (("codex-cli 0.167.1", "0.167.1"), ("codex-cli 0.166.0", "0.166.0"),
+                            ("codex-cli 0.167.2-alpha.1", "0.167.2-alpha.1 (a pre-release)"),
+                            ("codex-cli 0.9.999", "0.9.999")):
+            with self.subTest(text=text):
+                message = refused(protect.native_tables, text)
+                self.assertIn("Codex %s is older than the minimum 0.167.2 protected mode needs" % shown, message)
+                self.assertIn("--reserve-5h off --reserve-weekly off launches unprotected", message)
+        for text in ("codex 0.167.2", "codex-cli 0.168", "codex-cli 0.168.0+build.5", "codex-cli 0.168.0-",
+                     "codex-cli 0.168.0 extra", "codex-cli 0.168.0-alpha..1", ""):
+            with self.subTest(text=text):
+                self.assertIn("the Codex version output is not recognized", refused(protect.native_tables, text))
+
+    def test_a_newer_release_takes_the_tables_of_the_newest_reviewed_release_at_or_below_it(self):
+        later = dataclasses.replace(NATIVE, version=(0, 170, 0))
+        with mock.patch.dict(protect.REVIEWED, {later.version: later}):
+            self.assertIs(protect.native_tables("codex-cli 0.169.9"), NATIVE)
+            self.assertIs(protect.native_tables("codex-cli 0.170.0-alpha.2"), NATIVE)  # precedes 0.170.0
+            self.assertIs(protect.native_tables("codex-cli 0.170.0"), later)
+            self.assertIs(protect.native_tables("codex-cli 0.171.4"), later)
 
     def test_overrides_route_everything_to_the_gate_with_the_native_sandbox_off(self):
         words = protect.overrides(51234)
@@ -596,6 +680,39 @@ class Requirements(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(self.blockers(text), {reason})
         self.assertEqual(self.blockers(config=("[features]\nuse_agent_identity = true\n",)), {"agent_identity"})
+
+    def test_a_requirement_key_outside_the_reviewed_set_refuses(self):
+        """Native's requirements document has 46 keys (codex-rs ConfigRequirementsToml, S: the same at
+        0.167.2 and 0.169.0) and ignores others; a newer release may honor a key the kit has not
+        reviewed, so any other key refuses (fail closed), in a bundle and a local document alike. The
+        local refusal names the keys (printable, cut short); a value never shows."""
+        names = ("config_server allowed_login_methods allowed_chatgpt_workspaces cli_auth_credentials_store "
+                 "chatgpt_base_url sqlite_home unsafe_enforce_sqlite_journal_mode log_dir model_catalog_json "
+                 "model_provider model_providers check_for_update_on_startup allow_login_shell feedback "
+                 "allowed_approval_policies allowed_approvals_reviewers allowed_sandbox_modes "
+                 "allowed_permission_profiles default_permissions remote_sandbox_config allowed_web_search_modes "
+                 "allow_managed_hooks_only allow_browser_and_computer_use allow_appshots allow_remote_control "
+                 "computer_use browser_use in_app_browser windows features hooks mcp_servers plugins marketplaces otel "
+                 "apps rules enforce_residency network_proxy application permissions auto_review models "
+                 "additional_developer_instructions guardian_policy_config guardian_extra_policy").split()
+        self.assertEqual(len(names), 46)
+        self.assertEqual(protect.REQUIREMENT_KEYS, frozenset(names) | {"feature_requirements", "experimental_network"})
+        for name in sorted(protect.REQUIREMENT_KEYS):
+            with self.subTest(name=name):
+                self.assertNotIn("unreviewed_requirement", protect.blockers({name: {}}, self.sqlite, cloud=False))
+        for text in ("future_requirement = true\n", "[future_table]\nx = 1\n",
+                     'allowed_sandbox_modes = ["danger-full-access"]\nfuture_requirement = "secret-value"\n'):
+            with self.subTest(text=text):
+                self.assertEqual(self.blockers(text), {"unreviewed_requirement"})
+        with tempfile.TemporaryDirectory() as temp:
+            system, home = Path(temp) / "requirements.toml", Path(temp) / "account"
+            home.mkdir()
+            system.write_text('future_requirement = "secret-value"\n"odd key\\u0007" = 1\n')
+            with mock.patch.object(protect, "SYSTEM_REQUIREMENTS", system):
+                message = refused(protect.requirement_check, home, self.sqlite)
+        self.assertIn("set a key this kit release has not reviewed, which a newer Codex may honor", message)
+        self.assertIn("%s sets future_requirement, odd?key?" % system, message)
+        self.assertNotIn("secret-value", message)
 
     def test_unreadable_bundles_refuse(self):
         for document in (None, [], {"requirements_toml": []}, {"requirements_toml": {"enterprise_managed": {}}},
@@ -1578,13 +1695,13 @@ class Unprotected(unittest.TestCase):
                 self.assertIn(text, result.stderr)
                 self.assertEqual(self.home.events(), [])
 
-    def test_inherited_reserves_refuse_unreviewed_releases(self):
+    def test_inherited_reserves_refuse_a_release_older_than_the_minimum(self):
         """The release comes from `codex --version` run inside the boundary, so a host without one
-        refuses for that first."""
+        refuses for that first. (0.167.1 passes codex-as's own minimum for unprotected launches.)"""
         self.home.config("[usage_reserve.codex_accounts.A]\nweekly = 10\n")
-        result = self.home.run(["A"], env={"FAKE_VERSION": "codex-cli 0.168.0"})
+        result = self.home.run(["A"], env={"FAKE_VERSION": "codex-cli 0.167.1"})
         self.assertEqual(result.returncode, 1)
-        self.assertIn(boundary_missing() or "newer than the newest reviewed release", result.stderr)
+        self.assertIn(boundary_missing() or "Codex 0.167.1 is older than the minimum 0.167.2", result.stderr)
         self.assertEqual(self.home.events(), [])
 
     def test_a_native_or_its_interpreter_in_the_boundarys_reach_refuses_before_anything_runs(self):
@@ -1959,7 +2076,8 @@ class Protected(Launch):
     """Whole protected launches with the fake codex."""
 
     def test_a_model_free_start_then_turns_and_the_native_exit_status(self):
-        terminal = self.start(env={"FAKE_EXIT": "7"})
+        terminal = self.start(args=("--reserve-5h", "10", "--reserve-weekly", "10", "A", "first prompt"),
+                              env={"FAKE_EXIT": "7"})
         terminal.expect("usage reserves for A: five-hour 10% \\(--reserve-5h\\), weekly 10% \\(--reserve-weekly\\)")
         terminal.expect("READY")
         self.assertEqual(self.models(), [])
@@ -1980,6 +2098,7 @@ class Protected(Launch):
         self.assertEqual(self.exit_code(), 7)
         (tui,) = self.home.events("tui")
         self.assertEqual(tui["argv"].count("--no-daemon"), 1)
+        self.assertEqual(tui["raw"][-2:], ["--", "first prompt"])  # a prompt word never names a subcommand
         self.assertEqual(tui["env_proxy"], [])
         self.assertNotEqual(tui["tmpdir"], str(self.home.tmp))
         self.assertFalse(Path(tui["tmpdir"]).exists())
@@ -2104,6 +2223,21 @@ class Protected(Launch):
                 self.assertEqual(self.models(), [])
                 terminal.close()
 
+    def test_an_app_server_that_cannot_start_under_a_newer_release_names_the_database_advice(self):
+        """A newer release may need a database it has not created yet, which the boundary does not let
+        it create; its App Server then fails before it answers, and the refusal says what to do."""
+        self.home.knobs(FAKE_APP_SERVER_EXIT="1")
+        for version, advice in (("codex-cli 0.169.0", True), ("codex-cli 0.167.2", False)):
+            with self.subTest(version=version):
+                terminal = self.start(env={"FAKE_VERSION": version})
+                line = terminal.expect("usage reserve protection refused: the pre-launch credential refresh failed "
+                                       "\\(the App Server did not (start|initialize)([^)]*)\\)", timeout=90)
+                self.assertEqual(line.group(2).decode(), "; a Codex newer than 0.167.2 may need a database it has "
+                                 "not created yet: start Codex once without reserves first" if advice else "")
+                self.assertEqual(self.exit_code(), 1)
+                self.assertEqual((self.home.events("tui"), self.models()), ([], []))
+                terminal.close()
+
     def test_workspace_plans_forward_the_config_bundle_and_refuse_blocking_requirements(self):
         self.home.write_credential(backend.credential(plan="edu_pro"))
         self.backend.plan = "edu_pro"
@@ -2139,18 +2273,21 @@ class Protected(Launch):
         root = self.home.codex_home
         (root / ".tmp").mkdir(mode=0o700)
         (root / ".tmp/plugins").mkdir()  # plain codex's plugin checkout, which its later starts sync from
+        (root / "agent_message_board_1.sqlite").write_bytes(b"")  # a database a newer release created
         terminal = self.start(env={"FAKE_VERSION_MARK": str(mark)})
         terminal.expect("READY")
         denied = (native, release.parent.parent / "current-new", root / "config.toml", root / "hooks.json",
                   root / "mcp.json", root / "skills/planted", root / "rules/planted", root / "agents/planted",
-                  root / "accounts/planted", root / "new.sqlite", root / "auth.json", root / ".tmp/plugins/x",
-                  root / ".tmp/plugins.sha", root / "memories/planted", root / "memories_v2/planted")
+                  root / "accounts/planted", root / "new.sqlite", root / "new_1.sqlite", root / "auth.json",
+                  root / ".tmp/plugins/x", root / ".tmp/plugins.sha", root / "memories/planted",
+                  root / "memories_v2/planted")
         for path in denied:
             terminal.send("write %s\r" % path)
             terminal.expect("WRITE (13|1)\\b")
         allowed = (root / "sessions/written", root / "accounts/A/written", root / "history.jsonl",
                    root / "session_index.jsonl", root / ".tmp/rollout-maintenance.lock", root / "accounts/A/.tmp/x",
-                   root / "state_5.sqlite-wal", root / "archived_sessions/written", root / "thread-writer-locks/written")
+                   root / "state_5.sqlite-wal", root / "archived_sessions/written", root / "thread-writer-locks/written",
+                   root / "agent_message_board_1.sqlite", root / "agent_message_board_1.sqlite-wal")
         for path in allowed:
             terminal.send("write %s\r" % path)
             terminal.expect("WRITE ok")
@@ -2424,13 +2561,13 @@ class Protected(Launch):
         self.assertEqual(self.exit_code(), 0)
 
 
-REAL_CODEX = shutil.which("codex")
+REAL_CODEX = os.environ.get("KIT_REAL_CODEX") or shutil.which("codex")
 
 
 def real_version():
-    """What the host's codex reports, run in a HOME of its own that is removed afterwards: codex
-    writes CODEX_HOME/tmp (arg0-macos on macOS) even for --version, so the temporary directory itself
-    would keep a .codex."""
+    """What the host's codex (KIT_REAL_CODEX, a path, or codex on PATH) reports, run in a HOME of its
+    own that is removed afterwards: codex writes CODEX_HOME/tmp (arg0-macos on macOS) even for
+    --version, so the temporary directory itself would keep a .codex."""
     if not REAL_CODEX:
         return None
     with tempfile.TemporaryDirectory(prefix="quota-x-version-", ignore_cleanup_errors=True) as home:
@@ -2441,14 +2578,27 @@ def real_version():
             return None
 
 
+def protected_release(text):
+    """The X.Y.Z a real codex reports when protected mode runs it (the minimum or newer), else None."""
+    try:
+        protect.native_tables(text or "")
+    except protect.Refused:
+        return None
+    return protect.VERSION_OUTPUT.fullmatch(text.strip()).group(0)[len("codex-cli "):]
+
+
+REAL_RELEASE = protected_release(real_version())
+
+
 @unittest.skipIf(boundary_missing(), "protected mode needs the OS boundary")
 @unittest.skipIf(shutil.which("openssl") is None, "the fixture CA needs openssl")
-@unittest.skipUnless(real_version() == "codex-cli 0.167.2", "needs the reviewed codex 0.167.2 on PATH")
+@unittest.skipUnless(REAL_RELEASE, "needs codex %d.%d.%d or newer as KIT_REAL_CODEX or codex on PATH" % protect.MINIMUM)
 class RealCodex(Launch):
-    """The reviewed native against loopback fixtures: a model-free protected start, and the in-TUI
-    /new, /resume and /fork commands (G0 D11) staying behind the gate, the account and the pause."""
+    """A real native (the minimum release or newer) against loopback fixtures: a model-free protected
+    start, and the in-TUI /new, /resume and /fork commands (G0 D11) staying behind the gate, the
+    account and the pause."""
 
-    real_codex = REAL_CODEX
+    real_codex = os.path.realpath(REAL_CODEX) if REAL_CODEX else None
 
     def setUp(self):
         super().setUp()
@@ -2508,7 +2658,7 @@ class RealCodex(Launch):
         self.terminal.answer = True
         self.terminal.expect("usage reserves for A", timeout=60)
         self.terminal.expect("OpenAI Codex", timeout=60)
-        self.terminal.expect("v0\\.167\\.2", timeout=10)
+        self.terminal.expect("v" + re.escape(REAL_RELEASE), timeout=10)
         self.terminal.expect("Ask Codex", timeout=30)
         self.assertTrue(self.backend.seen("/oauth/token"))  # D1 (a): native's own refresh, before the TUI
         self.assertTrue(self.backend.seen("/backend-api/wham/usage"))
