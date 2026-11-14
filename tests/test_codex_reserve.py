@@ -1807,7 +1807,8 @@ class Unprotected(unittest.TestCase):
                 self.addCleanup(terminal.close)
                 terminal.expect("usage reserve protection refused: " + re.escape(
                     missing or "native Codex has not created %s.sqlite in %s yet" % (name, self.home.codex_home)))
-                terminal.expect(re.escape(missing or advice))
+                if not missing:  # without a boundary the refusal above is the only line
+                    terminal.expect(re.escape(advice))
                 self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
                 self.assertEqual(self.home.events(), [])
 
