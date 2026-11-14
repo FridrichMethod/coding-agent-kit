@@ -391,12 +391,17 @@ class Verdict:
         else:
             text = CONTROL_TEXT.get(reason) or FAULT_TEXT.get(reason) or reason.replace("_", " ")
             if self.names:
-                shown = ", ".join(self.names[:SHOWN_NAMES])
-                more = len(self.names) - SHOWN_NAMES
-                text += f" ({shown}" + (f", and {more} more)" if more > 0 else ")")
+                text += f" ({listed(self.names)})"
         if self.last_fresh is None:
             return text
         return f"{text}; last valid reading at {timestamp(self.last_fresh)}"
+
+
+def listed(names):
+    """A fault's names as shown: the first SHOWN_NAMES, then how many more, so that the text stays bounded
+    (at most SHOWN_NAMES names of 64 characters)."""
+    more = len(names) - SHOWN_NAMES
+    return ", ".join(names[:SHOWN_NAMES]) + (f", and {more} more" if more > 0 else "")
 
 
 def family_text(status):
@@ -658,8 +663,10 @@ class Evaluator:
             return max(BACKOFF_MIN, min(cap, chosen))
         if self.state == CHECKING and self.refused is None and (self.last_fresh is None or self._stale(now)):
             return 0.0  # no usable reading yet
+        # A refused family (at its reserve, or unavailable) waits for its weekly reset, often days away, so
+        # only the windows and the families that run count toward the near poll.
         near = any(status.remaining is not None and status.remaining - status.reserve <= NEAR_POINTS
-                   for status in self.windows + self.families)
+                   for status in self.windows + tuple(family for family in self.families if family.status == OK))
         return POLL_NEAR if near else POLL_RUNNING
 
     # -- internals ----------------------------------------------------------

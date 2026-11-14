@@ -1002,6 +1002,20 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.state, "paused")
         self.assertIn(g.reason, ("identity_mismatch", "identity_changed"))
 
+    def test_a_long_list_of_unreviewed_rows_is_named_within_the_field_bound(self):
+        """The rows field is bounded like the message (the first SHOWN_NAMES names, then "and N more"), so
+        many long row names still refuse as unproved_quota_row, never as evaluator_error."""
+        names = sorted("row_%02d_" % index + "x" * 53 for index in range(20))
+        self.assertEqual({len(name) for name in names}, {60})
+        self.upstream.extra = {name: {"utilization": 1} for name in names}
+        _, g = self.started()
+        self.assertEqual((g.state, g.reason), ("paused", "unproved_quota_row"))
+        listed = ", ".join(names[:reserve.SHOWN_NAMES]) + ", and 12 more"
+        self.assertEqual(g.fields["rows"], listed)
+        self.assertLessEqual(len(g.fields["rows"]), 1024)
+        self.assertEqual(g.fields["message"], "N: refused: the usage report has a limit row protected mode has not "
+                                              "reviewed (%s)." % listed)
+
     def test_a_window_not_started_is_accepted_only_at_exactly_zero_with_a_null_reset(self):
         """U1 (a): an idle window (utilization exactly 0, resets_at null) starts the session and its
         message names no reset; any other null or missing reset leaves the window unavailable."""

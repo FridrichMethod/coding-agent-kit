@@ -505,8 +505,8 @@ class Decider:
                           reserve=reserve.percent(window.reserve))
             if window.resets_at is not None:  # None: a window not started yet
                 fields["reset"] = reserve.timestamp(window.resets_at)
-        if verdict.names:
-            fields["rows"] = ", ".join(verdict.names)  # what an unproved_quota_row pause names
+        if verdict.names:  # what an unproved_quota_row pause names, bounded as the message is
+            fields["rows"] = reserve.listed(verdict.names)
         if verdict.last_fresh is not None:
             fields["last_fresh"] = reserve.timestamp(verdict.last_fresh)
         if self.provider.token_expires is not None:

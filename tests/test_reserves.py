@@ -927,6 +927,20 @@ class Evaluation(unittest.TestCase):
         evaluator.continuation()
         self.assertEqual(evaluator.next_poll(), 0)
 
+    def test_only_a_family_that_runs_counts_toward_the_near_poll(self):
+        """A family at or below the weekly reserve, or with an unavailable row, is refused alone and polls at
+        the running rate; only an admitted family within NEAR_POINTS of the reserve polls near."""
+        wall = self.clock.wall()
+        for used, reset, status, delay in ((70, wall + 3600, "at_reserve", reserve.POLL_RUNNING),
+                                           (3, None, "reset_unknown", reserve.POLL_RUNNING),
+                                           (55, wall + 3600, "ok", reserve.POLL_NEAR),
+                                           (40, wall + 3600, "ok", reserve.POLL_RUNNING)):
+            with self.subTest(used=used, status=status):
+                evaluator, verdict = self.started(extra=[reserve.Reading(used=used, resets_at=reset, family="opus",
+                                                                         merge=True)])
+                self.assertEqual((verdict.decision, verdict.families[0].status), ("run", status))
+                self.assertEqual(evaluator.next_poll(), delay)
+
     def test_checking_polls_at_once_only_without_a_usable_reading(self):
         evaluator = self.evaluator()
         self.assertEqual(evaluator.next_poll(), 0)
