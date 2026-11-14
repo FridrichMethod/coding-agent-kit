@@ -464,11 +464,12 @@ def native_sources(path, env, what="the native", searched=None):
     the absolute one a line names or, for `#!/usr/bin/env NAME`, NAME as ENV's PATH finds it (each
     such NAME is appended to SEARCHED, for path_order). A protected session that could replace one of
     them, or a link on the way, would have the next unprotected run of the native execute its code
-    unconfined, so an adapter refuses when one lies in the boundary's reach (unreachable). Refused for a relative interpreter, which the kernel looks up
-    from the working directory, an env line script_interpreter does not follow, more nested
-    interpreters than INTERPRETER_DEPTH, and an existing file on the way that cannot be read: the
-    kernel runs the interpreter of an execute-only #! script, which would stay hidden. A missing
-    path ends the walk; it is listed, so its reach is checked."""
+    unconfined, so an adapter refuses when one lies in the boundary's reach (unreachable). Refused
+    for a relative interpreter, which the kernel looks up from the working directory, an env line
+    script_interpreter does not follow, more nested interpreters than INTERPRETER_DEPTH, and an
+    existing file on the way that cannot be read: the kernel runs the interpreter of an
+    execute-only #! script, which would stay hidden. A missing path ends the walk; it is listed, so
+    its reach is checked."""
     searched = [] if searched is None else searched
     sources = [(what, str(path), False), ("the directory of " + what, os.path.dirname(os.path.realpath(path)), True)]
     current, shown = str(path), what
