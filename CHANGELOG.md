@@ -49,7 +49,9 @@ Added:
   the address: the gate's port number is reachable at every address, remote
   ones included, and a process inside can accept outside connections on a
   port the system picks; on macOS only the gate's `localhost` port is
-  reachable and every bind is denied). Before it starts, the native
+  reachable and every bind is denied). The native never runs outside the
+  boundary: its version check, the pre-launch refresh and the session all
+  run confined. Before the session starts, the native
   refreshes its credential behind a refresh gate that passes only the
   provider's sign-in host (and, for Codex, the workspace configuration
   bundle), and one model-free quota read of both windows of this account
@@ -57,8 +59,9 @@ Added:
   credential, a reviewed model of its quota family and a fresh reading above
   both reserves, and reads quota about every 30 seconds (15 near a reserve).
   It connects through the proxy the native itself would use for HTTPS
-  (`HTTPS_PROXY`, then `ALL_PROXY` for Codex, or `HTTP_PROXY` and then
-  `ALL_PROXY` for Claude Code), captured once and never passed to the
+  (`HTTPS_PROXY`, then, on macOS, the system HTTPS proxy and then
+  `ALL_PROXY` for Codex, or `HTTP_PROXY` and then `ALL_PROXY` for Claude
+  Code), captured once and never passed to the
   native; it goes direct only to a host that both natives' `NO_PROXY`
   readings exempt, and a proxy it cannot use (anything but a plain
   `http://` one) refuses the launch.
@@ -71,28 +74,40 @@ Added:
   shows a one-use code, and typing it asks for a fresh check that must
   pass. At exit every process left inside the boundary is ended.
 - Protected mode requires Linux on x86_64 with Landlock ABI 6 or newer and
-  seccomp (not WSL), or macOS 27.2 on Apple silicon with
+  seccomp (not WSL), or macOS 27.2 (any 27.2.x update) on Apple silicon with
   `/usr/bin/sandbox-exec`, a root-owned `/bin/ps` and a passing startup
   self-test, an interactive terminal, and exactly the reviewed native
   release: codex-cli 0.167.2, or Claude Code 2.1.322 with a `native-login`
   account. Only these reviewed releases are accepted: an older release
   (macOS 15, for example) is refused as unreviewed, and a newer native or
   macOS release refuses protected launches until a kit patch reviews it.
-  Anything else is refused before the native starts, with one line, exit 1:
+  Anything else is refused before the session starts, with one line, exit 1:
   `codex-as: usage reserve protection refused: REASON. (--reserve-5h off --reserve-weekly off launches unprotected)`
   or `claude-as: protected mode refused: REASON.` The boundary is the
   kit's own code (Landlock and seccomp through `ctypes`, a Seatbelt
   profile); nothing is installed.
 - Protected `codex-as` runs only the interactive TUI with an allowlist of
-  options parsed as codex-cli 0.167.2 parses them; every subcommand,
+  options parsed as codex-cli 0.167.2 parses them; every other subcommand,
   `resume` and `fork` included, is refused, while `/new`, `/resume` and
   `/fork` inside the TUI stay protected. It refuses API-key and FedRAMP
   logins, unreviewed plans and models, profiles and overrides of the keys
-  it sets, and accounts whose managed requirements forbid what it sets
-  (application network restrictions, provider, residency, base URL,
-  credential store or `sqlite_home` pins, among others). The gate forwards
-  the workspace configuration bundle; one that forbids protected mode
-  pauses a running session until a later bundle lifts it. Codex's limit
+  it sets, and, before any model request, accounts whose managed
+  requirements forbid what it sets (application network restrictions,
+  network controls, provider, residency, base URL, credential store or
+  `sqlite_home` pins, among others), naming the requirement. The gate
+  forwards the workspace configuration bundle; one that forbids protected
+  mode pauses a running session until a later bundle lifts it, also across
+  a restart of the request gate. Protected codex-as never runs the native
+  outside the boundary: `codex --version` runs inside one, and the boundary
+  writes only the account home, the shared session state and the release's
+  databases in `<codex_home>`, never `packages/`, `config.toml`, hooks,
+  MCP, skills, rules, agents, memories or the plugin staging in `.tmp`. A
+  `codex` the boundary could replace, a writable or relative `PATH` entry
+  before the `python3`, `codex` or `#!/usr/bin/env` interpreter it would
+  shadow, a shared state entry in `<codex_home>` that is a link, an account
+  without a saved login and missing native databases refuse. On macOS the
+  gate uses the system HTTPS proxy Codex uses, and PAC or WPAD refuses; an
+  empty `NO_PROXY` exempts nothing. Codex's limit
   flags (`limit_reached`, `allowed` false) are attributed to the windows at
   100%: an exhausted window whose reserve is off neither refuses nor
   pauses, and flags that no window accounts for refuse the start and pause
@@ -111,7 +126,25 @@ Added:
   launcher's own `python3` or the kit lies inside a path the boundary can
   write (a kit checked out inside the project, or a workspace virtual
   environment first on `PATH`, for example); while the run lasts, the
-  launcher runs commands by name only from the system directories. A launch
+  launcher runs commands by name only from the system directories.
+  Protected claude-as never runs Claude Code outside the boundary: its
+  version check runs confined, and a Claude Code (or its `#!` interpreter)
+  that the session could replace refuses the launch. It refuses a launch
+  when the `PATH` entry that supplies `dirname`, `readlink`, `python3`,
+  `claude` or the command of its `#!/usr/bin/env` line, or an entry
+  searched before it, is empty, relative or boundary-writable, or when that
+  line sets `PATH`. After another account signs in, a protected Claude
+  session stops reading the signed-out login's quota: a quota read stops
+  before its usage request once the profile shows another account, and the
+  passing-check line appears only once the enrolled account is back. Rows of
+  credits, extra usage and other applications in the usage report are
+  ignored, its `limits` list counts with the five-hour and weekly windows,
+  and the refusal for a row the kit has not reviewed names the rows. An
+  idle usage window (0% used, no reset time) counts as available. Local
+  settings files, the directories above a native-login account and its
+  `.claude.json` may be group-writable when the group is your user private
+  group without an access ACL; other refusals of a file other users can
+  write name it and suggest `chmod go-w`. A launch
   is refused when the account's token, after the pre-launch refresh,
   expires within fifteen minutes, and the start line names the time it
   expires, when the session needs a relaunch. The status line keeps working
@@ -154,6 +187,16 @@ Changed:
   rules: per-invocation gate and monitor processes, the gate as a protocol
   client, the kit's own boundary code, refusing instead of falling back, and
   accepting only the reviewed native and macOS releases.
+
+Known limits: with live accounts, protected `codex-as` has been exercised
+only on the refusal of a workspace account whose requirements set network
+controls; protected sessions are covered by the suites with real Codex
+against local fixtures. Protected mode confines the invocation, not later
+use of what it wrote: everything a protected session could write (the
+workspace, the natives' account homes and shared session stores, the
+private temporary directory) is untrusted afterwards, since Git hooks,
+direnv, editor settings or a sync root can run or carry it outside any
+boundary.
 
 ## 0.7.7
 
