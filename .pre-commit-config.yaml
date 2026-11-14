@@ -139,9 +139,12 @@ repos:
         language: script
         pass_filenames: false
         files: ^(bin/codex-as|lib/codex-as/.*|lib/coding-agent-kit/(config|reserve|gate|monitor|supervise|sandbox_linux|sandbox_macos)\.py|tests/(codex-reserve\.sh|test_codex_reserve\.py|fixtures/codex-reserve/.*))$
+      # Every class but RealClaude (it runs whatever Claude Code 2.1.322 or
+      # newer is installed); tests/run.sh runs it. Protected also matches
+      # ProtectedRefusals.
       - id: claude-reserve
         name: claude-as native login and protected mode (fake natives, 127.0.0.1 fixtures)
-        entry: tests/claude-reserve.sh
+        entry: tests/claude-reserve.sh -k Enrollment -k NativeLaunch -k SetupTokenAndFlags -k ServerManagedPolicy -k AccountDirectories -k CredentialRead -k GateProvider -k ProtectScreens -k MacosTemporaryCleanup -k LauncherCommands -k Protected
         language: script
         pass_filenames: false
         files: ^(bin/claude-as|lib/claude-as/.*|lib/coding-agent-kit/(config|reserve|gate|monitor|supervise|sandbox_linux|sandbox_macos|accounts)\.py|tests/(claude-reserve\.sh|test_claude_reserve\.py|fixtures/claude-reserve/.*))$

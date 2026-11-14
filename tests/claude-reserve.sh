@@ -8,6 +8,6 @@ unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # Arguments go to unittest. Protected launches need a PTY and the OS boundary, and
-# RealClaude needs a reviewed Claude Code as KIT_REAL_CLAUDE=/path/to/claude or as claude on PATH;
+# RealClaude needs Claude Code 2.1.322 or newer as KIT_REAL_CLAUDE=/path/to/claude or as claude on PATH;
 # each skips cleanly without them.
 python3 -I -B -m unittest discover -s "$TEST_DIR" -p test_claude_reserve.py -v "$@"

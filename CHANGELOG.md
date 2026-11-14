@@ -201,8 +201,8 @@ Added:
 Changed:
 
 - Both help texts describe the reserve flags, and the `claude-as` help
-  `--enroll-native`; the `codex-as` help says that the absent upper version
-  limit holds for launches without reserves.
+  `--enroll-native`; the `codex-as` help names the higher minimum Codex
+  release that reserves need, with no upper limit.
 - Both launchers start `python3 -I -B -S`, so no site-packages or `.pth`
   file of the `python3` found on `PATH` (a virtual environment's included)
   runs in the launcher.

@@ -8,5 +8,6 @@ unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # Arguments go to unittest. Whole protected launches need a PTY, openssl and the OS boundary,
-# and RealCodex needs the reviewed codex-cli on PATH; each skips cleanly without them.
+# and RealCodex needs codex-cli 0.167.2 or newer as KIT_REAL_CODEX=/path/to/codex or on PATH;
+# each skips cleanly without them.
 python3 -I -B -m unittest discover -s "$TEST_DIR" -p test_codex_reserve.py -v "$@"
