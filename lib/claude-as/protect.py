@@ -161,6 +161,11 @@ REASONS = {
     "gate did not start": "the request gate did not start",
     "organization_policy": "Claude Code applies no organization policy behind the request gate",
 }
+# Why a model family starts paused alone (provider.py's family reasons); the session starts anyway.
+FAMILY_REASONS = {
+    "family_at_reserve": "its own weekly limit is at or below the weekly reserve",
+    "family_window_unavailable": "its own weekly limit is unavailable in the usage report",
+}
 # The modules the gate and monitor processes load besides gate.py (which the launcher loads too),
 # checked before anything runs: the supervisor checks monitor.py only when the run gate starts, after
 # the pre-launch refresh. native.py loads config.py for the private-group rule of its directory walk.
@@ -197,6 +202,16 @@ def explain(reason):
     if reason.startswith("credential_"):
         return "the account's stored login could not be read (%s); sign in again with the enrollment commands" % reason
     return REASONS.get(reason, reason.replace("_", " "))
+
+
+def family_notices(families):
+    """The startup lines for the model families a protected session starts with paused alone."""
+    if not isinstance(families, dict):
+        return []
+    return [f"claude-as: the {family} model family starts paused ({reason}: "
+            f"{FAMILY_REASONS.get(reason, reason.replace('_', ' '))}); requests of the other families run, and F12 "
+            "then the code shown asks for a fresh check that can resume it."
+            for family, reason in sorted(families.items()) if isinstance(family, str) and isinstance(reason, str)]
 
 
 @dataclass
@@ -653,7 +668,12 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
                                    "session of this account renews it first; to go on after that, exit and launch "
                                    "again, whose pre-launch refresh renews the token within its last five minutes or "
                                    "once it expired.")
-                        return
+                        # The families named here are those the supervisor counts as shown: one the gate
+                        # pauses after this read still gets the gate's own line.
+                        families = status.get("families") if isinstance(status.get("families"), dict) else {}
+                        for line in family_notices(families):
+                            notice(line)
+                        return families
                     fields = status.get("fields") or {}
                     raise supervise.Refused("%s (%s)" % (fields.get("message") or explain(status.get("reason")),
                                                          status.get("reason")))

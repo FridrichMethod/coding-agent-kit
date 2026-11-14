@@ -533,6 +533,122 @@ class Evaluation(unittest.TestCase):
                 _, verdict = self.started(extra=[reserve.Reading(used=1, resets_at=wall + 60, family=bad)])
                 self.assertEqual((verdict.decision, verdict.failure), ("check", "invalid_observation"))
 
+    def family(self, name, used, reset=3600):
+        """A reading of family NAME's own weekly limit; reset None reports none."""
+        return reserve.Reading(used=used, resets_at=None if reset is None else self.clock.wall() + reset,
+                               family=name, merge=True)
+
+    def fresh(self, evaluator, *args, **reading):
+        self.clock.advance(1)
+        return evaluator.observe(observation(self.clock, *args, **reading))
+
+    def test_a_family_at_its_reserve_is_paused_alone_and_stays_paused_through_passes_and_resets(self):
+        """gate-decisions "family pause and census" (c): a family whose own weekly limit is at or below
+        the weekly reserve, or unavailable, is paused alone and latched: the session runs, and neither a
+        passing read nor the family's weekly reset lifts it; only a continuation answered by a new
+        response that passes for that family does."""
+        evaluator, verdict = self.started(extra=[self.family("opus", 70), self.family("sonnet", 10)])
+        self.assertEqual((verdict.decision, verdict.paused_families), ("run", (("opus", "family_at_reserve"),)))
+        self.assertTrue(evaluator.admits())
+        for used, reset in ((10, 3600), (0, None), (0, WEEK)):  # a pass, then its weekly reset (idle, then new)
+            with self.subTest(used=used, reset=reset):
+                verdict = self.fresh(evaluator, extra=[self.family("opus", used, reset) if reset else
+                                                       reserve.Reading(used=0, family="opus", started=False,
+                                                                       merge=True)])
+                self.assertEqual((verdict.decision, verdict.paused_families),
+                                 ("run", (("opus", "family_at_reserve"),)))
+                self.assertEqual(verdict.families[0].status, "ok")
+        self.assertTrue(verdict.message().endswith("; opus models paused: their weekly limit 100% remaining again; "
+                                                   "a continuation resumes them."), verdict.message())
+        # The row an unavailable family reports decides its reason; it stays paused.
+        verdict = self.fresh(evaluator, extra=[self.family("opus", 3, None)])
+        self.assertEqual(verdict.paused_families, (("opus", "family_window_unavailable"),))
+        # A continuation is offered while the session runs, and the next poll is at once.
+        self.assertEqual(evaluator.continuation().continuation, "armed")
+        self.assertEqual(evaluator.next_poll(), 0)
+        verdict = self.fresh(evaluator, extra=[self.family("opus", 10)])
+        self.assertEqual((verdict.decision, verdict.paused_families, verdict.continuation), ("run", (), None))
+        self.assertTrue(verdict.message().endswith("; opus models: their weekly limit 90% remaining."))
+        # Without a paused family a running session offers none.
+        self.assertEqual(evaluator.continuation().continuation, None)
+
+    def test_a_continuation_answers_every_pause_and_lifts_only_those_its_response_passes(self):
+        evaluator = running(self.clock)
+        verdict = self.fresh(evaluator, weekly=60, extra=[self.family("opus", 70), self.family("sonnet", 3, None)])
+        self.assertEqual((verdict.state, verdict.reason), ("paused", "threshold"))
+        self.assertEqual(verdict.paused_families,
+                         (("opus", "family_at_reserve"), ("sonnet", "family_window_unavailable")))
+        evaluator.continuation()
+        reset = reserve.timestamp(self.clock.wall() + 3600)
+        verdict = self.fresh(evaluator, extra=[self.family("opus", 20), self.family("sonnet", 65)])
+        self.assertEqual((verdict.decision, verdict.paused_families), ("run", (("sonnet", "family_at_reserve"),)))
+        self.assertTrue(verdict.message().endswith("; opus models: their weekly limit 80% remaining; sonnet models "
+                                                   "paused: their weekly limit 35% remaining, at or below the 40% "
+                                                   f"weekly reserve, resets {reset}."), verdict.message())
+        # A family whose own row is no longer reported passes: the general windows govern it again.
+        evaluator.continuation()
+        verdict = self.fresh(evaluator)
+        self.assertEqual((verdict.decision, verdict.paused_families), ("run", ()))
+
+    def test_any_other_answer_uses_the_continuation_up_and_lifts_no_family(self):
+        cases = {"failure": lambda e: e.failure("timeout"),
+                 "unattributed": lambda e: self.fresh(e, attributed=False, extra=[self.family("opus", 10)]),
+                 "unavailable window": lambda e: self.fresh(e, five=None, extra=[self.family("opus", 10)]),
+                 "still at reserve": lambda e: self.fresh(e, extra=[self.family("opus", 61)]),
+                 "expired": lambda e: self.clock.advance(reserve.CONTINUATION_WINDOW + 1)}
+        for name, answer in cases.items():
+            with self.subTest(answer=name):
+                evaluator, _ = self.started(extra=[self.family("opus", 70)])
+                evaluator.continuation()
+                self.clock.advance(1)
+                answer(evaluator)
+                self.assertEqual(evaluator.verdict().continuation, None)
+                verdict = self.fresh(evaluator, extra=[self.family("opus", 10)])
+                self.assertEqual(verdict.paused_families, (("opus", "family_at_reserve"),))
+        # A response received before the continuation answers nothing and leaves it armed.
+        evaluator, _ = self.started(extra=[self.family("opus", 70)])
+        self.clock.advance(1)
+        before = observation(self.clock, extra=[self.family("opus", 10)])
+        self.clock.advance(1)
+        evaluator.continuation()
+        verdict = evaluator.observe(before)
+        self.assertEqual((verdict.paused_families, verdict.continuation), ((("opus", "family_at_reserve"),), "armed"))
+
+    def test_family_pauses_need_the_weekly_reserve_and_healthy_control(self):
+        evaluator = self.evaluator(weekly=None)
+        evaluator.control_up()
+        verdict = evaluator.observe(observation(self.clock, extra=[self.family("opus", 99)]))
+        self.assertEqual((verdict.decision, verdict.families, verdict.paused_families), ("run", (), ()))
+        evaluator, _ = self.started(extra=[self.family("opus", 70)])
+        self.clock.advance(1)
+        verdict = evaluator.control_down("monitor_lost")
+        self.assertEqual((verdict.state, verdict.paused_families), ("paused", (("opus", "family_at_reserve"),)))
+        self.assertEqual(evaluator.continuation().continuation, None)
+        # A paused family counts as near for no poll, whatever its current row says.
+        evaluator, _ = self.started(extra=[self.family("opus", 70)])
+        self.fresh(evaluator, extra=[self.family("opus", 55)])
+        self.assertEqual(evaluator.next_poll(), reserve.POLL_RUNNING)
+
+    def test_a_family_not_ok_at_startup_starts_paused_and_a_restarted_evaluator_relatches(self):
+        evaluator = self.evaluator()
+        evaluator.control_up()
+        verdict = evaluator.observe(observation(self.clock, extra=[self.family("opus", 3, None)]))
+        self.assertEqual((verdict.decision, verdict.paused_families), ("run", (("opus", "family_window_unavailable"),)))
+        self.assertTrue(verdict.message().endswith("; opus models paused: their weekly limit is unavailable (reset "
+                                                   "unknown)."), verdict.message())
+        # A restarted gate's evaluator starts paused; its first reading pauses the families it finds not ok,
+        # and one continuation answers the session's pause and theirs.
+        restarted = self.evaluator(paused="gate_restarted")
+        restarted.control_up()
+        verdict = self.fresh(restarted, extra=[self.family("opus", 70), self.family("sonnet", 10)])
+        self.assertEqual((verdict.state, verdict.eligible, verdict.paused_families),
+                         ("paused", True, (("opus", "family_at_reserve"),)))
+        verdict = self.fresh(restarted, extra=[self.family("opus", 10)])
+        self.assertEqual((verdict.state, verdict.paused_families), ("paused", (("opus", "family_at_reserve"),)))
+        restarted.continuation()
+        verdict = self.fresh(restarted, extra=[self.family("opus", 10)])
+        self.assertEqual((verdict.decision, verdict.paused_families), ("run", ()))
+
     def test_a_running_reading_without_an_enabled_window_pauses_at_once(self):
         evaluator = running(self.clock)
         self.clock.advance(1)
@@ -926,6 +1042,20 @@ class Evaluation(unittest.TestCase):
         self.assertEqual(delays, [60, 120, 240, 300, 300])
         evaluator.continuation()
         self.assertEqual(evaluator.next_poll(), 0)
+
+    def test_only_a_family_that_runs_counts_toward_the_near_poll(self):
+        """A family at or below the weekly reserve, or with an unavailable row, is refused alone and polls at
+        the running rate; only an admitted family within NEAR_POINTS of the reserve polls near."""
+        wall = self.clock.wall()
+        for used, reset, status, delay in ((70, wall + 3600, "at_reserve", reserve.POLL_RUNNING),
+                                           (3, None, "reset_unknown", reserve.POLL_RUNNING),
+                                           (55, wall + 3600, "ok", reserve.POLL_NEAR),
+                                           (40, wall + 3600, "ok", reserve.POLL_RUNNING)):
+            with self.subTest(used=used, status=status):
+                evaluator, verdict = self.started(extra=[reserve.Reading(used=used, resets_at=reset, family="opus",
+                                                                         merge=True)])
+                self.assertEqual((verdict.decision, verdict.families[0].status), ("run", status))
+                self.assertEqual(evaluator.next_poll(), delay)
 
     def test_checking_polls_at_once_only_without_a_usable_reading(self):
         evaluator = self.evaluator()

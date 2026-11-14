@@ -715,12 +715,37 @@ class ServerManagedPolicy(unittest.TestCase):
 native_module = load("test_claude_native", ROOT / "lib/claude-as/native.py")
 
 
+def walk_base():
+    """(a temporary base whose every directory from / down is one the walk trusts without the group
+    database, None) or (None, why there is none): owned by root or this user, and sticky or not group or
+    other writable. The temporary directory comes first, then the real /tmp. group_kind mocks the group
+    database for a gid, and config.private_group caches its answer per gid, so the mock cannot be scoped to
+    the test tree: a group-writable ancestor of the same gid (a temporary directory made under umask 002)
+    would be judged by it as well."""
+    uid, problems = os.getuid(), []
+    for candidate in dict.fromkeys((tempfile.gettempdir(), "/tmp")):
+        real, walked = os.path.realpath(candidate), ""
+        for part in [""] + real.split("/")[1:]:
+            walked = walked + "/" + part if part else "/"
+            info = os.lstat(walked)
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, uid)
+                    or not info.st_mode & stat.S_ISVTX and info.st_mode & 0o022):
+                problems.append("%s (mode %o)" % (walked, stat.S_IMODE(info.st_mode)))
+                break
+        else:
+            return real, None
+    return None, "no temporary directory whose ancestors are private or sticky: " + ", ".join(problems)
+
+
 class AccountDirectories(unittest.TestCase):
     """native.py's walk from / and its read of native's .claude.json: other users' write refuses, and
     group write only by a group other than the user's private one."""
 
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        base, problem = walk_base()
+        if problem:
+            self.skipTest(problem)
+        self.tmp = tempfile.TemporaryDirectory(dir=base)
         self.addCleanup(self.tmp.cleanup)
         self.shared = Path(self.tmp.name).resolve() / "s"  # an ancestor the walk checks as trusted
         self.config = self.shared / "native-claude-accounts" / "N" / "config"
@@ -1002,6 +1027,20 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.state, "paused")
         self.assertIn(g.reason, ("identity_mismatch", "identity_changed"))
 
+    def test_a_long_list_of_unreviewed_rows_is_named_within_the_field_bound(self):
+        """The rows field is bounded like the message (the first SHOWN_NAMES names, then "and N more"), so
+        many long row names still refuse as unproved_quota_row, never as evaluator_error."""
+        names = sorted("row_%02d_" % index + "x" * 53 for index in range(20))
+        self.assertEqual({len(name) for name in names}, {60})
+        self.upstream.extra = {name: {"utilization": 1} for name in names}
+        _, g = self.started()
+        self.assertEqual((g.state, g.reason), ("paused", "unproved_quota_row"))
+        listed = ", ".join(names[:reserve.SHOWN_NAMES]) + ", and 12 more"
+        self.assertEqual(g.fields["rows"], listed)
+        self.assertLessEqual(len(g.fields["rows"]), 1024)
+        self.assertEqual(g.fields["message"], "N: refused: the usage report has a limit row protected mode has not "
+                                              "reviewed (%s)." % listed)
+
     def test_a_window_not_started_is_accepted_only_at_exactly_zero_with_a_null_reset(self):
         """U1 (a): an idle window (utilization exactly 0, resets_at null) starts the session and its
         message names no reset; any other null or missing reset leaves the window unavailable."""
@@ -1079,17 +1118,17 @@ class GateProvider(unittest.TestCase):
                              (False, "model_unproved"))
         self.assertEqual(g.state, "running")
 
-    def test_a_family_at_its_weekly_reserve_is_refused_alone_while_the_others_run(self):
-        """gate-decisions "Claude usage rows" (a), option B: a model family with a row of its own
-        (seven_day_sonnet, seven_day_opus, a limits[] weekly_scoped model row) is admitted while that row
-        is above the weekly reserve, and refused alone otherwise; the general windows decide the rest."""
+    def test_a_family_at_its_weekly_reserve_is_paused_alone_while_the_others_run(self):
+        """gate-decisions "Claude usage rows" (a) and "family pause and census" (c): a model family with a
+        row of its own (seven_day_sonnet, seven_day_opus, a limits[] weekly_scoped model row) at or below
+        the weekly reserve is paused alone and latched; the general windows decide the rest."""
         now = time.time()
         week = upstream_fixture.stamp(now + 86400)
         opus = {"kind": "weekly_scoped", "group": "weekly", "percent": 99.5, "resets_at": week, "severity": "warning",
                 "is_active": True, "scope": {"model": {"display_name": "Opus 4.1"}}}
         self.upstream.extra = {"seven_day_sonnet": {"utilization": 90, "resets_at": week}, "limits": [opus]}
-        prov, g = self.started()  # reserves: five-hour 10%, weekly 5%
-        self.assertEqual(g.state, "running", g.status())
+        prov, g = self.started()  # reserves: five-hour 10%, weekly 5%: a family at its reserve starts paused
+        self.assertEqual((g.state, g.paused_families), ("running", {"opus": "family_at_reserve"}), g.status())
         self.assertEqual(g.fields["message"], "N: running: five-hour 90% remaining (reserve 10%), weekly 80% remaining "
                                               "(reserve 5%); opus models paused: their weekly limit 0.5% remaining, at "
                                               f"or below the 5% weekly reserve, resets {week}; sonnet models: their "
@@ -1098,15 +1137,11 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-haiku-4-5")[:2], (True, "admitted"))
         self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (False, "family_at_reserve"))
         self.assertEqual(g.state, "running")
-        self.assertFalse(any(m["op"] == "paused" for m in self.messages))
-        # The row above its reserve again admits the family on the next fresh check; nothing is continued.
-        opus["percent"] = 50
-        prov.poll(g)
-        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (True, "admitted"))
+        self.assertEqual([(m["op"], m.get("family")) for m in self.messages], [("family_paused", "opus")])
         # The more-used of two rows of one family decides it.
-        self.upstream.extra["limits"] = [opus, dict(opus, percent=96)]
+        self.upstream.extra["limits"] = [dict(opus, percent=50), dict(opus, percent=96)]
         prov.poll(g)
-        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (False, "family_at_reserve"))
+        self.assertEqual(g.paused_families, {"opus": "family_at_reserve"})
         # Without the weekly reserve a family row is not judged, as the general weekly window is not.
         _, g = self.started(reserves={"five_hour": "10", "weekly": None})
         self.assertEqual(g.state, "running", g.status())
@@ -1116,6 +1151,92 @@ class GateProvider(unittest.TestCase):
             message = json.loads(body)["error"]["message"]
             self.assertEqual(status, 400)
             self.assertTrue(message.startswith("quota reserve: ") and message.endswith("(%s)" % reason), message)
+
+    def opus_row(self, percent, days=1):
+        return {"kind": "weekly_scoped", "group": "weekly", "percent": percent,
+                "resets_at": upstream_fixture.stamp(time.time() + days * 86400),
+                "scope": {"model": {"display_name": "Opus 4.1"}}}
+
+    def test_a_family_pause_closes_its_running_streams_and_outlasts_passing_reads_and_its_reset(self):
+        self.upstream.extra = {"limits": [self.opus_row(20)]}
+        prov, g = self.started()
+        self.assertEqual((g.state, g.paused_families), ("running", {}))
+        closed = []
+        streams = {}
+        for model in ("claude-opus-4-1", "claude-sonnet-4-5", "claude-haiku-4-5"):
+            g.heartbeat()
+            ok, _, streams[model] = g.admit(gate.Presented(gate.Secret(upstream_fixture.BEARER_A)), self.body(model),
+                                            lambda model=model: closed.append(model))
+            self.assertTrue(ok)
+        self.upstream.extra = {"limits": [self.opus_row(97)]}
+        prov.poll(g)
+        self.assertEqual((g.state, g.paused_families, closed), ("running", {"opus": "family_at_reserve"},
+                                                                ["claude-opus-4-1"]))
+        self.assertEqual(sorted(g.streams), sorted([streams["claude-sonnet-4-5"], streams["claude-haiku-4-5"]]))
+        with self.assertRaises(gate.Closed) as caught:  # its handler's next chunk finds it closed
+            g.send(streams["claude-opus-4-1"], None, b"x")
+        self.assertEqual(caught.exception.reason, "family_at_reserve")
+        paused = [m for m in self.messages if m["op"] == "family_paused"]
+        self.assertEqual([(m["family"], m["reason"], m["fields"]["account"]) for m in paused],
+                         [("opus", "family_at_reserve", "N")])
+        self.assertIn("last_fresh", paused[0]["fields"])
+        self.assertFalse(any(m["op"] == "paused" for m in self.messages))
+        # A passing read, then the family's weekly reset (an idle row, then a new week): still paused.
+        for row in (self.opus_row(30), dict(self.opus_row(0), resets_at=None), self.opus_row(0, days=7)):
+            with self.subTest(row=row):
+                self.upstream.extra = {"limits": [row]}
+                prov.poll(g)
+                self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2],
+                                 (False, "family_at_reserve"))
+        self.assertTrue(g.fields["message"].endswith("; opus models paused: their weekly limit 100% remaining again; a "
+                                                     "continuation resumes them."), g.fields["message"])
+        # A continuation while the session runs: its own check reads the store bearer and lifts the pause.
+        start = len(self.upstream.requests)
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed", "families": {}})
+        self.assertEqual(self.upstream.paths("GET")[-2:], ["/api/oauth/profile", "/api/oauth/usage"])
+        self.assertGreater(len(self.upstream.requests), start)
+        self.assertEqual(self.messages[-1]["op"], "family_resumed")
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (True, "admitted"))
+        self.assertEqual(g.state, "running")
+
+    def test_a_continuation_lifts_only_the_families_its_fresh_check_passes(self):
+        self.upstream.extra = {"limits": [self.opus_row(97)], "seven_day_sonnet": {"utilization": 3, "resets_at": None}}
+        prov, g = self.started()
+        self.assertEqual(g.paused_families, {"opus": "family_at_reserve", "sonnet": "family_window_unavailable"})
+        self.upstream.extra = {"limits": [self.opus_row(98)],
+                               "seven_day_sonnet": {"utilization": 3,
+                                                    "resets_at": upstream_fixture.stamp(time.time() + 3600)}}
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": False, "running": True, "reason": "family_paused",
+                                                "families": {"opus": "family_at_reserve"}})
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-sonnet-4-5")[:2], (True, "admitted"))
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (False, "family_at_reserve"))
+        # A check that fails names its failure and lifts nothing.
+        self.upstream.extra = {}
+        self.upstream.status["/api/oauth/usage"] = 503
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": False, "running": True, "reason": "http_503",
+                                                "families": {"opus": "family_at_reserve"}})
+        del self.upstream.status["/api/oauth/usage"]
+        prov.poll(g)
+        self.assertEqual(g.paused_families, {"opus": "family_at_reserve"})  # a passing poll lifts nothing
+
+    def test_a_restarted_gate_pauses_families_again_from_its_first_reading(self):
+        """A restarted gate starts paused; the families its first fresh reading finds not ok are paused
+        again, and one continuation answers both pauses."""
+        self.upstream.extra = {"limits": [self.opus_row(97)]}
+        prov, g = self.make(mode="restart")
+        g.attach()
+        g.heartbeat()
+        prov.poll(g)
+        self.assertEqual((g.state, g.reason, g.paused_families),
+                         ("paused", "awaiting_continuation", {"opus": "family_at_reserve"}))
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": False, "running": True, "reason": "family_paused",
+                                                "families": {"opus": "family_at_reserve"}})
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-haiku-4-5")[:2], (True, "admitted"))
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (False, "family_at_reserve"))
 
     def test_a_max_accounts_report_runs_with_its_ignored_and_duplicated_rows(self):
         """The row set a Max account reports (research RQ section 1): credits, other surfaces and extra
@@ -2392,6 +2513,47 @@ class Protected(Kit):
         continuation = [r for r in self.upstream.requests if r["method"] == "GET"][state["reads"]:]
         self.assertEqual([r["path"] for r in continuation][:2], ["/api/oauth/profile", "/api/oauth/usage"])
         self.assertIn(("Authorization", "Bearer " + upstream_fixture.BEARER_A), continuation[0]["headers"])
+
+    def test_a_family_paused_at_startup_runs_the_others_and_f12_answers_every_family_pause(self):
+        """gate-decisions "family pause and census" (c), composed: opus at its own weekly reserve starts
+        paused (the start is not refused, and the startup message says so); haiku and sonnet streams run;
+        F12 is offered while the session runs, and the continuation's fresh check, which finds opus
+        passing and sonnet at its reserve, lifts opus and pauses sonnet, closing its running stream
+        while the haiku stream stays open."""
+        week = upstream_fixture.stamp(time.time() + 86400)
+        self.upstream.extra = {"seven_day_opus": {"utilization": 97, "resets_at": week}}
+
+        def refused(output):
+            self.upstream.extra = {"seven_day_opus": {"utilization": 10, "resets_at": week},
+                                   "seven_day_sonnet": {"utilization": 99, "resets_at": week}}
+            return b"\x1b[24~"
+
+        def code(output):
+            return re.findall(rb"type ([0-9a-f]{8}) then Enter to request a fresh quota check", output)[-1] + b"\r"
+
+        status, output = self.protected(env={"FAKE_FAMILY_CYCLE": "1", "FAKE_BEARER": upstream_fixture.BEARER_A},
+                                        answers=[("fake claude opus refused", refused),
+                                                 ("then Enter to request a fresh quota check", code)], timeout=120)
+        self.assertEqual(status, 0, output)
+        text = output.replace("\n", " ")
+        self.assertIn("claude-as: the opus model family starts paused (family_at_reserve: its own weekly limit is at or "
+                      "below the weekly reserve); requests of the other families run, and F12 then the code shown asks "
+                      "for a fresh check that can resume it.", text)
+        self.assertNotIn("quota reserve paused the opus model family", text)  # named once, by the startup message
+        self.assertIn("fresh quota check passed for the opus model family; its requests resume", text)
+        self.assertIn("quota reserve paused the sonnet model family (family_at_reserve); account N; last fresh check ",
+                      text)
+        self.assertIn("fake claude opus admitted", text)
+        self.assertNotIn("model requests resume", text)  # the session itself never paused
+        self.assertNotIn("quota reserve paused (", text)
+        seen = self.recorded()
+        self.assertEqual(seen["streams"], {"claude-haiku-4-5": "open", "claude-sonnet-4-5": "closed"})
+        statuses = seen["statuses"]
+        self.assertTrue(all(code == 400 and "family_at_reserve" in body for code, body in statuses[:-2]), statuses)
+        self.assertEqual([code for code, _ in statuses[-2:]], [200, 400])
+        self.assertIn("family_at_reserve", statuses[-1][1])
+        bodies = [json.loads(r["body"])["model"] for r in self.upstream.model_requests()]
+        self.assertEqual(sorted(bodies), ["claude-haiku-4-5", "claude-opus-4-1", "claude-sonnet-4-5"])
 
     def test_a_native_killed_by_a_signal_ends_the_launcher_by_it_after_the_cleanup(self):
         code, output = self.protected(env={"FAKE_SIGNAL": str(int(signal.SIGTERM))})

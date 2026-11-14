@@ -59,7 +59,8 @@ Evaluator (one per gate instance; not thread-safe, the gate serializes it):
         control_up()            the monitor attached and a heartbeat was heard: clears
                                  the control_pending a new evaluator starts with; safe
                                  to report on every heard heartbeat
-        continuation()          a verified trusted-terminal request to continue
+        continuation()          a verified trusted-terminal request to continue (while paused,
+                                 or while running with a paused family)
         give_up()               the launcher's startup bound ran out: refuse
         tick()                  the timer: freshness and continuation deadlines
     Reasons are lower-case identifiers. fault and control_down refuse (ValueError)
@@ -71,9 +72,18 @@ Evaluator (one per gate instance; not thread-safe, the gate serializes it):
 Quota families: a reading with a family (Claude: a model family's own weekly limit, such as
 seven_day_sonnet) never counts for the general windows. While the weekly reserve is on, the
 latest attributed response's family readings are judged against it, each family on its own, and
-Verdict.families lists them; a family at or below the reserve, or whose reading is unavailable,
-is the provider's to refuse alone (its requests), while the general windows decide everything
-else as above. Without the weekly reserve they are not judged.
+Verdict.families lists them. A family at or below the reserve, or whose reading is unavailable, is
+paused alone (Verdict.paused_families: family_at_reserve or family_window_unavailable), like a
+session pause scoped to that family: the gate refuses its requests and closes its streams, while
+the general windows decide everything else as above. The pause is latched: passing reads and the
+family's weekly reset never lift it, and its reason follows the latest reading that is not ok.
+continuation() is accepted while the session is paused or any family is, and one continuation
+answers every pause at once: the response that answers it lifts each paused family whose own
+limit passes in it (or that it no longer reports a limit of its own for), when that response is
+attributed with every enabled window valid; the session's pause leaves as described below. Any
+other answer uses the continuation up. Every evaluator starts with no paused family (a restarted
+gate's pauses the families its first readings find not ok). Without the weekly reserve families
+are not judged.
 
 States: "checking" until the first fresh passing reading with healthy control
 ("run"), or a refusal ("refuse"); "running"; "paused". While checking, a
@@ -136,6 +146,8 @@ REASON = re.compile(r"[a-z][a-z0-9_]{0,63}")
 NAME = re.compile(r"[a-z0-9_]{1,64}")  # a fault's names: identifiers, never values
 SHOWN_NAMES = 8  # a fault's names in its message; the rest are counted
 OK, AT_RESERVE = "ok", "at_reserve"  # WindowStatus.status for valid readings
+# Why a family is paused alone: its own limit at or below the weekly reserve, or unavailable.
+FAMILY_AT_RESERVE, FAMILY_UNAVAILABLE = "family_at_reserve", "family_window_unavailable"
 CHECKING, RUNNING, PAUSED = "checking", "running", "paused"
 # Conditions that only wait while checking; every other one refuses the start.
 WAITING = ("control_pending", "no_reading", "stale")
@@ -344,7 +356,9 @@ class Verdict:
     continuation: "armed" while a continuation waits for its check. names: the sorted
     names of the fault that blocks now (reason), else (). families: WindowStatus per quota
     family of the latest attributed response, sorted by family, judged against the weekly
-    reserve (empty while it is off); a family whose status is not "ok" is refused alone."""
+    reserve (empty while it is off). paused_families: (family, reason) per family paused
+    alone, sorted by family (see Quota families); a family whose status is not "ok" is
+    always among them, and one stays there until a continuation lifts it."""
     account: str
     state: str
     decision: str
@@ -358,6 +372,7 @@ class Verdict:
     eligible: bool
     names: tuple = ()
     families: tuple = ()
+    paused_families: tuple = ()
 
     def message(self, how=""):
         """One deterministic line; HOW (for example the continuation key) follows it."""
@@ -365,7 +380,12 @@ class Verdict:
         if self.decision == "run":
             detail = ", ".join(f"{LABELS[w.window]} {above_reserve(w)}% remaining "
                                f"(reserve {percent(w.reserve)}%)" for w in self.windows)
-            detail += "".join("; " + family_text(status) for status in self.families)
+            paused = dict(self.paused_families)
+            judged = {status.family: status for status in self.families}
+            detail += "".join("; " + (family_text(judged[family], family in paused) if family in judged
+                                      else f"{family} models paused: no weekly limit of their own in the latest "
+                                           "reading; a continuation resumes them")
+                              for family in sorted(set(judged) | set(paused)))
         elif self.reason is None:
             detail = f"{cause_text(self.cause)}; the latest quota check passes; a continuation resumes"
         else:
@@ -391,17 +411,31 @@ class Verdict:
         else:
             text = CONTROL_TEXT.get(reason) or FAULT_TEXT.get(reason) or reason.replace("_", " ")
             if self.names:
-                shown = ", ".join(self.names[:SHOWN_NAMES])
-                more = len(self.names) - SHOWN_NAMES
-                text += f" ({shown}" + (f", and {more} more)" if more > 0 else ")")
+                text += f" ({listed(self.names)})"
         if self.last_fresh is None:
             return text
         return f"{text}; last valid reading at {timestamp(self.last_fresh)}"
 
 
-def family_text(status):
-    """How one quota family's own weekly limit stands, in a running message."""
+def listed(names):
+    """A fault's names as shown: the first SHOWN_NAMES, then how many more, so that the text stays bounded
+    (at most SHOWN_NAMES names of 64 characters)."""
+    more = len(names) - SHOWN_NAMES
+    return ", ".join(names[:SHOWN_NAMES]) + (f", and {more} more" if more > 0 else "")
+
+
+def family_reason(status):
+    """Why a family whose own limit is not ok is paused."""
+    return FAMILY_AT_RESERVE if status.status == AT_RESERVE else FAMILY_UNAVAILABLE
+
+
+def family_text(status, paused=False):
+    """How one quota family's own weekly limit stands, in a running message; PAUSED: the family is
+    paused alone (always so when its status is not ok)."""
     if status.status == OK:
+        if paused:
+            return (f"{status.family} models paused: their weekly limit {above_reserve(status)}% remaining "
+                    "again; a continuation resumes them")
         return f"{status.family} models: their weekly limit {above_reserve(status)}% remaining"
     if status.status == AT_RESERVE:
         return (f"{status.family} models paused: their weekly limit {percent(status.remaining, floor=True)}% "
@@ -547,6 +581,7 @@ class Evaluator:
         self.problem = None          # None, "unattributed" or "window_unavailable" for it
         self.windows = ()            # its WindowStatus per enabled window
         self.families = ()           # ... and per quota family (judged against the weekly reserve)
+        self.paused_families = {}    # family -> reason: paused alone until a continuation lifts it
         self.last_fresh = None       # receipt time of the latest valid response ...
         self.last_fresh_wall = None  # ... and its wall-clock time
         self.failure_reason, self.failures = None, 0
@@ -588,6 +623,7 @@ class Evaluator:
                 if self.fault_reason is not None and fresh_at > self.fault_at and self.state != CHECKING:
                     self.fault_reason = self.fault_at = None
                     self.fault_names = ()
+        self._pause_families(answered)
         self._update(now, resume=answered)
         return self._verdict(now)
 
@@ -622,7 +658,7 @@ class Evaluator:
 
     def continuation(self):
         now = self._tick()
-        if self.state == PAUSED and self.control is None:
+        if self.control is None and (self.state == PAUSED or self.state == RUNNING and self.paused_families):
             self.armed = now
         return self._verdict(now)
 
@@ -648,9 +684,9 @@ class Evaluator:
         """Seconds until the next quota read. JITTER(low, high) picks the backoff; by
         default the upper bound. Paused reads are rate-bounded, never stopped."""
         now = self._tick()
+        if self.armed is not None:
+            return 0.0  # a continuation waits for its check
         if self.state == PAUSED:
-            if self.armed is not None:
-                return 0.0
             return min(POLL_PAUSED_MAX, POLL_PAUSED * 2 ** min(self.paused_polls, 8))
         if self.failures:
             cap = min(BACKOFF_MAX, BACKOFF_MIN * 2 ** min(self.failures - 1, 8))
@@ -658,8 +694,12 @@ class Evaluator:
             return max(BACKOFF_MIN, min(cap, chosen))
         if self.state == CHECKING and self.refused is None and (self.last_fresh is None or self._stale(now)):
             return 0.0  # no usable reading yet
+        # A paused family waits for its weekly reset (often days away) and a continuation, so only the
+        # windows and the families that run count toward the near poll.
+        running = tuple(status for status in self.families
+                        if status.status == OK and status.family not in self.paused_families)
         near = any(status.remaining is not None and status.remaining - status.reserve <= NEAR_POINTS
-                   for status in self.windows + self.families)
+                   for status in self.windows + running)
         return POLL_NEAR if near else POLL_RUNNING
 
     # -- internals ----------------------------------------------------------
@@ -693,6 +733,20 @@ class Evaluator:
                 found.setdefault(reading.family, []).append(reading)
         return tuple(judge_all(found[family], "weekly", self.reserves["weekly"], observation.wall_at, family)
                      for family in sorted(found))
+
+    def _pause_families(self, answered):
+        """After a NEW response: when it answered a continuation and is valid (attributed, every enabled
+        window valid), lift each paused family whose own limit passes in it or that it reports no limit
+        of its own for; then pause each family whose own limit is not ok in it (an unattributed response
+        judges none). A paused family keeps its pause through every other response."""
+        judged = {status.family: status for status in self.families}
+        if answered and self.problem is None:
+            for family in [family for family in self.paused_families
+                           if family not in judged or judged[family].status == OK]:
+                del self.paused_families[family]
+        for status in self.families:
+            if status.status != OK:
+                self.paused_families[status.family] = family_reason(status)
 
     def _failed(self, reason, now, at):
         answered = self._answers(at)
@@ -766,4 +820,5 @@ class Evaluator:
         names = self.fault_names if reason is not None and reason == self.fault_reason else ()
         return Verdict(self.account, self.state, decision, reason, self.cause, self.windows, self.last_fresh_wall,
                        age, self.failure_reason, "armed" if self.armed is not None else None,
-                       self.state == PAUSED and condition is None, names, self.families)
+                       self.state == PAUSED and condition is None, names, self.families,
+                       tuple(sorted(self.paused_families.items())))

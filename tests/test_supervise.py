@@ -77,6 +77,39 @@ class Pure(unittest.TestCase):
                          "quota reserve paused (monitor_stale); press F9, then type the code shown and Enter, "
                          "to request a fresh check")
 
+    def test_the_pause_line_names_the_unreviewed_quota_rows(self):
+        fields = {"account": "N", "rows": "limits_kind_daily_all, seven_day_cowork",
+                  "last_fresh": "2026-11-12T13:00:01Z"}
+        self.assertEqual(supervise.pause_message("unproved_quota_row", fields),
+                         "quota reserve paused (unproved_quota_row); account N; unreviewed quota rows "
+                         "limits_kind_daily_all, seven_day_cowork; last fresh check 2026-11-12T13:00:01Z; press F12, "
+                         "then type the code shown and Enter, to request a fresh check")
+
+    def test_the_family_pause_line_is_deterministic(self):
+        fields = {"account": "N", "last_fresh": "2026-11-12T13:00:01Z", "message": "ignored", "window": "ignored"}
+        text = supervise.family_pause_message("opus", "family_at_reserve", fields)
+        self.assertEqual(text, supervise.family_pause_message("opus", "family_at_reserve",
+                                                              dict(reversed(list(fields.items())))))
+        self.assertEqual(text, "quota reserve paused the opus model family (family_at_reserve); account N; last fresh "
+                               "check 2026-11-12T13:00:01Z; the session and the other model families go on; press "
+                               "F12, then type the code shown and Enter, to request a fresh check")
+        self.assertEqual(supervise.family_pause_message("sonnet", "family_window_unavailable", {}, "F9"),
+                         "quota reserve paused the sonnet model family (family_window_unavailable); the session and "
+                         "the other model families go on; press F9, then type the code shown and Enter, to request a "
+                         "fresh check")
+        self.assertEqual(supervise.family_pause_message("sonnet", "family_at_reserve", {}, running=False),
+                         "quota reserve paused the sonnet model family (family_at_reserve); the session is paused "
+                         "too; press F12, then type the code shown and Enter, to request a fresh check")
+        self.assertEqual(supervise.family_still_message({"sonnet": "family_window_unavailable",
+                                                         "opus": "family_at_reserve"}),
+                         "still paused: the opus model family (family_at_reserve), the sonnet model family "
+                         "(family_window_unavailable); press F12, then type the code shown and Enter, to request "
+                         "another fresh check")
+        self.assertEqual(supervise.family_still_message({"opus": "family_at_reserve"}, "http_503", "F9"),
+                         "the fresh quota check did not pass (http_503); still paused: the opus model family "
+                         "(family_at_reserve); press F9, then type the code shown and Enter, to request another fresh "
+                         "check")
+
     def test_capture_proxy(self):
         parse = fakes.gate.parse_proxy
         self.assertIsNone(supervise.capture_proxy({}, parse))
@@ -412,9 +445,43 @@ class OutsideCommands(unittest.TestCase):
                 self.assertIn("the #! line of the X runs /usr/bin/env in a form protected mode does not follow",
                               self.refused(supervise.native_sources, script, {"PATH": str(base / "bin")}, "the X"))
         script.write_text("#!relative\n")
-        self.assertEqual(len(supervise.native_sources(script, {}, "the X")), 1)
-        self.assertEqual(supervise.script_interpreter(script), (None, None))
+        self.assertEqual("the #! line of the X names an interpreter that is not an absolute path, which the kernel "
+                         "looks up from the working directory; protected mode does not follow it",
+                         self.refused(supervise.native_sources, script, {}, "the X"))
         self.assertEqual(supervise.native_sources(base / "absent", {}, "the X"), [("the X", str(base / "absent"), False)])
+
+    def test_nested_interpreters_count_four_levels_deep_and_each_env_command_is_searched(self):
+        """An interpreter that is a #! script itself runs its own interpreter (Linux nests four levels),
+        so each one counts, as claude-as follows them, and each command an env line names joins the
+        PATH lookups; a fifth level, or a relative interpreter at any level (the kernel would look it
+        up from the working directory), refuses."""
+        base = self.scratch()
+        (base / "bin").mkdir()
+        script, outer, node, inner, fifth = (base / "script", base / "outer", base / "bin/node", base / "inner",
+                                             base / "fifth")
+        script.write_text("#!%s\n" % outer)
+        outer.write_text("#!/usr/bin/env -S node --x\n")
+        node.write_text("#!%s -y\n" % inner)  # the command env finds is a script itself
+        node.chmod(0o755)
+        inner.write_text("#!%s/absent\n" % base)  # a binary or nothing: not followed further
+        env = {"PATH": str(base / "bin")}
+        searched = []
+        self.assertEqual(supervise.native_sources(script, env, "the X", searched), [
+            ("the X", str(script), False), ("the interpreter of the X", str(outer), False),
+            ("the interpreter of the X", "/usr/bin/env", False), ("the interpreter of the X", str(node), False),
+            ("the interpreter of the X", str(inner), False), ("the interpreter of the X", str(base / "absent"), False)])
+        self.assertEqual(searched, ["node"])
+        inner.write_text("#!%s\n" % fifth)
+        fifth.write_text("#!/bin/sh\n")
+        self.assertEqual("the #! lines of the X lead through more than 4 interpreters",
+                         self.refused(supervise.native_sources, script, env, "the X"))
+        inner.write_text("#!bin/node\n")
+        self.assertEqual("the #! line of the interpreter %s of the X names an interpreter that is not an absolute "
+                         "path, which the kernel looks up from the working directory; protected mode does not follow "
+                         "it" % inner, self.refused(supervise.native_sources, script, env, "the X"))
+        inner.write_text("#!/usr/bin/env -i sh\n")
+        self.assertIn("the #! line of the interpreter %s of the X runs /usr/bin/env in a form protected mode does not "
+                      "follow" % inner, self.refused(supervise.native_sources, script, env, "the X"))
 
     def test_path_entries_searched_before_a_commands_supplier_must_lie_out_of_reach(self):
         """A PATH entry the boundary can write that a lookup searches before the entry supplying the
@@ -456,6 +523,38 @@ class OutsideCommands(unittest.TestCase):
         self.assertIn("the empty PATH entry (the current directory) is searched for codex, which no PATH entry supplies",
                       self.refused(supervise.path_order, [("codex", "codex")], order(system, ""), roots, ""))
         supervise.path_order(lookups, order(system, late, ""), roots, "")  # after both suppliers
+
+    def test_the_entry_that_supplies_a_command_and_a_link_of_its_name_before_it_must_lie_out_of_reach(self):
+        """As claude-as checks them: the entry that supplies a command counts by name, since the program
+        check cannot always see it (a python3 wrapper script there leaves the launcher's Python naming
+        what the script execs), and an entry searched before it counts by every name on the way to the
+        command in it, so a link of that name pointing into the reach, dangling until a session creates
+        its target, refuses too."""
+        base = self.scratch()
+        work, system, early = base / "work", base / "system", base / "early"
+        for path in (work / "bin", system, early):
+            path.mkdir(parents=True)
+        for directory in (system, work / "bin"):
+            (directory / "python3").write_text("#!/bin/sh\n")
+            (directory / "python3").chmod(0o755)
+        (base / "linked").symlink_to(work / "bin")
+        roots, lookups = [str(work)], [("python3", "python3")]
+
+        def order(*entries):
+            return {"PATH": os.pathsep.join(str(entry) for entry in entries)}
+
+        self.assertEqual("the PATH entry %s, which supplies python3, lies inside %s, which the boundary can write: a "
+                         "protected session could replace that python3, which the next run outside the boundary would "
+                         "execute unconfined; supply python3 from a PATH entry outside every path the boundary can "
+                         "write" % (work / "bin", work),
+                         self.refused(supervise.path_order, lookups, order(work / "bin", system), roots, "; HINT"))
+        self.assertIn("the PATH entry %s, which supplies python3, lies inside %s" % (base / "linked", work),
+                      self.refused(supervise.path_order, lookups, order(base / "linked", system), roots, ""))
+        (early / "python3").symlink_to(work / "planted")
+        self.assertIn("the PATH entry %s comes before %s, which supplies python3, and lies inside %s"
+                      % (early, system, work),
+                      self.refused(supervise.path_order, lookups, order(early, system), roots, ""))
+        supervise.path_order(lookups, order(system, early, work / "bin"), roots, "")  # never searched for python3
 
     def test_code_run_outside_the_boundary_must_lie_out_of_its_reach_through_every_link(self):
         base = self.scratch()
@@ -530,13 +629,49 @@ class ContinuationRequest(unittest.TestCase):
         self.assertEqual([message["op"] for message in sent], ["continue", "disarm"])  # no late resume
         self.assertIsNotNone(sup.control)
 
+    def test_a_continuation_while_running_reports_the_families_it_left_paused(self):
+        sup = supervise.Supervisor(["gate"], {})
+        sup.control, peer = socket.socketpair()
+        self.addCleanup(peer.close)
+        said, sup.ui = [], Notices.UI(False)
+        sup.say = said.append
+        sup.families = {"opus": "family_at_reserve", "sonnet": "family_at_reserve"}
+
+        def answer(**reply):
+            request = json.loads(peer.recv(4096).split(b"\n")[0])
+            peer.sendall(json.dumps(dict(reply, op="reply", to="continue", id=request["id"])).encode() + b"\n")
+
+        for reply, line in (({"ok": False, "running": True, "reason": "family_paused",
+                              "families": {"opus": "family_at_reserve"}},
+                             supervise.family_still_message({"opus": "family_at_reserve"})),
+                            ({"ok": False, "running": True, "reason": "http_503",
+                              "families": {"opus": "family_at_reserve"}},
+                             supervise.family_still_message({"opus": "family_at_reserve"}, "http_503"))):
+            with self.subTest(reply=reply):
+                thread = threading.Thread(target=answer, kwargs=reply)
+                thread.start()
+                self.assertTrue(sup.check())  # the session runs
+                thread.join()
+                self.assertEqual((said[-1], sup.later, sup.ui.offer), ("requesting a fresh quota check", [line], True))
+                sup.later = []
+        thread = threading.Thread(target=answer, kwargs={"ok": True, "reason": "resumed", "families": {}})
+        thread.start()
+        self.assertTrue(sup.check())
+        thread.join()
+        self.assertEqual((sup.later, sup.ui.offer), ([], False))
+        # Each lift is announced once, by the gate's own message.
+        sup._handle({"op": "family_resumed", "family": "opus"})
+        sup._handle({"op": "family_resumed", "family": "opus"})
+        self.assertEqual(said[-1], "fresh quota check passed for the opus model family; its requests resume")
+        self.assertEqual(said.count(said[-1]), 1)
+
 
 class Notices(unittest.TestCase):
     """Gate messages that change the pause line without pausing or resuming anything."""
 
     class UI:
         def __init__(self, paused):
-            self.paused, self.calls = paused, []
+            self.paused, self.offer, self.calls = paused, False, []
 
         def pause(self):
             self.calls.append("pause")
@@ -568,6 +703,74 @@ class Notices(unittest.TestCase):
             with self.subTest(eligible=eligible):  # already resumed: an old notice says nothing
                 self.assertEqual(self.handled({"op": "notice", "eligible": eligible, "reason": "x", "fields": {}},
                                               paused=False), ([], []))
+
+    def test_a_family_pause_shows_its_line_and_offers_the_key_without_pausing_the_session(self):
+        sup = supervise.Supervisor(["gate"], {})
+        said, sup.ui = [], self.UI(False)
+        sup.say = said.append
+        fields = {"account": "N", "last_fresh": "2026-11-12T13:00:01Z"}
+        paused = {"op": "family_paused", "family": "opus", "reason": "family_at_reserve", "fields": fields}
+        sup._handle(paused)
+        sup._handle(paused)  # the same pause again: already shown
+        self.assertEqual(said, [supervise.family_pause_message("opus", "family_at_reserve", fields)])
+        self.assertEqual((sup.ui.calls, sup.ui.offer, sup.families), ([], True, {"opus": "family_at_reserve"}))
+        sup._handle(dict(paused, reason="family_window_unavailable"))
+        self.assertEqual(said[-1], supervise.family_pause_message("opus", "family_window_unavailable", fields))
+        for bad in ({"family": "Opus 4"}, {"family": None}, {"reason": None}):
+            with self.subTest(bad=bad):
+                sup._handle(dict(paused, **bad))
+                self.assertEqual((len(said), sup.families), (2, {"opus": "family_window_unavailable"}))
+        sup._handle({"op": "family_resumed", "family": "opus"})
+        self.assertEqual(said[-1], "fresh quota check passed for the opus model family; its requests resume")
+        self.assertEqual((sup.ui.calls, sup.ui.offer, sup.families), ([], False, {}))
+        # A family the startup message already named is not shown again, but the key is offered.
+        sup.families = {"sonnet": "family_at_reserve"}
+        sup._handle(dict(paused, family="sonnet"))
+        self.assertEqual((len(said), sup.ui.offer), (3, True))
+
+    def test_a_family_pause_line_says_whether_the_session_runs(self):
+        """The gate tags a family pause with the session state its reading leaves (a reading can pause
+        the session too, and a restarted gate's first one starts paused); untagged, the launcher's own
+        view decides."""
+        sup = supervise.Supervisor(["gate"], {})
+        said, sup.ui = [], self.UI(False)
+        sup.say = said.append
+        paused = {"op": "family_paused", "reason": "family_at_reserve", "fields": {}}
+        sup._handle(dict(paused, family="opus", session="paused"))
+        sup._handle(dict(paused, family="sonnet", session="running"))
+        sup.ui = self.UI(True)
+        sup._handle(dict(paused, family="haiku"))
+        self.assertEqual(said, [supervise.family_pause_message("opus", "family_at_reserve", {}, running=False),
+                                supervise.family_pause_message("sonnet", "family_at_reserve", {}),
+                                supervise.family_pause_message("haiku", "family_at_reserve", {}, running=False)])
+
+    def test_a_family_paused_after_the_read_the_startup_message_named_gets_its_line(self):
+        """The startup message names the families of the preflight's own status read, which it returns;
+        a family the gate paused before run()'s later status read still gets the gate's line. A preflight
+        that returns nothing (codex-as, which has no families) leaves run()'s read to count as shown."""
+
+        class Stop(Exception):
+            pass
+
+        both = {"opus": "family_at_reserve", "sonnet": "family_at_reserve"}
+        for announced, shown in (({"opus": "family_at_reserve"}, ["sonnet"]), (None, [])):
+            with self.subTest(announced=announced):
+                sup = supervise.Supervisor(["gate"], {})
+                sup.prepare, sup.start_gate, sup.close = (lambda: 0), (lambda mode: None), (lambda: None)
+                sup.wait_heard = lambda: {"running": True}
+                sup.request = lambda op, timeout=None: {"running": True, "families": dict(both)}
+                sup.preflight = lambda supervisor, announced=announced: announced
+                with mock.patch.object(supervise.os, "isatty", return_value=True), \
+                        mock.patch.object(supervise.os, "pipe", side_effect=Stop):  # stop before the native
+                    with self.assertRaises(Stop):
+                        sup.run(["native"], {})
+                said = []
+                sup.say = said.append
+                for family in sorted(both):
+                    sup._handle({"op": "family_paused", "family": family, "reason": "family_at_reserve", "fields": {}})
+                self.assertEqual(said, [supervise.family_pause_message(family, "family_at_reserve", {})
+                                        for family in shown])
+                self.assertEqual(sup.families, both)
 
     def test_a_resume_the_launcher_did_not_see_coming_is_announced(self):
         self.assertEqual(self.handled({"op": "resumed"}),
@@ -904,6 +1107,19 @@ class Control(unittest.TestCase):
         self.send(b"hello" + F12 + b"\r")
         self.assertEqual(b"".join(self.forwarded), b"hello" + F12 + b"\r")
         self.assertEqual(self.checks, [])
+
+    def test_the_key_is_offered_while_running_with_a_family_paused_and_forwarded_without_one(self):
+        self.ui.offer = True  # a model family is paused alone; the session runs
+        self.send(b"hello" + F12)
+        self.assertEqual(b"".join(self.forwarded), b"hello")
+        self.send(self.code() + b"\r")
+        self.assertEqual((len(self.checks), self.ui.paused), (1, False))
+        self.assertNotIn("fresh quota check passed; model requests resume", self.messages)  # nothing was paused
+        self.send(b"after")  # back to the native
+        self.ui.offer = False
+        self.send(F12 + b"\r")
+        self.assertEqual(b"".join(self.forwarded), b"hello" + b"after" + F12 + b"\r")
+        self.assertEqual(len(self.checks), 1)
 
     def test_fresh_code_checks_once_and_old_codes_never_grant(self):
         self.ui.pause()

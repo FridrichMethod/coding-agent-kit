@@ -12,6 +12,7 @@ from pathlib import Path
 import pty
 import re
 import select
+import shlex
 import signal
 import shutil
 import socket
@@ -1796,15 +1797,16 @@ class CodexAs(unittest.TestCase):
 
     def test_permission_error_identifies_the_actual_directory(self):
         temporary = self.codex / '.tmp'
-        temporary.mkdir(mode=0o775)
-        temporary.chmod(0o775)
+        temporary.mkdir(mode=0o757)
+        temporary.chmod(0o757)  # other write; group write: test_config.PrivateGroupDirectories
 
         result = self.run_as(SHELLS[0], ['A', 'exec', 'prompt'])
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(str(temporary), result.stderr)
-        self.assertIn('group/other writable', result.stderr)
-        self.assertEqual(temporary.stat().st_mode & 0o777, 0o775)
+        self.assertIn('must not be writable by other users', result.stderr)
+        self.assertIn(f'run chmod go-w {shlex.quote(str(temporary))}.', result.stderr)
+        self.assertEqual(temporary.stat().st_mode & 0o777, 0o757)
         self.assertFalse(self.record.exists())
         temporary.rmdir()
         foreign = self.base / 'foreign-temporary'
@@ -1884,7 +1886,7 @@ class CodexAs(unittest.TestCase):
             self.rejected(shell, ["A"])
             a.unlink()
             backup.rename(a)
-            for directory, mode in ((self.secret, 0o755), (self.codex, 0o775)):
+            for directory, mode in ((self.secret, 0o755), (self.codex, 0o757)):
                 directory.chmod(mode)
                 self.rejected(shell, ["A"])
                 self.assertEqual(stat.S_IMODE(directory.stat().st_mode), mode)

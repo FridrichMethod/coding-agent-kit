@@ -867,6 +867,68 @@ class Loader(unittest.TestCase):
                 setattr(target, field, None)
 
 
+class PrivateGroupDirectories(unittest.TestCase):
+    """The launchers' other owner checks follow the configuration file's rule: group write counts as other
+    users' write unless the group is the user's private group without an access ACL, and each refusal
+    names the directory and suggests chmod go-w. Checked: claude-as's secrets parent, codex-as's
+    directories (check.directory) and the account metadata directory's parent (accounts.directory)."""
+
+    CASES = ((0o770, "private", False, False), (0o770, "shared", False, True), (0o770, "listed", False, True),
+             (0o770, "primary", False, True), (0o770, "private", True, True), (0o707, "private", False, True),
+             (0o750, "shared", False, False))
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-private-group-")
+        self.addCleanup(self.tmp.cleanup)
+        self.place = Path(self.tmp.name).resolve() / "place"
+        self.place.mkdir(mode=0o700)
+        self.addCleanup(self.place.chmod, 0o700)
+        self.modules = {}
+        for name, path in (("launch", "lib/claude-as/launch.py"), ("check", "lib/codex-as/check.py"),
+                           ("accounts", "lib/coding-agent-kit/accounts.py")):
+            spec = importlib.util.spec_from_file_location("private_group_" + name, ROOT / path)
+            self.modules[name] = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(self.modules[name])
+
+    def groups(self, kind, gid):
+        return {"private": lambda: upg(gid), "listed": lambda: upg(gid, members=("colleague",)),
+                "primary": lambda: upg(gid, primary=(os.getuid() + 1,)), "shared": lambda: shared_group(gid)}[kind]()
+
+    def test_group_write_is_private_only_for_the_users_private_group(self):
+        launch, check, accounts = self.modules["launch"], self.modules["check"], self.modules["accounts"]
+        gid = self.place.stat().st_gid
+        hint = f"run chmod go-w {shlex.quote(str(self.place))}."
+        metadata = SimpleNamespace(state_dir=self.place, secrets_dir=self.place.parent / "secrets")
+        for mode, kind, acl, refused in self.CASES:
+            with self.subTest(mode=oct(mode), group=kind, acl=acl), self.groups(kind, gid), \
+                    patch.object(os, "listxattr", create=True, return_value=["system.posix_acl_access"] if acl else []):
+                self.place.chmod(mode)
+                check.kit_config().private_group.cache_clear()  # one launcher run, one reading
+                self.assertEqual(launch.others_can_write(os.lstat(self.place), self.place), refused)
+                if refused:
+                    with self.assertRaises(ValueError) as caught:
+                        check.directory(self.place)
+                    self.assertEqual(str(caught.exception), f"{self.place}: directory must not be writable by other "
+                                     "users (other write, or group write by a group that is not your private "
+                                     f"group); {hint}")
+                    with self.assertRaises(ValueError) as caught:
+                        accounts.directory(metadata, create=True)
+                    self.assertEqual(str(caught.exception), f"{self.place}: must be a real directory that other "
+                                     f"users cannot change; {hint}")
+                else:
+                    check.directory(self.place)
+                    self.assertEqual(accounts.directory(metadata, create=True), self.place / "accounts")
+        # An access ACL that cannot be read counts as other users' write.
+        self.place.chmod(0o770)
+        with upg(gid), patch.object(os, "listxattr", create=True, side_effect=PermissionError(13, "denied")):
+            check.kit_config().private_group.cache_clear()
+            self.assertTrue(launch.others_can_write(os.lstat(self.place), self.place))
+            with self.assertRaises(ValueError):
+                check.directory(self.place)
+            with self.assertRaises(ValueError):
+                accounts.directory(metadata, create=True)
+
+
 class Launchers(unittest.TestCase):
     """The real launchers from kit copies, in a temporary HOME with recording fakes."""
 
@@ -1628,14 +1690,15 @@ class Launchers(unittest.TestCase):
         write(root / "config.toml", 'model_provider = "elsewhere"\n')
         self.assertIn("another model provider", self.run_tool([self.kit / "bin/codex-as", "A", "exec", "x"]).stderr)
         write(root / "config.toml", 'model = "configured-model"\n')
-        # Both parents must be private to the user.
+        # Both parents must be private to the user (group write: PrivateGroupDirectories).
         for parent in (state, vault):
             with self.subTest(parent=parent.name):
-                parent.chmod(0o770)
+                parent.chmod(0o707)
                 result = self.run_tool([self.kit / "bin/codex-as", "A", "exec", "x"])
                 self.assertEqual(result.returncode, 1)
-                self.assertEqual(result.stderr, f"codex-as: {parent}: directory is group/other writable; "
-                                 "review and restrict it first.\n")
+                self.assertEqual(result.stderr, f"codex-as: {parent}: directory must not be writable by other users "
+                                 "(other write, or group write by a group that is not your private group); run "
+                                 f"chmod go-w {shlex.quote(str(parent))}.\n")
                 parent.chmod(0o700)
         self.assertEqual(len(self.records()), count + 2)
         self.configure(f'codex = "{tools}/missing codex"\n')
@@ -1659,9 +1722,11 @@ class Launchers(unittest.TestCase):
         self.assertEqual(self.run_tool([self.kit / "bin/claude-as", "--list-accounts"]).stdout, "work\n")
         vault.chmod(0o750)
         self.assertEqual(self.run_tool([self.kit / "bin/claude-as", "work"]).stderr, "")
-        vault.chmod(0o770)
+        vault.chmod(0o707)  # group write: PrivateGroupDirectories
         result = self.run_tool([self.kit / "bin/claude-as", "work"])
-        self.assertEqual(result.stderr, f"claude-as: {vault} must be an owned, real directory without group/other write access.\n")
+        self.assertEqual(result.stderr, f"claude-as: {vault} must not be writable by other users (other write, or group "
+                         "write by a group that is not your private group); run chmod go-w "
+                         f"{shlex.quote(str(vault))}.\n")
         vault.chmod(0o700)
         secrets.chmod(0o750)
         result = self.run_tool([self.kit / "bin/claude-as", "work"])

@@ -401,6 +401,21 @@ def native_module():
     return _NATIVE[0]
 
 
+def others_can_write(info, path):
+    """Whether a user other than this one can write the directory INFO describes (PATH): other write,
+    or group write unless the group is the user's private group without an access ACL (config.py's
+    private_group and access_acl, the rule of the configuration file); an unreadable ACL counts."""
+    if info.st_mode & stat.S_IWOTH:
+        return True
+    if not info.st_mode & stat.S_IWGRP:
+        return False
+    settings = kit_module("config")
+    try:
+        return not settings.private_group(info.st_gid) or settings.access_acl(path)
+    except OSError:
+        return True
+
+
 def kit_config():
     config = kit_module("config").load()
     for warning in config.warnings:
@@ -610,9 +625,12 @@ def main():
         info = parent.lstat()
     except (FileNotFoundError, NotADirectoryError):
         fail(f"{parent} does not exist; create it, owned by you and not group or other writable.")
-    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
-        fail("HOME must be an owned, real user directory without group/other write access." if parent == config.home
-             else f"{parent} must be an owned, real directory without group/other write access.")
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+        fail("HOME must be an owned, real user directory." if parent == config.home
+             else f"{parent} must be an owned, real directory.")
+    if others_can_write(info, parent):
+        fail(f"{parent} must not be writable by other users (other write, or group write by a group that is not "
+             f"your private group); run chmod go-w {shlex.quote(str(parent))}.")
     query = args in (["--help"], ["-h"], ["--version"], ["-v"])
     policy = reserve.resolve("claude-as", account, overrides, config.usage_reserve)
     if config.claude_mode(account) == "native-login":

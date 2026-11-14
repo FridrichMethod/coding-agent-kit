@@ -52,10 +52,16 @@ orphaned. A SIGTSTP it sends itself (a TUI's own suspend key) is discarded by th
 that stops itself with SIGSTOP is continued at once, and the launcher itself is never suspended:
 in raw mode Ctrl-Z reaches the native as a key.
 
-Continuation is a trusted-terminal action: after a pause, the trigger key (F12 unless the adapter
-chooses another) shows a fresh one-use code; typing it and Enter asks the gate for a fresh check.
-Input typed before the pause is flushed, a bracketed paste never confirms, native output never
-reaches this parser, and nothing but terminal input starts a check.
+Continuation is a trusted-terminal action: after a pause, and while a model family is paused alone
+(the session runs on), the trigger key (F12 unless the adapter chooses another) shows a fresh
+one-use code; typing it and Enter asks the gate for a fresh check, which answers every pause at
+once. With no pause the key reaches the native. Input typed before a pause is flushed (a family
+pause flushes nothing: the session runs), a bracketed paste never confirms, native output never
+reaches this parser, and nothing but terminal input starts a check. Each family pause gets its own
+deterministic line (family_pause_message), and its lift a line of its own. The check runs in the
+relay loop, so while it waits for the gate's answer (normally well under a second, at most
+CONTINUE_TIMEOUT) the native's output, forwarded input and relayed signals wait too, the session's
+also when only a family is paused and the session runs.
 """
 
 import collections
@@ -114,6 +120,8 @@ PROXY_ORDER = {
 }
 NO_PROXY_VARIABLES = ("NO_PROXY", "no_proxy")
 NO_PROXY_ENTRY = re.compile(r"[a-z0-9._-]{1,253}")  # the names gate.bypasses can exempt
+FAMILY = re.compile(r"[a-z0-9_]{1,64}")  # a model family the gate pauses alone (gate.FAMILY)
+FAMILY_REASON = re.compile(r"[a-z][a-z0-9_]{0,63}")
 # macOS: the global proxy settings (SCDynamicStoreCopyProxies), which Codex's HTTP client also
 # reads when no HTTPS proxy variable is set (system_https_proxy).
 SCUTIL = "/usr/sbin/scutil"
@@ -407,6 +415,7 @@ def resolution(path, hops=40):
 
 ENV_COMMAND = re.compile(r"[A-Za-z0-9._+-]+")
 ENV_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=[^'\"\\$`]*")
+INTERPRETER_DEPTH = 4  # nested #! lines followed (Linux nests four interpreters), as claude-as follows them
 
 
 class Unfollowed(ValueError):
@@ -414,9 +423,10 @@ class Unfollowed(ValueError):
 
 
 def script_interpreter(path):
-    """(interpreter, NAME) of the #! script at PATH: the absolute interpreter its #! line names and,
-    when that is env, the command NAME it runs, which env looks up on its PATH; (None, None) when
-    PATH is no such script. The env forms followed are `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]`
+    """(interpreter, NAME) of the #! script at PATH: the interpreter its #! line names, as written
+    (a relative one too, which native_sources refuses) and, when that is an absolute env, the
+    command NAME it runs, which env looks up on its PATH; (None, None) when PATH is no such script
+    or cannot be read. The env forms followed are `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]`
     (-S also attached), split at blanks as macOS splits the line and as -S splits it on Linux;
     Unfollowed for any other option (-i, -u, -C, -P and the rest can change where or whether env
     looks NAME up), a PATH assignment, quoting or no plain NAME."""
@@ -428,9 +438,9 @@ def script_interpreter(path):
     if not head.startswith(b"#!"):
         return None, None
     words = head[2:].split(b"\n", 1)[0].decode("utf-8", "replace").split()
-    if not words or not os.path.isabs(words[0]):
+    if not words:
         return None, None
-    if os.path.basename(words[0]) != "env":
+    if not os.path.isabs(words[0]) or os.path.basename(words[0]) != "env":
         return words[0], None
     rest = words[1:]
     if rest and rest[0].startswith("-S"):
@@ -444,25 +454,41 @@ def script_interpreter(path):
     return words[0], rest[0]
 
 
-def native_sources(path, env, what="the native"):
-    """(what, path, holds code) for the native executable PATH and, when it is a #! script, its
-    interpreter: the absolute one it names or, for `#!/usr/bin/env NAME`, NAME as ENV's PATH finds
-    it (one level; an interpreter that is a script itself is not followed). A protected session
-    that could replace one of them, or a link on the way, would have the next unprotected run of
-    the native execute its code unconfined, so an adapter refuses when one lies in the boundary's
-    reach (unreachable). Refused for an env line script_interpreter does not follow."""
-    sources = [(what, str(path), False)]
-    try:
-        interpreter, name = script_interpreter(path)
-    except Unfollowed as error:
-        raise Refused("the #! line of %s runs %s in a form protected mode does not follow (use "
-                      "`#!%s NAME` or `#!%s -S NAME ARGS`)" % (what, error, error, error)) from None
-    if interpreter is not None:
+def native_sources(path, env, what="the native", searched=None):
+    """(what, path, holds code) for the native executable PATH and, through nested #! lines (at most
+    INTERPRETER_DEPTH), each interpreter: the absolute one a line names or, for `#!/usr/bin/env
+    NAME`, NAME as ENV's PATH finds it (each such NAME is appended to SEARCHED, for path_order). A
+    protected session that could replace one of them, or a link on the way, would have the next
+    unprotected run of the native execute its code unconfined, so an adapter refuses when one lies in
+    the boundary's reach (unreachable). Refused for a relative interpreter, which the kernel looks up
+    from the working directory, an env line script_interpreter does not follow, and more nested
+    interpreters than INTERPRETER_DEPTH."""
+    searched = [] if searched is None else searched
+    sources, current, shown = [(what, str(path), False)], str(path), what
+    for level in range(INTERPRETER_DEPTH + 1):
+        try:
+            interpreter, name = script_interpreter(current)
+        except Unfollowed as error:
+            raise Refused("the #! line of %s runs %s in a form protected mode does not follow (use "
+                          "`#!%s NAME` or `#!%s -S NAME ARGS`)" % (shown, error, error, error)) from None
+        if interpreter is None:
+            return sources
+        if level == INTERPRETER_DEPTH:
+            break
+        if not os.path.isabs(interpreter):
+            raise Refused("the #! line of %s names an interpreter that is not an absolute path, which the kernel "
+                          "looks up from the working directory; protected mode does not follow it" % shown)
         sources.append(("the interpreter of " + what, interpreter, False))
-    found = shutil.which(name, path=env.get("PATH", os.defpath)) if name else None
-    if found:
-        sources.append(("the interpreter of " + what, os.path.abspath(found), False))
-    return sources
+        current = interpreter
+        if name:
+            searched.append(name)
+            found = shutil.which(name, path=env.get("PATH", os.defpath))
+            if not found:
+                return sources
+            current = os.path.abspath(found)
+            sources.append(("the interpreter of " + what, current, False))
+        shown = "the interpreter %s of %s" % (current, what)
+    raise Refused("the #! lines of %s lead through more than %d interpreters" % (what, INTERPRETER_DEPTH))
 
 
 def _runnable(path):
@@ -471,14 +497,17 @@ def _runnable(path):
 
 
 def path_order(lookups, env, writable_paths, hint=""):
-    """Refused (reason ending in HINT) when a PATH entry of ENV that a lookup of a command searches
-    before the entry supplying it lies inside a writable path, through every link, or is relative
-    (an empty one is the current directory, the workspace for a later run there): a protected
-    session could put a file of that name there, and the next lookup outside the boundary (the
-    next launch, or a plain run of the native) would execute it unconfined. LOOKUPS are (name,
-    label) pairs, label naming the command in a message; a name with a slash is never looked up.
-    When no entry supplies a name, every entry counts. The supplier itself is unreachable's to
-    check, as the resolved command."""
+    """Refused when a PATH entry of ENV that a lookup of a command searches could take a program a
+    protected session plants or replaces, which the next lookup outside the boundary (the next
+    launch, or a plain run of the native) would execute unconfined: a relative entry searched before
+    the one supplying it (an empty one is the current directory, the workspace for a later run
+    there), or an entry searched before it, or that one, where the command, or a name on the way to
+    it (resolution, through links), lies inside a writable path. The reason for an entry searched
+    before ends in HINT. The supplying entry counts by name, as claude-as counts it, since the
+    program check cannot always see it: a python3 wrapper script there leaves the launcher's Python
+    naming what the script execs. LOOKUPS are (name, label) pairs, label naming the command in a
+    message; a name with a slash is never looked up. When no entry supplies a name, every entry
+    counts."""
     entries = env.get("PATH", os.defpath).split(os.pathsep)
     for name, label in lookups:
         if not name or "/" in name:
@@ -492,19 +521,25 @@ def path_order(lookups, env, writable_paths, hint=""):
                 raise Refused("%s %s; a later run from the workspace would search the workspace there, which a "
                               "protected session can write%s" % (shown, before or "is searched for %s, which no "
                                                                   "PATH entry supplies" % label, hint))
+            names = resolution(os.path.join(entry, name))
+            for root in writable_paths:
+                if not any(within(item, root) for item in names):
+                    continue
+                if entry == supplier:
+                    raise Refused("the PATH entry %s, which supplies %s, lies inside %s, which the boundary can write: "
+                                  "a protected session could replace that %s, which the next run outside the boundary "
+                                  "would execute unconfined; supply %s from a PATH entry outside every path the "
+                                  "boundary can write" % (entry, label, root, name, name))
+                if before:
+                    place = "the PATH entry %s %s, and lies inside %s, which the boundary can write" % (
+                        entry, before, root)
+                else:
+                    place = ("the PATH entry %s lies inside %s, which the boundary can write, and no PATH entry "
+                             "supplies %s" % (entry, root, label))
+                raise Refused("%s: a protected session could put a %s there that the next run outside the "
+                              "boundary would execute unconfined%s" % (place, name, hint))
             if entry == supplier:
                 break
-            names = resolution(entry)
-            for root in writable_paths:
-                if any(within(item, root) for item in names):
-                    if before:
-                        place = "the PATH entry %s %s, and lies inside %s, which the boundary can write" % (
-                            entry, before, root)
-                    else:
-                        place = ("the PATH entry %s lies inside %s, which the boundary can write, and no PATH entry "
-                                 "supplies %s" % (entry, root, label))
-                    raise Refused("%s: a protected session could put a %s there that the next run outside the "
-                                  "boundary would execute unconfined%s" % (place, name, hint))
 
 
 def system_command(candidates):
@@ -655,6 +690,8 @@ def pause_message(reason, fields, key="F12"):
     parts = ["quota reserve paused (%s)" % reason]
     if fields.get("account") is not None:
         parts.append("account " + _value(fields["account"]))
+    if fields.get("rows") is not None:  # the unreviewed rows of an unproved_quota_row pause
+        parts.append("unreviewed quota rows " + _value(fields["rows"]))
     if fields.get("window") is not None:
         parts.append("window " + _value(fields["window"]))
     if fields.get("remaining") is not None:
@@ -683,18 +720,45 @@ def eligible_message(fields, key="F12"):
     return "; ".join(parts)
 
 
+def family_pause_message(family, reason, fields, key="F12", running=True):
+    """The deterministic local line for a model family paused alone: family, reason, account, last
+    fresh observation, whether the session and the other families go on (RUNNING) or the session is
+    paused too, and how to request continuation."""
+    fields = fields or {}
+    parts = ["quota reserve paused the %s model family (%s)" % (family, reason)]
+    if fields.get("account") is not None:
+        parts.append("account " + _value(fields["account"]))
+    if fields.get("last_fresh") is not None:
+        parts.append("last fresh check " + _value(fields["last_fresh"]))
+    parts.append("the session and the other model families go on" if running else "the session is paused too")
+    parts.append("press %s, then type the code shown and Enter, to request a fresh check" % key)
+    return "; ".join(parts)
+
+
+def family_still_message(families, failure=None, key="F12"):
+    """The line after a continuation that left model families ({family: reason}) paused; FAILURE: why
+    its fresh check did not pass, when it did not."""
+    text = "still paused: " + ", ".join("the %s model family (%s)" % (family, reason)
+                                        for family, reason in sorted(families.items()))
+    if failure:
+        text = "the fresh quota check did not pass (%s); %s" % (failure, text)
+    return text + "; press %s, then type the code shown and Enter, to request another fresh check" % key
+
+
 class TerminalControl:
     """The trusted-terminal parser: forwards user input to the native and owns continuation.
 
     Only bytes read from the user's terminal reach feed(). pause() flushes unread terminal input;
-    the trigger then shows a fresh code; Enter after the exact code calls check() once. A paste,
-    an old code, a repeated trigger or any other key grants nothing."""
+    the trigger then shows a fresh code, while paused or while offer is set (a model family paused
+    alone, the session running); Enter after the exact code calls check() once. A paste, an old
+    code, a repeated trigger or any other key grants nothing; with neither, the trigger reaches the
+    native."""
 
     def __init__(self, input_fd, forward, display, check, trigger=F12, key_name="F12", clock=time.monotonic):
         self.input_fd, self.forward, self.display, self.check = input_fd, forward, display, check
         self.trigger, self.key_name, self.clock = trigger, key_name, clock
         self.sequences = (trigger, PASTE_START, PASTE_END)
-        self.paused, self.challenge, self.pasting = False, None, False
+        self.paused, self.offer, self.challenge, self.pasting = False, False, None, False
         self.answer, self.pending, self.pending_since = bytearray(), bytearray(), 0.0
 
     def pause(self):
@@ -741,7 +805,7 @@ class TerminalControl:
         elif value == PASTE_END:
             self.pasting = False
             self.forward(value)
-        elif self.pasting or not self.paused:
+        elif self.pasting or not (self.paused or self.offer):
             self.forward(value)
         elif self.challenge is None:
             self.challenge = secrets.token_hex(4)
@@ -756,9 +820,11 @@ class TerminalControl:
             accepted = bytes(self.answer) == self.challenge.encode("ascii")
             self.challenge = None
             self.answer.clear()
+            paused = self.paused
             if accepted and self.check():
                 self.paused = False
-                self.display("fresh quota check passed; model requests resume")
+                if paused:  # a check for a family alone resumes no session
+                    self.display("fresh quota check passed; model requests resume")
             elif not accepted:
                 self.display("still paused: the code did not match; press %s for a new one" % self.key_name)
         elif byte in (8, 127):
@@ -811,7 +877,9 @@ class Supervisor:
         anything that talks to the provider.
     reader: callable() -> bool that drives one fresh in-boundary read when a continuation needs it.
     preflight: callable(supervisor) run after the first heartbeat, before the native; may raise
-        Refused. The gate must then report running.
+        Refused. The gate must then report running. It may return the model families ({family:
+        reason}) its startup message named paused, from its own status read; a family paused after
+        that read then still gets its line.
     confine: callable(port, argv) -> argv, run in the native's child before exec.
     pid_env: name of an environment variable set to the native's own pid in its child.
     umask: None, or the file mode creation mask the native and every confined command get, set in
@@ -850,6 +918,9 @@ class Supervisor:
         self.restarts, self.down_since, self.gave_up = collections.deque(), None, False
         self.subreaper, self.tracked, self.snapshot_at = False, {}, 0.0
         self.ui, self.master, self.to_native = None, None, bytearray()
+        # Model families paused alone, as the terminal was told (family -> reason), and lines a
+        # continuation leaves for after the terminal parser's own.
+        self.families, self.later = {}, []
 
     # -- children ----------------------------------------------------------------------------------
     def spawn(self, argv, env, *, fds=(), stdin=None, stdout=None, stderr=None, cwd=None, tty_fd=None,
@@ -1183,11 +1254,27 @@ class Supervisor:
             pass
 
     def check(self):
-        """TerminalControl's check: one verified continuation through the gate."""
+        """TerminalControl's check: one verified continuation through the gate. True once the session
+        runs; families it left paused are named after the terminal parser's own line (later)."""
         self.say("requesting a fresh quota check")
         reply = self.request("continue", CONTINUE_TIMEOUT)
         if reply.get("timeout"):
             self.post("disarm")  # a check still running must not resume after "still paused" below
+        families = reply.get("families")
+        if isinstance(families, dict):
+            remaining = {family: reason for family, reason in families.items() if self._family(family, reason)}
+            # The families paused before the check are named below; the gate's own messages announce the
+            # lifts and the families this check paused.
+            still = {family: reason for family, reason in remaining.items() if family in self.families}
+            self.families.update(still)
+            if self.ui is not None:
+                self.ui.offer = bool(remaining)
+            if not reply.get("ok") and reply.get("running") and still:
+                failure = reply.get("reason")
+                self.later.append(family_still_message(still, None if failure == "family_paused" else failure,
+                                                       self.key_name))
+        if reply.get("running"):
+            return True
         if reply.get("needs_read"):
             ran = False
             if self.reader is not None:
@@ -1225,6 +1312,31 @@ class Supervisor:
             if self.ui.paused:  # a check the launcher had stopped waiting for passed after all
                 self.say("fresh quota check passed; model requests resume")
             self.ui.resume()
+        elif op == "family_paused":
+            family, reason = message.get("family"), message.get("reason")
+            if self._family(family, reason):
+                if self.families.get(family) != reason:  # not shown yet (the startup message names some)
+                    self.families[family] = reason
+                    session = message.get("session")  # the gate's view once the same reading applied
+                    running = (session == "running" if session in ("running", "paused")
+                               else self.ui is None or not self.ui.paused)
+                    self.say(family_pause_message(family, reason, message.get("fields"), self.key_name, running))
+                self._offer()
+        elif op == "family_resumed":
+            family = message.get("family")
+            if self.families.pop(family, None) is not None:
+                self.say("fresh quota check passed for the %s model family; its requests resume" % family)
+            self._offer()
+
+    @staticmethod
+    def _family(family, reason):
+        return (isinstance(family, str) and FAMILY.fullmatch(family) is not None and isinstance(reason, str)
+                and FAMILY_REASON.fullmatch(reason) is not None)
+
+    def _offer(self):
+        """Offer the continuation key while any model family is paused alone."""
+        if self.ui is not None:
+            self.ui.offer = bool(self.families)
 
     def _gate_down(self, announce=True):
         """A dead, lost or silent gate: paused until a restarted gate passes a fresh check. A lost
@@ -1251,6 +1363,8 @@ class Supervisor:
         self.gave_up = False
         self.restarts.append(now)
         self._stop_gate()
+        self.families = {}  # the restarted gate pauses its families afresh from its first reading
+        self._offer()
         try:
             self.start_gate("restart")
             self.wait_heard()
@@ -1514,6 +1628,9 @@ class Supervisor:
                     data = b""
                 if data:
                     ui.feed(data)
+                    for line in self.later:  # what a continuation left paused, after the parser's line
+                        self.say(line)
+                    self.later = []
                 else:
                     terminal_open = False
                     self._kill(self.native_pid, signal.SIGHUP)
@@ -1570,11 +1687,18 @@ class Supervisor:
             self.prepare()
             self.start_gate("startup")
             status = self.wait_heard()
+            announced = None
             if self.preflight is not None:
-                self.preflight(self)
+                announced = self.preflight(self)
                 status = self.request("status", 10)
             if not status.get("running"):
                 raise Refused("preflight: %s" % (status.get("reason") or "no fresh passing quota check"))
+            # Families paused at startup: the adapter's startup message names those of the read it
+            # returns (else those of the status above), so the gate's own messages about them show
+            # nothing new, while one paused after that read gets its line; the key is offered from the start.
+            started = announced if isinstance(announced, dict) else status.get("families")
+            self.families = {family: reason for family, reason in (started if isinstance(started, dict) else {}).items()
+                             if self._family(family, reason)}
             # From here on the launcher relays signals to the native instead of acting on them.
             wake_read, wake_write = os.pipe()
             for fd in (wake_read, wake_write):
@@ -1591,6 +1715,7 @@ class Supervisor:
                 self.to_native += data
 
             self.ui = TerminalControl(self.term_in, forward, self.say, self.check, self.trigger, self.key_name)
+            self._offer()
             outer = termios.tcgetattr(self.term_in)
             tty.setraw(self.term_in)
             self._winch()

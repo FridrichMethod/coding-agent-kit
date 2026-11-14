@@ -9,10 +9,12 @@ subcommand refuses.
 
 Refusals come first and change nothing (Session.check): the arguments an allowlisted interactive
 TUI form, parsed like clap 0.167.2 (screen); the environment may name no other endpoint; the host
-must carry the OS boundary; no name on the way to the native executable (or to the interpreter of a
-#! script native) may lie in the boundary's reach, since a session could then replace the native
-under the user's next plain codex run, and no PATH entry in that reach may come before the one that
-supplies python3, codex or that interpreter, where a session could plant one (supervise.path_order);
+must carry the OS boundary; no name on the way to the native executable (or to an interpreter its
+nested #! lines name, four levels deep) may lie in the boundary's reach, since a session could then
+replace the native under the user's next plain codex run, and no PATH entry in that reach may supply,
+or come before the one that supplies, the python3, dirname and readlink that bin/codex-as runs by
+name before any check (LAUNCHER_COMMANDS), codex or a #!/usr/bin/env interpreter, where a session
+could plant or replace one (supervise.path_order);
 the shared entries the writable set names beneath codex_home must be plain directories and files of
 this user, not links (shared_entries); the native release, which `codex --version` reports from
 inside a boundary of its own (native_version: the kit never runs the native outside a boundary),
@@ -915,6 +917,10 @@ NATIVE_HINT = ("; protected mode refuses a Codex that a protected session could 
                "plain codex would run it unconfined: install Codex outside the workspace and the directories "
                "the boundary writes")
 PATH_HINT = "; move that entry after the one that supplies the command on PATH, or drop it"
+# The programs bin/codex-as runs by name on the caller's PATH, before any check: python3, which runs
+# the launcher, and the shell utilities it resolves its own location with (readlink for each link on
+# the way to it; checked for every launch, since the next one may come through a link).
+LAUNCHER_COMMANDS = ("python3", "dirname", "readlink")
 
 
 def no_login(name):
@@ -1019,12 +1025,12 @@ class Session:
             self.sandbox.probe()
         except self.sandbox.Refusal as error:
             refuse(str(error))
-        reach = self.reach()
+        reach, searched = self.reach(), []
         try:
-            unreachable(self.supervise.native_sources(self.codex, self.env, "the Codex executable"), reach,
+            unreachable(self.supervise.native_sources(self.codex, self.env, "the Codex executable", searched), reach,
                         NATIVE_HINT)
             unreachable(launcher_sources(), reach, LAUNCHER_HINT)
-            self.supervise.path_order(self.lookups(), self.env, reach, PATH_HINT)
+            self.supervise.path_order(self.lookups(searched), self.env, reach, PATH_HINT)
         except self.supervise.Refused as error:
             refuse(error.reason)
         self.shared_entries(created=False)
@@ -1133,21 +1139,17 @@ class Session:
         """Everything a boundary process of this run can write: both writable sets and the devices."""
         return self.paths() + self.paths(refresh=True) + fixed_writable(self.sandbox)
 
-    def lookups(self):
+    def lookups(self, commands=()):
         """(name, label) of the commands run by name through the caller's PATH outside the boundary,
-        which no PATH entry the boundary can write may shadow (supervise.path_order): the launcher's
-        python3 (bin/codex-as runs it by name), codex when the configuration names it by name (the
-        next launch and a plain codex alike) and the command a `#!/usr/bin/env NAME` codex runs."""
-        found = [("python3", "python3")]
+        which no PATH entry the boundary can write may supply or shadow (supervise.path_order): what
+        bin/codex-as runs by name (LAUNCHER_COMMANDS), codex when the configuration names it by name
+        (the next launch and a plain codex alike) and COMMANDS, the commands that `#!/usr/bin/env NAME`
+        lines on the way to codex run (supervise.native_sources collects them)."""
+        found = [(name, name) for name in LAUNCHER_COMMANDS]
         name = getattr(self.config, "codex", "codex")
         if "/" not in name:
             found.append((name, name))
-        try:
-            command = self.supervise.script_interpreter(self.codex)[1]
-        except self.supervise.Unfollowed:  # native_sources accepted it a moment ago
-            refuse("the #! line of the Codex executable changed during the launch")
-        if command is not None:
-            found.append((command, "%s (the interpreter of the Codex executable)" % command))
+        found += [(command, "%s (the interpreter of the Codex executable)" % command) for command in commands]
         return found
 
     def shared_entries(self, created=True):
@@ -1297,8 +1299,10 @@ class Session:
             self.private = tempfile.mkdtemp(prefix="codex-as-protect-")
             paths, refresh_paths = self.paths(), self.paths(refresh=True)
             reach = paths + refresh_paths + fixed_writable(self.sandbox)
-            unreachable(supervise.native_sources(self.codex, self.env, "the Codex executable"), reach, NATIVE_HINT)
-            supervise.path_order(self.lookups(), self.env, reach, PATH_HINT)
+            searched = []
+            unreachable(supervise.native_sources(self.codex, self.env, "the Codex executable", searched), reach,
+                        NATIVE_HINT)
+            supervise.path_order(self.lookups(searched), self.env, reach, PATH_HINT)
             # Reader specifications, and the code of every kit process outside the boundary, must
             # stay out of reach of every boundary process.
             outside(self.private, reach)
