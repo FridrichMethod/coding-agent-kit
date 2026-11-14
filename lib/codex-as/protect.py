@@ -50,8 +50,9 @@ area), the other accounts and the root auth.json. None may be
 HOME, an ancestor of HOME, HOME/Library or lie at or inside HOME/Library/LaunchAgents. The
 boundary also leaves its devices writable (fixed_writable: /dev/shm and /dev/pts on Linux). The
 readers' specifications live in another private directory, which must lie outside all of it (a
-TMPDIR inside the workspace refuses), and the monitor's reader takes its boundary from the argv
-the launcher builds, never from a file.
+TMPDIR inside the workspace refuses), and so does the run gate's requirement record (one word, "none"
+until a config bundle forbids protected mode), which a restarted gate starts from (gate.py); the
+monitor's reader takes its boundary from the argv the launcher builds, never from a file.
 
 The gate, the monitor and the monitor's reader run outside the boundary (the reader until it
 confines itself), so nothing they load code from may be in its reach: they run the base
@@ -1229,6 +1230,14 @@ class Session:
             env.update(HTTPS_PROXY="http://127.0.0.1:%d" % port, https_proxy="http://127.0.0.1:%d" % port)
         return env
 
+    def requirement_record(self):
+        """The run gate's requirement record in the private directory, created holding "none"."""
+        path = Path(self.private) / "requirement"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w", encoding="ascii") as stream:
+            stream.write("none\n")
+        return str(path)
+
     def spec(self, name, port, mode, timeout):
         """A reader's specification, in the private directory outside every writable path."""
         spec = {"command": self.app_server(port), "env": self.reader_env(port, mode == "refresh"),
@@ -1304,6 +1313,9 @@ class Session:
                       "expected": [self.login.account, self.login.user], "reserves": reserves,
                       "native": self.native.name, "sqlite_home": self.sqlite, "mode": "run"}
             refresh_config = dict(config, mode="refresh", connect_allow=REFRESH_HOSTS)
+            # The run gate's requirement record, out of every boundary process's reach with the reader
+            # specifications: a restarted gate keeps a requirement pause until a later bundle lifts it.
+            config["requirement_file"] = self.requirement_record()
             extra = self.sandbox.holder_addresses().reserve if sys.platform == "darwin" else ()
             sup = supervise.Supervisor([python, "-I", "-B", str(GATE)], config, refresh_config=refresh_config,
                                        python=python, monitor_reader_timeout=READ_TIMEOUT, holder_extra=extra,

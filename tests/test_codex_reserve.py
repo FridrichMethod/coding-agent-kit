@@ -1063,6 +1063,115 @@ class Provider(unittest.TestCase):
         self.assertEqual(self.gate.status()["state"], "running")
         self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
 
+    def serve(self, record, mode):
+        """Replace the gate as the launcher's restart does: a new process's provider and Decider from the
+        run configuration (gate.main's make), on the same requirement record, in MODE."""
+        config = {"native": NATIVE.name, "mode": "run", "expected": [ACCOUNT, USER], "sqlite_home": "/fixture/.codex",
+                  "account": "A", "reserves": {"five_hour": ["10", "invocation"], "weekly": ["10", "invocation"]},
+                  "requirement_file": str(record)}
+        self.provider, self.decider = provider_gate.make(config)
+        self.provider.upstream = kit.Upstream("127.0.0.1", self.upstream.port, tls=False)
+        self.gate = provider_gate.CodexGate(self.provider, self.decider, max_age=120, mode=mode)
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(32)
+        self.server = kit.Server(listener, self.gate)
+        threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.port = listener.getsockname()[1]
+        self.gate.attach()
+        self.gate.heartbeat()
+
+    def record(self):
+        directory = tempfile.TemporaryDirectory(prefix="codex-reserve-record-")
+        self.addCleanup(directory.cleanup)
+        record = Path(directory.name) / "requirement"
+        record.write_text("none\n")  # as protect.py creates it for the run
+        record.chmod(0o600)
+        return record
+
+    def continued(self):
+        self.gate.heartbeat()
+        self.gate.arm_continuation()
+        self.request("GET", "/backend-api/wham/usage")
+        return self.gate.status()
+
+    def test_a_requirement_pause_carries_over_a_gate_restart_until_a_later_bundle_lifts_it(self):
+        """U2 (a), the reviewer's N3 repro: a restarted gate (a new provider and Decider) keeps the run
+        paused under the latest bundle's requirement; neither a passing read nor a continuation lifts
+        it, only a later bundle without blockers does."""
+        record = self.record()
+        self.serve(record, "startup")
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["state"], "running")
+        self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only"]\n')
+        self.assertEqual(self.request("GET", provider_gate.BUNDLE_PATH)[0], 200)
+        self.assertEqual(self.gate.status()["reason"], "requirements_sandbox_mode_not_allowed")
+        self.assertEqual(record.read_text(), "requirements_sandbox_mode_not_allowed\n")
+        self.assertEqual(stat.S_IMODE(record.stat().st_mode), 0o600)
+        self.serve(record, "restart")
+        self.request("GET", "/backend-api/wham/usage")  # passes both reserves
+        self.assertEqual(self.gate.status()["reason"], "requirements_sandbox_mode_not_allowed")
+        status = self.continued()
+        self.assertEqual((status["state"], status["reason"]), ("paused", "requirements_sandbox_mode_not_allowed"))
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+        self.assertEqual(self.model_requests(), [])
+        self.serve(record, "restart")  # and again: still carried
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.continued()["reason"], "requirements_sandbox_mode_not_allowed")
+        self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only", "danger-full-access"]\n')
+        self.assertEqual(self.request("GET", provider_gate.BUNDLE_PATH)[0], 200)
+        self.assertEqual(record.read_text(), "none\n")
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["reason"], "awaiting_continuation")
+        self.assertEqual(self.continued()["state"], "running")
+        self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 200)
+        # A restart after the lift carries nothing over: a continuation resumes as after any restart.
+        self.serve(record, "restart")
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.gate.status()["reason"], "awaiting_continuation")
+        self.assertEqual(self.continued()["state"], "running")
+
+    def test_a_missing_or_garbled_requirement_record_keeps_a_restarted_gate_paused(self):
+        """A record a restarted gate cannot read fails closed, as an unreadable requirement does, until a
+        later bundle without blockers lifts it; a refresh gate keeps no record."""
+        for name, arrange in (("missing", lambda record: record.unlink()),
+                              ("garbled", lambda record: record.write_text("requirements_not_a_blocker\n")),
+                              ("other", lambda record: record.write_text("threshold\n"))):
+            with self.subTest(name=name):
+                record = self.record()
+                arrange(record)
+                self.serve(record, "restart")
+                self.request("GET", "/backend-api/wham/usage")
+                self.assertEqual(self.continued()["reason"], "requirements_requirements_unreadable")
+                self.assertEqual(self.request("POST", provider_gate.MODEL_PATH, {"model": "gpt-5.5"})[0], 503)
+                self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only", "danger-full-access"]\n')
+                self.assertEqual(self.request("GET", provider_gate.BUNDLE_PATH)[0], 200)
+                self.assertEqual(self.continued()["state"], "running")
+                self.upstream.bundle = None
+        provider, _ = provider_gate.make({"native": NATIVE.name, "mode": "refresh", "expected": [ACCOUNT, USER],
+                                          "sqlite_home": "/fixture/.codex", "account": "A",
+                                          "reserves": {"five_hour": ["10", "invocation"], "weekly": [None, "default"]},
+                                          "requirement_file": "/nonexistent/requirement", "connect_allow": {}})
+        self.assertIsNone(provider.requirement)
+        self.assertIsNone(provider.carry)
+
+    def test_a_record_that_cannot_be_written_fails_a_restart_closed(self):
+        record = self.record()
+        self.serve(record, "startup")
+        self.request("GET", "/backend-api/wham/usage")
+        record.unlink()
+        record.mkdir()  # the replace of the record now fails
+        self.addCleanup(record.rmdir)
+        self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only"]\n')
+        self.request("GET", provider_gate.BUNDLE_PATH)
+        self.assertEqual(self.gate.status()["reason"], "requirements_sandbox_mode_not_allowed")
+        self.serve(record, "restart")
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.continued()["state"], "paused")
+        self.assertFalse((record.parent / "requirement.new").exists())
+
     def test_the_bundle_route_stays_open_while_paused(self):
         self.request("GET", "/backend-api/wham/usage")
         self.upstream.document = usage_document(primary=91)
@@ -1309,6 +1418,23 @@ def leftovers(base):
         out = subprocess.run(["ps", "-A", "-o", "pid=", "-o", "command="], capture_output=True, text=True).stdout
         found = [int(line.split(None, 1)[0]) for line in out.splitlines()
                  if str(base) in line and int(line.split(None, 1)[0]) != os.getpid()]
+    return found
+
+
+def descendants(pid, needle):
+    """Descendants of PID (from the system ps) whose command line contains NEEDLE."""
+    out = subprocess.run(["/bin/ps", "-A", "-o", "pid=", "-o", "ppid=", "-o", "command="], capture_output=True,
+                         text=True).stdout
+    rows = [line.split(None, 2) for line in out.splitlines() if len(line.split(None, 2)) == 3]
+    children = {}
+    for child, parent, command in rows:
+        children.setdefault(int(parent), []).append((int(child), command))
+    found, stack = [], [pid]
+    while stack:
+        for child, command in children.get(stack.pop(), ()):
+            stack.append(child)
+            if needle in command:
+                found.append(child)
     return found
 
 
@@ -1736,6 +1862,44 @@ class Protected(Launch):
         terminal.expect("TURN 503")
         self.assertEqual(self.models(), [])
         terminal.expect("gate restarted paused", timeout=30)
+        terminal.send(F12)
+        code = terminal.expect("type ([0-9a-f]{8}) then Enter").group(1).decode()
+        terminal.send(code + "\r")
+        terminal.expect("fresh quota check passed", timeout=40)
+        terminal.send("turn\r")
+        terminal.expect("TURN 200")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+
+    def test_a_requirement_pause_survives_a_gate_restart_until_a_later_bundle_lifts_it(self):
+        """U2 (a) end to end: the gate dies while a mid-run bundle's requirement pauses the run; the
+        restarted gate keeps that pause through F12 and a passing read, and a later bundle lifts it."""
+        self.home.write_credential(backend.credential(plan="edu_pro"))
+        self.backend.plan = "edu_pro"
+        allowed = bundle('allowed_sandbox_modes = ["read-only", "danger-full-access"]\n')
+        self.backend.bundle = allowed
+        self.home.knobs(FAKE_BUNDLE="1")
+        terminal = self.start()
+        terminal.expect("READY")
+        self.backend.bundle = bundle('allowed_sandbox_modes = ["read-only"]\n')
+        terminal.send("bundle\r")
+        terminal.expect("quota reserve paused \\(requirements_sandbox_mode_not_allowed\\)")
+        # Native now holds the bundle in its one-hour cache: its readers fetch no other one meanwhile.
+        self.home.knobs()
+        gates = descendants(terminal.pid, "lib/codex-as/gate.py")
+        self.assertEqual(len(gates), 1, gates)
+        os.kill(gates[0], signal.SIGKILL)
+        terminal.expect("gate restarted paused", timeout=30)
+        terminal.send(F12)
+        code = terminal.expect("type ([0-9a-f]{8}) then Enter").group(1).decode()
+        terminal.send(code + "\r")
+        terminal.expect("still paused: requirements_sandbox_mode_not_allowed", timeout=40)
+        terminal.send("turn\r")
+        terminal.expect("TURN 503")
+        self.assertEqual(self.models(), [])
+        self.backend.bundle = allowed
+        terminal.send("bundle\r")
+        terminal.expect("BUNDLE 200")
         terminal.send(F12)
         code = terminal.expect("type ([0-9a-f]{8}) then Enter").group(1).decode()
         terminal.send(code + "\r")

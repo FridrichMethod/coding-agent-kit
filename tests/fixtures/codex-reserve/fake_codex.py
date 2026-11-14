@@ -15,8 +15,9 @@ base_url, CONNECT through HTTPS_PROXY for auth.openai.com:443 (verified with SSL
                                          refresh through the tunnel, written like native: a
                                          temporary file beside the resolved auth.json, renamed)
     codex [-c K=V]... --no-daemon ...    TUI: prints READY, then per line on its terminal:
-                                         usage | turn [MODEL] | net PORT | write PATH [BASE64] |
-                                         spawn | replace (auth.json becomes a regular file) | quit
+                                         usage | bundle | turn [MODEL] | net PORT |
+                                         write PATH [BASE64] | spawn |
+                                         replace (auth.json becomes a regular file) | quit
 Protected mode gives App Server readers an allowlisted environment, so the knobs come from the
 environment or from <codex_home>/fake-codex.json (codex_home is the parent of accounts/NAME), and
 every action is appended to <codex_home>/sessions/fake-codex.log (JSON lines; protected mode leaves
@@ -237,6 +238,11 @@ def tui(config, rest):
         if words[0] == "usage":
             status, _ = usage(config)
             print("USAGE %d" % status, flush=True)
+        elif words[0] == "bundle":  # a config bundle fetch mid-run, as native makes once its cache is stale
+            _, data = credential()
+            status, _ = http(config["chatgpt_base_url"], "GET", "wham/config/bundle", headers=auth_headers(data))
+            log("bundle", status=status)
+            print("BUNDLE %d" % status, flush=True)
         elif words[0] == "turn":
             _, data = credential()
             model = words[1] if len(words) > 1 else "gpt-5.5"
