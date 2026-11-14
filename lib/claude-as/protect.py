@@ -166,16 +166,6 @@ FAMILY_REASONS = {
     "family_at_reserve": "its own weekly limit is at or below the weekly reserve",
     "family_window_unavailable": "its own weekly limit is unavailable in the usage report",
 }
-
-
-def family_notices(families):
-    """The startup lines for the model families a protected session starts with paused alone."""
-    if not isinstance(families, dict):
-        return []
-    return [f"claude-as: the {family} model family starts paused ({reason}: "
-            f"{FAMILY_REASONS.get(reason, reason.replace('_', ' '))}); requests of the other families run, and F12 "
-            "then the code shown asks for a fresh check that can resume it."
-            for family, reason in sorted(families.items()) if isinstance(family, str) and isinstance(reason, str)]
 # The modules the gate and monitor processes load besides gate.py (which the launcher loads too),
 # checked before anything runs: the supervisor checks monitor.py only when the run gate starts, after
 # the pre-launch refresh. native.py loads config.py for the private-group rule of its directory walk.
@@ -212,6 +202,16 @@ def explain(reason):
     if reason.startswith("credential_"):
         return "the account's stored login could not be read (%s); sign in again with the enrollment commands" % reason
     return REASONS.get(reason, reason.replace("_", " "))
+
+
+def family_notices(families):
+    """The startup lines for the model families a protected session starts with paused alone."""
+    if not isinstance(families, dict):
+        return []
+    return [f"claude-as: the {family} model family starts paused ({reason}: "
+            f"{FAMILY_REASONS.get(reason, reason.replace('_', ' '))}); requests of the other families run, and F12 "
+            "then the code shown asks for a fresh check that can resume it."
+            for family, reason in sorted(families.items()) if isinstance(family, str) and isinstance(reason, str)]
 
 
 @dataclass
