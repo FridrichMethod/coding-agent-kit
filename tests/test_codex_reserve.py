@@ -1070,6 +1070,8 @@ class Provider(unittest.TestCase):
                   "account": "A", "reserves": {"five_hour": ["10", "invocation"], "weekly": ["10", "invocation"]},
                   "requirement_file": str(record)}
         self.provider, self.decider = provider_gate.make(config)
+        if self.provider.record_fd is not None:
+            self.addCleanup(os.close, self.provider.record_fd)
         self.provider.upstream = kit.Upstream("127.0.0.1", self.upstream.port, tls=False)
         self.gate = provider_gate.CodexGate(self.provider, self.decider, max_age=120, mode=mode)
         listener = socket.socket()
@@ -1158,19 +1160,69 @@ class Provider(unittest.TestCase):
         self.assertIsNone(provider.carry)
 
     def test_a_record_that_cannot_be_written_fails_a_restart_closed(self):
+        """The gate writes the record in place through the descriptor it opened it with, so a directory it
+        can no longer write changes nothing; a blocking verdict it cannot write at all removes the record,
+        which a restarted gate reads as unreadable (fail closed)."""
         record = self.record()
         self.serve(record, "startup")
         self.request("GET", "/backend-api/wham/usage")
-        record.unlink()
-        record.mkdir()  # the replace of the record now fails
-        self.addCleanup(record.rmdir)
+        record.parent.chmod(0o500)  # no new entry, rename or removal in the private directory
+        self.addCleanup(record.parent.chmod, 0o700)
         self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only"]\n')
         self.request("GET", provider_gate.BUNDLE_PATH)
         self.assertEqual(self.gate.status()["reason"], "requirements_sandbox_mode_not_allowed")
+        self.assertEqual(record.read_text(), "requirements_sandbox_mode_not_allowed\n")
+        self.assertEqual(sorted(path.name for path in record.parent.iterdir()), ["requirement"])
+        record.parent.chmod(0o700)
         self.serve(record, "restart")
         self.request("GET", "/backend-api/wham/usage")
-        self.assertEqual(self.continued()["state"], "paused")
-        self.assertFalse((record.parent / "requirement.new").exists())
+        self.assertEqual(self.continued()["reason"], "requirements_sandbox_mode_not_allowed")
+        # Writes through the descriptor fail now (it is read-only): the blocking verdict removes the record.
+        self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only", "danger-full-access"]\n')
+        self.request("GET", provider_gate.BUNDLE_PATH)
+        self.assertEqual(record.read_text(), "none\n")
+        readonly = os.open(record, os.O_RDONLY)
+        os.dup2(readonly, self.provider.record_fd)
+        os.close(readonly)
+        self.upstream.bundle = bundle('allowed_sandbox_modes = ["read-only"]\n')
+        self.request("GET", provider_gate.BUNDLE_PATH)
+        self.assertEqual(self.gate.status()["reason"], "requirements_sandbox_mode_not_allowed")
+        self.assertFalse(record.exists())
+        self.serve(record, "restart")
+        self.request("GET", "/backend-api/wham/usage")
+        self.assertEqual(self.continued()["reason"], "requirements_requirements_unreadable")
+
+    def test_the_record_is_opened_safely_and_a_run_gate_needs_one(self):
+        """The record must be a private regular file of this user, opened without following a link or
+        blocking on a FIFO and writable by the gate; anything else is unreadable (fail closed). A run gate
+        without a record is refused, so the carry-over never silently stops."""
+        run = {"native": NATIVE.name, "mode": "run", "expected": [ACCOUNT, USER], "sqlite_home": "/fixture/.codex",
+               "account": "A", "reserves": {"five_hour": ["10", "invocation"], "weekly": ["10", "invocation"]}}
+        for value in (None, "relative/requirement", 7):
+            with self.subTest(requirement_file=value), self.assertRaises(kit.Refusal) as caught:
+                provider_gate.make(dict(run, **({} if value is None else {"requirement_file": value})))
+            self.assertEqual(caught.exception.reason, "requirement_record_invalid")
+        directory = Path(tempfile.mkdtemp(prefix="codex-reserve-record-"))
+        self.addCleanup(shutil.rmtree, directory)
+        target = directory / "target"
+        target.write_text("none\n")
+        target.chmod(0o600)
+        cases = {"symlink": lambda path: path.symlink_to(target), "fifo": lambda path: os.mkfifo(path, 0o600),
+                 "shared": lambda path: (path.write_text("none\n"), path.chmod(0o640)),
+                 "read-only": lambda path: (path.write_text("none\n"), path.chmod(0o400)),
+                 "directory": lambda path: path.mkdir(mode=0o700)}
+        for name, arrange in cases.items():
+            with self.subTest(name=name):
+                path = directory / name
+                arrange(path)
+                provider, decider = provider_gate.make(dict(run, requirement_file=str(path)))
+                self.assertEqual(provider.requirement, "requirements_requirements_unreadable")
+                self.assertIsNone(provider.record_fd)
+        provider, _ = provider_gate.make(dict(run, requirement_file=str(target)))
+        self.assertIsNone(provider.requirement)
+        self.assertIsInstance(provider.record_fd, int)
+        self.assertTrue(os.get_inheritable(provider.record_fd) is False)
+        os.close(provider.record_fd)
 
     def test_the_bundle_route_stays_open_while_paused(self):
         self.request("GET", "/backend-api/wham/usage")

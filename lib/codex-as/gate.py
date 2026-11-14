@@ -19,8 +19,10 @@ Routes (codex 0.167.2, default deny, upstream chatgpt.com over verified TLS):
   BLOCKERS) pauses, or refuses at startup, until a later bundle without blockers lifts it, across
   gate restarts too (U2): each run gate keeps the latest verdict in the requirement record, one word
   ("none" or the requirements_* reason) in the launcher's private directory outside the boundary,
-  and a restarted gate starts with it; a record it cannot read counts as an unreadable requirement
-  (fail closed), and so does one a gate could not update with a new blocking verdict;
+  which it opens once and writes in place, and a restarted gate starts with it; a record it cannot
+  open for writing or read counts as an unreadable requirement (fail closed), and so does one a gate
+  could not update with a new blocking verdict (it removes the record then); a run gate without a
+  record is refused (requirement_record_invalid);
 - GET models, accounts/check, settings/user and rate-limit-reset-credits: forwarded while running.
 A refresh gate forwards the config bundle alone (native needs it before any managed request on a
 workspace plan, its refresh included) and tunnels only to auth.openai.com:443.
@@ -39,6 +41,7 @@ import os
 from pathlib import Path
 import random
 import re
+import stat
 import sys
 import threading
 import time
@@ -144,18 +147,26 @@ def requirement_word(word):
         else None
 
 
-def carried(path):
-    """The verdict an earlier gate of this run recorded at PATH (U2): None for none; an unreadable
-    requirement for a missing, unreadable or unrecognized record (fail closed)."""
+def open_record(path):
+    """(descriptor, verdict) of the run's requirement record at PATH (U2): opened read and write once,
+    never through a link and without blocking, it must be a regular file of this user that no other
+    user may read or write. The verdict is the one an earlier gate of the run recorded there: None for
+    none, an unreadable requirement for an unrecognized word (fail closed); a record that is missing,
+    of another kind or not writable gives no descriptor and an unreadable requirement."""
     try:
-        with open(path, "rb") as stream:
-            raw = stream.read(RECORD_LIMIT + 1)
+        fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     except OSError:
-        return UNREADABLE
+        return None, UNREADABLE
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise OSError("not a private record")
+        raw = os.pread(fd, RECORD_LIMIT + 1, 0)
+    except OSError:
+        os.close(fd)
+        return None, UNREADABLE
     word = raw.decode("ascii", "replace").strip() if len(raw) <= RECORD_LIMIT else ""
-    if word == NO_REQUIREMENT:
-        return None
-    return requirement_word(word) or UNREADABLE
+    return fd, (None if word == NO_REQUIREMENT else requirement_word(word) or UNREADABLE)
 
 
 def limit_explained(found):
@@ -199,7 +210,7 @@ class CodexProvider(kit.BaseProvider):
         # The latest bundle's refusal reason while it applies; a run gate starts with the one its
         # requirement record CARRY names, which an earlier gate of the run wrote (a refresh gate has none).
         self.carry = carry
-        self.requirement = None if carry is None else carried(carry)
+        self.record_fd, self.requirement = (None, None) if carry is None else open_record(carry)
         self._recording = threading.Lock()
 
     def present(self, route, headers):
@@ -296,23 +307,28 @@ class CodexProvider(kit.BaseProvider):
         return kit.Observation(at, False, reason=verdict, permanent=True)
 
     def record(self, verdict):
-        """Replace the requirement record with VERDICT (None: none) for a restarted gate. When that
-        fails, a blocking verdict removes the record instead, so that a restart fails closed; a lift
-        that fails leaves the old verdict there, which fails closed too."""
-        if self.carry is None:
-            return
-        staging = self.carry + ".new"
+        """Write VERDICT (None: none) into the requirement record for a restarted gate, in place through
+        the descriptor this gate opened it with (no entry of the directory changes): the word, then the
+        length, so that every state in between reads as an unrecognized word (fail closed). When that
+        fails, a blocking verdict empties the record and removes it, so that a restart fails closed; a
+        lift that fails leaves the old verdict there, which fails closed too. Whether the record holds
+        VERDICT."""
+        if self.carry is None or self.record_fd is None:
+            return False
+        data = ((verdict or NO_REQUIREMENT) + "\n").encode("ascii")
         try:
-            fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
-            with os.fdopen(fd, "w", encoding="ascii") as stream:
-                stream.write((verdict or NO_REQUIREMENT) + "\n")
-            os.replace(staging, self.carry)
+            if os.pwrite(self.record_fd, data, 0) != len(data):
+                raise OSError("short write")
+            os.ftruncate(self.record_fd, len(data))
+            return True
         except OSError:
-            for path in (staging,) + ((self.carry,) if verdict else ()):
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
+            if verdict:
+                for undo in (lambda: os.ftruncate(self.record_fd, 0), lambda: os.unlink(self.carry)):
+                    try:
+                        undo()
+                    except OSError:
+                        pass
+            return False
 
 
 class Decider:
@@ -479,8 +495,8 @@ def make(config):
     if not (isinstance(account, str) and account and isinstance(user, str) and user):
         raise kit.Refusal("expected_identity_missing")
     carry = None if refresh else config.get("requirement_file")
-    if carry is not None and not (isinstance(carry, str) and os.path.isabs(carry)):
-        raise kit.Refusal("requirement_record_invalid")
+    if not refresh and not (isinstance(carry, str) and os.path.isabs(carry)):
+        raise kit.Refusal("requirement_record_invalid")  # a run gate always keeps one (U2)
     provider = CodexProvider(account, user, native, config["sqlite_home"], refresh=refresh,
                              connect_allow=config.get("connect_allow") if refresh else None, carry=carry)
     return provider, (refusing if refresh else Decider(policy(config), requirement=provider.requirement))
