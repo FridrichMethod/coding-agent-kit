@@ -730,7 +730,26 @@ class AccountDirectories(unittest.TestCase):
         self.addCleanup(self.shared.chmod, 0o700)
 
     def walk(self):
+        native_module.forget_groups()  # each subtest is a new evaluation
         os.close(native_module.open_directory(str(self.config), private=3))
+
+    def test_the_group_database_is_read_once_per_evaluation(self):
+        """A walk reuses its evaluation's answer, so the gate's credential reads (a walk each) read the
+        group database once per gate instance; each launcher evaluation (load, create_pending,
+        read_identity, mark_ready) reads it afresh."""
+        import pwd
+        metadata = self.config / ".claude.json"
+        metadata.write_text(json.dumps({"oauthAccount": {"accountUuid": "a-1", "organizationUuid": "o-1"}}))
+        metadata.chmod(0o600)
+        self.shared.chmod(0o775)
+        with group_kind("private", self.shared.stat().st_gid), \
+                mock.patch.object(os, "listxattr", create=True, return_value=[]):
+            native_module.forget_groups()
+            for _ in range(3):
+                os.close(native_module.open_directory(str(self.config), private=3))
+            self.assertEqual(pwd.getpwall.call_count, 1)
+            self.assertEqual(native_module.read_identity(str(self.config)), ("a-1", "o-1"))
+            self.assertEqual(pwd.getpwall.call_count, 2)
 
     def test_a_group_writable_ancestor_is_fine_only_for_the_users_private_group(self):
         gid = self.shared.stat().st_gid

@@ -33,7 +33,10 @@ Public API:
     token_id(record) -> str             the status line's identifier for this enrollment (not a token hash)
     NativeError(ValueError)             one line for the user; own_message is True
     others_can_write(info, target) -> bool  the kit's private-group rule for one file or directory
-    forget_groups()                     a new check reads the group database again
+    forget_groups()                     a new evaluation reads the group database again: load,
+                                        create_pending, read_identity and mark_ready start with it; a
+                                        bare open_directory (the gate's credential reads, bearer.py)
+                                        keeps the answer, so a gate instance reads it once
 """
 
 import hashlib
@@ -80,7 +83,8 @@ def _kit_config():
 
 
 def forget_groups():
-    """Start a check afresh: config.private_group caches its answer per gid."""
+    """Start an evaluation afresh: config.private_group caches its answer per gid (listing every
+    account can be slow on a directory service), and open_directory keeps it."""
     shared = _kit_config()
     if shared is not None:
         shared.private_group.cache_clear()
@@ -152,10 +156,10 @@ def _private(info, uid, where):
 
 def open_directory(path, private=0, uid=None):
     """A directory fd for PATH walked from / without following links; its last PRIVATE components
-    must be owned 0700-style directories. FileNotFoundError when a component is missing."""
+    must be owned 0700-style directories. FileNotFoundError when a component is missing. The group
+    database is read as the caller's evaluation last read it (forget_groups)."""
     uid = os.getuid() if uid is None else uid
     parts = _components(path)
-    forget_groups()
     fd = os.open("/", DIRECTORY)
     try:
         _trusted(os.fstat(fd), uid, "/", fd)
@@ -244,6 +248,7 @@ def _check_record(record, paths):
 
 def load(paths):
     """The registration of PATHS, or None when its account directory does not exist."""
+    forget_groups()
     try:
         account = open_directory(paths.account, private=2)
     except FileNotFoundError:
@@ -279,6 +284,7 @@ def _write_exclusive(directory, name, record):
 
 def create_pending(paths):
     """The account directories (0700) and a new pending registration; refuses an existing account."""
+    forget_groups()
     old = os.umask(0o077)
     try:
         secrets = open_directory(paths.secrets, private=1)
@@ -315,6 +321,7 @@ def create_pending(paths):
 def read_identity(config_dir):
     """(account_uuid, organization_uuid) from native's config/.claude.json, or None while native
     has recorded no login there. Nothing else of the file is kept."""
+    forget_groups()
     try:
         directory = open_directory(config_dir, private=3)
     except FileNotFoundError:
@@ -340,7 +347,7 @@ def read_identity(config_dir):
 
 def mark_ready(paths, identity):
     """Replace the pending registration by a ready one for IDENTITY, which native must still report."""
-    record = load(paths)
+    record = load(paths)  # a new evaluation (forget_groups)
     if record is None or record["state"] != "pending":
         raise NativeError(f"the enrollment of {paths.name} is not pending.")
     if read_identity(paths.config) != tuple(identity):
