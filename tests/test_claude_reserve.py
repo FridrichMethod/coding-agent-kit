@@ -17,6 +17,7 @@ from pathlib import Path
 import pty
 import re
 import select
+import shlex
 import shutil
 import signal
 import socket
@@ -29,6 +30,7 @@ import termios
 import time
 import types
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests/fixtures/claude-reserve"
@@ -452,6 +454,25 @@ ORG_LIMITS = {  # an organization's policy-limits.json in the 2.1.322 schema; ke
 }
 
 
+@contextlib.contextmanager
+def group_kind(kind, gid):
+    """GID as this user's private group (named after the user, its login group, no other member), as
+    one with another listed member ("listed"), as another account's primary group too ("primary"), or
+    as a shared group (macOS staff), whatever the host's groups are."""
+    from unittest import mock
+    import grp
+    import pwd
+    uid = os.getuid()
+    user = pwd.struct_passwd(("fixture-user", "x", uid, gid, "", "/", "/bin/sh"))
+    other = pwd.struct_passwd(("colleague", "x", uid + 1, gid, "", "/", "/bin/sh"))
+    name, members = {"private": ("fixture-user", []), "listed": ("fixture-user", ["colleague"]),
+                     "primary": ("fixture-user", []), "shared": ("staff", ["colleague"])}[kind]
+    with mock.patch.object(pwd, "getpwuid", return_value=user), \
+            mock.patch.object(pwd, "getpwall", return_value=[user, other] if kind == "primary" else [user]), \
+            mock.patch.object(grp, "getgrgid", return_value=grp.struct_group((name, "x", gid, members))):
+        yield
+
+
 class ServerManagedPolicy(unittest.TestCase):
     def setUp(self):
         # The evaluator refuses group- or world-writable policy files; the files these tests create
@@ -554,8 +575,55 @@ class ServerManagedPolicy(unittest.TestCase):
             self.assertEqual(unsafe, sorted(["remote-settings.json", "policy-limits.json",
                                              str(Path(work) / ".claude" / "settings.json")]))
             (managed / "managed-settings.json").chmod(0o664)
-            verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux", managed_dirs=(str(managed),))
-            self.assertEqual([f.source for f in verdict.findings], [str(managed / "managed-settings.json")])
+            # A shared group's write refuses, whatever the host's groups are.
+            with group_kind("shared", (managed / "managed-settings.json").stat().st_gid):
+                verdict = policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux",
+                                          managed_dirs=(str(managed),))
+            self.assertEqual([(f.source, f.reason) for f in verdict.findings],
+                             [(str(managed / "managed-settings.json"), "policy_file_writable")])
+
+    def test_a_group_writable_local_source_is_private_only_for_the_users_private_group(self):
+        """Live acceptance had ~/.claude/settings.local.json at 0664 under a 002 umask. Group write is
+        harmless when the group is the user's own private group (named after the user, no other member,
+        no access ACL); a shared group (macOS staff), an ACL or other write refuses, naming the file
+        and how to fix it."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            config, work = self.files(base)
+            work = str(Path(work) / "a project")  # the suggested command quotes the path
+            local = Path(work) / ".claude" / "settings.local.json"
+            local.parent.mkdir(parents=True)
+            local.write_text(json.dumps({"hooks": {"Stop": [1]}}))
+            gid = local.stat().st_gid
+            evaluate = lambda: policy.evaluate(config, ORGANIZATION_UUID, work, platform="linux", managed_dirs=())
+            for mode, kind, acl, refused in ((0o664, "private", False, False), (0o620, "private", False, False),
+                                             (0o664, "listed", False, True), (0o664, "primary", False, True),
+                                             (0o664, "shared", False, True), (0o664, "private", True, True),
+                                             (0o646, "private", False, True), (0o644, "shared", True, False)):
+                with self.subTest(mode=oct(mode), group=kind, acl=acl):
+                    local.chmod(mode)
+                    listing = ["system.posix_acl_access"] if acl else []
+                    with group_kind(kind, gid), \
+                            mock.patch.object(os, "listxattr", create=True, return_value=listing):
+                        verdict = evaluate()
+                    if not refused:
+                        self.assertFalse(verdict.refused(), verdict)
+                        continue
+                    self.assertEqual((verdict.native, verdict.bearer), (("policy_file_writable",),) * 2)
+                    self.assertEqual(verdict.describe(), "a policy file other users can write (%s); run chmod go-w %s"
+                                     % (local, shlex.quote(str(local))))
+            # The message as the launcher prints it.
+            local.chmod(0o666)
+            with self.assertRaises(protect.Refused) as caught:
+                protect.judge_policy(evaluate(), types.SimpleNamespace(name="N"))
+            self.assertEqual(str(caught.exception), "protected mode refused: Claude Code policy for this account: a "
+                                                    "policy file other users can write (%s); run chmod go-w %s"
+                             % (local, shlex.quote(str(local))))
+            # An access ACL that cannot be checked refuses as an unreadable file.
+            local.chmod(0o664)
+            with group_kind("private", gid), mock.patch.object(os, "listxattr", create=True,
+                                                               side_effect=OSError(errno.EIO, "Input/output error")):
+                self.assertEqual(evaluate().native, ("policy_file_unreadable",))
 
     def test_a_managed_sign_in_organization_pin_is_reported_whatever_its_value(self):
         """Native makes every subscription eligible for organization policy when a managed settings file
@@ -641,6 +709,62 @@ class ServerManagedPolicy(unittest.TestCase):
             self.assertEqual(policy.os_managed(str(root)), [])
             (root / "com.anthropic.claudecode.plist").write_text("")
             self.assertEqual(len(policy.os_managed(str(root))), 1)
+
+
+native_module = load("test_claude_native", ROOT / "lib/claude-as/native.py")
+
+
+class AccountDirectories(unittest.TestCase):
+    """native.py's walk from / and its read of native's .claude.json: other users' write refuses, and
+    group write only by a group other than the user's private one."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.shared = Path(self.tmp.name).resolve() / "s"  # an ancestor the walk checks as trusted
+        self.config = self.shared / "native-claude-accounts" / "N" / "config"
+        self.config.mkdir(parents=True)
+        for path in (self.config, self.config.parent, self.config.parent.parent, self.shared):
+            path.chmod(0o700)
+        self.addCleanup(self.shared.chmod, 0o700)
+
+    def walk(self):
+        os.close(native_module.open_directory(str(self.config), private=3))
+
+    def test_a_group_writable_ancestor_is_fine_only_for_the_users_private_group(self):
+        gid = self.shared.stat().st_gid
+        for mode, kind, acl, refused in ((0o775, "private", False, False), (0o775, "shared", False, True),
+                                         (0o775, "listed", False, True), (0o775, "private", True, True),
+                                         (0o757, "private", False, True), (0o1777, "shared", False, False)):
+            with self.subTest(mode=oct(mode), group=kind, acl=acl):
+                self.shared.chmod(mode)
+                listing = ["system.posix_acl_access"] if acl else []
+                with group_kind(kind, gid), mock.patch.object(os, "listxattr", create=True, return_value=listing):
+                    if not refused:
+                        self.walk()
+                        continue
+                    with self.assertRaises(native_module.NativeError) as caught:
+                        self.walk()
+                self.assertEqual(str(caught.exception), f"{self.shared} must not be writable by other users (other "
+                                 "write, or group write by a group that is not your private group); run chmod go-w "
+                                 f"{shlex.quote(str(self.shared))}.")
+
+    def test_natives_metadata_file_follows_the_same_rule(self):
+        metadata = self.config / ".claude.json"
+        metadata.write_text(json.dumps({"oauthAccount": {"accountUuid": "a-1", "organizationUuid": "o-1"}}))
+        gid = metadata.stat().st_gid
+        for mode, kind, refused in ((0o664, "private", False), (0o600, "shared", False), (0o664, "shared", True),
+                                    (0o606, "private", True)):
+            with self.subTest(mode=oct(mode), group=kind):
+                metadata.chmod(mode)
+                with group_kind(kind, gid), mock.patch.object(os, "listxattr", create=True, return_value=[]):
+                    if not refused:
+                        self.assertEqual(native_module.read_identity(str(self.config)), ("a-1", "o-1"))
+                        continue
+                    with self.assertRaises(native_module.NativeError) as caught:
+                        native_module.read_identity(str(self.config))
+                self.assertIn(f"{metadata} must not be writable by other users", str(caught.exception))
+                self.assertIn(f"run chmod go-w {metadata}.", str(caught.exception))
 
 
 class CredentialRead(unittest.TestCase):

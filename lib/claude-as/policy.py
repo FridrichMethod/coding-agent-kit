@@ -50,10 +50,13 @@ CLAUDE_SECURESTORAGE_*, CLAUDE_LOCAL_OAUTH_*, CLAUDE_SESSION_INGRESS_* and CLAUD
 native's only exit is plain HTTP to the gate, which originates every upstream connection itself.
 
 Files: lstat first; a symlink, a non-regular file, a second hard link, permissions other than 0600
-(server-managed caches) or group/other write (local sources), or more than 1 MiB refuses, and so does
-an owner other than this user, except that the managed settings files (managed-settings.json and
-managed-settings.d/*.json) may also be root's, as they are by design; one bounded read of the opened
-inode, which must be the one checked and unchanged afterwards.
+(server-managed caches, which native writes so) or more than 1 MiB refuses, and so does an owner other
+than this user, except that the managed settings files (managed-settings.json and
+managed-settings.d/*.json) may also be root's, as they are by design; a local source others can write
+refuses too (policy_file_writable: other write, or group write unless the group is the user's private
+group without an access ACL, native.others_can_write; a 002 umask on a user-private-group system is
+fine, a shared group such as macOS staff is not), and its message names the file and suggests chmod
+go-w; one bounded read of the opened inode, which must be the one checked and unchanged afterwards.
 
 Public API:
     evaluate(config_dir, organization, cwd, platform=sys.platform, managed=None) -> Verdict
@@ -66,10 +69,12 @@ Public API:
 """
 
 from dataclasses import dataclass
+import importlib.util
 import json
 import os
 import pwd
 import re
+import shlex
 import stat
 import sys
 
@@ -116,6 +121,7 @@ REASON_TEXT = {
     "policy_limits_unreviewed_keys": "an organization limit this kit release has not reviewed",
     "policy_refresh_forced": "a forced policy refresh, which native cannot make in protected mode",
     "policy_file_unsafe": "a policy file that is not a private regular file of yours (or root's, for managed settings)",
+    "policy_file_writable": "a policy file other users can write",
     "policy_file_unreadable": "a policy file that cannot be read once and unchanged",
     "policy_unparsed": "a policy file that is not JSON",
     "policy_os_managed": "macOS managed preferences, which protected mode cannot inspect",
@@ -146,6 +152,11 @@ class Verdict:
         reasons = sorted(set(self.native) | set(self.bearer))
         parts = []
         for reason in reasons:
+            if reason == "policy_file_writable":  # the files, and the fix
+                paths = sorted({finding.source for finding in self.findings if finding.reason == reason})
+                parts.append(f"{REASON_TEXT[reason]} ({', '.join(paths)}); run chmod go-w "
+                             + " ".join(shlex.quote(path) for path in paths))
+                continue
             keys = sorted({f"{finding.source}: {finding.name}" for finding in self.findings if finding.reason == reason})
             parts.append(REASON_TEXT.get(reason, reason) + (" (" + ", ".join(keys) + ")" if keys else ""))
         return "; ".join(parts)
@@ -281,9 +292,33 @@ def _reject_constant(name):
     raise ValueError("non-finite number")
 
 
+_NATIVE = []
+
+
+def _native():
+    """native.py beside this file (loaded by path once), for the kit's private-group rule; None when
+    it cannot be loaded (group write then counts as other users' write)."""
+    if not _NATIVE:
+        path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "native.py")
+        try:
+            spec = importlib.util.spec_from_file_location("claude_as_policy_native", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except (OSError, ImportError, SyntaxError):
+            module = None
+        _NATIVE.append(module)
+    return _NATIVE[0]
+
+
+def others_can_write(info, fd):
+    native = _native()
+    return bool(info.st_mode & 0o022) if native is None else native.others_can_write(info, fd)
+
+
 def read_checked(directory, name, exact_mode, owners=None):
-    """("absent" | "unsafe" | "unreadable" | "read", bytes or None) for NAME in the directory fd;
-    OWNERS are the accepted owner uids (default: this user only)."""
+    """("absent" | "unsafe" | "writable" | "unreadable" | "read", bytes or None) for NAME in the
+    directory fd; OWNERS are the accepted owner uids (default: this user only). Without an EXACT_MODE
+    a file others can write (others_can_write) is "writable"."""
     owners = (os.getuid(),) if owners is None else owners
     try:
         before = os.lstat(name, dir_fd=directory)
@@ -293,8 +328,7 @@ def read_checked(directory, name, exact_mode, owners=None):
         return "unreadable", None
     mode = stat.S_IMODE(before.st_mode)
     if (not stat.S_ISREG(before.st_mode) or before.st_uid not in owners or before.st_nlink != 1
-            or (mode != exact_mode if exact_mode is not None else mode & 0o022)
-            or before.st_size > FILE_LIMIT):
+            or (exact_mode is not None and mode != exact_mode) or before.st_size > FILE_LIMIT):
         return "unsafe", None
     try:
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC | NOATIME, dir_fd=directory)
@@ -307,6 +341,12 @@ def read_checked(directory, name, exact_mode, owners=None):
         opened = os.fstat(fd)
         if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
             return "unreadable", None
+        if exact_mode is None:
+            try:
+                if others_can_write(opened, fd):
+                    return "writable", None
+            except OSError:  # an access ACL that cannot be checked
+                return "unreadable", None
         raw = os.read(fd, FILE_LIMIT + 1)
         after = os.fstat(fd)
     finally:
@@ -406,6 +446,9 @@ def evaluate(config_dir, organization, cwd, platform=None, managed_preferences=M
     """The Verdict for this account's cached server-managed policy and the local settings sources."""
     platform = platform or ("darwin" if sys.platform == "darwin" else "linux")
     uid = os.getuid()
+    native = _native()
+    if native is not None:
+        native.forget_groups()  # each evaluation reads the group database afresh
     findings = []
     directory = _open_dir(config_dir)
     if directory is None:
