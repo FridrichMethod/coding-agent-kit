@@ -2,9 +2,9 @@
 
 Every case runs in a temporary HOME with a fake claude (tests/fixtures/claude-reserve) and, for
 protected mode, loopback fixtures; nothing reaches a real account, credential or provider. RealClaude
-runs the reviewed Claude Code itself (KIT_REAL_CLAUDE, a path, or claude on PATH, used only at a
-version protect.REVIEWED_VERSIONS names; skipped otherwise, and always on macOS, where it would use the
-login Keychain) with a fabricated credential against the same loopback fixtures.
+runs a real Claude Code (KIT_REAL_CLAUDE, a path, or claude on PATH, used only at
+protect.MINIMUM_VERSION or newer; skipped otherwise, and always on macOS, where it would use the login
+Keychain) with a fabricated credential against the same loopback fixtures.
 """
 
 import contextlib
@@ -1614,10 +1614,10 @@ class ProtectScreens(unittest.TestCase):
             "shown asks for a fresh check that can resume it."])
         self.assertEqual(protect.family_notices(None), [])
 
-    def test_the_gate_tables_are_those_of_the_one_reviewed_version(self):
-        """provider.py's routes, families and policy shapes are one table, so adding a release to
-        REVIEWED_VERSIONS needs those tables keyed by release first."""
-        self.assertEqual(protect.REVIEWED_VERSIONS, (provider.VERSION,))
+    def test_the_gate_tables_are_those_of_the_minimum_version(self):
+        """provider.py's routes, families and policy shapes are one table, reviewed at the minimum
+        version, and govern every newer release too."""
+        self.assertEqual(protect.MINIMUM_VERSION, provider.VERSION)
 
     def test_every_form_protected_mode_allows_passes_the_launchers_own_screen(self):
         """launch.py's preflight runs first on every native-login launch; a form only protect.py allowed
@@ -1760,11 +1760,18 @@ class ProtectScreens(unittest.TestCase):
             with self.subTest(path):
                 self.assertIn("cannot be writable in protected mode", self.refused(protect.check_writable, [path], home))
 
-    def test_only_a_reviewed_native_version_passes(self):
+    def test_the_minimum_version_and_every_newer_one_pass(self):
         """native_version judges what `claude --version` printed; the launcher runs it inside the
-        boundary (confined_version), never outside."""
-        self.assertEqual(protect.native_version(lambda: (0, b"2.1.322 (Claude Code)\n")), "2.1.322")
-        for result, text in (((0, b"2.1.323 (Claude Code)\n"), "Claude Code 2.1.323 is not a version"),
+        boundary (confined_version), never outside. A minimum, never an upper bound or an exact pin:
+        every unknown form, model, route, row and policy key refuses or pauses in a newer release."""
+        for printed in ("2.1.322", "2.1.323", "2.1.325", "2.1.1000", "2.2.0", "3.0.0", "10.0.0"):
+            with self.subTest(printed):
+                self.assertEqual(protect.native_version(lambda: (0, printed.encode() + b" (Claude Code)\n")), printed)
+        for printed in ("2.1.321", "2.1.99", "2.0.999", "1.9.400", "0.2.1"):
+            with self.subTest(printed):
+                message = self.refused(protect.native_version, lambda: (0, printed.encode() + b" (Claude Code)\n"))
+                self.assertIn(f"Claude Code {printed} is older than the minimum 2.1.322 protected mode needs", message)
+        for result, text in (((0, b"2.1.330-beta.1 (Claude Code)\n"), "did not print a Claude Code version"),
                              ((0, b"2.1.322\n"), "did not print a Claude Code version"),
                              ((1, b"2.1.322 (Claude Code)\n"), "did not print a Claude Code version"),
                              ((None, b""), "did not answer")):
@@ -2038,11 +2045,11 @@ class ProtectedRefusals(Kit):
             with self.subTest(args):
                 self.assertIn(text, self.refused(args, protected=False))
 
-    def test_unreviewed_native_versions_refuse(self):
+    def test_a_native_older_than_the_minimum_version_refuses(self):
         if boundary_problem():
             self.skipTest(boundary_problem())
-        output = self.refused([], env=dict(self.env, CLAUDE_FAKE_VERSION="2.1.323 (Claude Code)"))
-        self.assertIn("Claude Code 2.1.323 is not a version this kit release reviewed", output)
+        output = self.refused([], env=dict(self.env, CLAUDE_FAKE_VERSION="2.1.321 (Claude Code)"))
+        self.assertIn("Claude Code 2.1.321 is older than the minimum 2.1.322 protected mode needs", output)
 
     def test_store_and_proxy_selectors_in_the_environment_refuse(self):
         if boundary_problem():
@@ -2691,21 +2698,24 @@ class Protected(Kit):
         self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
 
 
-def reviewed_claude():
-    """The real Claude Code to run, or None: KIT_REAL_CLAUDE (a path) or claude on PATH, used only when
-    its --version (asked with a scratch HOME) is one protect.REVIEWED_VERSIONS names."""
+def real_claude():
+    """(the real Claude Code to run, the version it reports) or (None, None): KIT_REAL_CLAUDE (a path)
+    or claude on PATH, used only when its --version (asked with a scratch HOME) is
+    protect.MINIMUM_VERSION or newer."""
     candidate = os.environ.get("KIT_REAL_CLAUDE") or shutil.which("claude")
     if not candidate or not os.access(candidate, os.X_OK):
-        return None
+        return None, None
     with tempfile.TemporaryDirectory() as home:
         try:
             result = subprocess.run([candidate, "--version"], capture_output=True, text=True, timeout=30, check=False,
                                     stdin=subprocess.DEVNULL, env={"PATH": "/usr/bin:/bin", "HOME": home,
                                                                    "DISABLE_AUTOUPDATER": "1"})
         except (OSError, subprocess.TimeoutExpired):
-            return None
+            return None, None
     match = protect.VERSION_LINE.fullmatch(result.stdout.strip())
-    return os.path.realpath(candidate) if match and match.group(1) in protect.REVIEWED_VERSIONS else None
+    if not match or protect.version_key(match.group(1)) < protect.version_key(protect.MINIMUM_VERSION):
+        return None, None
+    return os.path.realpath(candidate), match.group(1)
 
 
 ANSI = re.compile(rb"\x1b\[[0-9;?<>=]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b[=>78]")
@@ -2785,16 +2795,17 @@ def gone(pid):
     return False
 
 
-REAL_CLAUDE = None if sys.platform == "darwin" else reviewed_claude()
+REAL_CLAUDE, REAL_VERSION = (None, None) if sys.platform == "darwin" else real_claude()
 DENIED = (errno.EACCES, errno.EPERM)
 
 
 @unittest.skipIf(sys.platform == "darwin", "a real Claude Code reads and writes the login Keychain on macOS")
-@unittest.skipUnless(REAL_CLAUDE, "needs a reviewed Claude Code (%s) as KIT_REAL_CLAUDE or claude on PATH"
-                     % ", ".join(protect.REVIEWED_VERSIONS))
+@unittest.skipUnless(REAL_CLAUDE, "needs Claude Code %s or newer as KIT_REAL_CLAUDE or claude on PATH"
+                     % protect.MINIMUM_VERSION)
 class RealClaude(Kit):
-    """The reviewed Claude Code itself in protected mode: the real boundary, gate and monitor, a
-    fabricated credential and the loopback Messages upstream; no account and no real provider."""
+    """A real Claude Code (the minimum version or newer) in protected mode: the real boundary, gate and
+    monitor, a fabricated credential and the loopback Messages upstream; no account and no real
+    provider."""
 
     def setUp(self):
         problem = boundary_problem()
@@ -2851,7 +2862,7 @@ class RealClaude(Kit):
         screen = Screen(self.spec(args), self.env, self.cwd)
         self.addCleanup(screen.close)
         screen.expect("Claude Code", 90)
-        screen.expect("v" + protect.REVIEWED_VERSIONS[0], 30)
+        screen.expect("v" + REAL_VERSION, 30)
         return screen
 
     def models(self, since=0):

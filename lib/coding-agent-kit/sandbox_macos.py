@@ -29,9 +29,11 @@ the launcher holds the port on every address holder_addresses() lists, for
 the whole invocation. The profile governs egress and delegation, not reads.
 
 SBPL is an undocumented Apple interface and sandbox-exec is deprecated. The
-profile is the one reviewed on the releases in REVIEWED_RELEASES, other
-releases refuse, and the startup self-test turns a semantic change it checks
-into a refusal.
+profile was reviewed on MINIMUM_RELEASE; that release and every newer one
+pass the host check (a minimum, never an upper bound), older ones refuse, and
+the startup self-test, which runs on every launch, turns a semantic change it
+checks into a refusal, so a newer release on which the profile does not hold
+refuses there.
 
 Public API (load this file by path; it is never on sys.path):
 
@@ -83,8 +85,8 @@ Public API (load this file by path; it is never on sys.path):
     stdio_sockets(fds), claude_temp(uid)
         The pure rules and helpers behind the calls above.
 
-Supported: macOS releases in REVIEWED_RELEASES on Apple silicon, with
-/usr/bin/sandbox-exec and /sbin/ifconfig.
+Supported: macOS MINIMUM_RELEASE or newer on Apple silicon, with
+/usr/bin/sandbox-exec and /sbin/ifconfig, where the self-test passes.
 """
 
 from dataclasses import dataclass
@@ -107,7 +109,7 @@ IFCONFIG = "/sbin/ifconfig"
 LISTEN = (("inet", "127.0.0.1"), ("inet6", "::1"))  # Hold.listen; holder_addresses() reserves every other address
 PROVIDERS = ("codex", "claude")
 ARCHES = ("arm64",)
-REVIEWED_RELEASES = ((27, 2),)  # (major, minor); a kit release that reviews another one adds it
+MINIMUM_RELEASE = (27, 2)  # (major, minor): the release the profile was reviewed on; newer ones pass too
 KINDS = ("platform", "architecture", "version", "sandbox-exec", "ifconfig", "input", "path", "stdio", "descriptors",
          "self-test")
 TAG = "coding-agent-kit"
@@ -262,14 +264,11 @@ def assess(facts):
                       % _clean(machine))
     version = facts.get("version")
     release = _release(version)
-    reviewed = ", ".join("%d.%d" % item for item in REVIEWED_RELEASES)
     if release is None:
         raise Refusal("version", "the macOS version could not be read")
-    if release not in REVIEWED_RELEASES:
-        if release > max(REVIEWED_RELEASES):
-            raise Refusal("version", "macOS %s is newer than the newest reviewed release (%s); a kit update has to"
-                          " review its sandbox first" % (version, reviewed))
-        raise Refusal("version", "macOS %s is not a reviewed release (reviewed: %s)" % (version, reviewed))
+    if release < MINIMUM_RELEASE:
+        raise Refusal("version", "macOS %s is older than the minimum %d.%d protected mode needs"
+                      % ((version,) + MINIMUM_RELEASE))
     if not facts.get("sandbox_exec"):
         raise Refusal("sandbox-exec", "%s is missing or not executable" % SANDBOX_EXEC)
     if not facts.get("ifconfig"):

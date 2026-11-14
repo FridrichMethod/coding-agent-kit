@@ -8,6 +8,7 @@ CA, and skip cleanly without them; with a real codex 0.167.2 on PATH one case ru
 
 import base64
 import contextlib
+import dataclasses
 import fcntl
 import importlib.util
 import json
@@ -419,14 +420,34 @@ class Screen(unittest.TestCase):
             with self.subTest(args=args):
                 self.assertIn("is not one whose quota", refused(protect.screen, args, NATIVE))
 
-    def test_only_reviewed_releases_start_and_newer_ones_name_the_upper_bound(self):
-        self.assertIs(protect.reviewed("codex-cli 0.167.2\n"), NATIVE)
-        self.assertIn("newer than the newest reviewed release (0.167.2)", refused(protect.reviewed, "codex-cli 0.168.0"))
-        self.assertIn("not a reviewed release", refused(protect.reviewed, "codex-cli 0.166.0"))
-        self.assertIn("with a suffix", refused(protect.reviewed, "codex-cli 0.167.2-alpha.1"))
-        self.assertIn("not recognized", refused(protect.reviewed, "codex 0.167.2"))
-        message = refused(protect.reviewed, "codex-cli 0.168.0")
-        self.assertIn("--reserve-5h off --reserve-weekly off launches unprotected", message)
+    def test_the_minimum_release_and_every_newer_one_start_with_the_newest_tables_at_or_below_it(self):
+        """A minimum, never an upper bound or an exact pin: a newer release runs under the tables of the
+        newest reviewed release at or below it, since every unknown form, model, plan, route and
+        requirement refuses or pauses. A pre-release precedes its release (as codex-as's own minimum
+        has it), so a suffix above the minimum passes and the minimum's own pre-release refuses."""
+        for text in ("codex-cli 0.167.2\n", "codex-cli 0.167.3", "codex-cli 0.168.0-alpha.1", "codex-cli 0.169.0",
+                     "codex-cli 0.170.2-alpha.3", "codex-cli 1.0.0", "codex-cli 10.0.0-beta"):
+            with self.subTest(text=text):
+                self.assertIs(protect.native_tables(text), NATIVE)
+        for text, shown in (("codex-cli 0.167.1", "0.167.1"), ("codex-cli 0.166.0", "0.166.0"),
+                            ("codex-cli 0.167.2-alpha.1", "0.167.2-alpha.1 (a pre-release)"),
+                            ("codex-cli 0.9.999", "0.9.999")):
+            with self.subTest(text=text):
+                message = refused(protect.native_tables, text)
+                self.assertIn("Codex %s is older than the minimum 0.167.2 protected mode needs" % shown, message)
+                self.assertIn("--reserve-5h off --reserve-weekly off launches unprotected", message)
+        for text in ("codex 0.167.2", "codex-cli 0.168", "codex-cli 0.168.0+build.5", "codex-cli 0.168.0-",
+                     "codex-cli 0.168.0 extra", "codex-cli 0.168.0-alpha..1", ""):
+            with self.subTest(text=text):
+                self.assertIn("the Codex version output is not recognized", refused(protect.native_tables, text))
+
+    def test_a_newer_release_takes_the_tables_of_the_newest_reviewed_release_at_or_below_it(self):
+        later = dataclasses.replace(NATIVE, version=(0, 170, 0))
+        with mock.patch.dict(protect.REVIEWED, {later.version: later}):
+            self.assertIs(protect.native_tables("codex-cli 0.169.9"), NATIVE)
+            self.assertIs(protect.native_tables("codex-cli 0.170.0-alpha.2"), NATIVE)  # precedes 0.170.0
+            self.assertIs(protect.native_tables("codex-cli 0.170.0"), later)
+            self.assertIs(protect.native_tables("codex-cli 0.171.4"), later)
 
     def test_overrides_route_everything_to_the_gate_with_the_native_sandbox_off(self):
         words = protect.overrides(51234)
@@ -1578,13 +1599,13 @@ class Unprotected(unittest.TestCase):
                 self.assertIn(text, result.stderr)
                 self.assertEqual(self.home.events(), [])
 
-    def test_inherited_reserves_refuse_unreviewed_releases(self):
+    def test_inherited_reserves_refuse_a_release_older_than_the_minimum(self):
         """The release comes from `codex --version` run inside the boundary, so a host without one
-        refuses for that first."""
+        refuses for that first. (0.167.1 passes codex-as's own minimum for unprotected launches.)"""
         self.home.config("[usage_reserve.codex_accounts.A]\nweekly = 10\n")
-        result = self.home.run(["A"], env={"FAKE_VERSION": "codex-cli 0.168.0"})
+        result = self.home.run(["A"], env={"FAKE_VERSION": "codex-cli 0.167.1"})
         self.assertEqual(result.returncode, 1)
-        self.assertIn(boundary_missing() or "newer than the newest reviewed release", result.stderr)
+        self.assertIn(boundary_missing() or "Codex 0.167.1 is older than the minimum 0.167.2", result.stderr)
         self.assertEqual(self.home.events(), [])
 
     def test_a_native_or_its_interpreter_in_the_boundarys_reach_refuses_before_anything_runs(self):

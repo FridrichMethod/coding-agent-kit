@@ -20,7 +20,9 @@ could plant or replace one (supervise.path_order);
 the shared entries the writable set names beneath codex_home must be plain directories and files of
 this user, not links (shared_entries); the native release, which `codex --version` reports from
 inside a boundary of its own (native_version: the kit never runs the native outside a boundary),
-must be a reviewed one (REVIEWED, with an upper bound); the account must already hold a saved
+must be MINIMUM or newer, never an exact pin or an upper bound: it runs under the tables of the
+newest reviewed release at or below it (native_tables), and whatever a newer release adds that
+those tables do not know refuses or pauses; the account must already hold a saved
 login (the native device login cannot run inside the boundary); the login must be a ChatGPT login
 of a reviewed plan, not FedRAMP; the release's databases must exist in the shared SQLite home;
 and no managed requirement (local requirements.toml, macOS managed preferences, the account's
@@ -112,7 +114,7 @@ def refuse(reason):
                   "(--reserve-5h off --reserve-weekly off launches unprotected)")
 
 
-# -- reviewed native releases -----------------------------------------------------------------------
+# -- native releases ----------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -170,22 +172,26 @@ V0_167_2 = Native(
 )
 REVIEWED = {native.version: native for native in (V0_167_2,)}
 BY_NAME = {native.name: native for native in REVIEWED.values()}
+MINIMUM = min(REVIEWED)  # the oldest release protected mode runs; every newer one runs too
+# `codex --version`: codex-cli X.Y.Z, with an optional pre-release suffix (-alpha.1), as check.py reads it.
+VERSION_OUTPUT = re.compile(r"codex-cli ([0-9]{1,6})\.([0-9]{1,6})\.([0-9]{1,6})(-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?")
 
 
-def reviewed(text):
-    """The Native tables for `codex --version` output, or Refused (D7: a disclosed upper bound)."""
-    match = re.fullmatch(r"codex-cli (\d+)\.(\d+)\.(\d+)(\S*)", text.strip())
-    names = ", ".join(native.name for native in REVIEWED.values())
+def native_tables(text):
+    """The Native tables that govern the release `codex --version` printed (TEXT): those of the newest
+    reviewed release at or below it. A pre-release precedes its release (as codex-as's own minimum in
+    check.py has it): 0.168.0-alpha.1 is newer than 0.167.2 and passes, 0.167.2-alpha.1 is older and
+    refuses. Refused for output that is not one such version line (a build suffix included) and for
+    a release older than MINIMUM."""
+    match = VERSION_OUTPUT.fullmatch(text.strip())
     if not match:
         refuse("the Codex version output is not recognized")
     version = tuple(int(part) for part in match.groups()[:3])
-    shown = "%d.%d.%d" % version + ("" if not match[4] else " (with a suffix)")
-    if match[4] or version not in REVIEWED:
-        if version > max(REVIEWED):
-            refuse(f"Codex {shown} is newer than the newest reviewed release ({names}); "
-                   "a kit update has to review it first")
-        refuse(f"Codex {shown} is not a reviewed release (reviewed: {names})")
-    return REVIEWED[version]
+    order = (*version, match[4] is None)  # a pre-release sorts below its release
+    if order < (*MINIMUM, True):
+        shown = "%d.%d.%d" % version + ("%s (a pre-release)" % match[4] if match[4] else "")
+        refuse("Codex %s is older than the minimum %d.%d.%d protected mode needs" % ((shown,) + MINIMUM))
+    return REVIEWED[max(release for release in REVIEWED if (*release, True) <= order)]
 
 
 # -- the invocation form ----------------------------------------------------------------------------
@@ -1002,8 +1008,8 @@ class Session:
 
     # -- refusals before anything changes ------------------------------------------------------------
     def check(self):
-        # The arguments fail first when no reviewed release accepts them; the release's own tables
-        # screen them again once native_version() has read it.
+        # The arguments fail first when no reviewed release's tables accept them; the tables of the
+        # installed release screen them again once native_version() has read it.
         failures = []
         for native in sorted(REVIEWED.values(), key=lambda item: item.version, reverse=True):
             try:
@@ -1036,7 +1042,7 @@ class Session:
         except self.supervise.Refused as error:
             refuse(error.reason)
         self.shared_entries(created=False)
-        self.native = reviewed(self.native_version())
+        self.native = native_tables(self.native_version())
         self.args = screen(self.given, self.native)
         if not os.isatty(0):
             refuse("protected mode needs an interactive terminal for continuation")
@@ -1121,7 +1127,7 @@ class Session:
     # -- the run --------------------------------------------------------------------------------------
     def database_files(self):
         """The release's databases in the shared SQLite home, NAME.sqlite, -wal and -shm each (before
-        check() has read the release, the newest reviewed one's)."""
+        check() has read the release, the newest reviewed tables')."""
         native = self.native or REVIEWED[max(REVIEWED)]
         return [Path(self.sqlite) / (name + suffix) for name in (*native.databases, *native.later_databases)
                 for suffix in DATABASE_FILES]

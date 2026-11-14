@@ -3,8 +3,8 @@
 Load this file by path (it is never on sys.path). launch() runs when a native-login account starts
 with an enabled reserve. In order (reviewed design, section 2.1):
 
-1. refusals: the platform boundary's host checks (Linux Landlock ABI 6+ on x86_64, or a reviewed
-   macOS release with sandbox-exec), an interactive terminal, the native arguments (an allowlist of
+1. refusals: the platform boundary's host checks (Linux Landlock ABI 6+ on x86_64, or macOS 27.2 or
+   newer with sandbox-exec), an interactive terminal, the native arguments (an allowlist of
    the interactive forms of Claude Code 2.1.322, parsed as its option parser does; every subcommand,
    print, background, remote, cloud, resume and settings form refuses), the caller environment
    (credential, provider, store, endpoint and proxy selectors), the working directory (never HOME, an
@@ -14,8 +14,8 @@ with an enabled reserve. In order (reviewed design, section 2.1):
    next launch runs (see Code run outside the boundary below);
 2. the port: the launcher becomes the child subreaper and holds a random loopback port (on macOS also
    every interface address), then runs the macOS boundary self-test; then `claude --version` runs
-   confined, and only the reviewed 2.1.322 passes (a disclosed upper bound, since a new subcommand
-   typed as a bare word looks like a prompt);
+   confined, and only MINIMUM_VERSION (2.1.322) or newer passes (a minimum, never an upper bound: what
+   a newer release adds and the tables do not know refuses or pauses);
 3. the D1 refresh: `claude auth status` runs confined behind a refresh gate that tunnels only
    platform.claude.com:443, so native renews its own token before model work when it is inside its
    five-minute refresh window (native renews it then only); it must exit 0, but its exit status does
@@ -100,7 +100,10 @@ import time
 
 HERE = Path(os.path.realpath(__file__)).parent
 KIT = HERE.parent / "coding-agent-kit"
-REVIEWED_VERSIONS = ("2.1.322",)
+# The oldest Claude Code protected mode runs (the release its tables were reviewed at, provider.VERSION).
+# Newer releases run too: every form, model, route, usage row and policy key they add that the tables
+# do not know refuses or pauses.
+MINIMUM_VERSION = "2.1.322"
 VERSION_LINE = re.compile(r"([0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,6}) \(Claude Code\)")
 REFRESH_TIMEOUT = 30.0
 PREFLIGHT_TIMEOUT = 45.0
@@ -268,19 +271,24 @@ def screen_environment(env):
         refuse("environment selector " + ", ".join(found) + " (values hidden); unset it.")
 
 
+def version_key(text):
+    """The (major, minor, patch) integers of a version VERSION_LINE matched."""
+    return tuple(int(part) for part in text.split("."))
+
+
 def native_version(run):
-    """The reviewed version `claude --version` reports. run() -> (its exit code, or None when it did
-    not finish, and the start of its output) runs it inside the boundary (confined_version)."""
+    """The version `claude --version` reports, MINIMUM_VERSION or newer. run() -> (its exit code, or
+    None when it did not finish, and the start of its output) runs it inside the boundary
+    (confined_version). Output other than one plain X.Y.Z version line refuses."""
     code, output = run()
     if code is None:
         refuse("claude --version did not answer.")
     match = VERSION_LINE.fullmatch(output.decode("utf-8", "replace").strip())
     if code or not match:
         refuse("claude --version did not print a Claude Code version.")
-    if match.group(1) not in REVIEWED_VERSIONS:
-        refuse(f"Claude Code {match.group(1)} is not a version this kit release reviewed for protected mode "
-               f"({', '.join(REVIEWED_VERSIONS)}); point the claude key at a reviewed version or launch without "
-               "reserves.")
+    if version_key(match.group(1)) < version_key(MINIMUM_VERSION):
+        refuse(f"Claude Code {match.group(1)} is older than the minimum {MINIMUM_VERSION} protected mode needs; "
+               "update it, point the claude key at a newer one or launch without reserves.")
     return match.group(1)
 
 
