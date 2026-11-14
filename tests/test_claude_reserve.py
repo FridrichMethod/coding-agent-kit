@@ -715,12 +715,37 @@ class ServerManagedPolicy(unittest.TestCase):
 native_module = load("test_claude_native", ROOT / "lib/claude-as/native.py")
 
 
+def walk_base():
+    """(a temporary base whose every directory from / down is one the walk trusts without the group
+    database, None) or (None, why there is none): owned by root or this user, and sticky or not group or
+    other writable. The temporary directory comes first, then the real /tmp. group_kind mocks the group
+    database for a gid, and config.private_group caches its answer per gid, so the mock cannot be scoped to
+    the test tree: a group-writable ancestor of the same gid (a temporary directory made under umask 002)
+    would be judged by it as well."""
+    uid, problems = os.getuid(), []
+    for candidate in dict.fromkeys((tempfile.gettempdir(), "/tmp")):
+        real, walked = os.path.realpath(candidate), ""
+        for part in [""] + real.split("/")[1:]:
+            walked = walked + "/" + part if part else "/"
+            info = os.lstat(walked)
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, uid)
+                    or not info.st_mode & stat.S_ISVTX and info.st_mode & 0o022):
+                problems.append("%s (mode %o)" % (walked, stat.S_IMODE(info.st_mode)))
+                break
+        else:
+            return real, None
+    return None, "no temporary directory whose ancestors are private or sticky: " + ", ".join(problems)
+
+
 class AccountDirectories(unittest.TestCase):
     """native.py's walk from / and its read of native's .claude.json: other users' write refuses, and
     group write only by a group other than the user's private one."""
 
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        base, problem = walk_base()
+        if problem:
+            self.skipTest(problem)
+        self.tmp = tempfile.TemporaryDirectory(dir=base)
         self.addCleanup(self.tmp.cleanup)
         self.shared = Path(self.tmp.name).resolve() / "s"  # an ancestor the walk checks as trusted
         self.config = self.shared / "native-claude-accounts" / "N" / "config"
