@@ -239,14 +239,140 @@ class Screen(unittest.TestCase):
                                ("b.test", 2, ((".chatgpt.com",),))),
                               ({"HTTP_PROXY": "socks5h://c.test:3", "http_proxy": "http://c.test:3"}, None)):
             with self.subTest(env=env):
-                self.assertEqual(protect.gate_proxy(supervise, kit.parse_proxy, env), expected)
+                self.assertEqual(protect.gate_proxy(supervise, kit.parse_proxy, env, darwin=False), expected)
         for env, reason in (({"ALL_PROXY": "socks5h://b.test:2"}, "unsupported ALL_PROXY"),
                             ({"HTTPS_PROXY": "http://a.test:1", "https_proxy": "http://b.test:2"},
                              "HTTPS_PROXY and https_proxy differ")):
             with self.subTest(env=env), self.assertRaises(supervise.Refused) as caught:
-                protect.gate_proxy(supervise, kit.parse_proxy, env)
+                protect.gate_proxy(supervise, kit.parse_proxy, env, darwin=False)
             self.assertIn(reason, caught.exception.reason)
             self.assertNotIn("b.test", caught.exception.reason)
+
+    def test_on_macos_the_gate_takes_the_system_https_proxy_codex_would_use(self):
+        """Codex 0.167.2 on macOS uses the system HTTPS proxy when no HTTPS_PROXY spelling is set, ahead
+        of ALL_PROXY (hyper-util 0.1.20); the launcher reads it with scutil, outside the boundary."""
+        settings = {"HTTPSEnable": 1, "HTTPSProxy": "system.test", "HTTPSPort": 8443, "ExceptionsList": None}
+        with mock.patch.object(supervise, "macos_proxies", lambda: settings):
+            for env, expected in (({"ALL_PROXY": "http://b.test:2"}, ("system.test", 8443, ())),
+                                  ({"HTTPS_PROXY": "http://a.test:1"}, ("a.test", 1, ()))):
+                with self.subTest(env=env):
+                    self.assertEqual(protect.gate_proxy(supervise, kit.parse_proxy, env, darwin=True), expected)
+            self.assertEqual(protect.gate_proxy(supervise, kit.parse_proxy, {}, darwin=False), None)
+        with mock.patch.object(supervise, "macos_proxies", lambda: {"ProxyAutoConfigEnable": 1}), \
+                self.assertRaises(supervise.Refused) as caught:
+            protect.gate_proxy(supervise, kit.parse_proxy, {"ALL_PROXY": "http://b.test:2"}, darwin=True)
+        self.assertIn("PAC or WPAD", caught.exception.reason)
+
+    def session(self, base, databases=True):
+        """A Session over a laid-out account home in BASE (codex_home BASE/home/.codex), unchecked."""
+        home = base / "home"
+        root = home / ".codex"
+        account = root / "accounts/A"
+        account.mkdir(parents=True)
+        for name in (*layout.SHARED_DIRS, ".tmp"):
+            (root / name).mkdir()
+        for name in (*layout.SHARED_FILES, *protect.SHARED_WRITABLE_FILES):
+            (root / name).touch()
+        (root / "packages/standalone").mkdir(parents=True)
+        (base / "work").mkdir()
+        if databases:
+            for name in (*NATIVE.databases, *NATIVE.later_databases):
+                (root / (name + ".sqlite")).write_bytes(b"")
+        config = types.SimpleNamespace(codex_home=root, home=home, secrets_dir=home / ".secrets")
+        session = protect.Session(None, None, None, config, types.SimpleNamespace(home=account, name="A"), None, [],
+                                  "codex", {}, root, base / "work")
+        session.native = NATIVE
+        return session
+
+    def test_the_writable_set_is_what_native_writes_and_the_rest_of_codex_home_stays_read_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            session = self.session(base)
+            root = base / "home/.codex"
+            paths = session.paths()
+            self.assertEqual(paths[:2], [str(base / "work"), str(root / "accounts/A")])
+            for name in ("sessions", "archived_sessions", "rollout-migrations", "thread-writer-locks",
+                         ".tmp/rollout-maintenance.lock", "history.jsonl", "session_index.jsonl", "state_5.sqlite",
+                         "state_5.sqlite-wal", "state_5.sqlite-shm", "queue_1.sqlite-shm"):
+                self.assertIn(str(root / name), paths)
+            self.assertNotIn(str(root), paths)
+            # .tmp is plain codex's plugin staging area (plugins, marketplaces), memories a prompt
+            # context that protected mode turns off: native writes neither through the account home.
+            for name in ("packages/standalone/x", "config.toml", "hooks.json", "mcp.json", "skills/x", "rules/x",
+                         "agents/x", "themes/x", "worktrees/x", "accounts/B/x", "accounts/.locks/x", "auth.json",
+                         "new.sqlite", ".tmp/plugins/x", ".tmp/plugins.sha", ".tmp/x", "memories/x", "memories_v2/x"):
+                with self.subTest(name=name):
+                    self.assertFalse(any(protect.within(str(root / name), path) for path in paths))
+            self.assertIn(str(root / "thread_history_1.sqlite-wal"), paths)
+            self.assertEqual(session.paths(refresh=True), session.paths() + [str(base / "home/.secrets")])
+
+    def test_the_databases_wal_and_shm_files_are_made_beside_them_with_their_mode(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            session = self.session(base)
+            root = base / "home/.codex"
+            (root / "state_5.sqlite").chmod(0o640)
+            (root / "logs_2.sqlite-wal").write_bytes(b"kept")
+            session.prepare_databases()
+            self.assertEqual(stat.S_IMODE((root / "state_5.sqlite-wal").stat().st_mode), 0o640)
+            self.assertEqual(stat.S_IMODE((root / "state_5.sqlite-shm").stat().st_mode), 0o640)
+            self.assertEqual((root / "state_5.sqlite-wal").read_bytes(), b"")
+            self.assertEqual((root / "logs_2.sqlite-wal").read_bytes(), b"kept")
+            for name in ("goals_1.sqlite", "memories_1.sqlite-wal"):
+                with self.subTest(name=name):
+                    (root / name).unlink()
+                    (root / name).symlink_to(base / "home/.bashrc")
+                    self.assertIn("%s is not a regular file of this user" % name, refused(session.prepare_databases))
+                    self.assertFalse((base / "home/.bashrc").exists())
+                    (root / name).unlink()
+                    (root / name).write_bytes(b"")
+
+    def test_the_shared_entries_the_boundary_names_must_be_plain_entries_of_this_user(self):
+        """Each launch resolves the shared entries beneath read-only codex_home again; on macOS a
+        session can replace one with a link (its rule covers the name itself), which would make the
+        link's target writable in the next launch. A link, another type or a missing entry refuses;
+        before the layout exists a missing one passes (the launcher creates it)."""
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            session = self.session(base)
+            root = base / "home/.codex"
+            session.shared_entries()
+            ssh, rc = base / "home/.ssh", base / "home/.zshrc"
+            ssh.mkdir()
+            rc.write_text("# rc\n")
+            for name, target, kind in (("sessions", ssh, "a directory"), ("history.jsonl", rc, "a regular file"),
+                                       (".tmp", ssh, "a directory"),
+                                       (".tmp/rollout-maintenance.lock", rc, "a regular file")):
+                with self.subTest(name=name):
+                    held = base / "held"
+                    (root / name).rename(held)
+                    (root / name).symlink_to(target)
+                    self.assertIn("%s is a link, not %s of this user: protected mode makes it writable" % (root / name,
+                                                                                                    kind),
+                                  refused(session.shared_entries))
+                    self.assertIn("is a link", refused(session.shared_entries, False))
+                    (root / name).unlink()
+                    held.rename(root / name)
+            (root / "history.jsonl").unlink()
+            (root / "history.jsonl").mkdir()
+            self.assertIn("%s is not a regular file of this user" % (root / "history.jsonl"),
+                          refused(session.shared_entries))
+            (root / "history.jsonl").rmdir()
+            self.assertIn("%s is missing" % (root / "history.jsonl"), refused(session.shared_entries))
+            session.shared_entries(False)
+            self.assertEqual(rc.read_text(), "# rc\n")
+
+    def test_a_protected_launch_never_logs_in_also_when_the_login_disappears_after_the_check(self):
+        """check() refuses an account without a saved login; one removed after it reaches enroll(),
+        which refuses too instead of running the native device login outside the boundary."""
+        launch = load("launch", ROOT / "lib/codex-as/launch.py")
+        with tempfile.TemporaryDirectory() as temp:
+            account = types.SimpleNamespace(target=Path(temp) / "codex-A.json", name="A")
+            with mock.patch.object(launch.guard, "terminal", side_effect=AssertionError("the login started")), \
+                    self.assertRaises(launch.protect.Refused) as caught:
+                launch.enroll(account, "codex", protected=True)
+            self.assertIn("the account A has no saved login yet, and protected mode never runs the native login",
+                          str(caught.exception))
 
     def test_the_launcher_runs_commands_by_name_from_system_directories_only_while_protected(self):
         with mock.patch.dict(os.environ, {"PATH": "/w/.venv/bin:/usr/bin"}):
@@ -1043,11 +1169,15 @@ class Home:
         self.tmp.mkdir()
         self.bin = self.base / "bin"
         self.bin.mkdir()
-        self.log = self.codex_home / "fake-codex.log"
+        self.log = self.codex_home / "sessions/fake-codex.log"
         if real_codex is None:
             fake = self.bin / "codex"
             fake.write_text("#!%s\n" % sys.executable + (FIXTURES / "fake_codex.py").read_text())
             fake.chmod(0o700)
+            # The databases native 0.167.2 keeps in the shared SQLite home (codex_home by default),
+            # which protected mode writes as files only; the fake codex never opens them.
+            for name in (*NATIVE.databases, *NATIVE.later_databases):
+                (self.codex_home / (name + ".sqlite")).write_bytes(b"")
         else:
             (self.bin / "codex").symlink_to(real_codex)
         self.write_credential(backend.credential())
@@ -1270,11 +1400,172 @@ class Unprotected(unittest.TestCase):
                 self.assertEqual(self.home.events(), [])
 
     def test_inherited_reserves_refuse_unreviewed_releases(self):
+        """The release comes from `codex --version` run inside the boundary, so a host without one
+        refuses for that first."""
         self.home.config("[usage_reserve.codex_accounts.A]\nweekly = 10\n")
         result = self.home.run(["A"], env={"FAKE_VERSION": "codex-cli 0.168.0"})
         self.assertEqual(result.returncode, 1)
-        self.assertIn("newer than the newest reviewed release", result.stderr)
+        self.assertIn(boundary_missing() or "newer than the newest reviewed release", result.stderr)
         self.assertEqual(self.home.events(), [])
+
+    def test_a_native_or_its_interpreter_in_the_boundarys_reach_refuses_before_anything_runs(self):
+        """A session that could replace the native (or a link on the way to it, or the interpreter of a
+        #! script native) would have the next plain codex run its code unconfined. The check runs before
+        the native's version is read, so nothing of it runs (the mark would show an unconfined run)."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        fake = self.home.bin / "codex"
+        tools = self.home.work / "tools"
+        tools.mkdir()
+        shutil.move(str(fake), tools / "codex")
+        path = self.home.env["PATH"]
+        python = tools / "fakepython"
+        python.symlink_to(sys.executable)
+        script = self.home.base / "script-codex"
+        script.write_text("#!/usr/bin/env fakepython\n" + (FIXTURES / "fake_codex.py").read_text())
+        script.chmod(0o700)
+        cases = (("in the workspace", os.pathsep.join((str(tools), path)), "the Codex executable %s" % (tools / "codex")),
+                 ("linked from outside", path, "the Codex executable %s" % fake),
+                 ("interpreter", os.pathsep.join((str(self.home.bin), str(tools), path)),
+                  "the interpreter of the Codex executable %s" % python))
+        for name, search, text in cases:
+            with self.subTest(name=name):
+                for link in (fake,):
+                    if os.path.lexists(link):
+                        link.unlink()
+                if name == "linked from outside":
+                    fake.symlink_to(tools / "codex")
+                elif name == "interpreter":
+                    fake.symlink_to(script)
+                result = self.home.run(["--reserve-5h", "10", "A"], env={"PATH": search, "FAKE_VERSION_MARK": str(mark)})
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("usage reserve protection refused: " + (missing or "%s lies inside %s, which the boundary "
+                              "can write; protected mode refuses a Codex that a protected session could replace"
+                              % (text, self.home.work)), result.stderr)
+                self.assertFalse(mark.exists())
+                self.assertEqual(self.home.events(), [])
+
+    def test_a_path_entry_the_boundary_can_write_before_python3_codex_or_its_interpreter_refuses(self):
+        """The reviewer's PATH-shadow shape: a workspace directory searched before the one that supplies
+        the launcher's python3, codex or the #!/usr/bin/env interpreter of a script codex would let a
+        session plant that command there for the next launch or plain codex to run unconfined; so does
+        a relative entry, which a later run from the workspace resolves there. Nothing runs."""
+        missing = boundary_missing()
+        mark = self.home.base / "version-mark"
+        shadow = self.home.work / "bin"
+        shadow.mkdir()
+        python = os.path.dirname(os.path.realpath(sys.executable))
+        tools = self.home.base / "tools"
+        tools.mkdir()
+        (tools / "fakepython").symlink_to(sys.executable)
+        script = self.home.base / "script-codex"
+        script.write_text("#!/usr/bin/env fakepython\n" + (FIXTURES / "fake_codex.py").read_text())
+        script.chmod(0o700)
+        fake, held = self.home.bin / "codex", self.home.base / "fake-codex"
+        system = ("/usr/bin", "/bin")
+        cases = (("python3", (shadow, self.home.bin, python, *system), "the PATH entry %s comes before %s, which "
+                  "supplies python3, and lies inside %s" % (shadow, python, self.home.work)),
+                 ("codex", (python, shadow, self.home.bin, *system), "the PATH entry %s comes before %s, which "
+                  "supplies codex, and lies inside %s" % (shadow, self.home.bin, self.home.work)),
+                 ("interpreter", (python, self.home.bin, shadow, tools, *system), "the PATH entry %s comes before %s, "
+                  "which supplies fakepython (the interpreter of the Codex executable), and lies inside %s"
+                  % (shadow, tools, self.home.work)),
+                 ("relative", ("", self.home.bin, python, *system), "the empty PATH entry (the current directory) "
+                  "comes before %s, which supplies python3; a later run from the workspace would search the "
+                  "workspace there" % python))
+        for name, entries, text in cases:
+            with self.subTest(name=name):
+                if name == "interpreter":
+                    fake.rename(held)
+                    fake.symlink_to(script)
+                search = os.pathsep.join(str(entry) for entry in entries)
+                result = self.home.run(["--reserve-5h", "10", "A"], env={"PATH": search, "FAKE_VERSION_MARK": str(mark)})
+                if name == "interpreter":
+                    fake.unlink()
+                    held.rename(fake)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("usage reserve protection refused: " + (missing or text), result.stderr)
+                self.assertFalse(mark.exists())
+                self.assertEqual(self.home.events(), [])
+                self.assertEqual(list(shadow.iterdir()), [])
+
+    def test_shared_state_replaced_by_a_link_refuses_before_anything_runs(self):
+        """A shared entry beneath codex_home that became a link (a protected session on macOS can do
+        that; planted from outside here, so it runs on every platform) would put the link's target in
+        the next launch's writable set."""
+        missing = boundary_missing()
+        root = self.home.codex_home
+        ssh, rc = self.home.home / ".ssh", self.home.home / ".zshrc"
+        ssh.mkdir()
+        rc.write_text("# rc\n")
+        for name, target in (("sessions", ssh), ("history.jsonl", rc), (".tmp", ssh)):
+            with self.subTest(name=name):
+                (root / name).symlink_to(target)
+                result = self.home.run(["--reserve-5h", "10", "A"])
+                (root / name).unlink()
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("usage reserve protection refused: " + (missing or "%s is a link" % (root / name)),
+                              result.stderr)
+                self.assertEqual(rc.read_text(), "# rc\n")
+                self.assertEqual(list(ssh.iterdir()), [])
+
+    def test_a_version_check_whose_descendant_keeps_its_output_open_still_ends(self):
+        """`codex --version` runs confined; a descendant that keeps its output open is ended with the
+        boundary's other processes before the output is read, so the read never waits for it."""
+        missing = boundary_missing()
+        started = time.monotonic()
+        result = self.home.run(["--reserve-5h", "10", "A"], timeout=45,
+                               env={"FAKE_VERSION_LINGER": str(self.home.base)})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(missing or "needs an interactive terminal", result.stderr)  # the version passed
+        self.assertLess(time.monotonic() - started, protect.VERSION_TIMEOUT)
+        self.assertEqual(leftovers(self.home.base), [])
+
+    def test_protected_mode_never_runs_the_native_login(self):
+        """codex login needs more network than the boundary allows, so an account without a saved
+        login refuses instead of logging in outside the boundary."""
+        missing = boundary_missing()
+        (self.home.secrets / "codex-A.json").unlink()
+        terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
+        self.addCleanup(terminal.close)
+        terminal.expect("usage reserve protection refused: " + re.escape(
+            missing or "the account A has no saved login yet, and protected mode never runs the native login"))
+        self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
+        self.assertEqual(self.home.events(), [])
+        self.assertFalse((self.home.secrets / "codex-A.json").exists())
+
+    def test_databases_native_has_not_created_yet_refuse(self):
+        """The boundary names native's databases as files, which native can write but not create."""
+        missing = boundary_missing()
+        for name, advice in (("thread_history_1", "send one prompt in a Codex session without reserves first"),
+                             ("state_5", "start Codex once without reserves first")):
+            with self.subTest(name=name):
+                for database in (*NATIVE.databases, *NATIVE.later_databases):
+                    (self.home.codex_home / (database + ".sqlite")).touch()
+                (self.home.codex_home / (name + ".sqlite")).unlink()
+                terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
+                self.addCleanup(terminal.close)
+                terminal.expect("usage reserve protection refused: " + re.escape(
+                    missing or "native Codex has not created %s.sqlite in %s yet" % (name, self.home.codex_home)))
+                terminal.expect(re.escape(missing or advice))
+                self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
+                self.assertEqual(self.home.events(), [])
+
+    def test_a_configuration_that_follows_system_proxy_settings_refuses(self):
+        """With respect_system_proxy native would take system, PAC and WPAD settings first, which the
+        gate cannot follow; inside the boundary protected mode turns the feature off."""
+        missing = boundary_missing()
+        config = self.home.codex_home / "config.toml"
+        for key in protect.SYSTEM_PROXY_FEATURES:
+            with self.subTest(key=key):
+                config.write_text('model = "gpt-5.5"\n[features]\n%s = true\n' % key)
+                terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
+                self.addCleanup(terminal.close)
+                terminal.expect("usage reserve protection refused: " + re.escape(
+                    missing or "%s enables features.respect_system_proxy" % config))
+                self.assertEqual(os.waitstatus_to_exitcode(terminal.wait()), 1)
+                self.assertEqual(self.home.events(), [])
+        self.assertIn("features.respect_system_proxy=false", protect.overrides(50000))
 
     def test_flag_errors_name_the_problem(self):
         for args, text in ((["--reserve-5h", "A"], "takes a number from 0 through 100"),
@@ -1494,6 +1785,49 @@ class Protected(Launch):
         terminal.expect("usage reserve protection refused: .*application network restrictions")
         self.assertEqual(self.exit_code(), 1)
         self.assertEqual(self.home.events("tui"), [])
+
+    def test_a_standalone_codex_under_codex_home_starts_and_no_session_can_replace_it(self):
+        """The reviewer's layout: Codex's standalone installer puts the native under
+        <codex_home>/packages/standalone with a current link, and PATH links to it. The writable set
+        leaves packages/ and the rest of codex_home read-only, and the native's version runs inside a
+        boundary (an unconfined run could write the mark in HOME)."""
+        release = self.home.codex_home / "packages/standalone/releases/0.167.2-x86_64-unknown-linux-musl"
+        (release / "bin").mkdir(parents=True)
+        native = release / "bin/codex"
+        shutil.move(str(self.home.bin / "codex"), native)
+        (release.parent.parent / "current").symlink_to(release)
+        (self.home.bin / "codex").symlink_to(release.parent.parent / "current/bin/codex")
+        before = native.read_bytes()
+        mark = self.home.home / "version-mark"
+        root = self.home.codex_home
+        (root / ".tmp").mkdir(mode=0o700)
+        (root / ".tmp/plugins").mkdir()  # plain codex's plugin checkout, which its later starts sync from
+        terminal = self.start(env={"FAKE_VERSION_MARK": str(mark)})
+        terminal.expect("READY")
+        denied = (native, release.parent.parent / "current-new", root / "config.toml", root / "hooks.json",
+                  root / "mcp.json", root / "skills/planted", root / "rules/planted", root / "agents/planted",
+                  root / "accounts/planted", root / "new.sqlite", root / "auth.json", root / ".tmp/plugins/x",
+                  root / ".tmp/plugins.sha", root / "memories/planted", root / "memories_v2/planted")
+        for path in denied:
+            terminal.send("write %s\r" % path)
+            terminal.expect("WRITE (13|1)\\b")
+        allowed = (root / "sessions/written", root / "accounts/A/written", root / "history.jsonl",
+                   root / "session_index.jsonl", root / ".tmp/rollout-maintenance.lock", root / "accounts/A/.tmp/x",
+                   root / "state_5.sqlite-wal", root / "archived_sessions/written", root / "thread-writer-locks/written")
+        for path in allowed:
+            terminal.send("write %s\r" % path)
+            terminal.expect("WRITE ok")
+        terminal.send("quit\r")
+        self.assertEqual(self.exit_code(), 0)
+        self.assertEqual(native.read_bytes(), before)
+        self.assertFalse(mark.exists(), mark.read_text() if mark.exists() else "")
+        self.assertFalse(os.path.lexists(release.parent.parent / "current-new"))
+        self.assertEqual(list((root / ".tmp/plugins").iterdir()), [])
+        for name in NATIVE.databases:
+            database = root / (name + ".sqlite")
+            for suffix in ("-wal", "-shm"):  # made by the launcher, as SQLite makes them
+                self.assertEqual(stat.S_IMODE(Path(str(database) + suffix).stat().st_mode),
+                                 stat.S_IMODE(database.stat().st_mode))
 
     def test_a_signal_to_the_launcher_reaches_the_native_and_its_status_returns(self):
         terminal = self.start()
@@ -1780,6 +2114,53 @@ class RealCodex(Launch):
         self.home.env["CODEX_CA_CERTIFICATE"] = self.ca
         (self.home.codex_home / "config.toml").write_text(
             'model = "gpt-5.5"\n[projects."%s"]\ntrust_level = "trusted"\n' % self.home.work)
+        self.prime()
+
+    def prime(self):
+        """Native's databases, which protected mode lets native write but not create: one direct
+        native session in codex_home with one prompt (native creates thread_history_1 with its first
+        thread), through a fixture provider over HTTP (on chatgpt.com native would use a WebSocket,
+        which the backend does not serve). It runs outside any boundary, so it gets protected mode's
+        quiet set (no plugins, apps, memories, analytics, telemetry or web search; no update check),
+        and the fixture proxy, the only exit it is given, must see nothing but the fixture names. Its
+        root auth.json goes again, and so does what it sent upstream."""
+        root = self.home.codex_home
+        auth = root / "auth.json"
+        shutil.copy(self.home.secrets / "codex-A.json", auth)
+        auth.chmod(0o600)
+        quiet = [pair for pair in protect.settings(0) if pair.startswith(("features.", "analytics.", "otel.",
+                                                                          "memories.", "web_search="))]
+        provider = ['model_provider="fixture"', 'model_providers.fixture.name="fixture"',
+                    'model_providers.fixture.base_url="https://chatgpt.com/backend-api/codex"',
+                    "model_providers.fixture.requires_openai_auth=true",
+                    "model_providers.fixture.supports_websockets=false", 'model_providers.fixture.wire_api="responses"',
+                    'cli_auth_credentials_store="file"', 'model="gpt-6-sol"',  # a current model: no migration prompt
+                    "check_for_update_on_startup=false", *quiet]
+        argv = [REAL_CODEX, *(word for pair in provider for word in ("-c", pair)), "--no-daemon"]
+        self.terminal = Terminal(argv, dict(self.home.env, CODEX_HOME=str(root)), self.home.work)
+        self.terminal.answer = True
+        self.shows("Ask Codex", timeout=90)
+        self.settle(2)
+        self.type("priming prompt")
+        self.shows("fixture reply", timeout=60)
+        self.settle(2)
+        self.terminal.send(b"\x03")
+        time.sleep(0.5)
+        self.terminal.send(b"\x03")
+        self.assertEqual(os.waitstatus_to_exitcode(self.terminal.wait(timeout=30)), 0)
+        self.terminal.close()
+        self.terminal = None
+        auth.unlink()
+        for name in (*NATIVE.databases, *NATIVE.later_databases):
+            self.assertTrue((root / (name + ".sqlite")).is_file(), name)
+        # Besides the fixture names, only the TUI's start-up announcement tip, which 0.167.2 fetches
+        # whatever the configuration (S: raw.githubusercontent.com/openai/codex/main/announcement_tip.toml)
+        # and the fixture proxy refuses with 403. Plugin sync, GitHub releases or anything else fails here.
+        self.assertTrue(self.proxy.targets)
+        self.assertLessEqual(set(self.proxy.targets),
+                             {"chatgpt.com:443", "auth.openai.com:443", "raw.githubusercontent.com:443"})
+        with self.backend.lock:
+            del self.backend.requests[:]
 
     def test_the_real_tui_starts_without_a_model_request(self):
         self.terminal = Terminal([str(LAUNCHER), "--reserve-5h", "10", "A"], self.home.env, self.home.work)
@@ -1797,6 +2178,40 @@ class RealCodex(Launch):
             agent = dict((k.lower(), v) for k, v in request["headers"]).get("user-agent", "")
             for private in ("coding-agent-kit", "codex-as", str(self.home.home), socket.gethostname()):
                 self.assertNotIn(private, agent)
+        self.terminal.send(b"\x03")
+        time.sleep(0.5)
+        self.terminal.send(b"\x03")
+        self.assertEqual(os.waitstatus_to_exitcode(self.terminal.wait(timeout=30)), 0)
+
+    def test_a_real_tool_writes_the_workspace_and_the_shared_sessions_but_not_the_rest_of_codex_home(self):
+        """The reviewed TUI's exec tool runs a shell command inside the boundary: the workspace and the
+        writable shared state take its writes; config.toml and a new file in codex_home do not."""
+        (self.home.codex_home / "config.toml").write_text(
+            'model = "gpt-6-sol"\n[projects."%s"]\ntrust_level = "trusted"\n' % self.home.work)
+        root, report = self.home.codex_home, self.home.work / "tool-report.txt"
+        config = (root / "config.toml").read_bytes()
+        command = ("echo ran > %s; for f in %s %s %s %s; do (echo x >> $f) 2>/dev/null && echo ok $f >> %s "
+                   "|| echo denied $f >> %s; done" % (report, root / "config.toml", root / "planted",
+                                                      root / "skills/planted", root / "sessions/tool-written",
+                                                      report, report))
+        self.backend.tool = ("run the tool", "const r = await tools.exec_command({cmd: %s}); text(JSON.stringify(r));"
+                             % json.dumps(command))
+        self.terminal = self.start(args=("--reserve-5h", "10", "A"))
+        self.terminal.answer = True
+        self.shows("Ask Codex", timeout=90)
+        self.settle(2)
+        self.type("please run the tool")
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not (report.exists() and "sessions/tool-written" in report.read_text()):
+            self.terminal.read(0.1)
+        self.quiet()
+        self.assertEqual(report.read_text().splitlines(),
+                         ["ran", "denied %s" % (root / "config.toml"), "denied %s" % (root / "planted"),
+                          "denied %s" % (root / "skills/planted"), "ok %s" % (root / "sessions/tool-written")])
+        self.assertEqual((root / "config.toml").read_bytes(), config)
+        outputs = [item for request in self.models() for item in json.loads(request["body"]).get("input", [])
+                   if isinstance(item, dict) and item.get("type") == "custom_tool_call_output"]
+        self.assertTrue(outputs)  # the tool's result went back to the model through the gate
         self.terminal.send(b"\x03")
         time.sleep(0.5)
         self.terminal.send(b"\x03")

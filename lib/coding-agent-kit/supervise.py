@@ -70,6 +70,7 @@ from pathlib import Path
 import re
 import secrets
 import select
+import shutil
 import signal
 import socket
 import stat
@@ -113,6 +114,13 @@ PROXY_ORDER = {
 }
 NO_PROXY_VARIABLES = ("NO_PROXY", "no_proxy")
 NO_PROXY_ENTRY = re.compile(r"[a-z0-9._-]{1,253}")  # the names gate.bypasses can exempt
+# macOS: the global proxy settings (SCDynamicStoreCopyProxies), which Codex's HTTP client also
+# reads when no HTTPS proxy variable is set (system_https_proxy).
+SCUTIL = "/usr/sbin/scutil"
+SCUTIL_TIMEOUT = 5.0
+SCUTIL_LIMIT = 256 * 1024
+SCUTIL_ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LC_ALL": "C"}
+SYSTEM_PROXY = "the macOS system HTTPS proxy"
 # What a forked child reports through a shared anonymous page, which survives a confine hook that
 # closes every descriptor: the hook is running, exec is next, the hook refused, exec failed.
 HOOK, EXEC, REFUSED, FAILED = b"H", b"X", b"R", b"E"
@@ -137,7 +145,7 @@ class Refused(Exception):
         self.reason = reason
 
 
-def capture_proxy(env, parse, provider=None):
+def capture_proxy(env, parse, provider=None, system=None):
     """The caller's proxy for the gate's upstream connections, captured once at startup: None (the
     gate connects directly) or (host, port, no_proxy), the gate configuration's proxy value.
 
@@ -146,8 +154,17 @@ def capture_proxy(env, parse, provider=None):
     values must agree. An unsupported value refuses instead of going direct, naming the variable but
     never its value. no_proxy holds one entry list per set spelling of NO_PROXY (gate.bypasses).
     Boundary children never get the proxy: run() and confined() pass them native_environment(),
-    whose only proxy is the gate."""
-    for names in PROXY_ORDER[provider]:
+    whose only proxy is the gate.
+
+    system, for Codex on macOS (macos_proxies), returns the system proxy settings. Codex's client
+    (reqwest 0.12.28 with hyper-util 0.1.20) uses the system HTTPS proxy when neither HTTPS_PROXY
+    spelling is set, ahead of ALL_PROXY, with the NO_PROXY variables but not the system exceptions
+    list, so the gate does the same (system_https_proxy)."""
+    for index, names in enumerate(PROXY_ORDER[provider]):
+        if index == 1 and provider == "codex" and system is not None:
+            found = system_https_proxy(system(), parse)
+            if found is not None:
+                return found + (no_proxy_lists(env),)
         found = [(name, env[name]) for name in names if env.get(name)]
         if not found:
             continue
@@ -162,18 +179,94 @@ def capture_proxy(env, parse, provider=None):
     return None
 
 
+def parse_scutil(text):
+    """The top-level {key: value} of `scutil --proxy` output: integers as int, other values as str,
+    nested arrays and dictionaries (ExceptionsList, __SCOPED__) as None. ValueError when the text is
+    not one dictionary in scutil's format."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines or lines[0] != "<dictionary> {" or lines[-1] != "}":
+        raise ValueError("not a scutil dictionary")
+    found, depth = {}, 0
+    for line in lines[1:-1]:
+        if line == "}":
+            depth -= 1
+            if depth < 0:
+                raise ValueError("unbalanced scutil output")
+            continue
+        key, separator, value = line.partition(" : ")
+        if not separator or not key:
+            raise ValueError("unexpected scutil line")
+        nested = value in ("<array> {", "<dictionary> {")
+        if depth == 0:
+            found[key] = None if nested else int(value) if re.fullmatch(r"-?[0-9]{1,9}", value) else value
+        depth += nested
+    if depth:
+        raise ValueError("unbalanced scutil output")
+    return found
+
+
+def macos_proxies(scutil=SCUTIL, timeout=SCUTIL_TIMEOUT, trusted=None):
+    """The macOS global proxy settings, parsed from `scutil --proxy` (parse_scutil), or Refused.
+
+    scutil runs outside every boundary, so only when root alone can change every name on the way to
+    it (trusted, system_command), by absolute path, in /, with a fixed environment and bounded in
+    time and output."""
+    if (trusted or system_command)([scutil]) is None:
+        raise Refused("cannot read %s settings: %s is missing or not a root-owned system command"
+                      % (SYSTEM_PROXY, scutil))
+    try:
+        done = subprocess.run([scutil, "--proxy"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, env=dict(SCUTIL_ENV), cwd="/", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise Refused("cannot read %s settings: %s --proxy did not finish within %g s"
+                      % (SYSTEM_PROXY, scutil, timeout)) from None
+    except OSError as error:
+        raise Refused("cannot read %s settings: %s could not run (%s)"
+                      % (SYSTEM_PROXY, scutil, error.strerror or error)) from None
+    try:
+        if done.returncode or len(done.stdout) > SCUTIL_LIMIT:
+            raise ValueError("scutil failed")
+        return parse_scutil(done.stdout.decode("utf-8"))
+    except (ValueError, UnicodeError):
+        raise Refused("cannot read %s settings: %s --proxy gave no settings it could parse"
+                      % (SYSTEM_PROXY, scutil)) from None
+
+
+def system_https_proxy(settings, parse):
+    """(host, port) of the system HTTPS proxy Codex would use, None when it uses none, or Refused.
+
+    As hyper-util 0.1.20 reads them (mac::with_system): HTTPSEnable 1 with HTTPSProxy and HTTPSPort;
+    the ExceptionsList is not applied there, and HTTP and SOCKS settings serve no HTTPS URL. Automatic
+    configuration (a PAC file or WPAD discovery) refuses, as does a proxy that is not a plain host and
+    port: the gate never goes direct where the network may expect a proxy."""
+    if any(settings.get(key) == 1 for key in ("ProxyAutoConfigEnable", "ProxyAutoDiscoveryEnable")):
+        raise Refused("%s settings use automatic proxy configuration (PAC or WPAD), which protected mode cannot "
+                      "follow; set HTTPS_PROXY to the proxy to use" % SYSTEM_PROXY)
+    if settings.get("HTTPSEnable") != 1:
+        return None
+    host, port = settings.get("HTTPSProxy"), settings.get("HTTPSPort")
+    try:
+        if not isinstance(host, str) or isinstance(port, bool) or not isinstance(port, int):
+            raise ValueError("no plain host and port")
+        return parse("http://%s:%d" % (host, port))
+    except (ValueError, TypeError):
+        raise Refused("unsupported %s (only a plain HOST and PORT); set HTTPS_PROXY to the proxy to use"
+                      % SYSTEM_PROXY) from None
+
+
 def no_proxy_lists(env):
     """One tuple of lower-case entries per set spelling of NO_PROXY, in NO_PROXY_VARIABLES order,
     split on commas only, as Codex splits them, or ("*",) for a value of exactly "*". An entry that
     gate.bypasses would not exempt a host by (a port, a range, "*.NAME", "*" among other entries, two
     names in one entry) is dropped, which only keeps that host on the proxy; a set spelling whose
-    entries are all dropped still counts."""
+    entries are all dropped, an empty one included, still counts (Codex takes the first spelling
+    that is set, even when it is empty, so NO_PROXY="" exempts nothing there)."""
     lists = []
     for name in NO_PROXY_VARIABLES:
         text = env.get(name)
         if text == "*":
             lists.append(("*",))
-        elif text:
+        elif text is not None:
             entries = (entry.strip() for entry in text.lower().split(","))
             lists.append(tuple(entry for entry in entries if NO_PROXY_ENTRY.fullmatch(entry))[:1024])
     return tuple(lists)
@@ -310,6 +403,108 @@ def resolution(path, hops=40):
         parts[:0] = target.parts[1:] if target.is_absolute() else target.parts
         current = "/" if target.is_absolute() else current
     return names
+
+
+ENV_COMMAND = re.compile(r"[A-Za-z0-9._+-]+")
+ENV_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=[^'\"\\$`]*")
+
+
+class Unfollowed(ValueError):
+    """A #!/usr/bin/env line in a form whose command lookup script_interpreter does not follow."""
+
+
+def script_interpreter(path):
+    """(interpreter, NAME) of the #! script at PATH: the absolute interpreter its #! line names and,
+    when that is env, the command NAME it runs, which env looks up on its PATH; (None, None) when
+    PATH is no such script. The env forms followed are `env [-S] [VAR=VALUE ...] [--] NAME [ARG ...]`
+    (-S also attached), split at blanks as macOS splits the line and as -S splits it on Linux;
+    Unfollowed for any other option (-i, -u, -C, -P and the rest can change where or whether env
+    looks NAME up), a PATH assignment, quoting or no plain NAME."""
+    try:
+        with open(path, "rb") as stream:
+            head = stream.read(256)
+    except OSError:
+        return None, None
+    if not head.startswith(b"#!"):
+        return None, None
+    words = head[2:].split(b"\n", 1)[0].decode("utf-8", "replace").split()
+    if not words or not os.path.isabs(words[0]):
+        return None, None
+    if os.path.basename(words[0]) != "env":
+        return words[0], None
+    rest = words[1:]
+    if rest and rest[0].startswith("-S"):
+        rest = ([rest[0][2:]] if rest[0] != "-S" else []) + rest[1:]
+    while rest and ENV_ASSIGNMENT.fullmatch(rest[0]) and not rest[0].startswith("PATH="):
+        rest = rest[1:]
+    if rest[:1] == ["--"]:
+        rest = rest[1:]
+    if not rest or not ENV_COMMAND.fullmatch(rest[0]) or rest[0].startswith("-"):
+        raise Unfollowed(words[0])
+    return words[0], rest[0]
+
+
+def native_sources(path, env, what="the native"):
+    """(what, path, holds code) for the native executable PATH and, when it is a #! script, its
+    interpreter: the absolute one it names or, for `#!/usr/bin/env NAME`, NAME as ENV's PATH finds
+    it (one level; an interpreter that is a script itself is not followed). A protected session
+    that could replace one of them, or a link on the way, would have the next unprotected run of
+    the native execute its code unconfined, so an adapter refuses when one lies in the boundary's
+    reach (unreachable). Refused for an env line script_interpreter does not follow."""
+    sources = [(what, str(path), False)]
+    try:
+        interpreter, name = script_interpreter(path)
+    except Unfollowed as error:
+        raise Refused("the #! line of %s runs %s in a form protected mode does not follow (use "
+                      "`#!%s NAME` or `#!%s -S NAME ARGS`)" % (what, error, error, error)) from None
+    if interpreter is not None:
+        sources.append(("the interpreter of " + what, interpreter, False))
+    found = shutil.which(name, path=env.get("PATH", os.defpath)) if name else None
+    if found:
+        sources.append(("the interpreter of " + what, os.path.abspath(found), False))
+    return sources
+
+
+def _runnable(path):
+    """Whether execvp would run PATH, as shutil.which judges it."""
+    return os.path.exists(path) and os.access(path, os.X_OK) and not os.path.isdir(path)
+
+
+def path_order(lookups, env, writable_paths, hint=""):
+    """Refused (reason ending in HINT) when a PATH entry of ENV that a lookup of a command searches
+    before the entry supplying it lies inside a writable path, through every link, or is relative
+    (an empty one is the current directory, the workspace for a later run there): a protected
+    session could put a file of that name there, and the next lookup outside the boundary (the
+    next launch, or a plain run of the native) would execute it unconfined. LOOKUPS are (name,
+    label) pairs, label naming the command in a message; a name with a slash is never looked up.
+    When no entry supplies a name, every entry counts. The supplier itself is unreachable's to
+    check, as the resolved command."""
+    entries = env.get("PATH", os.defpath).split(os.pathsep)
+    for name, label in lookups:
+        if not name or "/" in name:
+            continue
+        supplier = next((entry for entry in entries if os.path.isabs(entry)
+                         and _runnable(os.path.join(entry, name))), None)
+        before = "comes before %s, which supplies %s" % (supplier, label) if supplier else None
+        for entry in entries:
+            if not os.path.isabs(entry):
+                shown = "the relative PATH entry %s" % entry if entry else "the empty PATH entry (the current directory)"
+                raise Refused("%s %s; a later run from the workspace would search the workspace there, which a "
+                              "protected session can write%s" % (shown, before or "is searched for %s, which no "
+                                                                  "PATH entry supplies" % label, hint))
+            if entry == supplier:
+                break
+            names = resolution(entry)
+            for root in writable_paths:
+                if any(within(item, root) for item in names):
+                    if before:
+                        place = "the PATH entry %s %s, and lies inside %s, which the boundary can write" % (
+                            entry, before, root)
+                    else:
+                        place = ("the PATH entry %s lies inside %s, which the boundary can write, and no PATH entry "
+                                 "supplies %s" % (entry, root, label))
+                    raise Refused("%s: a protected session could put a %s there that the next run outside the "
+                                  "boundary would execute unconfined%s" % (place, name, hint))
 
 
 def system_command(candidates):

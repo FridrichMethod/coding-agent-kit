@@ -86,6 +86,7 @@ class Backend:
         self.bundle = None          # a bundle document, or None for 404
         self.refreshes = 0
         self.refresh_status = 200
+        self.tool = None            # (trigger, JavaScript): a prompt holding trigger gets one exec tool call
         self.closing = False
         threading.Thread(target=self._accept, daemon=True).start()
 
@@ -106,17 +107,28 @@ class Backend:
 
     def stream(self, body):
         """A model reply: JSON for the fake codex, a Responses event stream for a streaming request
-        (real codex), whose assistant message names the turn's number."""
+        (real codex), whose assistant message names the turn's number. With self.tool set, a request
+        whose last user message holds its trigger and that carries no tool output yet is answered
+        with one call of real codex's exec tool (JavaScript that composes its nested tools)."""
         try:
-            streaming = json.loads(body).get("stream") is True
+            request = json.loads(body)
+            streaming = request.get("stream") is True
         except (ValueError, AttributeError):
-            streaming = False
+            request, streaming = {}, False
         if not streaming:
             return b'{"output":"fixture"}'
         with self.lock:
             number = len([r for r in self.requests if r["path"].split("?")[0] == "/backend-api/codex/responses"])
-        item = {"type": "message", "role": "assistant", "id": "msg_fixture_%d" % number,
-                "content": [{"type": "output_text", "text": "fixture reply %d" % number}]}
+        items = [item for item in request.get("input", []) if isinstance(item, dict)]
+        users = [item for item in items if item.get("type") == "message" and item.get("role") == "user"]
+        called = any(item.get("type") == "custom_tool_call_output" for item in items)
+        titled = (request.get("text") or {}).get("format", {}).get("type") == "json_schema"  # a title request
+        if self.tool and users and self.tool[0] in json.dumps(users[-1]) and not called and not titled:
+            item = {"type": "custom_tool_call", "name": "exec", "call_id": "call_fixture_%d" % number,
+                    "id": "ctc_fixture_%d" % number, "input": self.tool[1]}
+        else:
+            item = {"type": "message", "role": "assistant", "id": "msg_fixture_%d" % number,
+                    "content": [{"type": "output_text", "text": "fixture reply %d" % number}]}
         events = (("response.created", {"type": "response.created", "response": {"id": "resp_fixture_%d" % number}}),
                   ("response.output_item.done", {"type": "response.output_item.done", "item": item}),
                   ("response.completed", {"type": "response.completed", "response": {"id": "resp_fixture_%d" % number}}))

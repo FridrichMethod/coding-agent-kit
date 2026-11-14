@@ -56,10 +56,12 @@ def shown(word):
     return None if "sk-" in word.lower() or word in OPTIONS else word
 
 
-def enroll(layout, codex):
+def enroll(layout, codex, protected=False):
     if os.path.lexists(layout.target):
         guard.credential(layout.target)
         return
+    if protected:  # Session.check found the login; it went since, and no login runs outside the boundary
+        protect.no_login(layout.name)
     tty = guard.terminal()
     try:
         tty.write("Existing accounts: " + (", ".join(guard.accounts(layout.secrets)) or "(none)") + "\n")
@@ -251,19 +253,19 @@ def main(args):
     layout = storage.Layout(guard, account, config)
     sqlite = storage.shared_sqlite(guard, layout.root, plan.cwd, plan.profile)
     layout.root_check()
-    version = subprocess.run([codex, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                             text=True, check=False)
-    if version.returncode:
-        return version.returncode
-    guard.codex_version(version.stdout)
-    # An enabled reserve protects every launch but help and version forms, which run no model.
+    # An enabled reserve protects every launch but help and version forms, which run no model. A
+    # protected launch reads the native's version inside a boundary (Session.check), never outside.
     session = None
     if not policy.off and not plan.query:
-        native = protect.reviewed(version.stdout)
-        session = protect.Session(guard, storage, reserve, config, layout, policy, native,
-                                  protect.screen(native_args, native), codex, os.environ, sqlite, plan.cwd,
-                                  umask=CALLER_UMASK if CALLER_UMASK >= 0 else None)
+        session = protect.Session(guard, storage, reserve, config, layout, policy, native_args, codex, os.environ,
+                                  sqlite, plan.cwd, umask=CALLER_UMASK if CALLER_UMASK >= 0 else None)
         session.check()
+    else:
+        version = subprocess.run([codex, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                 text=True, check=False)
+        if version.returncode:
+            return version.returncode
+        guard.codex_version(version.stdout)
     env = os.environ.copy()
     env["CODEX_HOME"] = str(layout.home)
     env["CODEX_SQLITE_HOME"] = str(sqlite)
@@ -281,7 +283,7 @@ def main(args):
     baseline = None
     try:
         if layout.acquire():
-            enroll(layout, codex)
+            enroll(layout, codex, protected=session is not None)
             layout.prepare()
             fcntl.flock(layout.fd, fcntl.LOCK_SH)
         elif not layout.auth.is_symlink():
