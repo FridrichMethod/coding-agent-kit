@@ -774,6 +774,36 @@ class Evaluation(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 evaluator.fault(bad)
 
+    def test_a_fault_names_what_it_concerns_and_never_a_value(self):
+        """A fault's names (for example the unreviewed quota rows of a usage report) are part of the
+        deterministic line for a refused start and a pause alike, and only while that fault blocks."""
+        checking = self.evaluator()
+        checking.control_up()
+        verdict = checking.fault("unproved_quota_row", names=("seven_day_oauth_apps", "cinder_cove", "cinder_cove"))
+        self.assertEqual((verdict.decision, verdict.reason, verdict.names),
+                         ("refuse", "unproved_quota_row", ("cinder_cove", "seven_day_oauth_apps")))
+        self.assertEqual(verdict.message(), "borrowed: refused: the usage report has a limit row protected mode has "
+                                            "not reviewed (cinder_cove, seven_day_oauth_apps).")
+        evaluator = running(self.clock)
+        self.clock.advance(1)
+        verdict = evaluator.fault("unproved_quota_row", names=["wattle_ember"])
+        self.assertEqual(verdict.message(), "borrowed: paused: the usage report has a limit row protected mode has "
+                                            "not reviewed (wattle_ember); last valid reading at 2027-01-15T08:00:00Z.")
+        # Names belong to the fault that brought them: another fault and a control loss show none.
+        self.assertEqual(evaluator.fault("identity_changed").names, ())
+        verdict = evaluator.fault("unproved_quota_row", names=("wattle_ember",))
+        verdict = evaluator.control_down("monitor_lost")
+        self.assertEqual((verdict.reason, verdict.names), ("monitor_lost", ()))
+        self.assertNotIn("wattle_ember", verdict.message())
+        # A long list stays one bounded line.
+        many = tuple("row_%02d" % index for index in range(20))
+        message = self.evaluator().fault("unproved_quota_row", names=many).message()
+        self.assertIn("(row_00, row_01, row_02, row_03, row_04, row_05, row_06, row_07, and 12 more)", message)
+        # Only sanitized names are accepted, never a value or free text.
+        for bad in (("Seven_Day",), ("a b",), ("x" * 65,), ("",), (3,), "cinder_cove", ("cinder_cove", None)):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.evaluator().fault("unproved_quota_row", names=bad)
+
     def test_poll_intervals(self):
         evaluator = running(self.clock, five_reset=3600)
         self.assertEqual(evaluator.next_poll(), reserve.POLL_RUNNING)  # 90% and 90% left

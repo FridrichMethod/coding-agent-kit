@@ -35,7 +35,9 @@ the same in-memory bearer, the neutral User-Agent and the proxy Claude Code woul
 the identity (the two UUIDs only; nothing else is kept), the usage response gives the five-hour and
 seven-day windows. A model with its own row (seven_day_opus, seven_day_sonnet) is refused; any other
 present row whose semantics nobody proved (seven_day_oauth_apps, cinder_cove, wattle_ember, limits,
-unknown ones) pauses every request. A poll with the lease's bearer reads usage only.
+unknown ones) pauses every request, or refuses the start (unproved_quota_row); the message and the rows
+field name those rows (normalize_usage's sanitized names, never a value). A poll with the lease's bearer
+reads usage only.
 
 Token lifetime (D1): startup refuses a token that is inside native's 300 s refresh window
 (native_refresh_window: the pre-launch refresh did not renew it) or within MIN_SESSION_MS beyond it
@@ -277,8 +279,9 @@ class ClaudeProvider(gate.BaseProvider):
             raise gate.Unavailable("response_malformed") from None
         finally:
             document = None
-        if unproved:
-            return gate.Observation(0.0, False, identity=identity, reason="unproved_quota_row", permanent=True)
+        if unproved:  # the sanitized row names, never a value, so that the message can name them
+            return gate.Observation(0.0, False, identity=identity, reason="unproved_quota_row", permanent=True,
+                                    data={"rows": unproved})
         self.own_rows = own
         return gate.Observation(0.0, True, identity=identity, data={"readings": readings, "wall_at": wall})
 
@@ -388,7 +391,9 @@ class Decider:
             observation = event.observation
             reason = observation.reason if isinstance(observation.reason, str) and REASON.fullmatch(observation.reason) \
                 else "quota_unavailable"
-            verdict = (self._fault(reason) if observation.permanent else evaluator.failure(reason, at=event.at))
+            data = observation.data if isinstance(observation.data, dict) else {}
+            verdict = (self._fault(reason, data.get("rows") or ()) if observation.permanent
+                       else evaluator.failure(reason, at=event.at))
         elif event.name in CONTROL:
             verdict = evaluator.control_down(CONTROL[event.name])
         elif event.name in IDENTITY:
@@ -397,9 +402,13 @@ class Decider:
             verdict = self._fault(event.name if isinstance(event.name, str) else "gate_fault")
         return self._decision(verdict)
 
-    def _fault(self, reason):
+    def _fault(self, reason, names=()):
         try:
-            return self.evaluator.fault(reason)
+            return self.evaluator.fault(reason, names=names)
+        except ValueError:
+            pass
+        try:
+            return self.evaluator.fault(reason)  # names the evaluator refuses never cost the reason
         except ValueError:
             return self.evaluator.fault("gate_fault")
 
@@ -410,6 +419,8 @@ class Decider:
             window = at[0]
             fields.update(window=reserve.LABELS[window.window], remaining=reserve.percent(window.remaining, floor=True),
                           reserve=reserve.percent(window.reserve), reset=reserve.timestamp(window.resets_at))
+        if verdict.names:
+            fields["rows"] = ", ".join(verdict.names)  # what an unproved_quota_row pause names
         if verdict.last_fresh is not None:
             fields["last_fresh"] = reserve.timestamp(verdict.last_fresh)
         if self.provider.token_expires is not None:

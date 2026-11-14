@@ -44,11 +44,14 @@ Evaluator (one per gate instance; not thread-safe, the gate serializes it):
         observe(Observation)    a NEW provider response the gate received
         failure(reason, at=None) a query that produced no response to evaluate
                                  (transport, HTTP status, parse); at: when it was sent
-        fault(reason)           a condition of the binding that pauses at once
+        fault(reason, names=()) a condition of the binding that pauses at once
                                  (identity_changed, unsupported_plan, ...); while
                                  paused, a NEW attributed response with every enabled
                                  window valid, received after it, clears it, so never
-                                 report attributed=True while the condition persists
+                                 report attributed=True while the condition persists.
+                                 names: sanitized names ([a-z0-9_]{1,64}, never a
+                                 value) of what it concerns, such as unreviewed quota
+                                 rows; the message names them while it blocks
         control_down(reason)    monitor or control channel lost (monitor_lost,
                                  monitor_stale, launcher_lost, ...): final for this
                                  evaluator. The first loss stays; control_up() never
@@ -123,6 +126,8 @@ SELF_TEST_BOUND = 20.0        # macOS startup self-test
 
 NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 REASON = re.compile(r"[a-z][a-z0-9_]{0,63}")
+NAME = re.compile(r"[a-z0-9_]{1,64}")  # a fault's names: identifiers, never values
+SHOWN_NAMES = 8  # a fault's names in its message; the rest are counted
 OK, AT_RESERVE = "ok", "at_reserve"  # WindowStatus.status for valid readings
 CHECKING, RUNNING, PAUSED = "checking", "running", "paused"
 # Conditions that only wait while checking; every other one refuses the start.
@@ -143,6 +148,7 @@ FAULT_TEXT = {
     "unsupported_plan": "the account's plan is not supported",
     "unsupported_family": "a request used a quota family the reserves do not cover",
     "revalidation_budget": "the credential changed too often",
+    "unproved_quota_row": "the usage report has a limit row protected mode has not reviewed",
 }
 CAUSE_TEXT = {  # what paused, once the latest check passes
     "threshold": "a usage window reached its reserve",
@@ -314,7 +320,8 @@ class Verdict:
     condition that paused or refused. windows: WindowStatus per enabled window from the
     latest attributed response. last_fresh: wall-clock time of the last valid reading;
     age: seconds since it. failure: the latest failed read since the latest response.
-    continuation: "armed" while a continuation waits for its check."""
+    continuation: "armed" while a continuation waits for its check. names: the sorted
+    names of the fault that blocks now (reason), else ()."""
     account: str
     state: str
     decision: str
@@ -326,6 +333,7 @@ class Verdict:
     failure: object
     continuation: object
     eligible: bool
+    names: tuple = ()
 
     def message(self, how=""):
         """One deterministic line; HOW (for example the continuation key) follows it."""
@@ -356,6 +364,10 @@ class Verdict:
             text = "the quota reading is not attributed to this account"
         else:
             text = CONTROL_TEXT.get(reason) or FAULT_TEXT.get(reason) or reason.replace("_", " ")
+            if self.names:
+                shown = ", ".join(self.names[:SHOWN_NAMES])
+                more = len(self.names) - SHOWN_NAMES
+                text += f" ({shown}" + (f", and {more} more)" if more > 0 else ")")
         if self.last_fresh is None:
             return text
         return f"{text}; last valid reading at {timestamp(self.last_fresh)}"
@@ -448,6 +460,15 @@ def reason_word(reason, reserved=frozenset()):
     return reason
 
 
+def names_of(names):
+    """A fault's names, sorted and unique; ValueError for anything but [a-z0-9_]{1,64} words."""
+    if isinstance(names, str) or not isinstance(names, (tuple, list, frozenset, set)):
+        raise ValueError("names are a collection of words")
+    if not all(isinstance(name, str) and NAME.fullmatch(name) for name in names):
+        raise ValueError("a name is a lower-case identifier of at most 64 characters")
+    return tuple(sorted(set(names)))
+
+
 def finite(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
 
@@ -466,7 +487,7 @@ class Evaluator:
         if paused is not None:
             self.state, self.cause = PAUSED, reason_word(paused)
         self.control = "control_pending"
-        self.fault_reason, self.fault_at = None, None
+        self.fault_reason, self.fault_at, self.fault_names = None, None, ()
         self.latest_at = None        # receipt time of the latest response taken
         self.problem = None          # None, "unattributed" or "window_unavailable" for it
         self.windows = ()            # its WindowStatus per enabled window
@@ -507,6 +528,7 @@ class Evaluator:
                 self.last_fresh, self.last_fresh_wall = fresh_at, observation.wall_at
                 if self.fault_reason is not None and fresh_at > self.fault_at and self.state != CHECKING:
                     self.fault_reason = self.fault_at = None
+                    self.fault_names = ()
         self._update(now, resume=answered)
         return self._verdict(now)
 
@@ -515,10 +537,11 @@ class Evaluator:
         now = self._tick()
         return self._failed(reason, now, now if at is None or not finite(at) else min(at, now))
 
-    def fault(self, reason):
+    def fault(self, reason, names=()):
         reason = reason_word(reason, OWN_CONDITIONS | CONTROL_TEXT.keys())
+        names = names_of(names)
         now = self._tick()
-        self.fault_reason, self.fault_at, self.armed = reason, now, None
+        self.fault_reason, self.fault_at, self.fault_names, self.armed = reason, now, names, None
         self._update(now)
         return self._verdict(now)
 
@@ -672,6 +695,7 @@ class Evaluator:
         decision = {RUNNING: "run", PAUSED: "pause"}.get(self.state, "refuse" if self.refused else "check")
         reason = self.refused if self.refused is not None else (None if self.state == RUNNING else condition)
         age = None if self.last_fresh is None else now - self.last_fresh
+        names = self.fault_names if reason is not None and reason == self.fault_reason else ()
         return Verdict(self.account, self.state, decision, reason, self.cause, self.windows, self.last_fresh_wall,
                        age, self.failure_reason, "armed" if self.armed is not None else None,
-                       self.state == PAUSED and condition is None)
+                       self.state == PAUSED and condition is None, names)

@@ -840,9 +840,15 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.fields["window"], "five-hour")
         self.assertEqual((g.fields["remaining"], g.fields["reserve"]), ("10", "10"))
         self.upstream.used["five_hour"] = 10
-        self.upstream.extra = {"cinder_cove": {"utilization": 1}}
+        self.upstream.extra = {"cinder_cove": {"utilization": 1}, "seven_day_oauth_apps": {"utilization": 37.25},
+                               "Odd Row": {"utilization": 2}}
         _, g = self.started()
         self.assertEqual((g.state, g.reason), ("paused", "unproved_quota_row"))
+        # The refusal names the unreviewed rows (sanitized names only, never a value).
+        self.assertEqual(g.fields["message"], "N: refused: the usage report has a limit row protected mode has not "
+                                              "reviewed (cinder_cove, seven_day_oauth_apps, unknown).")
+        self.assertEqual(g.fields["rows"], "cinder_cove, seven_day_oauth_apps, unknown")
+        self.assertNotIn("37.25", json.dumps(g.status()))
         self.upstream.extra = {}
         self.upstream.identities[upstream_fixture.BEARER_A] = upstream_fixture.IDENTITY_B
         _, g = self.started()
@@ -1009,6 +1015,27 @@ class GateProvider(unittest.TestCase):
         g.heartbeat()
         reply = g.arm_continuation()
         self.assertEqual((reply["ok"], g.state), (False, "paused"))
+
+    def test_an_unproved_row_mid_run_pauses_naming_the_row_until_a_report_without_it(self):
+        prov, g = self.started()
+        self.upstream.extra = {"wattle_ember": {"utilization": 61.5}}
+        prov.poll(g)
+        self.assertEqual((g.state, g.reason), ("paused", "unproved_quota_row"))
+        paused = [m for m in self.messages if m["op"] == "paused"][-1]
+        self.assertEqual(paused["reason"], "unproved_quota_row")
+        self.assertTrue(paused["fields"]["message"].startswith(
+            "N: paused: the usage report has a limit row protected mode has not reviewed (wattle_ember); last valid "
+            "reading at "), paused["fields"])
+        self.assertEqual(paused["fields"]["rows"], "wattle_ember")
+        self.assertNotIn("61.5", json.dumps(paused))
+        g.heartbeat()
+        self.assertEqual((g.arm_continuation()["ok"], g.state), (False, "paused"))
+        self.upstream.extra = {}
+        prov.poll(g)
+        self.assertEqual((g.state, g.reason), ("paused", "awaiting_continuation"))
+        self.assertNotIn("rows", g.fields)
+        g.heartbeat()
+        self.assertEqual(g.arm_continuation(), {"ok": True, "reason": "resumed"})
 
     def test_monitor_loss_latches_and_refuses_every_continuation(self):
         _, g = self.started()
@@ -2023,6 +2050,16 @@ class Protected(Kit):
         self.assertIn("five-hour window 5% remaining, at or below its 10% reserve", output)
         self.assertFalse(self.record.exists())
         self.assertTrue(Path(str(self.record) + ".auth").exists())  # the refresh ran first
+        self.assertEqual(self.upstream.model_requests(), [])
+
+    def test_an_unproved_quota_row_refuses_naming_the_row_before_the_native_starts(self):
+        self.upstream.extra = {"seven_day_oauth_apps": {"utilization": 12.75, "resets_at": None}}
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("claude-as: protected mode refused: N: refused: the usage report has a limit row protected mode "
+                      "has not reviewed (seven_day_oauth_apps). (unproved_quota_row)", output)
+        self.assertNotIn("12.75", output)
+        self.assertFalse(self.record.exists())
         self.assertEqual(self.upstream.model_requests(), [])
 
     def test_another_accounts_bearer_is_refused_with_zero_model_bytes(self):
