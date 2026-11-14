@@ -102,9 +102,13 @@ Added:
   writes only the account home, the shared session state and the release's
   databases in `<codex_home>`, never `packages/`, `config.toml`, hooks,
   MCP, skills, rules, agents, memories or the plugin staging in `.tmp`. A
-  `codex` the boundary could replace, a writable or relative `PATH` entry
-  before the `python3`, `codex` or `#!/usr/bin/env` interpreter it would
-  shadow, a shared state entry in `<codex_home>` that is a link, an account
+  `codex`, or an interpreter of its nested `#!` lines, that the boundary
+  could replace, a path the boundary can write inside the directory of the
+  real `codex` file, a relative `#!` interpreter, a file on the way to
+  `codex` that cannot be read, an empty, relative or writable `PATH` entry
+  among those that supply the `python3`, `dirname` and `readlink` that
+  `bin/codex-as` runs, `codex` and each `#!/usr/bin/env` command, or before
+  them, a shared state entry in `<codex_home>` that is a link, an account
   without a saved login and missing native databases refuse. On macOS the
   gate uses the system HTTPS proxy Codex uses, and PAC or WPAD refuses; an
   empty `NO_PROXY` exempts nothing. Codex's limit
@@ -136,16 +140,26 @@ Added:
   line sets `PATH`. After another account signs in, a protected Claude
   session stops reading the signed-out login's quota: a quota read stops
   before its usage request once the profile shows another account, and the
-  passing-check line appears only once the enrolled account is back. Rows of
-  credits, extra usage and other applications in the usage report are
-  ignored, its `limits` list counts with the five-hour and weekly windows,
-  and the refusal for a row the kit has not reviewed names the rows. An
-  idle usage window (0% used, no reset time) counts as available. Local
-  settings files, a native-login account's `.claude.json` and the
-  directories above the parent of `<secrets_dir>` may be group-writable
-  when the group is your user private group without an access ACL; other
-  refusals of a file other users can write name it and suggest
-  `chmod go-w`. A launch
+  passing-check line appears only once the enrolled account is back. A
+  model family with a weekly limit of its own in the usage report (Opus,
+  Sonnet, or a model-scoped weekly row) is paused alone, while the session
+  and the families not paused run, once that limit is at or below the
+  weekly reserve or unavailable: its requests are refused, its running
+  streams closed, and it stays paused, also after its weekly reset, until a
+  continuation (F12, which the launcher offers while any family is paused,
+  also while the session runs) passes for it or no longer finds its limit;
+  a family at its limit at start-up starts paused, and the start-up line
+  names it. Rows of credits, extra usage and other applications in the
+  usage report are ignored, its `limits` list counts with the five-hour and
+  weekly windows, and the refusal and the pause line for a row the kit has
+  not reviewed name the rows. An idle usage window (0% used, no reset time)
+  counts as available. Local settings files, a native-login account's
+  `.claude.json`, the parent of `<secrets_dir>` and the directories above
+  it, `codex-as`'s `<codex_home>` and its `.tmp` and the parents of
+  `<codex_home>` and `<secrets_dir>`, and the parent of the account metadata
+  directory may be group-writable when the group is your user private
+  group without an access ACL; their refusals name the file or directory
+  and suggest `chmod go-w`. A launch
   is refused when the account's token, after the pre-launch refresh,
   expires within fifteen minutes, and the start line names the time it
   expires, when the session needs a relaunch. The status line keeps working

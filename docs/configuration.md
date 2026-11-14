@@ -105,14 +105,18 @@ Rules for every key:
   (`coding-agent-kit/accounts` in the state directory), whose files carry the
   Codex credentials' names; above or below it is fine. The launchers also
   never read or write that directory when it is `secrets_dir` through a link.
-- The parent of each must be a directory you own that neither group nor others
-  can write: `codex-as` checks both parents, `claude-as` the parent of
-  `secrets_dir`. With the defaults both parents are `$HOME`. A parent that
-  does not exist, also one below a regular file, is named in the error; the
-  launchers never create it.
+- The parent of each must be a directory you own that other users cannot
+  write: no other write, and group write only when the group is your user
+  private group and the directory has no access ACL (the rule of
+  [file permissions](#file-permissions)); a refusal names the directory and
+  suggests `chmod go-w`. `codex-as` checks both parents, `claude-as` the
+  parent of `secrets_dir`. With the defaults both parents are `$HOME`. A
+  parent that does not exist, also one below a regular file, is named in the
+  error; the launchers never create it.
 - The directories themselves follow the rules in
   [account launchers](account-launchers.md): `codex_home` owned and not
-  group/other writable, `secrets_dir` owned with mode 0700.
+  writable by other users, under the same group rule, `secrets_dir` owned
+  with mode 0700.
 - The account root is always `codex_home/accounts`; it is not configurable.
 
 An unknown key prints a warning and the run continues, so a file written for
@@ -341,7 +345,8 @@ non-default configuration:
 ```
 codex-as: the configured codex executable VALUE was not found.
 claude-as: the configured claude executable VALUE was not found.
-claude-as: PARENT must be an owned, real directory without group/other write access.
+claude-as: PARENT must be an owned, real directory.
+claude-as: PARENT must not be writable by other users (other write, or group write by a group that is not your private group); run chmod go-w PARENT.
 claude-as: SECRETS_DIR must be an owned, real directory with permissions 0700.
 ```
 
@@ -350,7 +355,8 @@ With the defaults the same errors read:
 ```
 codex-as: Codex is not installed on PATH.
 claude-as: real Claude executable not found on PATH.
-claude-as: HOME must be an owned, real user directory without group/other write access.
+claude-as: HOME must be an owned, real user directory.
+claude-as: /home/USER must not be writable by other users (other write, or group write by a group that is not your private group); run chmod go-w /home/USER.
 claude-as: .secrets must be an owned, real directory with permissions 0700.
 ```
 
