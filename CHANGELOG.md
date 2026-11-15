@@ -136,12 +136,23 @@ Added:
   applies no organization policy while its requests go through the gate, so
   an account whose recorded subscription is not Pro or Max, and every
   account on a machine that pins the sign-in organization, is refused with a
-  message that names it and says to launch without reserves. Print, resume,
-  settings, remote and background forms and every command are refused,
-  and a one-word first operand that starts with an ASCII letter or digit
-  reaches Claude Code with a trailing space, so that a command a newer
-  release adds cannot run, while any other first operand (`/review`,
-  `@notes.md`) reaches it as typed;
+  message that names it and says to launch without reserves. It starts only
+  once Claude Code has finished its first-run setup for the account
+  (`hasCompletedOnboarding` true in its `.claude.json`): those first-run
+  screens test the connection to Anthropic's servers through the gate, which
+  opens no tunnel there, and Claude Code exits when the test fails. Until
+  then, as after a new enrollment, a launch with reserves is refused
+  (`onboarding_incomplete`) before the gate or Claude Code starts, saying to
+  launch once unprotected and finish those screens first, with
+  `claude-as --reserve-5h off --reserve-weekly off NAME`: a plain
+  `claude-as NAME` is protected too when the configuration file sets a
+  reserve. A nonempty `CLAUDE_CODE_POWERUP_ONBOARDING`, which shows those
+  screens again, refuses too. Print, resume, settings, remote and
+  background forms and every command are refused, and a one-word first
+  operand that starts with an ASCII letter or digit reaches Claude Code
+  with a trailing space, so that a command a newer release adds cannot
+  run, while any other first operand (`/review`, `@notes.md`) reaches it
+  as typed;
   hooks, stdio MCP servers and plugins run inside the boundary. As in
   protected `codex-as`, the gate and the monitor run the base interpreter of
   the launcher's Python, and a launch is refused when that Python, the
@@ -194,7 +205,10 @@ Added:
   `<secrets_dir>/native-claude-accounts/NAME/config` with the registration
   `account.json` beside it. The first run prints the two commands to sign
   in (`CLAUDE_CONFIG_DIR=... claude auth login`, then `auth status`); the
-  next shows the login and asks for confirmation. Select the account with
+  next shows the login, asks for confirmation and then names the launch
+  that finishes Claude Code's first-run screens, which protected mode
+  needs: `claude-as --reserve-5h off --reserve-weekly off NAME`, which is
+  unprotected whatever the configuration file sets. Select the account with
   `[claude_auth.accounts.NAME] mode = "native-login"` (the default mode is
   `"setup-token"`). Claude Code keeps and refreshes the credential; the
   launcher never reads, copies or stores it (only the protected-mode gate

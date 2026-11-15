@@ -4,7 +4,10 @@ SPEC is JSON: kit (the copied kit root), account, reserves ({"five_hour": "10", 
 arguments), upstream_port (the fake Claude upstream on 127.0.0.1) and optionally connect_allow for
 the refresh gate and security (a fake /usr/bin/security for the macOS Keychain lookup). It does
 what launch.py does for a native-login account with an enabled reserve, except that it points the
-gate at the fake upstream through protect.GATE_EXTRA, a module attribute no launch sets. Exit status: the native's, or 1 with "claude-as: MESSAGE" on stderr for a refusal.
+gate at the fake upstream through protect.GATE_EXTRA, a module attribute no launch sets. With
+without_setup_check true it also replaces protect.check_setup by a no-op, so that a native whose
+first-run setup is not finished starts (RealClaude shows what that refusal prevents). Exit status: the
+native's, or 1 with "claude-as: MESSAGE" on stderr for a refusal.
 """
 
 from decimal import Decimal
@@ -35,6 +38,8 @@ def main(spec):
         protect.GATE_EXTRA.update(security=spec["security"])  # macOS: a fake, never the login Keychain
     if spec.get("connect_allow"):
         protect.REFRESH_EXTRA.update(connect_allow=spec["connect_allow"])
+    if spec.get("without_setup_check"):
+        protect.check_setup = lambda native, paths: None
     config = config_module.load()
     values = {window: (reserve.OFF if value == "off" else Decimal(value)) for window, value in spec["reserves"].items()}
     policy = reserve.resolve("claude-as", spec["account"], reserve.Overrides(**values), config.usage_reserve)
