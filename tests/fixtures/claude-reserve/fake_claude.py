@@ -8,6 +8,8 @@ CLAUDE_FAKE_LOGIN (account,organization) in CLAUDE_CONFIG_DIR/.claude.json as na
 `auth status` records to FAKE_RECORD + ".auth". FAKE_DIRECT=PORT first tries a direct TCP connect.
 Anything else records its arguments, environment and pid in FAKE_RECORD (when set), prints a
 sentinel and exits FAKE_EXIT (default 0), or kills itself with signal FAKE_SIGNAL when that is set.
+With CLAUDE_FAKE_ONBOARD=1 it first records the first-run setup as finished, as native does once its
+first-run screens are done: hasCompletedOnboarding true in CLAUDE_CONFIG_DIR/.claude.json.
 With FAKE_MESSAGES=N it first sends N Messages requests to ANTHROPIC_BASE_URL with its own bearer
 and records each status in FAKE_RECORD. With FAKE_PAUSE_CYCLE=PATH it sends one request (printing
 "fake claude admitted" after a 200), waits until PATH exists, then sends a request every 0.2 s,
@@ -145,6 +147,14 @@ def renew(seconds, token):
     os.replace(fresh, target)
 
 
+def finish_setup(target):
+    """hasCompletedOnboarding true in native's .claude.json TARGET, which stays 0600."""
+    document = json.loads(target.read_text())
+    document["hasCompletedOnboarding"] = True
+    target.write_text(json.dumps(document))
+    target.chmod(0o600)
+
+
 def mark_outside():
     target = os.environ.get("FAKE_OUTSIDE_MARK")
     if not target:
@@ -176,6 +186,8 @@ def main():
         target.chmod(0o600)
         return 0
     extra = {}
+    if os.environ.get("CLAUDE_FAKE_ONBOARD"):
+        finish_setup(Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".claude.json")
     if os.environ.get("FAKE_DIRECT"):
         import socket
         try:

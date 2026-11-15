@@ -545,6 +545,10 @@ def enroll_native(config, name):
         tty.confirm(f"Use this account and organization as {name}?")
         native.mark_ready(paths, identity)
         tty.write(f"Enrolled {name} with native login; Claude Code keeps and refreshes its credential.\n", "32")
+        # claude auth login does not run Claude Code's first-run screens, and protected mode refuses until
+        # they are done (protect.check_setup).
+        tty.write(f"Before the first launch of {name} with reserves, launch it once without them (claude-as {name}), "
+                  "finish Claude Code's first-run screens and exit: protected mode refuses until they are done.\n")
     finally:
         tty.close()
     if hint:

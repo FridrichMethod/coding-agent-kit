@@ -7,9 +7,10 @@ Load this file by path (it is never on sys.path). A native-login account NAME li
     <secrets_dir>/native-claude-accounts/NAME/account.json 0600: the registration
 
 Native Claude Code owns everything inside config/ (its login, credential storage and refresh);
-this module never reads the credential. It reads only the two identity UUIDs native records in
-config/.claude.json (oauthAccount.accountUuid and organizationUuid), when enrollment confirms
-them. The registration is
+this module never reads the credential. Of config/.claude.json it keeps only the two identity UUIDs
+native records there (oauthAccount.accountUuid and organizationUuid), when enrollment confirms them,
+and whether native finished its first-run setup (hasCompletedOnboarding exactly true), which protected
+mode needs. The registration is
 
     {"schema_version": 1, "mode": "native-login", "state": "pending" | "ready",
      "enrollment_id": UUID, "config_directory": "<exact path>",
@@ -28,15 +29,17 @@ Public API:
     load(paths) -> dict | None          the registration, None when the account directory is absent
     create_pending(paths) -> str        a new pending registration; its enrollment id
     read_identity(config_dir) -> (account_uuid, organization_uuid) | None
+    setup_finished(config_dir) -> bool  native's first-run setup is recorded as finished
     mark_ready(paths, identity)         pending -> ready when native still reports identity
     names(config) -> list[str]          the enrolled names (an account directory with a registration)
     token_id(record) -> str             the status line's identifier for this enrollment (not a token hash)
     NativeError(ValueError)             one line for the user; own_message is True
     others_can_write(info, target) -> bool  the kit's private-group rule for one file or directory
     forget_groups()                     a new evaluation reads the group database again: load,
-                                        create_pending, read_identity and mark_ready start with it; a
-                                        bare open_directory (the gate's credential reads, bearer.py)
-                                        keeps the answer, so a gate instance reads it once
+                                        create_pending, read_identity, setup_finished and mark_ready
+                                        start with it; a bare open_directory (the gate's credential
+                                        reads, bearer.py) keeps the answer, so a gate instance reads
+                                        it once
 """
 
 import hashlib
@@ -53,6 +56,9 @@ ROOT_NAME = "native-claude-accounts"
 REGISTRATION = "account.json"
 METADATA = ".claude.json"
 METADATA_LIMIT = 16 * 1024 * 1024
+# Native records its first-run setup (its Onboarding screens) as done with this key of .claude.json, and
+# runs those screens again while it is not set (S: 2.1.325).
+SETUP_KEY = "hasCompletedOnboarding"
 REGISTRATION_LIMIT = 4096
 NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]{0,63}")
 UUID_TEXT = re.compile(r"[A-Za-z0-9-]{1,64}")
@@ -318,18 +324,24 @@ def create_pending(paths):
         os.umask(old)
 
 
-def read_identity(config_dir):
-    """(account_uuid, organization_uuid) from native's config/.claude.json, or None while native
-    has recorded no login there. Nothing else of the file is kept."""
+def _metadata(config_dir):
+    """One read of native's config/.claude.json (a new evaluation), or None when it or the
+    configuration directory is absent; NativeError when either is unsafe."""
     forget_groups()
     try:
         directory = open_directory(config_dir, private=3)
     except FileNotFoundError:
         return None
     try:
-        raw = _read(directory, METADATA, METADATA_LIMIT, where=f"{config_dir}/{METADATA}")
+        return _read(directory, METADATA, METADATA_LIMIT, where=f"{config_dir}/{METADATA}")
     finally:
         os.close(directory)
+
+
+def read_identity(config_dir):
+    """(account_uuid, organization_uuid) from native's config/.claude.json, or None while native
+    has recorded no login there. Nothing else of the file is kept."""
+    raw = _metadata(config_dir)
     if raw is None:
         return None
     try:
@@ -343,6 +355,22 @@ def read_identity(config_dir):
     if not all(isinstance(value, str) and UUID_TEXT.fullmatch(value) for value in pair):
         return None
     return pair
+
+
+def setup_finished(config_dir):
+    """Whether native's config/.claude.json records Claude Code's first-run setup as finished:
+    a JSON object whose SETUP_KEY is exactly true. False when the file or the configuration
+    directory is absent, the file is not JSON (or has a duplicate key) or not an object, or the key
+    is absent or holds anything else. One read under the rules of read_identity; NativeError for
+    an unsafe file. Nothing of the file is kept but the answer."""
+    raw = _metadata(config_dir)
+    if raw is None:
+        return False
+    try:
+        document = json.loads(raw, object_pairs_hook=_unique)
+    except (ValueError, RecursionError):  # invalid UTF-8 included
+        return False
+    return isinstance(document, dict) and document.get(SETUP_KEY) is True
 
 
 def mark_ready(paths, identity):

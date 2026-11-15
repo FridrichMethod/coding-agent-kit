@@ -8,11 +8,12 @@ with an enabled reserve. In order (reviewed design, section 2.1):
    the interactive forms of Claude Code 2.1.322, parsed as its option parser does; every subcommand,
    print, background, remote, cloud, resume and settings form refuses, and a first operand that a newer
    release could take for a command it added is passed so that it cannot), the caller environment
-   (credential, provider, store, endpoint and proxy selectors), the working directory (never HOME, an
-   ancestor of it or HOME/Library), the policy evaluator (policy.py) for the account's server-managed
-   policy and the local settings sources, including a machine that pins the sign-in organization (see
-   Organization policy below), and the reach of the code that runs outside the boundary or that the
-   next launch runs (see Code run outside the boundary below);
+   (credential, provider, store, endpoint and proxy selectors, and the variable that shows the
+   first-run screens again), the account's first-run setup (see First-run setup below), the working
+   directory (never HOME, an ancestor of it or HOME/Library), the policy evaluator (policy.py) for the
+   account's server-managed policy and the local settings sources, including a machine that pins the
+   sign-in organization (see Organization policy below), and the reach of the code that runs outside
+   the boundary or that the next launch runs (see Code run outside the boundary below);
 2. the port: the launcher becomes the child subreaper and holds a random loopback port (on macOS also
    every interface address), then runs the macOS boundary self-test; then `claude --version` runs
    confined, and only MINIMUM_VERSION (2.1.322) or newer passes (a minimum, never an upper bound: what
@@ -38,6 +39,16 @@ with an enabled reserve. In order (reviewed design, section 2.1):
    write the account metadata directory inside the boundary (the gate's own readings drive the
    reserves; --info keeps what the last unprotected session recorded). At the end every boundary
    descendant is ended, this invocation's temporary entries are removed and the port is released.
+
+First-run setup: Claude Code runs its first-run screens (Onboarding) unless the account's .claude.json
+records hasCompletedOnboarding, and CLAUDE_CODE_POWERUP_ONBOARDING=banner or step shows them even then
+(S: 2.1.325). One of them tests the connection to the provider's API and sign-in hosts through
+HTTPS_PROXY, which in a protected session is the gate, and the gate opens no tunnel to them; a failed
+test exits Claude Code (N: 2.1.325, exit 1 before its prompt). `claude auth login`, which enrollment
+uses, does not run those screens. So protected mode refuses (SETUP_REASON) until .claude.json, read once
+by native.setup_finished under the account-directory rules, holds hasCompletedOnboarding exactly true,
+which one launch without reserves leaves once its first-run screens are done; and it refuses any
+nonempty CLAUDE_CODE_POWERUP_ONBOARDING.
 
 Organization policy: Claude Code 2.1.322 applies no server-managed organization policy while
 ANTHROPIC_BASE_URL names the gate (S, provider.py), and protected mode does not run without that
@@ -149,6 +160,10 @@ COMMAND_START = re.compile(r"[A-Za-z0-9]")
 # (launch.py's preflight refuses the credential and provider ones first).
 ENV_REFUSED = ("CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE", "CLAUDE_CODE_PROCESS_WRAPPER",
                "CLAUDE_CODE_HTTP_PROXY", "CLAUDE_CODE_HTTPS_PROXY", "ANTHROPIC_CONFIG_DIR", "CLAUDE_CODE_TMPDIR")
+# Shows the first-run screens even once the setup is finished, for banner and step (S: 2.1.325); any
+# nonempty value refuses (see First-run setup above).
+ONBOARDING_VARIABLE = "CLAUDE_CODE_POWERUP_ONBOARDING"
+SETUP_REASON = "onboarding_incomplete"
 PLAIN = re.compile(r"-[A-Za-z0-9_.,:/@+-]*")
 DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 # Empty in every launch: only the in-process test driver (tests/fixtures/claude-reserve) sets these, to
@@ -288,6 +303,27 @@ def screen_environment(env):
     found = sorted(name for name in ENV_REFUSED if name in env)
     if found:
         refuse("environment selector " + ", ".join(found) + " (values hidden); unset it.")
+    if env.get(ONBOARDING_VARIABLE):
+        refuse(f"{ONBOARDING_VARIABLE} is set (value hidden), which makes Claude Code show its first-run screens, "
+               "whose connection test protected mode does not let through; unset it.")
+
+
+def setup_message(name):
+    return (f"Claude Code's first-run setup of {name} is not finished ({SETUP_REASON}): its first-run screens test "
+            "the connection to Anthropic's servers, which protected mode does not let through, and Claude Code exits "
+            f"when that test fails; launch claude-as {name} once without reserves, finish those screens and exit, then "
+            "launch with reserves.")
+
+
+def check_setup(native, paths):
+    """Refuse until native's .claude.json records the first-run setup of PATHS as finished (one read,
+    native.setup_finished); an unsafe file refuses with native's own reason."""
+    try:
+        finished = native.setup_finished(paths.config)
+    except native.NativeError as error:
+        refuse(str(error))
+    if not finished:
+        refuse(setup_message(paths.name))
 
 
 def version_key(text):
@@ -619,6 +655,7 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
     gate = _load("gate", KIT / "gate.py")
     reserve = _load("reserve", KIT / "reserve.py")
     policies = _load("policy", HERE / "policy.py")
+    native = _load("native", HERE / "native.py")
     darwin = sys.platform == "darwin"
     if not (darwin or sys.platform.startswith("linux")):
         refuse("this platform has no protected-mode boundary (Linux or macOS only).")
@@ -631,6 +668,7 @@ def protected(supervise, config, policy, paths, record, args, executable, env, s
         refuse("protected mode needs an interactive terminal for continuation.")
     screened = screen_arguments(args)
     screen_environment(env)
+    check_setup(native, paths)
     identity = (record["identity"]["account_uuid"], record["identity"]["organization_uuid"])
     cwd = os.path.realpath(os.getcwd())
     judge_policy(policies.evaluate(paths.config, identity[1], cwd), paths)

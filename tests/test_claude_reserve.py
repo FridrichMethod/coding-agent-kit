@@ -164,15 +164,30 @@ class Kit(unittest.TestCase):
     def recorded(self):
         return json.loads(self.record.read_text())
 
-    def enroll(self, name="N"):
-        """A ready native-login enrollment through the real launcher and the fake native login."""
+    def enroll(self, name="N", setup=True):
+        """A ready native-login enrollment through the real launcher and the fake native login. With
+        SETUP, Claude Code's first-run setup is finished too (finish_setup), as the first launch without
+        reserves leaves it; without, .claude.json is what `auth login` wrote."""
         first = self.run_kit(["--enroll-native", name])
         self.assertEqual(first.returncode, 0, first.stderr)
-        env = dict(self.env, CLAUDE_CONFIG_DIR=str(self.native_config(name)))
-        subprocess.run([str(self.bin / "claude"), "auth", "login"], env=env, check=True)
+        self.login(name)
         code, output = self.terminal(["--enroll-native", name], [("as " + name + "? [y/N]", "y")])
         self.assertEqual(code, 0, output)
+        if setup:
+            self.finish_setup(name)
         return json.loads((self.native_config(name).parent / "account.json").read_text())
+
+    def login(self, name="N"):
+        """The fake native login, which writes a fresh .claude.json holding the identity only."""
+        env = dict(self.env, CLAUDE_CONFIG_DIR=str(self.native_config(name)))
+        subprocess.run([str(self.bin / "claude"), "auth", "login"], env=env, check=True)
+
+    def finish_setup(self, name="N"):
+        """hasCompletedOnboarding true in the account's .claude.json, which Claude Code records once its
+        first-run screens are done (as the fake does with CLAUDE_FAKE_ONBOARD=1)."""
+        metadata = self.native_config(name) / ".claude.json"
+        metadata.write_text(json.dumps(dict(json.loads(metadata.read_text()), hasCompletedOnboarding=True)))
+        metadata.chmod(0o600)
 
 
 class Enrollment(Kit):
@@ -210,6 +225,10 @@ class Enrollment(Kit):
         self.assertEqual(record["state"], "pending")
         code, output = self.terminal(["--enroll-native", "N"], [("as N? [y/N]", "y")])
         self.assertEqual(code, 0, output)
+        # Protected mode refuses until Claude Code's first-run setup is finished, which auth login skips.
+        self.assertIn("Before the first launch of N with reserves, launch it once without them (claude-as N), "
+                      "finish Claude Code's first-run screens and exit: protected mode refuses until they are done.",
+                      output.replace("\n", " "))
         record = json.loads((self.native_config("N").parent / "account.json").read_text())
         self.assertEqual(record["state"], "ready")
         self.assertEqual(record["identity"], {"account_uuid": ACCOUNT_UUID, "organization_uuid": ORGANIZATION_UUID})
@@ -810,6 +829,50 @@ class AccountDirectories(unittest.TestCase):
                         native_module.read_identity(str(self.config))
                 self.assertIn(f"{metadata} must not be writable by other users", str(caught.exception))
                 self.assertIn(f"run chmod go-w {metadata}.", str(caught.exception))
+
+    def test_the_first_run_setup_is_finished_only_when_claude_json_records_exactly_true(self):
+        """Claude Code runs its first-run screens unless .claude.json records hasCompletedOnboarding (S:
+        2.1.325), and `auth login` writes a .claude.json without it; setup_finished reads the file once,
+        as read_identity does, and is True only for a JSON object whose value is exactly true."""
+        metadata = self.config / ".claude.json"
+        self.assertFalse(native_module.setup_finished(str(self.config)))  # no .claude.json yet
+        self.assertFalse(native_module.setup_finished(str(self.config.parent / "absent")))  # no directory
+        login = {"oauthAccount": {"accountUuid": "a-1", "organizationUuid": "o-1"}}
+        for raw, finished in ((dict(login, hasCompletedOnboarding=True), True),
+                              ({"hasCompletedOnboarding": True}, True), (login, False),
+                              (dict(login, hasCompletedOnboarding=False), False),
+                              (dict(login, hasCompletedOnboarding=None), False),
+                              (dict(login, hasCompletedOnboarding=1), False),
+                              (dict(login, hasCompletedOnboarding="true"), False),
+                              ([{"hasCompletedOnboarding": True}], False), ("text", False), (True, False),
+                              ('{"hasCompletedOnboarding": true', False),
+                              ('{"hasCompletedOnboarding": true, "hasCompletedOnboarding": true}', False)):
+            with self.subTest(raw=raw):
+                metadata.write_text(raw if isinstance(raw, str) and raw.startswith("{") else json.dumps(raw))
+                metadata.chmod(0o600)
+                self.assertIs(native_module.setup_finished(str(self.config)), finished)
+
+    def test_the_first_run_setup_read_follows_the_account_directory_rules(self):
+        metadata = self.config / ".claude.json"
+        metadata.write_text(json.dumps({"hasCompletedOnboarding": True}))
+        gid = metadata.stat().st_gid
+        metadata.chmod(0o664)
+        with group_kind("shared", gid), mock.patch.object(os, "listxattr", create=True, return_value=[]):
+            with self.assertRaises(native_module.NativeError) as caught:
+                native_module.setup_finished(str(self.config))
+        self.assertIn(f"{metadata} must not be writable by other users", str(caught.exception))
+        metadata.chmod(0o600)
+        moved = self.config / "elsewhere.json"
+        metadata.rename(moved)
+        metadata.symlink_to(moved)
+        with self.assertRaises(native_module.NativeError) as caught:
+            native_module.setup_finished(str(self.config))
+        self.assertIn(".claude.json must be a regular file (not a symlink)", str(caught.exception))
+        metadata.unlink()
+        self.config.chmod(0o750)
+        with self.assertRaises(native_module.NativeError) as caught:
+            native_module.setup_finished(str(self.config))
+        self.assertIn(f"{self.config} must be a real directory owned by you with permissions 0700", str(caught.exception))
 
 
 class CredentialRead(unittest.TestCase):
@@ -1807,6 +1870,47 @@ class ProtectScreens(unittest.TestCase):
                 with self.subTest(args):
                     self.assertEqual(protect.screen_arguments(args).forwarded, args)
 
+    def test_an_unfinished_first_run_setup_refuses_with_its_reason_and_what_to_do(self):
+        """Claude Code's first-run screens test the connection to Anthropic's servers through
+        HTTPS_PROXY, which in protected mode is the gate, and the gate refuses that tunnel; a failed
+        test exits Claude Code (N: 2.1.325, a live launch). So protected mode starts only once the
+        account's .claude.json records the setup as finished (native.setup_finished, one read)."""
+        paths = types.SimpleNamespace(name="N", config="/fixture/config")
+        reads = []
+
+        def native(answer):
+            def setup_finished(config_dir):
+                reads.append(config_dir)
+                if isinstance(answer, Exception):
+                    raise answer
+                return answer
+            return types.SimpleNamespace(setup_finished=setup_finished, NativeError=native_module.NativeError)
+
+        protect.check_setup(native(True), paths)
+        self.assertEqual(reads, ["/fixture/config"])
+        self.assertEqual(self.refused(protect.check_setup, native(False), paths),
+                         "protected mode refused: Claude Code's first-run setup of N is not finished "
+                         "(onboarding_incomplete): its first-run screens test the connection to Anthropic's servers, "
+                         "which protected mode does not let through, and Claude Code exits when that test fails; "
+                         "launch claude-as N once without reserves, finish those screens and exit, then launch with "
+                         "reserves.")
+        self.assertEqual(reads, ["/fixture/config"] * 2)
+        unsafe = native_module.NativeError("/fixture/config/.claude.json must be a regular file (not a symlink).")
+        self.assertEqual(self.refused(protect.check_setup, native(unsafe), paths),
+                         "protected mode refused: /fixture/config/.claude.json must be a regular file (not a symlink).")
+
+    def test_the_variable_that_shows_the_first_run_screens_again_refuses_without_its_value(self):
+        """CLAUDE_CODE_POWERUP_ONBOARDING=banner or step shows the first-run screens even after the setup
+        (S: 2.1.325); any nonempty value refuses, and an empty one shows nothing."""
+        for value in ("banner", "step", "fixture-secret-value"):
+            with self.subTest(value=value):
+                message = self.refused(protect.screen_environment, {"CLAUDE_CODE_POWERUP_ONBOARDING": value})
+                self.assertEqual(message, "protected mode refused: CLAUDE_CODE_POWERUP_ONBOARDING is set (value "
+                                 "hidden), which makes Claude Code show its first-run screens, whose connection test "
+                                 "protected mode does not let through; unset it.")
+        protect.screen_environment({"CLAUDE_CODE_POWERUP_ONBOARDING": ""})
+        protect.screen_environment({})
+
     def test_a_refusing_policy_verdict_or_a_machine_organization_pin_refuses(self):
         paths = types.SimpleNamespace(name="N")
         protect.judge_policy(policy.Verdict((), (), ()), paths)
@@ -2198,6 +2302,47 @@ class ProtectedRefusals(Kit):
         self.assertIn("CLAUDE_SECURESTORAGE_CONFIG_DIR",
                       self.refused([], env=dict(self.env, CLAUDE_SECURESTORAGE_CONFIG_DIR="")))
         self.assertIn("unsupported HTTPS_PROXY", self.refused([], env=dict(self.env, HTTPS_PROXY="socks5://x:1")))
+
+    def test_a_new_enrollment_refuses_until_one_launch_without_reserves_finishes_the_first_run_setup(self):
+        """A newly enrolled account has run only `claude auth login`, which leaves Claude Code's first-run
+        setup unfinished, so its first protected launch is refused before the request gate, any native run
+        (the version check and the refresh included) or the session: no start line, no refresh, nothing
+        run. One launch without reserves finishes the setup (the fake records it as native does once its
+        first-run screens are done), and the next protected launch gets past the check: the refresh runs,
+        and the gate refuses, since no credential is stored here."""
+        if boundary_problem():
+            self.skipTest(boundary_problem())
+        self.login()  # .claude.json as a fresh enrollment leaves it
+        outside = self.base / "outside.log"
+        env = dict(self.env, FAKE_OUTSIDE_MARK=str(outside), FAKE_RECORD=str(self.cwd / "record.json"))
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        output = output.replace("\n", " ")
+        self.assertEqual(code, 1, output)
+        self.assertIn("claude-as: protected mode refused: Claude Code's first-run setup of N is not finished "
+                      "(onboarding_incomplete): its first-run screens test the connection to Anthropic's servers, "
+                      "which protected mode does not let through, and Claude Code exits when that test fails; launch "
+                      "claude-as N once without reserves, finish those screens and exit, then launch with reserves.",
+                      output)
+        self.assertNotIn("only the request gate is reachable", output)  # refused before the supervisor started
+        self.assertFalse((self.cwd / "record.json").exists())
+        self.assertFalse((self.cwd / "record.json.auth").exists())  # no refresh ran
+        self.assertFalse(outside.exists())
+        plain = self.run_kit(["N"], env=dict(env, CLAUDE_FAKE_ONBOARD="1"))  # the launch without reserves
+        self.assertEqual(plain.returncode, 0, plain.stderr)
+        self.assertIn("fake claude sentinel", plain.stdout)
+        (self.cwd / "record.json").unlink()
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        self.assertEqual(code, 1, output)
+        self.assertNotIn("onboarding_incomplete", output)
+        self.assertIn("only the request gate is reachable", output)
+        self.assertTrue((self.cwd / "record.json.auth").exists(), output)  # the refresh ran
+        self.assertFalse((self.cwd / "record.json").exists())  # the gate refused: no session
+        (self.cwd / "record.json.auth").unlink()
+        code, output = self.terminal(["--reserve-5h", "10", "N"], env=dict(env, CLAUDE_CODE_POWERUP_ONBOARDING="step"))
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: CLAUDE_CODE_POWERUP_ONBOARDING is set (value hidden)",
+                      output.replace("\n", " "))
+        self.assertFalse((self.cwd / "record.json.auth").exists())  # refused before the refresh
 
     def test_unreviewed_server_managed_policy_refuses_with_key_names_only(self):
         if boundary_problem():
@@ -2608,6 +2753,19 @@ class Protected(Kit):
         self.assertFalse(self.record.exists())
         self.assertEqual(self.upstream.model_requests(), [])
 
+    def test_an_unfinished_first_run_setup_refuses_before_the_gate_with_nothing_sent(self):
+        """The credential is stored and the upstream answers, yet a .claude.json that `auth login` left
+        refuses before the request gate starts: no read, no refresh, no native run."""
+        self.login()
+        code, output = self.protected()
+        self.assertEqual(code, 1, output)
+        self.assertIn("protected mode refused: Claude Code's first-run setup of N is not finished "
+                      "(onboarding_incomplete)", output)
+        self.assertNotIn("only the request gate is reachable", output)
+        self.assertEqual(self.upstream.requests, [])
+        self.assertFalse(self.record.exists())
+        self.assertFalse(Path(str(self.record) + ".auth").exists())
+
     def test_another_accounts_bearer_is_refused_with_zero_model_bytes(self):
         code, output = self.protected(env={"FAKE_MESSAGES": "2", "FAKE_BEARER": upstream_fixture.BEARER_B})
         self.assertEqual(code, 0, output)
@@ -2992,11 +3150,11 @@ class RealClaude(Kit):
             "expiresAt": int(time.time() * 1000 + hours * 3600_000),
             "scopes": ["user:inference", "user:profile", "user:sessions:claude_code"], "subscriptionType": subscription}})
 
-    def spec(self, args=()):
+    def spec(self, args=(), **extra):
         spec = {"kit": str(self.kit), "account": "N", "reserves": {"five_hour": "10", "weekly": "5"},
                 "args": ["--debug-file", str(self.cwd / "native-debug.log"), "--permission-mode", "default", *args],
                 "upstream_port": self.upstream.port,
-                "connect_allow": {"platform.claude.com:443": ["127.0.0.1", self.closed.getsockname()[1]]}}
+                "connect_allow": {"platform.claude.com:443": ["127.0.0.1", self.closed.getsockname()[1]]}, **extra}
         return [sys.executable, "-I", "-B", str(FIXTURES / "run_protected.py"), json.dumps(spec)]
 
     def launch(self, args=()):
@@ -3048,6 +3206,24 @@ class RealClaude(Kit):
         self.assertEqual(code, 1, output)
         self.assertIn("protected mode refused: N is an organization account", output)
         self.assertEqual(self.upstream.requests, [])
+
+    def test_without_a_finished_first_run_setup_the_real_native_exits_at_its_connection_test(self):
+        """What the onboarding_incomplete refusal prevents, with that check skipped by the driver: with
+        hasCompletedOnboarding absent from .claude.json, as `claude auth login` leaves it, Claude Code runs
+        its first-run screens, whose connection test goes through HTTPS_PROXY, the gate; the gate refuses
+        that tunnel, and Claude Code exits 1 before its prompt, with no model request (N: 2.1.325 live,
+        and here on loopback)."""
+        self.store(upstream_fixture.BEARER_A, "max")
+        document = json.loads((self.config_dir / ".claude.json").read_text())
+        del document["hasCompletedOnboarding"]
+        self.private(".claude.json", document)
+        screen = Screen(self.spec(without_setup_check=True), self.env, self.cwd)
+        self.addCleanup(screen.close)
+        screen.expect("Unable to connect to Anthropic services", 90)
+        self.assertEqual(screen.wait(60), 1, screen.text()[-2000:])
+        self.assertEqual(self.upstream.model_requests(), [])
+        sys.stderr.write("\nRealClaude: Claude Code %s without a finished first-run setup exited 1 at its connection "
+                         "test\n" % REAL_VERSION)
 
     def test_the_native_with_hooks_mcp_and_a_background_tool_reaches_only_the_gate(self):
         self.store(upstream_fixture.BEARER_A, "max")
