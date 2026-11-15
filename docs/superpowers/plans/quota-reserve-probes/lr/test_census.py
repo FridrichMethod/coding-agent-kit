@@ -143,6 +143,14 @@ class Census(unittest.TestCase):
             "seven_day_cowork": {"utilization": 3, "resets_at": "next week", "owner": ACCOUNT},
             "contact": EMAIL, "account_uuid": ACCOUNT, "token_echo": TOKEN, ORGANIZATION: {"x": 1},
             "Odd Key": [1, 2], "limits": entries,
+            # Unreviewed keys of other shapes (section 6): nested objects and arrays full of values to drop.
+            "row_flag": True,
+            "row_breakdown": {"claude_code": {"utilization": 20.04, "resets_at": self.week},
+                              "web": {"utilization": 11, "note": "fixture notice"}, EMAIL: {"x": 1}},
+            "row_shares": [{"display_name": "Opus 4", "share": 0.375, "kind": "weekly_scoped"},
+                           {"display_name": EMAIL, "label": "Promo", "kind": TOKEN}],
+            "row_spend": {"amount": float(DOLLARS[0]), "currency": "USD", "percent": 54.04,
+                          "nested": {"deeper": {"deepest": {"cents": int(DOLLARS[3])}}}},
         }
 
     def run_census(self, *extra):
@@ -180,7 +188,9 @@ class Census(unittest.TestCase):
         labels = []
         for key in usage.get("keys", ()):
             self.assertLessEqual(set(key), {"name", "type", "fields", "utilization", "resets_at", "is_enabled",
-                                            "length", "entries"})
+                                            "length", "entries", "shape"})
+            if "shape" in key:
+                labels += self.assertShape(key["shape"])
             self.assertRegex(key["name"], r"^[a-z0-9_]{1,64}$")
             self.assertIn(key["type"], TYPES)
             self.assertTrue(all(re.fullmatch(r"[a-z0-9_]{1,64}", field) for field in key.get("fields", ())))
@@ -211,6 +221,29 @@ class Census(unittest.TestCase):
         self.assertTrue(all(label == "other" or re.fullmatch(r"[A-Za-z0-9 .]{1,32}", label) for label in labels))
         return labels
 
+    def assertShape(self, shape):
+        """An unreviewed key's shape (section 6) holds only types, sanitized names, counts and the kept
+        values; returns its display-name labels."""
+        self.assertLessEqual(set(shape), {"type", "value", "hours", "word", "label", "field_count", "fields",
+                                          "field_names", "length", "entries"})
+        self.assertIn(shape["type"], TYPES)
+        if "value" in shape:
+            self.assertTrue(isinstance(shape["value"], bool) or number(shape["value"])
+                            or shape["value"] == "out_of_range", shape)
+        if "hours" in shape:
+            self.assertTrue(number(shape["hours"]) or shape["hours"] in WORDS, shape)
+        if "word" in shape:
+            self.assertRegex(shape["word"], r"^[a-z0-9_]{1,32}$")
+        self.assertTrue(all(number(shape.get(field, 0)) for field in ("field_count", "length")))
+        self.assertTrue(all(re.fullmatch(r"[a-z0-9_]{1,64}", name) for name in shape.get("field_names", ())))
+        labels = [shape["label"]] if "label" in shape else []
+        for name, child in shape.get("fields", ()):
+            self.assertRegex(name, r"^[a-z0-9_]{1,64}$")
+            labels += self.assertShape(child)
+        for child in shape.get("entries", ()):
+            labels += self.assertShape(child)
+        return labels
+
     def test_one_read_keeps_only_the_listed_fields(self):
         code, output = self.run_census()
         self.assertEqual(code, census.EXIT_OK, output)
@@ -223,7 +256,7 @@ class Census(unittest.TestCase):
         self.assertKeepsNoValue(marker.read_text())
         result = json.loads(text)
         labels = self.assertOnlyListedFields(result)
-        self.assertEqual(sorted(labels), ["Claude Code", "Sonnet 4.5", "other", "other"])
+        self.assertEqual(sorted(labels), ["Claude Code", "Opus 4", "Sonnet 4.5", "other", "other", "other"])
         self.assertEqual((result["outcome"], result["kit_commit"]), ("read", "0123abc"))
         self.assertEqual(result["profile"], {"http_status": 200, "json": True, "identity_match": True})
         # Exactly one profile GET and one usage GET, with the bearer and the neutral User-Agent; nothing else.
@@ -261,6 +294,35 @@ class Census(unittest.TestCase):
         self.assertEqual((odd["model_display_name"], odd["surface_display_name"]), ("other", "Claude Code"))
         self.assertEqual(odd["other_fields"], ["owner_email", "unknown"])
         self.assertEqual((text_entry, null_entry), ({"type": "string"}, {"type": "null"}))
+        # Section 6: only unreviewed keys carry a shape, to three levels below the key.
+        self.assertEqual([key["name"] for key in result["usage"]["keys"] if "shape" in key],
+                         ["seven_day_cowork", "contact", "account_uuid", "token_echo", "unknown", "unknown",
+                          "row_flag", "row_breakdown", "row_shares", "row_spend"])
+        self.assertTrue(all("shape" not in key for key in result["usage"]["keys"]
+                            if key["name"] in ("five_hour", "wattle_ember", "extra_usage", "limits", "cinder_cove")))
+        self.assertEqual(keys["row_flag"]["shape"], {"type": "boolean", "value": True})
+        self.assertEqual(keys["token_echo"]["shape"], {"type": "string"})
+        breakdown = dict(keys["row_breakdown"]["shape"]["fields"])
+        self.assertEqual(list(breakdown), ["claude_code", "web", "unknown"])
+        code_part = dict(breakdown["claude_code"]["fields"])
+        self.assertEqual(code_part["utilization"], {"type": "number", "value": 20.0})
+        self.assertLessEqual(abs(code_part["resets_at"]["hours"] - 72.0), 0.1)
+        self.assertEqual(dict(breakdown["web"]["fields"])["note"], {"type": "string"})
+        self.assertEqual(breakdown["unknown"], {"type": "object", "field_count": 1, "fields": [["x", {"type": "number"}]]})
+        shares = keys["row_shares"]["shape"]
+        self.assertEqual((shares["length"], len(shares["entries"])), (2, 2))
+        self.assertEqual(shares["entries"][0]["fields"], [["display_name", {"type": "string", "label": "Opus 4"}],
+                                                          ["share", {"type": "number"}],
+                                                          ["kind", {"type": "string", "word": "weekly_scoped"}]])
+        self.assertEqual(shares["entries"][1]["fields"], [["display_name", {"type": "string", "label": "other"}],
+                                                          ["label", {"type": "string"}],
+                                                          ["kind", {"type": "string", "word": "other"}]])
+        spend = dict(keys["row_spend"]["shape"]["fields"])
+        self.assertEqual((spend["amount"], spend["currency"], spend["percent"]),
+                         ({"type": "number"}, {"type": "string"}, {"type": "number", "value": 54.0}))
+        deeper = dict(dict(spend["nested"]["fields"])["deeper"]["fields"])
+        self.assertEqual(deeper["deepest"], {"type": "object", "field_count": 1, "field_names": ["cents"]})
+        self.assertNotIn("0.375", text)
 
     def test_a_second_attempt_is_refused_before_any_read(self):
         self.assertEqual(self.run_census()[0], census.EXIT_OK)

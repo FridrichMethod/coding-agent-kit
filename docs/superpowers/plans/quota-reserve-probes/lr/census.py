@@ -47,6 +47,13 @@ Retained, and nothing else (research RQ section 4; the result's keys in brackets
    scope's [model_display_name] and [surface_display_name] only when they match [A-Za-z0-9 .]{1,32}
    (else "other"), and the names of its other fields [other_fields].
 5. a top-level string, number or boolean: its type only.
+6. a key the provider has not reviewed (not in its GENERAL, FAMILY_ROWS or IGNORED tables, nor limits), when
+   present and not empty: its [shape] to three levels below the key. Each value gives its [type]; an object
+   its [field_count] and [fields] (the first 64 as [name, shape] pairs in server order, names as in 2), or at
+   the last level only the sorted [field_names]; an array its [length] and the first 16 [entries]. Of values
+   only these: a boolean's [value]; a number's [value] (rounded as above) when its field is utilization or
+   percent; a resets_at string's [hours] as above; a kind, group or severity string's [word] as in 4; a
+   display_name string's [label] as in 4. Every other string or number keeps its type only.
 Never kept: a body, header, token, account or organization UUID, e-mail, dollar amount, currency,
 label or any other value.
 
@@ -91,6 +98,8 @@ ALIAS = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]{0,63}")
 ENTRIES_SHOWN = 16
 ENTRY_FIELDS = ("kind", "group", "percent", "resets_at", "severity", "is_active", "scope")
 BOUND = 100000  # a rounded number or hour count beyond this is kept as "out_of_range"
+SHAPE_DEPTH, FIELDS_SHOWN = 3, 64  # an unreviewed key's shape: levels below it, fields per object
+SHAPE_NUMBERS, SHAPE_WORDS = ("utilization", "percent"), ("kind", "group", "severity")
 
 
 class Refused(Exception):
@@ -290,13 +299,45 @@ def _entry(provider, item, wall, general):
     return summary
 
 
+def _shape(provider, value, wall, depth, field=None):
+    """The structure of an unreviewed key's value (section 6): types and sanitized field names to DEPTH
+    levels; of the values only a boolean, a utilization or percent number, a reset, a word and a label."""
+    shape = {"type": kind(value)}
+    if shape["type"] == "boolean":
+        shape["value"] = value
+    elif shape["type"] == "number" and field in SHAPE_NUMBERS:
+        shape["value"] = _rounded(value)
+    elif shape["type"] == "string":
+        if field == "resets_at":
+            shape["hours"] = _reset(provider, {"resets_at": value}, wall)
+        elif field in SHAPE_WORDS:
+            shape["word"] = value if WORD.fullmatch(value) else "other"
+        elif field == "display_name":
+            shape["label"] = value if LABEL.fullmatch(value) else "other"
+    elif shape["type"] == "object":
+        shape["field_count"] = len(value)
+        if depth > 0:
+            shape["fields"] = [[_name(name), _shape(provider, child, wall, depth - 1, name)]
+                               for name, child in list(value.items())[:FIELDS_SHOWN]]
+        else:
+            shape["field_names"] = sorted({_name(name) for name in value})
+    elif shape["type"] == "array":
+        shape["length"] = len(value)
+        if depth > 0:
+            shape["entries"] = [_shape(provider, item, wall, depth - 1) for item in value[:ENTRIES_SHOWN]]
+    return shape
+
+
 def summarize(provider, document, wall):
     """The retained summary of one usage document's top-level keys, in server order."""
     general = {window: document[window].get("resets_at") for window in ("five_hour", "seven_day")
                if isinstance(document.get(window), dict)}
+    reviewed = {*provider.GENERAL, *provider.FAMILY_ROWS, *provider.IGNORED, "limits"}
     keys = []
     for name, value in document.items():
         entry = {"name": _name(name), "type": kind(value)}
+        if name not in reviewed and entry["type"] not in ("null", "empty_object", "empty_array"):
+            entry["shape"] = _shape(provider, value, wall, SHAPE_DEPTH)
         if entry["type"] == "object":
             entry.update(fields=sorted({_name(field) for field in value}), utilization=_number(value, "utilization"),
                          resets_at=_reset(provider, value, wall))
