@@ -1387,7 +1387,7 @@ class GateProvider(unittest.TestCase):
             "N: paused: the usage report has a limit row protected mode has not reviewed (limits_session_surface); "
             "last valid reading at "), paused["fields"])
         self.assertEqual(paused["fields"]["rows"], "limits_session_surface")
-        self.assertNotIn("61.5", json.dumps(paused))
+        self.assertNotIn("61.5", json.dumps(dict(paused, at=None)))  # the row's value; "at" may hold the digits
         g.heartbeat()
         self.assertEqual((g.arm_continuation()["ok"], g.state), (False, "paused"))
         self.upstream.extra = {}
