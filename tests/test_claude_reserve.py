@@ -225,9 +225,11 @@ class Enrollment(Kit):
         self.assertEqual(record["state"], "pending")
         code, output = self.terminal(["--enroll-native", "N"], [("as N? [y/N]", "y")])
         self.assertEqual(code, 0, output)
-        # Protected mode refuses until Claude Code's first-run setup is finished, which auth login skips.
-        self.assertIn("Before the first launch of N with reserves, launch it once without them (claude-as N), "
-                      "finish Claude Code's first-run screens and exit: protected mode refuses until they are done.",
+        # Protected mode refuses until Claude Code's first-run setup is finished, which auth login skips. The
+        # launch named is unprotected whatever the configuration file sets (a plain claude-as N is not).
+        self.assertIn("Before the first launch of N with reserves, launch it once unprotected (claude-as --reserve-5h "
+                      "off --reserve-weekly off N, whatever the configuration file sets), finish Claude Code's "
+                      "first-run screens and exit: protected mode refuses until they are done.",
                       output.replace("\n", " "))
         record = json.loads((self.native_config("N").parent / "account.json").read_text())
         self.assertEqual(record["state"], "ready")
@@ -846,11 +848,18 @@ class AccountDirectories(unittest.TestCase):
                               (dict(login, hasCompletedOnboarding="true"), False),
                               ([{"hasCompletedOnboarding": True}], False), ("text", False), (True, False),
                               ('{"hasCompletedOnboarding": true', False),
-                              ('{"hasCompletedOnboarding": true, "hasCompletedOnboarding": true}', False)):
+                              ('{"hasCompletedOnboarding": true, "hasCompletedOnboarding": true}', False),
+                              ("", False), (" \n", False)):  # native reads an empty file as no configuration
             with self.subTest(raw=raw):
-                metadata.write_text(raw if isinstance(raw, str) and raw.startswith("{") else json.dumps(raw))
+                metadata.write_text(raw if isinstance(raw, str) and (raw.startswith("{") or not raw.strip())
+                                    else json.dumps(raw))
                 metadata.chmod(0o600)
                 self.assertIs(native_module.setup_finished(str(self.config)), finished)
+        # read_identity, which enrollment uses, keeps refusing an empty file.
+        metadata.write_text("")
+        with self.assertRaises(native_module.NativeError) as caught:
+            native_module.read_identity(str(self.config))
+        self.assertIn(".claude.json is empty or too large.", str(caught.exception))
 
     def test_the_first_run_setup_read_follows_the_account_directory_rules(self):
         metadata = self.config / ".claude.json"
@@ -869,6 +878,12 @@ class AccountDirectories(unittest.TestCase):
             native_module.setup_finished(str(self.config))
         self.assertIn(".claude.json must be a regular file (not a symlink)", str(caught.exception))
         metadata.unlink()
+        if os.geteuid() != 0:  # a file the launcher cannot open refuses with the same rule, never as finished
+            metadata.write_text(json.dumps({"hasCompletedOnboarding": True}))
+            metadata.chmod(0)
+            with self.assertRaises(native_module.NativeError):
+                native_module.setup_finished(str(self.config))
+            metadata.unlink()
         self.config.chmod(0o750)
         with self.assertRaises(native_module.NativeError) as caught:
             native_module.setup_finished(str(self.config))
@@ -1892,8 +1907,8 @@ class ProtectScreens(unittest.TestCase):
                          "protected mode refused: Claude Code's first-run setup of N is not finished "
                          "(onboarding_incomplete): its first-run screens test the connection to Anthropic's servers, "
                          "which protected mode does not let through, and Claude Code exits when that test fails; "
-                         "launch claude-as N once without reserves, finish those screens and exit, then launch with "
-                         "reserves.")
+                         "launch claude-as --reserve-5h off --reserve-weekly off N once (unprotected, whatever the "
+                         "configuration file sets), finish those screens and exit, then launch with reserves.")
         self.assertEqual(reads, ["/fixture/config"] * 2)
         unsafe = native_module.NativeError("/fixture/config/.claude.json must be a regular file (not a symlink).")
         self.assertEqual(self.refused(protect.check_setup, native(unsafe), paths),
@@ -2303,46 +2318,60 @@ class ProtectedRefusals(Kit):
                       self.refused([], env=dict(self.env, CLAUDE_SECURESTORAGE_CONFIG_DIR="")))
         self.assertIn("unsupported HTTPS_PROXY", self.refused([], env=dict(self.env, HTTPS_PROXY="socks5://x:1")))
 
-    def test_a_new_enrollment_refuses_until_one_launch_without_reserves_finishes_the_first_run_setup(self):
+    def test_a_new_enrollment_refuses_until_the_named_unprotected_launch_finishes_the_first_run_setup(self):
         """A newly enrolled account has run only `claude auth login`, which leaves Claude Code's first-run
         setup unfinished, so its first protected launch is refused before the request gate, any native run
-        (the version check and the refresh included) or the session: no start line, no refresh, nothing
-        run. One launch without reserves finishes the setup (the fake records it as native does once its
-        first-run screens are done), and the next protected launch gets past the check: the refresh runs,
-        and the gate refuses, since no credential is stored here."""
+        or the session: no start line, no version check (its mark, which the boundary lets it write, stays
+        absent), no refresh, nothing run. The reserve comes from the configuration file here, so a plain
+        `claude-as N` is protected too: the refusal names the launch that is unprotected whatever the file
+        sets, and exactly that launch runs unconfined and finishes the setup (the fake records it as native
+        does once its first-run screens are done). The next protected launch gets past the check: the
+        version check and the refresh run confined, and the gate refuses, since no credential is stored."""
         if boundary_problem():
             self.skipTest(boundary_problem())
+        self.write_config('[usage_reserve]\nfive_hour = 10\n\n[claude_auth.accounts.N]\nmode = "native-login"\n')
         self.login()  # .claude.json as a fresh enrollment leaves it
         outside = self.base / "outside.log"
-        env = dict(self.env, FAKE_OUTSIDE_MARK=str(outside), FAKE_RECORD=str(self.cwd / "record.json"))
-        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        version = self.cwd / "version.mark"  # the working directory: writable inside the boundary
+        env = dict(self.env, FAKE_OUTSIDE_MARK=str(outside), FAKE_VERSION_MARK=str(version),
+                   FAKE_RECORD=str(self.cwd / "record.json"))
+        remedy = "claude-as --reserve-5h off --reserve-weekly off N"
+        code, output = self.terminal(["N"], env=env)
         output = output.replace("\n", " ")
         self.assertEqual(code, 1, output)
         self.assertIn("claude-as: protected mode refused: Claude Code's first-run setup of N is not finished "
                       "(onboarding_incomplete): its first-run screens test the connection to Anthropic's servers, "
                       "which protected mode does not let through, and Claude Code exits when that test fails; launch "
-                      "claude-as N once without reserves, finish those screens and exit, then launch with reserves.",
-                      output)
+                      f"{remedy} once (unprotected, whatever the configuration file sets), finish those screens "
+                      "and exit, then launch with reserves.", output)
         self.assertNotIn("only the request gate is reachable", output)  # refused before the supervisor started
+        self.assertFalse(version.exists())  # no version check ran
         self.assertFalse((self.cwd / "record.json").exists())
         self.assertFalse((self.cwd / "record.json.auth").exists())  # no refresh ran
         self.assertFalse(outside.exists())
-        plain = self.run_kit(["N"], env=dict(env, CLAUDE_FAKE_ONBOARD="1"))  # the launch without reserves
+        plain = self.run_kit(remedy.split()[1:], env=dict(env, CLAUDE_FAKE_ONBOARD="1"))  # the launch named
         self.assertEqual(plain.returncode, 0, plain.stderr)
         self.assertIn("fake claude sentinel", plain.stdout)
-        (self.cwd / "record.json").unlink()
-        code, output = self.terminal(["--reserve-5h", "10", "N"], env=env)
+        self.assertEqual(outside.read_text(), "[]\n")  # it ran unconfined: an unprotected launch
+        self.assertFalse(version.exists())
+        for path in (self.cwd / "record.json", outside):
+            path.unlink()
+        code, output = self.terminal(["N"], env=env)
         self.assertEqual(code, 1, output)
         self.assertNotIn("onboarding_incomplete", output)
         self.assertIn("only the request gate is reachable", output)
+        self.assertEqual(version.read_text(), "--version\n", output)  # the version check ran, once
         self.assertTrue((self.cwd / "record.json.auth").exists(), output)  # the refresh ran
         self.assertFalse((self.cwd / "record.json").exists())  # the gate refused: no session
-        (self.cwd / "record.json.auth").unlink()
+        self.assertFalse(outside.exists())  # both ran confined
+        for path in (self.cwd / "record.json.auth", version):
+            path.unlink()
         code, output = self.terminal(["--reserve-5h", "10", "N"], env=dict(env, CLAUDE_CODE_POWERUP_ONBOARDING="step"))
         self.assertEqual(code, 1, output)
         self.assertIn("protected mode refused: CLAUDE_CODE_POWERUP_ONBOARDING is set (value hidden)",
                       output.replace("\n", " "))
-        self.assertFalse((self.cwd / "record.json.auth").exists())  # refused before the refresh
+        self.assertFalse(version.exists())  # refused before the version check
+        self.assertFalse((self.cwd / "record.json.auth").exists())  # and before the refresh
 
     def test_unreviewed_server_managed_policy_refuses_with_key_names_only(self):
         if boundary_problem():

@@ -201,9 +201,10 @@ def _unique(pairs):
     return result
 
 
-def _read(directory, name, limit, exact_mode=None, where=None):
+def _read(directory, name, limit, exact_mode=None, where=None, empty=False):
     """One bounded read of an owned regular file in DIRECTORY; None when it is absent. Without an
-    EXACT_MODE others must not be able to write it (others_can_write); WHERE names it then."""
+    EXACT_MODE others must not be able to write it (others_can_write); WHERE names it then. An empty
+    file refuses, or reads as b"" with EMPTY."""
     try:
         fd = os.open(name, FILE, dir_fd=directory)
     except FileNotFoundError:
@@ -219,7 +220,7 @@ def _read(directory, name, limit, exact_mode=None, where=None):
                               + (f" and permissions {exact_mode:04o}." if exact_mode is not None else "."))
         if exact_mode is None:
             _shared_write(info, fd, where or name)
-        if not 0 < info.st_size <= limit:
+        if info.st_size > limit or not (info.st_size or empty):
             raise NativeError(f"{name} is empty or too large.")
         chunks, size = [], 0
         while size <= info.st_size:
@@ -324,16 +325,17 @@ def create_pending(paths):
         os.umask(old)
 
 
-def _metadata(config_dir):
+def _metadata(config_dir, empty=False):
     """One read of native's config/.claude.json (a new evaluation), or None when it or the
-    configuration directory is absent; NativeError when either is unsafe."""
+    configuration directory is absent; NativeError when either is unsafe, or the file is empty
+    without EMPTY (with it, b"")."""
     forget_groups()
     try:
         directory = open_directory(config_dir, private=3)
     except FileNotFoundError:
         return None
     try:
-        return _read(directory, METADATA, METADATA_LIMIT, where=f"{config_dir}/{METADATA}")
+        return _read(directory, METADATA, METADATA_LIMIT, where=f"{config_dir}/{METADATA}", empty=empty)
     finally:
         os.close(directory)
 
@@ -360,10 +362,11 @@ def read_identity(config_dir):
 def setup_finished(config_dir):
     """Whether native's config/.claude.json records Claude Code's first-run setup as finished:
     a JSON object whose SETUP_KEY is exactly true. False when the file or the configuration
-    directory is absent, the file is not JSON (or has a duplicate key) or not an object, or the key
-    is absent or holds anything else. One read under the rules of read_identity; NativeError for
-    an unsafe file. Nothing of the file is kept but the answer."""
-    raw = _metadata(config_dir)
+    directory is absent, the file is empty (native reads that as no configuration and runs its
+    first-run screens), not JSON (or has a duplicate key) or not an object, or the key is absent or
+    holds anything else. One read under the rules of read_identity; NativeError for an unsafe file.
+    Nothing of the file is kept but the answer."""
+    raw = _metadata(config_dir, empty=True)
     if raw is None:
         return False
     try:

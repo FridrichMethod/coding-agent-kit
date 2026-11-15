@@ -1,6 +1,8 @@
 """A fake claude for the claude-as reserve tests; fabricated data only, no network.
 
---version prints CLAUDE_FAKE_VERSION (default the reviewed 2.1.322). `auth status` prints a
+--version prints CLAUDE_FAKE_VERSION (default the reviewed 2.1.322); with FAKE_VERSION_MARK=PATH, a
+path the boundary can write (the working directory), it first appends "--version" to PATH, so a test
+sees whether a confined version check ran. `auth status` prints a
 fixed line and exits CLAUDE_FAKE_AUTH_STATUS (default 0); with CLAUDE_FAKE_RENEW=SECONDS it first
 renews the token as native's refresh does: CLAUDE_CONFIG_DIR/.credentials.json is replaced (0600,
 by rename) with CLAUDE_FAKE_RENEW_TOKEN as the access token, expiring SECONDS from now; `auth login` records the identity
@@ -170,6 +172,9 @@ def main():
     args = sys.argv[1:]
     mark_outside()
     if args == ["--version"]:
+        if os.environ.get("FAKE_VERSION_MARK"):
+            with open(os.environ["FAKE_VERSION_MARK"], "a") as stream:
+                stream.write("--version\n")
         print(os.environ.get("CLAUDE_FAKE_VERSION", "2.1.322 (Claude Code)"))
         return 0
     if args == ["auth", "status"]:

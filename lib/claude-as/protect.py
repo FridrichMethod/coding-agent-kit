@@ -47,7 +47,8 @@ HTTPS_PROXY, which in a protected session is the gate, and the gate opens no tun
 test exits Claude Code (N: 2.1.325, exit 1 before its prompt). `claude auth login`, which enrollment
 uses, does not run those screens. So protected mode refuses (SETUP_REASON) until .claude.json, read once
 by native.setup_finished under the account-directory rules, holds hasCompletedOnboarding exactly true,
-which one launch without reserves leaves once its first-run screens are done; and it refuses any
+which one unprotected launch leaves once its first-run screens are done (the refusal names one with both
+windows off on the command line, unprotected whatever the configuration file sets); and it refuses any
 nonempty CLAUDE_CODE_POWERUP_ONBOARDING.
 
 Organization policy: Claude Code 2.1.322 applies no server-managed organization policy while
@@ -309,10 +310,12 @@ def screen_environment(env):
 
 
 def setup_message(name):
+    # The launch named sets both windows off on the command line: a plain `claude-as NAME` is itself protected
+    # when the configuration file sets a reserve, and would be refused again.
     return (f"Claude Code's first-run setup of {name} is not finished ({SETUP_REASON}): its first-run screens test "
             "the connection to Anthropic's servers, which protected mode does not let through, and Claude Code exits "
-            f"when that test fails; launch claude-as {name} once without reserves, finish those screens and exit, then "
-            "launch with reserves.")
+            f"when that test fails; launch claude-as --reserve-5h off --reserve-weekly off {name} once (unprotected, "
+            "whatever the configuration file sets), finish those screens and exit, then launch with reserves.")
 
 
 def check_setup(native, paths):
