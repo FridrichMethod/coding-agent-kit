@@ -73,7 +73,9 @@ Added:
   while paused the launcher says when the latest quota check passes, F12
   shows a one-use code, and typing it asks for a fresh check that must
   pass; the terminal's reports of a key's repeat or release, which the
-  extended keyboard protocol Codex turns on sends, never cancel the code.
+  extended keyboard protocol Codex turns on sends, never cancel the code,
+  and Ctrl-C, as a key or as that protocol reports its press, cancels the
+  code and reaches the native.
   At exit every process left inside the boundary is ended.
 - Protected mode requires Linux on x86_64 with Landlock ABI 6 or newer and
   seccomp (not WSL), or macOS 27.2 or newer on Apple silicon with
@@ -118,7 +120,10 @@ Added:
   among those that supply the `python3`, `dirname` and `readlink` that
   `bin/codex-as` runs, `codex` and each `#!/usr/bin/env` command, or before
   them, a shared state entry in `<codex_home>` that is a link, an account
-  without a saved login and missing native databases refuse. On macOS the
+  without a saved login and missing native databases refuse; the latter
+  refusal says what creates them and, under a release newer than the
+  reviewed tables, that this release may no longer create them and that a
+  kit release has to review it if that advice does not. On macOS the
   gate uses the system HTTPS proxy Codex uses, and PAC or WPAD refuses; an
   empty `NO_PROXY` exempts nothing. Codex's limit
   flags (`limit_reached`, `allowed` false) are attributed to the windows at
@@ -133,8 +138,10 @@ Added:
   account on a machine that pins the sign-in organization, is refused with a
   message that names it and says to launch without reserves. Print, resume,
   settings, remote and background forms and every command are refused,
-  and a one-word first operand reaches Claude Code with a trailing space,
-  so that a command a newer release adds cannot run;
+  and a one-word first operand that starts with an ASCII letter or digit
+  reaches Claude Code with a trailing space, so that a command a newer
+  release adds cannot run, while any other first operand (`/review`,
+  `@notes.md`) reaches it as typed;
   hooks, stdio MCP servers and plugins run inside the boundary. As in
   protected `codex-as`, the gate and the monitor run the base interpreter of
   the launcher's Python, and a launch is refused when that Python, the
