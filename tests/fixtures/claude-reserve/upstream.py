@@ -1,7 +1,7 @@
 """A Claude-shaped HTTP upstream on 127.0.0.1 for the claude-as reserve tests (fabricated data only).
 
-GET /api/oauth/profile and /api/oauth/usage answer per bearer (identities, utilization, extra rows,
-status overrides); POST /v1/messages and /v1/messages/count_tokens answer a short SSE stream or, with
+GET /api/oauth/profile and /api/oauth/usage answer per bearer (identities, utilization, extra and
+omitted rows, status overrides); POST /v1/messages and /v1/messages/count_tokens answer a short SSE stream or, with
 "forever" in the body, stream until the client goes away. With messages=True they answer as the
 Messages API does, for a real Claude Code: count_tokens a token count, and /v1/messages a message
 stream whose text is FIXTURE-ANSWER, or, when the last user turn says "fixture background" and the
@@ -56,6 +56,7 @@ class ClaudeUpstream:
         self.identities = {BEARER_A: IDENTITY_A, BEARER_A2: IDENTITY_A, BEARER_B: IDENTITY_B}
         self.used = {"five_hour": 10, "seven_day": 20}
         self.extra = {}            # additional usage rows, e.g. {"seven_day_opus": {...}}
+        self.omit = set()          # usage rows left out of the report, e.g. {"five_hour"}
         self.status = {}           # path -> forced status
         self.close_header = False  # answer reads with "Connection: close", as many real servers do
         self.messages = False      # answer Messages requests as the Messages API does (a real native)
@@ -132,6 +133,8 @@ class ClaudeUpstream:
                      "seven_day": {"utilization": self.used["seven_day"], "resets_at": stamp(now + 86400)},
                      "seven_day_opus": None, "seven_day_oauth_apps": None, "extra_usage": {"is_enabled": False}}
             usage.update(self.extra)
+            for name in self.omit:
+                usage.pop(name, None)
             return self._send(sock, 200, usage)
         if method == "POST" and path in ("/v1/messages", "/v1/messages/count_tokens") and self.messages:
             return self._message(sock, path, json.loads(body or b"{}"))

@@ -1,5 +1,5 @@
 {
-  "about": "Fabricated GET /api/oauth/usage documents, one per row shape Claude Code 2.1.322 reads (research RQ section 1), with the readings and unproved row names lib/claude-as/provider.py normalize_usage must give. A reading is [name, family, used]: name five_hour or weekly, family null for a general window.",
+  "about": "Fabricated GET /api/oauth/usage documents, one per row shape Claude Code 2.1.322 reads (research RQ section 1), with the readings and unproved row names lib/claude-as/provider.py normalize_usage must give. A reading is [name, family, used]: name five_hour or weekly, family null for a general window. started, when a case gives it, holds each reading's started flag in order (false: a window the report shows as not started yet); a case without it expects every reading started.",
   "cases": [
     {
       "case": "general windows",
@@ -11,9 +11,61 @@
       "unproved": []
     },
     {
-      "case": "general windows null",
-      "document": {"five_hour": null, "seven_day": null},
+      "case": "general windows absent",
+      "document": {"type": "usage", "seven_day_opus": null},
       "readings": [],
+      "unproved": []
+    },
+    {
+      "case": "general windows null: not started",
+      "document": {"five_hour": null, "seven_day": null},
+      "readings": [["five_hour", null, 0], ["weekly", null, 0]],
+      "started": [false, false],
+      "unproved": []
+    },
+    {
+      "case": "general windows null beside limits entries of those windows",
+      "document": {
+        "five_hour": null, "seven_day": null,
+        "limits": [
+          {"kind": "session", "group": "session", "percent": 30, "resets_at": "2026-11-20T10:00:00Z"},
+          {"kind": "weekly_all", "group": "weekly", "percent": 40, "resets_at": "2026-11-24T10:00:00Z", "scope": null}
+        ]
+      },
+      "readings": [["five_hour", null, 30], ["weekly", null, 40]],
+      "unproved": []
+    },
+    {
+      "case": "general windows null, one of them with a limits entry",
+      "document": {
+        "five_hour": null, "seven_day": null,
+        "limits": [{"kind": "weekly_all", "group": "weekly", "percent": 40, "resets_at": "2026-11-24T10:00:00Z"}]
+      },
+      "readings": [["weekly", null, 40], ["five_hour", null, 0]],
+      "started": [true, false],
+      "unproved": []
+    },
+    {
+      "case": "a general window null beside a malformed limits entry of that window",
+      "document": {"five_hour": null, "limits": [{"kind": "session", "group": "session", "percent": "full"}]},
+      "readings": [["five_hour", null, "full"]],
+      "unproved": []
+    },
+    {
+      "case": "a null general window beside a limits entry of another scope",
+      "document": {
+        "five_hour": null,
+        "limits": [{"kind": "session", "group": "session", "percent": 30, "resets_at": "2026-11-20T10:00:00Z",
+                    "scope": {"surface": {"display_name": "Fixture surface"}}}]
+      },
+      "readings": [["five_hour", null, 0]],
+      "started": [false],
+      "unproved": ["limits_session_surface"]
+    },
+    {
+      "case": "general rows of another shape",
+      "document": {"five_hour": "full", "seven_day": false},
+      "readings": [["five_hour", null, null], ["weekly", null, null]],
       "unproved": []
     },
     {
@@ -200,6 +252,84 @@
       },
       "readings": [["five_hour", null, 23], ["weekly", null, 31], ["weekly", "sonnet", 12], ["five_hour", null, 23],
                    ["weekly", null, 31]],
+      "unproved": []
+    },
+    {
+      "case": "informational rows",
+      "document": {
+        "member_dashboard_available": false,
+        "seven_day_breakdown": {
+          "as_of": "2026-11-20T09:00:00Z", "window_started_at": "2026-11-17T10:00:00Z",
+          "rows": [{"key": "fixture_a", "display_name": "Fixture A", "percent": 60},
+                   {"key": "fixture_b", "display_name": "Fixture B", "percent": 40}]
+        },
+        "spend": {
+          "used": {"amount_minor": 1200, "currency": "USD", "exponent": 2},
+          "limit": {"amount_minor": 4000, "currency": "USD", "exponent": 2},
+          "percent": 30, "severity": "warning", "enabled": true, "disabled_reason": null,
+          "cap": {"money": {"amount_minor": 4000, "currency": "USD", "exponent": 2}, "credits": null},
+          "balance": null, "auto_reload": null, "disclaimer": "fixture disclaimer", "can_purchase_credits": true,
+          "can_toggle": true
+        },
+        "weekly_scoped_shares": [{"limit_index": 0, "used_percent_of_weekly": 20, "allowance_percent_of_weekly": 50}]
+      },
+      "readings": [],
+      "unproved": []
+    },
+    {
+      "case": "rows beside the informational ones stay unreviewed",
+      "document": {
+        "spend": {"percent": 30, "enabled": true},
+        "spend_weekly": {"utilization": 30, "resets_at": "2026-11-24T10:00:00Z"},
+        "weekly_scoped_shares": [],
+        "seven_day_breakdown_by_model": {"rows": []}
+      },
+      "readings": [],
+      "unproved": ["seven_day_breakdown_by_model", "spend_weekly"]
+    },
+    {
+      "case": "a Max account with informational rows and no five-hour window open",
+      "document": {
+        "five_hour": null,
+        "seven_day": {"utilization": 37.5, "resets_at": "2026-11-24T10:00:00Z", "limit_dollars": 80,
+                      "used_dollars": 30, "remaining_dollars": 50, "locked_reason": null},
+        "seven_day_oauth_apps": null, "seven_day_opus": null, "seven_day_sonnet": null, "seven_day_cowork": null,
+        "seven_day_omelette": null, "tangelo": null, "iguana_necktie": null, "omelette_promotional": null,
+        "nimbus_quill": null, "cinder_cove": null, "copper_kite": null, "brass_thimble": null,
+        "harbor_lantern": null, "wattle_ember": null, "promo_credits": null, "amber_ladder": null,
+        "granite_teacup": null, "amber_cistern": null, "amber_cistern_offer": null, "juniper_tide": null,
+        "cedar_ember": null, "starry_waterfall": null, "amber_gauge": null, "pace": null, "indicator": null,
+        "extra_usage": {
+          "is_enabled": false, "credits_ever_enabled": true, "currency": "USD", "decimal_places": 2,
+          "disabled_reason": "fixture reason", "monthly_limit": 2000, "spend_limit_reached": false,
+          "used_credits": 150, "user_disabled": true, "utilization": 7.5, "daily": null, "weekly": null
+        },
+        "limits": [
+          {"kind": "weekly_all", "group": "weekly", "percent": 37.5, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": true, "scope": null},
+          {"kind": "weekly_scoped", "group": "weekly", "percent": 12, "resets_at": "2026-11-24T10:00:00Z",
+           "severity": "normal", "is_active": false, "scope": {"model": {"display_name": "Fable"}}}
+        ],
+        "spend": {
+          "used": {"amount_minor": 250, "currency": "USD", "exponent": 2},
+          "limit": {"amount_minor": 2000, "currency": "USD", "exponent": 2},
+          "percent": 12.5, "severity": "normal", "enabled": true, "disabled_reason": "fixture reason",
+          "cap": {"money": null, "credits": {"amount_minor": 2000, "exponent": 2}},
+          "balance": null, "auto_reload": null, "disclaimer": "fixture disclaimer", "can_purchase_credits": true,
+          "can_toggle": true
+        },
+        "member_dashboard_available": true,
+        "seven_day_breakdown": {
+          "as_of": "2026-11-20T09:00:00Z", "window_started_at": "2026-11-17T10:00:00Z",
+          "rows": [{"key": "fixture_a", "display_name": "Fixture A", "percent": 70},
+                   {"key": "fixture_b", "display_name": "Fixture B", "percent": 20},
+                   {"key": "fixture_c", "display_name": "Fixture C", "percent": 6},
+                   {"key": "fixture_d", "display_name": "Fixture D", "percent": 4}]
+        },
+        "weekly_scoped_shares": [{"limit_index": 1, "used_percent_of_weekly": 32, "allowance_percent_of_weekly": 50}]
+      },
+      "readings": [["weekly", null, 37.5], ["weekly", null, 37.5], ["five_hour", null, 0]],
+      "started": [true, true, false],
       "unproved": []
     }
   ]
