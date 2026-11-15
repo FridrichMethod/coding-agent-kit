@@ -1261,18 +1261,79 @@ def wait_for(condition, tries):
     return False
 
 
+# The macOS release the Seatbelt profile was verified on, with MacEnforcement on that host. Protected
+# mode accepts it and every newer release (sandbox_macos.MINIMUM_RELEASE), where the self-test decides.
+VERIFIED_MACOS = (27, 2)
+
+
+def mac_self_test_skip(host_refusal, version, refusal):
+    """Why a MacEnforcement case whose self-test refused (REFUSAL) skips, or None when it fails: on the
+    verified release (a patch of it included) it fails. On an accepted host newer than that, protected
+    mode correctly refuses at the same self-test, which must not turn CI red: the case skips with the
+    refusal and the host release. A host protected mode refuses (HOST_REFUSAL: an older release, an
+    Intel Mac) skips with both refusals."""
+    if host_refusal is not None:
+        return "a host protected mode refuses (%s); its self-test failed: %s" % (host_refusal, refusal)
+    parts = version.split(".")
+    if (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0) > VERIFIED_MACOS:
+        return ("macOS %s is newer than %d.%d, which the profile was verified on, and protected mode refuses there at "
+                "its self-test: %s" % ((version,) + VERIFIED_MACOS + (refusal,)))
+    return None
+
+
+class MacEnforcementRule(unittest.TestCase):
+    """When a MacEnforcement case whose self-test refused fails and when it skips (on every host)."""
+
+    def test_a_refused_self_test_fails_on_the_verified_release_and_skips_on_a_newer_one(self):
+        for version in ("27.2", "27.2.1"):
+            with self.subTest(version=version):
+                self.assertIsNone(mac_self_test_skip(None, version, "the self-test reached another port"))
+        for version in ("27.3", "28", "28.0.1", "30.1"):
+            with self.subTest(version=version):
+                self.assertEqual(mac_self_test_skip(None, version, "the self-test reached another port"),
+                                 "macOS %s is newer than 27.2, which the profile was verified on, and protected mode "
+                                 "refuses there at its self-test: the self-test reached another port" % version)
+
+    def test_a_difference_after_a_passing_self_test_fails_on_every_accepted_host(self):
+        case = MacEnforcement("test_self_test_passes")
+        for version in ("27.2", "27.3", "28"):
+            with self.subTest(version=version):
+                case.host_refusal, case.host_version = None, version
+                case.settle({"gate": "connected"}, {"gate": "connected"})
+                with self.assertRaises(AssertionError):
+                    case.settle({"gate": "connected", "other": "connected"}, {"gate": "connected", "other": "EPERM"})
+        case.host_refusal = "macOS 27.1 is older than the minimum 27.2 protected mode needs"
+        with self.assertRaises(unittest.SkipTest) as caught:
+            case.settle({"other": "connected"}, {"other": "EPERM"})
+        self.assertIn('{"other": "connected"}', str(caught.exception))
+
+    def test_a_host_protected_mode_refuses_skips_with_its_refusal(self):
+        for refused, version in (("macOS 27.1 is older than the minimum 27.2 protected mode needs", "27.1"),
+                                 ("macOS protected mode is reviewed on Apple silicon (arm64) only, not on x86_64",
+                                  "27.2")):
+            with self.subTest(version=version):
+                self.assertEqual(mac_self_test_skip(refused, version, "sandbox-exec failed"),
+                                 "a host protected mode refuses (%s); its self-test failed: sandbox-exec failed" % refused)
+
+
 @unittest.skipUnless(sys.platform == "darwin", "the macOS boundary needs macOS")
 class MacEnforcement(unittest.TestCase):
     """The real profile under /usr/bin/sandbox-exec, against listeners outside it.
 
-    On a host protected mode accepts (MINIMUM_RELEASE or newer on Apple
-    silicon) every difference from the reviewed expectation fails: such a
-    host runs the profile. Protected mode refuses every other host (an older
-    release, an Intel Mac), so there a failing self-test or a difference
-    skips the case and names what it observed, which a -v run prints;
+    On the release the profile was verified on (VERIFIED_MACOS, on Apple
+    silicon) every case is a hard failure: a failing self-test and every
+    difference from the reviewed expectation fail. On an accepted host newer
+    than that (protected mode accepts MINIMUM_RELEASE and every newer one), a
+    self-test that refuses skips the case with the refusal and the host
+    release, since protected mode refuses there too, at that self-test, and
+    that must not turn CI red; a difference observed after the self-test
+    passed still fails, since protected mode would run the profile there.
+    Protected mode refuses every other host (an older release, an Intel Mac),
+    so there a failing self-test or a difference skips the case and names
+    what it observed (mac_self_test_skip). A -v run prints the skip reasons;
     test_self_test_passes also writes the host and the self-test answers to
     stderr. Hosted macOS CI thus records evidence without turning red, and
-    an accepted host is where these cases decide.
+    the verified release is where these cases decide.
     """
 
     maxDiff = None
@@ -1281,6 +1342,7 @@ class MacEnforcement(unittest.TestCase):
     def setUpClass(cls):
         if not os.access(macos.SANDBOX_EXEC, os.X_OK):
             raise unittest.SkipTest("%s is not available" % macos.SANDBOX_EXEC)
+        cls.host_version = platform.mac_ver()[0]
         try:
             macos.probe()
         except macos.Refusal as refusal:
@@ -1313,7 +1375,8 @@ class MacEnforcement(unittest.TestCase):
         self.addCleanup(LinuxEnforcement.reap, self.outsider)
 
     def settle(self, observed, expected, detail=""):
-        """Fail on a host protected mode accepts; on any other, skip and name every difference."""
+        """Fail on a host protected mode accepts (the self-test passed there); on any other, skip and
+        name every difference."""
         if observed == expected or self.host_refusal is None:
             self.assertEqual(observed, expected, detail)
             return
@@ -1326,9 +1389,10 @@ class MacEnforcement(unittest.TestCase):
         try:
             tested = macos.self_test(self.gate.port, [str(self.base / "inside")], "codex")
         except macos.Refusal as refusal:
-            if self.host_refusal is None:
+            reason = mac_self_test_skip(self.host_refusal, self.host_version, str(refusal))
+            if reason is None:
                 raise
-            self.skipTest("a host protected mode refuses (%s); its self-test failed: %s" % (self.host_refusal, refusal))
+            self.skipTest(reason)
         # The self-test connected to the gate once and sent nothing; let the listener record that, then start afresh.
         wait_for(lambda: self.gate.received, 100)
         self.assertEqual(self.gate.received, [b""])
