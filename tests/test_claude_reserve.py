@@ -1066,10 +1066,9 @@ class GateProvider(unittest.TestCase):
         self.assertNotIn("reset", g.fields)
 
     def test_a_null_five_hour_row_starts_the_session_and_a_later_report_of_the_window_is_judged(self):
-        """Pending (r), the recommended rule: with the five-hour reserve on, a usage report whose
-        five_hour row is null (no five-hour window open, as after five idle hours) starts the session
-        as a window not started yet; once a report shows the window started, it is judged as any other,
-        and a pause at the reserve works."""
+        """With the five-hour reserve on, a usage report whose five_hour row is null (no five-hour window
+        open, as after five idle hours) starts the session as a window not started yet; once a report shows
+        the window started, it is judged as any other, and a pause at the reserve works."""
         self.upstream.extra = {"five_hour": None}
         prov, g = self.started()
         self.assertEqual(g.state, "running", g.status())
@@ -1625,7 +1624,7 @@ class GateProvider(unittest.TestCase):
         self.assertIsNone(provider.family("claude-sonnet-4-5[1m]"))
 
     def test_a_null_general_row_is_a_window_not_started_unless_a_limits_entry_reports_it(self):
-        """Pending (r), the recommended rule: a five_hour or seven_day row present as null is the reading
+        """A five_hour or seven_day row present as null is the reading
         an idle window gives (0 used, no reset, not started), so the evaluator accepts it as it accepts
         utilization 0 with a null reset; a limits[] entry of that window decides instead; an absent row
         gives no reading (missing), and a row of another shape stays malformed."""
@@ -1648,9 +1647,9 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(provider.normalize_usage({"seven_day_opus": None, "seven_day_sonnet": None}), ((), ()))
 
     def test_the_informational_rows_of_the_usage_report_are_ignored(self):
-        """Decision (p) with the coordinator's classification: a UI flag, the weekly window's use split by
-        surface, the extra-usage credit pool and a view of a limits[] entry by index are no limit on Claude
-        Code's requests, so each is ignored in any shape; every other unknown row stays unreviewed (q)."""
+        """A UI flag, the weekly window's use split by surface, the extra-usage credit pool and a view of a
+        limits[] entry by index are no limit on Claude Code's requests, so each is ignored in any shape;
+        every other unknown row stays unreviewed."""
         for name, value in (("member_dashboard_available", False), ("member_dashboard_available", True),
                             ("seven_day_breakdown", {"rows": [{"key": "a", "display_name": "A", "percent": 100}]}),
                             ("spend", {"percent": 99.5, "enabled": True, "severity": "warning"}),

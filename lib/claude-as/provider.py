@@ -38,14 +38,14 @@ other null reset is unavailable; a null five_hour or seven_day row is such a win
 poll with the lease's bearer reads usage only.
 
 Usage rows (the coordinator's decision "Claude usage rows", from the review of 2.1.322's parser, research
-RQ, and decision (p), from the shapes of the rows the server added since; normalize_usage):
+RQ, and the user's decision "unreviewed usage rows", from the shapes of the rows the server added
+since; normalize_usage):
 - five_hour and seven_day are the five-hour and weekly windows. limits[] entries of kind session and
   weekly_all without a scope report them again: each window takes the more used of its reports. A
   five_hour or seven_day row that is present and null, as the report gives it while no such window is
   open (no request since the last one ended), is a window not started yet (0 used, no reset), unless
-  a limits[] entry reports that window, which then decides (pending decision (r), its recommended
-  rule; _not_started). An absent row is missing, and a row of another shape malformed: either is
-  unavailable.
+  a limits[] entry reports that window, which then decides (_not_started). An absent row is missing,
+  and a row of another shape malformed: either is unavailable.
 - seven_day_opus, seven_day_sonnet and limits[] weekly_scoped entries with a model scope are model
   families' own weekly limits; the family is the display name's first word (native names models
   "Family version"). While the weekly reserve is on, a family whose own row is at or below that
@@ -58,14 +58,14 @@ RQ, and decision (p), from the shapes of the rows the server added since; normal
 - seven_day_oauth_apps, cinder_cove, wattle_ember and extra_usage are ignored: no Claude Code request is
   rejected by them (other surfaces' buckets and credit pools; native names no claim after them).
 - member_dashboard_available, seven_day_breakdown, spend and weekly_scoped_shares are ignored too: no
-  limit on Claude Code's requests, by their shapes (decision (p)): a boolean flag for the web interface;
+  limit on Claude Code's requests, by their shapes: a boolean flag for the web interface;
   the weekly window's use split by surface (rows of a display name and a percent); the extra-usage
   credit pool as money amounts, like extra_usage; and a view of limits[] entries by their index (an
   entry's share of the weekly window), whose limits the entries themselves report.
 - Every other present row (an unknown key, a limits[] entry of another kind or scope, with an unknown
   family word, or malformed) pauses every request, or refuses the start (unproved_quota_row); the
   message and the rows field name those rows (sanitized names, never a value). An unknown row that is
-  null, {} or [] reports nothing and is passed over (decision (q) keeps every other one strict).
+  null, {} or [] reports nothing and is passed over; every other one stays strict.
 
 Token lifetime (D1): startup refuses a token that is inside native's 300 s refresh window
 (native_refresh_window: the pre-launch refresh did not renew it) or within MIN_SESSION_MS beyond it
@@ -247,8 +247,8 @@ def _limit(entry):
 def _not_started(nulls, readings):
     """The readings of the general windows whose row (five_hour, seven_day) is present and null: a window
     not started yet (0 used, no reset), the reading an idle window's row gives, unless a limits[] entry
-    reports that window, which then decides (pending decision (r), its recommended rule; returning ()
-    here instead makes a null row missing, as an absent one is)."""
+    reports that window, which then decides (returning () here instead makes a null row missing, as an
+    absent one is)."""
     # A null row gave no reading, so a general reading of its window here is a limits[] entry's.
     reported = {reading.name for reading in readings if reading.family is None}
     return tuple(reserve.Reading(used=0, name=window, started=False, merge=True)
