@@ -1099,13 +1099,7 @@ class Session:
         if not os.path.lexists(self.layout.target):
             no_login(self.layout.name)
         identity = login(self.guard.credential(self.layout.target), self.native, self.storage)
-        missing = [path for path in self.database_files() if path.suffix == ".sqlite" and not path.is_file()]
-        if missing:
-            later = all(path.stem in self.native.later_databases for path in missing)
-            refuse(f"native Codex has not created {', '.join(path.name for path in missing)} in {self.sqlite} yet, "
-                   "and the boundary lets it write its databases but not create them; "
-                   + ("send one prompt in a Codex session without reserves first (native creates it with its first "
-                      "thread)" if later else "start Codex once without reserves first"))
+        self.missing_databases()
         # The model of the user config and its selected profile, unless -m or -c model= replaces it;
         # project and managed layers can select another one, which the gate refuses per request.
         path = self.config.codex_home / "config.toml"
@@ -1173,6 +1167,27 @@ class Session:
             refuse("the Codex version check inside the boundary %s"
                    % ("timed out" if code is None else "failed" if code else "printed too much"))
         return output.decode("utf-8", "replace")
+
+    def missing_databases(self):
+        """Refused when native has not created a database the tables in use name (the boundary lets it
+        write its databases but not create them), naming the files and sqlite_home, with what creates
+        them under the reviewed release. A newer release may no longer create a file those tables name
+        (a renamed database, say), which no launch without reserves then creates: the refusal says so,
+        and that a kit release has to review that release when the advice does not create it."""
+        missing = [path for path in self.database_files() if path.suffix == ".sqlite" and not path.is_file()]
+        if not missing:
+            return
+        later = all(path.stem in self.native.later_databases for path in missing)
+        advice = ("send one prompt in a Codex session without reserves first (native creates it with its first "
+                  "thread)" if later else "start Codex once without reserves first")
+        if self.release not in (None, self.native.name):
+            one = len(missing) == 1
+            advice = (f"Codex {self.release} is newer than {self.native.name}, whose tables name "
+                      f"{'that file' if one else 'those files'}, and may no longer create {'it' if one else 'them'}: "
+                      f"{advice}, and if {'it is' if one else 'they are'} still missing then, a kit release has to "
+                      f"review Codex {self.release} before it runs with reserves")
+        refuse(f"native Codex has not created {', '.join(path.name for path in missing)} in {self.sqlite} yet, and "
+               f"the boundary lets it write its databases but not create them; {advice}")
 
     # -- the run --------------------------------------------------------------------------------------
     def database_files(self):

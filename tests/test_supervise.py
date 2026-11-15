@@ -1305,7 +1305,42 @@ class Control(unittest.TestCase):
         code = self.code()
         self.send(code[:3] + b"\x03" + code[3:] + b"\r")
         self.assertEqual(self.checks, [])
-        self.assertIn(b"\x03", b"".join(self.forwarded))
+        self.assertEqual(b"".join(self.forwarded), b"\x03" + code[3:] + b"\r")
+
+    def test_ctrl_c_the_keyboard_protocol_reports_cancels_the_code_and_reaches_the_native_as_sent(self):
+        """Under the keyboard protocol the terminal reports Ctrl-C pressed as CSI 99;5u, with or
+        without the press event type (:1) and with the alternate keys (shifted, base layout) the
+        protocol may add to 99. At the code each form cancels it and reaches the native exactly as the
+        terminal sent it, as the legacy 0x03 does; another key reported so (Ctrl-Shift-C, Alt-C, an
+        added text field) cancels it and is consumed as before."""
+        presses = (b"\x03", b"\x1b[99;5u", b"\x1b[99;5:1u", b"\x1b[99:;5u", b"\x1b[99::99;5u", b"\x1b[99:67:99;5:1u")
+        others = (b"\x1b[99;6u", b"\x1b[99;3u", b"\x1b[99;5;99u", b"\x1b[67;5u", b"\x1b[99;5:1;99u")
+        for key in presses + others:
+            for paused in (False, True):
+                with self.subTest(key=key, paused=paused):
+                    self.forwarded.clear()
+                    self.ui.offer = not paused  # a model family paused alone, the session running
+                    if paused:
+                        self.ui.pause()
+                    self.send(F12)
+                    code = self.code()
+                    self.send(code[:3] + key + code[3:] + b"\r")
+                    self.assertIsNone(self.ui.challenge)
+                    self.assertEqual(self.checks, [])
+                    self.assertEqual(b"".join(self.forwarded), (key if key in presses else b"") + code[3:] + b"\r")
+                    self.ui.resume()
+
+    def test_ctrl_c_repeat_and_release_reports_at_the_code_change_nothing(self):
+        """Ctrl-C's repeat (:2) and release (:3) reports, alternate keys included, are no key typed: at
+        the code they reach nothing and the code still grants; without a code they reach the native."""
+        reports = b"\x1b[99;5:2u" + b"\x1b[99;5:3u" + b"\x1b[99::99;5:3u"
+        self.ui.pause()
+        self.send(F12)
+        code = self.code()
+        self.send(code[:3] + reports + code[3:] + b"\r")
+        self.assertEqual((len(self.checks), self.ui.paused, self.forwarded), (1, False, []))
+        self.send(b"\x1b[99;5u" + reports)
+        self.assertEqual(b"".join(self.forwarded), b"\x1b[99;5u" + reports)
 
 
 class Terminal:

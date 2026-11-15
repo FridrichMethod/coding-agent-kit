@@ -134,7 +134,7 @@ SWITCHES = {"--verbose", "--dangerously-skip-permissions", "--allow-dangerously-
 # the registration functions it calls), the two other names its root handling treats like install and
 # update (rollback, forward-home-settings), the hidden login words, and the hidden commands 2.1.325
 # adds (workspace-trust, worktree-hook; S). A command a later release adds cannot run either: a first
-# operand without whitespace is passed with a trailing space (screen_arguments).
+# operand that could be a command name is passed with a trailing space (screen_arguments).
 SUBCOMMANDS = {"agents", "api", "apply-project-settings", "attach", "auth", "auto-mode", "config", "design-login",
                "doctor", "drop-worktree-registrations", "edit-chrome-settings", "edit-hook", "edit-memory-settings",
                "edit-permission-rules", "edit-sandbox-settings", "edit-skill-overrides", "forward-home-settings",
@@ -143,6 +143,8 @@ SUBCOMMANDS = {"agents", "api", "apply-project-settings", "attach", "auth", "aut
                "sandbox", "setup-token", "stop", "ultrareview", "update", "upgrade", "workspace-trust",
                "worktree-hook"}
 WHITESPACE = re.compile(r"\s")
+# The first character of every command name (S: those of 2.1.322 and 2.1.325): an ASCII letter or digit.
+COMMAND_START = re.compile(r"[A-Za-z0-9]")
 # Caller variables that select another credential store, endpoint, transport or process wrapper
 # (launch.py's preflight refuses the credential and provider ones first).
 ENV_REFUSED = ("CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE", "CLAUDE_CODE_PROCESS_WRAPPER",
@@ -233,9 +235,12 @@ def screen_arguments(args):
     """Arguments(add_dirs, forwarded) for an allowlisted interactive invocation; Refused otherwise.
 
     The first operand (the prompt) never runs as a command: a known command word refuses, and any
-    other first operand without whitespace is forwarded with one trailing space, since no command name
-    holds whitespace (native matches command names exactly), so that a command a newer release adds
-    stays the prompt (N: 2.1.322 and 2.1.325 print the root usage for `claude "doctor " --help`)."""
+    other first operand that could be a command name (it starts with an ASCII letter or digit and holds
+    no whitespace) is forwarded with one trailing space, which no command name holds (native matches
+    command names exactly), so that a command a newer release adds stays the prompt (N: 2.1.322 and
+    2.1.325 print the root usage for `claude "doctor " --help`). Every other first operand (`/review`,
+    `@notes.md`, `./x`, a word starting with a non-ASCII character) is no command name and is forwarded
+    exactly as typed, so a slash command or a file mention stays one."""
     add_dirs, index, options, first = [], 0, True, True
     forwarded = list(args)
     while index < len(args):
@@ -273,7 +278,7 @@ def screen_arguments(args):
             # Native dispatches the first operand as a command, even after options or --.
             if arg in SUBCOMMANDS:
                 refuse(f"the claude {arg} command does not run in protected mode; launch without reserves for it.")
-            if arg and not WHITESPACE.search(arg):
+            if COMMAND_START.match(arg) and not WHITESPACE.search(arg):
                 forwarded[index - 1] = arg + " "
             first = False
     return Arguments(add_dirs, forwarded)

@@ -1387,7 +1387,7 @@ class GateProvider(unittest.TestCase):
             "N: paused: the usage report has a limit row protected mode has not reviewed (limits_session_surface); "
             "last valid reading at "), paused["fields"])
         self.assertEqual(paused["fields"]["rows"], "limits_session_surface")
-        self.assertNotIn("61.5", json.dumps(paused))
+        self.assertNotIn("61.5", json.dumps(dict(paused, at=None)))  # the row's value; "at" may hold the digits
         g.heartbeat()
         self.assertEqual((g.arm_continuation()["ok"], g.state), (False, "paused"))
         self.upstream.extra = {}
@@ -1669,20 +1669,33 @@ class ProtectScreens(unittest.TestCase):
                 self.assertIn(f"the claude {word} command", self.refused(protect.screen_arguments, ["--", word]))
         self.assertEqual(protect.screen_arguments(["edit the hook", "project"]).add_dirs, [])  # prompts stay prompts
 
-    def test_a_first_operand_without_whitespace_is_passed_so_that_no_release_can_run_it_as_a_command(self):
+    def test_a_first_operand_that_could_be_a_command_name_is_passed_so_that_no_release_can_run_it(self):
         """Native dispatches its first operand as a command, even after `--`, and a newer release may
-        register one SUBCOMMANDS does not list (2.1.325 did). No command name holds whitespace, so a
-        first operand without any is passed with one trailing space: it stays the prompt in every
-        release (N: 2.1.322 and 2.1.325 print the root usage for `claude "doctor " --help`)."""
+        register one SUBCOMMANDS does not list (2.1.325 did). A command name starts with an ASCII letter
+        or digit and holds no whitespace, so such a first operand is passed with one trailing space: it
+        stays the prompt in every release (N: 2.1.322 and 2.1.325 print the root usage for
+        `claude "doctor " --help`, and take `hello ` as the first prompt, RealClaude)."""
         for args, forwarded in ((["hello"], ["hello "]), (["--model", "x", "fix"], ["--model", "x", "fix "]),
                                 (["fix", "the", "mcp"], ["fix ", "the", "mcp"]), (["--", "go"], ["--", "go "]),
-                                (["-d", "api", "hi"], ["-d", "api", "hi "]), (["-"], ["- "]),
+                                (["-d", "api", "hi"], ["-d", "api", "hi "]), (["2fa"], ["2fa "]), (["Zed"], ["Zed "]),
                                 (["--add-dir", "a", "b", "--verbose", "go"], ["--add-dir", "a", "b", "--verbose", "go "]),
-                                (["--permission-mode", "plan", "/review"], ["--permission-mode", "plan", "/review "]),
+                                (["--permission-mode", "plan", "next-step"], ["--permission-mode", "plan", "next-step "]),
+                                (["h\u00e9llo"], ["h\u00e9llo "]), (["a/b"], ["a/b "]),
                                 (["hello world"], ["hello world"]), (["fix\tit"], ["fix\tit"]), ([""], [""]), ([], []),
                                 (["--verbose"], ["--verbose"])):
             with self.subTest(args):
                 self.assertEqual(protect.screen_arguments(args).forwarded, forwarded)
+
+    def test_a_first_operand_no_command_name_starts_with_is_passed_as_typed(self):
+        """A first operand whose first character is not an ASCII letter or digit cannot be a command
+        name, so native takes it as the prompt in every release: it is passed exactly as typed, and a
+        slash command or a file mention stays what the user typed (N: 2.1.322 and 2.1.325 run a `/cost`
+        first operand in the TUI, RealClaude)."""
+        for operand in ("/review", "/cost", "@notes.md", "./x", "-", "_x", "~/x", ".hidden", "#tag", "?",
+                        "\u00e9bauche", "\u00c9t\u00e9", "\u0663", "\uff11", "\u4f60\u597d", "\u00a0x"):
+            for args in ([operand], ["--permission-mode", "plan", operand], ["--", operand], [operand, "more"]):
+                with self.subTest(args):
+                    self.assertEqual(protect.screen_arguments(args).forwarded, args)
 
     def test_a_refusing_policy_verdict_or_a_machine_organization_pin_refuses(self):
         paths = types.SimpleNamespace(name="N")
@@ -2967,6 +2980,41 @@ class RealClaude(Kit):
         self.assertIn('MCP server "fixture": Successfully connected', log)
         self.assertFalse(os.path.exists(private_tmp))
         self.assertTrue(wait_for(lambda: gone(shell), 10), "the background shell outlived the invocation")
+
+    def test_a_first_operand_is_the_first_prompt_or_a_slash_command_and_never_a_command(self):
+        """The first operand as screen_arguments passes it, to the real TUI. `hello`, which could be a
+        command name, gets its trailing space: no command runs, and it reaches the gate as the user's
+        text in the first user message of the main thread's model request (N: as `hello `, with the
+        space, on 2.1.322 and 2.1.325). `/cost`, which no command name starts like, is passed as typed
+        and runs as the TUI's own slash command: its Session tab shows, and no model request carries it
+        (only the startup probe reaches the gate)."""
+        self.store(upstream_fixture.BEARER_A, "max")
+        screen = self.launch(["hello"])
+        screen.expect("FIXTURE-ANSWER")
+        main = [body for body in map(json.loads, (r["body"] for r in self.upstream.model_requests()))
+                if body.get("tools")]
+        self.assertTrue(main, self.models())
+        first = main[0]["messages"][0]
+        self.assertEqual(first["role"], "user")
+        content = first["content"] if isinstance(first["content"], list) else [{"type": "text", "text": first["content"]}]
+        typed = [block["text"] for block in content
+                 if block.get("type") == "text" and not block["text"].startswith("<system-reminder>")]
+        self.assertEqual([text.rstrip() for text in typed], ["hello"], typed)
+        sys.stderr.write("\nRealClaude: Claude Code %s took the first operand as the first prompt %r\n"
+                         % (REAL_VERSION, typed[0]))
+        screen.type("/exit")
+        self.assertEqual(screen.wait(60), 0, screen.text()[-2000:])
+        before = len(self.upstream.model_requests())
+        screen = self.launch(["/cost"])
+        screen.expect("Total code changes")  # the Session tab of the TUI's /cost
+        time.sleep(3)
+        bodies = [json.loads(r["body"]) for r in self.upstream.model_requests()[before:]]
+        self.assertEqual([(body.get("max_tokens"), bool(body.get("tools"))) for body in bodies], [(1, False)])  # the probe
+        self.assertNotIn("/cost", json.dumps(bodies))
+        os.write(screen.fd, b"\x1b")  # close the tab
+        time.sleep(1)
+        screen.type("/exit")
+        self.assertEqual(screen.wait(60), 0, screen.text()[-2000:])
 
     def test_the_running_native_adopts_a_rotated_store_token_through_a_rebind(self):
         """D1 recovery (2), offline: what a launcher-side refresh would rely on."""
