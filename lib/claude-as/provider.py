@@ -34,12 +34,18 @@ Quota reads (QC option 3): GET https://api.anthropic.com/api/oauth/profile and /
 the same in-memory bearer, the neutral User-Agent and the proxy Claude Code would use for HTTPS (HTTPS_PROXY, then HTTP_PROXY, then ALL_PROXY, a plain http:// one only), captured by the launcher. The profile proves
 the identity (the two UUIDs only; nothing else is kept), the usage response gives the windows (a window
 with utilization exactly 0 and resets_at null has not started: it counts as valid without a reset; any
-other null reset is unavailable). A poll with the lease's bearer reads usage only.
+other null reset is unavailable; a null five_hour or seven_day row is such a window, see Usage rows). A
+poll with the lease's bearer reads usage only.
 
 Usage rows (the coordinator's decision "Claude usage rows", from the review of 2.1.322's parser, research
-RQ; normalize_usage):
+RQ, and decision (p), from the shapes of the rows the server added since; normalize_usage):
 - five_hour and seven_day are the five-hour and weekly windows. limits[] entries of kind session and
-  weekly_all without a scope report them again: each window takes the more used of its reports.
+  weekly_all without a scope report them again: each window takes the more used of its reports. A
+  five_hour or seven_day row that is present and null, as the report gives it while no such window is
+  open (no request since the last one ended), is a window not started yet (0 used, no reset), unless
+  a limits[] entry reports that window, which then decides (pending decision (r), its recommended
+  rule; _not_started). An absent row is missing, and a row of another shape malformed: either is
+  unavailable.
 - seven_day_opus, seven_day_sonnet and limits[] weekly_scoped entries with a model scope are model
   families' own weekly limits; the family is the display name's first word (native names models
   "Family version"). While the weekly reserve is on, a family whose own row is at or below that
@@ -51,9 +57,15 @@ RQ; normalize_usage):
   another known family (Fable, Mythos) is ignored, since family() refuses those models anyway.
 - seven_day_oauth_apps, cinder_cove, wattle_ember and extra_usage are ignored: no Claude Code request is
   rejected by them (other surfaces' buckets and credit pools; native names no claim after them).
+- member_dashboard_available, seven_day_breakdown, spend and weekly_scoped_shares are ignored too: no
+  limit on Claude Code's requests, by their shapes (decision (p)): a boolean flag for the web interface;
+  the weekly window's use split by surface (rows of a display name and a percent); the extra-usage
+  credit pool as money amounts, like extra_usage; and a view of limits[] entries by their index (an
+  entry's share of the weekly window), whose limits the entries themselves report.
 - Every other present row (an unknown key, a limits[] entry of another kind or scope, with an unknown
   family word, or malformed) pauses every request, or refuses the start (unproved_quota_row); the
-  message and the rows field name those rows (sanitized names, never a value).
+  message and the rows field name those rows (sanitized names, never a value). An unknown row that is
+  null, {} or [] reports nothing and is passed over (decision (q) keeps every other one strict).
 
 Token lifetime (D1): startup refuses a token that is inside native's 300 s refresh window
 (native_refresh_window: the pre-launch refresh did not renew it) or within MIN_SESSION_MS beyond it
@@ -116,8 +128,13 @@ ROUTES = gate.RouteTable("claude-" + VERSION, (
 GENERAL = {"five_hour": "five_hour", "seven_day": "weekly"}
 FAMILY_ROWS = {"seven_day_opus": "opus", "seven_day_sonnet": "sonnet"}
 # Not quota rows of Claude Code's requests: error and type, the overage and credit pools (extra_usage,
-# cinder_cove, wattle_ember) and the third-party OAuth apps' bucket (seven_day_oauth_apps).
-IGNORED = ("error", "type", "extra_usage", "seven_day_oauth_apps", "cinder_cove", "wattle_ember")
+# cinder_cove, wattle_ember, and spend, the extra-usage credit pool as money amounts), the third-party
+# OAuth apps' bucket (seven_day_oauth_apps), a flag for the web interface (member_dashboard_available,
+# a boolean), the weekly window's use split by surface (seven_day_breakdown: rows of a display name and
+# a percent, no limit or reset of its own) and a view of limits[] entries by their index
+# (weekly_scoped_shares: an entry's share of the weekly window, no limit of its own).
+IGNORED = ("error", "type", "extra_usage", "seven_day_oauth_apps", "cinder_cove", "wattle_ember", "spend",
+           "member_dashboard_available", "seven_day_breakdown", "weekly_scoped_shares")
 LIMIT_WINDOWS = {"session": "five_hour", "weekly_all": "weekly"}  # limits[] kinds of a general window
 SCOPED = "weekly_scoped"  # a limits[] kind whose model scope names a family's own weekly limit
 FAMILIES = ("opus", "sonnet", "haiku")
@@ -227,15 +244,28 @@ def _limit(entry):
     return None, "limits_kind_" + (kind if KIND_NAME.fullmatch(kind) else "unknown")
 
 
+def _not_started(nulls, readings):
+    """The readings of the general windows whose row (five_hour, seven_day) is present and null: a window
+    not started yet (0 used, no reset), the reading an idle window's row gives, unless a limits[] entry
+    reports that window, which then decides (pending decision (r), its recommended rule; returning ()
+    here instead makes a null row missing, as an absent one is)."""
+    # A null row gave no reading, so a general reading of its window here is a limits[] entry's.
+    reported = {reading.name for reading in readings if reading.family is None}
+    return tuple(reserve.Reading(used=0, name=window, started=False, merge=True)
+                 for window in nulls if window not in reported)
+
+
 def normalize_usage(document):
     """(readings, unproved row names) of one usage response, as the module docstring maps its rows. Every
     reading has merge: a window may be reported twice (a row and its limits[] entry)."""
     if not isinstance(document, dict):
         raise ValueError("not an object")
-    readings, unproved = [], []
+    readings, unproved, nulls = [], [], []
     for name, value in document.items():
-        if name in GENERAL:
-            if value is not None:  # missing: the evaluator reports an enabled window as unavailable
+        if name in GENERAL:  # absent: the evaluator reports an enabled window as missing (unavailable)
+            if value is None:
+                nulls.append(GENERAL[name])
+            else:
                 readings.append(_reading(value, "utilization", GENERAL[name]))
         elif name in IGNORED or value is None or value == {} or value == []:
             continue
@@ -253,6 +283,7 @@ def normalize_usage(document):
                     unproved.append(row)
         else:
             unproved.append(name if ROW_NAME.fullmatch(name) else "unknown")
+    readings.extend(_not_started(nulls, readings))
     return tuple(readings), tuple(sorted(set(unproved)))
 
 

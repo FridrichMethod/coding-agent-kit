@@ -1065,6 +1065,77 @@ class GateProvider(unittest.TestCase):
                                               "reserve.")
         self.assertNotIn("reset", g.fields)
 
+    def test_a_null_five_hour_row_starts_the_session_and_a_later_report_of_the_window_is_judged(self):
+        """Pending (r), the recommended rule: with the five-hour reserve on, a usage report whose
+        five_hour row is null (no five-hour window open, as after five idle hours) starts the session
+        as a window not started yet; once a report shows the window started, it is judged as any other,
+        and a pause at the reserve works."""
+        self.upstream.extra = {"five_hour": None}
+        prov, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        self.assertEqual(g.fields["message"], "N: running: five-hour 100% remaining (reserve 10%), weekly 80% remaining "
+                                              "(reserve 5%).")
+        self.assertNotIn("reset", g.fields)
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (True, "admitted"))
+        self.upstream.extra = {}
+        self.upstream.used["five_hour"] = 30
+        prov.poll(g)
+        self.assertEqual(g.state, "running", g.status())
+        self.assertEqual(g.fields["message"], "N: running: five-hour 70% remaining (reserve 10%), weekly 80% remaining "
+                                              "(reserve 5%).")
+        self.upstream.used["five_hour"] = 95
+        prov.poll(g)
+        self.assertEqual((g.state, g.reason), ("paused", "threshold"), g.status())
+        self.assertEqual((g.fields["window"], g.fields["remaining"], g.fields["reserve"]), ("five-hour", "5", "10"))
+        self.assertIn("reset", g.fields)
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A)[:2], (False, "threshold"))
+        # A null row beside a limits[] session entry: the entry decides the window.
+        self.upstream.used["five_hour"] = 10
+        self.upstream.extra = {"five_hour": None, "limits": [
+            {"kind": "session", "group": "session", "percent": 95,
+             "resets_at": upstream_fixture.stamp(time.time() + 3600)}]}
+        _, g = self.started()
+        self.assertEqual((g.state, g.reason), ("paused", "threshold"), g.status())
+        self.assertEqual((g.fields["window"], g.fields["remaining"]), ("five-hour", "5"))
+
+    def test_an_absent_five_hour_row_is_unavailable(self):
+        """The five_hour key left out of the report is a missing window, which an enabled five-hour
+        reserve refuses at the start; with that reserve off it does not matter."""
+        self.upstream.omit = {"five_hour"}
+        _, g = self.started()
+        self.assertEqual((g.state, g.reason), ("paused", "window_unavailable"), g.status())
+        self.assertEqual(g.fields["message"], "N: refused: five-hour window unavailable (missing).")
+        self.upstream.omit = {"seven_day"}
+        _, g = self.started()
+        self.assertEqual((g.state, g.reason), ("paused", "window_unavailable"), g.status())
+        self.assertEqual(g.fields["message"], "N: refused: weekly window unavailable (missing).")
+        self.upstream.omit = {"five_hour"}
+        _, g = self.started(reserves={"five_hour": None, "weekly": "5"})
+        self.assertEqual(g.state, "running", g.status())
+
+    def test_a_max_accounts_report_with_informational_rows_and_no_five_hour_window_open_starts(self):
+        """A whole report modeled on a Max account's current shape (fixture usage-rows.json, fabricated
+        values, its resets moved into the current week): a null five_hour row, a weekly row with money
+        fields, null rows of other names, extra usage, limits[] weekly_all and a weekly_scoped Fable entry,
+        and the four informational rows. With both reserves on, the start is not refused for any row."""
+        case = next(case for case in json.loads((FIXTURES / "usage-rows.json").read_text())["cases"]
+                    if case["case"] == "a Max account with informational rows and no five-hour window open")
+        week = upstream_fixture.stamp(time.time() + 5 * 86400)
+
+        def current(value):
+            if isinstance(value, dict):
+                return {key: week if key == "resets_at" else current(item) for key, item in value.items()}
+            return [current(item) for item in value] if isinstance(value, list) else value
+
+        self.upstream.extra = current(case["document"])
+        _, g = self.started()
+        self.assertEqual(g.state, "running", g.status())
+        self.assertEqual(g.fields["message"], "N: running: five-hour 100% remaining (reserve 10%), weekly 62.5% "
+                                              "remaining (reserve 5%).")
+        self.assertNotIn("rows", g.fields)
+        self.assertEqual(g.paused_families, {})
+        self.assertEqual(self.admit(g, upstream_fixture.BEARER_A, "claude-opus-4-1")[:2], (True, "admitted"))
+
     def test_a_token_inside_natives_refresh_window_refuses_before_any_read(self):
         self.store(upstream_fixture.BEARER_A, expires_in=200)
         prov, g = self.make()
@@ -1531,8 +1602,9 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(g.state, "running", g.status())
 
     def test_usage_normalization(self):
+        # seven_day absent: no reading, so an enabled weekly reserve finds the window missing.
         readings, unproved = provider.normalize_usage({
-            "five_hour": {"utilization": 12.5, "resets_at": "2026-11-12T10:00:00Z"}, "seven_day": None,
+            "five_hour": {"utilization": 12.5, "resets_at": "2026-11-12T10:00:00Z"},
             "seven_day_sonnet": {"utilization": 1}, "extra_usage": {"is_enabled": True}, "limits": [],
             "wattle_ember": {"x": 1}, "seven_day_cowork": {"utilization": 2}, "type": "usage"})
         self.assertEqual([(r.name, r.family, r.used) for r in readings], [("five_hour", None, 12.5),
@@ -1552,16 +1624,55 @@ class GateProvider(unittest.TestCase):
         self.assertEqual(provider.family("claude-3-5-haiku-20241022"), "haiku")
         self.assertIsNone(provider.family("claude-sonnet-4-5[1m]"))
 
+    def test_a_null_general_row_is_a_window_not_started_unless_a_limits_entry_reports_it(self):
+        """Pending (r), the recommended rule: a five_hour or seven_day row present as null is the reading
+        an idle window gives (0 used, no reset, not started), so the evaluator accepts it as it accepts
+        utilization 0 with a null reset; a limits[] entry of that window decides instead; an absent row
+        gives no reading (missing), and a row of another shape stays malformed."""
+        for row, window, kind in (("five_hour", "five_hour", "session"), ("seven_day", "weekly", "weekly_all")):
+            with self.subTest(row=row):
+                idle = provider.normalize_usage({row: {"utilization": 0, "resets_at": None}})
+                self.assertEqual(provider.normalize_usage({row: None}), idle)
+                (reading,), _ = idle
+                self.assertEqual((reading.name, reading.family, reading.used, reading.resets_at, reading.started,
+                                  reading.merge), (window, None, 0, None, False, True))
+                self.assertEqual(reserve.judge(reading, window, Decimal(10), time.time()).status, reserve.OK)
+                entry = {"kind": kind, "percent": 95, "resets_at": "2026-11-20T10:00:00Z"}
+                readings, unproved = provider.normalize_usage({row: None, "limits": [entry]})
+                self.assertEqual([(r.name, r.used, r.started) for r in readings], [(window, 95, True)])
+                self.assertEqual(unproved, ())
+                self.assertEqual(provider.normalize_usage({}), ((), ()))
+                (reading,), _ = provider.normalize_usage({row: "full"})
+                self.assertEqual(reserve.judge(reading, window, Decimal(10), time.time()).status, "malformed")
+        # A model family's own row that is null is no reading: the general windows govern that family.
+        self.assertEqual(provider.normalize_usage({"seven_day_opus": None, "seven_day_sonnet": None}), ((), ()))
+
+    def test_the_informational_rows_of_the_usage_report_are_ignored(self):
+        """Decision (p) with the coordinator's classification: a UI flag, the weekly window's use split by
+        surface, the extra-usage credit pool and a view of a limits[] entry by index are no limit on Claude
+        Code's requests, so each is ignored in any shape; every other unknown row stays unreviewed (q)."""
+        for name, value in (("member_dashboard_available", False), ("member_dashboard_available", True),
+                            ("seven_day_breakdown", {"rows": [{"key": "a", "display_name": "A", "percent": 100}]}),
+                            ("spend", {"percent": 99.5, "enabled": True, "severity": "warning"}),
+                            ("weekly_scoped_shares", [{"limit_index": 0, "used_percent_of_weekly": 99}]),
+                            ("spend", "unexpected"), ("weekly_scoped_shares", 7)):
+            with self.subTest(name=name, value=value):
+                self.assertEqual(provider.normalize_usage({name: value}), ((), ()))
+        self.assertEqual(provider.normalize_usage({"spend": {"percent": 1}, "spend_monthly": {"utilization": 1}})[1],
+                         ("spend_monthly",))
+
     def test_every_row_shape_of_the_reviewed_usage_report_maps_as_decided(self):
         """gate-decisions "Claude usage rows" (b), per fixture document (tests/fixtures/claude-reserve/
-        usage-rows.json, one per row shape of research RQ section 1): every reading may be reported twice
-        (merge), and unknown keys, limits[] kinds and scopes, and malformed entries are named."""
+        usage-rows.json, one per row shape of research RQ section 1, plus the informational rows and the
+        null general windows of a Max account's report): every reading may be reported twice (merge), and
+        unknown keys, limits[] kinds and scopes, and malformed entries are named."""
         cases = json.loads((FIXTURES / "usage-rows.json").read_text())["cases"]
         self.assertEqual(len({case["case"] for case in cases}), len(cases))
         for case in cases:
             with self.subTest(case["case"]):
                 readings, unproved = provider.normalize_usage(case["document"])
                 self.assertEqual([[r.name, r.family, r.used] for r in readings], case["readings"])
+                self.assertEqual([r.started for r in readings], case.get("started", [True] * len(readings)))
                 self.assertTrue(all(r.merge is True and (r.resets_at is None or isinstance(r.resets_at, Decimal))
                                     for r in readings), readings)
                 self.assertEqual(list(unproved), case["unproved"])

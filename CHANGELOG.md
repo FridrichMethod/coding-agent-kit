@@ -168,10 +168,16 @@ Added:
   also while the session runs) passes for it or no longer finds its limit;
   a family at its limit at start-up starts paused, and the start-up line
   names it. Rows of credits, extra usage and other applications in the
-  usage report are ignored, its `limits` list counts with the five-hour and
-  weekly windows, and the refusal and the pause line for a row the kit has
-  not reviewed name the rows. An idle usage window (0% used, no reset time)
-  counts as available. Local settings files, a native-login account's
+  usage report, and its informational rows (a flag for the web interface,
+  the weekly window's use split by surface, the extra-usage credit pool in
+  money amounts, and a view of `limits` entries by their index), are
+  ignored, its `limits` list counts with the five-hour and weekly windows,
+  and the refusal and the pause line for a row the kit has not reviewed
+  name the rows. An idle usage window counts as available: 0% used with no
+  reset time, or a five-hour or weekly row the report gives as empty
+  (`null`) while no such window is open, unless a `limits` entry reports
+  that window, which then decides. A window the report leaves out is
+  unavailable. Local settings files, a native-login account's
   `.claude.json`, the parent of `<secrets_dir>` and the directories above
   it, `codex-as`'s `<codex_home>` and its `.tmp` and the parents of
   `<codex_home>` and `<secrets_dir>`, and the parent of the account metadata
