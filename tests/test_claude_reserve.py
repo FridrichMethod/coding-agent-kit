@@ -562,7 +562,7 @@ class ServerManagedPolicy(unittest.TestCase):
                    "CLAUDE_CODE_PROCESS_WRAPPER", "CLAUDE_CODE_TMPDIR", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CONFIG_DIR",
                    "CLAUDE_CODE_GATEWAY_TOKEN", "CLAUDE_CODE_MEMORY_API_TOKEN4", "CLAUDE_CODE_SESSION_ACCESS_TOKEN",
                    "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR", "CLAUDE_CODE_CUSTOM_OAUTH_URL", "CLAUDE_CODE_REMOTE_SDK_URL",
-                   "CLAUDE_CODE_METRICS_ENDPOINT",
+                   "CLAUDE_CODE_METRICS_ENDPOINT", "CLAUDE_CODE_POWERUP_ONBOARDING", "claude_code_powerup_onboarding",
                    "CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_LOCAL_OAUTH_API_BASE")
         for name in allowed:
             with self.subTest(name):
@@ -1144,8 +1144,8 @@ class GateProvider(unittest.TestCase):
         self.assertNotIn("reset", g.fields)
 
     def test_a_null_five_hour_row_starts_the_session_and_a_later_report_of_the_window_is_judged(self):
-        """With the five-hour reserve on, a usage report whose five_hour row is null (no five-hour window
-        open, as after five idle hours) starts the session as a window not started yet; once a report shows
+        """With the five-hour reserve on, a usage report whose five_hour row is null (the report names no
+        five-hour window for the account) starts the session as a window not started yet; once a report shows
         the window started, it is judged as any other, and a pause at the reserve works."""
         self.upstream.extra = {"five_hour": None}
         prov, g = self.started()
@@ -1196,7 +1196,7 @@ class GateProvider(unittest.TestCase):
         fields, null rows of other names, extra usage, limits[] weekly_all and a weekly_scoped Fable entry,
         and the four informational rows. With both reserves on, the start is not refused for any row."""
         case = next(case for case in json.loads((FIXTURES / "usage-rows.json").read_text())["cases"]
-                    if case["case"] == "a Max account with informational rows and no five-hour window open")
+                    if case["case"] == "a Max account with informational rows and no five-hour window reported")
         week = upstream_fixture.stamp(time.time() + 5 * 86400)
 
         def current(value):
@@ -1702,8 +1702,8 @@ class GateProvider(unittest.TestCase):
         self.assertIsNone(provider.family("claude-sonnet-4-5[1m]"))
 
     def test_a_null_general_row_is_a_window_not_started_unless_a_limits_entry_reports_it(self):
-        """A five_hour or seven_day row present as null is the reading
-        an idle window gives (0 used, no reset, not started), so the evaluator accepts it as it accepts
+        """A five_hour or seven_day row present as null gives the reading
+        of a row with 0 used and no reset (not started), so the evaluator accepts it as it accepts
         utilization 0 with a null reset; a limits[] entry of that window decides instead; an absent row
         gives no reading (missing), and a row of another shape stays malformed."""
         for row, window, kind in (("five_hour", "five_hour", "session"), ("seven_day", "weekly", "weekly_all")):

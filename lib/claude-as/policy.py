@@ -44,7 +44,8 @@ ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL, whose models the gate checks), ever
 (HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, NO_PROXY, any case), the cloud provider families AWS_*, GOOGLE_*,
 VERTEX_* and CLOUD_ML_*, the CLAUDE_CODE_* names that select a provider, credential, token (not a token
 count), auth, URL or endpoint, proxy, host, gateway, remote session, process wrapper, entrypoint or
-temporary directory, and CLAUDE_CONFIG_DIR,
+temporary directory, CLAUDE_CODE_POWERUP_ONBOARDING (it shows the first-run screens, whose connectivity
+check needs a direct connection protected mode refuses), and CLAUDE_CONFIG_DIR,
 CLAUDE_SECURESTORAGE_*, CLAUDE_LOCAL_OAUTH_*, CLAUDE_SESSION_INGRESS_* and CLAUDE_BG_AUTH_*. Other names
 (CA bundles such as NODE_EXTRA_CA_CERTS, CLAUDE_CODE_MAX_OUTPUT_TOKENS, ...) stay: in protected mode
 native's only exit is plain HTTP to the gate, which originates every upstream connection itself.
@@ -95,13 +96,14 @@ SETTINGS_ACTIVE = ("hooks", "statusLine", "subagentStatusLine", "fileSuggestion"
 REVIEWED_SETTINGS = frozenset(SETTINGS_REFUSED + POLICY_HELPERS + SETTINGS_ACTIVE
                               + ("env", "forceLoginMethod", "forceLoginOrgUUID"))
 # Environment names a settings env may not set: they change auth, provider, endpoint, transport or the
-# credential store (the module docstring lists the families). Model selectors stay: the gate checks models.
+# credential store, or show the first-run screens (the module docstring lists them). Model selectors stay:
+# the gate checks models.
 ENV_ALLOWED = re.compile(r"ANTHROPIC_(?:MODEL|SMALL_FAST_MODEL|DEFAULT_(?:OPUS|SONNET|HAIKU)_MODEL)")
 ENV_REFUSED = re.compile(
     r"ANTHROPIC_.*|(?:HTTPS?|ALL|NO)_PROXY|(?:AWS|GOOGLE|VERTEX|CLOUD_ML)_.*"
     r"|CLAUDE_CODE_(?:USE_.*|.*OAUTH.*|.*API_KEY.*|.*AUTH.*|.*_TOKEN[0-9]*|.*_TOKEN_FILE_DESCRIPTOR|.*CRED.*"
     r"|.*_URL|.*ENDPOINT.*|.*PROXY.*|.*HOST.*|.*GATEWAY.*|.*REMOTE.*|.*SESSION.*|.*PROVIDER.*|PROCESS_WRAPPER"
-    r"|TMPDIR|ENTRYPOINT)"
+    r"|TMPDIR|ENTRYPOINT|POWERUP_ONBOARDING)"
     r"|CLAUDE_(?:CONFIG_DIR|SECURESTORAGE.*|LOCAL_OAUTH.*|SESSION_INGRESS.*|BG_AUTH.*)", re.IGNORECASE)
 MANAGED_OWNER = 0  # root: managed settings files are root's by design
 LIMITS_KEYS = frozenset(("restrictions", "compliance_taints", "monitoring_notice", "defaults", "core_skills",
