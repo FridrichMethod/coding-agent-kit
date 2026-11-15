@@ -288,7 +288,7 @@
       "unproved": ["seven_day_breakdown_by_model", "spend_weekly"]
     },
     {
-      "case": "a Max account with informational rows and no five-hour window open",
+      "case": "a Max account with informational rows and no five-hour window reported",
       "document": {
         "five_hour": null,
         "seven_day": {"utilization": 37.5, "resets_at": "2026-11-24T10:00:00Z", "limit_dollars": 80,

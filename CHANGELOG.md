@@ -184,10 +184,12 @@ Added:
   money amounts, and a view of `limits` entries by their index), are
   ignored, its `limits` list counts with the five-hour and weekly windows,
   and the refusal and the pause line for a row the kit has not reviewed
-  name the rows. An idle usage window counts as available: 0% used with no
-  reset time, or a five-hour or weekly row the report gives as empty
-  (`null`) while no such window is open, unless a `limits` entry reports
-  that window, which then decides. A window the report leaves out is
+  name the rows. A usage window not started yet counts as available: 0% used with
+  no reset time. So does a five-hour or weekly row the report gives as
+  empty (`null`), unless a `limits` entry reports that window, which then
+  decides; the report does that whenever it names no such window for the
+  account, also while the account is in use, and that window's reserve
+  then has nothing to check until a report names it. A window the report leaves out is
   unavailable. Local settings files, a native-login account's
   `.claude.json`, the parent of `<secrets_dir>` and the directories above
   it, `codex-as`'s `<codex_home>` and its `.tmp` and the parents of

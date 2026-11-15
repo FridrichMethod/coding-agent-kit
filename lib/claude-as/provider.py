@@ -42,9 +42,10 @@ RQ, and the user's decision "unreviewed usage rows", from the shapes of the rows
 since; normalize_usage):
 - five_hour and seven_day are the five-hour and weekly windows. limits[] entries of kind session and
   weekly_all without a scope report them again: each window takes the more used of its reports. A
-  five_hour or seven_day row that is present and null, as the report gives it while no such window is
-  open (no request since the last one ended), is a window not started yet (0 used, no reset), unless
-  a limits[] entry reports that window, which then decides (_not_started). An absent row is missing,
+  five_hour or seven_day row that is present and null (the report names no such window for the account,
+  which it also does while the account is in use; that window's reserve then has nothing to check until
+  a report names it) counts as a window not started yet (0 used, no reset), unless a limits[] entry
+  reports that window, which then decides (_not_started). An absent row is missing,
   and a row of another shape malformed: either is unavailable.
 - seven_day_opus, seven_day_sonnet and limits[] weekly_scoped entries with a model scope are model
   families' own weekly limits; the family is the display name's first word (native names models
@@ -246,7 +247,7 @@ def _limit(entry):
 
 def _not_started(nulls, readings):
     """The readings of the general windows whose row (five_hour, seven_day) is present and null: a window
-    not started yet (0 used, no reset), the reading an idle window's row gives, unless a limits[] entry
+    not started yet (0 used, no reset), the reading a row of 0 used with no reset gives, unless a limits[] entry
     reports that window, which then decides (returning () here instead makes a null row missing, as an
     absent one is)."""
     # A null row gave no reading, so a general reading of its window here is a limits[] entry's.
