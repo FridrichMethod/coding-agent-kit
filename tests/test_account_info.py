@@ -668,6 +668,25 @@ class SessionRollout(unittest.TestCase):
         self.assertEqual((found["snapshot"]["seen_at"], found["accounted"], found["responded"], found["tools"]),
                          (NOW + 1, True, False, False))
 
+    def test_a_usage_line_without_a_readable_time_is_accounted(self):
+        # Format drift: a token_count line or a model response whose time cannot be read is usage at a time
+        # unknown. It is no snapshot and no response since the start, but it is accounted, so the guard is blind
+        # instead of allowing what it cannot read.
+        for stamp in (NOW + 1, (NOW + 1) * 1000, None, "soon", "absent"):
+            with self.subTest(stamp=stamp):
+                records = [item(NOW + 1, "message", role="assistant"), count(NOW + 1), count(NOW + 1, limits(97.0))]
+                for record in records:
+                    if stamp == "absent":
+                        del record["timestamp"]
+                    else:
+                        record["timestamp"] = stamp
+                self.assertEqual(self.session(records), dict(EMPTY, accounted=True))
+        # Other lines without a readable time stay out, and so does an inherited one.
+        others = [{"type": "turn_context", "payload": {}}, {"type": "event_msg", "payload": {"type": "task_started"}},
+                  {"type": "response_item", "payload": {"type": "message", "role": "user"}},
+                  dict(item(NOW + 1, "reasoning", inherited=True), timestamp=None)]
+        self.assertEqual(self.session(others), EMPTY)
+
     def test_only_a_readable_regular_file_is_read(self):
         good = self.write([count(NOW + 1, limits(30.0))])
         link = self.root / "link.jsonl"

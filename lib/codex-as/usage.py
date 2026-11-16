@@ -25,7 +25,9 @@ here.
 One session, for the guard (session): the tail of the rollout at PATH, without
 a first line the tail cut and a last line still being written, and of it the
 lines stamped at or after started - SLACK. Lines a sub-agent inherited from its
-parent (metadata.inherited_user_message) never count, whatever their time.
+parent (metadata.inherited_user_message) never count, whatever their time. A
+token_count line or a model response whose time is not an ISO string (format
+drift) is accounted and nothing else, so the guard is blind instead of open.
 
 - snapshot: the newest token_count line with at least one usable window, by
   slot ({"primary", "secondary", "seen_at"}); a slot window() refuses is None,
@@ -340,8 +342,14 @@ def session(path, started):
             continue
         line, kind, payload, ptype = line
         before, state = state, step(state, kind, ptype)
+        if inherited(line):
+            continue
         when = moment(line.get("timestamp"))
-        if when is None or when < started - SLACK or inherited(line):
+        if when is None:
+            if kind == "event_msg" and ptype == "token_count" or responded(kind, ptype, payload):
+                found["accounted"] = True  # format drift: usage at a time this reader cannot tell
+            continue
+        if when < started - SLACK:
             continue
         if kind == "event_msg" and ptype == "token_count":
             limits = payload.get("rate_limits")

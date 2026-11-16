@@ -599,6 +599,23 @@ class Codex(Fixture):
                 with self.subTest(records=records, kind=kind):
                     self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)), (2, "", blind[kind]))
 
+    def test_usage_lines_whose_time_cannot_be_read_are_blind(self):
+        # Format drift in the line times: the guard cannot tell the session's usage, so it is blind, never open.
+        launch = self.launch("codex-as", weekly="10")
+        blind = {kind: reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"), kind, NOW)
+                 for kind in ("prompt", "tool")}
+        for stamp in ((NOW - 20), (NOW - 20) * 1000, "absent"):
+            records = [reply(NOW - 20), count(NOW - 20, rates=False), count(NOW - 20, slot(97, 10080))]
+            for record in records:
+                if stamp == "absent":
+                    del record["timestamp"]
+                else:
+                    record["timestamp"] = stamp
+            transcript = self.rollout(records)
+            for kind in ("prompt", "tool"):
+                with self.subTest(stamp=stamp, kind=kind):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)), (2, "", blind[kind]))
+
     def test_a_response_without_a_token_count_is_blind_on_prompt_only(self):
         launch = self.launch("codex-as", weekly="10")
         transcript = self.rollout([reply(NOW - 30), shell_call(NOW - 30)])
