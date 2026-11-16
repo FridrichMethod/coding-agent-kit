@@ -87,28 +87,59 @@ file and a rename, only in an owned 0700 directory, and then creates STATE.seen.
 A reading never goes back: a stored window that has not reset stays when the
 incoming one has the same reset and a lower percentage, an earlier reset, or is
 absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart. A
-change is read, merged and written under the lock .NAME.lock beside the file,
-so two launches of one account never lose the newer reading. A run takes the
-lock by writing {"host", "pid", "at"} (its host name, process id and clock in
-whole seconds) to a hidden 0600 temporary file .NAME.lock.HEX.tmp and linking it
-to the lock's name (an existing name is held), so no lock ever exists without
-its holder, and holds back SIGTERM, SIGHUP and SIGINT until it has let it go.
-Other runs judge a lock by that content, never by the file's time (on a network
-home directory the server's clock): one that names no holder, one whose "at" is
-more than LOCK_STALE + 1 seconds from their clock (one second for its whole
-seconds) and one of their host whose process has ended was left by a run that
-ended. Such a lock is removed under the breaker .NAME.lock.break, a lock of the
-same kind, judged the same way, and held only to judge the lock again and
-remove it while it is still the file judged, so one run at a time removes a
-lock and a lock that another run took meanwhile is never moved. The judgment is
-a lease: it holds while the hosts that share the home directory have host names
-of their own and clocks within LOCK_STALE seconds of each other, less the
-longest time a run holds the lock or breaker. A run stopped that long while it
-holds either counts as ended; once it resumes, it can write an older merge over
-a newer reading or remove a lock that another run took since. The directory
-needs hard links, as local and network file systems have; without them, and
-when another writer holds the lock LOCK_WAIT seconds, the run records nothing
-and creates no STATE.seen.
+change is read again, merged and written while the run holds the lock
+.NAME.lock beside the file (NAME the file's name), so two launches of one
+account keep the newer reading, within the limits below. Every writer that
+merges into the file takes the lock this way:
+
+1. Take: write {"host", "pid", "at"} (the host name, process id and clock in
+   whole seconds, as compact JSON) to a new hidden file .NAME.lock.HEX.tmp,
+   0600 whatever the umask, fsync it (best effort), link() it to the lock's
+   name and unlink the temporary file. The link takes the lock; EEXIST means
+   that another run has it (judge it as in 2), unless the name is already the
+   temporary file (a network file system retried a link whose reply was lost).
+   No lock exists without its holder. A run holds back SIGTERM, SIGHUP and
+   SIGINT from before it takes the lock until it has let it go.
+2. Judge: open the lock (read-only, else write-only; one that opens neither
+   way is never removed and fails the run) and keep it open while it is
+   judged, so its inode number cannot pass to a new file. It was left by a run
+   that ended (stale) when its content names no holder, when "at" is more
+   than LOCK_STALE + 1 seconds from this run's clock (one second for whole
+   seconds), or when "host" is this host's name and kill(pid, 0) fails with
+   anything but EPERM. The file's time is never used: on a network home
+   directory it is the server's clock.
+3. Break: a stale lock is removed only under the breaker .NAME.lock.break,
+   taken as in 1 and judged as in 2. Its holder opens and judges the lock
+   again, unlinks it only while lstat() of the name is still the file it holds
+   open (device and inode), and then lets the breaker go. A run that finds the
+   breaker taken removes it the same way when it is stale, without a breaker
+   of its own, and otherwise waits.
+4. Let go: unlink the lock or breaker only while lstat() of the name is still
+   the file this run took.
+5. Wait: retry every 10 ms; a run that has not taken the lock after LOCK_WAIT
+   seconds records nothing and creates no STATE.seen.
+6. Sweep: the holder of the lock removes the regular files .NAME.*.tmp that
+   cancelled runs left more than STALE seconds ago by their file time.
+
+The directory needs hard links, as local and network file systems have:
+without them every run records nothing and creates no STATE.seen, so the
+launch is blind BLIND_AFTER seconds after its first reply.
+
+Two runs can still hold the lock at once in two cases, each the lost update
+the lock is there to prevent (an older merge written over a newer reading,
+which lasts until the newer session's next status line run):
+
+- The judgment is a lease: it holds while the hosts that share the home
+  directory have host names of their own and clocks within LOCK_STALE seconds
+  of each other, less the longest time a run holds the lock or breaker. A run
+  stopped that long while it holds either counts as ended; once it resumes, it
+  can write an older merge or remove a lock that another run took since.
+- A breaker left by a run that ended while it held it (killed by SIGKILL, or
+  its host went down) is removed by name, and no unlink can be made
+  conditional on the inode: runs that remove it at the same moment can, with a
+  third, each go on to hold a breaker and remove a lock that another run took
+  meanwhile.
+
 Then it runs the user's own status line command (the launch's "statusline")
 through /bin/sh -c with the same input and the caller's environment, and prints
 its output unchanged as the footer: nothing when it fails, prints nothing or
@@ -598,7 +629,10 @@ def stale(fd):
 def clear(path):
     """Remove the lock or breaker PATH when it is stale: False while it is held, True when it is gone or was
     removed. PATH is judged and removed while this run holds it open, so its inode number cannot pass to a new
-    file in between, and only while PATH is still that file."""
+    file in between, and only while PATH is still that file. The check and the unlink are two steps: a lock is
+    removed only by the holder of its breaker, but a breaker that a run left when it ended is removed by any run
+    that finds it, so another run's new breaker can take its name between one run's check and its unlink (see the
+    module docstring)."""
     fd = opened(path)
     if fd is None:
         return True
@@ -621,8 +655,9 @@ def discard(name):
     is held.
 
     The breaker is a lock of the same kind (create(), judged by stale()), held only to judge NAME again and remove
-    it, so one run at a time removes a lock, and a lock that another run took meanwhile names a holder that runs
-    and is never moved or removed."""
+    it while it is still the file judged. A lock that another run took meanwhile names a holder that runs and is
+    neither moved nor removed, as long as the lease holds and no breaker was left by a run that ended: runs that
+    remove such a breaker at once can each hold one (see the module docstring)."""
     fd = opened(name)
     if fd is None:
         return True
@@ -690,9 +725,10 @@ def record(path, limits, now):
     Nothing is written without a valid window, or when the merged windows equal the stored
     ones and were stored less than RECORD_AGAIN seconds ago. A change is read, merged and
     written again under the file's lock, so a writer that reads the file while another
-    writes it never replaces a newer reading. ValueError (or OSError) when PATH is not an
-    absolute claude-NAME.usage.json in an owned, real 0700 directory, or the write fails;
-    TimeoutError when the lock is held LOCK_WAIT seconds."""
+    writes it keeps the newer reading, within the lock's limits (see the module docstring).
+    ValueError (or OSError) when PATH is not an absolute claude-NAME.usage.json in an
+    owned, real 0700 directory, or taking the lock (link() in a directory without hard
+    links) or the write fails; TimeoutError when the lock is held LOCK_WAIT seconds."""
     incoming = {key: entry(limits.get(key)) for key in USAGE_KEYS} if isinstance(limits, dict) else {}
     if not any(incoming.values()):
         return False
