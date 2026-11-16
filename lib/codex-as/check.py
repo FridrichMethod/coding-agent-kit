@@ -115,6 +115,7 @@ class Plan:
     form: str = "plain"
     hooks_override: bool = False  # a -c/--config value under hooks, which the guard's own would meet
     hooks_disabled: bool = False  # --disable hooks, or a -c value that turns the hooks feature off
+    goals_on: bool = False  # --enable goals, or a -c value that could turn goals on over the launcher's goals off
     ephemeral: bool = False  # --ephemeral: no rollout for the guard to read
     ignore_user_config: bool = False  # --ignore-user-config: no hook trust records
 
@@ -173,13 +174,28 @@ def disables_hooks(cfg):
                                               for name in HOOK_FEATURES)
 
 
+def enables_goals(parts, cfg):
+    """Whether one -c value (its dotted key PARTS and the configuration CFG it sets) could turn goals on
+    over the launcher's own -c features.goals=false: it sets features.goals to anything but false, or
+    replaces the whole features table with one that does not set it false. Native Codex applies a
+    -c value by replacing what its key names."""
+    features = cfg.get("features")
+    if parts == ["features"]:
+        return not (isinstance(features, dict) and features.get("goals") is False)
+    return isinstance(features, dict) and "goals" in features and features["goals"] is not False
+
+
+def dotted(text):
+    """The key of one -c KEY=VALUE as native Codex splits it."""
+    parts = [part.strip().strip("\"'") for part in text.partition("=")[0].strip().split(".")]
+    return ["features", "use_legacy_landlock"] if parts == ["use_legacy_landlock"] else parts
+
+
 def override(text):
     """Check one -c KEY=VALUE the way native Codex applies it: dotted key, TOML value. Returns
     the configuration it sets, as a nested table."""
-    key, _, raw = text.partition("=")
-    parts = [part.strip().strip("\"'") for part in key.strip().split(".")]
-    if parts == ["use_legacy_landlock"]:
-        parts = ["features", "use_legacy_landlock"]
+    raw = text.partition("=")[2]
+    parts = dotted(text)
     if parts[0] in FIXED_KEYS:
         fail("authentication/provider configuration overrides are refused.")
     nested = cfg = {}
@@ -199,7 +215,7 @@ def arguments(args, config):
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query, show_all = None, None, False, False, False
     no_daemon, others, words, unknown, bare, profile, forked = False, False, [], [], False, None, False
-    hooks_override = hooks_disabled = ephemeral = ignore_user_config = False
+    hooks_override = hooks_disabled = goals_on = ephemeral = ignore_user_config = False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -277,12 +293,15 @@ def arguments(args, config):
             cfg = override(value)
             hooks_override |= "hooks" in cfg
             hooks_disabled |= disables_hooks(cfg)
+            goals_on |= enables_goals(dotted(value), cfg)
         elif flag in {"-C", "--cd"}:
             cwd = config.expand(value).absolute()
         elif flag in {"-p", "--profile"}:
             profile = value
         elif flag == "--enable" and value.strip() in FEATURES:
             fail("an authentication feature replaces the account login; it is refused.")
+        elif flag == "--enable":
+            goals_on |= value.strip() == "goals"
         elif flag == "--disable":
             hooks_disabled |= value.strip() in HOOK_FEATURES
     rootless = bare or command in {"update", "completion"}
@@ -304,7 +323,8 @@ def arguments(args, config):
                 scope, last and picking, others, no_daemon, rootless, tuple(unknown),
                 profile if profile is not None and PROFILE.fullmatch(profile) else None,
                 forked=forked or command == "fork", query=query, form=form, hooks_override=hooks_override,
-                hooks_disabled=hooks_disabled, ephemeral=ephemeral, ignore_user_config=ignore_user_config)
+                hooks_disabled=hooks_disabled, goals_on=goals_on, ephemeral=ephemeral,
+                ignore_user_config=ignore_user_config)
 
 
 

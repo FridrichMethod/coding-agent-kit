@@ -143,6 +143,29 @@ class LaunchForms(Fixture):
             with self.subTest(args=args):
                 self.assertFalse(self.plan(args).hooks_disabled)
 
+    def test_goals_on(self):
+        """codex-as turns goals off with -c features.goals=false and --disable goals. clap keeps one
+        --disable list, which a --disable after a subcommand replaces, so the -c value has to hold
+        alone: a caller's --enable goals or -c value that sets features.goals to anything but false,
+        or that replaces the whole features table, would turn goals on again."""
+        for args in (["--enable", "goals"], ["--enable=goals"], ["--enable", " goals "],
+                     ["exec", "--enable", "goals", "go"], ["resume", "--last", "--enable=goals"],
+                     ["-c", "features.goals=true"], ["-cfeatures.goals=true"], ["--config=features.goals=true"],
+                     ["-c", 'features."goals"=true'], ["-c", "features.goals.enabled=false"],
+                     ["-c", 'features.goals="false"'], ["-c", "features={goals=true}"], ["-c", "features={}"],
+                     ["-c", "features={hooks=true}"], ["exec", "go", "-c", "features.goals=1"],
+                     ["--disable", "goals", "--enable", "goals"]):
+            with self.subTest(args=args):
+                self.assertTrue(self.plan(args).goals_on)
+        for args in ([], ["--disable", "goals"], ["--disable=goals"], ["-c", "features.goals=false"],
+                     ["-c", "features={goals=false}"], ["-c", "features={goals=false,hooks=true}"],
+                     ["-c", "features.hooks=true"], ["-c", "goals=true"], ["--enable", "hooks"],
+                     ["exec", "--disable", "plugin_hooks", "go"], ["resume", "--last", "--disable", "plugin_hooks"],
+                     ["fix the goals"], ["-m", "--enable", "goals"], ["--", "--enable", "goals"],
+                     ["exec", "go", "--", "-c", "features.goals=true"]):
+            with self.subTest(args=args):
+                self.assertFalse(self.plan(args).goals_on)
+
     def test_ephemeral_and_ignore_user_config(self):
         for args, ephemeral, ignore in ((["exec", "--ephemeral", "go"], True, False),
                                         (["exec", "go", "--ephemeral"], True, False),
@@ -168,8 +191,8 @@ class LaunchForms(Fixture):
         for args in ([], ["exec", "go"], ["-V"]):
             with self.subTest(args=args):
                 plan = self.plan(args)
-                self.assertEqual((plan.hooks_override, plan.hooks_disabled, plan.ephemeral, plan.ignore_user_config),
-                                 (False, False, False, False))
+                self.assertEqual((plan.hooks_override, plan.hooks_disabled, plan.goals_on, plan.ephemeral,
+                                  plan.ignore_user_config), (False, False, False, False, False))
 
     def test_refused_options_still_refuse(self):
         """A guarded form never relaxes the checks every launch has."""
@@ -297,7 +320,8 @@ class Hooks(unittest.TestCase):
     def test_the_definitions_and_their_fingerprint_are_pinned(self):
         self.assertEqual(launch.GUARD_HOOKS, (PROMPT_HOOK, TOOL_HOOK))
         self.assertEqual(launch.guard_fingerprint(), FINGERPRINT)
-        self.assertEqual(launch.GOALS_OFF, ("--disable", "goals"))
+        # The -c value holds when a --disable after a subcommand replaces the launcher's --disable list.
+        self.assertEqual(launch.GOALS_OFF, ("-c", "features.goals=false", "--disable", "goals"))
 
     def test_each_value_is_one_hook_at_the_place_its_trust_record_names(self):
         """A trust record's key names the session flags, the event, the matcher group and the handler:
@@ -455,7 +479,8 @@ class GuardedLaunch(unittest.TestCase):
                 *(["-c", "check_for_update_on_startup=false", "--no-daemon"] if interactive else [])]
 
     def guarded(self, interactive=True):
-        return [*self.head(interactive), "-c", PROMPT_HOOK, "-c", TOOL_HOOK, "--disable", "goals"]
+        return [*self.head(interactive), "-c", PROMPT_HOOK, "-c", TOOL_HOOK, "-c", "features.goals=false",
+                "--disable", "goals"]
 
     def test_without_reserves_a_launch_is_unchanged_and_passes_no_guard(self):
         inherited = dict.fromkeys(VARIABLES, "inherited")
@@ -508,10 +533,14 @@ class GuardedLaunch(unittest.TestCase):
                                (["A", "-m", "o3", "exec", "go"], [*self.guarded(False), "-m", "o3", "exec", "go"]),
                                # A caller's --no-daemon is not given twice; goals stay off after the caller's values.
                                (["A", "--no-daemon", "go"], [*self.head()[:-1], "-c", PROMPT_HOOK, "-c", TOOL_HOOK,
-                                                             "--disable", "goals", "--no-daemon", "go"]),
-                               (["A", "--enable", "goals", "-c", "features.goals=true", "go"],
-                                [*self.guarded(), "--enable", "goals", "-c", "features.goals=true", "go"]),
-                               (["A", "--disable", "goals", "go"], [*self.guarded(), "--disable", "goals", "go"])):
+                                                             "-c", "features.goals=false", "--disable", "goals",
+                                                             "--no-daemon", "go"]),
+                               (["A", "--disable", "goals", "go"], [*self.guarded(), "--disable", "goals", "go"]),
+                               # A --disable after a subcommand replaces the launcher's; the -c value stays.
+                               (["A", "exec", "--disable", "plugin_hooks", "go"],
+                                [*self.guarded(False), "exec", "--disable", "plugin_hooks", "go"]),
+                               (["A", "resume", "--last", "--disable", "plugin_hooks"],
+                                [*self.guarded(), "resume", "--last", "--disable", "plugin_hooks"])):
             with self.subTest(args=args):
                 result = self.run_codex(*args)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -550,9 +579,15 @@ class GuardedLaunch(unittest.TestCase):
         override = ("a -c or --config value under hooks would meet the usage reserve guard's hooks, which codex-as "
                     "passes as -c values of its own")
         disabled = "--disable hooks or a -c value under features turns off the hooks that enforce usage reserves"
+        goals = ("--enable goals, or a -c value that sets features.goals or replaces the features table, would turn "
+                 "on the goals that a launch with usage reserves keeps off: a goal continues on its own after a denied "
+                 "tool call")
         for args, reason in ((["-c", "hooks.Stop=[]"], override), (["-chooks.x=1", "go"], override),
                              (["exec", "--config=hooks.x=1", "go"], override),
                              (["--disable", "hooks"], disabled), (["exec", "-c", "features.hooks=false", "go"], disabled),
+                             (["--enable", "goals"], goals), (["resume", "--last", "--enable=goals"], goals),
+                             (["exec", "-c", "features.goals=true", "go"], goals),
+                             (["-c", "features={hooks=true}", "exec", "--disable", "plugin_hooks", "go"], goals),
                              (["exec", "--ephemeral", "go"], "--ephemeral keeps no session rollout, from which the "
                                                              "usage reserve guard reads the session's usage"),
                              (["--ignore-user-config"], "--ignore-user-config skips the configuration that holds "
@@ -834,12 +869,15 @@ class RealCodex(unittest.TestCase):
             sandbox = Sandbox(Path(base).resolve(), cls.bindir)
             code, out, _ = sandbox.run(cls.codex, ["--version"], sandbox.env(), timeout=60)
             sandbox.strays()
-        if code:
-            raise unittest.SkipTest(f"codex --version exited {code}")
-        try:
-            check.codex_version(out)  # the minimum of every codex-as launch, with reserves too
-        except ValueError as error:
-            raise unittest.SkipTest(f"codex --version: {error}") from None
+            if code:
+                raise unittest.SkipTest(f"codex --version exited {code}")
+            try:
+                check.codex_version(out)  # the minimum of every codex-as launch, with reserves too
+            except ValueError as error:
+                raise unittest.SkipTest(f"codex --version: {error}") from None
+            code, out, _ = sandbox.run(cls.codex, ["features", "list"], sandbox.env(), timeout=60)
+            sandbox.strays()
+        cls.features = {line.split()[0] for line in out.splitlines() if line.strip()} if code == 0 else set()
 
     def setUp(self):
         self.addCleanup(os.umask, os.umask(0o022))
@@ -860,10 +898,10 @@ class RealCodex(unittest.TestCase):
         self.calls = base / "shell calls"
         self.requests = base / "requests.jsonl"
 
-    def run_codex(self, prompt, recorded=None, sent=None):
-        """codex exec PROMPT under the guard with the five-hour reserve at 10: RECORDED percent of the
-        five-hour window used in the account record of earlier runs, SENT percent in the rate limits the
-        fake sends with every answer (None: no record, no rate limits)."""
+    def run_codex(self, prompt, recorded=None, sent=None, options=()):
+        """codex exec OPTIONS PROMPT under the guard with the five-hour reserve at 10: RECORDED percent of
+        the five-hour window used in the account record of earlier runs, SENT percent in the rate limits
+        the fake sends with every answer (None: no record, no rate limits)."""
         now = int(time.time())
         if recorded is not None:
             window = {"used_percent": float(recorded), "window_minutes": 300, "resets_at": now + 3600}
@@ -887,17 +925,17 @@ class RealCodex(unittest.TestCase):
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
         # The values codex-as passes before the caller's arguments, and the stand-in for the user's trust.
         args = [*(word for value in launch.GUARD_HOOKS for word in ("-c", value)), *launch.GOALS_OFF,
-                "--dangerously-bypass-hook-trust", "exec", "--skip-git-repo-check", prompt]
+                "--dangerously-bypass-hook-trust", "exec", *options, "--skip-git-repo-check", prompt]
         code, out, err = self.sandbox.run(self.codex, args, env)
         self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
         refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED ssh")]
         self.assertEqual(refused, [], "Codex tried to reach a host through ssh")
         lines = self.requests.read_text().splitlines() if self.requests.exists() else []
         models = [entry for entry in map(json.loads, lines) if entry["path"].endswith("/responses")]
-        # Without the flag, codex-cli 0.169.0 offers get_goal, create_goal and update_goal here.
+        # Without the flags, codex-cli 0.169.0 offers get_goal, create_goal and update_goal here.
         for entry in models:
             self.assertEqual([name for name in entry["tools"] if "goal" in name.lower()], [],
-                             "goals are on despite --disable goals")
+                             "goals are on despite codex-as's goals off")
         self.assertNotRegex(err, r"(?im)^.*\b(goals?|unknown feature|feature flag)\b.*$",
                             "Codex said something about the goals flag")
         return code, out, err, state, models
@@ -922,6 +960,17 @@ class RealCodex(unittest.TestCase):
         self.assertEqual((code, out), (0, ""), err)
         self.assert_state(state, (".launched", ".ran.prompt"), (".ran.tool",))
         self.assertFalse(self.marker.exists(), "the marker without a tool event")
+
+    def test_goals_stay_off_when_a_subcommand_repeats_disable(self):
+        """clap keeps one --disable list, and a --disable after the subcommand replaces the launcher's
+        --disable goals; with it alone codex-cli 0.169.0 offers the goal tools here. The launcher's
+        -c features.goals=false holds."""
+        if "plugin_hooks" not in self.features:
+            self.skipTest("this Codex has no plugin_hooks feature to disable")
+        code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=50,
+                                                       options=("--disable", "plugin_hooks"))
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.assertEqual([entry["script"] for entry in models], ["PLAIN"])
 
     def test_a_prompt_below_the_reserve_gets_its_reply(self):
         code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=50)

@@ -66,9 +66,11 @@ GUARD_HOOKS = (
     r'hooks.PreToolUse=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S \"$CODING_AGENT_KIT_GUARD_SCRIPT\" tool",timeout=20}]}]',
 )
 # A goal run continues on its own without a prompt, so a denied tool call would repeat without end;
-# a guarded launch turns goals off. --disable checks the feature name and comes after every -c value,
-# so neither a caller's -c features.goals=true nor --enable goals turns them on again.
-GOALS_OFF = ("--disable", "goals")
+# a guarded launch turns goals off. --disable checks the feature name, and native Codex applies it after
+# every -c value, root or subcommand, and after --enable. clap keeps one --disable list, which a
+# --disable after a subcommand replaces, so the -c value has to hold on its own: a caller's --enable
+# goals and a -c value that could turn goals on (check.enables_goals) are refused.
+GOALS_OFF = ("-c", "features.goals=false", "--disable", "goals")
 # What a guarded launch adds to its message when it refuses.
 WITHOUT = ("; to launch without usage reserves, run codex-as --reserve-5h off --reserve-weekly off {account} "
            "with the same arguments.")
@@ -248,6 +250,10 @@ def unguardable(account, plan):
                         "codex-as passes as -c values of its own")
     if plan.hooks_disabled:
         refuse(account, "--disable hooks or a -c value under features turns off the hooks that enforce usage reserves")
+    if plan.goals_on:
+        refuse(account, "--enable goals, or a -c value that sets features.goals or replaces the features table, would "
+                        "turn on the goals that a launch with usage reserves keeps off: a goal continues on its own "
+                        "after a denied tool call")
     if plan.ephemeral:
         refuse(account, "--ephemeral keeps no session rollout, from which the usage reserve guard reads the "
                         "session's usage")
