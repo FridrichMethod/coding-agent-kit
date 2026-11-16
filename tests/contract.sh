@@ -29,6 +29,7 @@ LAYOUT='100755 bin/codex-as
 100644 lib/coding-agent-kit/accounts.py
 100644 lib/coding-agent-kit/reserve.py
 100644 lib/coding-agent-kit/guard.py
+100644 lib/coding-agent-kit/guard_launch.py
 100644 completions/bash/codex-as
 100644 completions/bash/claude-as
 100644 completions/zsh/_codex-as
