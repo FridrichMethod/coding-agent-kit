@@ -95,16 +95,18 @@ judge a lock by that content, never by the file's time (on a network home
 directory the server's clock): a lock whose "at" is more than LOCK_STALE seconds
 from their clock, one of their host whose process has ended, and one that names
 no holder for LOCK_EMPTY seconds was left by a run that ended. Such a lock is
-renamed aside and removed only when it is the file judged, else put back. When
-another writer holds the lock LOCK_WAIT seconds, the run records nothing and
-creates no STATE.seen. Then it runs the user's own status line
-command (the launch's "statusline") through /bin/sh -c with the same input and
-the caller's environment, and prints its output unchanged as the footer:
-nothing when it fails, prints nothing or runs longer than STATUS_TIMEOUT
-seconds; a run cancelled by SIGTERM, SIGHUP or SIGINT kills the command's
-process group first. When the input carries rate limits (the session had a
-reply) and no STATE.ran.* exists, the first footer line is WARNING: the native
-has not run the injected hooks.
+removed under the breaker .NAME.lock.break, created O_EXCL and held only to
+check that the lock is still the file judged and to remove it, so a lock that
+another run took meanwhile is never moved; a breaker that stays LOCK_EMPTY
+seconds was left by a run killed while it held it. When another writer holds
+the lock LOCK_WAIT seconds, the run records nothing and creates no STATE.seen.
+Then it runs the user's own status line command (the launch's "statusline")
+through /bin/sh -c with the same input and the caller's environment, and prints
+its output unchanged as the footer: nothing when it fails, prints nothing or
+runs longer than STATUS_TIMEOUT seconds; a run cancelled by SIGTERM, SIGHUP or
+SIGINT kills the command's process group first. When the input carries rate
+limits (the session had a reply) and no STATE.ran.* exists, the first footer
+line is WARNING: the native has not run the injected hooks.
 
 Any error on a prompt or tool event (an event that is not a JSON object, a
 launch format, an unwritable state file, a missing module, an exception, a
@@ -508,20 +510,63 @@ def running(pid):
     return True
 
 
-def discard(name, identity):
-    """Remove the lock NAME, judged stale as the file IDENTITY ((st_dev, st_ino)). It is renamed to a name
-    of its own first and removed only when it is that file: a lock that another run made in its place
-    since (after removing the same stale one) is put back."""
-    aside = name.with_name(f"{name.name}.{os.urandom(6).hex()}.tmp")
+def judge(path, fd, seen):
+    """(identity, stale) of the lock or breaker PATH, open as FD. A file that names its holder is stale when the
+    holder's clock is more than LOCK_STALE seconds from this run's, or the holder is a process of this host that
+    has ended; one that names none (a breaker never does) when it has been the same file for LOCK_EMPTY seconds of
+    this run's wait. SEEN keeps, per path, (identity, first seen) of a file that names no holder."""
+    info = os.fstat(fd)
+    identity = (info.st_dev, info.st_ino)
     try:
-        os.rename(name, aside)
-        info = os.lstat(aside)
+        owner = holder(os.read(fd, 256))
+    except OSError:
+        owner = None
+    if owner is None:
+        if path not in seen or seen[path][0] != identity:
+            seen[path] = (identity, time.monotonic())
+        return identity, time.monotonic() - seen[path][1] >= LOCK_EMPTY
+    host, pid, at = owner
+    return identity, abs(time.time() - at) > LOCK_STALE or host == os.uname().nodename and not running(pid)
+
+
+def remove(path, identity):
+    """Remove PATH when it is still the file IDENTITY ((st_dev, st_ino))."""
+    try:
+        info = os.lstat(path)
         if (info.st_dev, info.st_ino) == identity:
-            os.unlink(aside)
-        else:
-            os.rename(aside, name)
-    except FileNotFoundError:  # another run removed it first
+            os.unlink(path)
+    except FileNotFoundError:
         pass
+
+
+def discard(name, identity, seen):
+    """Remove the lock NAME, judged stale as the file IDENTITY, under its breaker NAME.break: True when NAME is no
+    longer that file, False while another run holds the breaker (try again later).
+
+    The breaker is created O_EXCL and held only to check that the lock is still the file judged and to remove it,
+    so one run at a time removes a lock and a lock that another run took meanwhile is never moved or removed. A
+    breaker names no holder: one that stays LOCK_EMPTY seconds was left by a run killed while it held it, and is
+    removed when it is still the file judged (SEEN as for judge())."""
+    breaker = name.with_name(name.name + ".break")
+    try:
+        fd = os.open(breaker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    except FileExistsError:
+        try:
+            other = os.open(breaker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        except FileNotFoundError:
+            return False
+        try:
+            held, left = judge(breaker, other, seen)
+            if left:
+                remove(breaker, held)
+        finally:
+            os.close(other)
+        return left
+    try:
+        remove(name, identity)
+    finally:
+        unlock(breaker, fd)
+    return True
 
 
 def lock(path):
@@ -531,10 +576,10 @@ def lock(path):
     Another run's lock is judged by what it holds, never by the file's time (on a network home directory
     the server's clock): one whose clock is more than LOCK_STALE seconds from this run's, one of this host
     whose process has ended, and one that names no holder for LOCK_EMPTY seconds of this run's wait (its
-    run never wrote it) was left by a run that ended, and is discarded. Returns (lock path, fd);
-    TimeoutError when another writer holds it LOCK_WAIT seconds."""
+    run never wrote it) was left by a run that ended, and is discarded under its breaker. Returns (lock
+    path, fd); TimeoutError when another writer holds it LOCK_WAIT seconds."""
     name = path.with_name(f".{path.name}.lock")
-    deadline, empty = time.monotonic() + LOCK_WAIT, None  # empty: (identity, first seen) of a lock naming no holder
+    deadline, seen = time.monotonic() + LOCK_WAIT, {}
     while True:
         try:
             fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
@@ -557,21 +602,8 @@ def lock(path):
         except FileNotFoundError:
             continue
         try:  # the open file keeps its inode number from another file until the judgment is done
-            info = os.fstat(fd)
-            try:
-                owner = holder(os.read(fd, 256))
-            except OSError:
-                owner = None
-            identity = (info.st_dev, info.st_ino)
-            if owner is None:
-                if empty is None or empty[0] != identity:
-                    empty = (identity, time.monotonic())
-                stale = time.monotonic() - empty[1] >= LOCK_EMPTY
-            else:
-                host, pid, at = owner
-                stale = abs(time.time() - at) > LOCK_STALE or host == os.uname().nodename and not running(pid)
-            if stale:
-                discard(name, identity)
+            identity, stale = judge(name, fd, seen)
+            if stale and discard(name, identity, seen):
                 continue
         finally:
             os.close(fd)

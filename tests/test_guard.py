@@ -1333,23 +1333,50 @@ class StatusLine(Fixture):
             self.assertFalse(guard.record(launch.usage, limits(), NOW + 10))
         self.assertEqual((guard.LOCK_WAIT, guard.LOCK_STALE, guard.LOCK_EMPTY), (2, 10, 1))
 
-    def test_a_lock_that_took_the_place_of_a_stale_one_meanwhile_is_put_back(self):
+    def test_a_lock_that_took_the_place_of_a_stale_one_meanwhile_is_never_moved(self):
         launch = self.launch(weekly="10")
         lock = self.lock_file(launch, host="another host", at=int(time.time()) - 60)
         fresh = json.dumps({"host": "another host", "pid": 7, "at": int(time.time())})
-        real = guard.discard
+        real, taken = guard.discard, []
 
-        def discard(name, identity):
-            # Another run judged the same lock stale, removed it and took the lock before this run set it aside.
+        def discard(name, identity, seen):
+            # Another run judged the same lock stale, removed it and took the lock before this run breaks it.
             name.unlink()
             put(name, fresh)
-            return real(name, identity)
+            taken.append(name.lstat().st_ino)
+            # A third run comes now, and finds the lock held.
+            with patch.object(guard, "LOCK_WAIT", 0.1), self.assertRaises(TimeoutError):
+                guard.lock(Path(launch.usage))
+            return real(name, identity, seen)
 
-        with patch.object(guard, "discard", discard), patch.object(guard, "LOCK_WAIT", 0.2):
+        with patch.object(guard, "discard", discard), patch.object(guard, "LOCK_WAIT", 0.2), \
+                patch.object(guard.os, "rename", side_effect=AssertionError("a lock was moved")):
             with self.assertRaises(TimeoutError):
                 guard.record(launch.usage, limits(), NOW)
-        self.assertEqual(lock.read_text(), fresh)
+        self.assertEqual((lock.read_text(), lock.lstat().st_ino), (fresh, taken[0]))
         self.assertEqual(list(self.accounts.iterdir()), [lock])
+
+    def test_a_stale_lock_is_broken_by_one_run_at_a_time(self):
+        launch = self.launch(weekly="10")
+        lock = self.lock_file(launch, pid=GONE)
+        breaker = self.accounts / (lock.name + ".break")
+        # Another run breaks it now: this run waits for that run instead of breaking it too.
+        put(breaker, "")
+        with patch.object(guard, "LOCK_WAIT", 0.2), self.assertRaises(TimeoutError):
+            guard.lock(Path(launch.usage))
+        self.assertEqual(sorted(self.accounts.iterdir()), [lock, breaker])
+        # A breaker that stays LOCK_EMPTY seconds was left by a run that ended while it held it: it is removed, and
+        # then the stale lock.
+        with patch.object(guard, "LOCK_WAIT", 1), patch.object(guard, "LOCK_EMPTY", 0.05):
+            name, held = guard.lock(Path(launch.usage))
+        self.assertEqual(json.loads(name.read_text())["pid"], os.getpid())
+        guard.unlock(name, held)
+        self.assertEqual(list(self.accounts.iterdir()), [])
+        # A breaker is held only to check the lock and remove it: none is left behind.
+        lock = self.lock_file(launch, pid=GONE)
+        name, held = guard.lock(Path(launch.usage))
+        self.assertEqual(sorted(self.accounts.iterdir()), [name])
+        guard.unlock(name, held)
 
     def test_a_run_cancelled_while_it_holds_the_lock_lets_it_go_first(self):
         launch = self.launch(weekly="10")
