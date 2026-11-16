@@ -282,6 +282,17 @@ def guarded(config, account, plan, layout):
     if managed is not None:
         refuse(account, f"{managed} sets goals under [features], which native Codex applies over the goals off of a "
                         "launch with usage reserves: a goal continues on its own after a denied tool call")
+    # A missing account logs in with a device code, which always gives a ChatGPT user and workspace.
+    if os.path.lexists(layout.target):
+        raw = guard.credential(layout.target)  # refused as for every launch when it is unusable
+        try:
+            owner = storage.owner(raw)
+        except (ValueError, KeyError, TypeError, AttributeError, IndexError, UnicodeError, RecursionError):
+            owner = None
+        if owner is None:
+            refuse(account, "this login names no ChatGPT user and workspace, as an API key login does: it reports no "
+                            "usage windows for the usage reserve guard, and its sessions cannot be told from other "
+                            "accounts'")
     directory = metadata.directory(config, create=True, name="guard")
     marker = directory / ("codex-hooks-" + guard_fingerprint())
     if plan.form == "headless" and not os.path.lexists(marker):

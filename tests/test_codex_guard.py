@@ -717,6 +717,28 @@ class GuardedLaunch(unittest.TestCase):
         result = self.run_codex("--reserve-weekly", "10", "A", "-p", "q", "go")
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_a_login_without_a_chatgpt_user_and_workspace_is_refused(self):
+        """An API-key login reports no usage windows, and its sessions name no creator, so neither the guard
+        nor the check after the run could do its work."""
+        self.trusted()
+        credential = self.home / ".secrets/codex-A.json"
+        reason = ("this login names no ChatGPT user and workspace, as an API key login does: it reports no usage "
+                  "windows for the usage reserve guard, and its sessions cannot be told from other accounts'")
+        logins = ({"auth_mode": "apikey", "OPENAI_API_KEY": "fabricated-sensitive-key", "tokens": None},
+                  {**json.loads(credential.read_text()), "tokens": {
+                      **json.loads(credential.read_text())["tokens"],
+                      "id_token": id_token({"sub": "fixture-A", "https://api.openai.com/auth": {}})}})
+        for login in logins:
+            with self.subTest(login=login["auth_mode"]):
+                credential.write_text(json.dumps(login))
+                for args in (["A"], ["A", "exec", "go"]):
+                    self.refused(args, reason)
+        for login in logins:
+            with self.subTest(login=login["auth_mode"], reserves="off"):
+                credential.write_text(json.dumps(login))
+                result = self.run_codex("A", "exec", "go")
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "fake codex ran\n", ""))
+
     def test_a_guard_hook_turned_off_under_hooks_state_is_refused(self):
         self.trusted()
         message = "{path} turns a usage reserve guard hook off under [hooks.state], so Codex would not run it"
