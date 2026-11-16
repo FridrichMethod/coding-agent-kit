@@ -50,10 +50,12 @@ of its own, and takes every path from its caller:
         in its name; the Codex markers and anything else stay. Best effort.
     unguarded(directory, tool, account, recorded_at) -> bool
         True when an earlier launch of TOOL and ACCOUNT left STATE.launched,
-        no STATE.ran.* and a sign of a reply: STATE.seen, or RECORDED_AT (the
-        seen_at of the account's usage data, or None) at or after that
-        launch's start. Each such launch's state is removed, so it is reported
-        once. A launch of this process (the current one) is never counted.
+        no STATE.ran.* and a sign of a reply: STATE.seen, or, once the
+        launch's PID no longer runs on this host, RECORDED_AT (the seen_at of
+        the account's usage data, or None) at or after that launch's start;
+        while it runs, another launch of the account may have recorded that
+        data. Each such launch's state is removed, so it is reported once. A
+        launch of this process (the current one) is never counted.
 
 State files in the guard directory, named PREFIX.SUFFIX (guard.py writes all
 but .launched): launched, ran.KIND, reply, seen, blocked, and blocked.HEX.tmp
@@ -207,17 +209,32 @@ def prune(directory, now):
             _remove(directory, names)
 
 
+def _running(pid):
+    """Whether process PID runs on this host: the native (claude-as) or the launcher (codex-as) of a launch."""
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except (OSError, OverflowError):
+        return False
+    return True
+
+
 def unguarded(directory, tool, account, recorded_at):
     if type(recorded_at) not in (int, float) or not math.isfinite(recorded_at):
         recorded_at = None
     found = False
     for parsed, names in _launches(directory).values():
-        if parsed["tool"] != tool or parsed["account"] != account or int(parsed["pid"]) == os.getpid():
+        pid = int(parsed["pid"])
+        if parsed["tool"] != tool or parsed["account"] != account or pid == os.getpid():
             continue
         suffixes = {STATE.fullmatch(name)["suffix"] for name in names}
         if "launched" not in suffixes or any(suffix.startswith("ran.") for suffix in suffixes):
             continue
-        if "seen" in suffixes or recorded_at is not None and recorded_at >= int(parsed["started"]):
+        if "seen" in suffixes or (recorded_at is not None and recorded_at >= int(parsed["started"])
+                                  and not _running(pid)):
             _remove(directory, names)
             found = True
     return found

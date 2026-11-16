@@ -1174,6 +1174,7 @@ class StatusLine(Fixture):
 
 
 DAY = 86400
+GONE = 4_194_400  # a process id above every host's limit (Linux 2**22, macOS 99999): a launch that has ended
 VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_AGENT_KIT_GUARD_PYTHON")
 MARKER = "codex-hooks-90aeb3ec484a2ca6"
 
@@ -1366,7 +1367,7 @@ class GuardLaunch(Fixture):
         guard_launch.prune(self.root / "missing", now)
 
     def test_an_earlier_launch_whose_hooks_never_ran(self):
-        earlier = self.state_files("claude-as", "personal", 4001, self.started - 3600, "launched", "seen")
+        earlier = self.state_files("claude-as", "personal", GONE + 1, self.started - 3600, "launched", "seen")
         self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
         self.assertEqual(self.names(), [], "the earlier launch's state was kept")
         self.assertFalse(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
@@ -1374,15 +1375,28 @@ class GuardLaunch(Fixture):
         for recorded, expected in ((self.started - 3601, False), (None, False), (True, False), ("x", False),
                                    (self.started - 3600, True), (self.started + 0.5, True)):
             with self.subTest(recorded=recorded):
-                earlier = self.state_files("claude-as", "personal", 4001, self.started - 3600, "launched")
+                earlier = self.state_files("claude-as", "personal", GONE + 1, self.started - 3600, "launched")
                 self.assertEqual(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", recorded), expected)
                 self.assertEqual(Path(earlier + ".launched").exists(), not expected)
         for path in self.guard_dir.iterdir():
             path.unlink()
         # Every such launch is counted and removed at once.
-        self.state_files("codex-as", "lab", 4001, self.started - 600, "launched", "blocked")
-        self.state_files("codex-as", "lab", 4002, self.started - 60, "launched", "seen")
+        self.state_files("codex-as", "lab", GONE + 1, self.started - 600, "launched", "blocked")
+        self.state_files("codex-as", "lab", GONE + 2, self.started - 60, "launched", "seen")
         self.assertTrue(guard_launch.unguarded(self.guard_dir, "codex-as", "lab", self.started))
+        self.assertEqual(self.names(), [])
+
+    def test_a_launch_that_still_runs_counts_only_by_its_own_seen(self):
+        native = subprocess.Popen(["sleep", "30"])
+        self.addCleanup(native.wait)
+        self.addCleanup(native.kill)
+        # Waiting at the workspace trust dialog, say, while another launch of the account records usage.
+        running = self.state_files("claude-as", "personal", native.pid, self.started - 20, "launched")
+        self.assertFalse(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", self.started))
+        self.assertTrue(Path(running + ".launched").exists())
+        # Its own status line saw a reply and no hook has run: it is unguarded while it runs.
+        Path(running + ".seen").write_text("")
+        self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
         self.assertEqual(self.names(), [])
 
     def test_launches_whose_hooks_ran_or_that_had_no_reply_do_not_count(self):
