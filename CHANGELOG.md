@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0
+
+Usage reserves become a guard on the natives' own hooks, which works with
+every account's own login and the natives' own folders, and native login and
+protected mode leave the kit. A minor release that breaks the public
+contract: it removes an own option, a configuration table and public paths.
+A launch with both reserves off, as by default, is unchanged. A managed
+install takes it as a channel switch:
+`"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update --channel 0.9`.
+
+Breaking changes:
+
+Removed:
+
+Added:
+
+Changed:
+
 ## 0.8.0
 
 Usage reserves: both launchers can keep a percentage of an account's 5-hour
