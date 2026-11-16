@@ -475,8 +475,7 @@ def usage_environment(env, config, metadata, account, token, token_id=None):
     """The status line helper records this account's last rate limits through these, and
     only under the claude this process becomes (exec keeps its pid) and a token, where it
     sees one, that hashes to the same identifier. A native-login account passes token_id
-    (derived from its enrollment, since the launcher never reads its credential); protected
-    mode replaces the pid with the native's own."""
+    (derived from its enrollment, since the launcher never reads its credential)."""
     for name in ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID", "CODING_AGENT_KIT_CLAUDE_PID"):
         env.pop(name, None)
     try:
@@ -561,9 +560,9 @@ def say(text, style):
     print(styled(text, style, 2), file=sys.stderr)
 
 
-def native_launch(config, account, args, policy, metadata, executable):
+def native_launch(config, account, args, metadata, executable):
     """A native-login account: Claude Code with the fixed CLAUDE_CONFIG_DIR and its own stored
-    login; protected mode when a reserve is enabled. The credential is never read here."""
+    login. The credential is never read here."""
     native = native_module()
     paths = native.Paths(config, account)
     if os.environ.get("CLAUDE_CONFIG_DIR", paths.config) != paths.config:
@@ -577,11 +576,7 @@ def native_launch(config, account, args, policy, metadata, executable):
     env = os.environ.copy()
     env["CLAUDE_CONFIG_DIR"] = paths.config
     usage_environment(env, config, metadata, account, None, token_id=native.token_id(record))
-    if policy is None or policy.off:
-        os.execve(executable, [executable, *args], env)
-    protect = own_module("protect")
-    return protect.launch(config, policy, paths, record, args, executable, env, style=lambda text: styled(text, "33", 1),
-                          notice=lambda text: say(text, "33"))
+    os.execve(executable, [executable, *args], env)
 
 
 def main():
@@ -639,6 +634,9 @@ def main():
              f"your private group); run chmod go-w {shlex.quote(str(parent))}.")
     query = args in (["--help"], ["-h"], ["--version"], ["-v"])
     policy = reserve.resolve("claude-as", account, overrides, config.usage_reserve)
+    # The help and version forms after NAME run no model and stay plain.
+    if not policy.off and not query:
+        fail("usage reserves are not available in this build.")
     if config.claude_mode(account) == "native-login":
         native = native_module().Paths(config, account)
         preflight(args, config, enrollment=False, config_dir=native.config)
@@ -650,17 +648,13 @@ def main():
             os.execve(executable, [executable, *args], dict(os.environ, CLAUDE_CONFIG_DIR=native.config))
         if os.path.lexists(secret):
             directory(secret, config)
-        sys.exit(native_launch(config, account, args, policy, kit_module("accounts"), executable))
+        native_launch(config, account, args, kit_module("accounts"), executable)
     target = secret / ("claude-" + account)
     # native.py is needed only once the native-login root exists (an enrolled name is checked there).
     if not query and not os.path.lexists(target) and os.path.lexists(secret / "native-claude-accounts") \
             and account in native_module().names(config):
         fail(f"{account} is enrolled with native login; select it in {config.file} with "
              f'[claude_auth.accounts.{account}] mode = "native-login" (no setup-token is saved for it).')
-    if not policy.off and not query:
-        fail(f"usage reserves need a native-login account, and {account} uses a setup-token, whose usage Claude Code "
-             f"does not report; enroll it with claude-as --enroll-native {account} and set "
-             f'[claude_auth.accounts.{account}] mode = "native-login", or launch without reserves.')
     missing = not os.path.lexists(target)
     preflight(args, config, enrollment=missing and not query)
     executable = config.which("claude")

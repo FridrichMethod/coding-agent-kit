@@ -1962,6 +1962,66 @@ class CodexAs(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Concurrent accounts", result.stdout)
 
+    def kit_file(self, text):
+        """The kit configuration file of this HOME, private like its directories, holding TEXT."""
+        path = self.home / ".config/coding-agent-kit/config.toml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        for directory in (path.parent, path.parent.parent):
+            directory.chmod(0o700)  # whatever the umask: a shared group may not write them
+        path.write_text(text)
+        path.chmod(0o600)
+        return path
+
+    def test_interim_reserve_refusal(self):
+        """Until the reserve guard lands, a launch with a reserve on, by flag or by configuration, refuses
+        before any native starts; the help, version, update and completion forms still run."""
+        refusal = "codex-as: usage reserves are not available in this build.\n"
+        for args, text in ((["--reserve-5h", "10", "A"], ""), (["--reserve-weekly", "0", "A", "exec", "x"], ""),
+                           (["--reserve-5h", "off", "--reserve-weekly", "100", "A", "resume", "--last"], ""),
+                           (["A", "exec", "x"], "[usage_reserve]\nweekly = 10\n"),
+                           (["A"], "[usage_reserve.codex_accounts.A]\nfive_hour = 12.5\n"),
+                           (["missing"], "[usage_reserve]\nfive_hour = 20\n")):
+            self.kit_file(text)
+            with self.subTest(args=args, config=text):
+                self.record.unlink(missing_ok=True)
+                result = self.run_as(SHELLS[0], args)
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (1, "", refusal))
+                self.assertFalse(self.record.exists(), "a refused launch started Codex")
+                self.assertFalse((self.codex / "accounts/missing").exists())
+        self.kit_file("[usage_reserve]\nfive_hour = 20\n")
+        for args, recorded in ((["A", "--version"], None), (["--reserve-5h", "5", "A", "-V"], ["-V"]),
+                               (["A", "--help"], ["--help"]), (["A", "resume", "--help"], ["resume", "--help"]),
+                               (["--reserve-weekly", "10", "A", "update"], ["update"]),
+                               (["A", "completion", "bash"], ["completion", "bash"])):
+            with self.subTest(args=args):
+                self.record.unlink(missing_ok=True)
+                result = self.run_as(SHELLS[0], args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("usage reserves", result.stderr)
+                if recorded is None:
+                    self.assertEqual(result.stdout, "codex-cli 0.163.0\n")
+                else:
+                    self.assertEqual(json.loads(self.record.read_text())["args"][-len(recorded):], recorded)
+
+    def test_reserve_flag_errors_name_the_problem_and_start_nothing(self):
+        for args, message in ((["--reserve-5h", "A"], "--reserve-5h takes a number from 0 through 100, or off, "
+                                                     "as the next argument."),
+                              (["--reserve-5h", "10"], "an account name must follow --reserve-5h and --reserve-weekly."),
+                              (["--reserve-5h=10", "A"], "--reserve-5h=VALUE is not accepted; write --reserve-5h VALUE."),
+                              (["--reserve-5h", "10", "--reserve-5h", "5", "A"], "--reserve-5h is given twice."),
+                              (["--reserve-weekly", "101", "A"], "--reserve-weekly takes a number from 0 through 100, "
+                                                                 "or off, as the next argument."),
+                              (["--reserve-5h", "10", "--list"], "an account name must follow --reserve-5h and "
+                                                                 "--reserve-weekly.")):
+            with self.subTest(args=args):
+                self.record.unlink(missing_ok=True)
+                result = self.run_as(SHELLS[0], args)
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (1, "", f"codex-as: {message}\n"))
+                self.assertFalse(self.record.exists(), "a flag error started Codex")
+        result = self.run_as(SHELLS[0], ["--reserve", "10", "A"])
+        self.assertEqual((result.returncode, result.stderr), (2, "codex-as: --reserve is not a codex-as option; native "
+                                                                 "options go after NAME (codex-as NAME --reserve ...)\n"))
+
     def test_tty_fds_are_preserved(self):
         for shell in SHELLS:
             master, slave = pty.openpty()
