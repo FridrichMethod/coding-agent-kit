@@ -423,6 +423,15 @@ for kind in json.loads(os.environ.get("FAKE_HOOKS", "[]")):
         event.update(tool_name="Bash", tool_input={"command": "true"})
     done = subprocess.run(["/bin/sh", "-c", command], input=json.dumps(event), capture_output=True, text=True)
     record["hooks"].append([kind, done.returncode, done.stdout, done.stderr])
+# A block message as the guard leaves it, or something else in its place.
+blocked = json.loads(os.environ.get("FAKE_BLOCKED", "null"))
+if blocked is not None:
+    if blocked["kind"] == "bytes":
+        pathlib.Path(state + ".blocked").write_bytes(bytes.fromhex(blocked["hex"]))
+    elif blocked["kind"] == "link":
+        os.symlink(blocked["target"], state + ".blocked")
+    else:
+        os.mkfifo(state + ".blocked")
 pathlib.Path(os.environ["FAKE_RECORD"]).write_text(json.dumps(record))
 print("fake codex ran")
 sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
@@ -729,6 +738,31 @@ class GuardedLaunch(unittest.TestCase):
         self.assertEqual(self.recorded()["hooks"][0][:2], ["prompt", 2])
         self.assertEqual(result.stderr, launch_line)
         self.assertEqual(self.launches(), [])
+
+    def test_the_block_message_is_printed_plain_and_bounded(self):
+        """What codex-as prints of .blocked is the guard's own text: control characters (C0 but tab and
+        newline, DEL, C1) are left out, at most 16 KiB is read, and a link or a FIFO in its place is not
+        read at all, nor waited on."""
+        self.trusted()
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        elsewhere = self.base / "elsewhere"
+        elsewhere.write_text("codex-as: A: text that is not the guard's\n")
+        text = "codex-as: A: stopped\x1b[2J\x07\x00\r\x7f\u009b31m here\n\tand there\x1b]0;title\x07 \ufffd\n"
+        cases = (({"kind": "bytes", "hex": text.encode("utf-8").hex()},
+                  "codex-as: A: stopped[2J31m here\n\tand there]0;title \ufffd\n"),
+                 ({"kind": "bytes", "hex": (b"\xff\xfe stopped \x9b").hex()}, "\ufffd\ufffd stopped \ufffd\n"),
+                 ({"kind": "bytes", "hex": (b"y" * (20 * 1024)).hex()}, "y" * (16 * 1024) + "\n"),
+                 ({"kind": "bytes", "hex": b" \n\x1b\x00 ".hex()}, ""),
+                 ({"kind": "link", "target": str(elsewhere)}, ""), ({"kind": "fifo"}, ""))
+        for blocked, printed in cases:
+            with self.subTest(blocked=blocked["kind"], printed=printed[:40]):
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go", env={"FAKE_BLOCKED": json.dumps(blocked)})
+                self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
+                self.assertEqual(result.stderr, launch_line + printed)
+                self.assertEqual(self.launches(), [])
+        # An interactive session shows its own blocks: nothing is printed after it.
+        result = self.run_codex("--reserve-5h", "10", "A", env={"FAKE_BLOCKED": json.dumps(cases[0][0])})
+        self.assertEqual(result.stderr, launch_line)
 
     def test_a_run_whose_hooks_did_not_run_is_reported_and_the_marker_goes(self):
         warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run {} (not trusted, "
