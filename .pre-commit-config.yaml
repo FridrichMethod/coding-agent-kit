@@ -66,11 +66,11 @@ repos:
         types: [file]
         files: '(?i)(\.(md|markdown|mdx|rst|txt)$|(^|/)(README|CHANGELOG|CONTRIBUTING|AUTHORS|LICENSE|NOTICE)(\.[^/]*)?$)'
       - id: claude-customizations
-        name: Claude status line, notifications and Git hook guard
+        name: Claude status line, notifications and Git hook guard (the usage file lock beside the guard's)
         entry: node --test tests/claude-customizations.cjs
         language: system
         pass_filenames: false
-        files: ^(helpers/.*|tests/(claude-customizations\.cjs|fixtures/claude-settings\.json))$
+        files: ^(helpers/.*|lib/coding-agent-kit/(guard|accounts|reserve)\.py|tests/(claude-customizations\.cjs|fixtures/claude-settings\.json))$
       - id: codex-as
         name: Codex account views and native sharing (isolated Bash/zsh)
         entry: tests/codex-as.sh

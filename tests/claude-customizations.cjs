@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { after, test } = require('node:test');
 const { stripVTControlCharacters } = require('node:util');
 
@@ -33,7 +33,7 @@ process.env.GIT_TEMPLATE_DIR = path.join(gitEnvironment, 'empty-template');
 fs.mkdirSync(process.env.GIT_TEMPLATE_DIR);
 
 const scripts = path.resolve(__dirname, '../helpers');
-const { formatStatus, gitBranch, recordUsage, sessionTokens } = require(path.join(scripts, 'statusline.cjs'));
+const { formatStatus, gitBranch, LOCK, lock, recordUsage, sessionTokens, unlock } = require(path.join(scripts, 'statusline.cjs'));
 const { notification } = require(path.join(scripts, 'notify.cjs'));
 const { bypassReason } = require(path.join(scripts, 'check-git-hooks.cjs'));
 const settings = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/claude-settings.json'), 'utf8'));
@@ -430,6 +430,430 @@ test('status line never records usage on Windows', (t) => {
     Object.defineProperty(process, 'platform', platform);
   }
   assert.ok(!fs.existsSync(file));
+});
+
+// The usage file is merged into by two writers, this helper and the guard's status line
+// (lib/coding-agent-kit/guard.py), under one lock: .NAME.lock beside the file, naming its holder.
+const statusline = path.join(scripts, 'statusline.cjs');
+const guardScript = path.resolve(__dirname, '../lib/coding-agent-kit/guard.py');
+const GONE = 4194400; // a process id above every host's limit (Linux 2**22, macOS 99999)
+const NOW = 1767268800000;
+const usageWindow = (used, resets) => ({ used_percentage: used, resets_at: resets });
+const lockOf = file => path.join(path.dirname(file), `.${path.basename(file)}.lock`);
+const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
+
+function put(file, content, mode = 0o600) {
+  fs.writeFileSync(file, typeof content === 'string' ? content : JSON.stringify(content));
+  fs.chmodSync(file, mode);
+}
+
+// A lock's content as a run that holds it writes it: its host, process id and clock.
+function holding(fields = {}) {
+  return JSON.stringify({ host: os.hostname(), pid: process.ppid, at: Math.floor(Date.now() / 1000), ...fields });
+}
+
+// LOCK.wait shortened to SECONDS for the rest of test T.
+function waitFor(t, seconds) {
+  const wait = LOCK.wait;
+  LOCK.wait = seconds;
+  t.after(() => { LOCK.wait = wait; });
+}
+
+// Replaces fs.NAME with REPLACEMENT(real) for the rest of test T; the helper calls it through the module.
+function patchFs(t, name, replacement) {
+  const real = fs[name];
+  fs[name] = replacement(real);
+  t.after(() => { fs[name] = real; });
+}
+
+const python = (() => {
+  if (process.platform === 'win32') return null;
+  const found = spawnSync('python3', ['-I', '-c', 'import sys; print(sys.executable if sys.version_info >= (3, 11) else "")'],
+    { encoding: 'utf8', timeout: 10000 });
+  return (found.status === 0 && found.stdout.trim()) || null;
+})();
+const withPython = { skip: process.platform === 'win32' ? 'claude-as and its usage file are POSIX-only'
+  : !python && 'python3 3.11 or newer is not on PATH', timeout: 60000 };
+// The start of a python3 -c program that loads guard.py (argv[1]) as the module guard.
+const LOAD_GUARD = 'import importlib.util, json, sys, time\nfrom pathlib import Path\n'
+  + 'spec = importlib.util.spec_from_file_location("guard", sys.argv[1])\n'
+  + 'guard = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(guard)\n';
+
+function runGuard(program, ...args) {
+  const result = spawnSync(python, ['-I', '-B', '-S', '-c', LOAD_GUARD + program, guardScript, ...args],
+    { encoding: 'utf8', timeout: 20000 });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
+// A child that takes the usage file's lock, prints "held" and keeps the lock until its stdin ends;
+// killed at the end of test T at the latest.
+function lockHolder(t, command, args) {
+  const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+  let out = '';
+  let ended = false;
+  const done = new Promise(resolve => child.on('close', (code, signal) => { ended = true; resolve({ code, signal, out }); }));
+  t.after(() => { if (!ended) child.kill('SIGKILL'); });
+  const ready = new Promise((resolve, reject) => {
+    child.stdout.on('data', chunk => { out += chunk; if (out.includes('held\n')) resolve(); });
+    child.stderr.on('data', chunk => { out += chunk; });
+    done.then(() => reject(new Error(`ended before it held the lock: ${out}`)));
+  });
+  return { child, ready, done };
+}
+
+const guardHolder = (t, file) => lockHolder(t, python, ['-I', '-B', '-S', '-c', `${LOAD_GUARD}name, fd = guard.lock(Path(sys.argv[2]))
+print("held", flush=True)
+sys.stdin.read()
+guard.unlock(name, fd)`, guardScript, file]);
+const helperHolder = (t, file) => lockHolder(t, process.execPath, ['-e', `const helper = require(process.argv[1]);
+const held = helper.lock(process.argv[2]);
+if (!held) process.exit(3);
+process.stdout.write('held\\n');
+require('node:fs').readFileSync(0);
+helper.unlock(...held);`, statusline, file]);
+
+test('status line keeps a newer reading of the same window', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  const now = NOW / 1000;
+  const [five, seven] = [now + 3600, now + 86400];
+  const input = (fiveHour, sevenDay) => ({ rate_limits: { five_hour: fiveHour, seven_day: sevenDay } });
+  put(file, { five_hour: usageWindow(91, five), seven_day: usageWindow(40, seven), seen_at: now - 1000 });
+  // The same reset and a lower percentage: an older session's reading, which never replaces the stored one.
+  assert.equal(recordUsage(input(usageWindow(60, five), usageWindow(40, seven)), env, NOW), true);
+  assert.deepEqual(readJson(file), { five_hour: usageWindow(91, five), seven_day: usageWindow(40, seven), seen_at: now });
+  assert.equal(recordUsage(input(usageWindow(60, five), usageWindow(40, seven)), env, NOW + 1000), false,
+    'kept windows were rewritten before RECORD_AGAIN');
+  // A higher percentage of the same window, and a later window, replace it.
+  assert.equal(recordUsage(input(usageWindow(95, five), usageWindow(40, seven)), env, NOW + 2000), true);
+  assert.deepEqual(readJson(file).five_hour, usageWindow(95, five));
+  assert.equal(recordUsage(input(usageWindow(30, five + 18000), usageWindow(40, seven)), env, NOW + 3000), true);
+  assert.deepEqual(readJson(file).five_hour, usageWindow(30, five + 18000));
+  // An earlier window is ignored, however high.
+  assert.equal(recordUsage(input(usageWindow(99, five), usageWindow(40, seven)), env, NOW + 400000), true);
+  assert.deepEqual(readJson(file).five_hour, usageWindow(30, five + 18000));
+  // An absent window keeps a stored one that has not reset, and drops one that has.
+  assert.equal(recordUsage(input(null, usageWindow(41, seven)), env, NOW + 401000), true);
+  assert.deepEqual(readJson(file), { five_hour: usageWindow(30, five + 18000), seven_day: usageWindow(41, seven),
+    seen_at: now + 401 });
+  assert.equal(recordUsage(input(null, usageWindow(41, seven)), env, (five + 18000) * 1000), true);
+  assert.deepEqual(readJson(file), { five_hour: null, seven_day: usageWindow(41, seven), seen_at: five + 18000 });
+  // A stored window that has reset gives way to any reading.
+  assert.equal(recordUsage(input(usageWindow(5, five + 36000), usageWindow(2, seven)), env, (seven + 1) * 1000), true);
+  assert.deepEqual(readJson(file), { five_hour: usageWindow(5, five + 36000), seven_day: usageWindow(2, seven),
+    seen_at: seven + 1 });
+  // A file the guard would not read (not 0600, or linked elsewhere too) holds no stored reading.
+  for (const [name, unsafe] of [['0644', () => fs.chmodSync(file, 0o644)],
+    ['a second link', () => fs.linkSync(file, path.join(folder, 'second'))]]) {
+    put(file, { five_hour: usageWindow(91, five), seven_day: null, seen_at: now });
+    unsafe();
+    assert.equal(recordUsage(input(usageWindow(60, five), null), env, NOW), true, name);
+    assert.deepEqual(readJson(file).five_hour, usageWindow(60, five), name);
+    assert.equal(fs.statSync(file).mode & 0o777, 0o600, name);
+    fs.rmSync(path.join(folder, 'second'), { force: true });
+  }
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a lock or temporary file was left');
+});
+
+test('status line reads the usage file again once it holds the lock', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  const now = NOW / 1000;
+  put(file, { five_hour: usageWindow(50, now + 3600), seven_day: null, seen_at: now - 1000 });
+  const newer = { five_hour: usageWindow(91, now + 3600), seven_day: null, seen_at: now };
+  let taken = 0;
+  patchFs(t, 'linkSync', real => (from, to) => {
+    // A newer session's run writes its reading after this run read the file and before it takes the lock.
+    if (to === lockOf(file) && !taken++) put(file, newer);
+    return real(from, to);
+  });
+  assert.equal(recordUsage({ rate_limits: { five_hour: usageWindow(60, now + 3600) } }, env, NOW), false);
+  assert.equal(taken, 1);
+  assert.deepEqual(readJson(file), newer);
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a lock or temporary file was left');
+});
+
+test('status line holds a 0600 lock naming itself while it writes, whatever the umask', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  let held = null;
+  patchFs(t, 'renameSync', real => (from, to) => {
+    if (to === file) held = { mode: fs.lstatSync(lockOf(file)).mode & 0o7777, holder: readJson(lockOf(file)) };
+    return real(from, to);
+  });
+  for (const umask of [0o077, 0o277, 0o477]) {
+    fs.rmSync(file, { force: true });
+    held = null;
+    const previous = process.umask(umask);
+    const before = Math.floor(Date.now() / 1000);
+    try {
+      assert.equal(recordUsage(usageInput(10, 20), env, NOW), true);
+    } finally {
+      process.umask(previous);
+    }
+    const after = Date.now() / 1000;
+    assert.equal(held?.mode, 0o600, `umask ${umask.toString(8)}`);
+    assert.deepEqual(Object.keys(held.holder).sort(), ['at', 'host', 'pid']);
+    assert.deepEqual([held.holder.host, held.holder.pid], [os.hostname(), process.pid]);
+    assert.ok(before <= held.holder.at && held.holder.at <= after, JSON.stringify(held.holder));
+    assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a lock or temporary file was left');
+    assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  }
+});
+
+test('status line lets the lock go when its write fails, and records nothing without hard links', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  const failing = code => () => { throw Object.assign(new Error(`${code}: fixture`), { code }); };
+  const rename = fs.renameSync;
+  fs.renameSync = failing('EIO');
+  try {
+    assert.throws(() => recordUsage(usageInput(10, 20), env, NOW), { code: 'EIO' });
+  } finally {
+    fs.renameSync = rename;
+  }
+  assert.deepEqual(fs.readdirSync(folder), [], 'a lock or temporary file was left');
+  // link() fails in a directory without hard links: nothing is recorded, beside a stale lock too.
+  const link = fs.linkSync;
+  for (const [code, stale] of [['EPERM', false], ['ENOTSUP', false], ['EPERM', true]]) {
+    if (stale) put(lockOf(file), holding({ pid: GONE }));
+    fs.linkSync = failing(code);
+    try {
+      assert.throws(() => recordUsage(usageInput(10, 20), env, NOW), { code });
+    } finally {
+      fs.linkSync = link;
+    }
+    assert.deepEqual(fs.readdirSync(folder), stale ? [path.basename(lockOf(file))] : [], `${code}: a file was left`);
+  }
+});
+
+test('status line records nothing while another writer holds the usage file lock', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  waitFor(t, 0.1);
+  const lock = lockOf(file);
+  const breaker = `${lock}.break`;
+  const now = Math.floor(Date.now() / 1000);
+  // The holder's content decides, never the file's time, which on a network home is the server's clock.
+  const held = {
+    'a run of this host': [holding(), 0],
+    'a run of this host, its file time an hour old': [holding(), -3600],
+    'a run of this host, its file time 20 seconds ahead': [holding(), 20],
+    'a run of another host whose process id is none here': [holding({ host: 'another host', pid: GONE }), 0],
+    'a run of another host, within LOCK_STALE of this clock': [holding({ host: 'another host', at: now - 8 }), 0],
+  };
+  for (const [name, [content, age]] of Object.entries(held)) {
+    put(lock, content);
+    fs.utimesSync(lock, now + age, now + age);
+    const started = performance.now();
+    assert.equal(recordUsage(usageInput(10, 20), env, NOW), false, name);
+    const elapsed = performance.now() - started;
+    assert.ok(elapsed >= 100 && elapsed < 1500, `${name}: waited ${elapsed} ms`);
+    assert.equal(fs.readFileSync(lock, 'utf8'), content, name);
+    assert.deepEqual(fs.readdirSync(folder), [path.basename(lock)], name);
+  }
+  // A stale lock is removed only by the holder of its breaker: a breaker of a running run makes this one wait.
+  put(lock, holding({ pid: GONE }));
+  put(breaker, holding());
+  assert.equal(recordUsage(usageInput(10, 20), env, NOW), false);
+  assert.deepEqual(fs.readdirSync(folder).sort(), [path.basename(lock), path.basename(breaker)]);
+  fs.rmSync(breaker);
+  fs.rmSync(lock);
+  // Unchanged readings take no lock, so no writer waits for one.
+  assert.equal(recordUsage(usageInput(10, 20), env, NOW), true);
+  put(lock, holding());
+  const started = performance.now();
+  assert.equal(recordUsage(usageInput(10, 20), env, NOW + 1000), false);
+  assert.ok(performance.now() - started < 150, 'an unchanged reading waited for the lock');
+});
+
+test('status line counts another host\'s lock clock in whole seconds', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  waitFor(t, 0.1);
+  const at = Math.floor(Date.now() / 1000);
+  const now = Date.now;
+  t.after(() => { Date.now = now; });
+  // A lock taken at any fraction of the second "at" names holds LOCK_STALE seconds of this clock either way.
+  for (const [lag, broken] of [[10.999, false], [-10.999, false], [11.001, true], [-11.001, true]]) {
+    fs.rmSync(file, { force: true });
+    put(lockOf(file), holding({ host: 'another host', at }));
+    Date.now = () => (at + lag) * 1000;
+    try {
+      assert.equal(recordUsage(usageInput(10, 20), env, NOW), broken, `lag ${lag}`);
+    } finally {
+      Date.now = now;
+    }
+    assert.equal(fs.existsSync(lockOf(file)), !broken, `lag ${lag}`);
+  }
+  fs.rmSync(lockOf(file), { force: true });
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
+});
+
+test('status line lock: a link reported as failed but made is taken, and another run\'s lock is never removed', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  // A network file system can retry a link whose first reply was lost: the second reports EEXIST.
+  patchFs(t, 'linkSync', real => (from, to) => {
+    real(from, to);
+    throw Object.assign(new Error('EEXIST: fixture'), { code: 'EEXIST' });
+  });
+  assert.equal(recordUsage(usageInput(10, 20), env, NOW), true);
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a lock or temporary file was left');
+  // A lock this run held but that another run removed as stale and took in its place stays.
+  const held = lock(file);
+  assert.deepEqual(held?.[0], lockOf(file));
+  fs.rmSync(lockOf(file));
+  put(lockOf(file), 'another run\'s lock');
+  unlock(...held);
+  assert.equal(fs.readFileSync(lockOf(file), 'utf8'), 'another run\'s lock');
+});
+
+test('status line removes a lock or breaker that a run left when it ended, and records', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  waitFor(t, 0.2);
+  const lock = lockOf(file);
+  const now = Math.floor(Date.now() / 1000);
+  const left = {
+    'a process of this host that has ended': holding({ pid: GONE }),
+    'a clock LOCK_STALE behind': holding({ host: 'another host', at: now - 15 }),
+    'a clock LOCK_STALE ahead': holding({ host: 'another host', at: now + 15 }),
+    'nothing written': '', 'not JSON': 'held', 'a list': '[1]',
+    'no host': JSON.stringify({ pid: process.ppid, at: now }),
+    'a process id of 0': holding({ pid: 0 }), 'a negative process id': holding({ pid: -1 }),
+    'a clock that is no whole number': holding({ at: now + 0.5 }), 'a clock as text': holding({ at: String(now) }),
+  };
+  for (const [name, content] of Object.entries(left)) {
+    fs.rmSync(file, { force: true });
+    put(lock, content);
+    assert.equal(recordUsage(usageInput(10, 20), env, NOW), true, name);
+    assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], `${name}: a lock or its remains were left`);
+  }
+  // A breaker that a run left when it ended goes, and then the stale lock it was taken for.
+  fs.rmSync(file);
+  put(lock, holding({ pid: GONE }));
+  put(`${lock}.break`, holding({ pid: GONE }));
+  assert.equal(recordUsage(usageInput(10, 20), env, NOW), true);
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
+  if (process.getuid() !== 0) {
+    // One its owner may only write names no holder and goes; one that opens neither way is never removed.
+    fs.rmSync(file);
+    put(lock, holding(), 0o200);
+    assert.equal(recordUsage(usageInput(10, 20), env, NOW), true);
+    assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
+    fs.rmSync(file);
+    put(lock, holding({ pid: GONE }), 0o000);
+    assert.throws(() => recordUsage(usageInput(10, 20), env, NOW), { code: 'EACCES' });
+    assert.deepEqual(fs.readdirSync(folder), [path.basename(lock)]);
+  }
+});
+
+test('status line lets the lock go before SIGTERM, SIGHUP or SIGINT can end it', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  // The signal comes while the run holds the lock, right before it renames its reading into place.
+  const program = `const fs = require('node:fs');
+const rename = fs.renameSync;
+fs.renameSync = (from, to) => { if (to === process.argv[2]) process.kill(process.pid, process.argv[3]); return rename(from, to); };
+const helper = require(process.argv[1]);
+process.stdout.write(String(helper.recordUsage(JSON.parse(process.argv[4]), process.env, Number(process.argv[5]))));`;
+  for (const signal of ['SIGTERM', 'SIGHUP', 'SIGINT']) {
+    fs.rmSync(file, { force: true });
+    const result = spawnSync(process.execPath, ['-e', program, statusline, file, signal,
+      JSON.stringify(usageInput(10, 20)), String(NOW)], {
+      encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, ...env, CODING_AGENT_KIT_CLAUDE_PID: String(process.pid) },
+    });
+    assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], `${signal}: a lock or temporary file was left`);
+    assert.equal(readJson(file).five_hour.used_percentage, 10, signal);
+    assert.deepEqual([result.status, result.signal, result.stdout], [0, null, 'true'], `${signal}: ${result.stderr}`);
+  }
+});
+
+test('status line and the guard honor each other\'s usage file lock', withPython, async (t) => {
+  const { folder, file, env } = usageFixture(t);
+  // One protocol: the guard's constants are the helper's (the waits below are shortened in both).
+  assert.equal(runGuard('print(guard.LOCK_WAIT, guard.LOCK_STALE, guard.RECORD_AGAIN)'), `${LOCK.wait} ${LOCK.stale} 300`);
+  assert.deepEqual(LOCK, { wait: 2, stale: 10 });
+  waitFor(t, 0.3);
+  const now = Math.floor(Date.now() / 1000);
+  const reading = used => ({ rate_limits: { five_hour: usageWindow(used, now + 3600), seven_day: usageWindow(20, now + 86400) } });
+  const guardRecord = used => runGuard(`guard.LOCK_WAIT = 0.3
+try:
+    print(guard.record(sys.argv[2], json.loads(sys.argv[3])["rate_limits"], time.time()))
+except Exception as error:
+    print(type(error).__name__)`, file, JSON.stringify(reading(used)));
+  const lock = lockOf(file);
+
+  // guard.py's lock() holds: the helper waits LOCK.wait seconds, records nothing and leaves the lock as it is.
+  let holder = guardHolder(t, file);
+  await holder.ready;
+  const content = fs.readFileSync(lock, 'utf8');
+  assert.equal(JSON.parse(content).pid, holder.child.pid);
+  let started = performance.now();
+  assert.equal(recordUsage(reading(10), env, Date.now()), false);
+  const elapsed = performance.now() - started;
+  assert.ok(elapsed >= LOCK.wait * 1000 && elapsed < LOCK.wait * 1000 + 1500, `waited ${elapsed} ms`);
+  assert.equal(fs.readFileSync(lock, 'utf8'), content);
+  assert.ok(!fs.existsSync(file));
+  holder.child.stdin.end();
+  assert.equal((await holder.done).code, 0);
+  assert.deepEqual(fs.readdirSync(folder), []);
+  assert.equal(recordUsage(reading(10), env, Date.now()), true);
+  // A guard run that ended holding its lock left it behind: the helper removes it at once and records.
+  holder = guardHolder(t, file);
+  await holder.ready;
+  holder.child.kill('SIGKILL');
+  await holder.done;
+  assert.ok(fs.existsSync(lock));
+  started = performance.now();
+  assert.equal(recordUsage(reading(11), env, Date.now()), true);
+  assert.ok(performance.now() - started < 1000);
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
+
+  // The helper's lock holds: guard.record() waits LOCK_WAIT seconds, raises TimeoutError and writes nothing.
+  holder = helperHolder(t, file);
+  await holder.ready;
+  const helperContent = fs.readFileSync(lock, 'utf8');
+  assert.equal(JSON.parse(helperContent).pid, holder.child.pid);
+  assert.equal(guardRecord(12), 'TimeoutError');
+  assert.equal(fs.readFileSync(lock, 'utf8'), helperContent);
+  assert.equal(readJson(file).five_hour.used_percentage, 11);
+  holder.child.stdin.end();
+  assert.equal((await holder.done).code, 0);
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
+  assert.equal(guardRecord(12), 'True');
+  // A helper run that ended holding its lock left it behind: the guard removes it at once and records.
+  holder = helperHolder(t, file);
+  await holder.ready;
+  holder.child.kill('SIGKILL');
+  await holder.done;
+  assert.ok(fs.existsSync(lock));
+  assert.equal(guardRecord(13), 'True');
+  assert.equal(readJson(file).five_hour.used_percentage, 13);
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
+});
+
+test('status line records nothing as the user\'s own status line of a guarded launch', withPython, (t) => {
+  const { root, folder, file, env } = usageFixture(t);
+  // claude-as passes the helper's variables on in a guarded launch too, and the guard's status line runs the
+  // helper with them, but the helper's parent is then the guard's /bin/sh, not the claude process.
+  const guarded = path.join(folder, 'claude-guarded.usage.json');
+  const state = fs.mkdtempSync(path.join(root, 'guard-'));
+  const prefix = path.join(state, 'claude-as-work-1-1');
+  put(`${prefix}.ran.start`, '');
+  const quote = value => `'${value.replace(/'/g, "'\\''")}'`;
+  const launch = JSON.stringify({ v: 1, tool: 'claude-as', account: 'work', five_hour: '10', weekly: null,
+    started: Math.floor(Date.now() / 1000), usage: guarded, state: prefix,
+    statusline: `${quote(process.execPath)} ${quote(statusline)}` });
+  const input = { ...usageInput(7, 8), model: { display_name: 'Opus' } };
+  const command = [python, '-I', '-B', '-S', guardScript, 'status'];
+  // This process plays the claude that claude-as became, which runs the guard directly or through a shell.
+  for (const [name, argv] of [['directly', command], ['through a shell', ['/bin/sh', '-c', command.map(quote).join(' ')]]]) {
+    for (const leftover of [guarded, file, `${prefix}.seen`]) fs.rmSync(leftover, { force: true });
+    const result = spawnSync(argv[0], argv.slice(1), {
+      input: JSON.stringify(input), encoding: 'utf8', timeout: 20000,
+      env: { ...process.env, ...env, CODING_AGENT_KIT_CLAUDE_PID: String(process.pid), CODING_AGENT_KIT_GUARD: launch },
+    });
+    assert.equal(result.status, 0, `${name}: ${result.stderr}`);
+    assert.equal(result.stdout, `${formatStatus(input)}\n`, `${name}: the helper's footer`);
+    assert.equal(readJson(guarded).seven_day.used_percentage, 8, `${name}: the guard recorded`);
+    assert.ok(fs.existsSync(`${prefix}.seen`), name);
+    assert.ok(!fs.existsSync(file), `${name}: the helper recorded under the guard`);
+  }
 });
 
 // A transcript line with one response's usage, as Claude Code writes it.
