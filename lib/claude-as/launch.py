@@ -428,7 +428,7 @@ def check_form(form, account):
             if name in HOOKLESS and not env_off(env[name]):
                 refuse_guarded(account, f"{path} sets {name} in its env, the switch of Claude Code's {HOOKLESS[name]}, "
                                "which runs none of the usage reserve guard's hooks")
-            if name in REOPENING or (name in CLOSED and env[name] != CLOSED[name]):
+            if name in REOPENING or (name in CLOSED and not env_on(env[name])):
                 refuse_guarded(account, f"{path} sets {name} in its env, which would reopen what a launch with usage "
                                "reserves closes")
 

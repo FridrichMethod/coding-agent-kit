@@ -470,14 +470,21 @@ class Refusals(Fixture):
                 write(path, json.dumps(data))
                 self.assert_refused(["work"], reason + ", so Claude Code would not run the usage reserve guard's hooks")
                 path.unlink()
-        for name, text in ((RESUME, "1"), ("CLAUDE_DISABLE_ADOPT", "0"), ("CLAUDE_CODE_DISABLE_AGENT_VIEW", "")):
-            with self.subTest(name=name):
+        # A value Claude Code does not read as on (its isEnvTruthy: 1, true, yes or on) reopens the background.
+        for name, text in ((RESUME, "1"), ("CLAUDE_DISABLE_ADOPT", "0"), ("CLAUDE_CODE_DISABLE_AGENT_VIEW", ""),
+                           ("CLAUDE_DISABLE_ADOPT", "maybe"), ("CLAUDE_DISABLE_ADOPT", 0),
+                           ("CLAUDE_CODE_DISABLE_AGENT_VIEW", False), ("CLAUDE_DISABLE_ADOPT", None)):
+            with self.subTest(name=name, text=text):
                 write(user, json.dumps({"env": {name: text}}))
                 self.assert_refused(["work"], f"{user} sets {name} in its env, which would reopen what a launch with "
                                     "usage reserves closes")
         # Values that keep the hooks and the background closed launch.
         write(user, json.dumps({"disableAllHooks": False, "allowManagedHooksOnly": True, "env": CLOSED}))
         self.guarded(["work"])
+        for text in ("true", " ON ", "Yes", 1, True):
+            with self.subTest(closed=text):
+                write(user, json.dumps({"env": {name: text for name in CLOSED}}))
+                self.guarded(["work"])
 
     def test_safe_mode_and_bare_mode_stop_the_hooks(self):
         """Claude Code runs none of the --settings hooks in its safe mode or its bare mode (RealClaude pins it)."""
