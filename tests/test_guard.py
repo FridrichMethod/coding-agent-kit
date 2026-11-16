@@ -108,13 +108,22 @@ def shell_call(when):
 
 
 class Fixture(unittest.TestCase):
-    """A guard directory and an accounts directory, both owned and 0700, in a temporary root."""
+    """A guard directory and an accounts directory, both owned and 0700, in a temporary root. The caller's
+    environment, which in-process status line runs pass on, gets a temporary HOME and loses the kit's own
+    variables and the XDG directories."""
 
     def setUp(self):
         self.addCleanup(os.umask, os.umask(0o077))
         self.tmp = tempfile.TemporaryDirectory(prefix="kit-guard-test-")
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name).resolve()
+        home = self.root / "home"
+        home.mkdir(mode=0o700)
+        patcher = patch.dict(os.environ, {"HOME": str(home)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        for name in [name for name in os.environ if name.startswith(("CODING_AGENT_KIT_", "XDG_")) or name == "NO_COLOR"]:
+            del os.environ[name]
         self.accounts = self.root / "state o'clock" / "accounts"
         self.guard_dir = self.accounts.parent / "guard"
         for folder in (self.accounts.parent, self.accounts, self.guard_dir):
@@ -843,9 +852,9 @@ class StatusLine(Fixture):
         self.scripts.mkdir()
 
     def script(self, name, body):
-        """An executable Python script at a path with a space and a quote."""
+        """An executable Python script at a path with a space and a quote, isolated as the guard runs."""
         path = self.scripts / name
-        path.write_text(f"#!{sys.executable}\nimport os, sys, time\n{body}\n")
+        path.write_text(f"#!{sys.executable} -I\nimport os, sys, time\n{body}\n")
         path.chmod(0o700)
         return path
 
@@ -1083,6 +1092,9 @@ class StatusLine(Fixture):
             footer = guard.status(status_input(), launch, NOW)
         self.assertEqual(footer.encode("utf-8", "surrogateescape"),
                          b"\x1b[36mModel\x1b[0m | from the session\n\xff second\n")
+        home = self.launch(weekly="10", statusline='printf %s "$HOME"')
+        put(self.state(home, "ran.start"), "")
+        self.assertEqual(guard.status(status_input(), home, NOW), str(self.root / "home"), "the suite's HOME is not temporary")
 
     def test_no_footer_without_a_command_or_from_one_that_fails_prints_nothing_or_hangs(self):
         sleeper = self.script("sleep long.py", "print('late', flush=True); time.sleep(30)")
