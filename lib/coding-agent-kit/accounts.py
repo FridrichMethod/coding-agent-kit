@@ -33,10 +33,15 @@ Public API (load this file by path; it is never on sys.path):
         NAME, for each name: the --account-labels lines. Unsafe metadata, or a
         directory that is the secrets directory, gives bare names.
 
-Files, each with one writer, under directory(config):
+Files under directory(config), with their writers:
     codex-NAME.json         codex-as: email, plan and the last usage snapshot
     claude-NAME.json        claude-as: the label
-    claude-NAME.usage.json  helpers/statusline.cjs: the last rate-limit windows
+    claude-NAME.usage.json  the last rate-limit windows, from two writers: the
+                            status line helper (helpers/statusline.cjs) and the
+                            reserve guard's status line (guard.py record()), which
+                            keeps a stored window that has not reset against an
+                            older reading, and reads, merges and writes under the
+                            lock .claude-NAME.usage.json.lock beside the file.
 Times in them come from a token, a Codex rollout or the status line, never
 from the launcher's clock; one from year 10000 on is ignored.
 """
