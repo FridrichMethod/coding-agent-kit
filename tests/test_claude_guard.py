@@ -739,6 +739,7 @@ class Sandbox:
 
     def __init__(self, base, bindir):
         self.base, self.bindir = base, bindir
+        self.sessions = set()  # the sessions run() started: each one's leader's process id
         self.home, self.work, self.shims = base / "home", base / "work", base / "shims"
         self.config = self.home / ".claude"
         for path in (self.config, self.work, self.shims, base / "tmp", base / "run",
@@ -783,6 +784,7 @@ class Sandbox:
         """(exit code, stdout, stderr) of CLAUDE ARGS in a session of its own, which is killed afterwards."""
         child = subprocess.Popen([claude, *args], cwd=self.work, env=env, stdin=subprocess.DEVNULL,
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        self.sessions.add(child.pid)
         try:
             out, err = child.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -794,16 +796,28 @@ class Sandbox:
         return child.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
 
     def strays(self):
-        """Processes still running with this sandbox's configuration directory, killed; Linux only."""
+        """Processes of this sandbox still running, killed; Linux only. A process of the sandbox is one in a
+        session that run() started, or one of this user's whose working directory lies in the sandbox (a
+        process that left the session). Only /proc/PID/stat and this user's /proc/PID/cwd links are read:
+        never another process's environment, command line or files."""
         if not os.path.isdir("/proc/self"):
             return []
-        needle, found = f"CLAUDE_CONFIG_DIR={self.config}".encode(), []
+        found, uid, base = [], os.getuid(), str(self.base)
         for entry in filter(str.isdigit, os.listdir("/proc")):
+            pid = int(entry)
             try:
-                with open(f"/proc/{entry}/environ", "rb") as stream:
-                    if needle in stream.read().split(b"\0"):
-                        found.append(int(entry))
-            except OSError:
+                with open(f"/proc/{entry}/stat", "rb") as stream:
+                    # pid (comm) state ppid pgrp session ...: the fields after the command name.
+                    state, _, _, session = stream.read().rpartition(b")")[2].split()[:4]
+                if state == b"Z" or pid == os.getpid():
+                    continue
+                if int(session) in self.sessions:
+                    found.append(pid)
+                elif os.stat(f"/proc/{entry}").st_uid == uid:
+                    cwd = os.readlink(f"/proc/{entry}/cwd")
+                    if cwd == base or cwd.startswith(base + "/"):
+                        found.append(pid)
+            except (OSError, ValueError):
                 pass
         for pid in found:
             try:
@@ -964,6 +978,46 @@ class RealClaude(unittest.TestCase):
                 self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
                 self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
                 self.assert_state(state, (".launched",), (".ran.start", ".ran.prompt", ".ran.stop", ".blocked"))
+
+
+@unittest.skipUnless(os.path.isdir("/proc/self"), "the sandbox finds its strays through /proc (Linux)")
+class SandboxStrays(unittest.TestCase):
+    """The sandbox finds what Claude Code may leave running without reading any process's environment."""
+
+    def test_strays_are_found_by_session_and_working_directory(self):
+        tmp = tempfile.TemporaryDirectory(prefix="claude-guard-strays-")
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name).resolve()
+        sandbox = Sandbox(base / "sandbox", os.path.dirname(sys.executable))
+        # A process outside the sandbox in a session of its own, which must stay.
+        outside = subprocess.Popen(["sleep", "60"], cwd=base, start_new_session=True)
+        self.addCleanup(outside.wait)
+        self.addCleanup(outside.kill)
+        # One stray in the session with a process group of its own, so the group kill misses it, and one that
+        # left the session with its working directory in the sandbox.
+        program = ("import subprocess, sys\n"
+                   "quiet = {'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}\n"
+                   "grouped = subprocess.Popen(['sleep', '60'], process_group=0, **quiet)\n"
+                   "detached = subprocess.Popen(['sleep', '60'], start_new_session=True, **quiet)\n"
+                   "print(grouped.pid, detached.pid)\n")
+        code, out, err = sandbox.run(sys.executable, ["-I", "-c", program], {"PATH": os.environ.get("PATH", "/usr/bin:/bin")})
+        self.assertEqual(code, 0, err)
+        expected = sorted(map(int, out.split()))
+        opened = []
+        real_open = open
+
+        def recording_open(file, *args, **kwargs):
+            opened.append(str(file))
+            return real_open(file, *args, **kwargs)
+
+        with unittest.mock.patch("builtins.open", recording_open):
+            self.assertEqual(sorted(sandbox.strays()), expected)
+        self.assertEqual([name for name in opened if not name.endswith("/stat")], [])
+        self.assertIsNone(outside.poll())
+        deadline = time.monotonic() + 10
+        while (left := sandbox.strays()) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertEqual(left, [])
 
 
 if __name__ == "__main__":
