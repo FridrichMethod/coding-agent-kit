@@ -95,18 +95,20 @@ to the lock's name (an existing name is held), so no lock ever exists without
 its holder, and holds back SIGTERM, SIGHUP and SIGINT until it has let it go.
 Other runs judge a lock by that content, never by the file's time (on a network
 home directory the server's clock): one that names no holder, one whose "at" is
-more than LOCK_STALE + 1 seconds from their clock and one of their host whose
-process has ended was left by a run that ended. Such a lock is removed under the
-breaker .NAME.lock.break, a lock of the same kind, judged the same way, and held
-only to judge the lock again and remove it while it is still the file judged,
-so one run at a time removes a lock and a lock that another run took meanwhile
-is never moved. The judgment is a lease: it holds while the hosts that share
-the home directory have their own host names and clocks within LOCK_STALE
-seconds, less the longest time a run holds the lock or breaker; a run stopped
-that long while it holds either counts as ended, and once it resumes it can
-remove the next run's lock. The directory needs hard links, as local and
-network file systems have; without them, and when another writer holds the lock
-LOCK_WAIT seconds, the run records nothing and creates no STATE.seen.
+more than LOCK_STALE + 1 seconds from their clock (one second for its whole
+seconds) and one of their host whose process has ended was left by a run that
+ended. Such a lock is removed under the breaker .NAME.lock.break, a lock of the
+same kind, judged the same way, and held only to judge the lock again and
+remove it while it is still the file judged, so one run at a time removes a
+lock and a lock that another run took meanwhile is never moved. The judgment is
+a lease: it holds while the hosts that share the home directory have host names
+of their own and clocks within LOCK_STALE seconds of each other, less the
+longest time a run holds the lock or breaker. A run stopped that long while it
+holds either counts as ended; once it resumes, it can write an older merge over
+a newer reading or remove a lock that another run took since. The directory
+needs hard links, as local and network file systems have; without them, and
+when another writer holds the lock LOCK_WAIT seconds, the run records nothing
+and creates no STATE.seen.
 Then it runs the user's own status line command (the launch's "statusline")
 through /bin/sh -c with the same input and the caller's environment, and prints
 its output unchanged as the footer: nothing when it fails, prints nothing or
