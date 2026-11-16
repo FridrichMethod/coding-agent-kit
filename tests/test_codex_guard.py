@@ -10,7 +10,9 @@ Codex does and runs the guard's hooks the way Codex runs them: the command of
 the -c value through a shell, with the event on stdin. No native, provider,
 credential or network is involved. RealCodex runs the real codex, when it is on
 PATH, in a temporary HOME against tests/fixtures/guard/codex_backend.py on
-127.0.0.1, with every proxy at a closed loopback port; it skips otherwise.
+127.0.0.1, with every proxy at a closed loopback port; it skips otherwise. Of
+this host's user it reads only the codex install's own files where they lie
+(Sandbox says which).
 """
 
 import base64
@@ -1350,7 +1352,13 @@ class Sandbox:
     runs git ls-remote for its plugin marketplace at every start) and no session bus. PATH holds the
     system directories and a directory of the sandbox's own with a link to CODEX (and to the
     interpreter its #! line names, for a codex that is a node script), never the directory codex was
-    found in. The model provider is the loopback fake; nothing holds a credential."""
+    found in. The model provider is the loopback fake; nothing holds a credential.
+
+    The one exception is the codex install itself, which runs and reads its own files from where it
+    lies, under the real home for a standalone install (~/.codex/packages/standalone/releases/VERSION):
+    the binary, codex-package.json, codex-resources, and the codex-path directory that Codex puts on
+    its children's PATH. They are read, never written; no configuration, login, session or trust
+    record of the user is touched."""
 
     def __init__(self, base, codex):
         self.base = base
@@ -1466,7 +1474,8 @@ class RealCodex(unittest.TestCase):
     codex-as passes them, a launch as codex-as exports it, and a loopback fake of the Responses API that
     answers from a script and sends rate limits as the real backend does. codex exec runs directly on the
     native, with --dangerously-bypass-hook-trust standing in for the user's trust in "Hooks need review";
-    the trust prompt and the terminal session are left to the live acceptance."""
+    the trust prompt and the terminal session are left to the live acceptance. Codex reads its own
+    install's files where they lie (Sandbox), nothing else of the user's."""
 
     @classmethod
     def setUpClass(cls):
