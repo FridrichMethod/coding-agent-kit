@@ -7,5 +7,5 @@ set -euo pipefail
 unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-# Arguments go to unittest, for example -k Evaluation.
+# Arguments go to unittest, for example -k Resolution.
 python3 -I -B -m unittest discover -s "$TEST_DIR" -p test_reserves.py -v "$@"

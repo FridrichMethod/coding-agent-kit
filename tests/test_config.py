@@ -1787,13 +1787,13 @@ class Launchers(unittest.TestCase):
         home = self.base / "golden/home with spaces"
         self.assertEqual(files[".codex/accounts/A/auth.json"][2], f"{home}/.secrets/codex-A.json")
         self.assertEqual(records[2]["env"]["CODEX_HOME"], f"{home}/.codex")
-        # Reserves resolving off and the explicit setup-token mode change no launch either.
+        # Reserves resolving off change no launch either.
         for variant in (DEFAULTS_FILE, f'codex_home = "{home}//.codex/"\nsecrets_dir = "{home}/./.secrets/"\n',
                         DEFAULTS_FILE + OFF_TABLES):
             with self.subTest(variant=variant):
                 self.assertEqual(self.golden(variant), expected)
         # Invocation flags that turn both reserves off launch exactly as without them, in either order,
-        # also over a file that enables reserves (which a setup-token Claude account could not use).
+        # also over a file that enables reserves.
         off = ["--reserve-5h", "off", "--reserve-weekly", "off"]
         for variant, flags in ((None, off), (None, off[2:] + off[:2]), (DEFAULTS_FILE + SPEC_RESERVES, off)):
             with self.subTest(variant=variant, flags=flags):
