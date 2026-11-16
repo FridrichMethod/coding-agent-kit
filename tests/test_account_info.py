@@ -78,6 +78,36 @@ class Store(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "0700"):
             accounts.directory(self.config, create=True)
 
+    def test_a_named_directory_beside_it_has_the_same_rules(self):
+        os.umask(0o022)
+        guard = self.config.state_dir / "guard"
+        self.assertEqual(accounts.directory(self.config, name="guard"), guard)
+        self.assertFalse(self.config.state_dir.exists(), "a plain lookup created the directory")
+        self.assertEqual(accounts.directory(self.config, create=True, name="guard"), guard)
+        self.assertEqual(stat.S_IMODE(guard.lstat().st_mode), 0o700)
+        self.assertFalse(self.dir.exists(), "the guard directory made the accounts directory")
+        self.assertEqual(accounts.directory(self.config, create=True), self.dir)
+        guard.chmod(0o750)
+        with self.assertRaisesRegex(ValueError, "0700"):
+            accounts.directory(self.config, create=True, name="guard")
+        guard.chmod(0o700)
+        self.config.state_dir.chmod(0o777)
+        with self.assertRaisesRegex(ValueError, "other users cannot change"):
+            accounts.directory(self.config, create=True, name="guard")
+        self.config.state_dir.chmod(0o700)
+        os.rename(guard, self.base / "real-guard")
+        os.symlink(self.base / "real-guard", guard)
+        with self.assertRaisesRegex(ValueError, "0700"):
+            accounts.directory(self.config, create=True, name="guard")
+        config = SimpleNamespace(state_dir=self.config.state_dir, secrets_dir=self.base / "real-guard")
+        for create in (False, True):
+            with self.subTest(create=create), self.assertRaisesRegex(ValueError, "secrets directory"):
+                accounts.directory(config, create=create, name="guard")
+        for name in ("", ".", "..", "a/b", "/abs", "guard/", "a\0b", None, b"guard"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "directory name"):
+                accounts.directory(self.config, create=True, name=name)
+        self.assertEqual(sorted(p.name for p in self.config.state_dir.iterdir()), ["accounts", "guard"])
+
     def test_the_directory_is_never_the_secrets_directory(self):
         # Metadata files carry the credentials' names (codex-NAME.json): reading or writing one
         # there would open or replace a login.

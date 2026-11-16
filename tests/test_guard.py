@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,7 @@ def load(name, path):
 
 
 guard = load("kit_guard_under_test", "lib/coding-agent-kit/guard.py")
+guard_launch = load("kit_guard_launch_under_test", "lib/coding-agent-kit/guard_launch.py")
 reserve = load("kit_reserve_for_guard", "lib/coding-agent-kit/reserve.py")
 
 D = Decimal
@@ -955,12 +957,267 @@ class StatusLine(Fixture):
         self.assertFalse(self.state(unguarded, "seen").exists())
 
 
+DAY = 86400
+VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_AGENT_KIT_GUARD_PYTHON")
+MARKER = "codex-hooks-90aeb3ec484a2ca6"
+
+
+def policy(tool, account, five_hour=None, weekly=None):
+    """The resolved policy of a launch with these reserves (Decimal values, None for off)."""
+    return reserve.Policy(tool, account,
+                          reserve.Setting("five_hour", five_hour, "default" if five_hour is None else "invocation"),
+                          reserve.Setting("weekly", weekly, "default" if weekly is None else "global"))
+
+
+class GuardLaunch(Fixture):
+    """What a launcher needs for a guarded launch: the guard's path, the environment and the state's upkeep."""
+
+    def setUp(self):
+        super().setUp()
+        self.started = int(time.time()) - 5
+
+    def release(self, managed, name):
+        """A release tree with guard.py under MANAGED/releases/NAME; returns its lib directory."""
+        lib = managed / "releases" / name / "lib"
+        (lib / "coding-agent-kit").mkdir(parents=True)
+        (lib / "coding-agent-kit/guard.py").write_text("")
+        return lib
+
+    def test_the_script_of_a_managed_install_goes_through_current(self):
+        managed = self.root / "share o'clock" / "coding-agent-kit"
+        lib, other = self.release(managed, "v0.9.0"), self.release(managed, "v0.9.1")
+        (managed / "current").symlink_to("releases/v0.9.0")
+        through = str(managed / "current/lib/coding-agent-kit/guard.py")
+        self.assertEqual(guard_launch.script(lib), through)
+        self.assertEqual(guard_launch.script(str(lib)), through)
+        self.assertEqual(guard_launch.script(managed / "current/lib"), through)
+        self.assertEqual(guard_launch.script(other), str(other / "coding-agent-kit/guard.py"))
+        (managed / "current").unlink()
+        (managed / "current").symlink_to("releases/v0.9.1")
+        self.assertEqual(guard_launch.script(lib), str(lib / "coding-agent-kit/guard.py"))
+        self.assertEqual(guard_launch.script(other), str(managed / "current/lib/coding-agent-kit/guard.py"))
+        (managed / "current").unlink()
+        self.assertEqual(guard_launch.script(lib), str(lib / "coding-agent-kit/guard.py"))
+
+    def test_the_script_of_a_checkout_or_copy_is_under_its_resolved_root(self):
+        self.assertEqual(guard_launch.script(ROOT / "lib"), str(ROOT / "lib/coding-agent-kit/guard.py"))
+        linked = self.root / "linked kit"
+        linked.symlink_to(ROOT)
+        self.assertEqual(guard_launch.script(linked / "lib"), str(ROOT / "lib/coding-agent-kit/guard.py"))
+        # A directory named releases without a current link is a plain copy.
+        copy = self.release(self.root / "copy", "kit")
+        self.assertEqual(guard_launch.script(copy), str(copy / "coding-agent-kit/guard.py"))
+        (copy / "coding-agent-kit/guard.py").unlink()
+        with self.assertRaises(FileNotFoundError):
+            guard_launch.script(copy)
+
+    def test_clear_drops_the_three_variables_only(self):
+        env = {name: "inherited" for name in VARIABLES} | {"CODING_AGENT_KIT_USAGE_FILE": "/kept", "PATH": "/bin"}
+        guard_launch.clear(env)
+        self.assertEqual(env, {"CODING_AGENT_KIT_USAGE_FILE": "/kept", "PATH": "/bin"})
+        guard_launch.clear(env)
+        self.assertEqual(guard_launch.VARIABLES, VARIABLES)
+
+    def test_prepare_exports_a_claude_launch(self):
+        env = {name: "inherited" for name in VARIABLES} | {"PATH": "/bin"}
+        usage = str(self.accounts / "claude-personal.usage.json")
+        command = "bash '/home/a b/it'\"'\"'s status.sh' --flag é"
+        state = guard_launch.prepare(env, self.guard_dir, "claude-as", "personal",
+                                     policy("claude-as", "personal", five_hour=D("12.5")), usage, self.started,
+                                     statusline=command)
+        self.assertEqual(state, str(self.guard_dir / f"claude-as-personal-{os.getpid()}-{self.started}"))
+        launched = Path(state + ".launched").lstat()
+        self.assertTrue(stat.S_ISREG(launched.st_mode))
+        self.assertEqual(stat.S_IMODE(launched.st_mode), 0o600)
+        expected = {"v": 1, "tool": "claude-as", "account": "personal", "five_hour": "12.5", "weekly": None,
+                    "started": self.started, "usage": usage, "state": state, "statusline": command}
+        self.assertEqual(env["CODING_AGENT_KIT_GUARD"], json.dumps(expected, separators=(",", ":")))
+        self.assertTrue(env["CODING_AGENT_KIT_GUARD"].isascii())
+        self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(ROOT / "lib/coding-agent-kit/guard.py"))
+        self.assertEqual(env["CODING_AGENT_KIT_GUARD_PYTHON"], sys.executable)
+        self.assertEqual(env["PATH"], "/bin")
+        self.assertEqual(guard.launch_of(env), guard.Launch("claude-as", "personal", {"five_hour": D("12.5")},
+                                                            self.started, usage, state, None, command))
+
+    def test_prepare_exports_a_codex_launch(self):
+        env = {}
+        record, marker = str(self.accounts / "codex-lab.json"), str(self.guard_dir / MARKER)
+        state = guard_launch.prepare(env, self.guard_dir, "codex-as", "lab", policy("codex-as", "lab", weekly=D(10)),
+                                     record, self.started, marker=marker)
+        data = json.loads(env["CODING_AGENT_KIT_GUARD"])
+        self.assertEqual(data, {"v": 1, "tool": "codex-as", "account": "lab", "five_hour": None, "weekly": "10",
+                                "started": self.started, "usage": record, "state": state, "marker": marker})
+        self.assertEqual(guard.launch_of(env), guard.Launch("codex-as", "lab", {"weekly": D(10)}, self.started,
+                                                            record, state, marker, None))
+        self.assertTrue(Path(state + ".launched").is_file())
+        self.assertFalse(Path(marker).exists(), "the marker is the guard's to create")
+
+    def test_reserves_reach_the_guard_exactly(self):
+        for index, (five_hour, weekly) in enumerate(((D(0), D(100)), (D("0.25"), D("99.99")), (D("12.50"), None),
+                                                     (None, D("1E+1")), (D("0.00"), D("7")))):
+            with self.subTest(five_hour=five_hour, weekly=weekly):
+                env = {}
+                guard_launch.prepare(env, self.guard_dir, "claude-as", "personal",
+                                     policy("claude-as", "personal", five_hour, weekly),
+                                     str(self.accounts / "claude-personal.usage.json"), self.started + index)
+                launch = guard.launch_of(env)
+                self.assertEqual(launch.enabled, policy("claude-as", "personal", five_hour, weekly).enabled())
+                for window, value in launch.enabled.items():
+                    self.assertEqual(json.loads(env["CODING_AGENT_KIT_GUARD"])[window], reserve.percent(value))
+
+    def test_prepare_refuses_what_the_guard_could_not_read(self):
+        usage, record = str(self.accounts / "claude-personal.usage.json"), str(self.accounts / "codex-lab.json")
+        marker = str(self.guard_dir / MARKER)
+        on = policy("claude-as", "personal", weekly=D(10))
+        cases = {
+            "no reserve on": ("claude-as", "personal", policy("claude-as", "personal"), usage, self.started, {}),
+            "another launcher": ("gemini-as", "personal", on, usage, self.started, {}),
+            "another tool's policy": ("codex-as", "personal", on, record, self.started, {"marker": marker}),
+            "another account's policy": ("claude-as", "work", on, usage, self.started, {}),
+            "an account name": ("claude-as", "-p", policy("claude-as", "-p", weekly=D(10)), usage, self.started, {}),
+            "a reserve above 100": ("claude-as", "personal", policy("claude-as", "personal", weekly=D(101)), usage,
+                                    self.started, {}),
+            "a reserve that is no Decimal": ("claude-as", "personal", policy("claude-as", "personal", weekly=10),
+                                             usage, self.started, {}),
+            "a relative usage path": ("claude-as", "personal", on, "claude-personal.usage.json", self.started, {}),
+            "a start time": ("claude-as", "personal", on, usage, float(self.started), {}),
+            "a start of zero": ("claude-as", "personal", on, usage, 0, {}),
+            "no Codex marker": ("codex-as", "lab", policy("codex-as", "lab", weekly=D(10)), record, self.started, {}),
+            "a relative marker": ("codex-as", "lab", policy("codex-as", "lab", weekly=D(10)), record, self.started,
+                                  {"marker": MARKER}),
+            "a Claude marker": ("claude-as", "personal", on, usage, self.started, {"marker": marker}),
+            "a Codex status line": ("codex-as", "lab", policy("codex-as", "lab", weekly=D(10)), record, self.started,
+                                    {"marker": marker, "statusline": "echo"}),
+            "a status line that is no string": ("claude-as", "personal", on, usage, self.started, {"statusline": 1}),
+        }
+        for reason, (tool, account, resolved, path, started, extra) in cases.items():
+            with self.subTest(reason=reason):
+                env = {name: "inherited" for name in VARIABLES}
+                with self.assertRaises(ValueError):
+                    guard_launch.prepare(env, self.guard_dir, tool, account, resolved, path, started, **extra)
+                self.assertEqual(env, {}, "an inherited guard variable survived a refusal")
+        with self.assertRaises(ValueError):
+            guard_launch.prepare({}, "guard", "claude-as", "personal", on, usage, self.started)
+        with self.assertRaises(TypeError):
+            guard_launch.prepare({}, self.guard_dir, "claude-as", "personal", on, usage, self.started, other="x")
+        self.assertEqual(os.listdir(self.guard_dir), [], "a refused launch left state")
+
+    def test_prepare_never_writes_through_a_link(self):
+        target = self.root / "elsewhere"
+        prefix = self.guard_dir / f"claude-as-personal-{os.getpid()}-{self.started}"
+        Path(str(prefix) + ".launched").symlink_to(target)
+        env = {name: "inherited" for name in VARIABLES}
+        with self.assertRaises(OSError):
+            guard_launch.prepare(env, self.guard_dir, "claude-as", "personal",
+                                 policy("claude-as", "personal", weekly=D(10)),
+                                 str(self.accounts / "claude-personal.usage.json"), self.started)
+        self.assertFalse(target.exists())
+        self.assertEqual(env, {})
+
+    def state_files(self, tool, account, pid, started, *suffixes):
+        """Launch state as the launcher and the guard leave it; returns the prefix."""
+        prefix = self.guard_dir / f"{tool}-{account}-{pid}-{started}"
+        for suffix in suffixes:
+            Path(f"{prefix}.{suffix}").write_text("")
+        return str(prefix)
+
+    def names(self):
+        return sorted(os.listdir(self.guard_dir))
+
+    def test_prune_removes_launch_state_older_than_30_days(self):
+        now = self.started
+        old = self.state_files("claude-as", "personal", 4001, now - 30 * DAY - 1, "launched", "ran.start", "ran.prompt",
+                               "reply", "seen", "blocked", "blocked.0a1b2c3d4e5f.tmp")
+        old_codex = self.state_files("codex-as", "lab-2", 4002, now - 90 * DAY, "launched", "ran.tool")
+        kept = self.state_files("claude-as", "personal", 4003, now - 30 * DAY, "launched", "ran.start")
+        new = self.state_files("codex-as", "lab", 4004, now - DAY, "launched", "ran.prompt", "blocked")
+        marker = self.guard_dir / MARKER
+        marker.write_text("")
+        os.utime(marker, (now - 400 * DAY, now - 400 * DAY))
+        other = self.guard_dir / "notes.txt"
+        other.write_text("")
+        folder = self.guard_dir / f"claude-as-personal-4005-{now - 90 * DAY}.launched"
+        folder.mkdir()
+        guard_launch.prune(self.guard_dir, now)
+        names = self.names()
+        self.assertFalse([name for name in names if name.startswith(os.path.basename(old) + ".")])
+        self.assertFalse([name for name in names if name.startswith(os.path.basename(old_codex) + ".")])
+        for prefix, suffixes in ((kept, ("launched", "ran.start")), (new, ("blocked", "launched", "ran.prompt"))):
+            self.assertEqual(sorted(name for name in names if name.startswith(os.path.basename(prefix) + ".")),
+                             [f"{os.path.basename(prefix)}.{suffix}" for suffix in suffixes])
+        for path in (marker, other, folder):
+            self.assertTrue(path.exists(), path)
+        guard_launch.prune(self.root / "missing", now)
+
+    def test_an_earlier_launch_whose_hooks_never_ran(self):
+        earlier = self.state_files("claude-as", "personal", 4001, self.started - 3600, "launched", "seen")
+        self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
+        self.assertEqual(self.names(), [], "the earlier launch's state was kept")
+        self.assertFalse(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
+        # A usage file recorded at or after that launch's start is the other sign of a reply.
+        for recorded, expected in ((self.started - 3601, False), (None, False), (True, False), ("x", False),
+                                   (self.started - 3600, True), (self.started + 0.5, True)):
+            with self.subTest(recorded=recorded):
+                earlier = self.state_files("claude-as", "personal", 4001, self.started - 3600, "launched")
+                self.assertEqual(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", recorded), expected)
+                self.assertEqual(Path(earlier + ".launched").exists(), not expected)
+        for path in self.guard_dir.iterdir():
+            path.unlink()
+        # Every such launch is counted and removed at once.
+        self.state_files("codex-as", "lab", 4001, self.started - 600, "launched", "blocked")
+        self.state_files("codex-as", "lab", 4002, self.started - 60, "launched", "seen")
+        self.assertTrue(guard_launch.unguarded(self.guard_dir, "codex-as", "lab", self.started))
+        self.assertEqual(self.names(), [])
+
+    def test_launches_whose_hooks_ran_or_that_had_no_reply_do_not_count(self):
+        ran = [self.state_files("claude-as", "personal", 4000 + index, self.started - 600, "launched", "seen", kind)
+               for index, kind in enumerate(("ran.start", "ran.prompt", "ran.tool", "ran.stop"))]
+        quiet = self.state_files("claude-as", "personal", 4010, self.started - 600, "launched", "blocked")
+        unlaunched = self.state_files("claude-as", "personal", 4011, self.started - 600, "seen")
+        others = [self.state_files(tool, account, 4012, self.started - 600, "launched", "seen")
+                  for tool, account in (("claude-as", "personal-2"), ("claude-as", "Personal"), ("codex-as", "personal"),
+                                        ("claude-as", "work"))]
+        before = self.names()
+        self.assertFalse(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
+        self.assertEqual(self.names(), before)
+        self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal-2", None))
+        self.assertTrue(all(Path(prefix + ".launched").exists() for prefix in [*ran, quiet, *others[1:]]))
+        self.assertTrue(Path(unlaunched + ".seen").exists())
+        self.assertFalse(guard_launch.unguarded(self.root / "missing", "claude-as", "personal", None))
+
+    def test_the_current_launch_is_never_counted(self):
+        env = {}
+        state = guard_launch.prepare(env, self.guard_dir, "claude-as", "personal",
+                                     policy("claude-as", "personal", weekly=D(10)),
+                                     str(self.accounts / "claude-personal.usage.json"), self.started)
+        Path(state + ".seen").write_text("")
+        self.assertFalse(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", self.started + 1))
+        self.assertTrue(Path(state + ".launched").exists())
+
+    def test_forget_removes_one_launchs_state(self):
+        one = self.state_files("codex-as", "lab", 4001, self.started, "launched", "ran.tool", "blocked",
+                               "blocked.00ff.tmp")
+        two = self.state_files("codex-as", "lab", 4001, self.started + 1, "launched")
+        three = self.state_files("codex-as", "lab-4001", 7, self.started, "launched")
+        (self.guard_dir / MARKER).write_text("")
+        guard_launch.forget(one)
+        self.assertEqual(self.names(), sorted([MARKER, os.path.basename(two) + ".launched",
+                                               os.path.basename(three) + ".launched"]))
+        guard_launch.forget(str(self.root / "missing/codex-as-lab-1-2"))
+
+
 class Isolation(unittest.TestCase):
     def test_the_guard_reads_only_its_launch_variable(self):
         source = (ROOT / "lib/coding-agent-kit/guard.py").read_text()
         for word in ("XDG_", '"HOME"', "config.py", "CODING_AGENT_KIT_CONFIG", "expanduser", "Path.home"):
             self.assertNotIn(word, source)
         self.assertEqual(guard.VARIABLE, "CODING_AGENT_KIT_GUARD")
+
+    def test_the_launch_support_reads_no_configuration_and_no_environment(self):
+        source = (ROOT / "lib/coding-agent-kit/guard_launch.py").read_text()
+        for word in ("XDG_", '"HOME"', "config.py", "CODING_AGENT_KIT_CONFIG", "expanduser", "Path.home",
+                     "os.environ", "getenv"):
+            self.assertNotIn(word, source)
 
 
 if __name__ == "__main__":

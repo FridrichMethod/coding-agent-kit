@@ -2,14 +2,16 @@
 
 Public API (load this file by path; it is never on sys.path):
 
-    directory(config, create=False) -> Path
-        config.state_dir / "accounts". With create, makes it 0700 (and its
-        parents under the launcher's umask) and checks that it is an owned,
-        real 0700 directory whose parent other users cannot change: owned by
-        this user or root, no other write, and group write only by the user's
-        private group without an access ACL (config.py's rule). Either
-        way it raises ValueError when it is config.secrets_dir, also through
-        a link: its files carry the Codex credentials' names.
+    directory(config, create=False, name="accounts") -> Path
+        config.state_dir / NAME: "accounts" for the metadata below, "guard"
+        for the usage reserve guard's launch state (guard_launch.py). With
+        create, makes it 0700 (and its parents under the launcher's umask)
+        and checks that it is an owned, real 0700 directory whose parent
+        other users cannot change: owned by this user or root, no other
+        write, and group write only by the user's private group without an
+        access ACL (config.py's rule). Either way it raises ValueError when
+        it is config.secrets_dir, also through a link (its files carry the
+        Codex credentials' names), or when NAME is not one path component.
     read(path) -> dict | None
         One metadata file, or None when it is absent. Never follows a link;
         only an owned regular 0600 file with one link, at most 64 KiB, holding
@@ -92,8 +94,10 @@ def _others_can_write(info, path):
         return True
 
 
-def directory(config, create=False):
-    path = config.state_dir / "accounts"
+def directory(config, create=False, name="accounts"):
+    if not isinstance(name, str) or name in ("", ".", "..") or "/" in name or "\0" in name:
+        raise ValueError(f"{name!r} is not a directory name.")
+    path = config.state_dir / name
     if create:
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:
