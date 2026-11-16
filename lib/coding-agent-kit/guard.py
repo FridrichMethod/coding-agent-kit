@@ -92,9 +92,10 @@ so two launches of one account never lose the newer reading. A run creates the
 lock O_EXCL holding {"host", "pid", "at"} (its host name, process id and clock)
 and holds back SIGTERM, SIGHUP and SIGINT until it has let it go. Other runs
 judge a lock by that content, never by the file's time (on a network home
-directory the server's clock): a lock whose "at" is more than LOCK_STALE seconds
-from their clock, one of their host whose process has ended, and one that names
-no holder for LOCK_EMPTY seconds was left by a run that ended. Such a lock is
+directory the server's clock): a lock whose "at" is more than LOCK_STALE + 1
+seconds from their clock (its whole seconds lag up to one), one of their host
+whose process has ended, and one that names no holder for LOCK_EMPTY seconds
+was left by a run that ended. Such a lock is
 removed under the breaker .NAME.lock.break, created O_EXCL and held only to
 check that the lock is still the file judged and to remove it, so a lock that
 another run took meanwhile is never moved; a breaker that stays LOCK_EMPTY
@@ -512,9 +513,9 @@ def running(pid):
 
 def judge(path, fd, seen):
     """(identity, stale) of the lock or breaker PATH, open as FD. A file that names its holder is stale when the
-    holder's clock is more than LOCK_STALE seconds from this run's, or the holder is a process of this host that
-    has ended; one that names none (a breaker never does) when it has been the same file for LOCK_EMPTY seconds of
-    this run's wait. SEEN keeps, per path, (identity, first seen) of a file that names no holder."""
+    holder's clock is more than LOCK_STALE seconds (plus the second its whole-second clock may lag) from this run's,
+    or the holder is a process of this host that has ended; one that names none (a breaker never does) when it has
+    been the same file for LOCK_EMPTY seconds of this run's wait. SEEN keeps, per path, (identity, first seen) of a file that names no holder."""
     info = os.fstat(fd)
     identity = (info.st_dev, info.st_ino)
     try:
@@ -526,7 +527,7 @@ def judge(path, fd, seen):
             seen[path] = (identity, time.monotonic())
         return identity, time.monotonic() - seen[path][1] >= LOCK_EMPTY
     host, pid, at = owner
-    return identity, abs(time.time() - at) > LOCK_STALE or host == os.uname().nodename and not running(pid)
+    return identity, abs(time.time() - at) > LOCK_STALE + 1 or host == os.uname().nodename and not running(pid)
 
 
 def remove(path, identity):

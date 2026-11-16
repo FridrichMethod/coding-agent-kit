@@ -1402,6 +1402,25 @@ class StatusLine(Fixture):
         self.assertEqual((lock.read_text(), lock.lstat().st_ino), (fresh, taken[0]))
         self.assertEqual(list(self.accounts.iterdir()), [lock])
 
+    def test_another_hosts_clock_counts_in_whole_seconds(self):
+        # A lock holds its taker's clock in whole seconds, up to a second behind: a lock of another host is held
+        # for LOCK_STALE seconds of this clock whatever fraction of a second it was taken at.
+        launch = self.launch(weekly="10")
+        at = int(time.time()) - 3600
+        lags = {guard.LOCK_STALE + 0.999: False, -guard.LOCK_STALE - 0.999: False,
+                guard.LOCK_STALE + 1.001: True, -guard.LOCK_STALE - 1.001: True}
+        for lag, stale in lags.items():
+            with self.subTest(lag=lag):
+                lock = self.lock_file(launch, host="another host", pid=7, at=at)
+                with patch.object(guard.time, "time", return_value=at + lag), patch.object(guard, "LOCK_WAIT", 0.1):
+                    if stale:
+                        name, fd = guard.lock(Path(launch.usage))
+                        guard.unlock(name, fd)
+                    else:
+                        with self.assertRaises(TimeoutError):
+                            guard.lock(Path(launch.usage))
+                self.assertEqual(lock.exists(), not stale)
+
     def test_a_stale_lock_is_broken_by_one_run_at_a_time(self):
         launch = self.launch(weekly="10")
         lock = self.lock_file(launch, pid=GONE)
