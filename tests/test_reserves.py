@@ -227,6 +227,14 @@ class Decide(unittest.TestCase):
         self.assertEqual(reserve.decide({"weekly": D(10)}, (self.reading("weekly", 10),), NOW),
                          reserve.Decision(True, None))
 
+    def test_readings_may_be_any_iterable(self):
+        readings = (self.reading("five_hour", 10), self.reading("weekly", 95))
+        enabled = {"five_hour": D(10), "weekly": D(10)}
+        expected = reserve.decide(enabled, readings, NOW)
+        self.assertEqual(expected.reason, "threshold")
+        self.assertEqual(reserve.decide(enabled, (reading for reading in readings), NOW), expected)
+        self.assertEqual(reserve.decide(enabled, iter(list(readings)), NOW), expected)
+
     def test_unusable_reset_times_and_windows_are_ignored(self):
         for resets_at in ("soon", True, float("nan")):
             reading = reserve.Reading("weekly", 95, resets_at)

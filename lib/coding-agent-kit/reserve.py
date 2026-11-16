@@ -38,13 +38,13 @@ Policy (each window on its own, never combined):
 Decision (the same for both natives; the caller gathers the readings):
 
     decide(enabled, readings, now, blind=False) -> Decision
-        enabled is Policy.enabled(); readings are Reading values. Per enabled
-        window, in WINDOWS order, only current readings count: a finite percent
-        used of at least 0 (above 100 counts as 100) whose reset time is None or
-        after NOW (wall-clock epoch seconds); usage never falls inside a window,
-        so a reading stays current until its reset however old it is. The most
-        used one decides: the window is at its reserve when used + reserve >= 100,
-        compared exactly. Any window at its reserve blocks with reason
+        enabled is Policy.enabled(); readings is any iterable of Reading values,
+        read once. Per enabled window, in WINDOWS order, only current readings
+        count: a finite percent used of at least 0 (above 100 counts as 100)
+        whose reset time is None or after NOW (wall-clock epoch seconds); usage
+        never falls inside a window, so a reading stays current until its reset
+        however old it is. The most used one decides: the window is at its
+        reserve when used + reserve >= 100, compared exactly. Any window at its reserve blocks with reason
         "threshold" (blind or not); else BLIND blocks with reason "blind"; else
         the decision allows. A window without a current reading has nothing to
         check. ValueError when NOW is not a number or a reserve is not one that
@@ -268,6 +268,7 @@ def decide(enabled, readings, now, blind=False):
     now = number(now)
     if now is None:
         raise ValueError("now is a number of epoch seconds")
+    readings = tuple(readings)  # each window reads them all: an iterator would serve only the first
     at_reserve = []
     for window in WINDOWS:
         if enabled.get(window) is None:
