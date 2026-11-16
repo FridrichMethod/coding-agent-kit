@@ -7,7 +7,9 @@ copy under a path with a space and a quote, in a temporary HOME, against a
 fake codex that records its argv and environment, writes rollouts as native
 Codex does and runs the guard's hooks the way Codex runs them: the command of
 the -c value through a shell, with the event on stdin. No native, provider,
-credential or network is involved.
+credential or network is involved. RealCodex runs the real codex, when it is on
+PATH, in a temporary HOME against tests/fixtures/guard/codex_backend.py on
+127.0.0.1, with every proxy at a closed loopback port; it skips otherwise.
 """
 
 import base64
@@ -16,7 +18,10 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
+import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -685,6 +690,268 @@ class GuardedLaunch(unittest.TestCase):
         self.assertFalse(self.record.exists())
         result = self.run_codex("A", "exec", "go")
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "fake codex ran\n", ""))
+
+
+CODEX_BACKEND = ROOT / "tests/fixtures/guard/codex_backend.py"
+CLOSED_PORT = ("127.0.0.1", 9)  # the discard port: nothing listens there unless a host runs that service
+REFUSED_GIT = ("clone", "fetch", "pull", "push", "ls-remote", "remote-*", "*://*", "*@*:*")
+GIT_SHIM = """#!/bin/sh
+# Test shim for git: local commands pass to the real git, network forms are refused; every call is logged.
+printf 'git %s\\n' "$*" >> {log}
+for word in "$@"; do
+    case "$word" in
+        {refused}) printf 'REFUSED git %s\\n' "$*" >> {log}; exit 128 ;;
+    esac
+done
+{real}
+"""
+SSH_SHIM = """#!/bin/sh
+# Test shim for ssh, scp and sftp: OpenSSH reads ~/.ssh from the password database, not from HOME.
+printf 'REFUSED ssh %s\\n' "$*" >> {log}
+exit 255
+"""
+
+
+def kill_group(pid):
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except OSError:
+        pass
+
+
+def write(path, text, mode=0o600):
+    path.write_text(text)
+    path.chmod(mode)
+
+
+class Sandbox:
+    """A Codex that reaches nothing of this host's user: a temporary HOME and CODEX_HOME, an environment
+    built from scratch, git and ssh shims first on PATH, every proxy at a closed loopback port (Codex
+    runs git ls-remote for its plugin marketplace at every start) and no session bus.
+    The model provider is the loopback fake; nothing holds a credential."""
+
+    def __init__(self, base, bindir):
+        self.base, self.bindir = base, bindir
+        self.home, self.work, self.shims = base / "home", base / "work", base / "shims"
+        self.codex_home = self.home / ".codex"
+        for path in (self.codex_home, self.work, self.shims, base / "tmp", base / "run",
+                     *(base / "xdg" / name for name in ("config", "cache", "data", "state"))):
+            path.mkdir(parents=True, mode=0o700, exist_ok=True)
+        self.netlog = base / "net.log"
+        self.netlog.touch()
+        log = shlex.quote(str(self.netlog))
+        real = shutil.which("git")
+        write(self.shims / "git", GIT_SHIM.format(log=log, refused="|".join(REFUSED_GIT),
+                                                  real=f"exec {shlex.quote(real)} \"$@\"" if real else "exit 127"), 0o700)
+        for name in ("ssh", "scp", "sftp"):
+            write(self.shims / name, SSH_SHIM.format(log=log), 0o700)
+
+    def configure(self, port):
+        """The loopback fake as the model provider; no approval asked, no sandbox helper (bubblewrap
+        cannot create namespaces on every host), and the work directory trusted."""
+        write(self.codex_home / "config.toml", "\n".join((
+            'model = "gpt-5.5"', 'model_provider = "fixture"', "check_for_update_on_startup = false",
+            'approval_policy = "never"', 'sandbox_mode = "danger-full-access"', "",
+            "[model_providers.fixture]", 'name = "fixture"', f'base_url = "http://127.0.0.1:{port}/v1"',
+            'wire_api = "responses"', "request_max_retries = 0", "stream_max_retries = 0", "",
+            f"[projects.{json.dumps(str(self.work))}]", 'trust_level = "trusted"', "")))
+
+    def env(self):
+        closed = "http://%s:%d" % CLOSED_PORT
+        return {"PATH": f"{self.shims}:/usr/local/bin:/usr/bin:/bin:{self.bindir}", "HOME": str(self.home),
+                "LANG": "C.UTF-8", "TERM": "dumb", "SHELL": "/bin/sh", "TMPDIR": str(self.base / "tmp"),
+                "XDG_RUNTIME_DIR": str(self.base / "run"),
+                **{f"XDG_{name.upper()}_HOME": str(self.base / "xdg" / name) for name in ("config", "cache", "data", "state")},
+                "DBUS_SESSION_BUS_ADDRESS": f"unix:path={self.base / 'run/no-bus'}", "CODEX_HOME": str(self.codex_home),
+                **{name: closed for name in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")},
+                "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost",
+                # Codex runs /usr/bin/git by its path, past the shim: git itself may use local repositories only.
+                "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_ALLOW_PROTOCOL": "file", "GIT_CEILING_DIRECTORIES": str(self.base)}
+
+    def run(self, codex, args, env, timeout=90):
+        """(exit code, stdout, stderr) of CODEX ARGS in a session of its own, which is killed afterwards."""
+        child = subprocess.Popen([codex, *args], cwd=self.work, env=env, stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            out, err = child.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            kill_group(child.pid)
+            out, err = child.communicate()
+            raise AssertionError(f"codex {args} ran longer than {timeout} s: {out[-2000:]!r} {err[-2000:]!r}")
+        finally:
+            kill_group(child.pid)
+        return child.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+
+    def strays(self):
+        """Processes still running with this sandbox's CODEX_HOME, killed; Linux only."""
+        if not os.path.isdir("/proc/self"):
+            return []
+        needle, found = f"CODEX_HOME={self.codex_home}".encode(), []
+        for entry in filter(str.isdigit, os.listdir("/proc")):
+            try:
+                with open(f"/proc/{entry}/environ", "rb") as stream:
+                    if needle in stream.read().split(b"\0"):
+                        found.append(int(entry))
+            except OSError:
+                pass
+        for pid in found:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+        return found
+
+
+def load_kit_module(kit, name):
+    spec = importlib.util.spec_from_file_location(f"codex_guard_real_{name}", kit / f"lib/coding-agent-kit/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class RealCodex(unittest.TestCase):
+    """The guard's hook contract against the real Codex, offline: the two hook values and goals off as
+    codex-as passes them, a launch as codex-as exports it, and a loopback fake of the Responses API that
+    answers from a script and sends rate limits as the real backend does. codex exec runs directly on the
+    native, with --dangerously-bypass-hook-trust standing in for the user's trust in "Hooks need review";
+    the trust prompt and the terminal session are left to the live acceptance."""
+
+    @classmethod
+    def setUpClass(cls):
+        found = shutil.which("codex")
+        if not found:
+            raise unittest.SkipTest("Codex (codex) is not on PATH")
+        try:
+            socket.create_connection(CLOSED_PORT, timeout=2).close()
+        except OSError:
+            pass
+        else:
+            raise unittest.SkipTest("127.0.0.1:9 accepts connections, so it cannot stand in for a closed proxy")
+        # The directory codex was found in goes last on PATH, for an install whose codex is a node script.
+        cls.codex, cls.bindir = os.path.realpath(found), os.path.dirname(os.path.abspath(found))
+        with tempfile.TemporaryDirectory(prefix="codex-guard-real-version-") as base:
+            sandbox = Sandbox(Path(base).resolve(), cls.bindir)
+            code, out, _ = sandbox.run(cls.codex, ["--version"], sandbox.env(), timeout=60)
+            sandbox.strays()
+        if code:
+            raise unittest.SkipTest(f"codex --version exited {code}")
+        try:
+            check.codex_version(out)  # the minimum of every codex-as launch, with reserves too
+        except ValueError as error:
+            raise unittest.SkipTest(f"codex --version: {error}") from None
+
+    def setUp(self):
+        self.addCleanup(os.umask, os.umask(0o022))
+        tmp = tempfile.TemporaryDirectory(prefix="codex-guard-real-")
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name).resolve()
+        self.sandbox = Sandbox(base, self.bindir)
+        # The guard runs from a kit whose path needs quoting, through the shell Codex runs hooks with.
+        self.kit = base / "kit o'clock dir"
+        shutil.copytree(ROOT / "lib", self.kit / "lib")
+        self.reserve = load_kit_module(self.kit, "reserve")
+        state = base / "state/coding-agent-kit"
+        self.accounts, self.guard_dir = state / "accounts", state / "guard"
+        for directory in (state, self.accounts, self.guard_dir):
+            directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+        self.record = self.accounts / "codex-A.json"
+        self.marker = self.guard_dir / f"codex-hooks-{FINGERPRINT}"
+        self.calls = base / "shell calls"
+        self.requests = base / "requests.jsonl"
+
+    def run_codex(self, prompt, recorded=None, sent=None):
+        """codex exec PROMPT under the guard with the five-hour reserve at 10: RECORDED percent of the
+        five-hour window used in the account record of earlier runs, SENT percent in the rate limits the
+        fake sends with every answer (None: no record, no rate limits)."""
+        now = int(time.time())
+        if recorded is not None:
+            window = {"used_percent": float(recorded), "window_minutes": 300, "resets_at": now + 3600}
+            load_kit_module(self.kit, "accounts").write(self.record, {
+                "email": "alice@example.com", "plan": "plus",
+                "usage": {"primary": window, "secondary": None, "seen_at": now - 60}})
+        limits = {} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]}
+        fake = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(CODEX_BACKEND), "--log", str(self.requests),
+                                 "--limits", json.dumps(limits), "--shell", f"echo call >> {shlex.quote(str(self.calls))}"],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, env={}, start_new_session=True)
+        for cleanup in (fake.stdout.close, fake.stdin.close, lambda: fake.wait(10), lambda: kill_group(fake.pid)):
+            self.addCleanup(cleanup)
+        self.sandbox.configure(int(fake.stdout.readline()))
+        guard_launch = load_kit_module(self.kit, "guard_launch")
+        policy = self.reserve.Policy("codex-as", "A",
+                                     self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
+                                     self.reserve.Setting("weekly", None, "default"))
+        env = self.sandbox.env()
+        state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", "A", policy, str(self.record), int(time.time()),
+                                     marker=str(self.marker))
+        self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
+        # The values codex-as passes before the caller's arguments, and the stand-in for the user's trust.
+        args = [*(word for value in launch.GUARD_HOOKS for word in ("-c", value)), *launch.GOALS_OFF,
+                "--dangerously-bypass-hook-trust", "exec", "--skip-git-repo-check", prompt]
+        code, out, err = self.sandbox.run(self.codex, args, env)
+        self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
+        refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED ssh")]
+        self.assertEqual(refused, [], "Codex tried to reach a host through ssh")
+        lines = self.requests.read_text().splitlines() if self.requests.exists() else []
+        models = [entry for entry in map(json.loads, lines) if entry["path"].endswith("/responses")]
+        # Without the flag, codex-cli 0.169.0 offers get_goal, create_goal and update_goal here.
+        for entry in models:
+            self.assertEqual([name for name in entry["tools"] if "goal" in name.lower()], [],
+                             "goals are on despite --disable goals")
+        self.assertNotRegex(err, r"(?im)^.*\b(goals?|unknown feature|feature flag)\b.*$",
+                            "Codex said something about the goals flag")
+        return code, out, err, state, models
+
+    def shell_calls(self):
+        return len(self.calls.read_text().splitlines()) if self.calls.exists() else 0
+
+    def assert_state(self, state, present, absent):
+        for name in present:
+            self.assertTrue(os.path.exists(state + name), f"{name} is missing")
+        for name in absent:
+            self.assertFalse(os.path.exists(state + name), f"{name} exists")
+
+    def test_a_prompt_at_the_reserve_is_never_sent(self):
+        code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=95)
+        self.assertEqual(models, [], "the blocked prompt reached the model provider")
+        blocked = Path(state + ".blocked").read_text()
+        self.assertRegex(blocked, r"^codex-as: A: five-hour window 5% remaining, at or below its 10% reserve; resets in ")
+        self.assertIn("\nThis prompt was not sent.\nTo use the reserve, exit and run:\n"
+                      "  codex-as --reserve-5h off A resume --last", blocked)
+        # codex exec shows no reason and exits 0, so codex-as prints .blocked after it exits.
+        self.assertEqual((code, out), (0, ""), err)
+        self.assert_state(state, (".launched", ".ran.prompt"), (".ran.tool",))
+        self.assertFalse(self.marker.exists(), "the marker without a tool event")
+
+    def test_a_prompt_below_the_reserve_gets_its_reply(self):
+        code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=50)
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.assertEqual([entry["script"] for entry in models], ["PLAIN"])
+        self.assert_state(state, (".ran.prompt",), (".blocked", ".ran.tool"))
+
+    def test_tool_calls_below_the_reserve_run(self):
+        code, out, err, state, models = self.run_codex("TOOL run the command", sent=50)
+        self.assertEqual((code, out.strip()), (0, "TOOL-DONE"), err)
+        self.assertEqual(self.shell_calls(), 2)
+        self.assertEqual(len(models), 3)
+        self.assert_state(state, (".ran.prompt", ".ran.tool"), (".blocked",))
+        self.assertTrue(self.marker.is_file(), "the tool hook made no marker")
+
+    def test_a_snapshot_at_the_reserve_stops_the_next_tool_call(self):
+        """The record of earlier runs is below the reserve; the first answer's rate limits reach the
+        rollout after its call ran, and the second call's tool hook reads them there."""
+        code, out, err, state, models = self.run_codex("TOOL run the command", recorded=50, sent=95)
+        self.assertEqual(self.shell_calls(), 1, "the call after the snapshot at the reserve ran")
+        blocked = Path(state + ".blocked").read_text()
+        self.assertRegex(blocked, r"^codex-as: A: five-hour window 5% remaining, at or below its 10% reserve; resets in ")
+        self.assertIn("\nThis tool call was stopped. Stop working now and tell the user why.\nTo use the reserve, "
+                      "exit and run:\n  codex-as --reserve-5h off A resume --last", blocked)
+        # Codex gives the model the guard's reason as the call's output; the model then answers.
+        self.assertEqual(len(models), 3)
+        self.assertIn(blocked.strip(), models[2]["output"])
+        self.assertEqual((code, out.strip()), (0, "TOOL-DONE"), err)
+        self.assert_state(state, (".ran.prompt", ".ran.tool"), ())
+        self.assertTrue(self.marker.is_file(), "the tool hook made no marker")
 
 
 if __name__ == "__main__":
