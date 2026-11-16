@@ -1533,6 +1533,7 @@ class GuardLaunch(Fixture):
         launched = Path(state + ".launched").lstat()
         self.assertTrue(stat.S_ISREG(launched.st_mode))
         self.assertEqual(stat.S_IMODE(launched.st_mode), 0o600)
+        self.assertEqual(Path(state + ".launched").read_text(), os.uname().nodename, "the launch's host is not named")
         expected = {"v": 1, "tool": "claude-as", "account": "personal", "five_hour": "12.5", "weekly": None,
                     "started": self.started, "usage": usage, "state": state, "statusline": command}
         self.assertEqual(env["CODING_AGENT_KIT_GUARD"], json.dumps(expected, separators=(",", ":")))
@@ -1618,11 +1619,13 @@ class GuardLaunch(Fixture):
         self.assertFalse(target.exists())
         self.assertEqual(env, {})
 
-    def state_files(self, tool, account, pid, started, *suffixes):
-        """Launch state as the launcher and the guard leave it; returns the prefix."""
+    def state_files(self, tool, account, pid, started, *suffixes, host=None):
+        """Launch state as the launcher and the guard leave it, with HOST (by default this one) named in
+        .launched; returns the prefix."""
         prefix = self.guard_dir / f"{tool}-{account}-{pid}-{started}"
         for suffix in suffixes:
-            Path(f"{prefix}.{suffix}").write_text("")
+            Path(f"{prefix}.{suffix}").write_text(
+                (os.uname().nodename if host is None else host) if suffix == "launched" else "")
         return str(prefix)
 
     def names(self):
@@ -1685,6 +1688,22 @@ class GuardLaunch(Fixture):
         Path(running + ".seen").write_text("")
         self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
         self.assertEqual(self.names(), [])
+
+    def test_a_launch_of_another_host_counts_only_by_its_own_seen(self):
+        # Cluster login nodes share the home: a launch that runs on another node, waiting at the workspace trust
+        # dialog, say, has a process id that is none here while another launch of the account records usage.
+        other = self.state_files("claude-as", "personal", GONE + 1, self.started - 20, "launched", host="login-2")
+        unnamed = self.state_files("claude-as", "personal", GONE + 2, self.started - 20, "launched", host="")
+        cut = self.state_files("claude-as", "personal", GONE + 3, self.started - 20, "launched",
+                               host=os.uname().nodename + "-2")
+        self.assertFalse(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", self.started))
+        for prefix in (other, unnamed, cut):
+            self.assertTrue(Path(prefix + ".launched").exists(), prefix)
+        # Its own status line saw a reply and no hook has run.
+        Path(other + ".seen").write_text("")
+        self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
+        self.assertFalse(Path(other + ".launched").exists())
+        self.assertEqual(self.names(), sorted(os.path.basename(prefix) + ".launched" for prefix in (unnamed, cut)))
 
     def test_launches_whose_hooks_ran_or_that_had_no_reply_do_not_count(self):
         ran = [self.state_files("claude-as", "personal", 4000 + index, self.started - 600, "launched", "seen", kind)

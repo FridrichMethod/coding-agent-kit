@@ -22,8 +22,9 @@ of its own, and takes every path from its caller:
     prepare(env, directory, tool, account, policy, usage, started, *, marker=None,
             statusline=None) -> str
         clear(env), then creates STATE.launched (owned 0600, never through a
-        link) and sets VARIABLES for the launch; returns STATE, the launch's
-        prefix DIRECTORY/TOOL-ACCOUNT-PID-STARTED (PID is this process, which
+        link, holding this host's name, os.uname().nodename) and sets
+        VARIABLES for the launch; returns STATE, the launch's prefix
+        DIRECTORY/TOOL-ACCOUNT-PID-STARTED (PID is this process, which
         claude-as replaces by the native and codex-as keeps). DIRECTORY is the
         absolute guard directory (accounts.directory(config, create=True,
         name="guard")); POLICY is reserve.resolve()'s Policy of TOOL and ACCOUNT
@@ -50,17 +51,20 @@ of its own, and takes every path from its caller:
         in its name; the Codex markers and anything else stay. Best effort.
     unguarded(directory, tool, account, recorded_at) -> bool
         True when an earlier launch of TOOL and ACCOUNT left STATE.launched,
-        no STATE.ran.* and a sign of a reply: STATE.seen, or, once the
-        launch's PID no longer runs on this host, RECORDED_AT (the seen_at of
-        the account's usage data, or None) at or after that launch's start;
-        while it runs, another launch of the account may have recorded that
-        data. Each such launch's state is removed, so it is reported once. A
-        launch of this process (the current one) is never counted.
+        no STATE.ran.* and a sign of a reply: STATE.seen, or, for a launch
+        whose STATE.launched names this host once its PID no longer runs
+        here, RECORDED_AT (the seen_at of the account's usage data, or None)
+        at or after that launch's start. While a launch runs, another launch
+        of the account may have recorded that data, and this host cannot see
+        a launch of another host (login nodes share the home directory) run,
+        so such a launch counts only by its own STATE.seen. Each launch
+        counted has its state removed, so it is reported once. A launch of
+        this process (the current one) is never counted.
 
 State files in the guard directory, named PREFIX.SUFFIX (guard.py writes all
-but .launched): launched, ran.KIND, reply, seen, blocked, and blocked.HEX.tmp
-that a cancelled write of blocked leaves. Markers are named
-codex-hooks-FINGERPRINT.
+but .launched): launched (the launch's host name), ran.KIND, reply, seen,
+blocked, and blocked.HEX.tmp that a cancelled write of blocked leaves. Markers
+are named codex-hooks-FINGERPRINT.
 """
 
 import importlib.util
@@ -166,7 +170,13 @@ def prepare(env, directory, tool, account, policy, usage, started, *, marker=Non
     if not python or not os.path.isabs(python):
         raise ValueError("the launcher's interpreter has no absolute path")
     fd = os.open(state + ".launched", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
-    os.close(fd)
+    try:
+        os.write(fd, _host().encode("utf-8", "surrogateescape"))
+    except BaseException:
+        os.unlink(state + ".launched")
+        raise
+    finally:
+        os.close(fd)
     env["CODING_AGENT_KIT_GUARD"], env["CODING_AGENT_KIT_GUARD_SCRIPT"] = value, guard
     env["CODING_AGENT_KIT_GUARD_PYTHON"] = python
     return state
@@ -209,6 +219,20 @@ def prune(directory, now):
             _remove(directory, names)
 
 
+def _host():
+    """This host's name, which a launch's .launched holds."""
+    return os.uname().nodename
+
+
+def _here(path):
+    """Whether the .launched at PATH names this host; False when it cannot be read."""
+    try:
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC), "rb") as stream:
+            return stream.read(256).decode("utf-8", "surrogateescape") == _host()
+    except OSError:
+        return False
+
+
 def _running(pid):
     """Whether process PID runs on this host: the native (claude-as) or the launcher (codex-as) of a launch."""
     if pid <= 0:
@@ -234,6 +258,7 @@ def unguarded(directory, tool, account, recorded_at):
         if "launched" not in suffixes or any(suffix.startswith("ran.") for suffix in suffixes):
             continue
         if "seen" in suffixes or (recorded_at is not None and recorded_at >= int(parsed["started"])
+                                  and _here(os.path.join(directory, parsed["prefix"] + ".launched"))
                                   and not _running(pid)):
             _remove(directory, names)
             found = True
