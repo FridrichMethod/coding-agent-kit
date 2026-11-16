@@ -26,6 +26,8 @@ ROOT_PATH_KEYS = {
 }
 TLS_PATH_KEYS = {"ca-certificate", "client-certificate", "client-private-key"}
 NETWORK_PATH_KEYS = {"certificate", "private_key", "tls_certificate", "tls_private_key", "tls_ca_certificate"}
+# The system configuration layers check.config_sources reads too.
+SYSTEM_CONFIG = (Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"))
 
 
 def validate_paths(guard, value, prefix=()):
@@ -80,6 +82,23 @@ def shared_sqlite(guard, root, cwd, profile=None):
             if "sqlite_home" in data and Path(data["sqlite_home"]) != result:
                 guard.fail("project configuration conflicts with shared SQLite storage; no launch performed.")
     return result
+
+
+def hooks_off(guard, root, cwd, profile=None):
+    """Whether a configuration file native Codex may load for this launch turns its hooks off: the
+    shared config.toml, the selected profile's, a system one, or a project's .codex/config.toml in
+    a lexical or resolved parent of CWD (whether Codex trusts that project is not read)."""
+    paths = {root / "config.toml", *SYSTEM_CONFIG}
+    if profile is not None:
+        paths.add(root / (profile + ".config.toml"))
+    for place in (cwd, cwd.resolve()):
+        paths.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
+    for path in sorted(paths):
+        if path.exists():
+            with path.open("rb") as stream:
+                if guard.disables_hooks(guard.tomllib.load(stream)):
+                    return True
+    return False
 
 
 def claims(data):

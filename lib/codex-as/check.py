@@ -81,6 +81,13 @@ COMMANDS = {
 FIXED_KEYS = {"cli_auth_credentials_store", "sqlite_home", "check_for_update_on_startup"}
 # Replaces the ChatGPT login with an agent identity.
 FEATURES = {"use_agent_identity"}
+# The feature that runs hooks, and its legacy name.
+HOOK_FEATURES = ("hooks", "codex_hooks")
+# Launch forms with a usage reserve on: the guard's hooks see the model work of a session
+# (interactive) or of a run (headless); the refused ones run model work they cannot see or stop.
+INTERACTIVE = {None, "resume", "fork"}
+HEADLESS = {*EXEC, "review"}
+UNGUARDED = {"cloud", "app-server", "exec-server", "remote-control"}
 PROFILE = re.compile(r"[A-Za-z0-9_-]+")  # native ProfileV2Name
 # uuid::Uuid::parse_str forms; anything else is a session name to native Codex.
 HYPHENATED = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -103,6 +110,13 @@ class Plan:
     profile: str | None  # -p/--profile: layers codex_home/NAME.config.toml
     forked: bool = False  # fork or exec fork: recover_id is the source, not a thread this run writes
     query: bool = False  # -h, --help, -V, --version or help: native prints and runs nothing
+    # With a usage reserve on: "interactive" or "headless" get the guard's hooks, "refused" is
+    # refused, "plain" (no model work, or help and version) launches as without reserves.
+    form: str = "plain"
+    hooks_override: bool = False  # a -c/--config value under hooks, which the guard's own would meet
+    hooks_disabled: bool = False  # --disable hooks, or a -c value that turns the hooks feature off
+    ephemeral: bool = False  # --ephemeral: no rollout for the guard to read
+    ignore_user_config: bool = False  # --ignore-user-config: no hook trust records
 
     @property
     def continued(self):
@@ -151,8 +165,17 @@ def settings(cfg, project=False):
         fail("an authentication feature (" + ", ".join(sorted(FEATURES)) + ") is enabled; it replaces the account login.")
 
 
+def disables_hooks(cfg):
+    """Whether a configuration layer (or one -c value) turns the hooks feature off: [features]
+    names it with a value other than true, which native Codex refuses unless it is false."""
+    features = cfg.get("features") if isinstance(cfg, dict) else None
+    return isinstance(features, dict) and any(name in features and features[name] is not True
+                                              for name in HOOK_FEATURES)
+
+
 def override(text):
-    """Check one -c KEY=VALUE the way native Codex applies it: dotted key, TOML value."""
+    """Check one -c KEY=VALUE the way native Codex applies it: dotted key, TOML value. Returns
+    the configuration it sets, as a nested table."""
     key, _, raw = text.partition("=")
     parts = [part.strip().strip("\"'") for part in key.strip().split(".")]
     if parts == ["use_legacy_landlock"]:
@@ -164,6 +187,7 @@ def override(text):
         nested = nested.setdefault(part, {})
     nested[parts[-1]] = toml_value(raw)
     settings(cfg)
+    return cfg
 
 
 def arguments(args, config):
@@ -175,6 +199,7 @@ def arguments(args, config):
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query, show_all = None, None, False, False, False
     no_daemon, others, words, unknown, bare, profile, forked = False, False, [], [], False, None, False
+    hooks_override = hooks_disabled = ephemeral = ignore_user_config = False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -206,6 +231,8 @@ def arguments(args, config):
             show_all |= flag == "--all" and command == "resume"
             others |= flag == "--include-non-interactive"
             no_daemon |= flag == "--no-daemon" and root
+            ephemeral |= flag == "--ephemeral"
+            ignore_user_config |= flag == "--ignore-user-config"
             query |= flag in {"-h", "--help", "-V", "--version"}
             # Only root help or version is the same for every login; elsewhere -h may be a command's.
             bare |= flag in {"-h", "--help", "-V", "--version"} and root and not words
@@ -247,13 +274,24 @@ def arguments(args, config):
                     fail("an authentication feature replaces the account login; it is refused.")
             continue
         if flag in {"-c", "--config"}:
-            override(value)
+            cfg = override(value)
+            hooks_override |= "hooks" in cfg
+            hooks_disabled |= disables_hooks(cfg)
         elif flag in {"-C", "--cd"}:
             cwd = config.expand(value).absolute()
         elif flag in {"-p", "--profile"}:
             profile = value
         elif flag == "--enable" and value.strip() in FEATURES:
             fail("an authentication feature replaces the account login; it is refused.")
+        elif flag == "--disable":
+            hooks_disabled |= value.strip() in HOOK_FEATURES
+    rootless = bare or command in {"update", "completion"}
+    if query or rootless:
+        form = "plain"
+    elif command in UNGUARDED or (command == "debug" and words[:1] == ["app-server"]):
+        form = "refused"  # debug app-server send-message-v2 runs a turn through an app server
+    else:
+        form = "interactive" if command in INTERACTIVE else "headless" if command in HEADLESS else "plain"
     exact = target is not None and not last and not query
     if exact and not unknown and session_id(target) is None:
         fail("resume/fork requires a session UUID; use --last or the native picker instead of a session name.")
@@ -263,10 +301,10 @@ def arguments(args, config):
     # The picker and --last list this directory's sessions unless --all.
     scope = None if not picking else "all" if show_all else cwd
     return Plan(mode, cwd, command, resume_id, target_id if command in {"fork", "exec-resume"} else None,
-                scope, last and picking, others, no_daemon,
-                bare or command in {"update", "completion"}, tuple(unknown),
+                scope, last and picking, others, no_daemon, rootless, tuple(unknown),
                 profile if profile is not None and PROFILE.fullmatch(profile) else None,
-                forked=forked or command == "fork", query=query)
+                forked=forked or command == "fork", query=query, form=form, hooks_override=hooks_override,
+                hooks_disabled=hooks_disabled, ephemeral=ephemeral, ignore_user_config=ignore_user_config)
 
 
 

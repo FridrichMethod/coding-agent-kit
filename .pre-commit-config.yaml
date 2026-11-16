@@ -77,6 +77,12 @@ repos:
         language: script
         pass_filenames: false
         files: ^(bin/codex-as|lib/(codex-as|coding-agent-kit)/.*|tests/(codex-as\.sh|test_codex_as\.py|test_codex_sharing_native\.py|fixtures/(zsh|bash)_aliases))$
+      - id: codex-guard
+        name: codex-as with usage reserves (in process)
+        entry: tests/codex-guard.sh
+        language: script
+        pass_filenames: false
+        files: ^(bin/codex-as|lib/(codex-as|coding-agent-kit)/.*|tests/(codex-guard\.sh|test_codex_guard\.py|fixtures/guard/codex_backend\.py))$
       - id: account-enrollment
         name: account enrollment and completion (isolated HOME and native CLI fakes)
         entry: tests/account-enrollment.sh
