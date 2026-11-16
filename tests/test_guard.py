@@ -824,6 +824,9 @@ class Main(Fixture):
         launch = self.launch("codex-as", weekly="10")
         script = ROOT / "lib/coding-agent-kit/guard.py"
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **self.environ(launch)}
+        # A suite started with SIGINT ignored (a shell's background job) would pass that on to the guard.
+        self.addCleanup(signal.signal, signal.SIGINT, signal.getsignal(signal.SIGINT))
+        signal.signal(signal.SIGINT, signal.default_int_handler)
         for kind in ("prompt", "tool", "start", "stop", "status"):
             with self.subTest(kind=kind):
                 run = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(script), kind], stdin=subprocess.PIPE,
