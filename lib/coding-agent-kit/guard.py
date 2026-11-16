@@ -158,12 +158,15 @@ and status every error exits 0 without output. Run as a program, the guard
 ignores SIGINT (a terminal's Ctrl-C reaches the native's whole process group)
 from right after its version check, so it gives its real answer. A SIGINT
 before that, while the interpreter starts or begins this file, ends the run
-with Python's own KeyboardInterrupt message, a traceback included: Claude Code
-then blocks prompt and tool (onFailure), and Codex lets the event through. No
-code in this file can close that window; a hook command that ignores SIGINT
-before it starts Python could, as Python keeps an inherited SIG_IGN. A Python
-older than 3.11 blocks with one line on prompt and tool, and is silent
-elsewhere: the guard checks the version before it imports anything but sys.
+without its answer: killed by the signal with no output, or with Python's
+KeyboardInterrupt line or traceback (one during startup's check of the
+script's path can instead leave a traceback ahead of the real answer). Without
+a real answer Claude Code blocks prompt and tool (onFailure), and Codex lets
+the event through. No code in this file can close that window; a hook command
+that ignores SIGINT before it starts Python could, as Python keeps an
+inherited SIG_IGN. A Python older than 3.11 blocks with one line on prompt and
+tool, and is silent elsewhere: the guard checks the version before it imports
+anything but sys.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
