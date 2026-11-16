@@ -31,6 +31,7 @@ import sys
 import tempfile
 import time
 import unittest
+import unittest.mock
 
 from test_codex_as import ENV_CONFLICTS, KIT_KNOBS
 
@@ -478,6 +479,39 @@ class Refusals(Fixture):
         write(user, json.dumps({"disableAllHooks": False, "allowManagedHooksOnly": True, "env": CLOSED}))
         self.guarded(["work"])
 
+    def test_safe_mode_and_bare_mode_stop_the_hooks(self):
+        """Claude Code runs none of the --settings hooks in its safe mode or its bare mode (RealClaude pins it)."""
+        self.configure("[usage_reserve]\nweekly = 10\n")
+        user = self.home / ".claude/settings.json"
+        project = self.cwd / ".claude/settings.json"
+        local = self.cwd / ".claude/settings.local.json"
+        on = ("1", "true", " Yes ", "on", "maybe", 1, True, ["1"])
+        off = ("", "0", "false", "No", "off", 0, False, None)
+        for name, mode in (("CLAUDE_CODE_SAFE_MODE", "safe mode"), ("CLAUDE_CODE_SIMPLE", "bare mode")):
+            reason = f"the switch of Claude Code's {mode}, which runs none of the usage reserve guard's hooks"
+            for text in on:
+                if isinstance(text, str):
+                    with self.subTest(name=name, environment=text):
+                        self.assert_refused(["work"], f"the environment sets {name}, {reason}", {name: text})
+                for path in (user, project, local):
+                    with self.subTest(name=name, path=path, text=text):
+                        write(path, json.dumps({"env": {name: text}}))
+                        self.assert_refused(["work"], f"{path} sets {name} in its env, {reason}")
+                        path.unlink()
+            for text in off:
+                with self.subTest(name=name, off=text):
+                    write(user, json.dumps({"env": {name: text}}))
+                    if isinstance(text, str):
+                        record, _, _ = self.guarded(["work"], {name: text})
+                        self.assertEqual(record["env"][name], text)
+                    else:
+                        self.guarded(["work"])
+        self.assertEqual(self.version_runs(), len(off) * 2)
+        # Without reserves both still launch, as they did.
+        code, out, err = self.run_launcher(["--reserve-weekly", "off", "work"], {"CLAUDE_CODE_SAFE_MODE": "1"})
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(self.records()[-1]["env"]["CLAUDE_CODE_SAFE_MODE"], "1")
+
     def test_the_cached_server_policy_is_not_checked(self):
         """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*"""
         write(self.home / ".claude/remote-settings.json",
@@ -519,13 +553,107 @@ class Settings(unittest.TestCase):
         for value in (False, "true", 1, None, [True]):
             self.assertEqual(launch.hook_keys({"disableAllHooks": value, "allowManagedHooksOnly": value}, managed=True), [])
         self.assertEqual(launch.hook_keys({}), [])
+        # A managed strictPluginOnlyCustomization that locks the hooks surface: true, or a list naming hooks.
+        strict = "strictPluginOnlyCustomization"
+        for value in (True, ["hooks"], ["skills", "hooks"]):
+            self.assertEqual(launch.hook_keys({strict: value}, managed=True), [strict], value)
+            self.assertEqual(launch.hook_keys({strict: value}), [], value)
+        for value in (False, ["skills"], [], "hooks", {"hooks": True}, None):
+            self.assertEqual(launch.hook_keys({strict: value}, managed=True), [], value)
+        self.assertEqual(launch.hook_keys({"disableAllHooks": True, "allowManagedHooksOnly": True, strict: True},
+                                          managed=True), ["disableAllHooks", "allowManagedHooksOnly", strict])
 
     def test_the_managed_files(self):
         for path, managed in (("/etc/claude-code/managed-settings.json", True),
                               ("/Library/Application Support/ClaudeCode/managed-settings.json", True),
                               ("/etc/claude-code/managed-settings.d/10-org.json", True),
-                              ("/etc/claude-code/other.json", False), ("/home/u/.claude/settings.json", False)):
+                              ("/Library/Application Support/ClaudeCode/managed-settings.d/10-org.json", True),
+                              ("/etc/claude-code/other.json", False), ("/home/u/.claude/settings.json", False),
+                              ("/Library/Application Support/ClaudeCode/other.json", False)):
             self.assertEqual(launch.managed(Path(path)), managed, path)
+
+    def test_the_managed_drop_in_directories_a_guarded_launch_reads(self):
+        """Both platforms' drop-in directories for a launch with a reserve; a launch without one reads the one it read."""
+        with tempfile.TemporaryDirectory(prefix="claude-guard-preflight-") as name:
+            base = Path(name).resolve()
+            linux, macos = base / "etc/managed-settings.d", base / "Library/managed-settings.d"
+            for folder in (linux, macos):
+                write(folder / "10-org.json", json.dumps({"allowManagedHooksOnly": True}))
+                write(folder / "notes.txt", "{")
+            home, cwd = base / "home", base / "project"
+            cwd.mkdir()
+            kit = type("Kit", (), {"home": home, "expand": staticmethod(Path)})()
+            previous = os.getcwd()
+            os.chdir(cwd)
+            try:
+                with unittest.mock.patch.object(launch, "MANAGED_DIRECTORIES", (linux, macos)), \
+                        unittest.mock.patch.object(launch, "MANAGED_FILES", ()), \
+                        unittest.mock.patch.dict(os.environ, {"PATH": os.environ.get("PATH", "")}, clear=True):
+                    guarded = launch.preflight([], kit, enrollment=False, guarded=True)
+                    plain = launch.preflight([], kit, enrollment=False)
+                    self.assertTrue(launch.managed(macos / "10-org.json"))
+            finally:
+                os.chdir(previous)
+        self.assertEqual(sorted(path for path in guarded.sources if base in path.parents),
+                         [macos / "10-org.json", linux / "10-org.json"])
+        self.assertEqual([path for path in plain.sources if base in path.parents], [linux / "10-org.json"])
+
+    def check_form(self, sources, environ=None):
+        """launch.check_form of a Form with SOURCES and a terminal on standard output, in ENVIRON: the reason
+        it refuses with, or None when it lets the launch go on."""
+        form = launch.Form(sources={Path(path): data for path, data in sources.items()})
+        with unittest.mock.patch.object(launch.os, "isatty", lambda fd: True), \
+                unittest.mock.patch.dict(os.environ, environ or {}, clear=True):
+            try:
+                launch.check_form(form, "work")
+            except ValueError as error:
+                prefix, suffix = "work: ", WITHOUT.format(account="work")[:-1]
+                text = str(error)
+                self.assertTrue(text.startswith(prefix) and text.endswith(suffix), text)
+                return text[len(prefix):-len(suffix)]
+        return None
+
+    def test_managed_settings_that_stop_the_hooks_refuse(self):
+        hooks = "so Claude Code would not run the usage reserve guard's hooks"
+        drop_ins = [f"{folder}/10-org.json" for folder in ("/etc/claude-code/managed-settings.d",
+                                                           "/Library/Application Support/ClaudeCode/managed-settings.d")]
+        for path in (*map(str, launch.MANAGED_FILES), *drop_ins):
+            for data, key in (({"allowManagedHooksOnly": True}, "allowManagedHooksOnly"),
+                              ({"disableAllHooks": True}, "disableAllHooks"),
+                              ({"strictPluginOnlyCustomization": True}, "strictPluginOnlyCustomization"),
+                              ({"strictPluginOnlyCustomization": ["hooks"]}, "strictPluginOnlyCustomization")):
+                with self.subTest(path=path, key=key):
+                    self.assertEqual(self.check_form({path: data}), f"{path} sets {key}, {hooks}")
+            # A managed status line outranks the guard's --settings one, so the guard would never see usage.
+            for line in ({"type": "command", "command": "org status"}, None):
+                with self.subTest(path=path, statusLine=line):
+                    self.assertEqual(self.check_form({path: {"statusLine": line}}),
+                                     f"{path} sets statusLine, which Claude Code runs in place of the usage reserve "
+                                     "guard's status line, so the guard would never see this account's usage")
+            with self.subTest(path=path, env=True):
+                self.assertEqual(self.check_form({path: {"env": {"CLAUDE_CODE_SAFE_MODE": "1"}}}),
+                                 f"{path} sets CLAUDE_CODE_SAFE_MODE in its env, the switch of Claude Code's safe mode, "
+                                 "which runs none of the usage reserve guard's hooks")
+            self.assertIsNone(self.check_form({path: {"strictPluginOnlyCustomization": ["skills"], "env": CLOSED}}))
+        # The managed-only keys and the status line count only in a managed file.
+        user = "/home/u/.claude/settings.json"
+        self.assertIsNone(self.check_form({user: {"allowManagedHooksOnly": True, "strictPluginOnlyCustomization": True,
+                                                  "statusLine": {"type": "command", "command": "mine"}}}))
+        self.assertEqual(self.check_form({user: {"disableAllHooks": True}}), f"{user} sets disableAllHooks, {hooks}")
+        # The environment of the launch, too.
+        self.assertEqual(self.check_form({}, {"CLAUDE_CODE_SIMPLE": "1"}),
+                         "the environment sets CLAUDE_CODE_SIMPLE, the switch of Claude Code's bare mode, which runs "
+                         "none of the usage reserve guard's hooks")
+        self.assertIsNone(self.check_form({}, {"CLAUDE_CODE_SIMPLE": "0", "CLAUDE_CODE_SAFE_MODE": ""}))
+
+    def test_how_claude_code_reads_a_flag(self):
+        """Its isEnvTruthy: falsy values are off, a boolean is itself, else String(value) trimmed and lower-cased
+        is one of 1, true, yes and on."""
+        for value in ("1", "true", " TRUE ", "Yes", "on", 1, 1.0, True, ["1"], [["on"]]):
+            self.assertTrue(launch.env_on(value), value)
+        for value in ("", "0", "false", "no", "off", "maybe", "2", "null", 0, 2, 0.5, False, None, [], ["1", "1"],
+                      {}, {"1": 1}):
+            self.assertFalse(launch.env_on(value), value)
 
     def test_own_status_line(self):
         user = {"statusLine": {"type": "command", "command": "user", "padding": 3}}
@@ -719,9 +847,10 @@ class RealClaude(unittest.TestCase):
         return json.dumps({"five_hour": None, "seven_day": {"used_percentage": used, "resets_at": now + DAY},
                            "seen_at": now})
 
-    def run_claude(self, prompt, used, cross=None):
+    def run_claude(self, prompt, used, cross=None, extra=None):
         """claude -p PROMPT under the guard with the weekly reserve at 10 and USED percent of the week used;
-        CROSS, a percentage, replaces the usage file when the fake answers with its tool call."""
+        CROSS, a percentage, replaces the usage file when the fake answers with its tool call. EXTRA is added
+        to Claude Code's environment."""
         write(self.usage, self.usage_text(used))
         command = [sys.executable, "-I", "-B", "-S", str(CLAUDE_API), "--log", str(self.requests),
                    "--bash", shlex.join(["touch", str(self.marker)])]
@@ -735,7 +864,7 @@ class RealClaude(unittest.TestCase):
         guard_launch = load_kit_module(self.kit, "guard_launch")
         policy = self.reserve.Policy("claude-as", "work", self.reserve.Setting("five_hour", None, "default"),
                                      self.reserve.Setting("weekly", self.reserve.flag_value("10"), "invocation"))
-        env = self.sandbox.env(port)
+        env = self.sandbox.env(port, extra)
         started = int(time.time())
         state = guard_launch.prepare(env, str(self.guard_dir), "claude-as", "work", policy, str(self.usage), started)
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
@@ -795,6 +924,26 @@ class RealClaude(unittest.TestCase):
         self.assertIn("\nThis tool call was stopped. Stop working now and tell the user why.\n", blocked)
         # The denying tool event records the reply; no Stop hook runs for a turn it stopped.
         self.assert_state(state, (".ran.prompt", ".ran.tool", ".reply"), (".ran.stop",))
+
+    def test_safe_mode_and_bare_mode_run_none_of_the_hooks(self):
+        """Why claude-as refuses CLAUDE_CODE_SAFE_MODE and CLAUDE_CODE_SIMPLE with a reserve on: either one,
+        in the environment or in a settings env, lets a prompt at the reserve through unchecked."""
+        cases = (("CLAUDE_CODE_SAFE_MODE", "environment"), ("CLAUDE_CODE_SIMPLE", "environment"),
+                 ("CLAUDE_CODE_SAFE_MODE", "settings"))
+        for name, where in cases:
+            with self.subTest(name=name, where=where):
+                self.requests.unlink(missing_ok=True)
+                for leftover in self.guard_dir.iterdir():
+                    leftover.unlink()
+                settings = self.sandbox.config / "settings.json"
+                if where == "settings":
+                    write(settings, json.dumps({"env": {name: "1"}}))
+                code, out, err, state, messages = self.run_claude("PLAIN say hello", 95,
+                                                                  extra={name: "1"} if where == "environment" else None)
+                settings.unlink(missing_ok=True)
+                self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+                self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
+                self.assert_state(state, (".launched",), (".ran.start", ".ran.prompt", ".ran.stop", ".blocked"))
 
 
 if __name__ == "__main__":

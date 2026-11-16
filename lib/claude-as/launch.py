@@ -47,10 +47,12 @@ QUERIES = {"--list": "--list-accounts", "-l": "--list-accounts", "--labels": "--
 OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h", "--version", "-V", "-v"}
 # A dash word that is safe to echo back in the hint.
 PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
-# The machine's managed settings files, which outrank every other source.
+# The machine's managed settings files, which outrank every other source, and the drop-in directories
+# beside them (Linux, macOS). A launch without a usage reserve reads the first directory only.
 MANAGED_FILES = (Path("/etc/claude-code/managed-settings.json"),
                  Path("/Library/Application Support/ClaudeCode/managed-settings.json"))
-MANAGED_DIRECTORY = Path("/etc/claude-code/managed-settings.d")
+MANAGED_DIRECTORIES = (Path("/etc/claude-code/managed-settings.d"),
+                       Path("/Library/Application Support/ClaudeCode/managed-settings.d"))
 
 # A launch with a usage reserve on (the guarded launch): Claude Code 2.1.296 has every hook contract the
 # guard relies on (onFailure "block", a prompt hook that Esc cannot skip, continue false ending a turn).
@@ -71,6 +73,12 @@ ELSEWHERE = ("agents", "attach", "respawn")
 # re-run of a turn that the guard stopped. Claude Code also reads these from a settings file's env.
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}
 REOPENING = ("CLAUDE_CODE_RESUME_INTERRUPTED_TURN",)
+# The switches of Claude Code's modes that run none of the hooks of a --settings, from the environment or
+# a settings file's env (CLAUDE_CODE_SIMPLE is what --bare sets).
+HOOKLESS = {"CLAUDE_CODE_SAFE_MODE": "safe mode", "CLAUDE_CODE_SIMPLE": "bare mode"}
+# What Claude Code's isEnvTruthy reads as on, and the values it documents as off.
+ON_WORDS = ("1", "true", "yes", "on")
+OFF_WORDS = ("", "0", "false", "no", "off")
 
 
 def shown(word):
@@ -203,7 +211,7 @@ def inspect_config(cfg):
 
 def managed(path):
     """Whether PATH is one of the machine's managed settings files."""
-    return path in MANAGED_FILES or path.parent == MANAGED_DIRECTORY
+    return path in MANAGED_FILES or path.parent in MANAGED_DIRECTORIES
 
 
 @dataclass
@@ -231,8 +239,9 @@ def preflight(args, kit, enrollment, guarded=False):
     sources = [config / "settings.json", config / "settings.local.json", *MANAGED_FILES]
     for parent in (Path.cwd(), *Path.cwd().parents):
         sources += [parent / ".claude/settings.json", parent / ".claude/settings.local.json"]
-    if MANAGED_DIRECTORY.exists():
-        sources += sorted(MANAGED_DIRECTORY.glob("*.json"))
+    for folder in MANAGED_DIRECTORIES if guarded else MANAGED_DIRECTORIES[:1]:
+        if folder.exists():
+            sources += sorted(folder.glob("*.json"))
     for path in set(sources):
         cfg = config_check(path, enrollment=enrollment and managed(path))
         if cfg is not None:
@@ -309,9 +318,44 @@ def preflight(args, kit, enrollment, guarded=False):
 
 def hook_keys(settings, managed=False):
     """The keys of one parsed settings source that keep Claude Code from running the guard's hooks:
-    disableAllHooks in any source, allowManagedHooksOnly in a MANAGED one (the only place it counts)."""
-    keys = ("disableAllHooks", "allowManagedHooksOnly") if managed else ("disableAllHooks",)
-    return [key for key in keys if isinstance(settings, dict) and settings.get(key) is True]
+    disableAllHooks in any source; in a MANAGED one (the only place they count) allowManagedHooksOnly, and
+    strictPluginOnlyCustomization true or a list that names hooks."""
+    if not isinstance(settings, dict):
+        return []
+    names = ("disableAllHooks", "allowManagedHooksOnly") if managed else ("disableAllHooks",)
+    keys = [key for key in names if settings.get(key) is True]
+    strict = settings.get("strictPluginOnlyCustomization")
+    if managed and (strict is True or (isinstance(strict, list) and "hooks" in strict)):
+        keys.append("strictPluginOnlyCustomization")
+    return keys
+
+
+def env_text(value):
+    """String(VALUE) in JavaScript for a VALUE parsed from JSON, as far as reading a flag goes."""
+    if isinstance(value, str):
+        return value
+    if value is None or isinstance(value, bool):
+        return json.dumps(value)
+    if isinstance(value, (int, float)):
+        return "1" if value == 1 else repr(value)
+    if isinstance(value, list):
+        return ",".join("" if item is None else env_text(item) for item in value)
+    return "[object Object]"
+
+
+def env_on(value):
+    """Whether Claude Code reads VALUE, of a variable or of a settings env, as on (its isEnvTruthy): a falsy
+    value is off, a boolean is itself, and anything else is on when String(value), trimmed and lower-cased,
+    is 1, true, yes or on."""
+    if not value or isinstance(value, bool):
+        return bool(value)
+    return env_text(value).strip().lower() in ON_WORDS
+
+
+def env_off(value):
+    """Whether VALUE certainly turns a switch off: falsy, or one of the spellings Claude Code reads as off.
+    Any other value counts as on, whatever this release makes of it."""
+    return not value or (not env_on(value) and env_text(value).strip().lower() in OFF_WORDS)
 
 
 def own_status_line(sources):
@@ -369,11 +413,21 @@ def check_form(form, account):
     if not os.isatty(1):
         refuse_guarded(account, "standard output is not a terminal, so Claude Code would run outside its "
                        "interactive session, where the usage reserve guard cannot stop it")
+    for name, mode in HOOKLESS.items():
+        if not env_off(os.environ.get(name)):
+            refuse_guarded(account, f"the environment sets {name}, the switch of Claude Code's {mode}, which runs "
+                           "none of the usage reserve guard's hooks")
     for path, settings in sorted(form.sources.items()):
         for key in hook_keys(settings, managed(path)):
             refuse_guarded(account, f"{path} sets {key}, so Claude Code would not run the usage reserve guard's hooks")
+        if managed(path) and "statusLine" in settings:
+            refuse_guarded(account, f"{path} sets statusLine, which Claude Code runs in place of the usage reserve "
+                           "guard's status line, so the guard would never see this account's usage")
         env = settings.get("env") or {}
         for name in sorted(env):
+            if name in HOOKLESS and not env_off(env[name]):
+                refuse_guarded(account, f"{path} sets {name} in its env, the switch of Claude Code's {HOOKLESS[name]}, "
+                               "which runs none of the usage reserve guard's hooks")
             if name in REOPENING or (name in CLOSED and env[name] != CLOSED[name]):
                 refuse_guarded(account, f"{path} sets {name} in its env, which would reopen what a launch with usage "
                                "reserves closes")
