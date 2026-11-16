@@ -172,6 +172,7 @@ def write(path, data):
     temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
+        os.fchmod(fd, 0o600)  # whatever the umask took: read() accepts only 0600
         with os.fdopen(fd, "wb") as stream:
             stream.write(raw)
             stream.flush()

@@ -166,6 +166,20 @@ class Store(unittest.TestCase):
         self.assertEqual(victim.read_text(), "kept")
         self.assertFalse(path.is_symlink())
 
+    def test_writes_are_0600_under_any_umask(self):
+        # A umask that takes the owner's own read or write bit must not leave a file that read() refuses.
+        path = accounts.directory(self.config, create=True) / "claude-A.usage.json"
+        for mask in (0o277, 0o477, 0o000):
+            with self.subTest(umask=oct(mask)):
+                path.unlink(missing_ok=True)
+                previous = os.umask(mask)
+                try:
+                    self.assertTrue(accounts.write(path, {"seen_at": mask + 1}))
+                finally:
+                    os.umask(previous)
+                self.assertEqual(stat.S_IMODE(path.lstat().st_mode), 0o600)
+                self.assertEqual(accounts.read(path), {"seen_at": mask + 1})
+
     def test_labels_refuse_control_characters_length_and_tokens(self):
         self.assertIsNone(accounts.label_problem("alice@example.com (work)"))
         self.assertIsNone(accounts.label_problem("x" * 100))

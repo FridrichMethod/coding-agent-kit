@@ -171,6 +171,7 @@ def prepare(env, directory, tool, account, policy, usage, started, *, marker=Non
         raise ValueError("the launcher's interpreter has no absolute path")
     fd = os.open(state + ".launched", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
+        os.fchmod(fd, 0o600)  # whatever the umask took: unguarded() reads the host back
         os.write(fd, _host().encode("utf-8", "surrogateescape"))
     except BaseException:
         os.unlink(state + ".launched")

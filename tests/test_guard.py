@@ -1326,6 +1326,31 @@ class StatusLine(Fixture):
         self.assertEqual(self.answer("prompt", launch),
                          (2, "", reserve.block_text("claude-as", "personal", decision, "prompt", NOW)))
 
+    def test_under_any_umask_the_guard_reads_what_it_wrote(self):
+        # A umask that takes the owner's own read or write bit must not leave a usage file the guard refuses,
+        # which would let prompts through at the reserve while .seen keeps the launch from being blind.
+        for mask in (0o277, 0o477, 0o000):
+            with self.subTest(umask=oct(mask)):
+                launch = self.launch(weekly="10")
+                Path(launch.usage).unlink(missing_ok=True)
+                put(self.state(launch, "ran.start"), "")
+                put(self.state(launch, "reply"), str(NOW - 600))
+                previous = os.umask(mask)
+                try:
+                    self.assertEqual(guard.status(status_input(limits(None, (95, NOW + 86400))), launch, NOW), "")
+                    name, held = guard.lock(Path(launch.usage))
+                    lock_mode = stat.S_IMODE(name.lstat().st_mode)
+                    guard.unlock(name, held)
+                    decision = reserve.decide(launch.enabled, [reserve.Reading("weekly", 95, NOW + 86400)], NOW)
+                    self.assertEqual(self.answer("prompt", launch),
+                                     (2, "", reserve.block_text("claude-as", "personal", decision, "prompt", NOW)))
+                finally:
+                    os.umask(previous)
+                self.assertEqual(lock_mode, 0o600)
+                for path in (Path(launch.usage), self.state(launch, "seen"), self.state(launch, "ran.prompt"),
+                             self.state(launch, "blocked")):
+                    self.assertEqual(stat.S_IMODE(path.lstat().st_mode), 0o600, path.name)
+
     def test_without_rate_limits_nothing_is_recorded(self):
         launch = self.launch(weekly="10")
         for raw in (status_input(None), status_input({}), status_input(limits(None, None)),
@@ -1630,6 +1655,20 @@ class GuardLaunch(Fixture):
         with self.assertRaises(TypeError):
             guard_launch.prepare({}, self.guard_dir, "claude-as", "personal", on, usage, self.started, other="x")
         self.assertEqual(os.listdir(self.guard_dir), [], "a refused launch left state")
+
+    def test_prepare_leaves_a_0600_launched_under_any_umask(self):
+        for mask in (0o277, 0o477, 0o000):
+            with self.subTest(umask=oct(mask)):
+                env, previous = {}, os.umask(mask)
+                try:
+                    state = guard_launch.prepare(env, self.guard_dir, "claude-as", "personal",
+                                                 policy("claude-as", "personal", weekly=D(10)),
+                                                 str(self.accounts / "claude-personal.usage.json"), self.started + mask)
+                finally:
+                    os.umask(previous)
+                launched = Path(state + ".launched")
+                self.assertEqual(stat.S_IMODE(launched.lstat().st_mode), 0o600)
+                self.assertEqual(launched.read_text(), os.uname().nodename)
 
     def test_prepare_never_writes_through_a_link(self):
         target = self.root / "elsewhere"

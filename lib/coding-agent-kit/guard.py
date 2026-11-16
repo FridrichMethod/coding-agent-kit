@@ -35,7 +35,7 @@ The launch (CODING_AGENT_KIT_GUARD, compact JSON the launcher writes):
     allows and prints nothing. Any other "v", or a value that does not parse as
     above, is a guard failure named "launch format" (unknown keys are ignored).
 
-State files beside the prefix, each created once, owned and 0600:
+State files beside the prefix, each created once, owned and 0600 whatever the umask:
 
     STATE.ran.KIND  at each event of KIND: the native runs that hook in this launch
     STATE.reply     Claude, at the first tool or stop event: that moment in epoch
@@ -307,6 +307,7 @@ def mark(path, content=""):
     except FileExistsError:
         return False
     try:
+        os.fchmod(fd, 0o600)  # whatever the umask took
         with os.fdopen(fd, "w") as stream:
             stream.write(content)
     except BaseException:
@@ -325,6 +326,7 @@ def note(state, text):
     try:
         with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600),
                        "w") as stream:
+            os.fchmod(stream.fileno(), 0o600)  # whatever the umask took: the launcher reads it
             stream.write(text)
         os.replace(temporary, path)
     except OSError:
@@ -520,6 +522,7 @@ def lock(path):
             pass
         else:
             try:
+                os.fchmod(fd, 0o600)  # whatever the umask took: other runs read the holder
                 os.write(fd, holding())
             except BaseException:
                 unlock(name, fd)
