@@ -946,6 +946,25 @@ class StatusLine(Fixture):
     def usage_file(self, launch):
         return json.loads(Path(launch.usage).read_text())
 
+    def runner(self, body):
+        """A script that loads guard.py as `guard`, runs BODY to change it, and then runs guard.main() for the
+        kind in its first argument, as the hook and status line commands do."""
+        path = self.scripts / f"runner {len(list(self.scripts.glob('runner *')))}.py"
+        path.write_text("import importlib.util, os, signal, subprocess, sys, threading, time\n"
+                        "spec = importlib.util.spec_from_file_location("
+                        f"'guard', {str(ROOT / 'lib/coding-agent-kit/guard.py')!r})\n"
+                        "guard = importlib.util.module_from_spec(spec)\n"
+                        "spec.loader.exec_module(guard)\n"
+                        f"{body}\n"
+                        "sys.exit(guard.main([spec.origin, sys.argv[1]]))\n")
+        return path
+
+    def run_runner(self, runner, launch, kind="status"):
+        """RUNNER started like the status line command of LAUNCH, with Claude Code's input on stdin."""
+        return subprocess.Popen([sys.executable, "-I", "-B", "-S", str(runner), kind], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **self.environ(launch)})
+
     def test_record_validates_like_the_helper(self):
         launch = self.launch(weekly="10")
         for value in (window(-1, NOW + 60), window(100.5, NOW + 60), window(float("nan"), NOW + 60),
@@ -1258,6 +1277,31 @@ class StatusLine(Fixture):
                 self.addCleanup(kill_group, int(pidfile.read_text()))
                 send(run.pid)
                 out, err = run.communicate(timeout=30)
+                self.assertEqual((run.returncode, out, err), (0, b"", b""))
+                self.assertTrue(gone(int(pidfile.read_text())), "the user's status line command outlived the run")
+
+    def test_a_run_cancelled_while_it_starts_the_users_command_ends_it_too(self):
+        pidfile = self.scripts / "starting pid"
+        launch = self.launch(weekly="10", statusline=f"sleep 47.5 & echo $! > {shlex.quote(str(pidfile))}; wait")
+        put(self.state(launch, "ran.start"), "")
+        for name in ("SIGTERM", "SIGHUP", "SIGINT"):
+            with self.subTest(name):
+                pidfile.unlink(missing_ok=True)
+                # The cancel comes before Popen() has returned, once the command has started its child.
+                runner = self.runner(
+                    "class Popen(subprocess.Popen):\n"
+                    "    def __init__(self, *args, **kwargs):\n"
+                    "        super().__init__(*args, **kwargs)\n"
+                    f"        pidfile, deadline = {str(pidfile)!r}, time.monotonic() + 30\n"
+                    "        while not (os.path.exists(pidfile) and open(pidfile).read().endswith('\\n')):\n"
+                    "            if time.monotonic() > deadline:\n"
+                    "                raise SystemExit('the command never started its child')\n"
+                    "            time.sleep(0.02)\n"
+                    f"        os.kill(os.getpid(), signal.{name})\n"
+                    "subprocess.Popen = Popen\n")
+                run = self.run_runner(runner, launch)
+                out, err = run.communicate(status_input(), timeout=60)
+                self.addCleanup(kill_group, int(pidfile.read_text()))
                 self.assertEqual((run.returncode, out, err), (0, b"", b""))
                 self.assertTrue(gone(int(pidfile.read_text())), "the user's status line command outlived the run")
 

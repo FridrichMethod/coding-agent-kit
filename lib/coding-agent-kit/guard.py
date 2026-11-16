@@ -527,22 +527,23 @@ def chained(command, raw):
         return ""
     import signal  # only the status line runs a command: the hook events stay light
     import subprocess
-    try:
-        child = subprocess.Popen(["/bin/sh", "-c", command], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                 stderr=subprocess.DEVNULL, process_group=0)
-    except (OSError, ValueError):
-        return ""
+    child, cancel = None, []
 
-    def end(*_):
-        try:
-            os.killpg(child.pid, signal.SIGKILL)
-        except OSError:
-            pass
+    def end():
+        if child is not None:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except OSError:
+                pass
 
     def cancelled(*_):
+        if child is None:  # Popen() has not returned: the run ends as soon as it has
+            cancel.append(True)
+            return
         end()
         os._exit(0)
 
+    # The handlers come first, so no cancel finds the command started and its process group unknown.
     previous = {}
     for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         try:
@@ -550,6 +551,15 @@ def chained(command, raw):
         except (OSError, ValueError):  # not the main thread: the caller handles its signals
             pass
     try:
+        try:
+            child = subprocess.Popen(["/bin/sh", "-c", command], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL, process_group=0)
+        except (OSError, ValueError):
+            if cancel:
+                os._exit(0)
+            return ""
+        if cancel:
+            cancelled()
         out, _ = child.communicate(raw, timeout=STATUS_TIMEOUT)
     except Exception:
         end()
