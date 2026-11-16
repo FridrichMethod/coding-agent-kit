@@ -118,13 +118,14 @@ def enroll(layout, codex):
 # Set from the caller in __main__: the launcher itself creates files under umask 077.
 CALLER_UMASK = -1
 # A child killed by one of these is re-raised, so the caller sees what native Codex shows.
-RERAISED = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGKILL, signal.SIGPIPE}
+RERAISED = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT, signal.SIGKILL, signal.SIGPIPE}
 
 
 class Supervision:
     """From just before native Codex starts until post-run repair ends: forward termination
-    to it and ignore Ctrl-C, which the terminal already delivers to its whole process group.
-    Termination after it exits waits for the repair to finish, then ends the launcher."""
+    (SIGTERM, SIGHUP, SIGQUIT) to it and ignore Ctrl-C, which the terminal already delivers to
+    its whole process group. Termination after it exits waits for the repair to finish, then
+    ends the launcher."""
 
     def __init__(self):
         self.child, self.pending, self.late, self.previous = None, [], [], {}
@@ -138,8 +139,8 @@ class Supervision:
             self.late.append(signum)
 
     def __enter__(self):
-        for signum, handler in ((signal.SIGINT, lambda signum, frame: None),
-                                (signal.SIGTERM, self.forward), (signal.SIGHUP, self.forward)):
+        for signum, handler in ((signal.SIGINT, lambda signum, frame: None), (signal.SIGTERM, self.forward),
+                                (signal.SIGHUP, self.forward), (signal.SIGQUIT, self.forward)):
             self.previous[signum] = signal.signal(signum, handler)
         SUPERVISION.append(self)
         return self
@@ -502,19 +503,21 @@ def main(args):
             if plan.scope is not None:
                 handoff.release(guard, layout.root, account, None if plan.scope == "all" else plan.scope,
                                 last=plan.last, others=plan.include_non_interactive)
-        # One start time for the guard, the record of this run and the check after it.
-        started, state = int(time.time()), None
-        if guarding:
-            guard_launch.prune(directory, started)
-            state = guard_launch.prepare(env, directory, "codex-as", account, policy, record, started, marker=marker)
-            print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls at a "
-                               "reserve.", "36", 2), file=sys.stderr)
     except BaseException:
         layout.close()
         raise
+    # One start time for the guard, the record of this run and the check after it.
+    started, state = int(time.time()), None
+    # The launch's state exists only under Supervision, so a signal never leaves it behind.
     with Supervision():
         try:
             try:
+                if guarding:
+                    guard_launch.prune(directory, started)
+                    state = guard_launch.prepare(env, directory, "codex-as", account, policy, record, started,
+                                                 marker=marker)
+                    print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls "
+                                       "at a reserve.", "36", 2), file=sys.stderr)
                 result = run_native(command, env, layout.fd)
             finally:
                 layout.close()

@@ -378,11 +378,18 @@ class Hooks(unittest.TestCase):
 
 
 FAKE = r'''
-import json, os, pathlib, subprocess, sys, time, tomllib
+import json, os, pathlib, signal, subprocess, sys, time, tomllib
 if sys.argv[1:] == ["--version"]:
     print(os.environ.get("FAKE_VERSION", "codex-cli 0.169.0"))
+    if os.environ.get("FAKE_BREAK"):
+        os.chmod(sys.argv[0], 0o600)  # the launch that follows cannot execute it
     sys.exit(0)
 args = sys.argv[1:]
+if os.environ.get("FAKE_READY"):
+    signal.signal(signal.SIGINT, signal.SIG_DFL)  # ends by the signal, as native Codex does
+    signal.signal(signal.SIGQUIT, lambda signum, frame: os._exit(131))  # as a shell reports a quit, without a core
+    pathlib.Path(os.environ["FAKE_READY"]).touch()
+    time.sleep(60)
 launch = os.environ.get("CODING_AGENT_KIT_GUARD")
 state = json.loads(launch)["state"] if launch else None
 record = {"args": args, "env": dict(os.environ), "launched": bool(state) and os.path.isfile(state + ".launched"),
@@ -845,6 +852,40 @@ class GuardedLaunch(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("not enforced", result.stderr)
         self.assertTrue(self.marker.exists())
+
+    def test_the_launch_state_goes_on_every_exit(self):
+        """A signal to codex-as reaches Codex, and the launch's state goes before codex-as ends: SIGTERM
+        and SIGHUP end it by the same signal, Ctrl-C reaches the whole process group, and SIGQUIT, whose
+        default action would leave the state behind, ends it with Codex's status."""
+        self.trusted()
+        ready = self.base / "ready"
+        for signum, group, expected in ((signal.SIGTERM, False, -signal.SIGTERM), (signal.SIGHUP, False, -signal.SIGHUP),
+                                        (signal.SIGINT, True, -signal.SIGINT), (signal.SIGQUIT, False, 131)):
+            for form in ([], ["exec", "go"]):
+                with self.subTest(signal=signum.name, form=form):
+                    ready.unlink(missing_ok=True)
+                    child = subprocess.Popen([str(self.kit / "bin/codex-as"), "--reserve-5h", "10", "A", *form],
+                                             cwd=self.cwd, env=self.env | {"FAKE_READY": str(ready)},
+                                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                             text=True, start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 30
+                        while not ready.exists() and time.monotonic() < deadline and child.poll() is None:
+                            time.sleep(0.05)
+                        self.assertTrue(ready.exists(), "Codex did not start")
+                        self.assertEqual(len(self.launches()), 1)
+                        (os.killpg if group else os.kill)(child.pid, signum)
+                        out, err = child.communicate(timeout=60)
+                    finally:
+                        kill_group(child.pid)
+                    self.assertEqual(child.returncode, expected, err)
+                    self.assertNotIn("Traceback", err)
+                    self.assertEqual(self.launches(), [], "the launch's state outlived it")
+        # A native that cannot be started: one message and no state.
+        result = self.run_codex("--reserve-5h", "10", "A", env={"FAKE_BREAK": "1"})
+        self.assertEqual(result.returncode, 1)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertEqual(self.launches(), [], "the launch's state outlived it")
 
     def test_old_launch_state_is_pruned_and_markers_stay(self):
         self.trusted()
