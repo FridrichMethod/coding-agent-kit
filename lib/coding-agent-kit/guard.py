@@ -1,18 +1,26 @@
 """coding-agent-kit usage reserve guard: the hook command of a launch with a usage reserve.
 
-The launchers inject it per launch, only when a reserve is on: claude-as as the
-command of Claude Code's SessionStart, UserPromptSubmit, PreToolUse and Stop
-hooks and as its status line command, codex-as as the command of Codex's
-UserPromptSubmit and PreToolUse hooks:
+The launchers inject it per launch, only when a reserve is on. claude-as makes
+it the command of Claude Code's SessionStart, UserPromptSubmit, PreToolUse and
+Stop hooks and its status line command, naming the launcher's interpreter and
+this file by their paths in its --settings:
+
+    shlex.join([PYTHON, "-I", "-B", "-S", SCRIPT]) + " KIND"
+
+codex-as makes it the command of Codex's UserPromptSubmit and PreToolUse hooks
+as one string, the same on every launch and host, which keeps Codex's trust of
+the hooks; the shell takes both paths from the environment:
 
     "$CODING_AGENT_KIT_GUARD_PYTHON" -I -B -S "$CODING_AGENT_KIT_GUARD_SCRIPT" KIND
 
-KIND is start, prompt, tool, stop or status. One short process per event: it
-reads the event on stdin and the launch from the environment, reads the usage
-data the native already has, decides with reserve.decide() and answers in the
-native's hook contract. It loads reserve.py and accounts.py beside it, and for
-codex-as ../codex-as/usage.py, by path; it reads no configuration file and no
-other environment variable: every path comes from the launch.
+PYTHON and SCRIPT are the values of CODING_AGENT_KIT_GUARD_PYTHON and
+CODING_AGENT_KIT_GUARD_SCRIPT (guard_launch.prepare()). KIND is start, prompt,
+tool, stop or status. One short process per event: it reads the event on stdin
+and the launch from the environment, reads the usage data the native already
+has, decides with reserve.decide() and answers in the native's hook contract.
+It loads reserve.py and accounts.py beside it, and for codex-as
+../codex-as/usage.py, by path; it reads no configuration file and no other
+environment variable: every path comes from the launch.
 
 The launch (CODING_AGENT_KIT_GUARD, compact JSON the launcher writes):
 
