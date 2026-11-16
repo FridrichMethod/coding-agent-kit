@@ -1,8 +1,9 @@
-"""coding-agent-kit usage reserves: launch flags, per-window policy and formatting.
+"""coding-agent-kit usage reserves: launch flags, per-window policy, the guard's decision and formatting.
 
 Pure: no I/O, no environment, no clock of its own. Load this file by path (it is
 never on sys.path), like config.py; it does not import config.py and reads the
-configuration only from the frozen Config the launcher passes in.
+configuration only from the frozen Config the launcher passes in. The reserve
+guard (guard.py) takes its decision and its messages from here.
 
 Flags (before NAME, either order, exact words, the value as the next argument):
 
@@ -34,6 +35,38 @@ Policy (each window on its own, never combined):
         None (off); source is one of SOURCES: "invocation", "account", "global"
         or "default".
 
+Decision (the same for both natives; the caller gathers the readings):
+
+    decide(enabled, readings, now, blind=False) -> Decision
+        enabled is Policy.enabled(); readings are Reading values. Per enabled
+        window, in WINDOWS order, only current readings count: a finite percent
+        used of at least 0 (above 100 counts as 100) whose reset time is None or
+        after NOW (wall-clock epoch seconds); usage never falls inside a window,
+        so a reading stays current until its reset however old it is. The most
+        used one decides: the window is at its reserve when used + reserve >= 100,
+        compared exactly. Any window at its reserve blocks with reason
+        "threshold" (blind or not); else BLIND blocks with reason "blind"; else
+        the decision allows. A window without a current reading has nothing to
+        check. ValueError when NOW is not a number or a reserve is not one that
+        checked() accepts.
+    Reading(window, used, resets_at, family=None): one window's reading.
+    WindowStatus(window, reserve, status, remaining, resets_at, family=None):
+        status is OK or AT_RESERVE; remaining is 100 - used, rounded down.
+    Decision(allow, reason, windows=()): reason is None, "threshold" or "blind";
+        windows are the WindowStatus of the windows at their reserve.
+
+Messages (tool is "claude-as" or "codex-as"; event is "prompt", "tool" or "stop"):
+
+    block_text(tool, account, decision, event, now) -> the message of a blocking
+        decision: each window at its reserve with its reset, or the blindness
+        cause, what was stopped, and the relaunch that goes on.
+    failure_text(tool, account, event, name) -> the message of a guard that
+        failed, NAME being the exception's class name or "launch format".
+    relaunch(tool, account, windows) -> the command that relaunches with the
+        reserve of each of WINDOWS off and continues the session.
+    span(seconds) -> "45m", "3h 5m" or "2d 3h", rounded down; never negative.
+    Each raises ValueError for an unknown tool or event, or a decision that allows.
+
 Formatting:
 
     percent(value, floor=False) -> str: a Decimal percentage without trailing
@@ -44,7 +77,10 @@ Formatting:
 
 Constants: WINDOWS ("five_hour", "weekly"), LABELS (their names in messages),
 DURATIONS (their lengths in seconds), FLAGS (flag to window), OFF, SOURCES,
-NUMBER (the flag value pattern) and FLOOR (a Decimal context that rounds down).
+NUMBER (the flag value pattern), FLOOR (a Decimal context that rounds down),
+OK and AT_RESERVE (window statuses), TAILS (what each launcher appends to
+continue the session), STOPPED (what an event's block stopped) and CAUSES (why
+each launcher's guard can be blind).
 """
 
 from dataclasses import dataclass
@@ -62,6 +98,18 @@ OFF = "off"
 SOURCES = ("invocation", "account", "global", "default")
 NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 FLOOR = Context(rounding=ROUND_FLOOR)  # rounds down, so a sum compared with 100 keeps its order
+OK, AT_RESERVE = "ok", "at_reserve"
+TAILS = {"claude-as": "--continue", "codex-as": "resume --last"}
+STOPPED = {
+    "prompt": "This prompt was not sent.",
+    "tool": "This tool call was stopped. Stop working now and tell the user why.",
+    "stop": "The work stops here.",
+}
+CAUSES = {
+    "claude-as": "the status line has reported no rate limits: the workspace is not trusted yet, "
+                 "or this account reports none",
+    "codex-as": "the session's rollout shows no rate limits",
+}
 
 
 class ReserveError(ValueError):
@@ -174,6 +222,134 @@ def resolve(tool, account, overrides, usage_reserve):
                 settings[window] = Setting(window, checked(value), source)
                 break
     return Policy(tool, account, **settings)
+
+
+# -- decision -----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Reading:
+    window: str  # "five_hour" or "weekly"
+    used: object  # percent used as read: int, float or Decimal
+    resets_at: object  # wall-clock epoch seconds, or None for a reading the caller vouches is current
+    family: object = None  # a limit family other than the general one, else None
+
+
+@dataclass(frozen=True)
+class WindowStatus:
+    window: str
+    reserve: Decimal
+    status: str  # OK or AT_RESERVE
+    remaining: Decimal
+    resets_at: object
+    family: object = None
+
+
+@dataclass(frozen=True)
+class Decision:
+    allow: bool
+    reason: object  # None, "threshold" or "blind"
+    windows: tuple = ()  # WindowStatus of the enabled windows at their reserve, in WINDOWS order
+
+
+def current(reading, now):
+    """READING's percent used as a Decimal from 0 through 100 while it is current, else None."""
+    used = number(reading.used)
+    if used is None or used < 0:
+        return None
+    if reading.resets_at is not None:
+        reset = number(reading.resets_at)
+        if reset is None or reset <= now:
+            return None
+    return min(used, Decimal(100))
+
+
+def decide(enabled, readings, now, blind=False):
+    now = number(now)
+    if now is None:
+        raise ValueError("now is a number of epoch seconds")
+    at_reserve = []
+    for window in WINDOWS:
+        if enabled.get(window) is None:
+            continue
+        reserve = checked(enabled[window])
+        found = [(used, reading) for reading in readings if reading.window == window
+                 for used in (current(reading, now),) if used is not None]
+        if not found:
+            continue  # nothing to check: the 0.8 rule for a window the report does not name
+        used, reading = max(found, key=lambda pair: pair[0])  # the most used; the first of equals
+        # remaining <= reserve is used + reserve >= 100; rounding down keeps that comparison
+        # exact at any precision, and the remaining value shown is never above the true one.
+        if FLOOR.add(used, reserve) >= 100:
+            remaining = FLOOR.subtract(Decimal(100), used) or Decimal(0)  # never a negative zero
+            at_reserve.append(WindowStatus(window, reserve, AT_RESERVE, remaining, reading.resets_at, reading.family))
+    if at_reserve:
+        return Decision(False, "threshold", tuple(at_reserve))
+    return Decision(False, "blind") if blind else Decision(True, None)
+
+
+# -- messages -----------------------------------------------------------------
+
+
+def span(seconds):
+    days, rest = divmod(max(0, int(seconds)), 86400)
+    hours, minutes = rest // 3600, rest % 3600 // 60
+    if days:
+        return f"{days}d {hours}h"
+    return f"{hours}h {minutes}m" if hours else f"{minutes}m"
+
+
+def relaunch(tool, account, windows):
+    if tool not in TAILS:
+        raise ValueError(f"unknown launcher {tool}")
+    flags = [f"{flag} {OFF}" for flag, window in FLAGS.items() if window in windows]
+    if not flags:
+        raise ValueError("a relaunch turns at least one reserve off")
+    return " ".join([tool, *flags, account, TAILS[tool]])
+
+
+def stopped(tool, event):
+    """What a block on EVENT stopped; ValueError for an unknown launcher or event."""
+    if tool not in TAILS:
+        raise ValueError(f"unknown launcher {tool}")
+    if event not in STOPPED:
+        raise ValueError(f"unknown event {event}")
+    return STOPPED[event]
+
+
+def sentence(status, now):
+    """One window at its reserve: remaining, reserve, the reset when known, a family other than the general one."""
+    text = (f"{LABELS[status.window]} window {percent(status.remaining, floor=True)}% remaining, "
+            f"at or below its {percent(status.reserve)}% reserve")
+    reset = None if status.resets_at is None else number(status.resets_at)
+    if reset is not None:
+        text += f"; resets in {span(reset - now)} ({timestamp(reset)})"
+    if status.family is not None:
+        text += f" (limit {status.family})"
+    return text + "."
+
+
+def block_text(tool, account, decision, event, now):
+    what = stopped(tool, event)
+    if decision.allow:
+        raise ValueError("an allowing decision has no block message")
+    if decision.reason == "threshold":
+        now = number(now)
+        return "\n".join((f"{tool}: {account}: " + " ".join(sentence(status, now) for status in decision.windows),
+                          what, "To use the reserve, exit and run:",
+                          "  " + relaunch(tool, account, [status.window for status in decision.windows])))
+    if decision.reason == "blind":
+        return "\n".join((f"{tool}: {account}: no usage data since this session started, so its usage reserve "
+                          f"cannot be checked ({CAUSES[tool]}).", what, "To go on without reserves, exit and run:",
+                          "  " + relaunch(tool, account, WINDOWS),
+                          f'To keep them off for this account, set them to "{OFF}" under '
+                          f"[usage_reserve.{tool.split('-')[0]}_accounts.{account}]."))
+    raise ValueError(f"unknown reason {decision.reason}")
+
+
+def failure_text(tool, account, event, name):
+    return "\n".join((f"{tool}: {account}: the usage reserve guard failed ({name}).", stopped(tool, event),
+                      "To go on without reserves, exit and run:", "  " + relaunch(tool, account, WINDOWS)))
 
 
 # -- formatting ---------------------------------------------------------------
