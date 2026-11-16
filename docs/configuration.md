@@ -164,7 +164,11 @@ plain `codex-as borrowed` to 20% and 40%. `claude-as borrowed` resolves to
 
 A release older than 0.8.0 does not know `[usage_reserve]`: it warns
 `unknown key usage_reserve ignored` and launches without reserves, so a
-shared file keeps no reserve on a host with an older kit.
+shared file keeps no reserve on a host with an older kit. A 0.8 release reads
+the same tables but enforces a reserve its own way, and refuses many launches
+with a reserve on that 0.9.0 and newer run, among them every `claude-as`
+launch of a setup-token account. Run 0.9.0 or newer on every host that shares
+a file that turns a reserve on.
 
 ## File permissions
 

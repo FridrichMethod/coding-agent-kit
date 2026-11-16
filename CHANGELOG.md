@@ -17,7 +17,11 @@ Breaking changes:
   (`codex-as: usage reserve protection refused: REASON. ...` and
   `claude-as: protected mode refused: REASON.`), its pause and passing-check
   lines and its F12 continuation are gone with it. The reserve flags and the
-  `[usage_reserve]` tables keep their syntax, values and resolution.
+  `[usage_reserve]` tables keep their syntax, values and resolution. A 0.8
+  kit that reads the same file still runs a launch with a reserve on in
+  protected mode, which refuses among others every setup-token Claude
+  account, so a shared file that turns a reserve on needs 0.9.0 or newer on
+  every host.
 - Native login is removed. `claude-as --enroll-native NAME` is no own option:
   it gets the hint of any other dash word before NAME
   (`claude-as: --enroll-native is not a claude-as option; ...`, exit 1). A

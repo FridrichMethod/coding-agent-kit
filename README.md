@@ -349,7 +349,8 @@ secrets_dir = "~/.secrets"
 ```
 
 One optional table adds behavior: `[usage_reserve]` (usage reserves, global
-and per account); a kit older than 0.8.0 ignores it with a warning.
+and per account); a kit older than 0.8.0 ignores it with a warning, and a 0.8
+kit enforces it its own way, refusing many launches that 0.9.0 runs.
 
 The file, and the directories and symlinks on its way, must be owned by you
 (or root) and not writable by others; unknown keys only warn. Choose `codex_home` and `secrets_dir` before the first
