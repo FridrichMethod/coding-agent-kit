@@ -392,6 +392,15 @@ class CodexUsage(unittest.TestCase):
         self.touch_all()
         self.assertEqual(self.latest()["primary"]["used_percent"], 10.0)
 
+    def test_a_reading_above_100_percent_is_kept_as_100(self):
+        # An exhausted window is still a window: the newest snapshot keeps it, never an older lower one.
+        rollout(self.root, THREAD, [(NOW - 20, limits(80.0, 60.0)), (NOW - 10, limits(100.5, 101))])
+        self.touch_all()
+        self.assertEqual(self.latest(), {
+            "primary": {"used_percent": 100.0, "window_minutes": 300, "resets_at": NOW + 3600},
+            "secondary": {"used_percent": 100.0, "window_minutes": 10080, "resets_at": NOW + 3600},
+            "seen_at": NOW - 10})
+
     def test_only_the_tail_is_read(self):
         path = rollout(self.root, THREAD, [(NOW - 100, limits(40.0))])
         with open(path, "a") as stream:
@@ -500,6 +509,19 @@ class SessionRollout(unittest.TestCase):
         later = dict(limits(None), primary=slot(99.0, 0))
         found = self.session([count(NOW + 1, limits(15.0)), count(NOW + 2, later)])
         self.assertEqual((found["snapshot"]["primary"]["used_percent"], found["snapshot"]["seen_at"]), (15.0, NOW + 1))
+
+    def test_a_reading_above_100_percent_counts_as_100(self):
+        # The design's rule: a reading above 100 percent counts as 100, so an exhausted window is never dropped.
+        rate = dict(limits(None), primary=slot(100.5, 300), secondary=slot(50.0, 10080))
+        self.assertEqual(self.session([count(NOW + 1, rate)])["snapshot"],
+                         {"primary": slot(100.0, 300), "secondary": slot(50.0, 10080), "seen_at": NOW + 1})
+        lone = dict(limits(None), primary=slot(101, 10080))
+        self.assertEqual(self.session([count(NOW + 1, lone)])["snapshot"]["primary"], slot(100.0, 10080))
+        # What is no percentage at all is still no window.
+        for used in (-0.5, float("nan"), float("inf"), "101", True):
+            with self.subTest(used=used):
+                rate = dict(limits(None), primary=slot(used, 300))
+                self.assertEqual(self.session([count(NOW + 1, rate)]), dict(EMPTY, accounted=True))
 
     def test_the_family_comes_from_the_snapshot_line(self):
         for limit_id, family in (("spark", "spark"), ("codex_bengalfox", "codex_bengalfox"), ("codex", None),

@@ -525,6 +525,25 @@ class Codex(Fixture):
                     self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
                                      (2, "", self.threshold(kind)))
 
+    def test_a_reading_above_100_percent_counts_as_100(self):
+        launch = self.launch("codex-as", five_hour="10", weekly="10")
+
+        def exhausted(window, kind):
+            decision = reserve.decide(launch.enabled, [reserve.Reading(window, 100, NOW + 3600)], NOW)
+            return 2, "", reserve.block_text("codex-as", "lab", decision, kind, NOW)
+
+        self.assertIn("five-hour window 0% remaining", exhausted("five_hour", "prompt")[2])
+        beside = self.rollout([reply(NOW - 30), count(NOW - 30, slot(100.5, 300), slot(50, 10080))], "beside.jsonl")
+        lone = self.rollout([reply(NOW - 30), count(NOW - 30, slot(101, 10080))], "lone.jsonl")
+        for transcript, window in ((beside, "five_hour"), (lone, "weekly")):
+            for kind in ("prompt", "tool"):
+                with self.subTest(transcript=transcript.name, kind=kind):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
+                                     exhausted(window, kind))
+        # The account record from earlier runs, too.
+        self.codex_record(launch, slot(100.5, 10080))
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(self.rollout([]))), exhausted("weekly", "prompt"))
+
     def test_without_a_snapshot_the_account_record_decides_minus_readings_without_a_reset(self):
         launch = self.launch("codex-as", weekly="10")
         transcript = self.rollout([])

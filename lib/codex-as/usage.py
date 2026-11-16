@@ -28,7 +28,8 @@ lines stamped at or after started - SLACK. Lines a sub-agent inherited from its
 parent (metadata.inherited_user_message) never count, whatever their time.
 
 - snapshot: the newest token_count line with at least one usable window, by
-  slot ({"primary", "secondary", "seen_at"}); a slot window() refuses is None.
+  slot ({"primary", "secondary", "seen_at"}); a slot window() refuses is None,
+  and a percentage above 100 counts as 100 (window()).
   A rate_limits object with both slots null or unusable is no snapshot.
 - family: the snapshot line's own limit_id; None for "codex", for none, and
   for one that is not a short identifier (FAMILY).
@@ -52,6 +53,7 @@ the run wrote plus one chunk (a rollout without readable times is read whole).
 
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -147,19 +149,25 @@ def moment(text):
 
 
 def window(value):
+    """One rate-limit slot as {"used_percent", "window_minutes", "resets_at"}, or None for null.
+
+    ValueError for anything else. A finite percentage above 100 counts as 100: an exhausted
+    window is a reading, never an unusable slot."""
     if value is None:
         return None
     if not isinstance(value, dict):
         raise ValueError
     used, minutes, resets = value.get("used_percent"), value.get("window_minutes"), value.get("resets_at")
-    if isinstance(used, bool) or not isinstance(used, (int, float)) or not 0 <= used <= 100:
+    if isinstance(used, bool) or not isinstance(used, (int, float)) or isinstance(used, float) and not math.isfinite(used):
+        raise ValueError
+    if used < 0:
         raise ValueError
     for item in (minutes, resets):
         if item is not None and (isinstance(item, bool) or not isinstance(item, int) or item <= 0):
             raise ValueError
     if resets is not None and resets >= LAST:
         raise ValueError
-    return {"used_percent": float(used), "window_minutes": minutes, "resets_at": resets}
+    return {"used_percent": float(min(used, 100)), "window_minutes": minutes, "resets_at": resets}
 
 
 def tail(stream):
