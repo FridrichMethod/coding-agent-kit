@@ -36,7 +36,6 @@ if ((i == CURRENT)) && [[ $words[CURRENT] == -* ]]; then
             '--labels:list the accounts with their labels'
             '--label:set or clear the label of an account'
             '--show-config:show the configuration in effect'
-            '--enroll-native:enroll an account through native Claude login'
         )
     fi
     ((${flags[(Ie)--reserve-5h]})) && suggestions+=('--reserve-5h:keep this percentage of the 5-hour limit')
@@ -45,7 +44,7 @@ if ((i == CURRENT)) && [[ $words[CURRENT] == -* ]]; then
     _describe -t options 'claude-as options' suggestions
     return
 fi
-if ((i == CURRENT)) || { ((i == 2 && CURRENT == 3)) && [[ $words[2] == (--info|-i|--account-info|--label|--set-label|--enroll-native) ]]; }; then
+if ((i == CURRENT)) || { ((i == 2 && CURRENT == 3)) && [[ $words[2] == (--info|-i|--account-info|--label|--set-label) ]]; }; then
     # Metadata only: claude-as --account-labels never starts native Claude, reads
     # a credential, logs in or reads quota. NAME<TAB>LABEL lines become
     # NAME:LABEL descriptions. The 0.6 spelling keeps a rollback completing.

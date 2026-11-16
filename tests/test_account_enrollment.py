@@ -346,6 +346,9 @@ os.execv(sys.argv[2], sys.argv[2:])
         hint = 'claude-as: {0} is not a claude-as option; native options go after NAME (claude-as NAME {0} ...)\n'
         for args, message in ((['-x'], hint.format('-x')), (['-'], hint.format('-')), (['-c'], hint.format('-c')),
                               (['-x', '--help'], hint.format('-x')), (['-p', 'work'], hint.format('-p')),
+                              # Not an own option: native login is not part of the kit.
+                              (['--enroll-native', 'work'], hint.format('--enroll-native')),
+                              (['--enroll-native'], hint.format('--enroll-native')),
                               (['--list-accounts', 'x'], invalid), (['--show-config', 'x'], invalid),
                               (['-l', 'x'], invalid), (['--label'], invalid)):
             with self.subTest(args=args):

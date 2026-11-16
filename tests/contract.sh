@@ -25,7 +25,6 @@ LAYOUT='100755 bin/codex-as
 100644 lib/codex-as/handoff.py
 100644 lib/codex-as/usage.py
 100644 lib/claude-as/launch.py
-100644 lib/claude-as/native.py
 100644 lib/coding-agent-kit/config.py
 100644 lib/coding-agent-kit/accounts.py
 100644 lib/coding-agent-kit/reserve.py

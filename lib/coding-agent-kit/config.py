@@ -18,16 +18,11 @@ Public API (load this file by path; it is never on sys.path):
                      is absolute, else $HOME/.local/state/coding-agent-kit; the
                      launchers keep the account metadata cache under it. Not a key.
         usage_reserve  UsageReserve: the [usage_reserve] tables; empty without them
-        claude_auth  tuple of (NAME, mode) from [claude_auth.accounts.NAME], sorted
         warnings     tuple of "<file>: unknown key <key> ignored", one per unknown key;
                      a nested key is dotted (usage_reserve.five_hours)
         expand(path) -> Path: Path(path).expanduser() with this run's HOME
         which(key) -> str | None: shutil.which() of the "codex" or "claude" value
         show(tool) -> str: the --show-config lines for "codex-as" or "claude-as"
-        claude_mode(name) -> "setup-token" or "native-login"; omitted means "setup-token"
-        native_claude_config(name) -> Path: <secrets_dir>/native-claude-accounts/NAME/config,
-                     the fixed CLAUDE_CONFIG_DIR of a native-login account (str() has no
-                     trailing slash); ValueError for an invalid account name
     UsageReserve, a frozen dataclass:
         defaults     Reserves of [usage_reserve]
         codex_accounts, claude_accounts
@@ -79,7 +74,6 @@ ACCOUNT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]*")  # the launchers' account na
 ACCOUNT_NAME = "invalid account name (ASCII letters, digits, _ or -; no leading -)."
 WINDOWS = ("five_hour", "weekly")
 ACCOUNT_TABLES = {"codex-as": "codex_accounts", "claude-as": "claude_accounts"}
-CLAUDE_MODES = ("setup-token", "native-login")
 
 
 class ConfigError(ValueError):
@@ -116,15 +110,6 @@ class Config:
     state_dir: Path
     warnings: tuple = ()
     usage_reserve: UsageReserve = UsageReserve()
-    claude_auth: tuple = ()
-
-    def claude_mode(self, name):
-        return dict(self.claude_auth).get(name, "setup-token")
-
-    def native_claude_config(self, name):
-        if not ACCOUNT.fullmatch(name):
-            raise ValueError(ACCOUNT_NAME)
-        return self.secrets_dir / "native-claude-accounts" / name / "config"
 
     def expand(self, path):
         """Path(path).expanduser(), with this run's HOME for ~ and ~/."""
@@ -351,27 +336,6 @@ def usage_reserve(path, item, warnings):
     return UsageReserve(Reserves(**values), **layers)
 
 
-def claude_auth(path, item, warnings):
-    """[claude_auth.accounts.NAME] mode: "setup-token" (also when omitted) or "native-login"."""
-    modes = []
-    for key, value in table(path, item, "claude_auth").items():
-        if key != "accounts":
-            warnings.append(f"{path}: unknown key {dotted('claude_auth', key)} ignored")
-            continue
-        for name, entry in accounts(path, value, "claude_auth", key):
-            mode = "setup-token"
-            for field, setting in entry.items():
-                where = ("claude_auth", key, name, field)
-                if field != "mode":
-                    warnings.append(f"{path}: unknown key {dotted(*where)} ignored")
-                elif not isinstance(setting, str) or setting not in CLAUDE_MODES:
-                    raise ConfigError(f'{path}: {dotted(*where)}: must be "setup-token" or "native-login".')
-                else:
-                    mode = setting
-            modes.append((name, mode))
-    return tuple(sorted(modes))
-
-
 def load():
     private_group.cache_clear()  # one listing of the accounts per run, never one from an earlier load
     value = os.environ.get("HOME", "")
@@ -392,8 +356,6 @@ def load():
     for key, item in data.items():
         if key == "usage_reserve":
             tables[key] = usage_reserve(path, item, warnings)
-        elif key == "claude_auth":
-            tables[key] = claude_auth(path, item, warnings)
         elif key not in DEFAULTS:
             warnings.append(f"{path}: unknown key {dotted(key)} ignored")
         elif not isinstance(item, str):

@@ -1,4 +1,4 @@
-"""Completion of the reserve flags and of claude-as --enroll-native, in Bash and zsh.
+"""Completion of the reserve flags, in Bash and zsh.
 
 Bash calls each completion function as bash-completion does and prints
 COMPREPLY. zsh autoloads each completion file with stand-ins for _describe,
@@ -30,11 +30,10 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ("codex-as", "claude-as")
 FLAGS = ["--reserve-5h", "--reserve-weekly"]
-# What a dash word in argument 1 offers: the own options, then (claude-as) native enrollment and the reserve flags.
+# What a dash word in argument 1 offers: the own options, then the reserve flags.
 OPTIONS = {
     "codex-as": ["--help", "--version", "--list", "--info", "--labels", "--show-config", *FLAGS],
-    "claude-as": ["--help", "--version", "--list", "--info", "--labels", "--label", "--show-config",
-                  "--enroll-native", *FLAGS],
+    "claude-as": ["--help", "--version", "--list", "--info", "--labels", "--label", "--show-config", *FLAGS],
 }
 FLAG_DESCRIPTIONS = {"--reserve-5h": "--reserve-5h:keep this percentage of the 5-hour limit",
                      "--reserve-weekly": "--reserve-weekly:keep this percentage of the weekly limit"}
@@ -46,8 +45,7 @@ DESCRIBED = {
     "claude-as": ["[options|claude-as options|sorted]", "--help:show this help", "--version:show the kit version",
                   "--list:list the account names", "--info:show the last-seen details of an account",
                   "--labels:list the accounts with their labels", "--label:set or clear the label of an account",
-                  "--show-config:show the configuration in effect",
-                  "--enroll-native:enroll an account through native Claude login", *FLAG_DESCRIPTIONS.values()],
+                  "--show-config:show the configuration in effect", *FLAG_DESCRIPTIONS.values()],
 }
 # Reserve values: off and every tenth percentage for an empty word, off and every percentage once one is typed.
 SHORT = ["off", *(str(n) for n in range(0, 101, 10))]
@@ -205,7 +203,7 @@ class Fixture:
 class Behaviour:
     """The completion cases; each concrete class runs them in one shell against its own files and launchers."""
 
-    def test_argument_1_offers_the_reserve_flags_and_native_enrollment_after_the_own_options(self):
+    def test_argument_1_offers_the_reserve_flags_after_the_own_options(self):
         for tool in TOOLS:
             with self.subTest(tool=tool):
                 if self.shell == "bash":
@@ -213,7 +211,7 @@ class Behaviour:
                     self.assertOffers(tool, ["--r"], FLAGS)
                     self.assertOffers(tool, ["--reserve-w"], ["--reserve-weekly"])
                     self.assertOffers(tool, ["--reserve-5h"], ["--reserve-5h"])
-                    self.assertOffers(tool, ["--e"], ["--enroll-native"] if tool == "claude-as" else [])
+                    self.assertOffers(tool, ["--e"], [])
                 else:
                     # zsh matches the candidates against the word itself.
                     for word in ("-", "--", "--r", "--e"):
@@ -253,8 +251,8 @@ class Behaviour:
                         self.assertOffers(tool, [*words, prefix], matches)
                         self.assertOffers(tool, [*words, "-"], left)
                         self.assertOffers(tool, [*words, "--reserve-"], left)
-                        # Own options and native enrollment count only as argument 1.
-                        for word in ("--i", "--h", "--e"):
+                        # Own options count only as argument 1.
+                        for word in ("--i", "--h", "--l"):
                             self.assertOffers(tool, [*words, word], [])
                     else:
                         self.assertOffers(tool, [*words, ""], DESCRIBED_ACCOUNTS[tool])
@@ -273,9 +271,9 @@ class Behaviour:
             # Each flag once.
             ["--reserve-5h", "10", "--reserve-5h", ""], ["--reserve-5h", "10", "--reserve-5h", "20", ""],
             ["--reserve-5h", "10", "--reserve-weekly", "5", "--reserve-weekly", ""],
-            # Own options and native enrollment only as argument 1, and nothing after an own option.
+            # Own options only as argument 1, and nothing after an own option.
             ["--reserve-5h", "10", "--info", ""], ["--reserve-5h", "10", "--help", ""], ["--reserve-5h", "10", "-x", ""],
-            ["--reserve-5h", "10", "--enroll-native", ""], ["--info", "--reserve-5h", ""],
+            ["--info", "--reserve-5h", ""],
             ["--list", "--reserve-5h", "10", ""],
         ]
         for tool in TOOLS:
@@ -342,17 +340,12 @@ class Behaviour:
                 self.assertOffers(tool, words, [], NATIVE_STANDINS[self.shell].format(NATIVE[tool]))
         self.assertOffline()
 
-    def test_enroll_native_completes_one_account_name(self):
-        if self.shell == "bash":
-            self.assertOffers("claude-as", ["--enroll-native", ""], ACCOUNTS["claude-as"])
-            self.assertOffers("claude-as", ["--enroll-native", "wo"], ["work"])
-        else:
-            self.assertOffers("claude-as", ["--enroll-native", ""], DESCRIBED_ACCOUNTS["claude-as"])
-        # Nothing after the name; codex-as has no native enrollment.
-        self.assertOffers("claude-as", ["--enroll-native", "work", ""], [])
-        self.assertOffers("claude-as", ["--enroll-native", "work", "-"], [])
-        self.assertOffers("codex-as", ["--enroll-native", ""], [])
-        self.assertOffline(listed=True)
+    def test_enroll_native_is_no_option_and_completes_nothing(self):
+        for tool in TOOLS:
+            for words in (["--enroll-native", ""], ["--enroll-native", "wo"], ["--enroll-native", "work", ""]):
+                with self.subTest(tool=tool, words=words):
+                    self.assertOffers(tool, words, [])
+        self.assertOffline()
 
 
 class Repository(Fixture):
@@ -491,7 +484,7 @@ class RealZshCompletion(Installed, unittest.TestCase):
             self.skipTest("zsh has no zpty module")
         driver = write(self.base / "driver.zsh", ZPTY_DRIVER)
         lines = ["codex-as --reserve-5h ", "codex-as --reserve-weekly 40 --reserve-5h 10 ", "claude-as --reserve-5h off ",
-                 "claude-as --enroll-native ", "claude-as --", "codex-as --reserve-5h 10 --"]
+                 "claude-as --", "codex-as --reserve-5h 10 --"]
         result = run(["zsh", "-f", driver, self.zsh_site, *lines],
                      self.env | {"TERM": "dumb", "PS1": "READY> "}, self.base, timeout=60)
         self.assertEqual((result.returncode, result.stderr), (0, ""), result.stdout)
@@ -509,7 +502,6 @@ class RealZshCompletion(Installed, unittest.TestCase):
         self.assertEqual({line: sorted(listing) for line, listing in listings.items()}, {
             "codex-as --reserve-weekly 40 --reserve-5h 10 ": ACCOUNTS["codex-as"],
             "claude-as --reserve-5h off ": ACCOUNTS["claude-as"],
-            "claude-as --enroll-native ": ACCOUNTS["claude-as"],
             "claude-as --": sorted(OPTIONS["claude-as"]),
             # One flag left: completed in place, without a listing.
             "codex-as --reserve-5h 10 --": [],

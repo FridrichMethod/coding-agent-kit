@@ -103,7 +103,7 @@ repos:
         pass_filenames: false
         files: ^(lib/coding-agent-kit/(config|reserve)\.py|tests/(reserves\.sh|test_reserves\.py))$
       - id: reserve-completion
-        name: completion of the reserve flags and native enrollment (isolated Bash/zsh)
+        name: completion of the reserve flags (isolated Bash/zsh)
         entry: tests/reserve-completion.sh
         language: script
         pass_filenames: false
