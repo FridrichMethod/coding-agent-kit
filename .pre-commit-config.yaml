@@ -109,11 +109,11 @@ repos:
         pass_filenames: false
         files: ^(lib/coding-agent-kit/(reserve|guard|guard_launch|accounts)\.py|lib/codex-as/usage\.py|tests/(guard\.sh|test_guard\.py))$
       - id: claude-guard
-        name: claude-as launches with a usage reserve (isolated HOME, fake Claude Code on a pseudo-terminal)
+        name: claude-as launches with a usage reserve (isolated HOME, fake Claude Code on a pseudo-terminal; a real one offline when installed)
         entry: tests/claude-guard.sh
         language: script
         pass_filenames: false
-        files: ^(bin/claude-as|lib/(claude-as|coding-agent-kit)/.*|tests/(claude-guard\.sh|test_claude_guard\.py|test_codex_as\.py))$
+        files: ^(bin/claude-as|lib/(claude-as|coding-agent-kit)/.*|tests/(claude-guard\.sh|test_claude_guard\.py|test_codex_as\.py|fixtures/guard/claude_api\.py))$
       - id: reserve-completion
         name: completion of the reserve flags (isolated Bash/zsh)
         entry: tests/reserve-completion.sh

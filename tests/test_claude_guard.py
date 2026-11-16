@@ -7,6 +7,12 @@ cover. A launch with both reserves off stays exactly as it was. The real
 launcher runs from a kit copy in a temporary HOME with a fake claude that
 records its argv and environment; a guarded launch needs a terminal on standard
 output, so those launches run with standard output on a pseudo-terminal.
+
+RealClaude runs the guard's hooks in the real Claude Code when one at or above
+the guard's minimum is on PATH (it skips with the reason otherwise): offline,
+against the loopback fake tests/fixtures/guard/claude_api.py, in a temporary
+HOME and configuration directory with an environment built from scratch, git
+and ssh shims first on PATH and every proxy at a closed loopback port.
 """
 
 import hashlib
@@ -17,6 +23,8 @@ from pathlib import Path
 import pty
 import shlex
 import shutil
+import signal
+import socket
 import stat
 import subprocess
 import sys
@@ -539,6 +547,254 @@ class Settings(unittest.TestCase):
         self.assertEqual(json.loads(launch.guard_settings(script)), settings_of(command))
         self.assertEqual(json.loads(launch.guard_settings(script, 4)), settings_of(command, 4))
         self.assertEqual(launch.guard_settings(script), json.dumps(settings_of(command), separators=(",", ":")))
+
+
+CLAUDE_API = ROOT / "tests/fixtures/guard/claude_api.py"
+CLOSED_PORT = ("127.0.0.1", 9)  # the discard port: nothing listens there unless a host runs that service
+API_KEY = "fixture-api-key-accepted-only-by-the-loopback-fake"
+REFUSED_GIT = ("clone", "fetch", "pull", "push", "ls-remote", "remote-*", "*://*", "*@*:*")
+GIT_SHIM = """#!/bin/sh
+# Test shim for git: local commands pass to the real git, network forms are refused; every call is logged.
+printf 'git %s\\n' "$*" >> {log}
+for word in "$@"; do
+    case "$word" in
+        {refused}) printf 'REFUSED git %s\\n' "$*" >> {log}; exit 128 ;;
+    esac
+done
+{real}
+"""
+SSH_SHIM = """#!/bin/sh
+# Test shim for ssh, scp and sftp: OpenSSH reads ~/.ssh from the password database, not from HOME.
+printf 'REFUSED ssh %s\\n' "$*" >> {log}
+exit 255
+"""
+
+
+def load_kit_module(kit, name):
+    spec = importlib.util.spec_from_file_location(f"claude_guard_test_{name}", kit / f"lib/coding-agent-kit/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def kill_group(pid):
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except OSError:
+        pass
+
+
+class Sandbox:
+    """A Claude Code that reaches nothing of this host's user: a temporary HOME and configuration directory,
+    an environment built from scratch, git and ssh shims first on PATH, every proxy at a closed loopback
+    port, no session bus, and its background features closed (probe results R0, R8, R8D and R20)."""
+
+    def __init__(self, base, bindir):
+        self.base, self.bindir = base, bindir
+        self.home, self.work, self.shims = base / "home", base / "work", base / "shims"
+        self.config = self.home / ".claude"
+        for path in (self.config, self.work, self.shims, base / "tmp", base / "run",
+                     *(base / "xdg" / name for name in ("config", "cache", "data", "state"))):
+            path.mkdir(parents=True, mode=0o700, exist_ok=True)
+        self.netlog = base / "net.log"
+        self.netlog.touch()
+        log = shlex.quote(str(self.netlog))
+        real = shutil.which("git")
+        write(self.shims / "git", GIT_SHIM.format(log=log, refused="|".join(REFUSED_GIT),
+                                                  real=f"exec {shlex.quote(real)} \"$@\"" if real else "exit 127"), 0o700)
+        for name in ("ssh", "scp", "sftp"):
+            write(self.shims / name, SSH_SHIM.format(log=log), 0o700)
+        # Onboarding done, theme chosen, the work directory trusted, the key approved (by its last 20
+        # characters) and the official plugin marketplace's auto-install settled, so nothing asks or clones.
+        write(self.config / ".claude.json", json.dumps({
+            "hasCompletedOnboarding": True, "theme": "dark", "numStartups": 5,
+            "officialMarketplaceAutoInstallAttempted": True, "officialMarketplaceAutoInstalled": False,
+            "officialMarketplaceAutoInstallFailReason": "policy_blocked",
+            "customApiKeyResponses": {"approved": [API_KEY[-20:]], "rejected": []},
+            "projects": {str(self.work): {"hasTrustDialogAccepted": True, "hasCompletedProjectOnboarding": True}}}))
+
+    def env(self, port=None, extra=None):
+        closed = "http://%s:%d" % CLOSED_PORT
+        # The directory of claude last, for an install whose claude is a node script.
+        env = {"PATH": f"{self.shims}:/usr/local/bin:/usr/bin:/bin:{self.bindir}", "HOME": str(self.home), "LANG": "C.UTF-8",
+               "TERM": "dumb", "SHELL": "/bin/bash" if os.path.exists("/bin/bash") else "/bin/sh",
+               "TMPDIR": str(self.base / "tmp"), "XDG_RUNTIME_DIR": str(self.base / "run"),
+               **{f"XDG_{name.upper()}_HOME": str(self.base / "xdg" / name) for name in ("config", "cache", "data", "state")},
+               "DBUS_SESSION_BUS_ADDRESS": f"unix:path={self.base / 'run/no-bus'}",
+               "CLAUDE_CONFIG_DIR": str(self.config), "ANTHROPIC_API_KEY": API_KEY,
+               "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{port or CLOSED_PORT[1]}",
+               "DISABLE_TELEMETRY": "1", "DISABLE_ERROR_REPORTING": "1", "DISABLE_AUTOUPDATER": "1",
+               "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
+               **CLOSED,
+               **{name: closed for name in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")},
+               "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost",
+               "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
+        return env | (extra or {})
+
+    def run(self, claude, args, env, timeout=90):
+        """(exit code, stdout, stderr) of CLAUDE ARGS in a session of its own, which is killed afterwards."""
+        child = subprocess.Popen([claude, *args], cwd=self.work, env=env, stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            out, err = child.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            kill_group(child.pid)
+            out, err = child.communicate()
+            raise AssertionError(f"claude {args} ran longer than {timeout} s: {out[-2000:]!r} {err[-2000:]!r}")
+        finally:
+            kill_group(child.pid)
+        return child.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+
+    def strays(self):
+        """Processes still running with this sandbox's configuration directory, killed; Linux only."""
+        if not os.path.isdir("/proc/self"):
+            return []
+        needle, found = f"CLAUDE_CONFIG_DIR={self.config}".encode(), []
+        for entry in filter(str.isdigit, os.listdir("/proc")):
+            try:
+                with open(f"/proc/{entry}/environ", "rb") as stream:
+                    if needle in stream.read().split(b"\0"):
+                        found.append(int(entry))
+            except OSError:
+                pass
+        for pid in found:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+        return found
+
+
+class RealClaude(unittest.TestCase):
+    """The guard's hook contract against the real Claude Code, offline: the C3 settings as claude-as builds
+    them, a launch as claude-as exports it, and a loopback fake of the Messages API that answers from a
+    script. claude -p is run directly on the native (only the launcher refuses headless forms); the status
+    line and the terminal session are left to the live acceptance."""
+
+    @classmethod
+    def setUpClass(cls):
+        found = shutil.which("claude")
+        if not found:
+            raise unittest.SkipTest("Claude Code (claude) is not on PATH")
+        try:
+            socket.create_connection(CLOSED_PORT, timeout=2).close()
+        except OSError:
+            pass
+        else:
+            raise unittest.SkipTest("127.0.0.1:9 accepts connections, so it cannot stand in for a closed proxy")
+        cls.claude, cls.bindir = os.path.realpath(found), os.path.dirname(os.path.abspath(found))
+        with tempfile.TemporaryDirectory(prefix="claude-guard-real-version-") as base:
+            sandbox = Sandbox(Path(base).resolve(), cls.bindir)
+            code, out, _ = sandbox.run(cls.claude, ["--version"], sandbox.env(), timeout=60)
+            sandbox.strays()
+        match = None if code else launch.VERSION.match(out)
+        if not match:
+            raise unittest.SkipTest(f"claude --version printed no Claude Code version: {out.strip()[:80]!r}")
+        version = tuple(int(part) for part in match.groups())
+        if version < launch.GUARD_MINIMUM:
+            raise unittest.SkipTest("Claude Code %s is older than %s" % (".".join(map(str, version)),
+                                                                         ".".join(map(str, launch.GUARD_MINIMUM))))
+
+    def setUp(self):
+        self.addCleanup(os.umask, os.umask(0o022))
+        tmp = tempfile.TemporaryDirectory(prefix="claude-guard-real-")
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name).resolve()
+        self.sandbox = Sandbox(base, self.bindir)
+        # The guard runs from a kit whose path needs quoting, through Claude Code's /bin/sh (Review Focus 1).
+        self.kit = base / "kit o'clock dir"
+        shutil.copytree(ROOT / "lib", self.kit / "lib")
+        self.reserve = load_kit_module(self.kit, "reserve")
+        state = base / "state/coding-agent-kit"
+        self.accounts, self.guard_dir = state / "accounts", state / "guard"
+        for directory in (state, self.accounts, self.guard_dir):
+            directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+        self.usage = self.accounts / "claude-work.usage.json"
+        self.marker = base / "tool ran"
+        self.requests = base / "requests.jsonl"
+
+    def usage_text(self, used):
+        """The usage file with the weekly window USED percent used, reset a day ahead."""
+        now = int(time.time())
+        return json.dumps({"five_hour": None, "seven_day": {"used_percentage": used, "resets_at": now + DAY},
+                           "seen_at": now})
+
+    def run_claude(self, prompt, used, cross=None):
+        """claude -p PROMPT under the guard with the weekly reserve at 10 and USED percent of the week used;
+        CROSS, a percentage, replaces the usage file when the fake answers with its tool call."""
+        write(self.usage, self.usage_text(used))
+        command = [sys.executable, "-I", "-B", "-S", str(CLAUDE_API), "--log", str(self.requests),
+                   "--bash", shlex.join(["touch", str(self.marker)])]
+        if cross is not None:
+            command += ["--cross", str(self.usage), self.usage_text(cross)]
+        fake = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env={},
+                                start_new_session=True)
+        for cleanup in (fake.stdout.close, fake.stdin.close, lambda: fake.wait(10), lambda: kill_group(fake.pid)):
+            self.addCleanup(cleanup)
+        port = int(fake.stdout.readline())
+        guard_launch = load_kit_module(self.kit, "guard_launch")
+        policy = self.reserve.Policy("claude-as", "work", self.reserve.Setting("five_hour", None, "default"),
+                                     self.reserve.Setting("weekly", self.reserve.flag_value("10"), "invocation"))
+        env = self.sandbox.env(port)
+        started = int(time.time())
+        state = guard_launch.prepare(env, str(self.guard_dir), "claude-as", "work", policy, str(self.usage), started)
+        self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
+        settings = launch.guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"])
+        # Claude Code's own permission rules allow every Bash call, so only the guard can stop one.
+        code, out, err = self.sandbox.run(self.claude, ["--settings", settings, "--allowedTools", "Bash", "-p", prompt],
+                                          env)
+        self.assertEqual(self.sandbox.strays(), [], "Claude Code left a process behind")
+        refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED")]
+        self.assertEqual(refused, [], "Claude Code tried to reach the network through git or ssh")
+        lines = self.requests.read_text().splitlines() if self.requests.exists() else []
+        messages = [entry for entry in map(json.loads, lines) if entry["path"] == "/v1/messages"]
+        return code, out, err, state, messages
+
+    def assert_state(self, state, present, absent):
+        for name in present:
+            self.assertTrue(os.path.exists(state + name), f"{name} is missing")
+        for name in absent:
+            self.assertFalse(os.path.exists(state + name), f"{name} exists")
+
+    def test_a_prompt_at_the_reserve_is_never_sent(self):
+        code, out, err, state, messages = self.run_claude("PLAIN say hello", 95)
+        self.assertEqual(messages, [], "the blocked prompt reached the API")
+        blocked = Path(state + ".blocked").read_text()
+        self.assertIn("claude-as: work: weekly window 5% remaining, at or below its 10% reserve; resets in ", blocked)
+        self.assertIn("\nThis prompt was not sent.\nTo use the reserve, exit and run:\n"
+                      "  claude-as --reserve-weekly off work --continue", blocked)
+        # Claude Code shows the guard's message behind its own prefix (A8, probe result R6).
+        self.assertEqual(code, 0, err)
+        self.assertRegex(out, r"^UserPromptSubmit operation blocked by hook:\s\[")
+        self.assertIn(f"guard.py' prompt]: {blocked}\n", out)
+        self.assertNotIn("PLAIN-ANSWER", out)
+        self.assert_state(state, (".launched", ".ran.start", ".ran.prompt"), (".reply", ".ran.tool", ".seen"))
+
+    def test_a_prompt_below_the_reserve_gets_its_reply(self):
+        code, out, err, state, messages = self.run_claude("PLAIN say hello", 50)
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
+        self.assert_state(state, (".ran.start", ".ran.prompt", ".ran.stop", ".reply"), (".blocked", ".seen"))
+
+    def test_a_tool_call_below_the_reserve_runs(self):
+        code, out, err, state, messages = self.run_claude("TOOL run the command", 50)
+        self.assertEqual((code, out.strip()), (0, "TOOL-DONE"), err)
+        self.assertTrue(self.marker.exists(), "the tool call did not run")
+        self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")],
+                         ["TOOL:call", "TOOL:done"])
+        self.assert_state(state, (".ran.prompt", ".ran.tool", ".ran.stop", ".reply"), (".blocked",))
+
+    def test_a_tool_call_after_the_reserve_is_crossed_is_not_run(self):
+        code, out, err, state, messages = self.run_claude("TOOL run the command", 50, cross=95)
+        self.assertFalse(self.marker.exists(), "the tool call ran at the reserve")
+        # The turn ends at the denied call: no request carries its result (STOP_TURN, probe result R3).
+        self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["TOOL:call"])
+        self.assertEqual((code, out.strip()), (0, ""), err)
+        blocked = Path(state + ".blocked").read_text()
+        self.assertIn("claude-as: work: weekly window 5% remaining, at or below its 10% reserve; resets in ", blocked)
+        self.assertIn("\nThis tool call was stopped. Stop working now and tell the user why.\n", blocked)
+        # The denying tool event records the reply; no Stop hook runs for a turn it stopped.
+        self.assert_state(state, (".ran.prompt", ".ran.tool", ".reply"), (".ran.stop",))
 
 
 if __name__ == "__main__":
