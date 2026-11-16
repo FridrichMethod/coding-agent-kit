@@ -75,7 +75,12 @@ the file and format helpers/statusline.cjs writes ({"five_hour", "seven_day":
 file and a rename, only in an owned 0700 directory, and then creates STATE.seen.
 A reading never goes back: a stored window that has not reset stays when the
 incoming one has the same reset and a lower percentage, an earlier reset, or is
-absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart. Then it
+absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart. A
+change is read, merged and written under the lock .NAME.lock beside the file
+(created O_EXCL; one more than LOCK_STALE seconds off the clock is a cancelled
+run's and is removed), so two launches of one account never lose the newer
+reading; when another writer holds it LOCK_WAIT seconds the run records
+nothing and creates no STATE.seen. Then it
 runs the user's own status line command (the launch's "statusline") through
 /bin/sh -c with the same input and the caller's environment, and prints its
 output unchanged as the footer: nothing when it fails, prints nothing or runs
@@ -98,8 +103,8 @@ record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
 footer), handle(kind, raw, env, now) (an event's answer from its raw stdin;
 never raises), main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe
 results: a PreToolUse continue false ends the turn, a Stop one ends it beside
-another Stop hook), BLIND_AFTER, RECORD_AGAIN and STATUS_TIMEOUT (seconds),
-WARNING, VARIABLE.
+another Stop hook), BLIND_AFTER, RECORD_AGAIN, STATUS_TIMEOUT, LOCK_WAIT and
+LOCK_STALE (seconds), WARNING, VARIABLE.
 """
 
 from dataclasses import dataclass
@@ -132,6 +137,8 @@ STATUS_TIMEOUT = 5  # seconds the user's own status line command may take
 WARNING = "reserve guard not running"  # the first footer line after a reply when no hook has run
 USAGE_FILE = re.compile(r"claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json")  # the name the status line helper writes
 STALE = 60  # seconds after which a temporary file of a cancelled status line run is removed
+LOCK_WAIT = 2  # seconds a status line run waits for another writer of the usage file
+LOCK_STALE = 10  # a lock file whose time is further than this from now is a cancelled run's
 
 # python3 -I puts no script directory on sys.path: the siblings load by path from
 # the real file, so a guard reached through a link uses the kit it belongs to.
@@ -410,13 +417,62 @@ def sweep(path, now):
                 pass
 
 
+def lock(path):
+    """Take the lock of the usage file PATH: the file .NAME.lock beside it, created O_EXCL, which every
+    writer that merges into PATH holds while it reads, merges and writes. One whose time is more than
+    LOCK_STALE seconds from now was left by a cancelled run and is removed. Returns (lock path, fd);
+    TimeoutError when another writer holds it LOCK_WAIT seconds."""
+    name = path.with_name(f".{path.name}.lock")
+    deadline = time.monotonic() + LOCK_WAIT
+    while True:
+        try:
+            return name, os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+        except FileExistsError:
+            pass
+        try:
+            if abs(time.time() - os.lstat(name).st_mtime) > LOCK_STALE:
+                os.unlink(name)
+                continue
+        except FileNotFoundError:
+            continue
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"{name}: held by another writer")
+        time.sleep(0.01)
+
+
+def unlock(name, fd):
+    """Best effort: release the lock taken as (NAME, FD), unless it was removed as stale since."""
+    try:
+        mine, there = os.fstat(fd), os.lstat(name)
+        if (mine.st_dev, mine.st_ino) == (there.st_dev, there.st_ino):
+            os.unlink(name)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def merged_record(path, incoming, now):
+    """The usage file's content after merging INCOMING, or None when the merged windows equal the
+    stored ones and were stored less than RECORD_AGAIN seconds ago."""
+    old = stored(path) or {}
+    kept = {key: entry(old.get(key)) for key in USAGE_KEYS}
+    merged = {key: merge(kept[key], incoming[key], now) for key in USAGE_KEYS}
+    seen, last = int(now), old.get("seen_at")
+    if merged == kept and type(last) is int and 0 <= seen - last < RECORD_AGAIN:
+        return None
+    return {**merged, "seen_at": seen}
+
+
 def record(path, limits, now):
     """Merge the status line's rate limits into the account's usage file; True when it wrote.
 
     Nothing is written without a valid window, or when the merged windows equal the stored
-    ones and were stored less than RECORD_AGAIN seconds ago. ValueError (or OSError) when
-    PATH is not an absolute claude-NAME.usage.json in an owned, real 0700 directory, or the
-    write fails."""
+    ones and were stored less than RECORD_AGAIN seconds ago. A change is read, merged and
+    written again under the file's lock, so a writer that reads the file while another
+    writes it never replaces a newer reading. ValueError (or OSError) when PATH is not an
+    absolute claude-NAME.usage.json in an owned, real 0700 directory, or the write fails;
+    TimeoutError when the lock is held LOCK_WAIT seconds."""
     incoming = {key: entry(limits.get(key)) for key in USAGE_KEYS} if isinstance(limits, dict) else {}
     if not any(incoming.values()):
         return False
@@ -426,14 +482,17 @@ def record(path, limits, now):
     folder = os.lstat(path.parent)
     if not stat.S_ISDIR(folder.st_mode) or folder.st_uid != os.getuid() or stat.S_IMODE(folder.st_mode) != 0o700:
         raise ValueError(f"{path.parent}: not an owned, real directory with permissions 0700")
-    old = stored(path) or {}
-    kept = {key: entry(old.get(key)) for key in USAGE_KEYS}
-    merged = {key: merge(kept[key], incoming[key], now) for key in USAGE_KEYS}
-    seen, last = int(now), old.get("seen_at")
-    if merged == kept and type(last) is int and 0 <= seen - last < RECORD_AGAIN:
-        return False
-    sweep(path, now)
-    return module("accounts").write(path, {**merged, "seen_at": seen})
+    if merged_record(path, incoming, now) is None:
+        return False  # most runs: nothing new, and no lock taken
+    name, fd = lock(path)
+    try:
+        content = merged_record(path, incoming, now)
+        if content is None:
+            return False
+        sweep(path, now)
+        return module("accounts").write(path, content)
+    finally:
+        unlock(name, fd)
 
 
 def chained(command, raw):

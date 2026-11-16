@@ -21,6 +21,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -968,6 +969,55 @@ class StatusLine(Fixture):
         guard.status(status_input(limits((60, NOW + 3600), (30, NOW + 86400))), older, NOW + 400)
         data = self.usage_file(newer)
         self.assertEqual((data["five_hour"], data["seven_day"]), (window(91, NOW + 3600), window(40, NOW + 86400)))
+
+    def test_two_status_lines_at_once_keep_the_newer_reading(self):
+        newer, older = self.launch(weekly="10"), self.launch(weekly="10")
+        put(Path(newer.usage), {"five_hour": window(50, NOW + 3600), "seven_day": None, "seen_at": NOW - 1000})
+        accounts, writing = guard.module("accounts"), threading.Event()
+        real_write = accounts.write
+
+        def slow_write(path, data):
+            # The older session's run writes slowly, so the newer one's run comes while it holds its reading.
+            if threading.current_thread().name == "older":
+                writing.set()
+                time.sleep(0.3)
+            return real_write(path, data)
+
+        with patch.object(accounts, "write", slow_write):
+            first = threading.Thread(target=guard.record, args=(older.usage, limits((60, NOW + 3600), None), NOW),
+                                     name="older")
+            first.start()
+            self.assertTrue(writing.wait(10))
+            self.assertTrue(guard.record(newer.usage, limits((91, NOW + 3600), None), NOW))
+            first.join(10)
+        self.assertEqual(self.usage_file(newer)["five_hour"], window(91, NOW + 3600))
+        self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(newer.usage).name], "a lock was left")
+
+    def test_the_usage_file_lock(self):
+        launch = self.launch(weekly="10")
+        lock = self.accounts / f".{Path(launch.usage).name}.lock"
+        put(lock, "")
+        put(self.state(launch, "ran.start"), "")
+        with patch.object(guard, "LOCK_WAIT", 0.2):
+            with self.assertRaises(TimeoutError):
+                guard.record(launch.usage, limits(), NOW)
+            self.assertEqual(guard.status(status_input(), launch, NOW), "")
+        for name in (launch.usage, launch.state + ".seen"):
+            self.assertFalse(Path(name).exists(), name)
+        self.assertTrue(lock.exists(), "another writer's lock was taken")
+        # A lock that a cancelled run left, from more than LOCK_STALE seconds ago or as far ahead, is removed.
+        for offset in (-guard.LOCK_STALE - 5, guard.LOCK_STALE + 5):
+            with self.subTest(offset=offset):
+                Path(launch.usage).unlink(missing_ok=True)
+                put(lock, "")
+                os.utime(lock, (time.time() + offset,) * 2)
+                self.assertTrue(guard.record(launch.usage, limits(), NOW))
+                self.assertFalse(lock.exists())
+        # Unchanged readings need no lock.
+        put(lock, "")
+        with patch.object(guard, "LOCK_WAIT", 0.2):
+            self.assertFalse(guard.record(launch.usage, limits(), NOW + 10))
+        self.assertEqual((guard.LOCK_WAIT, guard.LOCK_STALE), (2, 10))
 
     def test_rate_limits_are_recorded_for_the_account_and_seen_by_this_launch_only(self):
         first, second = self.launch(weekly="10"), self.launch(weekly="10")
