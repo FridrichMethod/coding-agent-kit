@@ -123,10 +123,14 @@ STATE.blocked when the launch names its state; without reserve.py the guard
 writes the same text itself (FAILURE_STOPPED, FAILURE_TAILS). On start, stop
 and status every error exits 0 without output. Run as a program, the guard
 ignores SIGINT (a terminal's Ctrl-C reaches the native's whole process group)
-from right after its version check, so it gives its real answer; only a SIGINT
-before the interpreter has started it ends it. A Python older than 3.11 blocks
-with one line on prompt and tool, and is silent elsewhere: the guard checks the
-version before it imports anything but sys.
+from right after its version check, so it gives its real answer. A SIGINT
+before that, while the interpreter starts or begins this file, ends the run
+with Python's own KeyboardInterrupt message, a traceback included: Claude Code
+then blocks prompt and tool (onFailure), and Codex lets the event through. No
+code in this file can close that window; a hook command that ignores SIGINT
+before it starts Python could, as Python keeps an inherited SIG_IGN. A Python
+older than 3.11 blocks with one line on prompt and tool, and is silent
+elsewhere: the guard checks the version before it imports anything but sys.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
@@ -163,8 +167,9 @@ if __name__ == "__main__" and sys.version_info < (3, 11):
 
 if __name__ == "__main__":
     # A terminal's Ctrl-C reaches the native's whole process group, its hooks included. The guard ignores SIGINT
-    # from here on, before its imports, and so always gives its real answer in its short life. The handler that
-    # chained() sets while the user's status line command starts resets on exec, so the command never inherits this.
+    # from here on, before its imports, and gives its real answer to one that comes later (one that comes earlier
+    # ends it, see the module docstring). The handler that chained() sets while the user's status line command
+    # starts resets on exec, so the command never inherits this.
     try:
         import _signal as interrupts  # built in: signal.py would import enum, a window as long as the rest
     except ImportError:
