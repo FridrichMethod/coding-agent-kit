@@ -183,7 +183,7 @@ def exit_status(result):
 
 def remember(config, layout, raw=None, plan=None, started=None, threads=()):
     """Best effort, for --account-info: this login's email and plan, and after a run the
-    last rate limits its rollouts show (THREADS: those of a guarded run, see run_threads).
+    last rate limits its rollouts show (THREADS: the session ids of a guarded run, see run_threads).
     Never fails a launch and writes no token."""
     try:
         if raw is None:
@@ -321,77 +321,181 @@ def blocked_message(state):
     return CONTROL.sub("", raw.decode("utf-8", "replace")).strip() or None
 
 
-def run_threads(root, plan, owner, started, ended, alone):
-    """The threads a guarded run can have written: the ones it resumed or recovered by id; the threads
-    of this account (OWNER, from each rollout's session_meta) that started during the run, its own,
-    its forks' and its sub-agents'; and, for a launch that can resume a thread it does not name (the
-    TUI, resume and fork, which switch threads, and exec resume without an id), this account's older
-    threads written during the run, unless another codex-as client of the account ran at the run's
-    start or end (not ALONE), whose threads they may be. A resumed thread's rollout stays in the date
-    directory of the day it started, so every date directory is searched, by modification time; at
-    most usage.MAX_HEADS first lines are read, newest first. An API-key login records no creator."""
-    threads = set(plan.continued)
-    if owner is None:
-        return threads
-    unnamed = alone and (plan.form == "interactive"
-                         or plan.command == "exec-resume" and not plan.forked and not plan.continued)
+# Codex stamps rollout lines in milliseconds, truncated: a line written at or after a moment is stamped
+# no more than this before it.
+STAMPED = 0.001
+# The session_meta source of the sessions each guarded form starts: the TUI's, and exec's and review's.
+SOURCES = {"interactive": "cli", "headless": "exec"}
+HEADS = 1024  # session_meta lines read after a run
+CHUNK = 1 << 16
+
+
+def session_meta(path):
+    """The payload of the session_meta line that starts the rollout at PATH, or None; reads up to that
+    line's end only (at most usage.FIRST_LINE bytes), never through a link and never from a FIFO."""
+    with usage.opened(path) as stream:
+        head = b""
+        while b"\n" not in head and len(head) < usage.FIRST_LINE:
+            chunk = stream.read(CHUNK)
+            if not chunk:
+                break
+            head += chunk
+    try:
+        line = json.loads(head.split(b"\n", 1)[0])
+    except (ValueError, RecursionError):
+        return None
+    payload = line.get("payload") if isinstance(line, dict) and line.get("type") == "session_meta" else None
+    return payload if isinstance(payload, dict) else None
+
+
+def same_place(path, cwd):
+    return isinstance(path, str) and os.path.isabs(path) and os.path.realpath(path) == os.path.realpath(cwd)
+
+
+def run_threads(root, plan, owner, begun, ended, alone):
+    """The sessions this guarded run wrote, as (SURE, EITHER): lists of groups, each the rollout paths
+    of one session and of its sub-agents (whose session_meta names it as session_id, or as parent). The
+    run wrote every group of SURE and one group of EITHER, which one cannot be told.
+
+    They are the sessions the run resumed or recovered by id, and the sessions of this account (OWNER,
+    the creator in each rollout's session_meta; None, when the login no longer tells it, counts only
+    those named by id) that started in this run's span, BEGUN to ENDED, in its directory, from its kind
+    of Codex: source cli for the TUI, resume and fork, exec for exec and review. So a codex-as exec run
+    from a TUI is not the TUI's, nor a TUI the exec's, nor a run in another directory either's; a
+    guardian review runs no user hook and never counts. A TUI may start several sessions, all SURE; a
+    headless run starts one (exec resume none), so when more started here, other headless runs of the
+    account did too, and they go to EITHER.
+
+    A form that can switch to an older session it does not name (the TUI, resume and fork; exec resume
+    without an id) appends to one of this account's older sessions, of any day. For exec resume, every
+    such session written during the run goes to EITHER. For an interactive form every one is SURE,
+    unless another codex-as client of the account ran at the run's start or end (not ALONE), whose
+    sessions they may be; then none counts, and the TUI, which shows "Hooks need review" itself, is
+    left to the next headless run's check.
+
+    Only rollouts written since BEGUN (by their time, less usage.SLACK) are opened, at most HEADS
+    session_meta lines, the oldest start first, whatever account wrote them."""
+    named = set(plan.continued)
     found = []
     for path in (Path(root) / "sessions").glob("*/*/*/rollout-*.jsonl"):
         match = usage.NAME.fullmatch(path.name)
-        if not match or match[1] in threads:
+        if not match:
             continue
         try:
             info = path.lstat()
         except OSError:
             continue
-        if stat.S_ISREG(info.st_mode) and info.st_mtime >= started - usage.SLACK:
-            found.append((-info.st_mtime, str(path), match[1], path))
-    for *_, thread, path in sorted(found)[:usage.MAX_HEADS]:
+        if stat.S_ISREG(info.st_mode) and info.st_mtime >= begun - usage.SLACK:
+            found.append((match[1] not in named, path.name, match[1], path))
+    resumes = plan.command == "exec-resume" and not plan.forked  # appends; starts no session of its own
+    older = (alone and plan.form == "interactive") or (resumes and not named)
+    sure, either, agents = {}, {}, []
+    for _, _, thread, path in sorted(found)[:HEADS]:
         try:
-            with usage.opened(path) as stream:
-                payload = usage.meta(stream)
+            meta = session_meta(path)
         except OSError:
             continue
-        if usage.created_by(payload) != owner:
+        if thread in named:
+            sure.setdefault(thread, []).append(path)
             continue
-        begun = usage.moment(payload.get("timestamp"))
-        if unnamed or begun is not None and started - usage.SLACK <= begun <= ended + usage.SLACK:
-            threads.add(thread)
-    return threads
+        if meta is None:
+            continue
+        source = meta.get("source")
+        if isinstance(source, dict):  # a sub-agent: a guardian review runs no user hook
+            if meta.get("thread_source") != "guardian_review":
+                agents.append((meta, path))
+            continue
+        if owner is None or usage.created_by(meta) != owner:
+            continue
+        start = usage.moment(meta.get("timestamp"))
+        if start is None:
+            continue
+        if start >= begun - STAMPED:
+            if (start <= ended and not resumes and source == SOURCES[plan.form]
+                    and same_place(meta.get("cwd"), plan.cwd)):
+                (sure if plan.form == "interactive" else either).setdefault(thread, []).append(path)
+        elif older:
+            (sure if plan.form == "interactive" else either).setdefault(thread, []).append(path)
+    groups = {**sure, **either}
+    for meta, path in agents:
+        parent = next((key for key in (meta.get("session_id"), meta.get("parent_thread_id"))
+                       if isinstance(key, str) and key in groups), None)
+        if parent is not None:
+            groups[parent].append(path)
+    return list(sure.values()), list(either.values())
 
 
-def this_run(layout, plan, baseline, started, ended, alone):
+def this_run(layout, plan, baseline, begun, ended, alone):
     """run_threads for this login, or None when they cannot be told."""
     try:
         raw = guard.credential(layout.target)
     except (OSError, ValueError):
         raw = baseline
     try:
-        return run_threads(layout.root, plan, storage.owner(raw) if raw else None, started, ended, alone)
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
+        return run_threads(layout.root, plan, storage.owner(raw) if raw else None, begun, ended, alone)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, UnicodeError, RecursionError):
         return None
 
 
-def unenforced(root, state, threads, started, ended):
+def activity(paths, begun, ended):
+    """(written, requested, tools) of the rollouts at PATHS between BEGUN and ENDED: a line, a usable
+    rate-limit snapshot (a model request), and a call that a tool hook sees. Each rollout is read back
+    from its end, usage.TAIL bytes at a time, to the lines from before BEGUN; inherited lines and lines
+    whose time cannot be read never count."""
+    written = requested = tools = False
+    for path in paths:
+        try:
+            with usage.opened(path) as stream:
+                for lines in usage.backwards(stream):
+                    earlier = False
+                    for raw in lines:
+                        stamp = usage.STAMP.match(raw)
+                        when = usage.moment(stamp[1].decode("ascii", "replace")) if stamp else None
+                        if when is None or when > ended:
+                            continue
+                        if when < begun - STAMPED:
+                            earlier = True
+                            continue
+                        written = True
+                        if b"token_count" not in raw and b"_call" not in raw:
+                            continue
+                        found = usage.parsed(raw)
+                        if found is None or usage.inherited(found[0]):
+                            continue
+                        _, kind, payload, ptype = found
+                        if kind == "event_msg" and ptype == "token_count":
+                            requested = requested or usage.usable(payload.get("rate_limits")) is not None
+                        tools = tools or usage.hooked(kind, ptype, payload)
+                    if earlier:
+                        break
+        except OSError:
+            continue
+    return written, requested, tools
+
+
+def unenforced(state, threads, begun, ended):
     """Which of the guard's hooks this run shows that Codex did not run: "the guard's hooks", "the
-    guard's tool hook" or None. A tool call in THREADS needs the tool hook; a model request (a
-    rate-limit snapshot there) needs either hook."""
+    guard's tool hook" or None. THREADS is run_threads(): a group of EITHER counts only for what every
+    one of them written during the run shows. A tool call needs the tool hook; a model request (a
+    rate-limit snapshot) needs either hook."""
     prompt, tool = (os.path.lexists(f"{state}.ran.{kind}") for kind in ("prompt", "tool"))
     if tool:
         return None
-    # Without an account (None) only THREADS are read.
-    if usage.ran_tools(root, threads, None, started, ended):
+    sure, either = threads
+    seen = [activity(group, begun, ended) for group in sure]
+    written = [view for view in (activity(group, begun, ended) for group in either) if view[0]]
+    if written:
+        seen.append(tuple(all(view[index] for view in written) for index in range(3)))
+    if any(view[2] for view in seen):
         return "the guard's tool hook" if prompt else "the guard's hooks"
-    requested = usage.latest(root, threads, None, started, ended) is not None
-    return "the guard's hooks" if requested and not prompt else None
+    return "the guard's hooks" if not prompt and any(view[1] for view in seen) else None
 
 
-def after_guarded(layout, plan, account, state, marker, threads, started, ended, alone):
+def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
     """After a guarded run: the guard's latest block message of a headless run, which Codex itself
     does not show; then, when this run's THREADS show that Codex did not run the guard's hooks, the
     warning, and the marker goes, so headless runs wait until an interactive launch has trusted them
-    again. While another codex-as client of the account ran at the run's start or end (not ALONE),
-    the threads that started during the run may be its: the marker stays."""
+    again."""
     if plan.form == "headless":
         message = blocked_message(state)
         if message:
@@ -399,18 +503,17 @@ def after_guarded(layout, plan, account, state, marker, threads, started, ended,
     if threads is None:
         return  # what the run did cannot be told
     try:
-        missing = unenforced(layout.root, state, threads, started, ended)
+        missing = unenforced(state, threads, begun, ended)
     except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
         return
     if missing:
         guard.warn(f"{account}: the usage reserve was not enforced in this run: Codex did not run {missing} (not "
                    f"trusted, disabled, or managed hooks only). Start codex-as {account} interactively and trust "
                    "them in \"Hooks need review\".")
-        if alone:
-            try:
-                os.unlink(marker)
-            except OSError:
-                pass
+        try:
+            os.unlink(marker)
+        except OSError:
+            pass
 
 
 def main(args):
@@ -522,7 +625,7 @@ def main(args):
     except BaseException:
         layout.close()
         raise
-    # One start time for the guard, the record of this run and the check after it.
+    # One start time for the guard and the record of this run.
     started, state = int(time.time()), None
     # The launch's state exists only under Supervision, so a signal never leaves it behind.
     with Supervision():
@@ -534,17 +637,21 @@ def main(args):
                                                  marker=marker)
                     print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls "
                                        "at a reserve.", "36", 2), file=sys.stderr)
+                # The span of this run's own lines, for the check after it.
+                begun = time.time()
                 result = run_native(command, env, layout.fd)
+                ended = time.time()
             finally:
                 layout.close()
             # Use a fresh open-file description: surviving descendants still hold SH.
             alone = post_run(layout, baseline) and alone
-            ended = time.time()
-            threads = None if state is None else this_run(layout, plan, baseline, started, ended, alone)
+            threads = None if state is None else this_run(layout, plan, baseline, begun, ended, alone)
+            groups = (*threads[0], *threads[1]) if threads else ()
             if os.path.lexists(layout.target):
-                remember(config, layout, plan=plan, started=started, threads=threads or ())
+                remember(config, layout, plan=plan, started=started,
+                         threads={usage.NAME.fullmatch(path.name)[1] for group in groups for path in group})
             if state is not None:
-                after_guarded(layout, plan, account, state, marker, threads, started, ended, alone)
+                after_guarded(layout, plan, account, state, marker, threads, begun, ended)
         finally:
             if state is not None:
                 guard_launch.forget(state)

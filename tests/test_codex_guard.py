@@ -434,19 +434,41 @@ launch = os.environ.get("CODING_AGENT_KIT_GUARD")
 state = json.loads(launch)["state"] if launch else None
 record = {"args": args, "env": dict(os.environ), "launched": bool(state) and os.path.isfile(state + ".launched"),
           "hooks": []}
+# FAKE_PAUSE: [READY, GO]: says it runs, then waits for GO before it does anything else.
+pause = json.loads(os.environ.get("FAKE_PAUSE", "null"))
+if pause:
+    pathlib.Path(pause[0]).touch()
+    deadline = time.monotonic() + 30
+    while not os.path.exists(pause[1]) and time.monotonic() < deadline:
+        time.sleep(0.02)
+# FAKE_NESTED: {"argv", "env"}: another program this session runs, such as a second codex-as.
+nested = json.loads(os.environ.get("FAKE_NESTED", "null"))
+if nested:
+    env = {key: value for key, value in os.environ.items() if key not in ("FAKE_NESTED", "FAKE_PAUSE")}
+    done = subprocess.run(nested["argv"], env={**env, **nested["env"]}, stdin=subprocess.DEVNULL, capture_output=True,
+                          text=True, timeout=60)
+    record["nested"] = [done.returncode, done.stdout, done.stderr]
 home = pathlib.Path(os.environ["CODEX_HOME"])
+# As native Codex writes them: the TUI's threads come from "cli", exec's and review's from "exec".
+source = "exec" if {"exec", "e", "review"} & set(args) else "cli"
 transcripts = []
 for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
     now = time.time()
-    stamp = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(now))
+    # Milliseconds, truncated, as native Codex stamps its lines; "offset" seconds later for a writer whose clock runs ahead.
+    then = now + item.get("offset", 0)
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(then)) + ".%03dZ" % (int(then * 1000) % 1000)
     if "append" in item:  # a resumed thread: Codex appends to its rollout, wherever it lies
         path, lines = pathlib.Path(item["append"]), item["lines"]
     else:
         day = home / "sessions" / time.strftime("%Y/%m/%d", time.localtime(now))
         day.mkdir(parents=True, exist_ok=True)
         path = day / ("rollout-" + time.strftime("%Y-%m-%dT%H-%M-%S", time.localtime(now)) + "-" + item["thread"] + ".jsonl")
-        meta = {"id": item["thread"], "timestamp": stamp, "creator_user_id": item["creator"][0],
-                "creator_account_id": item["creator"][1]}
+        meta = {"id": item["thread"], "session_id": item.get("session_id", item["thread"]), "timestamp": stamp,
+                "cwd": item.get("cwd", os.getcwd()), "originator": "codex_exec" if source == "exec" else "codex-tui",
+                "source": item.get("source", source), "thread_source": item.get("thread_source", "user"),
+                "creator_user_id": item["creator"][0], "creator_account_id": item["creator"][1]}
+        if "parent" in item:
+            meta["parent_thread_id"] = item["parent"]
         lines = [{"type": "session_meta", "payload": meta}, *item["lines"]]
     with open(path, "a") as stream:
         for line in lines:
@@ -478,6 +500,7 @@ sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 '''
 USER, WORKSPACE = "user-fixture-A", "workspace-fixture-A"
 THREAD = "019a0000-0000-7000-8000-00000000000a"
+OTHER = "019a0000-0000-7000-8000-0000000000bb"  # another session of the account
 LAUNCH_LINE = "codex-as: usage reserves for A: {policy}; hooks refuse new prompts and tool calls at a reserve.\n"
 WITHOUT = "; to launch without usage reserves, run codex-as --reserve-5h off --reserve-weekly off {account} with the same arguments.\n"
 # Rollout lines as native Codex writes them (the fake stamps them).
@@ -880,14 +903,15 @@ class GuardedLaunch(unittest.TestCase):
                     self.assertEqual(self.marker.exists(), missing is None)
                     self.assertEqual(self.launches(), [], "the launch's state outlived it")
 
-    def old_rollout(self, thread, seconds):
+    def old_rollout(self, thread, seconds, source="cli"):
         """A rollout of this account's THREAD that started SECONDS ago, as Codex left it then."""
         then = time.time() - seconds
         day = self.root / "sessions" / time.strftime("%Y/%m/%d", time.localtime(then))
         day.mkdir(parents=True, exist_ok=True)
         path = day / ("rollout-" + time.strftime("%Y-%m-%dT%H-%M-%S", time.localtime(then)) + f"-{thread}.jsonl")
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(then))
-        meta = {"id": thread, "timestamp": stamp, "creator_user_id": USER, "creator_account_id": WORKSPACE}
+        meta = {"id": thread, "session_id": thread, "timestamp": stamp, "cwd": str(self.cwd), "originator": "codex-tui",
+                "source": source, "thread_source": "user", "creator_user_id": USER, "creator_account_id": WORKSPACE}
         path.write_text("".join(json.dumps({"timestamp": stamp, **line}) + "\n"
                                 for line in ({"type": "session_meta", "payload": meta}, ANSWER)))
         os.utime(path, (then, then))
@@ -927,7 +951,7 @@ class GuardedLaunch(unittest.TestCase):
         """A session of the same account that started before this headless run and wrote during it is
         not this run's: exec writes a thread of its own."""
         self.trusted()
-        other = self.old_rollout("019a0000-0000-7000-8000-0000000000bb", 600)
+        other = self.old_rollout(OTHER, 600)
         rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(20.0)]},
                     {"append": str(other), "lines": [CALL, snapshot(20.0)]}]
         for form in (["exec", "go"], ["review"], ["exec", "fork", UUID, "go"]):
@@ -940,13 +964,13 @@ class GuardedLaunch(unittest.TestCase):
         result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_another_launch_of_the_account_keeps_its_older_sessions_and_the_marker(self):
-        """While another codex-as client of the account runs at this run's start or end, an older session
-        written during the run may be that client's: it is left out, and the marker stays even when the
-        run's own sessions show that the hooks did not run, since those may be that client's too."""
+    def test_another_launch_of_the_account_keeps_its_older_sessions_out_of_a_session(self):
+        """While another codex-as client of the account runs at the run's start or end, an older session
+        written during a TUI, resume --last or picker run may be that client's: it is left out, and the
+        marker stays."""
         self.hold_the_account()
-        other = self.old_rollout("019a0000-0000-7000-8000-0000000000bb", 600)
-        for form in ([], ["resume", "--last"]):
+        other = self.old_rollout(OTHER, 600)
+        for form in ([], ["resume", "--last"], ["resume"]):
             with self.subTest(form=form):
                 self.trusted()
                 rollouts = [{"append": str(other), "lines": [CALL, snapshot(20.0)]}]
@@ -955,13 +979,251 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotIn("not enforced", result.stderr)
                 self.assertTrue(self.marker.exists())
-        rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(20.0)]}]
-        result = self.run_codex("--reserve-5h", "10", "A", "exec", "go",
-                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("the usage reserve was not enforced in this run", result.stderr)
-        self.assertTrue(self.marker.exists(), "another launch of the account ran, yet the marker went")
         self.assertEqual(self.launches(), [])
+
+    def test_another_client_at_the_run_s_start_or_end_alone_keeps_older_sessions_out(self):
+        """The lease is checked at the run's start and again at its end: a client that held it only when the
+        run started, or took it only after, keeps an older session written during the TUI out."""
+        result = self.run_codex("A", "mcp", "list")  # prepares the account home and its lease
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lease = self.root / "accounts/.locks/A.lock"
+        other = self.old_rollout(OTHER, 600)
+        ready, go = self.base / "ready", self.base / "go"
+        rollouts = json.dumps([{"append": str(other), "lines": [CALL, snapshot(20.0)]}])
+        for moment in ("start", "end", None):
+            with self.subTest(moment=moment):
+                self.trusted()
+                ready.unlink(missing_ok=True)
+                go.unlink(missing_ok=True)
+                fd = os.open(lease, os.O_RDWR)
+                try:
+                    if moment == "start":
+                        fcntl.flock(fd, fcntl.LOCK_SH)
+                    child = subprocess.Popen([str(self.kit / "bin/codex-as"), "--reserve-5h", "10", "A"], cwd=self.cwd,
+                                             env=self.env | {"FAKE_PAUSE": json.dumps([str(ready), str(go)]),
+                                                             "FAKE_ROLLOUTS": rollouts, "FAKE_HOOKS": "[]"},
+                                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                             text=True, start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 30
+                        while not ready.exists() and time.monotonic() < deadline and child.poll() is None:
+                            time.sleep(0.02)
+                        self.assertTrue(ready.exists(), "Codex did not start")
+                        fcntl.flock(fd, fcntl.LOCK_UN if moment == "start" else fcntl.LOCK_SH if moment else fcntl.LOCK_UN)
+                        go.touch()
+                        _, err = child.communicate(timeout=60)
+                    finally:
+                        kill_group(child.pid)
+                finally:
+                    os.close(fd)
+                self.assertEqual(child.returncode, 0, err)
+                self.assertEqual("not enforced" in err, moment is None, err)
+                self.assertEqual(self.marker.exists(), moment is not None)
+        self.assertEqual(self.launches(), [])
+
+    def test_the_record_takes_the_snapshot_of_a_resumed_older_session(self):
+        """The account record of the guard's fallback reading gets the run's snapshot also from a session
+        it resumed by --last whose rollout lies in an older date directory."""
+        self.trusted()
+        older = self.old_rollout(THREAD, 2 * 86400)
+        rollouts = [{"append": str(older), "lines": [ANSWER, snapshot(30.0)]}]
+        result = self.run_codex("--reserve-5h", "10", "A", "resume", "--last",
+                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        usage = json.loads((self.state / "accounts/codex-A.json").read_text())["usage"]
+        self.assertEqual((usage["primary"]["used_percent"], usage["primary"]["window_minutes"]), (30.0, 300))
+
+    def test_another_launch_of_the_account_never_hides_what_a_headless_run_wrote(self):
+        """A headless run's own sessions are told by what wrote them (exec, this directory, a start during
+        the run), so another codex-as client of the account running meanwhile keeps neither the warning
+        nor the marker's removal away: after trust is lost, the next headless run is refused."""
+        self.hold_the_account()
+        warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's hooks "
+                   "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
+                   "\"Hooks need review\".\n")
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        refusal = ("codex-as: A: Codex has not run the usage reserve guard's tool hook on this host yet, and a headless "
+                   "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
+                   "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
+        older = self.old_rollout(THREAD, 2 * 86400)
+        runs = ((["exec", "resume", "--last", "go"], [{"append": str(older), "lines": [CALL, snapshot(20.0)]}]),
+                (["exec", "go"], [{"thread": OTHER, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(95.0)]}]),
+                (["review"], [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(20.0)]}]))
+        for args, rollouts in runs:
+            with self.subTest(args=args):
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + warning))
+                self.assertFalse(self.marker.exists(), "another launch of the account ran, and the marker stayed")
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual((result.returncode, result.stderr), (1, refusal))
+        self.assertEqual(self.launches(), [])
+
+    def test_an_earlier_run_s_last_lines_are_not_this_run_s(self):
+        """Only lines written after the run started count, to the millisecond: an exec that ends with a tool
+        call, followed at once by exec resume --last and by another exec whose hooks ran, does not make
+        those runs look unguarded."""
+        self.trusted()
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        first = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, CALL, snapshot(20.0)]}]
+        result = self.run_codex("--reserve-5h", "10", "A", "exec", "first",
+                                env={"FAKE_ROLLOUTS": json.dumps(first), "FAKE_HOOKS": '["prompt", "tool"]'})
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        [path] = (self.root / "sessions").glob("*/*/*/rollout-*.jsonl")
+        for args, rollouts in ((["exec", "resume", "--last", "next"], [{"append": str(path), "lines": [ANSWER, snapshot(21.0)]}]),
+                               (["exec", "next"], [{"thread": OTHER, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(21.0)]}]),
+                               ([], [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(21.0)]}])):
+            with self.subTest(args=args):
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+                self.assertTrue(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
+    def test_a_concurrent_launch_of_the_account_is_not_this_run_s(self):
+        """A session another program started during the run is this run's only when this run's kind of
+        Codex wrote it here: the TUI leaves out an exec's, an exec a TUI's, and both one of another
+        directory. Of several exec sessions started here during a headless run, one is the run's: they
+        count only when every one of them shows what the hooks missed."""
+        tool_hook = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's tool hook "
+                     "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
+                     "\"Hooks need review\".\n")
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        own, others = [ANSWER, snapshot(20.0)], [CALL, snapshot(20.0)]
+        elsewhere = str(self.base)
+        cases = (  # the run, its own session's lines, the other sessions, whether the warning comes
+            (["exec", "go"], own, [{"lines": others}], False),
+            (["review"], own, [{"lines": others}], False),
+            (["exec", "go"], own, [{"lines": others, "source": "cli"}], False),
+            (["exec", "go"], own, [{"lines": others, "cwd": elsewhere}], False),
+            ([], own, [{"lines": others, "source": "exec"}], False),
+            ([], own, [{"lines": others, "cwd": elsewhere}], False),
+            (["exec", "go"], others, [{"lines": others}, {"lines": others}], True),
+            (["exec", "go"], others, [{"lines": own, "source": "cli"}], True),
+            (["exec", "go"], others, [{"lines": own, "cwd": elsewhere}], True),
+            ([], own, [{"lines": others}], True),  # the TUI cannot tell a second TUI here from its own sessions
+        )
+        for args, lines, concurrent, warned in cases:
+            with self.subTest(args=args, concurrent=concurrent, warned=warned):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": lines}]
+                for number, item in enumerate(concurrent):
+                    rollouts.append({"thread": f"019a0000-0000-7000-8000-{number + 1:012x}", "creator": [USER, WORKSPACE],
+                                     **item})
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + (tool_hook if warned else "")))
+                self.assertEqual(self.marker.exists(), not warned)
+        # A session another exec started a moment before this run, and wrote to during it, is not one this run started.
+        shutil.rmtree(self.root / "sessions")
+        self.trusted()
+        just = self.old_rollout(OTHER, 2, source="exec")
+        rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": others}, {"append": str(just), "lines": own}]
+        result = self.run_codex("--reserve-5h", "10", "A", "exec", "go",
+                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line + tool_hook))
+        self.assertFalse(self.marker.exists())
+        # exec resume by id starts no session of its own: an exec session started here meanwhile is another run's.
+        shutil.rmtree(self.root / "sessions")
+        self.trusted()
+        older = self.old_rollout(THREAD, 600)
+        rollouts = [{"append": str(older), "lines": own}, {"thread": OTHER, "creator": [USER, WORKSPACE], "lines": others}]
+        result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", THREAD, "go",
+                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        self.assertTrue(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
+    def test_an_exec_of_the_account_inside_a_session_is_not_the_session_s(self):
+        """A codex-as exec of the same account that a guarded TUI runs (from its shell, say) starts and ends
+        inside the TUI's run, where neither lease check sees it."""
+        self.trusted()
+        inner = self.base / "inner.json"
+        nested = {"argv": [str(self.kit / "bin/codex-as"), "--reserve-5h", "10", "A", "exec", "go"],
+                  "env": {"FAKE_ROLLOUTS": json.dumps([{"thread": OTHER, "creator": [USER, WORKSPACE],
+                                                        "lines": [CALL, snapshot(20.0)]}]),
+                          "FAKE_HOOKS": '["prompt", "tool"]', "FAKE_RECORD": str(inner)}}
+        result = self.run_codex("--reserve-5h", "10", "A", env={"FAKE_NESTED": json.dumps(nested), "FAKE_HOOKS": '["prompt"]'})
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        self.assertEqual(self.recorded()["nested"], [0, "fake codex ran\n", launch_line])
+        self.assertEqual([hook[:2] for hook in json.loads(inner.read_text())["hooks"]], [["prompt", 0], ["tool", 0]])
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        self.assertTrue(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
+    def test_the_run_s_sub_agents_count_and_its_reviews_do_not(self):
+        """A sub-agent's session names the run's session; a guardian review runs no user hook. A caller's
+        exec --thread-source guardian_review tags the run's own session, which still counts."""
+        tool_hook = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's tool hook "
+                     "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
+                     "\"Hooks need review\".\n")
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        main = {"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(20.0)]}
+        sub = {"thread": OTHER, "creator": [USER, WORKSPACE], "session_id": THREAD, "parent": THREAD,
+               "lines": [CALL, snapshot(20.0)]}
+        spawned = {"subagent": {"thread_spawn": {"parent_thread_id": THREAD, "depth": 1}}}
+        cases = (
+            (["exec", "go"], [main, {**sub, "source": spawned, "thread_source": "subagent", "cwd": str(self.base)}], True),
+            ([], [main, {**sub, "source": spawned, "thread_source": "subagent"}], True),
+            (["exec", "go"], [main, {**sub, "source": {"subagent": "other"}, "thread_source": "guardian_review"}], False),
+            (["exec", "--thread-source", "guardian_review", "go"],
+             [{**main, "thread_source": "guardian_review", "lines": [CALL, snapshot(20.0)]}], True),
+        )
+        for args, rollouts, warned in cases:
+            with self.subTest(args=args, warned=warned):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + (tool_hook if warned else "")))
+                self.assertEqual(self.marker.exists(), not warned)
+
+    def test_only_the_run_s_own_calls_that_a_tool_hook_sees_count(self):
+        """Calls no tool hook sees (write_stdin, web search), call outputs, a sub-agent's inherited copy of its
+        parent's call, and a line stamped after the run ended are not tool calls of the run."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        unhooked = [{"type": "response_item", "payload": {"type": "function_call", "name": "write_stdin",
+                                                          "arguments": "{}", "call_id": "call-2"}},
+                    {"type": "response_item", "payload": {"type": "web_search_call", "status": "completed"}},
+                    {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "call-1",
+                                                          "output": "done"}}]
+        inherited = {**CALL, "metadata": {"inherited_user_message": True}}
+        spawned = {"subagent": {"thread_spawn": {"parent_thread_id": THREAD, "depth": 1}}}
+        older = self.old_rollout(OTHER, 2 * 86400)
+        cases = (
+            (["exec", "go"], [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, *unhooked, snapshot(20.0)]}]),
+            (["exec", "go"], [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(20.0)]},
+                              {"thread": UUID, "creator": [USER, WORKSPACE], "session_id": THREAD, "source": spawned,
+                               "thread_source": "subagent", "lines": [inherited, ANSWER, snapshot(20.0)]}]),
+            (["resume", "--last"], [{"append": str(older), "lines": [CALL], "offset": 3600},
+                                    {"append": str(older), "lines": [ANSWER, snapshot(20.0)]}]),
+        )
+        for args, rollouts in cases:
+            with self.subTest(args=args, lines=len(rollouts)):
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+                self.assertTrue(self.marker.exists())
+
+    def test_other_accounts_newer_sessions_never_crowd_out_the_run_s(self):
+        """However many sessions other accounts write after this run's own (one guardian review per
+        reviewed tool call, say), the run's own are read."""
+        self.trusted()
+        warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's hooks "
+                   "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
+                   "\"Hooks need review\".\n")
+        rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(20.0)]}]
+        rollouts += [{"thread": f"019a0001-0000-7000-8000-{number:012x}", "creator": ["user-fixture-B", "workspace-fixture-B"],
+                      "lines": [ANSWER, snapshot(20.0)]} for number in range(80)]
+        result = self.run_codex("--reserve-5h", "10", "A", env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line + warning))
+        self.assertFalse(self.marker.exists())
 
     def test_another_account_s_tool_calls_are_not_this_run_s(self):
         self.trusted()
