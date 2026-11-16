@@ -1002,6 +1002,45 @@ class StatusLine(Fixture):
         self.assertEqual(self.usage_file(newer)["five_hour"], window(91, NOW + 3600))
         self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(newer.usage).name], "a lock was left")
 
+    def test_a_run_that_read_before_another_wrote_reads_again_under_the_lock(self):
+        newer, older = self.launch(weekly="10"), self.launch(weekly="10")
+        put(Path(newer.usage), {"five_hour": window(50, NOW + 3600), "seven_day": None, "seen_at": NOW - 1000})
+        real, read, written, results = guard.merged_record, threading.Event(), threading.Event(), []
+
+        def merged_record(path, incoming, now):
+            result = real(path, incoming, now)
+            if threading.current_thread().name == "older" and not read.is_set():
+                # The older session's run has read the stored 50% and not taken the lock yet; the newer run writes now.
+                read.set()
+                written.wait(10)
+            return result
+
+        with patch.object(guard, "merged_record", merged_record):
+            first = threading.Thread(target=lambda: results.append(guard.record(older.usage, limits((60, NOW + 3600), None),
+                                                                                NOW)), name="older")
+            first.start()
+            self.assertTrue(read.wait(10))
+            self.assertTrue(guard.record(newer.usage, limits((91, NOW + 3600), None), NOW))
+            written.set()
+            first.join(10)
+        self.assertEqual(results, [False])
+        self.assertEqual(self.usage_file(newer)["five_hour"], window(91, NOW + 3600))
+        self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(newer.usage).name], "a lock was left")
+
+    def test_a_run_never_removes_a_lock_that_is_no_longer_its_own(self):
+        launch = self.launch(weekly="10")
+        name, held = guard.lock(Path(launch.usage))
+        self.assertEqual(name, self.accounts / f".{Path(launch.usage).name}.lock")
+        # Another run took this lock for one a cancelled run left, removed it and holds its own in its place.
+        name.unlink()
+        put(name, "another run's lock")
+        guard.unlock(name, held)
+        self.assertEqual(name.read_text(), "another run's lock")
+        name.unlink()
+        name, held = guard.lock(Path(launch.usage))
+        guard.unlock(name, held)
+        self.assertEqual(list(self.accounts.iterdir()), [])
+
     def test_the_usage_file_lock(self):
         launch = self.launch(weekly="10")
         lock = self.accounts / f".{Path(launch.usage).name}.lock"
