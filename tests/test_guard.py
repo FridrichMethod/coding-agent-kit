@@ -460,8 +460,8 @@ class Codex(Fixture):
     def test_windows_are_named_by_their_length_not_their_slot(self):
         launch = self.launch("codex-as", five_hour="10")
         for primary, secondary, blocks in ((slot(95, 300), None, True), (None, slot(95, 300), True),
-                                           (slot(95, 10080), None, False), (slot(99, 60), slot(99, 1440), False),
-                                           (slot(95, 0), slot(95, 300), True)):
+                                           (slot(95, 10080), None, False), (slot(99, 60), slot(50, 300), False),
+                                           (slot(99, None), slot(50, 300), False), (slot(95, 0), slot(95, 300), True)):
             with self.subTest(primary=primary, secondary=secondary):
                 transcript = self.rollout([count(NOW - 30, primary, secondary)])
                 self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript))[0], 2 if blocks else 0)
@@ -479,6 +479,23 @@ class Codex(Fixture):
         self.assertEqual(self.answer("tool", launch, self.codex_event(spark, "tool")), OK)
         before = self.rollout([count(STARTED - 3000, slot(20, 10080))])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(before))[0], 2)
+
+    def test_a_snapshot_without_a_window_of_a_known_length_counts_as_none(self):
+        launch = self.launch("codex-as", weekly="10")
+        for primary, secondary in ((slot(97, None), None), (slot(97, 60), None), (slot(97, 60), slot(97, 1440))):
+            with self.subTest(primary=primary, secondary=secondary):
+                transcript = self.rollout([reply(NOW - 30), count(NOW - 30, primary, secondary)])
+                Path(launch.usage).unlink(missing_ok=True)
+                # Nothing the guard can judge by: the session is blind, as after a token count without rate limits.
+                for kind in ("prompt", "tool"):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
+                                     (2, "", reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"),
+                                                                kind, NOW)))
+                # The account record from earlier runs still decides its threshold.
+                self.codex_record(launch, slot(95, 10080))
+                for kind in ("prompt", "tool"):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
+                                     (2, "", self.threshold(kind)))
 
     def test_without_a_snapshot_the_account_record_decides_minus_readings_without_a_reset(self):
         launch = self.launch("codex-as", weekly="10")

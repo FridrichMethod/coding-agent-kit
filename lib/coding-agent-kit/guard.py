@@ -47,7 +47,9 @@ The decision (reserve.decide) per launch:
   transcript_path, since the launch started): its newest snapshot, each window
   named by its length (300 minutes five_hour, 10080 weekly, others ignored)
   with the snapshot's limit family; without one, the account record's usage
-  from earlier runs, minus windows without a reset time. The launch is blind
+  from earlier runs, minus windows without a reset time. A snapshot that names
+  no window of a known length counts as none, so a change of format fails
+  closed like a token_count line without rate limits. The launch is blind
   without a snapshot when the rollout has a token_count line (accounted), and
   on a prompt also when it shows a model response. No readable transcript is
   never blind.
@@ -337,9 +339,10 @@ def codex_view(kind, event, launch):
     if transcript is not None and not isinstance(transcript, str):
         raise ValueError("transcript_path is not a string")
     seen = usage.session(transcript, launch.started) if transcript else None
-    if seen and seen["snapshot"]:
-        return windows(seen["snapshot"], seen["family"]), False
-    record = stored(launch.usage)
+    readings = windows(seen["snapshot"], seen["family"]) if seen and seen["snapshot"] else []
+    if readings:
+        return readings, False
+    record = stored(launch.usage)  # no snapshot, or one without a window of a known length
     last = record.get("usage") if isinstance(record, dict) else None
     readings = windows(last, reset_required=True) if isinstance(last, dict) else []
     return readings, bool(seen) and (seen["accounted"] or kind == "prompt" and seen["responded"])
