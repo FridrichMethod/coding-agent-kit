@@ -178,16 +178,16 @@ def exit_status(result):
     return 128 - result
 
 
-def remember(config, layout, raw=None, plan=None, started=None):
+def remember(config, layout, raw=None, plan=None, started=None, threads=()):
     """Best effort, for --account-info: this login's email and plan, and after a run the
-    last rate limits its rollouts show. Never fails a launch and writes no token. Returns
-    whether this run's rollouts showed a snapshot (a model request); False before a run."""
-    seen = None
+    last rate limits its rollouts show (THREADS: those of a guarded run, see run_threads).
+    Never fails a launch and writes no token."""
     try:
         if raw is None:
             raw = guard.credential(layout.target)
         email, kind = storage.profile(raw)
-        seen = None if plan is None else usage.latest(layout.root, plan.continued, storage.owner(raw), started, time.time())
+        seen = None if plan is None else usage.latest(layout.root, {*plan.continued, *threads}, storage.owner(raw),
+                                                      started, time.time())
         # The old record is read only after the scan, just before the write, so a run of
         # this account that finished meanwhile keeps its newer snapshot.
         path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
@@ -204,27 +204,29 @@ def remember(config, layout, raw=None, plan=None, started=None):
         metadata.write(path, {key: value for key, value in record.items() if value is not None})
     except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
         pass
-    return seen is not None
 
 
 def post_run(layout, baseline):
-    """Repair or report the account link after native Codex exits; never changes the exit code."""
+    """Repair or report the account link after native Codex exits; never changes the exit code.
+    Returns whether this launch was the account's last client (False when that was not told)."""
     replaced = "Codex replaced the account auth.json link with a regular file; "
+    last = False
     try:
         if not os.path.lexists(layout.auth):
             guard.warn(f"Codex removed the account auth.json link, as a logout or new login inside Codex does; both "
                        f"revoke the tokens in {layout.target}. To log in again, move that file aside under a "
                        f"name that does not match codex-NAME.json, then run: codex-as {layout.name}")
-            return
+            return False
         unlinked = not layout.auth.is_symlink()
-        if layout.acquire():
+        last = layout.acquire()
+        if last:
             layout.repair(baseline)
             current = layout.validate()
             if unlinked:
                 guard.warn(replaced + "credentials were imported into secrets and the link restored.")
         elif unlinked:
             guard.warn(replaced + "the last client of this account to exit repairs it.")
-            return
+            return False
         else:
             current = guard.credential(layout.target)
         if baseline is not None and not storage.same_identity(current, baseline):
@@ -234,6 +236,7 @@ def post_run(layout, baseline):
         guard.report(error)
     finally:
         layout.close()
+    return last
 
 
 def refuse(account, reason):
@@ -301,43 +304,96 @@ def blocked_message(state):
     return CONTROL.sub("", raw.decode("utf-8", "replace")).strip() or None
 
 
-def unenforced(layout, plan, state, snapshot, owner, started, ended):
-    """Which of the guard's hooks this run shows that Codex did not run: "the guard's hooks", "the
-    guard's tool hook" or None. A tool call needs the tool hook; a model request (SNAPSHOT, a
-    rate-limit snapshot in this run's rollouts) needs either hook."""
-    prompt, tool = (os.path.lexists(f"{state}.ran.{kind}") for kind in ("prompt", "tool"))
-    if tool:
-        return None
-    if usage.ran_tools(layout.root, plan.continued, owner, started, ended):
-        return "the guard's tool hook" if prompt else "the guard's hooks"
-    return "the guard's hooks" if snapshot and not prompt else None
+def run_threads(root, plan, owner, started, ended, alone):
+    """The threads a guarded run can have written: the ones it resumed or recovered by id; the threads
+    of this account (OWNER, from each rollout's session_meta) that started during the run, its own,
+    its forks' and its sub-agents'; and, for a launch that can resume a thread it does not name (the
+    TUI, resume and fork, which switch threads, and exec resume without an id), this account's older
+    threads written during the run, unless another codex-as client of the account ran at the run's
+    start or end (not ALONE), whose threads they may be. A resumed thread's rollout stays in the date
+    directory of the day it started, so every date directory is searched, by modification time; at
+    most usage.MAX_HEADS first lines are read, newest first. An API-key login records no creator."""
+    threads = set(plan.continued)
+    if owner is None:
+        return threads
+    unnamed = alone and (plan.form == "interactive"
+                         or plan.command == "exec-resume" and not plan.forked and not plan.continued)
+    found = []
+    for path in (Path(root) / "sessions").glob("*/*/*/rollout-*.jsonl"):
+        match = usage.NAME.fullmatch(path.name)
+        if not match or match[1] in threads:
+            continue
+        try:
+            info = path.lstat()
+        except OSError:
+            continue
+        if stat.S_ISREG(info.st_mode) and info.st_mtime >= started - usage.SLACK:
+            found.append((-info.st_mtime, str(path), match[1], path))
+    for *_, thread, path in sorted(found)[:usage.MAX_HEADS]:
+        try:
+            with usage.opened(path) as stream:
+                payload = usage.meta(stream)
+        except OSError:
+            continue
+        if usage.created_by(payload) != owner:
+            continue
+        begun = usage.moment(payload.get("timestamp"))
+        if unnamed or begun is not None and started - usage.SLACK <= begun <= ended + usage.SLACK:
+            threads.add(thread)
+    return threads
 
 
-def after_guarded(layout, plan, account, state, marker, snapshot, baseline, started):
-    """After a guarded run: the guard's latest block message of a headless run, which Codex itself
-    does not show; then, when the run shows that Codex did not run the guard's hooks, the warning,
-    and the marker goes, so headless runs wait until an interactive launch has trusted them again."""
-    ended = time.time()
-    if plan.form == "headless":
-        message = blocked_message(state)
-        if message:
-            print(guard.styled(message, "31", 2), file=sys.stderr)
+def this_run(layout, plan, baseline, started, ended, alone):
+    """run_threads for this login, or None when they cannot be told."""
     try:
         raw = guard.credential(layout.target)
     except (OSError, ValueError):
         raw = baseline
     try:
-        missing = unenforced(layout, plan, state, snapshot, storage.owner(raw) if raw else None, started, ended)
+        return run_threads(layout.root, plan, storage.owner(raw) if raw else None, started, ended, alone)
     except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
+        return None
+
+
+def unenforced(root, state, threads, started, ended):
+    """Which of the guard's hooks this run shows that Codex did not run: "the guard's hooks", "the
+    guard's tool hook" or None. A tool call in THREADS needs the tool hook; a model request (a
+    rate-limit snapshot there) needs either hook."""
+    prompt, tool = (os.path.lexists(f"{state}.ran.{kind}") for kind in ("prompt", "tool"))
+    if tool:
+        return None
+    # Without an account (None) only THREADS are read.
+    if usage.ran_tools(root, threads, None, started, ended):
+        return "the guard's tool hook" if prompt else "the guard's hooks"
+    requested = usage.latest(root, threads, None, started, ended) is not None
+    return "the guard's hooks" if requested and not prompt else None
+
+
+def after_guarded(layout, plan, account, state, marker, threads, started, ended, alone):
+    """After a guarded run: the guard's latest block message of a headless run, which Codex itself
+    does not show; then, when this run's THREADS show that Codex did not run the guard's hooks, the
+    warning, and the marker goes, so headless runs wait until an interactive launch has trusted them
+    again. While another codex-as client of the account ran at the run's start or end (not ALONE),
+    the threads that started during the run may be its: the marker stays."""
+    if plan.form == "headless":
+        message = blocked_message(state)
+        if message:
+            print(guard.styled(message, "31", 2), file=sys.stderr)
+    if threads is None:
         return  # what the run did cannot be told
+    try:
+        missing = unenforced(layout.root, state, threads, started, ended)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
+        return
     if missing:
         guard.warn(f"{account}: the usage reserve was not enforced in this run: Codex did not run {missing} (not "
                    f"trusted, disabled, or managed hooks only). Start codex-as {account} interactively and trust "
                    "them in \"Hooks need review\".")
-        try:
-            os.unlink(marker)
-        except OSError:
-            pass
+        if alone:
+            try:
+                os.unlink(marker)
+            except OSError:
+                pass
 
 
 def main(args):
@@ -425,7 +481,8 @@ def main(args):
         guard.credential(layout.target)
     baseline = None
     try:
-        if layout.acquire():
+        alone = layout.acquire()
+        if alone:
             enroll(layout, codex)
             layout.prepare()
             fcntl.flock(layout.fd, fcntl.LOCK_SH)
@@ -462,10 +519,13 @@ def main(args):
             finally:
                 layout.close()
             # Use a fresh open-file description: surviving descendants still hold SH.
-            post_run(layout, baseline)
-            snapshot = os.path.lexists(layout.target) and remember(config, layout, plan=plan, started=started)
+            alone = post_run(layout, baseline) and alone
+            ended = time.time()
+            threads = None if state is None else this_run(layout, plan, baseline, started, ended, alone)
+            if os.path.lexists(layout.target):
+                remember(config, layout, plan=plan, started=started, threads=threads or ())
             if state is not None:
-                after_guarded(layout, plan, account, state, marker, snapshot, baseline, started)
+                after_guarded(layout, plan, account, state, marker, threads, started, ended, alone)
         finally:
             if state is not None:
                 guard_launch.forget(state)
