@@ -645,6 +645,41 @@ os.execv(sys.argv[2], sys.argv[2:])
         record = json.loads(self.record.read_text())
         self.assertEqual((record['usage_file'], record['token_id'], record['claude_pid']), (None, None, None))
 
+    def test_claude_ignores_and_keeps_a_native_login_layout(self):
+        """<secrets_dir>/native-claude-accounts is no part of the kit: its names are neither listed, labelled
+        nor described, such a name is a missing account that claude-as offers to enroll, and the
+        directory stays exactly as it was."""
+        target = self.secret / 'claude-work'
+        target.write_text(CLAUDE_TOKEN + '\n')
+        target.chmod(0o600)
+        layout = self.secret / 'native-claude-accounts'
+        (layout / 'legacy/config').mkdir(parents=True)
+        (layout / 'legacy/config/.claude.json').write_text('{"oauthAccount": {}}\n')
+        (layout / 'legacy/account.json').write_text('{"name": "legacy", "label": "Legacy"}\n')
+        for path in (layout, layout / 'legacy', layout / 'legacy/config'):
+            path.chmod(0o700)
+        for path in (layout / 'legacy/config/.claude.json', layout / 'legacy/account.json'):
+            path.chmod(0o600)
+
+        def tree():
+            return {str(path.relative_to(layout)): (path.lstat().st_mode, path.lstat().st_mtime_ns,
+                                                    path.read_bytes() if path.is_file() else None)
+                    for path in sorted(layout.rglob('*'))}
+
+        before = tree()
+        for args, expected in ((['--list-accounts'], (0, 'work\n', '')), (['--labels'], (0, 'work\n', '')),
+                               (['--info', 'legacy'], (1, '', 'claude-as: no account legacy.\n'))):
+            with self.subTest(args=args):
+                code, out, err, tty = self.terminal(args, [], tool='claude-as')
+                self.assertEqual((code, out, err, tty), (*expected, ''))
+        code, out, err, tty = self.terminal(['legacy'], [('[y/N]', 'n')], tool='claude-as')
+        self.assertEqual((code, out, err), (1, '', 'claude-as: cancelled; no credentials saved or client launched.\n'))
+        self.assertIn('Existing accounts: work', tty)
+        self.assertIn('Account legacy does not exist. Login and save a new account?', tty)
+        self.assertFalse(self.record.exists(), 'a declined enrolment started Claude Code')
+        self.assertFalse((self.secret / 'claude-legacy').exists())
+        self.assertEqual(tree(), before)
+
     def kit_file(self, text):
         """The kit configuration file of this HOME, private like its directories, holding TEXT."""
         path = self.home / '.config/coding-agent-kit/config.toml'
