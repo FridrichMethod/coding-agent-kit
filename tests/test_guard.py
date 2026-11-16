@@ -1582,13 +1582,20 @@ class StatusLine(Fixture):
         # file judged and the removal. A run that comes then waits for it, so the two never hold the lock together.
         launch = self.launch(weekly="10")
         lock = self.lock_file(launch, pid=GONE)
-        real, slowed, held = os.unlink, [], []
+        judged = lock.lstat().st_ino
+        real_unlink, real_create, breaking, slowed, held = os.unlink, guard.create, threading.Event(), [], []
+
+        def create(name):
+            fd = real_create(name)
+            if threading.current_thread().name == "slow" and name.name.endswith(".break"):
+                breaking.set()  # the slow run holds the breaker of the stale lock
+            return fd
 
         def unlink(path, *args, **options):
             if threading.current_thread().name == "slow" and Path(path) == lock and not slowed:
-                slowed.append(True)
+                slowed.append(os.lstat(path).st_ino)
                 time.sleep(1.3)
-            return real(path, *args, **options)
+            return real_unlink(path, *args, **options)
 
         def run(hold):
             name, fd = guard.lock(Path(launch.usage))
@@ -1597,14 +1604,16 @@ class StatusLine(Fixture):
             held.append((taken, time.monotonic(), threading.current_thread().name))
             guard.unlock(name, fd)
 
-        with patch.object(guard.os, "unlink", unlink), patch.object(guard, "LOCK_WAIT", 5):
+        with patch.object(guard, "create", create), patch.object(guard.os, "unlink", unlink), \
+                patch.object(guard, "LOCK_WAIT", 5):
             slow = threading.Thread(target=run, args=(0.2,), name="slow")
             slow.start()
-            time.sleep(0.05)
+            self.assertTrue(breaking.wait(10))
             run(0.5)
             slow.join(10)
-        self.assertEqual(slowed, [True])
-        self.assertEqual(sorted(name for _, _, name in held), ["MainThread", "slow"])
+        # The slow run was slowed as it removed the stale lock, and it took the lock first.
+        self.assertEqual(slowed, [judged])
+        self.assertEqual([name for _, _, name in sorted(held)], ["slow", "MainThread"])
         (first, end, _), (second, _, _) = sorted(held)
         self.assertLessEqual(end, second, "two runs held the lock at once")
         self.assertEqual(list(self.accounts.iterdir()), [])
