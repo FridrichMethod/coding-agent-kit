@@ -10,6 +10,7 @@ involved.
 import ast
 import contextlib
 from decimal import Decimal
+import errno
 import importlib.util
 import io
 import json
@@ -622,16 +623,22 @@ class Codex(Fixture):
         blind = {kind: reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"), kind, NOW)
                  for kind in ("prompt", "tool")}
         for stamp in ((NOW - 20), (NOW - 20) * 1000, "absent"):
-            records = [reply(NOW - 20), count(NOW - 20, rates=False), count(NOW - 20, slot(97, 10080))]
-            for record in records:
-                if stamp == "absent":
-                    del record["timestamp"]
-                else:
-                    record["timestamp"] = stamp
-            transcript = self.rollout(records)
-            for kind in ("prompt", "tool"):
-                with self.subTest(stamp=stamp, kind=kind):
-                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)), (2, "", blind[kind]))
+            # The second rollout is a new session at its first tool call: a response and its token_usage_record,
+            # and no token_count yet.
+            for name, records in (("counted", [reply(NOW - 20), count(NOW - 20, rates=False),
+                                               count(NOW - 20, slot(97, 10080))]),
+                                  ("responses only", [reply(NOW - 20), shell_call(NOW - 20),
+                                                      line(NOW - 20, "token_usage_record", {"input_tokens": 1})])):
+                for record in records:
+                    if stamp == "absent":
+                        del record["timestamp"]
+                    else:
+                        record["timestamp"] = stamp
+                transcript = self.rollout(records)
+                for kind in ("tool", "prompt"):
+                    with self.subTest(stamp=stamp, rollout=name, kind=kind):
+                        self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
+                                         (2, "", blind[kind]))
 
     def test_a_response_without_a_token_count_is_blind_on_prompt_only(self):
         launch = self.launch("codex-as", weekly="10")
@@ -1126,7 +1133,11 @@ class StatusLine(Fixture):
         launch = self.launch(weekly="10")
         stale = put(self.accounts / f".{Path(launch.usage).name}.0123abcd.tmp", "half")
         fresh = put(self.accounts / f".{Path(launch.usage).name}.4567cdef.tmp", "half")
-        os.utime(stale, (time.time() - 120, time.time() - 120))
+        # Those of a lock and a breaker that a run did not link or unlink before it ended, too.
+        stale_locks = [put(self.accounts / f".{Path(launch.usage).name}.{name}.0123abcd89ef4567.tmp", "{}")
+                       for name in ("lock", "lock.break")]
+        for path in (stale, *stale_locks):
+            os.utime(path, (time.time() - 120, time.time() - 120))
         renames = []
         real_replace = os.replace
 
@@ -1139,7 +1150,7 @@ class StatusLine(Fixture):
             self.assertTrue(guard.record(launch.usage, limits(), time.time()))
         self.assertEqual(renames, [(self.accounts, True, "0o600", Path(launch.usage))])
         self.assertEqual(oct(Path(launch.usage).stat().st_mode & 0o777), "0o600")
-        self.assertFalse(stale.exists())
+        self.assertEqual([path.exists() for path in (stale, *stale_locks)], [False] * 3)
         self.assertTrue(fresh.exists())
         fresh.unlink()
         self.assertEqual(sorted(path.name for path in self.accounts.iterdir()), [Path(launch.usage).name])
@@ -1304,6 +1315,7 @@ class StatusLine(Fixture):
             self.assertEqual(sorted(content), ["at", "host", "pid"])
             self.assertEqual((content["host"], content["pid"]), (os.uname().nodename, os.getpid()))
             self.assertTrue(before <= content["at"] <= after, content)
+            self.assertEqual(list(self.accounts.iterdir()), [name], "its temporary file was left")
         finally:
             guard.unlock(name, held)
         self.assertFalse(name.exists())
@@ -1326,8 +1338,7 @@ class StatusLine(Fixture):
                 "a run of this host, an hour old by the file's time": {"mtime": -3600},
                 "a run of another host whose process id is none here": {"host": "another host", "pid": GONE},
                 "a run of another host, within LOCK_STALE of this clock": {"host": "another host",
-                                                                           "at": now - guard.LOCK_STALE + 3},
-                "a run that has not written its lock yet": {"content": ""}}
+                                                                           "at": now - guard.LOCK_STALE + 3}}
         for case, holder in held.items():
             with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2):
                 mtime = holder.pop("mtime", 0)
@@ -1337,8 +1348,8 @@ class StatusLine(Fixture):
                     guard.record(launch.usage, limits(), NOW)
                 self.assertTrue(lock.exists())
                 self.assertFalse(Path(launch.usage).exists())
-        # A lock that a run left when it ended is removed: its clock further than LOCK_STALE from this one's, a
-        # process of this host that has ended, or no holder named for LOCK_EMPTY seconds.
+        # A lock that a run left when it ended is removed at once: its clock further than LOCK_STALE from this one's,
+        # a process of this host that has ended, or no holder named, which a run's own lock never is (create()).
         left = {"a clock LOCK_STALE behind": {"host": "another host", "at": now - guard.LOCK_STALE - 5},
                 "a clock LOCK_STALE ahead": {"host": "another host", "at": now + guard.LOCK_STALE + 5},
                 "a process of this host that has ended": {"pid": GONE},
@@ -1348,7 +1359,7 @@ class StatusLine(Fixture):
                 "a process id of 0": {"pid": 0}, "a negative process id": {"pid": -1},
                 "a clock that is no whole number": {"at": now + 0.5}, "a clock as text": {"at": str(now)}}
         for case, holder in left.items():
-            with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2), patch.object(guard, "LOCK_EMPTY", 0.05):
+            with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2):
                 Path(launch.usage).unlink(missing_ok=True)
                 if holder.get("content") == "\udcff":
                     lock.write_bytes(b"\xff")
@@ -1360,7 +1371,7 @@ class StatusLine(Fixture):
         self.lock_file(launch)
         with patch.object(guard, "LOCK_WAIT", 0.2):
             self.assertFalse(guard.record(launch.usage, limits(), NOW + 10))
-        self.assertEqual((guard.LOCK_WAIT, guard.LOCK_STALE, guard.LOCK_EMPTY), (2, 10, 1))
+        self.assertEqual((guard.LOCK_WAIT, guard.LOCK_STALE), (2, 10))
 
     def test_a_lock_of_a_process_of_another_user_is_held(self):
         # kill(pid, 0) refuses a process of another user with EPERM: such a process runs, and its lock holds.
@@ -1377,46 +1388,260 @@ class StatusLine(Fixture):
         launch = self.launch(weekly="10")
         lock = self.lock_file(launch, host="another host", at=int(time.time()) - 60)
         fresh = json.dumps({"host": "another host", "pid": 7, "at": int(time.time())})
-        real, taken = guard.discard, []
+        real, taken = guard.clear, []
 
-        def discard(name, identity, seen):
-            # Another run judged the same lock stale, removed it and took the lock before this run breaks it.
-            name.unlink()
-            put(name, fresh)
-            taken.append(name.lstat().st_ino)
-            # A third run comes now, and finds the lock held.
-            with patch.object(guard, "LOCK_WAIT", 0.1), self.assertRaises(TimeoutError):
-                guard.lock(Path(launch.usage))
-            return real(name, identity, seen)
+        def clear(path):
+            if path == lock and not taken:
+                # This run judged the lock stale and holds the breaker. Meanwhile another run, which judged the same
+                # lock stale before this one took the breaker, removed it and took the lock.
+                path.unlink()
+                put(path, fresh)
+                taken.append(path.lstat().st_ino)
+                # A third run comes now, and finds the lock held.
+                with patch.object(guard, "LOCK_WAIT", 0.1), self.assertRaises(TimeoutError):
+                    guard.lock(Path(launch.usage))
+            return real(path)
 
-        with patch.object(guard, "discard", discard), patch.object(guard, "LOCK_WAIT", 0.2), \
+        with patch.object(guard, "clear", clear), patch.object(guard, "LOCK_WAIT", 0.2), \
                 patch.object(guard.os, "rename", side_effect=AssertionError("a lock was moved")):
             with self.assertRaises(TimeoutError):
                 guard.record(launch.usage, limits(), NOW)
         self.assertEqual((lock.read_text(), lock.lstat().st_ino), (fresh, taken[0]))
         self.assertEqual(list(self.accounts.iterdir()), [lock])
 
-    def test_a_stale_lock_is_broken_by_one_run_at_a_time(self):
+    def test_a_lock_taken_while_this_run_removes_the_stale_one_is_never_removed(self):
+        # Between this run's judgment of the stale lock under the breaker and its removal, the name now holds a lock
+        # that another run took: the run removes only the file it judged, which it holds open.
         launch = self.launch(weekly="10")
         lock = self.lock_file(launch, pid=GONE)
-        breaker = self.accounts / (lock.name + ".break")
-        # Another run breaks it now: this run waits for that run instead of breaking it too.
-        put(breaker, "")
-        with patch.object(guard, "LOCK_WAIT", 0.2), self.assertRaises(TimeoutError):
+        fresh = json.dumps({"host": "another host", "pid": 7, "at": int(time.time())})
+        real, calls, taken = guard.stale, [], []
+
+        def stale(fd):
+            calls.append(fd)
+            judged = real(fd)
+            if len(calls) == 2:  # the judgment again under the breaker, of the file it holds open
+                lock.unlink()
+                put(lock, fresh)
+                taken.append(lock.lstat().st_ino)
+            return judged
+
+        with patch.object(guard, "stale", stale), patch.object(guard, "LOCK_WAIT", 0.2), \
+                self.assertRaises(TimeoutError):
             guard.lock(Path(launch.usage))
-        self.assertEqual(sorted(self.accounts.iterdir()), [lock, breaker])
-        # A breaker that stays LOCK_EMPTY seconds was left by a run that ended while it held it: it is removed, and
-        # then the stale lock.
-        with patch.object(guard, "LOCK_WAIT", 1), patch.object(guard, "LOCK_EMPTY", 0.05):
-            name, held = guard.lock(Path(launch.usage))
+        self.assertEqual((lock.read_text(), lock.lstat().st_ino), (fresh, taken[0]))
+        self.assertEqual(list(self.accounts.iterdir()), [lock])
+
+    def test_a_link_made_but_reported_as_failed_is_taken(self):
+        # A network file system retries a link whose reply it lost, and the retry fails because the link exists.
+        launch = self.launch(weekly="10")
+        real = os.link
+
+        def link(source, target, **options):
+            real(source, target, **options)
+            raise FileExistsError(17, "File exists")
+
+        with patch.object(guard.os, "link", link):
+            name, fd = guard.lock(Path(launch.usage))
+        self.assertEqual(os.fstat(fd).st_ino, name.lstat().st_ino)
         self.assertEqual(json.loads(name.read_text())["pid"], os.getpid())
-        guard.unlock(name, held)
+        self.assertEqual(list(self.accounts.iterdir()), [name])
+        guard.unlock(name, fd)
         self.assertEqual(list(self.accounts.iterdir()), [])
-        # A breaker is held only to check the lock and remove it: none is left behind.
-        lock = self.lock_file(launch, pid=GONE)
-        name, held = guard.lock(Path(launch.usage))
+
+    def test_a_directory_without_hard_links_records_nothing(self):
+        # A lock and a breaker are linked from their temporary file. Where the directory has no hard links (vfat,
+        # exFAT, some FUSE mounts), link() fails: the run records nothing, creates no .seen and leaves no temporary
+        # file, and the launch is blind once its first reply is BLIND_AFTER seconds old.
+        launch = self.launch(weekly="10", statusline="printf 'mine'")
+        put(self.state(launch, "ran.start"), "")
+        put(self.state(launch, "reply"), str(NOW - guard.BLIND_AFTER))
+        blind = reserve.block_text("claude-as", "personal", reserve.Decision(False, "blind"), "prompt", NOW)
+        lock = self.accounts / f".{Path(launch.usage).name}.lock"
+        for code in sorted({errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP}):
+            for left in (False, True):  # beside a stale lock, the breaker is linked first
+                with self.subTest(errno=errno.errorcode[code], stale_lock=left), \
+                        patch.object(guard.os, "link", side_effect=OSError(code, os.strerror(code))):
+                    if left:
+                        self.lock_file(launch, pid=GONE)
+                    with self.assertRaises(OSError) as raised:
+                        guard.record(launch.usage, limits(), NOW)
+                    self.assertEqual(raised.exception.errno, code)
+                    self.assertEqual(guard.status(status_input(), launch, NOW), "mine")
+                    self.assertEqual(sorted(self.accounts.iterdir()), [lock] if left else [])
+                    self.assertFalse(self.state(launch, "seen").exists())
+                    self.assertEqual(self.answer("prompt", launch), (2, "", blind))
+                    lock.unlink(missing_ok=True)
+
+    def breaker_file(self, launch, **holder):
+        """The breaker of the usage file's lock, as lock_file() writes the lock."""
+        lock = self.accounts / f".{Path(launch.usage).name}.lock"
+        content = self.lock_file(launch, **holder).read_text()
+        lock.rename(lock.with_name(lock.name + ".break"))
+        return put(lock.with_name(lock.name + ".break"), content)
+
+    def test_a_stale_lock_is_broken_by_one_run_at_a_time(self):
+        launch = self.launch(weekly="10")
+        # Another run breaks the stale lock now: this run waits for that run instead of breaking it too, also when
+        # that run is slow, as long as its process runs on this host or its clock is within LOCK_STALE of this one's.
+        held = {"a run of this host": {}, "a run of this host, slow for nearly LOCK_STALE": {"ago": guard.LOCK_STALE - 1},
+                "a run of another host": {"host": "another host", "pid": GONE, "ago": guard.LOCK_STALE - 3}}
+        for case, holder in held.items():
+            with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2):
+                holder = dict(holder, at=int(time.time()) - holder.pop("ago", 0))
+                breaker = self.breaker_file(launch, **holder)
+                lock = self.lock_file(launch, pid=GONE)
+                with self.assertRaises(TimeoutError):
+                    guard.lock(Path(launch.usage))
+                self.assertEqual(sorted(self.accounts.iterdir()), [lock, breaker])
+                breaker.unlink()
+        # A breaker that a run left when it ended, judged as a lock is, is removed at once, and then the stale lock.
+        left = {"a process of this host that has ended": {"pid": GONE},
+                "a clock LOCK_STALE behind": {"host": "another host", "at": int(time.time()) - guard.LOCK_STALE - 5},
+                "no holder named": {"content": ""}}
+        for case, holder in left.items():
+            with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2):
+                if "content" in holder:
+                    breaker = put(self.accounts / f".{Path(launch.usage).name}.lock.break", holder["content"])
+                else:
+                    breaker = self.breaker_file(launch, **holder)
+                self.lock_file(launch, pid=GONE)
+                name, fd = guard.lock(Path(launch.usage))
+                self.assertEqual(json.loads(name.read_text())["pid"], os.getpid())
+                self.assertEqual(list(self.accounts.iterdir()), [name])
+                guard.unlock(name, fd)
+        # A breaker is held only to judge the lock again and remove it: none is left behind.
+        self.lock_file(launch, pid=GONE)
+        made = []
+        real = guard.create
+
+        def create(name):
+            made.append(name.name)
+            return real(name)
+
+        with patch.object(guard, "create", create):
+            name, fd = guard.lock(Path(launch.usage))
+        self.assertEqual(made, [name.name + ".break", name.name])
         self.assertEqual(sorted(self.accounts.iterdir()), [name])
-        guard.unlock(name, held)
+        guard.unlock(name, fd)
+
+    def test_another_hosts_clock_counts_in_whole_seconds(self):
+        # A lock holds its taker's clock in whole seconds, up to a second behind: a lock of another host is held
+        # for LOCK_STALE seconds of this clock whatever fraction of a second it was taken at.
+        launch = self.launch(weekly="10")
+        at = int(time.time()) - 3600
+        lags = {guard.LOCK_STALE + 0.999: False, -guard.LOCK_STALE - 0.999: False,
+                guard.LOCK_STALE + 1.001: True, -guard.LOCK_STALE - 1.001: True}
+        for lag, stale in lags.items():
+            with self.subTest(lag=lag):
+                lock = self.lock_file(launch, host="another host", pid=7, at=at)
+                with patch.object(guard.time, "time", return_value=at + lag), patch.object(guard, "LOCK_WAIT", 0.1):
+                    if stale:
+                        name, fd = guard.lock(Path(launch.usage))
+                        guard.unlock(name, fd)
+                    else:
+                        with self.assertRaises(TimeoutError):
+                            guard.lock(Path(launch.usage))
+                self.assertEqual(lock.exists(), not stale)
+
+    def test_no_lock_or_breaker_exists_without_its_holder(self):
+        # A run's lock and breaker exist only with their holder in them, 0600 whatever the umask: no other run can
+        # find them empty, unreadable or naming no one, so one that is can be removed at once.
+        launch = self.launch(weekly="10")
+        names = (f".{Path(launch.usage).name}.lock", f".{Path(launch.usage).name}.lock.break")
+        real, linked = os.link, []
+
+        def link(source, target, **options):
+            fd = os.open(source, os.O_RDONLY)
+            try:
+                content, info = os.read(fd, 4096), os.fstat(fd)
+            finally:
+                os.close(fd)
+            linked.append((Path(target).name, Path(source).parent, Path(source).name.startswith(Path(target).name + "."),
+                           stat.S_IMODE(info.st_mode), guard.holder(content)[:2]))
+            return real(source, target, **options)
+
+        for mask in (0o077, 0o277, 0o477, 0o000):
+            with self.subTest(umask=oct(mask)):
+                linked.clear()
+                self.lock_file(launch, pid=GONE)
+                previous = os.umask(mask)
+                try:
+                    with patch.object(guard.os, "link", link):
+                        name, fd = guard.lock(Path(launch.usage))
+                finally:
+                    os.umask(previous)
+                guard.unlock(name, fd)
+                me = (os.uname().nodename, os.getpid())
+                # The breaker, which this run holds to remove the stale lock, and then the lock.
+                self.assertEqual(linked, [(name, self.accounts, True, 0o600, me) for name in reversed(names)])
+                self.assertEqual(list(self.accounts.iterdir()), [])
+
+    def test_a_lock_or_breaker_that_its_owner_may_only_write_is_removed(self):
+        # No run makes such a file (create() links each 0600 with its holder in it): it names no holder, and it is
+        # removed while it is still the file judged, which the run holds open write-only.
+        launch = self.launch(weekly="10")
+        lock = self.accounts / f".{Path(launch.usage).name}.lock"
+        breaker = lock.with_name(lock.name + ".break")
+        for case, files in {"the lock": [(lock, "")], "the breaker": [(breaker, ""), (lock, "")],
+                            "both, the lock naming a run that ended": [(breaker, ""), (lock, None)]}.items():
+            with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2):
+                for path, content in files:
+                    if content is None:
+                        self.lock_file(launch, pid=GONE).chmod(0o200)
+                    else:
+                        put(path, content, 0o200)
+                name, fd = guard.lock(Path(launch.usage))
+                self.assertEqual(list(self.accounts.iterdir()), [name])
+                guard.unlock(name, fd)
+        if os.geteuid() != 0:
+            # One that its owner may neither read nor write cannot be judged as that file: it is never removed.
+            put(lock, "", 0)
+            with patch.object(guard, "LOCK_WAIT", 0.2), self.assertRaises(PermissionError):
+                guard.lock(Path(launch.usage))
+            self.assertEqual(list(self.accounts.iterdir()), [lock])
+            lock.unlink()
+
+    def test_a_breaker_holder_that_is_slow_is_never_taken_for_one_that_ended(self):
+        # The first run holds the breaker of a stale lock and is slow between its check that the lock is still the
+        # file judged and the removal. A run that comes then waits for it, so the two never hold the lock together.
+        launch = self.launch(weekly="10")
+        lock = self.lock_file(launch, pid=GONE)
+        judged = lock.lstat().st_ino
+        real_unlink, real_create, breaking, slowed, held = os.unlink, guard.create, threading.Event(), [], []
+
+        def create(name):
+            fd = real_create(name)
+            if threading.current_thread().name == "slow" and name.name.endswith(".break"):
+                breaking.set()  # the slow run holds the breaker of the stale lock
+            return fd
+
+        def unlink(path, *args, **options):
+            if threading.current_thread().name == "slow" and Path(path) == lock and not slowed:
+                slowed.append(os.lstat(path).st_ino)
+                time.sleep(1.3)
+            return real_unlink(path, *args, **options)
+
+        def run(hold):
+            name, fd = guard.lock(Path(launch.usage))
+            taken = time.monotonic()
+            time.sleep(hold)
+            held.append((taken, time.monotonic(), threading.current_thread().name))
+            guard.unlock(name, fd)
+
+        with patch.object(guard, "create", create), patch.object(guard.os, "unlink", unlink), \
+                patch.object(guard, "LOCK_WAIT", 5):
+            slow = threading.Thread(target=run, args=(0.2,), name="slow")
+            slow.start()
+            self.assertTrue(breaking.wait(10))
+            run(0.5)
+            slow.join(10)
+        # The slow run was slowed as it removed the stale lock, and it took the lock first.
+        self.assertEqual(slowed, [judged])
+        self.assertEqual([name for _, _, name in sorted(held)], ["slow", "MainThread"])
+        (first, end, _), (second, _, _) = sorted(held)
+        self.assertLessEqual(end, second, "two runs held the lock at once")
+        self.assertEqual(list(self.accounts.iterdir()), [])
 
     def test_a_run_cancelled_while_it_holds_the_lock_lets_it_go_first(self):
         launch = self.launch(weekly="10")
