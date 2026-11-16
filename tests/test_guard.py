@@ -234,6 +234,21 @@ class LaunchOf(Fixture):
         for kind in ("start", "stop", "status"):
             self.assertEqual(guard.handle(kind, b"{}", environ, NOW), OK, kind)
 
+    def test_a_launch_format_failure_leaves_its_message_for_the_launcher(self):
+        launch = self.launch("codex-as", weekly="10")
+        for kind in ("prompt", "tool"):
+            with self.subTest(kind=kind):
+                text = reserve.failure_text("codex-as", "lab", kind, "launch format")
+                self.assertEqual(guard.handle(kind, b"{}", self.environ(launch, v=2), NOW), (2, "", text))
+                self.assertEqual(self.state(launch, "blocked").read_text(), text)
+        self.state(launch, "blocked").unlink()
+        for kind in ("start", "stop", "status"):
+            self.assertEqual(guard.handle(kind, b"{}", self.environ(launch, v=2), NOW), OK)
+        for environ in (self.environ(launch, v=2, state="relative"), self.environ(launch, v=2, state=7),
+                        {"CODING_AGENT_KIT_GUARD": "{"}):
+            self.assertEqual(guard.handle("prompt", b"{}", environ, NOW)[0], 2)
+        self.assertEqual(sorted(self.guard_dir.iterdir()), [])
+
     def test_a_launch_without_tool_or_account_still_blocks(self):
         code, out, err = guard.handle("prompt", b"{}", {"CODING_AGENT_KIT_GUARD": "{"}, NOW)
         self.assertEqual((code, out), (2, ""))
@@ -630,9 +645,29 @@ class Failure(Fixture):
             self.assertEqual(self.answer("prompt", launch, self.codex_event(None)),
                              (2, "", reserve.failure_text("codex-as", "lab", "prompt", "FileNotFoundError")))
         with patch.dict(guard.PATHS, {"reserve": "coding-agent-kit/missing.py"}), patch.dict(guard.MODULES, clear=True):
-            code, out, err = self.answer("prompt", launch, self.codex_event(None))
-            self.assertEqual((code, out), (2, ""))
-            self.assertEqual(err, "codex-as: lab: the usage reserve guard failed (FileNotFoundError).")
+            self.assertEqual(self.answer("prompt", launch, self.codex_event(None)),
+                             (2, "", reserve.failure_text("codex-as", "lab", "prompt", "FileNotFoundError")))
+            self.assertEqual(self.state(launch, "blocked").read_text(),
+                             reserve.failure_text("codex-as", "lab", "prompt", "FileNotFoundError"))
+
+    def test_without_reserve_py_the_failure_text_is_still_the_whole_message(self):
+        with patch.dict(guard.PATHS, {"reserve": "coding-agent-kit/missing.py"}), patch.dict(guard.MODULES, clear=True):
+            for tool in guard.TOOLS:
+                for kind in ("prompt", "tool"):
+                    with self.subTest(tool=tool, kind=kind):
+                        self.assertEqual(guard.failure_text(tool, "lab-2", kind, "OSError"),
+                                         reserve.failure_text(tool, "lab-2", kind, "OSError"))
+            # The launch itself needs reserve.py: the guard still names the launcher and account, and the way out.
+            launch = self.launch(weekly="10")
+            text = reserve.failure_text("claude-as", "personal", "tool", "FileNotFoundError")
+            self.assertEqual(guard.handle("tool", b"{}", self.environ(launch), NOW), (0, turn_json(text), ""))
+            self.assertEqual(self.state(launch, "blocked").read_text(), text)
+            for kind in ("start", "stop", "status"):
+                self.assertEqual(guard.handle(kind, b"{}", self.environ(launch), NOW), OK, kind)
+            self.assertEqual(guard.failure_text("claude-as", None, "prompt", "OSError"),
+                             "coding-agent-kit: the usage reserve guard failed (OSError).")
+            self.assertEqual(guard.failure_text("claude-as", "personal", "Prompt", "OSError"),
+                             "claude-as: personal: the usage reserve guard failed (OSError).")
 
 
 class Main(Fixture):

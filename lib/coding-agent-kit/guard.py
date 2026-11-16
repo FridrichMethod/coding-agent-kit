@@ -85,8 +85,11 @@ WARNING: the native has not run the injected hooks.
 Any error on a prompt or tool event (an event that is not a JSON object, a
 launch format, an unwritable state file, a missing module, an exception) is a
 block with reserve.failure_text() and the error's class name, in the block shape
-above. On start, stop and status every error exits 0 without output. A Python
-older than 3.11 blocks with one line on prompt and tool, and is silent elsewhere.
+above, also left in STATE.blocked when the launch names its state; without
+reserve.py the guard writes the same text itself (FAILURE_STOPPED,
+FAILURE_TAILS). On start, stop and status every error exits 0 without output. A
+Python older than 3.11 blocks with one line on prompt and tool, and is silent
+elsewhere.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
@@ -134,6 +137,10 @@ LIB = Path(os.path.realpath(__file__)).parent.parent
 PATHS = {"reserve": "coding-agent-kit/reserve.py", "accounts": "coding-agent-kit/accounts.py",
          "usage": "codex-as/usage.py"}
 MODULES = {}
+# reserve.failure_text()'s parts, for a guard whose reserve.py does not load.
+FAILURE_STOPPED = {"prompt": "This prompt was not sent.",
+                   "tool": "This tool call was stopped. Stop working now and tell the user why."}
+FAILURE_TAILS = {"claude-as": "--continue", "codex-as": "resume --last"}
 
 
 def module(name):
@@ -162,11 +169,12 @@ class Launch:
 
 
 class LaunchError(ValueError):
-    """A launch the guard cannot read; TOOL and ACCOUNT are kept when they could be read."""
+    """A launch the guard cannot use; TOOL, ACCOUNT and STATE are kept when they could be read, and NAME
+    is the failure's name in the message."""
 
-    def __init__(self, message, tool=None, account=None):
+    def __init__(self, message, tool=None, account=None, state=None, name=LAUNCH_FORMAT):
         super().__init__(message)
-        self.tool, self.account = tool, account
+        self.tool, self.account, self.state, self.name = tool, account, state, name
 
 
 def unique(pairs):
@@ -198,9 +206,10 @@ def launch_of(env):
     tool = data.get("tool") if data.get("tool") in TOOLS else None
     account = data.get("account")
     account = account if isinstance(account, str) and ACCOUNT.fullmatch(account) else None
+    state = absolute(data.get("state"))
 
     def bad(field):
-        return LaunchError(f"{VARIABLE}: no usable {field}", tool, account)
+        return LaunchError(f"{VARIABLE}: no usable {field}", tool, account, state)
 
     version = data.get("v")
     if type(version) is not int or version != 1:
@@ -209,20 +218,25 @@ def launch_of(env):
         raise bad("tool")
     if account is None:
         raise bad("account")
+    try:
+        rules = module("reserve")
+    except Exception as error:  # an incomplete install: named by its error, not as a launch format
+        raise LaunchError(f"{VARIABLE}: reserve.py does not load", tool, account, state,
+                          type(error).__name__) from error
     enabled = {}
     for window in ("five_hour", "weekly"):
         if window not in data:
             raise bad(window)
         if data[window] is None:
             continue
-        value = module("reserve").flag_value(data[window]) if isinstance(data[window], str) else None
-        if value is None or value == module("reserve").OFF:
+        value = rules.flag_value(data[window]) if isinstance(data[window], str) else None
+        if value is None or value == rules.OFF:
             raise bad(window)
         enabled[window] = value
     started = data.get("started")
     if type(started) is not int or not 0 < started < LAST:
         raise bad("started")
-    usage, state = absolute(data.get("usage")), absolute(data.get("state"))
+    usage = absolute(data.get("usage"))
     if usage is None:
         raise bad("usage")
     if state is None:
@@ -257,9 +271,9 @@ def mark(path, content=""):
     return True
 
 
-def note(launch, text):
-    """Best effort: TEXT as the launch's latest block message."""
-    path = launch.state + ".blocked"
+def note(state, text):
+    """Best effort: TEXT as the latest block message of the launch with prefix STATE."""
+    path = state + ".blocked"
     temporary = f"{path}.{os.urandom(6).hex()}.tmp"
     try:
         with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600),
@@ -487,20 +501,28 @@ def blocked(kind, tool, text):
 
 
 def failure_text(tool, account, kind, name):
+    """reserve.failure_text(), written here when reserve.py does not load; one line when the launcher,
+    the account or the event is unknown."""
     try:
         return module("reserve").failure_text(tool, account, kind, name)
     except Exception:
-        who = f"{tool}: {account}: " if tool in TOOLS and account else "coding-agent-kit: "
-        return f"{who}the usage reserve guard failed ({name})."
+        pass
+    if tool in FAILURE_TAILS and account and kind in FAILURE_STOPPED:
+        return "\n".join((f"{tool}: {account}: the usage reserve guard failed ({name}).", FAILURE_STOPPED[kind],
+                          "To go on without reserves, exit and run:",
+                          f"  {tool} --reserve-5h off --reserve-weekly off {account} {FAILURE_TAILS[tool]}"))
+    who = f"{tool}: {account}: " if tool in TOOLS and account else "coding-agent-kit: "
+    return f"{who}the usage reserve guard failed ({name})."
 
 
-def failed(kind, tool, account, name, launch=None):
-    """The answer of a guard that failed: a block on prompt, tool and unknown events, silence elsewhere."""
+def failed(kind, tool, account, name, state=None):
+    """The answer of a guard that failed: a block on prompt, tool and unknown events, also left in
+    STATE.blocked when the launch's STATE is known, and silence elsewhere."""
     if kind in QUIET:
         return OK
     text = failure_text(tool, account, kind, name)
-    if launch is not None:
-        note(launch, text)
+    if state is not None:
+        note(state, text)
     return blocked(kind, tool, text)
 
 
@@ -526,8 +548,8 @@ def answer(kind, event, launch, now):
             return OK
         text = rules.block_text(launch.tool, launch.account, decision, kind, now)
     except Exception as error:
-        return failed(kind, launch.tool, launch.account, type(error).__name__, launch)
-    note(launch, text)
+        return failed(kind, launch.tool, launch.account, type(error).__name__, launch.state)
+    note(launch.state, text)
     return blocked(kind, launch.tool, text)
 
 
@@ -536,7 +558,7 @@ def handle(kind, raw, env, now):
     try:
         launch = launch_of(env)
     except LaunchError as error:
-        return failed(kind, error.tool, error.account, LAUNCH_FORMAT)
+        return failed(kind, error.tool, error.account, error.name, error.state)
     except Exception as error:
         return failed(kind, None, None, type(error).__name__)
     if launch is None:
@@ -547,14 +569,14 @@ def handle(kind, raw, env, now):
         except Exception:
             return OK
     if kind not in KINDS:
-        return failed(kind, launch.tool, launch.account, "unknown event", launch)
+        return failed(kind, launch.tool, launch.account, "unknown event", launch.state)
     try:
         event = json.loads(raw)
         if not isinstance(event, dict):
             raise ValueError("the event is not a JSON object")
     except Exception as error:
         if kind not in QUIET:
-            return failed(kind, launch.tool, launch.account, type(error).__name__, launch)
+            return failed(kind, launch.tool, launch.account, type(error).__name__, launch.state)
         event = None
     return answer(kind, event, launch, now)
 
