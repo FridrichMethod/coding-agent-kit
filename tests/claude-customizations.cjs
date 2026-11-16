@@ -746,9 +746,10 @@ test('status line removes a lock or breaker that a run left when it ended, and r
   }
 });
 
-test('status line lets the lock go before SIGTERM, SIGHUP or SIGINT can end it', posixOnly, (t) => {
+test('status line lets the lock go and drops a SIGTERM, SIGHUP or SIGINT that comes while it holds it', posixOnly, (t) => {
   const { folder, file, env } = usageFixture(t);
-  // The signal comes while the run holds the lock, right before it renames its reading into place.
+  // The signal comes while the run holds the lock, right before it renames its reading into place. The run
+  // drops it (see recordUsage): it lets the lock go and ends normally.
   const program = `const fs = require('node:fs');
 const rename = fs.renameSync;
 fs.renameSync = (from, to) => { if (to === process.argv[2]) process.kill(process.pid, process.argv[3]); return rename(from, to); };

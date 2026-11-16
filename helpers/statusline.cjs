@@ -134,7 +134,11 @@ function recordUsage(data, env = process.env, now = Date.now()) {
   const info = fs.lstatSync(folder);
   if (!info.isDirectory() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) return false;
   if (!mergedUsage(file, record, now)) return false; // most runs: nothing new, and no lock taken
-  // A run that a signal ended while it held the lock would leave it: such a signal is ignored meanwhile.
+  // A run that a signal ended while it held the lock would leave it, so these signals are caught meanwhile.
+  // guard.py holds them back and is ended by one once it has let the lock go; this run drops them, since
+  // Node calls a signal listener only from its event loop, which this synchronous run reaches after its
+  // footer, and a listener removed before then never sees the signal. A run that Claude Code cancelled
+  // while it held the lock thus ends normally, with a footer that is no longer shown.
   for (const signal of HELD_SIGNALS) process.on(signal, ignored);
   try {
     const held = lock(file);
@@ -172,8 +176,10 @@ function mergedUsage(file, record, now) {
   return { ...merged, seen_at: Math.floor(seconds) };
 }
 
-// The usage file's JSON object as the guard reads it (accounts.read): an owned
+// The usage file's JSON object under the guard's checks (accounts.read): an owned
 // 0600 regular file with one link and at most USAGE_LIMIT bytes; else null.
+// JSON.parse accepts a little more than accounts.read (a repeated key keeps its
+// last value, bytes that are not UTF-8 are replaced): content no writer produces.
 function storedUsage(file) {
   let fd;
   try {
@@ -278,7 +284,9 @@ function running(pid) {
 // Whether the lock or breaker open as FD was left by a run that ended: it names
 // no holder, the holder's clock is more than LOCK.stale seconds from this one's
 // (plus the second its whole seconds may lag), or the holder is a process of
-// this host that has ended.
+// this host that has ended. JSON.parse reads a holder as guard.py's holder()
+// does except on content no writer produces: 5.0 or 1e3 count as whole numbers
+// here, and a holder in UTF-16 or behind a byte order mark names none here.
 function staleLock(fd) {
   let holder;
   try {
