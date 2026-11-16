@@ -1085,26 +1085,33 @@ class StatusLine(Fixture):
 
     def test_two_status_lines_at_once_keep_the_newer_reading(self):
         newer, older = self.launch(weekly="10"), self.launch(weekly="10")
-        put(Path(newer.usage), {"five_hour": window(50, NOW + 3600), "seven_day": None, "seen_at": NOW - 1000})
-        accounts, writing = guard.module("accounts"), threading.Event()
+        lock = self.accounts / f".{Path(newer.usage).name}.lock"
+        accounts = guard.module("accounts")
         real_write = accounts.write
+        # On a network home directory the lock file's time is the server's clock, however far from this host's.
+        for skew in (0, 20, -20):
+            with self.subTest(skew=skew):
+                put(Path(newer.usage), {"five_hour": window(50, NOW + 3600), "seven_day": None, "seen_at": NOW - 1000})
+                writing = threading.Event()
 
-        def slow_write(path, data):
-            # The older session's run writes slowly, so the newer one's run comes while it holds its reading.
-            if threading.current_thread().name == "older":
-                writing.set()
-                time.sleep(0.3)
-            return real_write(path, data)
+                def slow_write(path, data):
+                    # The older session's run writes slowly, so the newer one's run comes while it holds its reading.
+                    if threading.current_thread().name == "older":
+                        os.utime(lock, (time.time() + skew,) * 2)
+                        writing.set()
+                        time.sleep(0.3)
+                    return real_write(path, data)
 
-        with patch.object(accounts, "write", slow_write):
-            first = threading.Thread(target=guard.record, args=(older.usage, limits((60, NOW + 3600), None), NOW),
-                                     name="older")
-            first.start()
-            self.assertTrue(writing.wait(10))
-            self.assertTrue(guard.record(newer.usage, limits((91, NOW + 3600), None), NOW))
-            first.join(10)
-        self.assertEqual(self.usage_file(newer)["five_hour"], window(91, NOW + 3600))
-        self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(newer.usage).name], "a lock was left")
+                with patch.object(accounts, "write", slow_write):
+                    first = threading.Thread(target=guard.record, args=(older.usage, limits((60, NOW + 3600), None), NOW),
+                                             name="older")
+                    first.start()
+                    self.assertTrue(writing.wait(10))
+                    self.assertTrue(guard.record(newer.usage, limits((91, NOW + 3600), None), NOW))
+                    first.join(10)
+                self.assertEqual(self.usage_file(newer)["five_hour"], window(91, NOW + 3600))
+                self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(newer.usage).name],
+                                 "a lock was left")
 
     def test_a_run_that_read_before_another_wrote_reads_again_under_the_lock(self):
         newer, older = self.launch(weekly="10"), self.launch(weekly="10")
@@ -1145,11 +1152,33 @@ class StatusLine(Fixture):
         guard.unlock(name, held)
         self.assertEqual(list(self.accounts.iterdir()), [])
 
+    def lock_file(self, launch, content=None, host=None, pid=None, at=None):
+        """The usage file's lock as a run that holds it writes it: its host, process id and clock; or CONTENT."""
+        if content is None:
+            content = json.dumps({"host": os.uname().nodename if host is None else host,
+                                  "pid": os.getpid() if pid is None else pid, "at": int(time.time()) if at is None else at})
+        return put(self.accounts / f".{Path(launch.usage).name}.lock", content)
+
+    def test_a_lock_names_its_holder(self):
+        launch = self.launch(weekly="10")
+        before = int(time.time())
+        name, held = guard.lock(Path(launch.usage))
+        after = time.time()
+        try:
+            info = name.lstat()
+            self.assertEqual((stat.S_ISREG(info.st_mode), stat.S_IMODE(info.st_mode)), (True, 0o600))
+            content = json.loads(name.read_text())
+            self.assertEqual(sorted(content), ["at", "host", "pid"])
+            self.assertEqual((content["host"], content["pid"]), (os.uname().nodename, os.getpid()))
+            self.assertTrue(before <= content["at"] <= after, content)
+        finally:
+            guard.unlock(name, held)
+        self.assertFalse(name.exists())
+
     def test_the_usage_file_lock(self):
         launch = self.launch(weekly="10")
-        lock = self.accounts / f".{Path(launch.usage).name}.lock"
-        put(lock, "")
         put(self.state(launch, "ran.start"), "")
+        lock = self.lock_file(launch)
         with patch.object(guard, "LOCK_WAIT", 0.2):
             with self.assertRaises(TimeoutError):
                 guard.record(launch.usage, limits(), NOW)
@@ -1157,19 +1186,97 @@ class StatusLine(Fixture):
         for name in (launch.usage, launch.state + ".seen"):
             self.assertFalse(Path(name).exists(), name)
         self.assertTrue(lock.exists(), "another writer's lock was taken")
-        # A lock that a cancelled run left, from more than LOCK_STALE seconds ago or as far ahead, is removed.
-        for offset in (-guard.LOCK_STALE - 5, guard.LOCK_STALE + 5):
-            with self.subTest(offset=offset):
+        # What the holder wrote decides, never the file's time, which on a network home is the server's clock.
+        now = int(time.time())
+        held = {"a run of this host, the file's time 20 seconds ahead": {"mtime": 20},
+                "a run of this host, the file's time 20 seconds behind": {"mtime": -20},
+                "a run of this host, an hour old by the file's time": {"mtime": -3600},
+                "a run of another host whose process id is none here": {"host": "another host", "pid": GONE},
+                "a run of another host, within LOCK_STALE of this clock": {"host": "another host",
+                                                                           "at": now - guard.LOCK_STALE + 3},
+                "a run that has not written its lock yet": {"content": ""}}
+        for case, holder in held.items():
+            with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2):
+                mtime = holder.pop("mtime", 0)
+                lock = self.lock_file(launch, **holder)
+                os.utime(lock, (time.time() + mtime,) * 2)
+                with self.assertRaises(TimeoutError):
+                    guard.record(launch.usage, limits(), NOW)
+                self.assertTrue(lock.exists())
+                self.assertFalse(Path(launch.usage).exists())
+        # A lock that a run left when it ended is removed: its clock further than LOCK_STALE from this one's, a
+        # process of this host that has ended, or no holder named for LOCK_EMPTY seconds.
+        left = {"a clock LOCK_STALE behind": {"host": "another host", "at": now - guard.LOCK_STALE - 5},
+                "a clock LOCK_STALE ahead": {"host": "another host", "at": now + guard.LOCK_STALE + 5},
+                "a process of this host that has ended": {"pid": GONE},
+                "nothing written": {"content": ""}, "not JSON": {"content": "held"},
+                "bytes that are not UTF-8": {"content": "\udcff"}, "a list": {"content": "[1]"},
+                "no host": {"content": json.dumps({"pid": os.getpid(), "at": now})},
+                "a process id of 0": {"pid": 0}, "a negative process id": {"pid": -1},
+                "a clock that is no whole number": {"at": now + 0.5}, "a clock as text": {"at": str(now)}}
+        for case, holder in left.items():
+            with self.subTest(case), patch.object(guard, "LOCK_WAIT", 0.2), patch.object(guard, "LOCK_EMPTY", 0.05):
                 Path(launch.usage).unlink(missing_ok=True)
-                put(lock, "")
-                os.utime(lock, (time.time() + offset,) * 2)
+                if holder.get("content") == "\udcff":
+                    lock.write_bytes(b"\xff")
+                else:
+                    lock = self.lock_file(launch, **holder)
                 self.assertTrue(guard.record(launch.usage, limits(), NOW))
-                self.assertFalse(lock.exists())
+                self.assertEqual(sorted(self.accounts.iterdir()), [Path(launch.usage)], "a lock or its remains were left")
         # Unchanged readings need no lock.
-        put(lock, "")
+        self.lock_file(launch)
         with patch.object(guard, "LOCK_WAIT", 0.2):
             self.assertFalse(guard.record(launch.usage, limits(), NOW + 10))
-        self.assertEqual((guard.LOCK_WAIT, guard.LOCK_STALE), (2, 10))
+        self.assertEqual((guard.LOCK_WAIT, guard.LOCK_STALE, guard.LOCK_EMPTY), (2, 10, 1))
+
+    def test_a_lock_that_took_the_place_of_a_stale_one_meanwhile_is_put_back(self):
+        launch = self.launch(weekly="10")
+        lock = self.lock_file(launch, host="another host", at=int(time.time()) - 60)
+        fresh = json.dumps({"host": "another host", "pid": 7, "at": int(time.time())})
+        real = guard.discard
+
+        def discard(name, identity):
+            # Another run judged the same lock stale, removed it and took the lock before this run set it aside.
+            name.unlink()
+            put(name, fresh)
+            return real(name, identity)
+
+        with patch.object(guard, "discard", discard), patch.object(guard, "LOCK_WAIT", 0.2):
+            with self.assertRaises(TimeoutError):
+                guard.record(launch.usage, limits(), NOW)
+        self.assertEqual(lock.read_text(), fresh)
+        self.assertEqual(list(self.accounts.iterdir()), [lock])
+
+    def test_a_run_cancelled_while_it_holds_the_lock_lets_it_go_first(self):
+        launch = self.launch(weekly="10")
+        put(self.state(launch, "ran.start"), "")
+        lock, writing = self.accounts / f".{Path(launch.usage).name}.lock", self.scripts / "writing"
+        # The run writes the usage file slowly (a slow fsync), so the cancel comes while it holds the lock.
+        runner = self.runner("accounts = guard.module('accounts')\n"
+                             "real = accounts.write\n"
+                             "def write(path, data):\n"
+                             f"    open({str(writing)!r}, 'w').close()\n"
+                             "    time.sleep(1)\n"
+                             "    return real(path, data)\n"
+                             "accounts.write = write\n")
+        for signum, code in ((signal.SIGTERM, -signal.SIGTERM), (signal.SIGHUP, -signal.SIGHUP), (signal.SIGINT, 0)):
+            with self.subTest(signal=signum.name):
+                Path(launch.usage).unlink(missing_ok=True)
+                writing.unlink(missing_ok=True)
+                run = self.run_runner(runner, launch)
+                self.addCleanup(run.kill)
+                run.stdin.write(status_input())
+                run.stdin.close()
+                deadline = time.monotonic() + 30
+                while not writing.exists() and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertTrue(lock.exists())
+                run.send_signal(signum)
+                out, err = run.communicate(timeout=30)
+                self.assertEqual((run.returncode, out, err), (code, b"", b""))
+                self.assertFalse(lock.exists(), "a cancelled run left its lock")
+                self.assertEqual(self.usage_file(launch)["five_hour"], window(42, NOW + 3600))
+                self.assertEqual(sorted(self.accounts.iterdir()), [Path(launch.usage)])
 
     def test_rate_limits_are_recorded_for_the_account_and_seen_by_this_launch_only(self):
         first, second = self.launch(weekly="10"), self.launch(weekly="10")

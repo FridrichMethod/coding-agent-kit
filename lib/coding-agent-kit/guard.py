@@ -76,11 +76,17 @@ file and a rename, only in an owned 0700 directory, and then creates STATE.seen.
 A reading never goes back: a stored window that has not reset stays when the
 incoming one has the same reset and a lower percentage, an earlier reset, or is
 absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart. A
-change is read, merged and written under the lock .NAME.lock beside the file
-(created O_EXCL; one more than LOCK_STALE seconds off the clock is a cancelled
-run's and is removed), so two launches of one account never lose the newer
-reading; when another writer holds it LOCK_WAIT seconds the run records
-nothing and creates no STATE.seen. Then it runs the user's own status line
+change is read, merged and written under the lock .NAME.lock beside the file,
+so two launches of one account never lose the newer reading. A run creates the
+lock O_EXCL holding {"host", "pid", "at"} (its host name, process id and clock)
+and holds back SIGTERM, SIGHUP and SIGINT until it has let it go. Other runs
+judge a lock by that content, never by the file's time (on a network home
+directory the server's clock): a lock whose "at" is more than LOCK_STALE seconds
+from their clock, one of their host whose process has ended, and one that names
+no holder for LOCK_EMPTY seconds was left by a run that ended. Such a lock is
+renamed aside and removed only when it is the file judged, else put back. When
+another writer holds the lock LOCK_WAIT seconds, the run records nothing and
+creates no STATE.seen. Then it runs the user's own status line
 command (the launch's "statusline") through /bin/sh -c with the same input and
 the caller's environment, and prints its output unchanged as the footer:
 nothing when it fails, prints nothing or runs longer than STATUS_TIMEOUT
@@ -105,8 +111,8 @@ footer), handle(kind, raw, env, now) (an event's answer from its raw stdin;
 never raises), interrupted(kind, env) (the answer after a SIGINT),
 main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe
 results: a PreToolUse continue false ends the turn, a Stop one ends it beside
-another Stop hook), BLIND_AFTER, RECORD_AGAIN, STATUS_TIMEOUT, LOCK_WAIT and
-LOCK_STALE (seconds), WARNING, VARIABLE.
+another Stop hook), BLIND_AFTER, RECORD_AGAIN, STATUS_TIMEOUT, LOCK_WAIT,
+LOCK_STALE and LOCK_EMPTY (seconds), WARNING, VARIABLE.
 """
 
 import sys
@@ -161,7 +167,8 @@ WARNING = "reserve guard not running"  # the first footer line after a reply whe
 USAGE_FILE = re.compile(r"claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json")  # the name the status line helper writes
 STALE = 60  # seconds after which a temporary file of a cancelled status line run is removed
 LOCK_WAIT = 2  # seconds a status line run waits for another writer of the usage file
-LOCK_STALE = 10  # a lock file whose time is further than this from now is a cancelled run's
+LOCK_STALE = 10  # seconds between a lock holder's clock and this run's past which the holder has ended
+LOCK_EMPTY = 1  # seconds of a run's wait after which a lock that names no holder counts as left
 
 # python3 -I puts no script directory on sys.path: the siblings load by path from
 # the real file, so a guard reached through a link uses the kit it belongs to.
@@ -440,24 +447,103 @@ def sweep(path, now):
                 pass
 
 
+def holding():
+    """The content of a lock this run takes: its host, process id and clock, which other runs judge it by."""
+    return json.dumps({"host": os.uname().nodename, "pid": os.getpid(), "at": int(time.time())},
+                      separators=(",", ":")).encode()
+
+
+def holder(content):
+    """(host, pid, at) of the run that a lock's CONTENT (bytes) names, or None when it names none."""
+    try:
+        data = json.loads(content)
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    host, pid, at = data.get("host"), data.get("pid"), data.get("at")
+    if isinstance(host, str) and type(pid) is int and 0 < pid < 2 ** 31 and type(at) is int and 0 < at < LAST:
+        return host, pid, at
+    return None
+
+
+def running(pid):
+    """Whether process PID runs on this host."""
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def discard(name, identity):
+    """Remove the lock NAME, judged stale as the file IDENTITY ((st_dev, st_ino)). It is renamed to a name
+    of its own first and removed only when it is that file: a lock that another run made in its place
+    since (after removing the same stale one) is put back."""
+    aside = name.with_name(f"{name.name}.{os.urandom(6).hex()}.tmp")
+    try:
+        os.rename(name, aside)
+        info = os.lstat(aside)
+        if (info.st_dev, info.st_ino) == identity:
+            os.unlink(aside)
+        else:
+            os.rename(aside, name)
+    except FileNotFoundError:  # another run removed it first
+        pass
+
+
 def lock(path):
-    """Take the lock of the usage file PATH: the file .NAME.lock beside it, created O_EXCL, which every
-    writer that merges into PATH holds while it reads, merges and writes. One whose time is more than
-    LOCK_STALE seconds from now was left by a cancelled run and is removed. Returns (lock path, fd);
+    """Take the lock of the usage file PATH: the file .NAME.lock beside it, created O_EXCL with this run's
+    holding(), which every writer that merges into PATH holds while it reads, merges and writes.
+
+    Another run's lock is judged by what it holds, never by the file's time (on a network home directory
+    the server's clock): one whose clock is more than LOCK_STALE seconds from this run's, one of this host
+    whose process has ended, and one that names no holder for LOCK_EMPTY seconds of this run's wait (its
+    run never wrote it) was left by a run that ended, and is discarded. Returns (lock path, fd);
     TimeoutError when another writer holds it LOCK_WAIT seconds."""
     name = path.with_name(f".{path.name}.lock")
-    deadline = time.monotonic() + LOCK_WAIT
+    deadline, empty = time.monotonic() + LOCK_WAIT, None  # empty: (identity, first seen) of a lock naming no holder
     while True:
         try:
-            return name, os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+            fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
         except FileExistsError:
             pass
+        else:
+            try:
+                os.write(fd, holding())
+            except BaseException:
+                unlock(name, fd)
+                raise
+            try:
+                os.fsync(fd)  # a run on another host of a network home reads the holder while this one holds it
+            except OSError:
+                pass
+            return name, fd
         try:
-            if abs(time.time() - os.lstat(name).st_mtime) > LOCK_STALE:
-                os.unlink(name)
-                continue
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
         except FileNotFoundError:
             continue
+        try:  # the open file keeps its inode number from another file until the judgment is done
+            info = os.fstat(fd)
+            try:
+                owner = holder(os.read(fd, 256))
+            except OSError:
+                owner = None
+            identity = (info.st_dev, info.st_ino)
+            if owner is None:
+                if empty is None or empty[0] != identity:
+                    empty = (identity, time.monotonic())
+                stale = time.monotonic() - empty[1] >= LOCK_EMPTY
+            else:
+                host, pid, at = owner
+                stale = abs(time.time() - at) > LOCK_STALE or host == os.uname().nodename and not running(pid)
+            if stale:
+                discard(name, identity)
+                continue
+        finally:
+            os.close(fd)
         if time.monotonic() >= deadline:
             raise TimeoutError(f"{name}: held by another writer")
         time.sleep(0.01)
@@ -507,15 +593,21 @@ def record(path, limits, now):
         raise ValueError(f"{path.parent}: not an owned, real directory with permissions 0700")
     if merged_record(path, incoming, now) is None:
         return False  # most runs: nothing new, and no lock taken
-    name, fd = lock(path)
+    import signal  # only the status line records: the hook events stay light
+    # A cancel waits until the lock is let go: a run that ended holding it would leave it behind.
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGHUP, signal.SIGINT})
     try:
-        content = merged_record(path, incoming, now)
-        if content is None:
-            return False
-        sweep(path, now)
-        return module("accounts").write(path, content)
+        name, fd = lock(path)
+        try:
+            content = merged_record(path, incoming, now)
+            if content is None:
+                return False
+            sweep(path, now)
+            return module("accounts").write(path, content)
+        finally:
+            unlock(name, fd)
     finally:
-        unlock(name, fd)
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
 
 def chained(command, raw):
