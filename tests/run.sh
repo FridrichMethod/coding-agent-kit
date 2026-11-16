@@ -64,6 +64,7 @@ tests=(
     config.sh
     reserves.sh
     guard.sh
+    claude-guard.sh
     account-info.sh
     codex-as.sh
     account-enrollment.sh

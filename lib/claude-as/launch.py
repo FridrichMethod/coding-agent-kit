@@ -1,6 +1,7 @@
 """Small adapter for Claude Code setup-token logins; no OAuth endpoints, refresh, logs or credential output."""
 
 import codecs
+from dataclasses import dataclass, field
 import hashlib
 import importlib.util
 import json
@@ -46,6 +47,30 @@ QUERIES = {"--list": "--list-accounts", "-l": "--list-accounts", "--labels": "--
 OPTIONS = {*QUERIES, *QUERIES.values(), "--show-config", "--help", "-h", "--version", "-V", "-v"}
 # A dash word that is safe to echo back in the hint.
 PLAIN = re.compile(r"-[A-Za-z0-9_=.,:/@+-]*")
+# The machine's managed settings files, which outrank every other source.
+MANAGED_FILES = (Path("/etc/claude-code/managed-settings.json"),
+                 Path("/Library/Application Support/ClaudeCode/managed-settings.json"))
+MANAGED_DIRECTORY = Path("/etc/claude-code/managed-settings.d")
+
+# A launch with a usage reserve on (the guarded launch): Claude Code 2.1.296 has every hook contract the
+# guard relies on (onFailure "block", a prompt hook that Esc cannot skip, continue false ending a turn).
+GUARD_MINIMUM = (2, 1, 296)
+HOOK_TIMEOUT = 20  # seconds Claude Code gives each guard hook
+VERSION_TIMEOUT = 30  # seconds claude --version may take
+VERSION = re.compile(r"\s*(\d+)\.(\d+)\.(\d+)(?![\d.])")
+# Forms that run the model outside the interactive session, where no prompt or status line reaches the
+# guard: claude-as refuses them with a reserve on. -p and --print are options every launch accepts;
+# --init-only, --bg and --background are unsupported options without a reserve, and named with one.
+HEADLESS = ("-p", "--print", "--init-only")
+# Forms that hand the session to Claude Code's background process, whose sessions run with the
+# environment and credential of whichever launch started it, and the first operands that run or join
+# sessions there.
+BACKGROUND = ("--bg", "--background")
+ELSEWHERE = ("agents", "attach", "respawn")
+# A guarded launch keeps its session in this process: no move to the background, no agent view, and no
+# re-run of a turn that the guard stopped. Claude Code also reads these from a settings file's env.
+CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}
+REOPENING = ("CLAUDE_CODE_RESUME_INTERRUPTED_TURN",)
 
 
 def shown(word):
@@ -155,13 +180,15 @@ class Terminal:
 
 
 def config_check(path, enrollment=False):
+    """The settings at PATH, checked; None when there is no file."""
     if not path.exists():
-        return
+        return None
     with path.open("rb") as stream:
         cfg = json.load(stream)
     inspect_config(cfg)
     if enrollment and cfg:
         fail("automatic enrollment cannot preserve managed policy from " + str(path) + "; use your organization's native login procedure.")
+    return cfg
 
 
 def inspect_config(cfg):
@@ -174,26 +201,45 @@ def inspect_config(cfg):
         fail("settings.env conflicts with account authentication (values hidden).")
 
 
-def preflight(args, kit, enrollment):
+def managed(path):
+    """Whether PATH is one of the machine's managed settings files."""
+    return path in MANAGED_FILES or path.parent == MANAGED_DIRECTORY
+
+
+@dataclass
+class Form:
+    """What preflight saw that a launch with a usage reserve checks."""
+    headless: list = field(default_factory=list)  # HEADLESS words given as options
+    background: list = field(default_factory=list)  # BACKGROUND words given as options
+    settings: bool = False  # a --settings of the caller
+    operand: object = None  # the first operand, which Claude Code dispatches as a command
+    sources: dict = field(default_factory=dict)  # Path: parsed settings, for every settings file read
+    statusline: object = None  # own_status_line() of the user's and the project's settings
+
+
+def preflight(args, kit, enrollment, guarded=False):
+    """Refuses what would change the account's authentication, and returns the Form a launch with a
+    usage reserve (GUARDED) checks; only such a launch accepts --init-only, --bg and --background
+    here, which it then refuses with its own message."""
+    form = Form()
     conflicts = sorted(CONFLICTS.intersection(os.environ))
     if conflicts:
         fail("authentication/provider environment conflict: " + ", ".join(conflicts) + " (values hidden).")
     # Native paths use env || default and Node path joining, not shell '~'
     # expansion. Inspect exactly the configuration the real CLI will load.
     config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or str(kit.home / ".claude")).absolute()
-    sources = [config / "settings.json", config / "settings.local.json",
-               Path("/etc/claude-code/managed-settings.json"),
-               Path("/Library/Application Support/ClaudeCode/managed-settings.json")]
+    sources = [config / "settings.json", config / "settings.local.json", *MANAGED_FILES]
     for parent in (Path.cwd(), *Path.cwd().parents):
         sources += [parent / ".claude/settings.json", parent / ".claude/settings.local.json"]
-    managed = Path("/etc/claude-code/managed-settings.d")
-    if managed.exists():
-        sources += sorted(managed.glob("*.json"))
+    if MANAGED_DIRECTORY.exists():
+        sources += sorted(MANAGED_DIRECTORY.glob("*.json"))
     for path in set(sources):
-        config_check(path, enrollment=enrollment and path in {
-            Path("/etc/claude-code/managed-settings.json"),
-            Path("/Library/Application Support/ClaudeCode/managed-settings.json"),
-        } or enrollment and path.parent == managed)
+        cfg = config_check(path, enrollment=enrollment and managed(path))
+        if cfg is not None:
+            form.sources[path] = cfg
+    # Claude Code's precedence below the command line: project local, project, user.
+    form.statusline = own_status_line([form.sources.get(path) for path in (
+        config / "settings.json", Path.cwd() / ".claude/settings.json", Path.cwd() / ".claude/settings.local.json")])
     config_check(config / "remote-settings.json", enrollment=enrollment)
     if enrollment and (config / "remote-settings-helper-consent").exists():
         fail("managed policy helper present; automatic enrollment cannot preserve its loading chain.")
@@ -231,6 +277,7 @@ def preflight(args, kit, enrollment):
                 value = args[i]
                 i += 1
             if flag == "--settings":
+                form.settings = True
                 if value.lstrip().startswith("{"):
                     inspect_config(json.loads(value))
                 else:
@@ -244,7 +291,10 @@ def preflight(args, kit, enrollment):
             if not sep and i < len(args) and not (len(args[i]) > 1 and args[i].startswith("-")):
                 i += 1
         elif options and arg in switches:
-            continue
+            if arg in HEADLESS:
+                form.headless.append(arg)
+        elif options and guarded and flag in (*HEADLESS, *BACKGROUND):
+            (form.background if flag in BACKGROUND else form.headless).append(flag)
         elif options and arg.startswith("-") and arg != "-":
             fail("unsupported/combined option; authentication safety is only audited for the supported local CLI options.")
         elif root:
@@ -252,7 +302,98 @@ def preflight(args, kit, enrollment):
             # even with --print/--continue or after --. Values remain values.
             if arg in {"login", "logout", "setup-token", "auth", "remote-control", "rc"}:
                 fail("login/logout/setup-token must not be passed through claude-as.")
+            form.operand = arg
             root = False
+    return form
+
+
+def hook_keys(settings, managed=False):
+    """The keys of one parsed settings source that keep Claude Code from running the guard's hooks:
+    disableAllHooks in any source, allowManagedHooksOnly in a MANAGED one (the only place it counts)."""
+    keys = ("disableAllHooks", "allowManagedHooksOnly") if managed else ("disableAllHooks",)
+    return [key for key in keys if isinstance(settings, dict) and settings.get(key) is True]
+
+
+def own_status_line(sources):
+    """The status line the user's settings give Claude Code, as {"command", "padding"}: the statusLine of
+    the last of SOURCES (parsed settings or None, lowest precedence first) that sets one, when it is a
+    command; None otherwise. The guard runs that command after it has recorded the launch's usage."""
+    line = None
+    for settings in sources:
+        if isinstance(settings, dict) and "statusLine" in settings:
+            line = settings["statusLine"]
+    if (not isinstance(line, dict) or line.get("type") != "command" or not isinstance(line.get("command"), str)
+            or not line["command"].strip()):
+        return None
+    padding = line.get("padding", 0)
+    return {"command": line["command"], "padding": padding if type(padding) is int and padding >= 0 else 0}
+
+
+def guard_settings(script, padding=0):
+    """The --settings JSON of a guarded launch: SCRIPT (guard.py) under this interpreter as the command of
+    the SessionStart, UserPromptSubmit, PreToolUse (every tool) and Stop hooks and of the status line.
+    Claude Code runs each command through /bin/sh; the two hooks that block also block when they fail."""
+    command = shlex.join([sys.executable, "-I", "-B", "-S", script])
+
+    def hooks(kind, block=False, **group):
+        handler = {"type": "command", "command": f"{command} {kind}", "timeout": HOOK_TIMEOUT}
+        if block:
+            handler["onFailure"] = "block"
+        return [{**group, "hooks": [handler]}]
+
+    settings = {"statusLine": {"type": "command", "command": f"{command} status", "padding": padding},
+                "hooks": {"SessionStart": hooks("start"), "UserPromptSubmit": hooks("prompt", True),
+                          "PreToolUse": hooks("tool", True, matcher="*"), "Stop": hooks("stop")}}
+    return json.dumps(settings, separators=(",", ":"))
+
+
+def refuse_guarded(account, reason):
+    fail(f"{account}: {reason}; to launch without usage reserves, run claude-as --reserve-5h off --reserve-weekly "
+         f"off {account} with the same arguments.")
+
+
+def check_form(form, account):
+    """Refuses, with a reserve on, every form the guard's hooks cannot cover."""
+    if form.headless:
+        refuse_guarded(account, f"{form.headless[0]} runs Claude Code outside its interactive session, where the "
+                       "usage reserve guard cannot stop it")
+    if form.background:
+        refuse_guarded(account, f"{form.background[0]} hands the session to Claude Code's background process, which "
+                       "runs it with the environment and credential of whichever launch started that process")
+    if form.operand in ELSEWHERE:
+        refuse_guarded(account, f"claude {form.operand} runs or joins sessions in Claude Code's background process, "
+                       "outside this launch's usage reserve guard")
+    if form.settings:
+        refuse_guarded(account, "a --settings of your own cannot be combined with usage reserves, whose hooks "
+                       "claude-as passes in its own --settings")
+    if not os.isatty(1):
+        refuse_guarded(account, "standard output is not a terminal, so Claude Code would run outside its "
+                       "interactive session, where the usage reserve guard cannot stop it")
+    for path, settings in sorted(form.sources.items()):
+        for key in hook_keys(settings, managed(path)):
+            refuse_guarded(account, f"{path} sets {key}, so Claude Code would not run the usage reserve guard's hooks")
+        env = settings.get("env") or {}
+        for name in sorted(env):
+            if name in REOPENING or (name in CLOSED and env[name] != CLOSED[name]):
+                refuse_guarded(account, f"{path} sets {name} in its env, which would reopen what a launch with usage "
+                               "reserves closes")
+
+
+def check_version(executable, account):
+    """Refuses, with a reserve on, a Claude Code older than GUARD_MINIMUM or one whose version cannot be read."""
+    try:
+        result = subprocess.run([executable, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, timeout=VERSION_TIMEOUT, check=False)
+        match = None if result.returncode else VERSION.match(result.stdout.decode("utf-8", "replace"))
+    except (OSError, subprocess.SubprocessError):
+        match = None
+    if not match:
+        refuse_guarded(account, "claude --version printed no Claude Code version")
+    found = tuple(int(part) for part in match.groups())
+    if found < GUARD_MINIMUM:
+        minimum = ".".join(map(str, GUARD_MINIMUM))
+        refuse_guarded(account, f"Claude Code {'.'.join(map(str, found))} is older than {minimum}, the first release "
+                       "whose hooks can enforce usage reserves")
 
 
 class Capture:
@@ -442,6 +583,31 @@ def set_label(config, metadata, args):
     print(styled(f"claude-as: label of {name} {'set' if label else 'cleared'}.", "32", 2), file=sys.stderr)
 
 
+def say(text, style):
+    print(styled(text, style, 2), file=sys.stderr)
+
+
+def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
+    """Prepares the guarded launch in ENV (the guard's variables, the state of this launch, the closed
+    background) and returns the arguments that go before the caller's: the guard's --settings."""
+    now = int(time.time())
+    guard_launch.prune(directory, now)
+    try:
+        recorded = (metadata.read(usage) or {}).get("seen_at")
+    except ValueError:
+        recorded = None
+    if guard_launch.unguarded(directory, "claude-as", account, recorded):
+        say(f"claude-as: {account}: an earlier launch ran without its usage reserve guard: Claude Code did not run "
+            "the injected hooks.", "33")
+    own = form.statusline or {"command": None, "padding": 0}
+    guard_launch.prepare(env, directory, "claude-as", account, policy, str(usage), now, statusline=own["command"])
+    for name in REOPENING:
+        env.pop(name, None)
+    env.update(CLOSED)
+    say("claude-as: " + policy.describe() + "; hooks refuse new prompts and tool calls at a reserve.", "36")
+    return ["--settings", guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"], own["padding"])]
+
+
 def usage_environment(env, config, metadata, account, token):
     """The status line helper records this account's last rate limits through these, and
     only under the claude this process becomes (exec keeps its pid) and a token, where it
@@ -507,18 +673,33 @@ def main():
              f"your private group); run chmod go-w {shlex.quote(str(parent))}.")
     query = args in (["--help"], ["-h"], ["--version"], ["-v"])
     policy = reserve.resolve("claude-as", account, overrides, config.usage_reserve)
+    # Only a launch with a reserve passes a guard on: inherited guard variables never reach Claude Code.
+    guard_launch = kit_module("guard_launch")
+    guard_launch.clear(os.environ)
     # The help and version forms after NAME run no model and stay plain.
-    if not policy.off and not query:
-        fail("usage reserves are not available in this build.")
+    guarded = not policy.off and not query
     target = secret / ("claude-" + account)
     missing = not os.path.lexists(target)
-    preflight(args, config, enrollment=missing and not query)
+    form = preflight(args, config, enrollment=missing and not query, guarded=guarded)
+    if guarded:
+        check_form(form, account)
+        lib = Path(os.path.realpath(__file__)).parent.parent
+        try:
+            guard_launch.script(lib)
+        except OSError:
+            fail(f"incomplete install at {lib.parent}")
     executable = config.which("claude")
     if not executable:
         fail("real Claude executable not found on PATH." if config.claude == "claude"
              else f"the configured claude executable {config.claude} was not found.")
     if query:
         os.execv(executable, [executable, *args])
+    metadata = kit_module("accounts")
+    if guarded:
+        # All before a missing account is offered for enrolment.
+        check_version(executable, account)
+        usage = metadata.directory(config, create=True) / f"claude-{account}.usage.json"
+        guard_dir = metadata.directory(config, create=True, name="guard")
     if os.path.lexists(secret):
         directory(secret, config)
     if missing:
@@ -526,7 +707,6 @@ def main():
         try:
             tty.write("Existing accounts: " + (", ".join(accounts(secret, config)) or "(none)") + "\n")
             tty.confirm(f"Account {account} does not exist. Login and save a new account?")
-            metadata = kit_module("accounts")
             label = ask_label(tty, metadata)
             token = enroll(executable, tty)
             secret.mkdir(mode=0o700, exist_ok=True)
@@ -539,11 +719,11 @@ def main():
             tty.close()
     else:
         token = read_secret(target)
-        metadata = kit_module("accounts")
     env = os.environ.copy()
     usage_environment(env, config, metadata, account, token)
     env["CLAUDE_CODE_OAUTH_TOKEN"] = token
-    os.execve(executable, [executable, *args], env)
+    injected = guard(env, metadata, guard_launch, policy, account, form, usage, guard_dir) if guarded else []
+    os.execve(executable, [executable, *injected, *args], env)
 
 
 if __name__ == "__main__":
