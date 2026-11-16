@@ -96,7 +96,8 @@ reserve.failure_text() and the error's class name, in the block shape above,
 also left in STATE.blocked when the launch names its state; without reserve.py
 the guard writes the same text itself (FAILURE_STOPPED, FAILURE_TAILS). On
 start, stop and status every error exits 0 without output. A Python older than
-3.11 blocks with one line on prompt and tool, and is silent elsewhere.
+3.11 blocks with one line on prompt and tool, and is silent elsewhere: the guard
+checks the version before it imports anything but sys.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
@@ -108,6 +109,29 @@ another Stop hook), BLIND_AFTER, RECORD_AGAIN, STATUS_TIMEOUT, LOCK_WAIT and
 LOCK_STALE (seconds), WARNING, VARIABLE.
 """
 
+import sys
+
+QUIET = ("start", "stop", "status")  # events that never block and never print an error
+
+
+def kind_of(argv):
+    argv = sys.argv if argv is None else argv
+    return argv[1] if len(argv) == 2 else None
+
+
+def old_python(kind):
+    """The answer under a Python older than 3.11: one line and a block, or silence on a quiet event."""
+    if kind in QUIET:
+        return 0
+    print("coding-agent-kit: the usage reserve guard needs Python 3.11 or newer.", file=sys.stderr)
+    return 2
+
+
+# Before any other import, which an older Python may lack: run as a program, the guard
+# answers such a Python with one line, never a traceback.
+if __name__ == "__main__" and sys.version_info < (3, 11):
+    sys.exit(old_python(kind_of(None)))
+
 from dataclasses import dataclass
 import importlib.util
 import json
@@ -116,7 +140,6 @@ import os
 from pathlib import Path
 import re
 import stat
-import sys
 import time
 
 
@@ -127,7 +150,6 @@ BLIND_AFTER = 120  # seconds after the moment in STATE.reply
 RECORD_AGAIN = 300  # unchanged readings are rewritten only this many seconds apart
 TOOLS = ("claude-as", "codex-as")
 KINDS = ("start", "prompt", "tool", "stop")
-QUIET = ("start", "stop", "status")  # events that never block and never print an error
 USAGE_KEYS = {"five_hour": "five_hour", "seven_day": "weekly"}  # Claude usage file key: window
 MINUTES = {300: "five_hour", 10080: "weekly"}  # Codex window length: window
 ACCOUNT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]*")
@@ -681,19 +703,6 @@ def emit(stream, text):
         except Exception:
             pass
         return False
-
-
-def kind_of(argv):
-    argv = sys.argv if argv is None else argv
-    return argv[1] if len(argv) == 2 else None
-
-
-def old_python(kind):
-    """The answer under a Python older than 3.11: one line and a block, or silence on a quiet event."""
-    if kind in QUIET:
-        return 0
-    print("coding-agent-kit: the usage reserve guard needs Python 3.11 or newer.", file=sys.stderr)
-    return 2
 
 
 def interrupted(kind, env):

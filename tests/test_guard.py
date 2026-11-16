@@ -7,6 +7,7 @@ name has a space and a quote. No native, provider, credential or network is
 involved.
 """
 
+import ast
 import contextlib
 from decimal import Decimal
 import importlib.util
@@ -848,6 +849,28 @@ class Main(Fixture):
                 self.assertEqual(err.getvalue(), "coding-agent-kit: the usage reserve guard needs Python 3.11 or newer.\n")
             else:
                 self.assertEqual(err.getvalue(), "")
+
+    # guard.py run as a program by an older Python, without any module the guard imports besides sys
+    # (dataclasses is new in 3.7): the version check comes before every other import.
+    OLD_PYTHON = ("import sys\n"
+                  "sys.version_info = (3, 6, 15)\n"
+                  "for name in ('dataclasses', 'importlib', 'importlib.util', 'json', 'math', 'os', 'pathlib', 're',\n"
+                  "             'signal', 'stat', 'subprocess', 'time'):\n"
+                  "    sys.modules[name] = None\n"
+                  "del sys.argv[0]\n"
+                  "exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'), {'__name__': '__main__', '__file__': sys.argv[0]})\n")
+
+    def test_an_old_python_reaches_the_version_check_before_any_other_import(self):
+        script = ROOT / "lib/coding-agent-kit/guard.py"
+        launch = self.launch(weekly="10")
+        for kind, code in (("prompt", 2), ("tool", 2), ("start", 0), ("stop", 0), ("status", 0)):
+            with self.subTest(kind=kind):
+                result = self.run_guard([sys.executable, "-I", "-B", "-S", "-c", self.OLD_PYTHON, str(script), kind],
+                                        self.environ(launch))
+                line = "coding-agent-kit: the usage reserve guard needs Python 3.11 or newer.\n"
+                self.assertEqual(result, (code, "", line if code else ""))
+        # The whole file is in a grammar such a Python reads, so it gets as far as the check.
+        ast.parse(script.read_text(), feature_version=(3, 7))
 
 
 def gone(pid, wait=5):
