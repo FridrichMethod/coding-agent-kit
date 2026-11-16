@@ -55,8 +55,11 @@ The decision (reserve.decide) per launch:
   transcript_path, since the launch started): its newest snapshot, each window
   named by its length (300 minutes five_hour, 10080 weekly, others ignored)
   with the snapshot's limit family; without one, the account record's usage
-  from earlier runs, minus windows without a reset time. A snapshot that names
-  no window of a known length counts as none, so a change of format fails
+  from earlier runs, minus windows without a reset time. A snapshot of the
+  general family takes from the record the windows it does not name (an
+  unusable slot, as with window_minutes 0); one of another family stands
+  alone, as the limit the session's requests count against. A snapshot that
+  names no window of a known length counts as none, so a change of format fails
   closed like a token_count line without rate limits. The launch is blind
   without a snapshot when the rollout has a token_count line (accounted), and
   on a prompt also when it shows a model response. No readable transcript is
@@ -415,13 +418,17 @@ def codex_view(kind, event, launch):
     if transcript is not None and not isinstance(transcript, str):
         raise ValueError("transcript_path is not a string")
     seen = usage.session(transcript, launch.started) if transcript else None
-    readings = windows(seen["snapshot"], seen["family"]) if seen and seen["snapshot"] else []
-    if readings:
-        return readings, False
-    record = stored(launch.usage)  # no snapshot, or one without a window of a known length
+    snapshot = windows(seen["snapshot"], seen["family"]) if seen and seen["snapshot"] else []
+    if snapshot and seen["family"] is not None:
+        return snapshot, False  # another family's limit is the one the session's requests count against
+    record = stored(launch.usage)
     last = record.get("usage") if isinstance(record, dict) else None
-    readings = windows(last, reset_required=True) if isinstance(last, dict) else []
-    return readings, bool(seen) and (seen["accounted"] or kind == "prompt" and seen["responded"])
+    kept = windows(last, reset_required=True) if isinstance(last, dict) else []
+    if snapshot:  # the record's reading of a window the snapshot does not name (window_minutes 0 occurs)
+        named = {reading.window for reading in snapshot}
+        return snapshot + [reading for reading in kept if reading.window not in named], False
+    # No snapshot, or one without a window of a known length.
+    return kept, bool(seen) and (seen["accounted"] or kind == "prompt" and seen["responded"])
 
 
 # -- the status line ----------------------------------------------------------------

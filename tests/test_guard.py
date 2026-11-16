@@ -544,6 +544,28 @@ class Codex(Fixture):
         self.codex_record(launch, slot(100.5, 10080))
         self.assertEqual(self.answer("prompt", launch, self.codex_event(self.rollout([]))), exhausted("weekly", "prompt"))
 
+    def test_a_window_the_snapshot_does_not_name_comes_from_the_account_record(self):
+        launch = self.launch("codex-as", five_hour="10", weekly="10")
+        self.codex_record(launch, slot(95, 10080))
+        # window_minutes 0 occurs (R16): the snapshot's weekly slot is unusable, or absent, and the record has it.
+        for secondary in (slot(95, 0), None):
+            transcript = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), secondary)])
+            for kind in ("prompt", "tool"):
+                with self.subTest(secondary=secondary, kind=kind):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
+                                     (2, "", self.threshold(kind)))
+        # Where the snapshot names the window, the snapshot decides.
+        both = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), slot(50, 10080))])
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(both)), OK)
+        # Another limit family's snapshot is the limit the session's requests count against: the general record's
+        # windows stay out, also those the snapshot does not name.
+        spark = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), None, limit_id="spark")])
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(spark)), OK)
+        # A record window without a reset time is no reading here either.
+        self.codex_record(launch, slot(95, 10080, None))
+        partial = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), slot(95, 0))])
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(partial)), OK)
+
     def test_without_a_snapshot_the_account_record_decides_minus_readings_without_a_reset(self):
         launch = self.launch("codex-as", weekly="10")
         transcript = self.rollout([])
