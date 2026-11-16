@@ -655,12 +655,16 @@ test('status line records nothing while another writer holds the usage file lock
   assert.deepEqual(fs.readdirSync(folder).sort(), [path.basename(lock), path.basename(breaker)]);
   fs.rmSync(breaker);
   fs.rmSync(lock);
-  // Unchanged readings take no lock, so no writer waits for one.
+  // Unchanged readings take no lock, so no writer waits for one: the run never even opens the lock.
   assert.equal(recordUsage(usageInput(10, 20), env, NOW), true);
   put(lock, holding());
-  const started = performance.now();
+  const opened = [];
+  patchFs(t, 'openSync', real => (name, ...rest) => {
+    if (String(name).startsWith(lock)) opened.push(String(name));
+    return real(name, ...rest);
+  });
   assert.equal(recordUsage(usageInput(10, 20), env, NOW + 1000), false);
-  assert.ok(performance.now() - started < 150, 'an unchanged reading waited for the lock');
+  assert.deepEqual(opened, [], 'an unchanged reading went for the lock');
 });
 
 test('status line counts another host\'s lock clock in whole seconds', posixOnly, (t) => {
