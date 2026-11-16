@@ -1800,8 +1800,9 @@ class Launchers(unittest.TestCase):
                 self.assertEqual(self.golden(variant, flags), expected)
 
     def test_reserves_turned_off_below_a_global_reserve_launch_exactly_as_without_them(self):
-        """A global reserve that each launched account's own table turns off, and a lone weekly flag off with the
-        5-hour window unset, give the plain launch: argv, environment, HOME and outputs."""
+        """A global reserve that the tables of the accounts launched (A and work) turn off, and a lone weekly flag
+        off with the 5-hour window unset, give the plain launch: argv, environment, HOME and outputs. The
+        global reserve stays on for `missing`, whose `--help` is a native query."""
         expected = self.golden(None)
         accounts_off = (DEFAULTS_FILE + '[usage_reserve]\nfive_hour = 10\nweekly = 10\n'
                         '[usage_reserve.codex_accounts.A]\nfive_hour = "off"\nweekly = "off"\n'
