@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Hermetic: a caller's kit configuration, colour choice and XDG directories
 # never reach the code under test; each case sets what it needs.
-unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
+unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL CODING_AGENT_KIT_GUARD CODING_AGENT_KIT_GUARD_SCRIPT CODING_AGENT_KIT_GUARD_PYTHON XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR
 
 TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -P -- "$TEST_DIR/.." && pwd)"
@@ -28,6 +28,8 @@ LAYOUT='100755 bin/codex-as
 100644 lib/coding-agent-kit/config.py
 100644 lib/coding-agent-kit/accounts.py
 100644 lib/coding-agent-kit/reserve.py
+100644 lib/coding-agent-kit/guard.py
+100644 lib/coding-agent-kit/guard_launch.py
 100644 completions/bash/codex-as
 100644 completions/bash/claude-as
 100644 completions/zsh/_codex-as

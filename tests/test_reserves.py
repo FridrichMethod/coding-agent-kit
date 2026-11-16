@@ -1,4 +1,4 @@
-"""Usage reserves: launch flags and per-window resolution.
+"""Usage reserves: launch flags, per-window resolution, the guard's decision and its messages.
 
 Everything runs in process: reserve.py is pure (no I/O, no environment), and
 config.py runs in a temporary HOME. No provider, credential or network is involved.
@@ -177,6 +177,133 @@ class Resolution(unittest.TestCase):
                 reserve.resolve("codex-as", "a", reserve.Overrides(bad, None), config.UsageReserve())
 
 
+NOW = 1_800_000_000  # 2027-01-15T08:00:00Z
+
+
+class Decide(unittest.TestCase):
+    def reading(self, window, used, resets_in=3600, family=None):
+        return reserve.Reading(window, used, None if resets_in is None else NOW + resets_in, family)
+
+    def test_blocks_at_and_below_the_reserve_exactly(self):
+        for used, held, allow in ((89.9, "10", True), (90, "10", False), (99.99, "0", True), (100, "0", False),
+                                  (0, "100", False), (87.5, "12.5", False), (87.4, "12.5", True)):
+            decision = reserve.decide({"weekly": D(held)}, (self.reading("weekly", used),), NOW)
+            self.assertEqual((decision.allow, decision.reason), (allow, None if allow else "threshold"), (used, held))
+
+    def test_a_reading_expires_at_its_reset(self):
+        for resets_in, allow in ((1, False), (0, True), (-1, True)):
+            self.assertEqual(reserve.decide({"weekly": D(10)}, (self.reading("weekly", 95, resets_in),), NOW).allow, allow)
+
+    def test_a_reading_without_a_reset_is_current(self):
+        self.assertFalse(reserve.decide({"weekly": D(10)}, (self.reading("weekly", 95, None),), NOW).allow)
+
+    def test_only_enabled_windows_with_a_current_reading_count(self):
+        readings = (self.reading("weekly", 100), self.reading("five_hour", 10))
+        self.assertTrue(reserve.decide({"five_hour": D(20)}, readings, NOW).allow)
+        self.assertTrue(reserve.decide({"five_hour": D(20), "weekly": D(20)}, readings[1:], NOW).allow)
+
+    def test_over_100_counts_as_100_and_bad_numbers_are_ignored(self):
+        decision = reserve.decide({"weekly": D(0)}, (self.reading("weekly", 105),), NOW)
+        self.assertEqual((decision.allow, decision.windows[0].remaining), (False, D(0)))
+        for bad in (-1, "90", True, None, float("nan"), float("inf")):
+            self.assertTrue(reserve.decide({"weekly": D(10)}, (self.reading("weekly", bad),), NOW).allow, bad)
+
+    def test_the_most_used_reading_of_a_window_decides(self):
+        readings = (self.reading("weekly", 50), self.reading("weekly", 95, family="other"))
+        decision = reserve.decide({"weekly": D(10)}, readings, NOW)
+        self.assertEqual((decision.allow, decision.windows[0].family), (False, "other"))
+
+    def test_blind_blocks_alone_and_threshold_wins(self):
+        self.assertEqual(reserve.decide({"weekly": D(10)}, (), NOW, blind=True).reason, "blind")
+        self.assertEqual(reserve.decide({"weekly": D(10)}, (self.reading("weekly", 95),), NOW, blind=True).reason, "threshold")
+        self.assertTrue(reserve.decide({"weekly": D(10)}, (), NOW).allow)
+
+    def test_windows_at_their_reserve_come_in_window_order_with_their_values(self):
+        readings = (self.reading("weekly", D("91.75"), 7200, "spark"), self.reading("five_hour", 96, None))
+        decision = reserve.decide({"weekly": D("8.5"), "five_hour": D(5)}, readings, NOW)
+        self.assertEqual(decision, reserve.Decision(False, "threshold", (
+            reserve.WindowStatus("five_hour", D(5), reserve.AT_RESERVE, D(4), None),
+            reserve.WindowStatus("weekly", D("8.5"), reserve.AT_RESERVE, D("8.25"), NOW + 7200, "spark"))))
+        self.assertEqual(reserve.decide({"weekly": D(10)}, (self.reading("weekly", 10),), NOW),
+                         reserve.Decision(True, None))
+
+    def test_readings_may_be_any_iterable(self):
+        readings = (self.reading("five_hour", 10), self.reading("weekly", 95))
+        enabled = {"five_hour": D(10), "weekly": D(10)}
+        expected = reserve.decide(enabled, readings, NOW)
+        self.assertEqual(expected.reason, "threshold")
+        self.assertEqual(reserve.decide(enabled, (reading for reading in readings), NOW), expected)
+        self.assertEqual(reserve.decide(enabled, iter(list(readings)), NOW), expected)
+
+    def test_unusable_reset_times_and_windows_are_ignored(self):
+        for resets_at in ("soon", True, float("nan")):
+            reading = reserve.Reading("weekly", 95, resets_at)
+            self.assertTrue(reserve.decide({"weekly": D(10)}, (reading,), NOW).allow, resets_at)
+        self.assertTrue(reserve.decide({"weekly": D(10)}, (reserve.Reading("daily", 100, None),), NOW).allow)
+
+
+class Messages(unittest.TestCase):
+    def test_threshold(self):
+        status = reserve.WindowStatus("weekly", D(10), reserve.AT_RESERVE, D(9), NOW + 183600)
+        self.assertEqual(reserve.block_text("claude-as", "personal", reserve.Decision(False, "threshold", (status,)), "prompt", NOW),
+            "claude-as: personal: weekly window 9% remaining, at or below its 10% reserve; resets in 2d 3h (2027-01-17T11:00:00Z).\n"
+            "This prompt was not sent.\nTo use the reserve, exit and run:\n  claude-as --reserve-weekly off personal --continue")
+
+    def test_two_windows_a_family_and_no_reset(self):
+        statuses = (reserve.WindowStatus("five_hour", D(5), reserve.AT_RESERVE, D(0), None),
+                    reserve.WindowStatus("weekly", D("12.5"), reserve.AT_RESERVE, D("3.25"), NOW + 3900, "spark"))
+        self.assertEqual(reserve.block_text("codex-as", "lab", reserve.Decision(False, "threshold", statuses), "tool", NOW),
+            "codex-as: lab: five-hour window 0% remaining, at or below its 5% reserve. weekly window 3.2% remaining, "
+            "at or below its 12.5% reserve; resets in 1h 5m (2027-01-15T09:05:00Z) (limit spark).\n"
+            "This tool call was stopped. Stop working now and tell the user why.\nTo use the reserve, exit and run:\n"
+            "  codex-as --reserve-5h off --reserve-weekly off lab resume --last")
+
+    def test_blind_and_failure(self):
+        self.assertEqual(reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"), "prompt", NOW),
+            "codex-as: lab: no usage data since this session started, so its usage reserve cannot be checked "
+            "(the session's rollout shows no rate limits).\nThis prompt was not sent.\nTo go on without reserves, exit and run:\n"
+            "  codex-as --reserve-5h off --reserve-weekly off lab resume --last\n"
+            'To keep them off for this account, set them to "off" under [usage_reserve.codex_accounts.lab].')
+        self.assertEqual(reserve.failure_text("claude-as", "personal", "tool", "KeyError"),
+            "claude-as: personal: the usage reserve guard failed (KeyError).\n"
+            "This tool call was stopped. Stop working now and tell the user why.\nTo go on without reserves, exit and run:\n"
+            "  claude-as --reserve-5h off --reserve-weekly off personal --continue")
+
+    def test_span(self):
+        self.assertEqual([reserve.span(s) for s in (0, 59, 2700, 11100, 183600)], ["0m", "0m", "45m", "3h 5m", "2d 3h"])
+
+    def test_claude_blindness_and_the_stop_event(self):
+        self.assertEqual(reserve.block_text("claude-as", "lab", reserve.Decision(False, "blind"), "stop", NOW),
+            "claude-as: lab: no usage data since this session started, so its usage reserve cannot be checked "
+            "(the status line has reported no rate limits: the workspace is not trusted yet, or this account reports none).\n"
+            "The work stops here.\nTo go on without reserves, exit and run:\n"
+            "  claude-as --reserve-5h off --reserve-weekly off lab --continue\n"
+            'To keep them off for this account, set them to "off" under [usage_reserve.claude_accounts.lab].')
+        self.assertEqual(reserve.failure_text("codex-as", "lab", "prompt", "launch format"),
+            "codex-as: lab: the usage reserve guard failed (launch format).\nThis prompt was not sent.\n"
+            "To go on without reserves, exit and run:\n  codex-as --reserve-5h off --reserve-weekly off lab resume --last")
+
+    def test_relaunch_names_the_windows_in_flag_order(self):
+        self.assertEqual(reserve.relaunch("codex-as", "lab", ("weekly", "five_hour")),
+                         "codex-as --reserve-5h off --reserve-weekly off lab resume --last")
+        self.assertEqual(reserve.relaunch("claude-as", "personal", ("weekly",)),
+                         "claude-as --reserve-weekly off personal --continue")
+
+    def test_a_past_reset_shows_no_negative_span(self):
+        status = reserve.WindowStatus("five_hour", D(10), reserve.AT_RESERVE, D(10), NOW - 30)
+        self.assertIn("; resets in 0m (2027-01-15T07:59:30Z).", reserve.block_text(
+            "claude-as", "a", reserve.Decision(False, "threshold", (status,)), "prompt", NOW))
+
+    def test_unknown_launchers_events_and_allowing_decisions_are_errors(self):
+        for call in (lambda: reserve.block_text("codex", "a", reserve.Decision(False, "blind"), "prompt", NOW),
+                     lambda: reserve.block_text("codex-as", "a", reserve.Decision(False, "blind"), "start", NOW),
+                     lambda: reserve.block_text("codex-as", "a", reserve.Decision(True, None), "prompt", NOW),
+                     lambda: reserve.failure_text("claude", "a", "tool", "KeyError"),
+                     lambda: reserve.relaunch("codex-as", "a", ())):
+            with self.assertRaises(ValueError):
+                call()
+
+
 class Purity(unittest.TestCase):
     def test_reserve_module_does_no_io_and_reads_no_environment(self):
         source = (ROOT / "lib/coding-agent-kit/reserve.py").read_text()
@@ -193,7 +320,10 @@ class Purity(unittest.TestCase):
 
     def test_overrides_and_policies_are_frozen(self):
         for value, field in ((reserve.Overrides(), "weekly"), (policy(D(1)), "weekly"),
-                             (reserve.Setting("weekly", None, "default"), "reserve")):
+                             (reserve.Setting("weekly", None, "default"), "reserve"),
+                             (reserve.Reading("weekly", 1, None), "used"),
+                             (reserve.WindowStatus("weekly", D(1), reserve.OK, D(99), None), "status"),
+                             (reserve.Decision(True, None), "allow")):
             with self.subTest(value=value), self.assertRaises(dataclasses.FrozenInstanceError):
                 setattr(value, field, None)
 
