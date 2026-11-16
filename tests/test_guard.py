@@ -634,22 +634,31 @@ class Main(Fixture):
                 "codex": (["/bin/sh", "-c", CODEX_COMMAND + kind],
                           {"CODING_AGENT_KIT_GUARD_PYTHON": sys.executable, "CODING_AGENT_KIT_GUARD_SCRIPT": str(script)})}
 
+    @staticmethod
+    def thresholds(launch, reading, before, after):
+        """Each threshold block, with its newline, that a guard reading the clock between BEFORE and AFTER
+        can print: the span to the reset is whole minutes of whole seconds, so these clock seconds cover it."""
+        return {reserve.block_text(launch.tool, launch.account, reserve.decide(launch.enabled, [reading], now),
+                                   "prompt", now) + "\n"
+                for now in range(int(before), int(after) + 2)}
+
     def check_script(self, script):
         launch = self.launch(weekly="10")
-        self.claude_usage(launch, seven_day=(91, NOW + 3600))
-        threshold = reserve.block_text("claude-as", "personal",
-                                       reserve.decide(launch.enabled, [reserve.Reading("weekly", 91, NOW + 3600)], NOW),
-                                       "prompt", time.time())
+        # guard.py judges the reading by the real clock, so the reset is an hour from the real clock.
+        reset = int(time.time()) + 3600
+        self.claude_usage(launch, seven_day=(91, reset))
         for form, (command, extra) in self.commands(script, "prompt").items():
             with self.subTest(form=form):
                 self.assertEqual(self.run_guard(command, extra), OK)
                 self.assertEqual(self.run_guard(command, extra, b"not json"), OK)
+                before = time.time()
                 code, out, err = self.run_guard(command, {**extra, **self.environ(launch)})
-                # The reset is an hour from NOW, which is in the future; only the span depends on the clock.
+                after = time.time()
                 self.assertEqual((code, out), (2, ""))
-                self.assertEqual(err.split("; resets in")[0], threshold.split("; resets in")[0])
+                self.assertIn(err, self.thresholds(launch, reserve.Reading("weekly", 91, reset), before, after))
+                self.assertTrue(err.startswith("claude-as: personal: weekly window 9% remaining, at or below its 10% "
+                                               "reserve; resets in "), err)
                 self.assertTrue(err.endswith(STOPPED["prompt"] + RELAUNCH_CLAUDE + "\n"), err)
-                self.assertEqual(err.count("\n"), threshold.count("\n") + 1)
                 self.assertEqual(self.run_guard(command, {**extra, **self.environ(launch)}, b"not json"),
                                  (2, "", reserve.failure_text("claude-as", "personal", "prompt", "JSONDecodeError") + "\n"))
 
