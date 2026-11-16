@@ -750,6 +750,33 @@ class Main(Fixture):
                     self.assertEqual((code, err), (0, ""))
         self.assertTrue(self.state(launch, "ran.start").is_file())
 
+    def test_a_turn_stop_that_cannot_be_written_is_a_deny_with_exit_2(self):
+        launch = self.launch(weekly="10")
+        self.claude_usage(launch, seven_day=(91, int(time.time()) + 3600))
+
+        class Broken(io.StringIO):
+            def write(self, text):
+                raise BrokenPipeError(32, "Broken pipe")
+
+        with patch.dict(os.environ, self.environ(launch)), patch.object(guard.sys, "stdout", Broken()), \
+                patch.object(guard.sys, "stdin", io.TextIOWrapper(io.BytesIO(b"{}"))), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(guard.main(["guard.py", "tool"]), 2)
+        self.assertTrue(err.getvalue().startswith("claude-as: personal: weekly window 9% remaining"), err.getvalue())
+        self.assertTrue(err.getvalue().endswith(STOPPED["tool"] + RELAUNCH_CLAUDE + "\n"), err.getvalue())
+        script = ROOT / "lib/coding-agent-kit/guard.py"
+        targets = [">&-"] + ([">/dev/full"] if os.path.exists("/dev/full") else [])
+        for target in targets:
+            for kind, code in (("tool", 2), ("stop", 0), ("start", 0)):
+                with self.subTest(target=target, kind=kind):
+                    command = ["/bin/sh", "-c", f'exec "$0" -I -B -S "$1" {kind} {target}', sys.executable, str(script)]
+                    result = self.run_guard(command, self.environ(launch))
+                    self.assertEqual(result[0], code)
+                    if code:
+                        self.assertTrue(result[2].endswith(STOPPED["tool"] + RELAUNCH_CLAUDE + "\n"), result[2])
+                    else:
+                        self.assertEqual(result[2], "")
+
     def test_an_old_python_blocks_prompt_and_tool_and_stays_quiet_elsewhere(self):
         for kind, code in (("prompt", 2), ("tool", 2), ("start", 0), ("stop", 0), ("status", 0)):
             with self.subTest(kind=kind), patch.object(guard.sys, "version_info", (3, 10, 14)), \

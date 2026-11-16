@@ -59,7 +59,8 @@ Answers, as (exit code, stdout, stderr); a message goes to stderr with one newli
     claude-as prompt  allow (0, "", ""); block (2, "", MESSAGE)
     claude-as tool    allow (0, "", ""); block with STOP_TURN: (0, {"continue": false,
                       "stopReason", "hookSpecificOutput": PreToolUse deny}, ""),
-                      else (2, "", MESSAGE)
+                      else (2, "", MESSAGE); main() exits 2 with MESSAGE on
+                      stderr when that JSON cannot be written to stdout
     claude-as stop    allow (0, "", ""); block with END_AT_STOP: (0, {"continue": false,
                       "stopReason"}, ""), else (0, "", "")
     codex-as prompt, tool  allow (0, "", ""); block (2, "", MESSAGE)
@@ -582,9 +583,10 @@ def handle(kind, raw, env, now):
 
 
 def emit(stream, text):
-    """Best effort: TEXT, as bytes, on STREAM; a closed pipe silences the stream for the rest of the run."""
+    """Best effort: TEXT, as bytes, on STREAM; whether it was written. A stream that fails (a closed pipe,
+    a full disk) is silenced for the rest of the run."""
     if not text:
-        return
+        return True
     try:
         target = getattr(stream, "buffer", None)
         if target is None:
@@ -592,11 +594,13 @@ def emit(stream, text):
         else:
             target.write(text.encode("utf-8", "surrogateescape"))
         stream.flush()
+        return True
     except Exception:
         try:
             os.dup2(os.open(os.devnull, os.O_WRONLY), stream.fileno())
         except Exception:
             pass
+        return False
 
 
 def kind_of(argv):
@@ -621,7 +625,13 @@ def main(argv=None):
     except Exception:
         raw = None
     code, out, err = handle(kind, raw, os.environ, time.time())
-    emit(sys.stdout, out)
+    if not emit(sys.stdout, out) and kind == "tool" and code == 0:
+        # A turn stop the native never reads would be an allow: deny with exit 2 and the reason instead.
+        try:
+            err = json.loads(out)["stopReason"]
+        except Exception:
+            err = out
+        code = 2
     emit(sys.stderr, err and err + "\n")
     return code
 
