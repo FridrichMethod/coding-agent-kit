@@ -471,6 +471,12 @@ class Codex(Fixture):
         transcript = self.rollout([count(NOW - 90, slot(95, 10080)), count(NOW - 30, slot(50, 10080))])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
         self.codex_record(launch, slot(95, 10080))
+        # The session's snapshot, not the account record from earlier runs, decides while there is one,
+        # also when the snapshot is of another limit family.
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
+        spark = self.rollout([count(NOW - 30, slot(50, 10080), limit_id="spark")])
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(spark)), OK)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(spark, "tool")), OK)
         before = self.rollout([count(STARTED - 3000, slot(20, 10080))])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(before))[0], 2)
 
@@ -705,6 +711,22 @@ class Main(Fixture):
                 self.assertEqual(err.getvalue(), "")
 
 
+def gone(pid, wait=5):
+    """Whether process PID ends within WAIT seconds; a zombie that waits for its reaper has ended."""
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout
+        if state.strip().startswith("Z"):
+            return True
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.05)
+
+
 def limits(five_hour=(42, NOW + 3600), seven_day=(17, NOW + 86400)):
     """The rate_limits of Claude Code's status line input; a window is (used, reset) or None for none."""
     return {key: {"used_percentage": value[0], "resets_at": value[1]}
@@ -757,6 +779,12 @@ class StatusLine(Fixture):
                 self.assertTrue(guard.record(launch.usage, {"five_hour": window(used, resets), "seven_day": 7}, NOW))
                 self.assertEqual(self.usage_file(launch),
                                  {"five_hour": window(used, int(resets)), "seven_day": None, "seen_at": NOW})
+                Path(launch.usage).unlink()
+        for five_hour in ({}, {"five_hour": None}, {"five_hour": window(150, NOW + 60)}):
+            with self.subTest(weekly_only=five_hour):
+                self.assertTrue(guard.record(launch.usage, {**five_hour, "seven_day": window(95, NOW + 60)}, NOW))
+                self.assertEqual(self.usage_file(launch),
+                                 {"five_hour": None, "seven_day": window(95, NOW + 60), "seen_at": NOW})
                 Path(launch.usage).unlink()
 
     def test_record_writes_a_private_file_by_rename_into_an_owned_private_directory(self):
@@ -866,6 +894,18 @@ class StatusLine(Fixture):
         self.assertEqual(guard.status(status_input(), second, NOW), "")
         self.assertEqual(self.answer("prompt", second), OK)
 
+    def test_an_account_that_reports_only_the_weekly_window(self):
+        launch = self.launch(weekly="10")
+        put(self.state(launch, "ran.start"), "")
+        put(self.state(launch, "reply"), str(NOW - 600))
+        self.assertEqual(guard.status(status_input(limits(None, (95, NOW + 86400))), launch, NOW), "")
+        data = self.usage_file(launch)
+        self.assertEqual((data["five_hour"], data["seven_day"]), (None, window(95, NOW + 86400)))
+        self.assertTrue(self.state(launch, "seen").is_file())
+        decision = reserve.decide(launch.enabled, [reserve.Reading("weekly", 95, NOW + 86400)], NOW)
+        self.assertEqual(self.answer("prompt", launch),
+                         (2, "", reserve.block_text("claude-as", "personal", decision, "prompt", NOW)))
+
     def test_without_rate_limits_nothing_is_recorded(self):
         launch = self.launch(weekly="10")
         for raw in (status_input(None), status_input({}), status_input(limits(None, None)),
@@ -908,14 +948,18 @@ class StatusLine(Fixture):
 
     def test_no_footer_without_a_command_or_from_one_that_fails_prints_nothing_or_hangs(self):
         sleeper = self.script("sleep long.py", "print('late', flush=True); time.sleep(30)")
+        pidfile = self.scripts / "background pid"
+        background = f"sleep 30 & echo $! > {shlex.quote(str(pidfile))}; sleep 30; echo late"
         for statusline in (None, "", "printf 'partial'; exit 3", "true", "kill -9 $$", "/nonexistent/status-line",
-                           shlex.quote(str(sleeper)), "sleep 30 & sleep 30; echo late"):
+                           shlex.quote(str(sleeper)), background):
             with self.subTest(statusline=statusline), patch.object(guard, "STATUS_TIMEOUT", 0.5):
                 launch = self.launch(weekly="10", statusline=statusline)
                 put(self.state(launch, "ran.start"), "")
                 started = time.monotonic()
                 self.assertEqual(guard.status(status_input(), launch, NOW), "")
                 self.assertLess(time.monotonic() - started, 5)
+        # The whole process group of a command that runs too long is killed, its background children too.
+        self.assertTrue(gone(int(pidfile.read_text())), "a background child of the status line command survived")
         self.assertEqual(guard.STATUS_TIMEOUT, 5)
 
     def test_a_reply_without_any_hook_run_is_reported_first(self):
