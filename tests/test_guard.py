@@ -10,6 +10,7 @@ involved.
 import ast
 import contextlib
 from decimal import Decimal
+import errno
 import importlib.util
 import io
 import json
@@ -1447,6 +1448,30 @@ class StatusLine(Fixture):
         self.assertEqual(list(self.accounts.iterdir()), [name])
         guard.unlock(name, fd)
         self.assertEqual(list(self.accounts.iterdir()), [])
+
+    def test_a_directory_without_hard_links_records_nothing(self):
+        # A lock and a breaker are linked from their temporary file. Where the directory has no hard links (vfat,
+        # exFAT, some FUSE mounts), link() fails: the run records nothing, creates no .seen and leaves no temporary
+        # file, and the launch is blind once its first reply is BLIND_AFTER seconds old.
+        launch = self.launch(weekly="10", statusline="printf 'mine'")
+        put(self.state(launch, "ran.start"), "")
+        put(self.state(launch, "reply"), str(NOW - guard.BLIND_AFTER))
+        blind = reserve.block_text("claude-as", "personal", reserve.Decision(False, "blind"), "prompt", NOW)
+        lock = self.accounts / f".{Path(launch.usage).name}.lock"
+        for code in sorted({errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP}):
+            for left in (False, True):  # beside a stale lock, the breaker is linked first
+                with self.subTest(errno=errno.errorcode[code], stale_lock=left), \
+                        patch.object(guard.os, "link", side_effect=OSError(code, os.strerror(code))):
+                    if left:
+                        self.lock_file(launch, pid=GONE)
+                    with self.assertRaises(OSError) as raised:
+                        guard.record(launch.usage, limits(), NOW)
+                    self.assertEqual(raised.exception.errno, code)
+                    self.assertEqual(guard.status(status_input(), launch, NOW), "mine")
+                    self.assertEqual(sorted(self.accounts.iterdir()), [lock] if left else [])
+                    self.assertFalse(self.state(launch, "seen").exists())
+                    self.assertEqual(self.answer("prompt", launch), (2, "", blind))
+                    lock.unlink(missing_ok=True)
 
     def breaker_file(self, launch, **holder):
         """The breaker of the usage file's lock, as lock_file() writes the lock."""
