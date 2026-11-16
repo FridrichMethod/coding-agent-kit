@@ -694,6 +694,267 @@ class Main(Fixture):
                 self.assertEqual(err.getvalue(), "")
 
 
+def limits(five_hour=(42, NOW + 3600), seven_day=(17, NOW + 86400)):
+    """The rate_limits of Claude Code's status line input; a window is (used, reset) or None for none."""
+    return {key: {"used_percentage": value[0], "resets_at": value[1]}
+            for key, value in (("five_hour", five_hour), ("seven_day", seven_day)) if value is not None}
+
+
+def status_input(rate_limits="default", extra=None):
+    data = {"session_id": "s", "model": {"id": "m", "display_name": "Model é"}, "workspace": {"current_dir": "/"},
+            **(extra or {})}
+    if rate_limits is not None:
+        data["rate_limits"] = limits() if rate_limits == "default" else rate_limits
+    return json.dumps(data, ensure_ascii=False).encode()
+
+
+def window(used, resets):
+    return {"used_percentage": used, "resets_at": resets}
+
+
+class StatusLine(Fixture):
+    """The guard as Claude Code's status line: it records the rate limits and chains the user's own command."""
+
+    def setUp(self):
+        super().setUp()
+        self.scripts = self.root / "status o'clock dir"
+        self.scripts.mkdir()
+
+    def script(self, name, body):
+        """An executable Python script at a path with a space and a quote."""
+        path = self.scripts / name
+        path.write_text(f"#!{sys.executable}\nimport os, sys, time\n{body}\n")
+        path.chmod(0o700)
+        return path
+
+    def usage_file(self, launch):
+        return json.loads(Path(launch.usage).read_text())
+
+    def test_record_validates_like_the_helper(self):
+        launch = self.launch(weekly="10")
+        for value in (window(-1, NOW + 60), window(100.5, NOW + 60), window(float("nan"), NOW + 60),
+                      window(float("inf"), NOW + 60), window(True, NOW + 60), window("42", NOW + 60),
+                      window(None, NOW + 60), window(42, 0), window(42, -5), window(42, True), window(42, 1.5),
+                      window(42, 253402300800), window(42, "soon"), window(42, None), {"used_percentage": 42}, 7, None):
+            with self.subTest(value=value):
+                self.assertFalse(guard.record(launch.usage, {"five_hour": value, "seven_day": value}, NOW))
+                self.assertFalse(Path(launch.usage).exists())
+        for bad in (None, [], "limits", {}):
+            self.assertFalse(guard.record(launch.usage, bad, NOW))
+        for used, resets in ((0, 1), (100, 253402300799), (42.5, NOW + 60), (7, float(NOW + 60))):
+            with self.subTest(used=used, resets=resets):
+                self.assertTrue(guard.record(launch.usage, {"five_hour": window(used, resets), "seven_day": 7}, NOW))
+                self.assertEqual(self.usage_file(launch),
+                                 {"five_hour": window(used, int(resets)), "seven_day": None, "seen_at": NOW})
+                Path(launch.usage).unlink()
+
+    def test_record_writes_a_private_file_by_rename_into_an_owned_private_directory(self):
+        launch = self.launch(weekly="10")
+        stale = put(self.accounts / f".{Path(launch.usage).name}.0123abcd.tmp", "half")
+        fresh = put(self.accounts / f".{Path(launch.usage).name}.4567cdef.tmp", "half")
+        os.utime(stale, (time.time() - 120, time.time() - 120))
+        renames = []
+        real_replace = os.replace
+
+        def replace(source, target):
+            renames.append((Path(source).parent, Path(source).name.startswith("."), oct(os.stat(source).st_mode & 0o777),
+                            Path(target)))
+            return real_replace(source, target)
+
+        with patch.object(os, "replace", replace):
+            self.assertTrue(guard.record(launch.usage, limits(), time.time()))
+        self.assertEqual(renames, [(self.accounts, True, "0o600", Path(launch.usage))])
+        self.assertEqual(oct(Path(launch.usage).stat().st_mode & 0o777), "0o600")
+        self.assertFalse(stale.exists())
+        self.assertTrue(fresh.exists())
+        fresh.unlink()
+        self.assertEqual(sorted(path.name for path in self.accounts.iterdir()), [Path(launch.usage).name])
+        Path(launch.usage).unlink()
+        for refused in (0o755, 0o750, 0o500):
+            with self.subTest(mode=oct(refused)):
+                self.accounts.chmod(refused)
+                try:
+                    with self.assertRaises((ValueError, OSError)):
+                        guard.record(launch.usage, limits(), NOW)
+                finally:
+                    self.accounts.chmod(0o700)
+                self.assertFalse(Path(launch.usage).exists())
+        linked = self.root / "linked"
+        linked.symlink_to(self.accounts, target_is_directory=True)
+        for path in (linked / Path(launch.usage).name, self.accounts / "claude-personal.json",
+                     self.accounts / "usage.json", "claude-personal.usage.json"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                guard.record(str(path), limits(), NOW)
+        self.assertEqual(list(self.accounts.iterdir()), [])
+
+    def test_unchanged_readings_are_rewritten_only_after_record_again(self):
+        launch = self.launch(weekly="10")
+        self.assertTrue(guard.record(launch.usage, limits(), NOW))
+        self.assertFalse(guard.record(launch.usage, limits(), NOW + 299))
+        self.assertEqual(self.usage_file(launch)["seen_at"], NOW)
+        self.assertTrue(guard.record(launch.usage, limits(), NOW + 300))
+        self.assertEqual(self.usage_file(launch)["seen_at"], NOW + 300)
+        self.assertTrue(guard.record(launch.usage, limits((43, NOW + 3600)), NOW + 301))
+        self.assertEqual(self.usage_file(launch)["five_hour"], window(43, NOW + 3600))
+
+    def merged(self, stored, incoming, now=NOW):
+        """The windows stored after recording INCOMING over STORED (both rate_limits shapes)."""
+        launch = self.launch(weekly="10")
+        Path(launch.usage).unlink(missing_ok=True)
+        if stored is not None:
+            put(Path(launch.usage), {**{"five_hour": None, "seven_day": None}, **stored, "seen_at": NOW - 1000})
+        guard.record(launch.usage, incoming, now)
+        data = self.usage_file(launch)
+        return data["five_hour"], data["seven_day"]
+
+    def test_readings_never_go_backwards(self):
+        five, week = NOW + 3600, NOW + 86400
+        later = window(60, five + 5 * 3600)
+        cases = (
+            ("a lower reading of the same window", {"five_hour": window(91, five)}, {"five_hour": window(60, five)},
+             (window(91, five), None)),
+            ("a higher reading of the same window", {"five_hour": window(60, five)}, {"five_hour": window(91, five)},
+             (window(91, five), None)),
+            ("a later window", {"five_hour": window(91, five)}, {"five_hour": later}, (later, None)),
+            ("an earlier window", {"five_hour": later}, {"five_hour": window(91, five)}, (later, None)),
+            ("an absent window that has not reset", {"seven_day": window(80, week)}, {"five_hour": window(10, five)},
+             (window(10, five), window(80, week))),
+            ("an absent window that has reset", {"seven_day": window(80, NOW)}, {"five_hour": window(10, five)},
+             (window(10, five), None)),
+            ("an earlier reading over one that has reset", {"five_hour": window(91, NOW - 1)},
+             {"five_hour": window(5, NOW - 100)}, (window(5, NOW - 100), None)),
+            ("nothing stored", None, {"five_hour": window(10, five)}, (window(10, five), None)),
+            ("an unusable stored window", {"five_hour": window(150, five)}, {"five_hour": window(10, five)},
+             (window(10, five), None)))
+        for name, stored, incoming, expected in cases:
+            with self.subTest(name):
+                self.assertEqual(self.merged(stored, incoming), expected)
+        launch = self.launch(weekly="10")
+        put(Path(launch.usage), "garbage")
+        self.assertTrue(guard.record(launch.usage, limits(), NOW))
+        self.assertEqual(self.usage_file(launch)["five_hour"], window(42, NOW + 3600))
+
+    def test_an_older_sessions_reading_never_replaces_a_newer_one(self):
+        newer, older = self.launch(weekly="10"), self.launch(weekly="10")
+        self.assertEqual(newer.usage, older.usage)
+        guard.status(status_input(limits((91, NOW + 3600), (40, NOW + 86400))), newer, NOW)
+        guard.status(status_input(limits((60, NOW + 3600), (30, NOW + 86400))), older, NOW + 400)
+        data = self.usage_file(newer)
+        self.assertEqual((data["five_hour"], data["seven_day"]), (window(91, NOW + 3600), window(40, NOW + 86400)))
+
+    def test_rate_limits_are_recorded_for_the_account_and_seen_by_this_launch_only(self):
+        first, second = self.launch(weekly="10"), self.launch(weekly="10")
+        for launch in (first, second):
+            put(self.state(launch, "ran.start"), "")
+        self.assertEqual(guard.status(status_input(), first, NOW), "")
+        self.assertEqual(self.usage_file(first), {**limits(), "seen_at": NOW})
+        self.assertTrue(self.state(first, "seen").is_file())
+        self.assertFalse(self.state(second, "seen").exists())
+        put(self.state(second, "reply"), str(NOW - 600))
+        self.assertEqual(self.answer("prompt", second)[0], 2)
+        self.assertEqual(guard.status(status_input(), second, NOW), "")
+        self.assertEqual(self.answer("prompt", second), OK)
+
+    def test_without_rate_limits_nothing_is_recorded(self):
+        launch = self.launch(weekly="10")
+        for raw in (status_input(None), status_input({}), status_input(limits(None, None)),
+                    status_input({"five_hour": window(150, NOW + 60)}), status_input([1]), b"not json", b"\xff",
+                    b"[]", b"", json.dumps({"rate_limits": {"five_hour": window(42, NOW + 60)}})[:-3].encode()):
+            with self.subTest(raw=raw):
+                self.assertEqual(guard.status(raw, launch, NOW), "")
+                self.assertEqual(sorted(self.guard_dir.iterdir()), [])
+                self.assertEqual(sorted(self.accounts.iterdir()), [])
+
+    def test_a_refused_record_leaves_no_seen(self):
+        launch = self.launch(weekly="10", statusline="printf 'mine'")
+        put(self.state(launch, "ran.start"), "")
+        self.accounts.chmod(0o750)
+        self.addCleanup(self.accounts.chmod, 0o700)
+        self.assertEqual(guard.status(status_input(), launch, NOW), "mine")
+        self.assertFalse(self.state(launch, "seen").exists())
+        self.assertFalse(Path(launch.usage).exists())
+
+    def test_the_footer_is_the_users_own_status_line(self):
+        counter = self.script("count it.py", "print(len(sys.stdin.buffer.read()))")
+        raw = status_input()
+        for command in (shlex.join([sys.executable, str(counter)]), shlex.quote(str(counter)),
+                        f'"{counter}" --flag', f"exec {shlex.quote(str(counter))} 2>/dev/null"):
+            with self.subTest(command=command):
+                launch = self.launch(weekly="10", statusline=command)
+                put(self.state(launch, "ran.start"), "")
+                self.assertEqual(guard.status(raw, launch, NOW), f"{len(raw)}\n")
+        self.assertGreater(len(raw), len(raw.decode()))  # the count is of the exact bytes, not of characters
+        launch = self.launch(weekly="10", statusline="printf 'not json still reaches me: %s' \"$(cat)\"")
+        self.assertEqual(guard.status(b"plain", launch, NOW), "not json still reaches me: plain")
+
+    def test_the_footer_passes_through_unchanged_with_the_callers_environment(self):
+        launch = self.launch(weekly="10", statusline="printf '\\033[36mModel\\033[0m | %s\\n\\377 second\\n' \"$KIT_FOOTER_MARK\"")
+        put(self.state(launch, "ran.start"), "")
+        with patch.dict(os.environ, {"KIT_FOOTER_MARK": "from the session"}):
+            footer = guard.status(status_input(), launch, NOW)
+        self.assertEqual(footer.encode("utf-8", "surrogateescape"),
+                         b"\x1b[36mModel\x1b[0m | from the session\n\xff second\n")
+
+    def test_no_footer_without_a_command_or_from_one_that_fails_prints_nothing_or_hangs(self):
+        sleeper = self.script("sleep long.py", "print('late', flush=True); time.sleep(30)")
+        for statusline in (None, "", "printf 'partial'; exit 3", "true", "kill -9 $$", "/nonexistent/status-line",
+                           shlex.quote(str(sleeper)), "sleep 30 & sleep 30; echo late"):
+            with self.subTest(statusline=statusline), patch.object(guard, "STATUS_TIMEOUT", 0.5):
+                launch = self.launch(weekly="10", statusline=statusline)
+                put(self.state(launch, "ran.start"), "")
+                started = time.monotonic()
+                self.assertEqual(guard.status(status_input(), launch, NOW), "")
+                self.assertLess(time.monotonic() - started, 5)
+        self.assertEqual(guard.STATUS_TIMEOUT, 5)
+
+    def test_a_reply_without_any_hook_run_is_reported_first(self):
+        launch = self.launch(weekly="10", statusline="printf 'user footer\\n'")
+        self.assertEqual(guard.status(status_input(), launch, NOW), "reserve guard not running\nuser footer\n")
+        self.assertEqual(guard.status(status_input(None), launch, NOW), "user footer\n")
+        quiet = self.launch(weekly="10")
+        self.assertEqual(guard.status(status_input(), quiet, NOW), "reserve guard not running")
+        for kind in guard.KINDS:
+            with self.subTest(kind=kind):
+                ran = self.launch(weekly="10", statusline="printf 'user footer\\n'")
+                put(self.state(ran, "ran." + kind), "")
+                self.assertEqual(guard.status(status_input(), ran, NOW), "user footer\n")
+
+    def test_a_codex_launch_records_nothing(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.assertEqual(guard.status(status_input(), launch, NOW), "")
+        self.assertEqual(sorted(self.guard_dir.iterdir()), [])
+        self.assertEqual(sorted(self.accounts.iterdir()), [])
+
+    def test_through_main_status_always_exits_0_without_stderr(self):
+        counter = self.script("count it.py", "print(len(sys.stdin.buffer.read()))")
+        script = ROOT / "lib/coding-agent-kit/guard.py"
+        good = self.launch(weekly="10", statusline=shlex.join([sys.executable, str(counter)]))
+        failing = self.launch(weekly="10", statusline="echo no; exit 1")
+        for launch in (good, failing):
+            put(self.state(launch, "ran.start"), "")
+        cases = [(self.environ(good), status_input(), None), (self.environ(good), b"not json", "8\n"),
+                 (self.environ(good), status_input(None), None), (self.environ(failing), status_input(), ""),
+                 ({}, status_input(), ""), (self.environ(good, v=2), status_input(), ""),
+                 ({"CODING_AGENT_KIT_GUARD": "{"}, status_input(), "")]
+        for environ, raw, expected in cases:
+            with self.subTest(environ=environ, raw=raw):
+                result = subprocess.run([sys.executable, "-I", "-B", "-S", str(script), "status"], input=raw,
+                                        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **environ},
+                                        capture_output=True, timeout=60)
+                self.assertEqual((result.returncode, result.stderr), (0, b""))
+                self.assertEqual(result.stdout.decode(), f"{len(raw)}\n" if expected is None else expected)
+        self.assertTrue(self.state(good, "seen").is_file())
+        self.assertEqual(self.usage_file(good)["five_hour"], window(42, NOW + 3600))
+        unguarded = self.launch(weekly="10", statusline="echo no; exit 1")
+        self.accounts.chmod(0o755)
+        self.addCleanup(self.accounts.chmod, 0o700)
+        result = subprocess.run([sys.executable, "-I", "-B", "-S", str(script), "status"], input=status_input(),
+                                env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **self.environ(unguarded)},
+                                capture_output=True, timeout=60)
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b"reserve guard not running", b""))
+        self.assertFalse(self.state(unguarded, "seen").exists())
+
+
 class Isolation(unittest.TestCase):
     def test_the_guard_reads_only_its_launch_variable(self):
         source = (ROOT / "lib/coding-agent-kit/guard.py").read_text()

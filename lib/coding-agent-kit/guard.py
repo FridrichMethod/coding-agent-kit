@@ -2,16 +2,17 @@
 
 The launchers inject it per launch, only when a reserve is on: claude-as as the
 command of Claude Code's SessionStart, UserPromptSubmit, PreToolUse and Stop
-hooks, codex-as as the command of Codex's UserPromptSubmit and PreToolUse hooks:
+hooks and as its status line command, codex-as as the command of Codex's
+UserPromptSubmit and PreToolUse hooks:
 
     "$CODING_AGENT_KIT_GUARD_PYTHON" -I -B -S "$CODING_AGENT_KIT_GUARD_SCRIPT" KIND
 
-KIND is start, prompt, tool or stop. One short process per event: it reads the
-event on stdin and the launch from the environment, reads the usage data the
-native already has, decides with reserve.decide() and answers in the native's
-hook contract. It loads reserve.py and accounts.py beside it, and for codex-as
-../codex-as/usage.py, by path; it reads no configuration file and no other
-environment variable: every path comes from the launch.
+KIND is start, prompt, tool, stop or status. One short process per event: it
+reads the event on stdin and the launch from the environment, reads the usage
+data the native already has, decides with reserve.decide() and answers in the
+native's hook contract. It loads reserve.py and accounts.py beside it, and for
+codex-as ../codex-as/usage.py, by path; it reads no configuration file and no
+other environment variable: every path comes from the launch.
 
 The launch (CODING_AGENT_KIT_GUARD, compact JSON the launcher writes):
 
@@ -31,6 +32,7 @@ State files beside the prefix, each created once, owned and 0600:
     STATE.ran.KIND  at each event of KIND: the native runs that hook in this launch
     STATE.reply     Claude, at the first tool or stop event: that moment in epoch
                     seconds (the content counts, never the file's time)
+    STATE.seen      Claude, by the status line: rate limits reached this launch
     STATE.blocked   the latest block message, replaced at each block
     MARKER          Codex, at a tool event: the tool hook has run on this host
 
@@ -61,6 +63,23 @@ Answers, as (exit code, stdout, stderr); a message goes to stderr with one newli
     codex-as prompt, tool  allow (0, "", ""); block (2, "", MESSAGE)
     start, codex-as stop   (0, "", ""): only STATE.ran.KIND
 
+The status line (claude-as, status): Claude Code passes it the rate limits it
+derives from its replies, and no hook input carries them, so the guard is the
+launch's status line. With a valid window (a finite percentage from 0 through
+100 and a whole reset time) it merges the windows into the account's usage file,
+the file and format helpers/statusline.cjs writes ({"five_hour", "seven_day":
+{"used_percentage", "resets_at"} | null, "seen_at"}), through a 0600 temporary
+file and a rename, only in an owned 0700 directory, and then creates STATE.seen.
+A reading never goes back: a stored window that has not reset stays when the
+incoming one has the same reset and a lower percentage, an earlier reset, or is
+absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart. Then it
+runs the user's own status line command (the launch's "statusline") through
+/bin/sh -c with the same input and the caller's environment, and prints its
+output unchanged as the footer: nothing when it fails, prints nothing or runs
+longer than STATUS_TIMEOUT seconds. When the input carries rate limits (the
+session had a reply) and no STATE.ran.* exists, the first footer line is
+WARNING: the native has not run the injected hooks.
+
 Any error on a prompt or tool event (an event that is not a JSON object, a
 launch format, an unwritable state file, a missing module, an exception) is a
 block with reserve.failure_text() and the error's class name, in the block shape
@@ -68,18 +87,22 @@ above. On start, stop and status every error exits 0 without output. A Python
 older than 3.11 blocks with one line on prompt and tool, and is silent elsewhere.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
-handle(kind, raw, env, now) (an event's answer from its raw stdin; never
-raises), main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe results:
-a PreToolUse continue false ends the turn, a Stop one ends it beside another
-Stop hook), BLIND_AFTER (seconds), RECORD_AGAIN (seconds), VARIABLE.
+record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
+footer), handle(kind, raw, env, now) (an event's answer from its raw stdin;
+never raises), main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe
+results: a PreToolUse continue false ends the turn, a Stop one ends it beside
+another Stop hook), BLIND_AFTER, RECORD_AGAIN and STATUS_TIMEOUT (seconds),
+WARNING, VARIABLE.
 """
 
 from dataclasses import dataclass
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import re
+import stat
 import sys
 import time
 
@@ -98,6 +121,10 @@ ACCOUNT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]*")
 LAST = 253402300800  # 10000-01-01 UTC: no calendar time from here on
 LAUNCH_FORMAT = "launch format"
 OK = (0, "", "")
+STATUS_TIMEOUT = 5  # seconds the user's own status line command may take
+WARNING = "reserve guard not running"  # the first footer line after a reply when no hook has run
+USAGE_FILE = re.compile(r"claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json")  # the name the status line helper writes
+STALE = 60  # seconds after which a temporary file of a cancelled status line run is removed
 
 # python3 -I puts no script directory on sys.path: the siblings load by path from
 # the real file, so a guard reached through a link uses the kit it belongs to.
@@ -318,6 +345,130 @@ def codex_view(kind, event, launch):
     return readings, bool(seen) and (seen["accounted"] or kind == "prompt" and seen["responded"])
 
 
+# -- the status line ----------------------------------------------------------------
+
+
+def entry(value):
+    """A rate-limit window as the status line helper keeps one, or None: a finite percentage from 0
+    through 100 and a positive whole reset time before the year 10000."""
+    if not isinstance(value, dict):
+        return None
+    used, resets = value.get("used_percentage"), value.get("resets_at")
+    if type(used) not in (int, float) or not math.isfinite(used) or not 0 <= used <= 100:
+        return None
+    if type(resets) is float and resets.is_integer():
+        resets = int(resets)
+    if type(resets) is not int or not 0 < resets < LAST:
+        return None
+    return {"used_percentage": used, "resets_at": resets}
+
+
+def merge(kept, incoming, now):
+    """The window to store: a reading never goes back while the stored window has not reset."""
+    if kept is None or kept["resets_at"] <= now:
+        return incoming
+    if incoming is None or incoming["resets_at"] < kept["resets_at"]:
+        return kept
+    if incoming["resets_at"] == kept["resets_at"] and incoming["used_percentage"] < kept["used_percentage"]:
+        return kept
+    return incoming
+
+
+def sweep(path, now):
+    """Best effort: remove temporary files of PATH that a cancelled run left more than STALE seconds ago."""
+    prefix = "." + path.name + "."
+    try:
+        names = os.listdir(path.parent)
+    except OSError:
+        return
+    for name in names:
+        if name.startswith(prefix) and name.endswith(".tmp"):
+            try:
+                info = os.lstat(path.parent / name)
+                if stat.S_ISREG(info.st_mode) and now - info.st_mtime > STALE:
+                    os.unlink(path.parent / name)
+            except OSError:
+                pass
+
+
+def record(path, limits, now):
+    """Merge the status line's rate limits into the account's usage file; True when it wrote.
+
+    Nothing is written without a valid window, or when the merged windows equal the stored
+    ones and were stored less than RECORD_AGAIN seconds ago. ValueError (or OSError) when
+    PATH is not an absolute claude-NAME.usage.json in an owned, real 0700 directory, or the
+    write fails."""
+    incoming = {key: entry(limits.get(key)) for key in USAGE_KEYS} if isinstance(limits, dict) else {}
+    if not any(incoming.values()):
+        return False
+    path = Path(path)
+    if not path.is_absolute() or not USAGE_FILE.fullmatch(path.name):
+        raise ValueError(f"{path}: not a Claude usage file")
+    folder = os.lstat(path.parent)
+    if not stat.S_ISDIR(folder.st_mode) or folder.st_uid != os.getuid() or stat.S_IMODE(folder.st_mode) != 0o700:
+        raise ValueError(f"{path.parent}: not an owned, real directory with permissions 0700")
+    old = stored(path) or {}
+    kept = {key: entry(old.get(key)) for key in USAGE_KEYS}
+    merged = {key: merge(kept[key], incoming[key], now) for key in USAGE_KEYS}
+    seen, last = int(now), old.get("seen_at")
+    if merged == kept and type(last) is int and 0 <= seen - last < RECORD_AGAIN:
+        return False
+    sweep(path, now)
+    return module("accounts").write(path, {**merged, "seen_at": seen})
+
+
+def chained(command, raw):
+    """The output of the user's own status line COMMAND given RAW, or "" when it fails, prints
+    nothing or runs longer than STATUS_TIMEOUT seconds (its whole process group is killed)."""
+    if not command:
+        return ""
+    import signal  # only the status line runs a command: the hook events stay light
+    import subprocess
+    try:
+        child = subprocess.Popen(["/bin/sh", "-c", command], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.DEVNULL, process_group=0)
+    except (OSError, ValueError):
+        return ""
+    try:
+        out, _ = child.communicate(raw, timeout=STATUS_TIMEOUT)
+    except Exception:
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        child.wait()
+        child.stdout.close()
+        return ""
+    return out.decode("utf-8", "surrogateescape") if child.returncode == 0 else ""
+
+
+def status(raw, launch, now):
+    """The footer of a Claude Code status line run whose input is RAW (bytes).
+
+    With a valid rate-limit window it records the account's usage (record) and, once that
+    holds the data, creates STATE.seen; when no hook of the launch has run yet, the first
+    line is WARNING. Then the user's own status line command runs on the same input. Never
+    raises and never blocks."""
+    raw = raw if isinstance(raw, bytes) else b""
+    lines = []
+    if launch.tool == "claude-as":
+        try:
+            data = json.loads(raw)
+        except Exception:
+            data = None
+        limits = data.get("rate_limits") if isinstance(data, dict) else None
+        if isinstance(limits, dict) and any(entry(limits.get(key)) for key in USAGE_KEYS):
+            try:
+                record(launch.usage, limits, now)
+                mark(launch.state + ".seen")
+            except Exception:
+                pass
+            if not ran(launch):
+                lines.append(WARNING)
+    footer = chained(launch.statusline, raw)
+    return "\n".join(lines + [footer]) if footer else "\n".join(lines)
+
+
 # -- answers ----------------------------------------------------------------------
 
 
@@ -388,7 +539,10 @@ def handle(kind, raw, env, now):
     if launch is None:
         return OK
     if kind == "status":
-        return OK
+        try:
+            return 0, status(raw, launch, now), ""
+        except Exception:
+            return OK
     if kind not in KINDS:
         return failed(kind, launch.tool, launch.account, "unknown event", launch)
     try:
