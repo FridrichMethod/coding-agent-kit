@@ -65,6 +65,8 @@ GUARD_HOOKS = (
     r'hooks.UserPromptSubmit=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S \"$CODING_AGENT_KIT_GUARD_SCRIPT\" prompt",timeout=20}]}]',
     r'hooks.PreToolUse=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S \"$CODING_AGENT_KIT_GUARD_SCRIPT\" tool",timeout=20}]}]',
 )
+# The [hooks.state] keys of GUARD_HOOKS, by source, event and place; enabled = false there skips a hook.
+HOOK_KEYS = ("/<session-flags>/config.toml:user_prompt_submit:0:0", "/<session-flags>/config.toml:pre_tool_use:0:0")
 # A goal run continues on its own without a prompt, so a denied tool call would repeat without end;
 # a guarded launch turns goals off. --disable checks the feature name, and native Codex applies it after
 # every -c value, root or subcommand, and after --enable. clap keeps one --disable list, which a
@@ -273,6 +275,9 @@ def guarded(config, account, plan, layout):
     if off is not None:
         refuse(account, f"{off} turns the hooks feature off under [features], so Codex would not run the usage "
                         "reserve guard's hooks")
+    off = storage.hook_off(guard, layout.root, HOOK_KEYS, plan.profile)
+    if off is not None:
+        refuse(account, f"{off} turns a usage reserve guard hook off under [hooks.state], so Codex would not run it")
     managed = storage.goals_on(guard)
     if managed is not None:
         refuse(account, f"{managed} sets goals under [features], which native Codex applies over the goals off of a "

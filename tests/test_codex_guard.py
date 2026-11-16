@@ -1,7 +1,8 @@
 """codex-as with usage reserves: launch forms, refused options, hook settings and the guarded launch.
 
-LaunchForms, Version and HooksOff run check.arguments() and layout.hooks_off()
-in process against a temporary HOME, Codex home and working directory. Hooks
+LaunchForms, Version, HooksOff, HookState and ManagedGoals run
+check.arguments() and layout's hooks_off(), hook_off() and goals_on() in
+process against a temporary HOME, Codex home and working directory. Hooks
 pins the hook definitions in process. GuardedLaunch runs codex-as from a kit
 copy under a path with a space and a quote, in a temporary HOME, against a
 fake codex that records its argv and environment, writes rollouts as native
@@ -335,6 +336,44 @@ class ManagedGoals(Fixture):
         self.assertIsNone(layout.goals_on(check))
 
 
+class HookState(Fixture):
+    """enabled under [hooks.state."KEY"] of the shared config.toml or the selected profile's file, for the
+    key of one of the guard's hooks, set to anything but true: native Codex skips that hook even when it
+    is trusted or its trust is bypassed (measured with codex-cli 0.169.0)."""
+
+    KEYS = ("/<session-flags>/config.toml:user_prompt_submit:0:0", "/<session-flags>/config.toml:pre_tool_use:0:0")
+
+    def off(self, profile=None):
+        return layout.hook_off(check, self.root, self.KEYS, profile)
+
+    def test_the_shared_file(self):
+        path = self.root / "config.toml"
+        self.assertIsNone(self.off(), "no config.toml")
+        for key in self.KEYS:
+            for text, off in (('enabled = false\n', True), ('enabled = "false"\n', True), ("enabled = 0\n", True),
+                              ("enabled = true\n", False), ('trusted_hash = "sha256:00"\n', False),
+                              ('trusted_hash = "sha256:00"\nenabled = false\n', True)):
+                with self.subTest(key=key, text=text):
+                    path.write_text(f"[hooks.state.{json.dumps(key)}]\n{text}")
+                    self.assertEqual(self.off(), path if off else None)
+                    self.assertEqual(self.off("p"), path if off else None, "a profile layers on the shared file")
+        for text in ('[hooks.state."/<session-flags>/config.toml:pre_tool_use:2:0"]\nenabled = false\n',
+                     '[hooks.state."/<session-flags>/config.toml:stop:0:0"]\nenabled = false\n',
+                     "[features]\nhooks = true\n", 'hooks = "x"\n', '[hooks]\nstate = "x"\n',
+                     f'[hooks]\nstate = {{ {json.dumps(self.KEYS[0])} = "x" }}\n'):
+            with self.subTest(text=text):
+                path.write_text(text)
+                self.assertIsNone(self.off())
+
+    def test_the_selected_profile(self):
+        (self.root / "config.toml").write_text(f"[hooks.state.{json.dumps(self.KEYS[1])}]\nenabled = true\n")
+        profile = self.root / "p.config.toml"
+        profile.write_text(f"[hooks.state.{json.dumps(self.KEYS[1])}]\nenabled = false\n")
+        self.assertEqual(self.off("p"), profile)
+        self.assertIsNone(self.off(), "another profile's file is not loaded")
+        self.assertIsNone(self.off("q"))
+
+
 # The two hook values, as settled for every release: a change asks every host to trust the hooks again.
 PROMPT_HOOK = (r'hooks.UserPromptSubmit=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S '
                r'\"$CODING_AGENT_KIT_GUARD_SCRIPT\" prompt",timeout=20}]}]')
@@ -370,6 +409,7 @@ class Hooks(unittest.TestCase):
                 event = re.sub(r"(?<!^)(?=[A-Z])", "_", name.removeprefix("hooks.")).lower()
                 self.assertEqual(key, f"/<session-flags>/config.toml:{event}:0:0")
                 self.assertRegex(digest, r"^sha256:[0-9a-f]{64}$")
+                self.assertIn(key, launch.HOOK_KEYS)
                 command = f'"$CODING_AGENT_KIT_GUARD_PYTHON" -I -B -S "$CODING_AGENT_KIT_GUARD_SCRIPT" {kind}'
                 self.assertEqual(tomllib.loads("v = " + raw)["v"],
                                  [{"hooks": [{"type": "command", "command": command, "timeout": 20}]}])
@@ -676,6 +716,28 @@ class GuardedLaunch(unittest.TestCase):
         project.unlink()
         result = self.run_codex("--reserve-weekly", "10", "A", "-p", "q", "go")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_a_guard_hook_turned_off_under_hooks_state_is_refused(self):
+        self.trusted()
+        message = "{path} turns a usage reserve guard hook off under [hooks.state], so Codex would not run it"
+        shared = self.root / "config.toml"
+        for key in TRUST_RECORDS:
+            with self.subTest(key=key):
+                shared.write_text(f'model = "fixture-model"\n[hooks.state.{json.dumps(key)}]\n'
+                                  f'trusted_hash = {json.dumps(TRUST_RECORDS[key])}\nenabled = false\n')
+                self.refused(["A"], message.format(path=shared))
+                self.refused(["A", "exec", "go"], message.format(path=shared))
+        shared.write_text('model = "fixture-model"\n')
+        profile = self.root / "q.config.toml"
+        profile.write_text(f'[hooks.state.{json.dumps(list(TRUST_RECORDS)[1])}]\nenabled = false\n')
+        self.refused(["A", "-p", "q", "exec", "go"], message.format(path=profile))
+        for args in ((), ("-p", "r")):
+            with self.subTest(args=args):
+                result = self.run_codex("--reserve-weekly", "10", "A", *args, "exec", "go")
+                self.assertEqual(result.returncode, 0, result.stderr)
+        # Without a reserve, Codex's own settings are not read.
+        result = self.run_codex("A", "-p", "q", "exec", "go")
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
 
     def test_goals_on_in_a_managed_layer_are_refused(self):
         """The kit copy's managed layers lie in the test's directory: /etc is never written."""

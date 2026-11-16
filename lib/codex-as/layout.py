@@ -104,6 +104,23 @@ def hooks_off(guard, root, cwd, profile=None):
     return None
 
 
+def hook_off(guard, root, keys, profile=None):
+    """The first of the shared config.toml and the selected profile's file whose [hooks.state] entry
+    for one of KEYS sets enabled to anything but true, or None: native Codex skips such a hook,
+    trusted or not. Only enabled is read, never a trust record."""
+    paths = [root / "config.toml", *([root / (profile + ".config.toml")] if profile is not None else [])]
+    for path in paths:
+        if path.exists():
+            with path.open("rb") as stream:
+                hooks = guard.tomllib.load(stream).get("hooks")
+            state = hooks.get("state") if isinstance(hooks, dict) else None
+            for key in keys:
+                entry = state.get(key) if isinstance(state, dict) else None
+                if isinstance(entry, dict) and "enabled" in entry and entry["enabled"] is not True:
+                    return path
+    return None
+
+
 def goals_on(guard):
     """The first managed layer that sets goals under [features] to anything but false, or None: it
     would keep goals on over the -c value and the flag that turn them off. The shared, profile,
