@@ -80,14 +80,14 @@ change is read, merged and written under the lock .NAME.lock beside the file
 (created O_EXCL; one more than LOCK_STALE seconds off the clock is a cancelled
 run's and is removed), so two launches of one account never lose the newer
 reading; when another writer holds it LOCK_WAIT seconds the run records
-nothing and creates no STATE.seen. Then it
-runs the user's own status line command (the launch's "statusline") through
-/bin/sh -c with the same input and the caller's environment, and prints its
-output unchanged as the footer: nothing when it fails, prints nothing or runs
-longer than STATUS_TIMEOUT seconds; a run cancelled by SIGTERM, SIGHUP or
-SIGINT kills the command's process group first. When the input carries rate
-limits (the session had a reply) and no STATE.ran.* exists, the first footer
-line is WARNING: the native has not run the injected hooks.
+nothing and creates no STATE.seen. Then it runs the user's own status line
+command (the launch's "statusline") through /bin/sh -c with the same input and
+the caller's environment, and prints its output unchanged as the footer:
+nothing when it fails, prints nothing or runs longer than STATUS_TIMEOUT
+seconds; a run cancelled by SIGTERM, SIGHUP or SIGINT kills the command's
+process group first. When the input carries rate limits (the session had a
+reply) and no STATE.ran.* exists, the first footer line is WARNING: the native
+has not run the injected hooks.
 
 Any error on a prompt or tool event (an event that is not a JSON object, a
 launch format, an unwritable state file, a missing module, an exception) is a

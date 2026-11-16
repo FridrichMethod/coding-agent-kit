@@ -44,11 +44,11 @@ Decision (the same for both natives; the caller gathers the readings):
         whose reset time is None or after NOW (wall-clock epoch seconds); usage
         never falls inside a window, so a reading stays current until its reset
         however old it is. The most used one decides: the window is at its
-        reserve when used + reserve >= 100, compared exactly. Any window at its reserve blocks with reason
-        "threshold" (blind or not); else BLIND blocks with reason "blind"; else
-        the decision allows. A window without a current reading has nothing to
-        check. ValueError when NOW is not a number or a reserve is not one that
-        checked() accepts.
+        reserve when used + reserve >= 100, compared exactly. Any window at its
+        reserve blocks with reason "threshold" (blind or not); else BLIND blocks
+        with reason "blind"; else the decision allows. A window without a
+        current reading has nothing to check. ValueError when NOW is not a
+        number or a reserve is not one that checked() accepts.
     Reading(window, used, resets_at, family=None): one window's reading.
     WindowStatus(window, reserve, status, remaining, resets_at, family=None):
         status is OK or AT_RESERVE; remaining is 100 - used, rounded down.
