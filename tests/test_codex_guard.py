@@ -983,23 +983,45 @@ def write(path, text, mode=0o600):
     path.chmod(mode)
 
 
+# The git the shim passes local commands to: a system one, never a wrapper the caller's PATH finds first.
+SYSTEM_GIT = ("/usr/bin/git", "/usr/local/bin/git")
+
+
+def interpreter(path):
+    """The interpreter a script's #! line names through env (node for an npm install of codex), or None."""
+    try:
+        with open(path, "rb") as stream:
+            line = stream.readline(256)
+    except OSError:
+        return None
+    words = line[2:].decode("utf-8", "replace").split() if line.startswith(b"#!") else []
+    return words[1] if len(words) == 2 and os.path.basename(words[0]) == "env" else None
+
+
 class Sandbox:
     """A Codex that reaches nothing of this host's user: a temporary HOME and CODEX_HOME, an environment
     built from scratch, git and ssh shims first on PATH, every proxy at a closed loopback port (Codex
-    runs git ls-remote for its plugin marketplace at every start) and no session bus.
-    The model provider is the loopback fake; nothing holds a credential."""
+    runs git ls-remote for its plugin marketplace at every start) and no session bus. PATH holds the
+    system directories and a directory of the sandbox's own with a link to CODEX (and to the
+    interpreter its #! line names, for a codex that is a node script), never the directory codex was
+    found in. The model provider is the loopback fake; nothing holds a credential."""
 
-    def __init__(self, base, bindir):
-        self.base, self.bindir = base, bindir
-        self.home, self.work, self.shims = base / "home", base / "work", base / "shims"
+    def __init__(self, base, codex):
+        self.base = base
+        self.home, self.work, self.shims, self.bin = base / "home", base / "work", base / "shims", base / "bin"
         self.codex_home = self.home / ".codex"
-        for path in (self.codex_home, self.work, self.shims, base / "tmp", base / "run",
+        for path in (self.codex_home, self.work, self.shims, self.bin, base / "tmp", base / "run",
                      *(base / "xdg" / name for name in ("config", "cache", "data", "state"))):
             path.mkdir(parents=True, mode=0o700, exist_ok=True)
+        (self.bin / "codex").symlink_to(codex)
+        name = interpreter(codex)
+        found = shutil.which(name) if name else None
+        if found:
+            (self.bin / name).symlink_to(os.path.realpath(found))
         self.netlog = base / "net.log"
         self.netlog.touch()
         log = shlex.quote(str(self.netlog))
-        real = shutil.which("git")
+        real = next((path for path in SYSTEM_GIT if os.access(path, os.X_OK)), None)
         write(self.shims / "git", GIT_SHIM.format(log=log, refused="|".join(REFUSED_GIT),
                                                   real=f"exec {shlex.quote(real)} \"$@\"" if real else "exit 127"), 0o700)
         for name in ("ssh", "scp", "sftp"):
@@ -1017,7 +1039,7 @@ class Sandbox:
 
     def env(self):
         closed = "http://%s:%d" % CLOSED_PORT
-        return {"PATH": f"{self.shims}:/usr/local/bin:/usr/bin:/bin:{self.bindir}", "HOME": str(self.home),
+        return {"PATH": f"{self.shims}:/usr/local/bin:/usr/bin:/bin:{self.bin}", "HOME": str(self.home),
                 "LANG": "C.UTF-8", "TERM": "dumb", "SHELL": "/bin/sh", "TMPDIR": str(self.base / "tmp"),
                 "XDG_RUNTIME_DIR": str(self.base / "run"),
                 **{f"XDG_{name.upper()}_HOME": str(self.base / "xdg" / name) for name in ("config", "cache", "data", "state")},
@@ -1069,6 +1091,30 @@ def load_kit_module(kit, name):
     return module
 
 
+class SandboxPath(unittest.TestCase):
+    """What the real Codex's sandbox puts on PATH, with fakes for codex and node."""
+
+    def test_only_codex_and_its_interpreter_join_the_system_directories(self):
+        with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
+            base = Path(temp).resolve()
+            tools = base / "user bin"
+            tools.mkdir()
+            for name, text in (("codex", "#!/usr/bin/env node\n"), ("node", "#!/bin/sh\n"), ("git", "#!/bin/sh\n"),
+                               ("binary", "\x7fELF")):
+                write(tools / name, text, 0o700)
+            with patch.dict(os.environ, {"PATH": f"{tools}:/usr/bin:/bin"}):
+                sandbox = Sandbox(base / "script", tools / "codex")
+                plain = Sandbox(base / "binary", tools / "binary")
+            directories = sandbox.env()["PATH"].split(":")
+            self.assertEqual(directories, [str(sandbox.shims), "/usr/local/bin", "/usr/bin", "/bin", str(sandbox.bin)])
+            self.assertEqual(sorted(os.listdir(sandbox.bin)), ["codex", "node"])
+            self.assertEqual(os.readlink(sandbox.bin / "node"), str(tools / "node"))
+            self.assertEqual(os.listdir(plain.bin), ["codex"])
+            shim = (sandbox.shims / "git").read_text()
+            self.assertNotIn(str(tools), shim, "the git shim runs the caller's git")
+            self.assertRegex(shim, r"(?m)^(exec /usr(/local)?/bin/git \"\$@\"|exit 127)$")
+
+
 class RealCodex(unittest.TestCase):
     """The guard's hook contract against the real Codex, offline: the two hook values and goals off as
     codex-as passes them, a launch as codex-as exports it, and a loopback fake of the Responses API that
@@ -1087,10 +1133,9 @@ class RealCodex(unittest.TestCase):
             pass
         else:
             raise unittest.SkipTest("127.0.0.1:9 accepts connections, so it cannot stand in for a closed proxy")
-        # The directory codex was found in goes last on PATH, for an install whose codex is a node script.
-        cls.codex, cls.bindir = os.path.realpath(found), os.path.dirname(os.path.abspath(found))
+        cls.codex = os.path.realpath(found)
         with tempfile.TemporaryDirectory(prefix="codex-guard-real-version-") as base:
-            sandbox = Sandbox(Path(base).resolve(), cls.bindir)
+            sandbox = Sandbox(Path(base).resolve(), cls.codex)
             code, out, _ = sandbox.run(cls.codex, ["--version"], sandbox.env(), timeout=60)
             sandbox.strays()
             if code:
@@ -1108,7 +1153,7 @@ class RealCodex(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory(prefix="codex-guard-real-")
         self.addCleanup(tmp.cleanup)
         base = Path(tmp.name).resolve()
-        self.sandbox = Sandbox(base, self.bindir)
+        self.sandbox = Sandbox(base, self.codex)
         # The guard runs from a kit whose path needs quoting, through the shell Codex runs hooks with.
         self.kit = base / "kit o'clock dir"
         shutil.copytree(ROOT / "lib", self.kit / "lib")
