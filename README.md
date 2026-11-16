@@ -36,18 +36,8 @@ your own with `install.sh`, or link or copy its files.
   versions fall back to an explicit manual paste.
 - Node.js 22 or newer for the helpers; Git is optional for the status line.
 - Optional: bash-completion or zsh for account-name completion.
-- Usage reserves (protected mode) need more, and refuse to start without it:
-  Linux on x86_64 with Landlock ABI 6 or newer and seccomp (not WSL), or
-  macOS 27.2 or newer on Apple silicon with `/usr/bin/sandbox-exec` and a
-  boundary self-test that passes; an interactive terminal; the launcher's
-  `python3`, the kit and the native outside every path the session can
-  write, with no empty, relative or session-writable `PATH` entry before the
-  one that supplies `python3` or the native; and codex-cli 0.167.2 or newer
-  with a saved login and the databases a first unprotected prompt creates,
-  or Claude Code 2.1.322 or newer with a Pro or Max account enrolled through
-  native login. These are minimums, with no upper limit: what a newer
-  release adds that the kit has not reviewed is refused or paused, never
-  let through. Nothing is installed for it.
+- Usage reserves need codex-cli 0.169.0 or newer for `codex-as` and Claude
+  Code 2.1.325 or newer for `claude-as`, with no upper limit.
 
 ## Install
 
@@ -287,8 +277,7 @@ codex-as -l                           # account names, what completion offers (-
 codex-as -i work                      # last-seen email, plan and usage, offline (--info)
 claude-as --label personal "me@example.com"
 claude-as --show-config               # configuration in effect
-codex-as --reserve-5h 10 --reserve-weekly 40 work   # pause before the limits run out
-claude-as --enroll-native personal    # Claude Code's own login, for reserves
+codex-as --reserve-5h 10 --reserve-weekly 40 work   # keep 10% and 40% of the limits unused
 codex-as -h                           # help (--help)
 codex-as -V                           # the kit's version and install form (--version, -v)
 ```
@@ -327,18 +316,9 @@ codex-as -V                           # the kit's version and install form (--ve
   unused: `--reserve-5h V` and `--reserve-weekly V` before `NAME`, or the
   `[usage_reserve]` tables of the configuration file, each window on its own
   (`V` from 0 through 100, or `off`; off by default). With a reserve on, the
-  interactive TUI runs in protected mode: inside an OS boundary whose only
-  intended network exit is a local request gate (on Linux the boundary
-  limits the gate's port number, not its address), which pauses model work
-  when a window falls to its reserve, or when it cannot tell, until you
-  press F12, type the code shown and a fresh quota check passes. It costs the session its other
-  network access, and more; [usage reserves](docs/account-launchers.md#usage-reserves)
-  lists every requirement, cost and refusal. With both windows off a launch
-  is unchanged.
-- `claude-as --enroll-native NAME` enrolls a Claude account with Claude
-  Code's own login, kept and refreshed by Claude Code in its own
-  configuration directory; reserves need it. Select it with
-  `[claude_auth.accounts.NAME] mode = "native-login"`.
+  native CLI's own hooks refuse new prompts and tool calls at the reserve
+  ([usage reserves](docs/account-launchers.md#usage-reserves)). With both
+  windows off a launch is unchanged.
 - Each launcher keeps a small metadata cache per account in
   `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/`: the Codex
   email and plan from the account's token and the last rate limits a run saw
@@ -349,11 +329,10 @@ codex-as -V                           # the kit's version and install form (--ve
   transcripts; no token is ever stored there.
 
 [docs/account-launchers.md](docs/account-launchers.md) covers the account
-layout, adding accounts, usage reserves and protected mode, Claude native
-login, completion, safety boundaries and manual repair;
-[docs/codex-as.md](docs/codex-as.md) the Codex argument rules, daemon
-takeover, version compatibility, protected Codex and the remaining
-differences from native Codex.
+layout, adding accounts, usage reserves, completion, safety boundaries and
+manual repair; [docs/codex-as.md](docs/codex-as.md) the Codex argument
+rules, daemon takeover, version compatibility and the remaining differences
+from native Codex.
 
 ## Configuration
 
@@ -369,10 +348,8 @@ codex_home = "~/.codex"    # accounts live in codex_home/accounts
 secrets_dir = "~/.secrets"
 ```
 
-Two optional tables add behavior: `[usage_reserve]` (usage reserves, global
-and per account) and `[claude_auth]` (the Claude login mode of each
-account); reserves need kit 0.8.0 or newer, and an older kit ignores them
-with a warning.
+One optional table adds behavior: `[usage_reserve]` (usage reserves, global
+and per account); a kit older than 0.8.0 ignores it with a warning.
 
 The file, and the directories and symlinks on its way, must be owned by you
 (or root) and not writable by others; unknown keys only warn. Choose `codex_home` and `secrets_dir` before the first
@@ -422,15 +399,6 @@ pre-commit run --all-files
   the native Codex sharing checks, and without GNU Stow the folded Stow cases
   of `standalone-e2e.sh`, and says so; as root it skips the read-only
   directory cases.
-- The protected-mode suites (`sandbox.sh`, `gate.sh`, `supervise.sh`,
-  `codex-reserve.sh`, `claude-reserve.sh`) run whole launches on a PTY inside
-  the real OS boundary where the host has it, and skip those cases with the
-  reason in their output where it does not (a hosted Linux runner's kernel
-  may lack Landlock ABI 6). With codex-cli 0.167.2 or newer as
-  `KIT_REAL_CODEX=/path/to/codex` or on `PATH`, and Claude Code 2.1.322 or
-  newer as `KIT_REAL_CLAUDE=/path/to/claude` or on `PATH` (Linux only), they
-  also run the real natives against local fixtures. They take a few
-  minutes in all; their pre-commit hooks run only when their sources change.
 - Every suite runs in a temporary HOME with fake CLIs and fictitious
   credentials, reaches no network beyond local fixtures, and first unsets
   `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`,

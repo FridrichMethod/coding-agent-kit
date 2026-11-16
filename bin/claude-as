@@ -105,8 +105,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         '  -i, --info NAME: its label and the last usage its status line saw (offline, no token read);' \
         '  --label NAME [LABEL]: sets or clears a label; -h, --help: this help;' \
         '  -V, -v, --version: the kit version (NAME --version prints the Claude Code version).' \
-        'Usage reserves, before NAME: --reserve-5h V, --reserve-weekly V (V 0-100 or off) keep V% of' \
-        '  the 5-hour or weekly limit; they need a native-login account and start protected mode.' \
+        'Usage reserves, before NAME: --reserve-5h V, --reserve-weekly V (V 0-100 or off) keep V% of the' \
+        '  5-hour or weekly limit unused: hooks refuse new prompts and tool calls at the reserve.' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_claude_as_docs"
     [ "$#" -gt 0 ] && exit 0
@@ -123,6 +123,5 @@ if [ ! -r "$_claude_as_root/lib/claude-as/launch.py" ]; then
     exit 1
 fi
 # -S: no site-packages or .pth file of the python3 found on PATH (a workspace virtual
-# environment, which a protected session can write) runs in the launcher; the kit needs
-# only the standard library.
+# environment's, for example) runs in the launcher; the kit needs only the standard library.
 exec python3 -I -B -S "$_claude_as_root/lib/claude-as/launch.py" "$@"

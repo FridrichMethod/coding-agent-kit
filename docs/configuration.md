@@ -1,11 +1,10 @@
 # Configuration
 
 `codex-as` and `claude-as` read one optional TOML file. Without it they use
-the defaults below. Its top-level keys move paths and name executables. Two
-tables add opt-in behavior: [usage reserves](#usage-reserves)
-(`[usage_reserve]`) and the [Claude login mode](#claude-login-mode)
-(`[claude_auth]`). A file whose reserves all resolve off and whose Claude
-accounts all use `setup-token` launches exactly as no file.
+the defaults below. Its top-level keys move paths and name executables. One
+table adds opt-in behavior: [usage reserves](#usage-reserves)
+(`[usage_reserve]`). A file whose reserves all resolve off launches exactly
+as no file.
 
 `lib/coding-agent-kit/config.py` is the only code that reads it, and the only
 launcher or completion code that reads `HOME`. Each run loads it once, after
@@ -55,9 +54,9 @@ secrets_dir = "~/.secrets"
 
 This file, with the defaults written out, behaves exactly like no file. Put
 the keys before any `[table]` header: TOML assigns the keys that follow a
-header to that table. Any table but `[usage_reserve]` and `[claude_auth]`
-counts as one unknown key, and the keys in it are not read; a key that lands
-in one of those two tables by mistake is an unknown key there.
+header to that table. Any table but `[usage_reserve]` counts as one unknown
+key, and the keys in it are not read; a key that lands in `[usage_reserve]`
+by mistake is an unknown key there.
 
 | Key | Default | Used by | Value |
 | --- | --- | --- | --- |
@@ -84,12 +83,6 @@ Rules for every key:
   the launcher runs.
 - Anything else must be an absolute path or start with `~/`. The path names
   one executable file; it is not a command line and takes no arguments.
-- A launch with a usage reserve on refuses an executable, or its `#!`
-  interpreter, that lies inside a path the protected session can write, and
-  for a bare name an empty, relative or boundary-writable `PATH` entry
-  searched before the one that supplies it; see [protected mode requirements](account-launchers.md#protected-mode-requirements).
-  It also needs the executable at protected mode's minimum release or newer
-  (codex-cli 0.167.2, Claude Code 2.1.322), with no upper bound.
 
 `codex_home` and `secrets_dir`:
 
@@ -123,18 +116,15 @@ Rules for every key:
 
 An unknown key prints a warning and the run continues, so a file written for
 a newer kit still works with an older one. `python3` is always found on
-`PATH`; the interpreter is not configurable. A protected launch checks where
-it comes from and the `PATH` entries searched for it (see
-[what protected mode costs](account-launchers.md#what-protected-mode-costs)).
+`PATH`; the interpreter is not configurable.
 
 ## Usage reserves
 
 A usage reserve keeps a percentage of an account's 5-hour or weekly limit
-unused: a launch with a reserve on runs the native CLI in protected mode,
-which pauses model work when the remaining percentage of either window falls
-to its reserve. The [account launchers](account-launchers.md#usage-reserves)
-documentation describes protected mode, what it supports and what it costs.
-The two windows are set and resolved separately, never combined:
+unused: with a reserve on, the native CLI's own hooks refuse new prompts and
+tool calls once a window is at or below its reserve (see
+[account launchers](account-launchers.md#usage-reserves)). The two windows
+are set and resolved separately, never combined:
 
 ```toml
 [usage_reserve]
@@ -163,50 +153,18 @@ five_hour = "off"
   the invocation's `--reserve-5h` or `--reserve-weekly` flag, then the
   account's table, then `[usage_reserve]`, then off. A missing field
   inherits; an explicit `"off"` turns the window off even when a broader
-  layer sets a percentage. A window that is off neither refuses nor pauses
-  a protected launch, also when Codex reports it at its limit. The flags
-  change only that launch and are never written anywhere.
-- 0 is an enabled reserve that pauses at exhaustion; 100 never lets model
-  work start. With both windows off the launch is unchanged.
+  layer sets a percentage. The flags change only that launch and are never
+  written anywhere.
+- 0 is an enabled reserve. With both windows off the launch is unchanged.
 
 With the file above, `codex-as --reserve-5h 10 borrowed` resolves to a 5-hour
 reserve of 10% (the flag) and a weekly one of 40% (the account table), and a
 plain `codex-as borrowed` to 20% and 40%. `claude-as borrowed` resolves to
 5-hour off and weekly 30%.
 
-Reserves need coding-agent-kit 0.8.0 or newer. An older release does not
-know these tables: it warns `unknown key usage_reserve ignored` and launches
-without any protection, so a shared file does not protect a host with an
-older kit. It also ignores `[claude_auth]` and treats every Claude account
-as a `setup-token` one.
-
-## Claude login mode
-
-Each Claude account uses a `claude setup-token` token by default. An account
-can instead use Claude Code's own login, which usage reserves need:
-
-```toml
-[claude_auth.accounts.personal]
-mode = "native-login"
-```
-
-- `mode` is `"setup-token"` (the default, also when the field, the account
-  table or `[claude_auth]` is missing) or `"native-login"`. `NAME` follows the
-  account-name rule. For `mode = "native-login"`, `NAME` has at most 64
-  characters.
-- A `native-login` account keeps Claude Code's login in its own fixed
-  configuration directory, `<secrets_dir>/native-claude-accounts/NAME/config`,
-  which `claude-as` passes as `CLAUDE_CONFIG_DIR`, next to its registration
-  `<secrets_dir>/native-claude-accounts/NAME/account.json`. The location is
-  not configurable. `claude-as --enroll-native NAME` creates both (see
-  [native login](account-launchers.md#claude-native-login)); the registration
-  records the directory, so moving `secrets_dir` later needs a new
-  enrollment.
-- Setting the mode changes no files. A `native-login` account that is not
-  enrolled refuses to launch with the enrollment command. An account switched
-  back to `setup-token` uses its `<secrets_dir>/claude-NAME` token when it
-  has one; an enrolled native account without one is refused with the
-  setting that selects it, and is never offered a setup-token.
+A release older than 0.8.0 does not know `[usage_reserve]`: it warns
+`unknown key usage_reserve ignored` and launches without reserves, so a
+shared file keeps no reserve on a host with an older kit.
 
 ## File permissions
 
@@ -286,9 +244,9 @@ TOOL: FILE: unknown key KEY ignored
 ```
 
 A key that is not a bare TOML key is shown JSON-quoted, for example
-`unknown key "a b" ignored`. A key inside `[usage_reserve]` or
-`[claude_auth]` is shown dotted, each part that is not bare JSON-quoted, for
-example `unknown key usage_reserve.codex_accounts.work."five hour" ignored`.
+`unknown key "a b" ignored`. A key inside `[usage_reserve]` is shown
+dotted, each part that is not bare JSON-quoted, for example
+`unknown key usage_reserve.codex_accounts.work."five hour" ignored`.
 
 Errors, exit 1, nothing launched:
 
@@ -323,7 +281,6 @@ TOOL: FILE: secrets_dir: must differ from the account metadata directory DIR.
 TOOL: FILE: TABLE: must be a table.
 TOOL: FILE: KEY: must be a number from 0 through 100, or "off".
 TOOL: FILE: TABLE: invalid account name (ASCII letters, digits, _ or -; no leading -).
-TOOL: FILE: claude_auth.accounts.NAME.mode: must be "setup-token" or "native-login".
 ```
 
 A syntax error at the very end reads `invalid TOML at end of document.`, and
@@ -334,10 +291,10 @@ itself, the second a directory on the way to it. The `directory` form names
 the directory and one of the file's reasons (`owned by another user.`,
 `writable by other users.` or one of the two `group-writable` ones), and
 `cannot be checked` a directory or ACL that could not be read. In the
-reserve and login-mode errors `TABLE` and `KEY` are dotted as in the warning:
-`TABLE` is `usage_reserve`, `usage_reserve.codex_accounts`,
-`usage_reserve.claude_accounts`, `claude_auth`, `claude_auth.accounts`, or one
-account's table below them, and `KEY` names the field, for example
+reserve errors `TABLE` and `KEY` are dotted as in the warning: `TABLE` is
+`usage_reserve`, `usage_reserve.codex_accounts`,
+`usage_reserve.claude_accounts`, or one account's table below them, and
+`KEY` names the field, for example
 `usage_reserve.codex_accounts.work.weekly`. The invalid account name itself
 is never printed.
 
@@ -400,8 +357,7 @@ secrets_dir = /home/u/.secrets
   `not found on PATH` for a bare name, or `not an executable file` for a
   configured path that is missing or not executable.
 - Paths are shown expanded and normalized, exactly as the launchers use them.
-- Reserves and Claude login modes are not shown; a protected launch prints
-  the reserves in effect and where each comes from when it starts.
+- Reserves are not shown.
 - Warnings go to stderr first. An invalid file prints its error and exits 1.
 
 `TOOL --list` prints one account name per line, sorted, from
