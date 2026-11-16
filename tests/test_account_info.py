@@ -377,6 +377,327 @@ class CodexUsage(unittest.TestCase):
         self.assertEqual(self.latest()["primary"]["used_percent"], 41.0)
 
 
+def line(when, kind, payload=None, inherited=False):
+    """One rollout line as native Codex writes it; INHERITED marks a sub-agent's copy of its parent's history."""
+    record = {"timestamp": iso(when), "type": kind, "payload": {} if payload is None else payload}
+    if inherited:
+        record["metadata"] = {"inherited_user_message": True}
+    return record
+
+
+def count(when, rate="absent"):
+    """A token_count event; RATE is its rate_limits object, None, or "absent" for no such key."""
+    payload = {"type": "token_count", "info": {"total_token_usage": {}}}
+    if rate != "absent":
+        payload["rate_limits"] = rate
+    return line(when, "event_msg", payload)
+
+
+def item(when, kind, inherited=False, **fields):
+    return line(when, "response_item", {"type": kind, **fields}, inherited)
+
+
+def call(when, name="exec_command", namespace=None, inherited=False):
+    fields = {"name": name, "arguments": "{}", "call_id": "call_1"}
+    if namespace is not None:
+        fields["namespace"] = namespace
+    return item(when, "function_call", inherited, **fields)
+
+
+def slot(used, minutes, resets=NOW + 3600):
+    return {"used_percent": used, "window_minutes": minutes, "resets_at": resets}
+
+
+def compaction(when):
+    """What Codex writes for a compaction before a turn: compacted, turn_context, then a token_count without limits."""
+    return [line(when, "compacted", {"message": "", "replacement_history": []}),
+            line(when, "turn_context", {"cwd": "/", "model": "m"}), count(when)]
+
+
+EMPTY = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False}
+
+
+class SessionRollout(unittest.TestCase):
+    """usage.session: what one session's rollout shows since a launch started, for the reserve guard."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-session-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.files = 0
+
+    def write(self, records, last="\n", meta=None):
+        """A rollout of RECORDS after its session_meta line; LAST ends the final line."""
+        self.files += 1
+        path = self.root / f"rollout-{self.files}.jsonl"
+        payload = {"id": THREAD, "timestamp": iso(NOW - 3600), "cwd": "/", "cli_version": "0.169.0", **(meta or {})}
+        lines = [json.dumps(record) for record in [line(NOW - 3600, "session_meta", payload), *records]]
+        path.write_text("\n".join(lines) + last)
+        return path
+
+    def session(self, records, last="\n"):
+        return usage.session(self.write(records, last), NOW)
+
+    def test_nothing_since_the_start_shows_nothing(self):
+        before = NOW - usage.SLACK - 1
+        self.assertEqual(self.session([]), EMPTY)
+        self.assertEqual(self.session([count(before, limits(99.0)), count(before), item(before, "reasoning"),
+                                       call(before), line(before, "token_usage_record", {})]), EMPTY)
+        # The slack before the start counts, for clocks that tick between the launcher and Codex.
+        self.assertTrue(self.session([count(NOW - usage.SLACK)])["accounted"])
+
+    def test_a_token_count_without_a_usable_window_is_accounted_but_no_snapshot(self):
+        both_null = {"limit_id": "codex", "limit_name": None, "primary": None, "secondary": None, "credits": None}
+        zero = dict(both_null, primary=slot(5.0, 0))
+        for rate in ("absent", None, both_null, zero, {"limit_id": "codex", "primary": {"used_percent": "high"}}, []):
+            with self.subTest(rate=rate):
+                self.assertEqual(self.session([count(NOW + 1, rate)]), dict(EMPTY, accounted=True))
+
+    def test_the_newest_snapshot_wins_with_its_time(self):
+        found = self.session([count(NOW + 1, limits(10.0, 30.0)), count(NOW + 2, limits(20.0)), count(NOW + 3)])
+        self.assertEqual(found, dict(EMPTY, accounted=True, snapshot={
+            "primary": {"used_percent": 20.0, "window_minutes": 300, "resets_at": NOW + 3600},
+            "secondary": None, "seen_at": NOW + 2}))
+
+    def test_each_slot_is_read_on_its_own(self):
+        # window_minutes 0 occurs: the line still counts by its other slot, and slots are kept as found.
+        rate = dict(limits(None), primary=slot(40.0, 0), secondary=slot(60.0, 10080))
+        snapshot = self.session([count(NOW + 1, rate)])["snapshot"]
+        self.assertEqual(snapshot, {"primary": None, "secondary": slot(60.0, 10080), "seen_at": NOW + 1})
+        weekly_first = dict(limits(None), primary=slot(70.0, 10080))
+        self.assertEqual(self.session([count(NOW + 1, weekly_first)])["snapshot"]["primary"], slot(70.0, 10080))
+        # A later line whose only window is unusable leaves the earlier snapshot in place.
+        later = dict(limits(None), primary=slot(99.0, 0))
+        found = self.session([count(NOW + 1, limits(15.0)), count(NOW + 2, later)])
+        self.assertEqual((found["snapshot"]["primary"]["used_percent"], found["snapshot"]["seen_at"]), (15.0, NOW + 1))
+
+    def test_the_family_comes_from_the_snapshot_line(self):
+        for limit_id, family in (("spark", "spark"), ("codex_bengalfox", "codex_bengalfox"), ("codex", None),
+                                 (None, None), (7, None), ("bad family\n", None)):
+            with self.subTest(limit_id=limit_id):
+                rate = limits(30.0, limit_id=limit_id)
+                if limit_id is None:
+                    del rate["limit_id"]
+                self.assertEqual(self.session([count(NOW + 1, rate)])["family"], family)
+        # A premium line has no window: it is not the snapshot and never names the family.
+        premium = {"limit_id": "premium", "primary": None, "secondary": None,
+                   "rate_limit_reached_type": "workspace_member_credits_depleted"}
+        found = self.session([count(NOW + 1, limits(25.0)), count(NOW + 2, premium)])
+        self.assertEqual((found["snapshot"]["seen_at"], found["family"], found["accounted"]), (NOW + 1, None, True))
+        found = self.session([count(NOW + 1, limits(25.0, limit_id="spark")), count(NOW + 2, limits(26.0))])
+        self.assertEqual((found["snapshot"]["primary"]["used_percent"], found["family"]), (26.0, None))
+
+    def test_model_responses(self):
+        responses = (item(NOW, "reasoning", summary=[]), item(NOW, "message", role="assistant", content=[]),
+                     call(NOW), item(NOW, "custom_tool_call", name="exec", input=""),
+                     item(NOW, "web_search_call", status="completed"), item(NOW, "tool_search_call"),
+                     line(NOW, "token_usage_record", {"input_tokens": 1}))
+        for record in responses:
+            with self.subTest(record=record):
+                self.assertTrue(self.session([record])["responded"])
+        others = (item(NOW, "agent_message", author="/root", recipient="/root/a", content=[]),
+                  item(NOW, "message", role="user", content=[]), item(NOW, "message", role="developer", content=[]),
+                  item(NOW, "function_call_output", call_id="call_1", output=""),
+                  item(NOW, "reasoning", inherited=True), item(NOW, "message", inherited=True, role="assistant"),
+                  call(NOW, inherited=True), line(NOW, "event_msg", {"type": "agent_message", "message": ""}),
+                  line(NOW, "turn_context", {}), line(NOW, "event_msg", {"type": "task_started"}))
+        for record in others:
+            with self.subTest(record=record):
+                self.assertEqual(self.session([record]), EMPTY)
+
+    def test_tool_calls_that_a_tool_hook_sees(self):
+        tools = (call(NOW), call(NOW, "apply_patch"), call(NOW, "spawn_agent", "collaboration"),
+                 call(NOW, "wait", "collaboration"), item(NOW, "custom_tool_call", name="exec", input=""),
+                 item(NOW, "local_shell_call", action={}))
+        for record in tools:
+            with self.subTest(record=record):
+                self.assertEqual(self.session([record]), dict(EMPTY, responded=True, tools=True))
+        unseen = (call(NOW, "wait"), call(NOW, "write_stdin"), call(NOW, "wait", ""),
+                  item(NOW, "web_search_call", status="completed"), item(NOW, "tool_search_call"))
+        for record in unseen:
+            with self.subTest(record=record):
+                self.assertEqual(self.session([record]), dict(EMPTY, responded=True))
+        for record in (call(NOW, inherited=True), item(NOW, "custom_tool_call", inherited=True, name="exec"),
+                       item(NOW, "function_call_output", call_id="call_1", output="")):
+            with self.subTest(record=record):
+                self.assertEqual(self.session([record]), EMPTY)
+
+    def test_a_compactions_token_count_is_not_accounted(self):
+        self.assertEqual(self.session(compaction(NOW)), EMPTY)
+        # As in a sub-agent whose inherited history is compacted at its start, then its first call.
+        self.assertEqual(self.session([*compaction(NOW), item(NOW, "agent_message", author="/root"), call(NOW + 1)]),
+                         dict(EMPTY, responded=True, tools=True))
+        # Event lines between them do not matter; a response_item compaction counts like compacted.
+        quiet = line(NOW, "event_msg", {"type": "item_completed", "item": {}})
+        self.assertFalse(self.session([compaction(NOW)[0], quiet, compaction(NOW)[1], quiet, count(NOW)])["accounted"])
+        self.assertFalse(self.session([item(NOW, "compaction", encrypted_content=""), *compaction(NOW)[1:]])["accounted"])
+        # Only the token_count right after them is the compaction's.
+        self.assertTrue(self.session([*compaction(NOW), item(NOW, "reasoning"), count(NOW + 1)])["accounted"])
+        self.assertTrue(self.session([line(NOW, "turn_context", {}), count(NOW)])["accounted"])
+        self.assertTrue(self.session([compaction(NOW)[0], count(NOW)])["accounted"])
+        self.assertTrue(self.session([compaction(NOW)[0], item(NOW, "message", role="user"),
+                                      *compaction(NOW)[1:]])["accounted"])
+        # A compaction's token_count with rate limits is a snapshot all the same.
+        found = self.session([*compaction(NOW)[:2], count(NOW, limits(12.0))])
+        self.assertEqual((found["accounted"], found["snapshot"]["primary"]["used_percent"]), (True, 12.0))
+        # A compaction before the start is still a compaction.
+        self.assertFalse(self.session([*compaction(NOW - 60)[:2], count(NOW)])["accounted"])
+
+    def test_inherited_lines_are_skipped_whatever_their_time(self):
+        history = [item(NOW + 1, kind, inherited=True) for kind in ("reasoning", "function_call", "custom_tool_call")]
+        self.assertEqual(self.session([*history, item(NOW + 1, "message", inherited=True, role="assistant")]), EMPTY)
+
+    def tail_test(self, before, cut_record):
+        """A rollout whose last TAIL bytes start exactly at CUT_RECORD, the end of a line cut by the tail."""
+        path = self.write(before)
+        cut = json.dumps(cut_record)
+        filler = item(NOW + 10, "function_call_output", call_id="call_1", output="")
+        rest = usage.TAIL - len(cut) - 1  # the tail is CUT, its newline and REST bytes
+        filler["payload"]["output"] = "y" * (rest - len(json.dumps(filler)) - 1)
+        with open(path, "a") as stream:
+            stream.write("x" * 100 + cut + "\n" + json.dumps(filler) + "\n")
+        with open(path, "rb") as stream:
+            stream.seek(-usage.TAIL, os.SEEK_END)
+            self.assertTrue(stream.read().startswith(cut.encode() + b"\n"))
+        return usage.session(path, NOW)
+
+    def test_a_cut_first_line_and_an_unfinished_last_line_are_skipped(self):
+        # Read whole, the cut line would be a snapshot at 99 percent and a model response.
+        self.assertEqual(self.tail_test([], count(NOW + 5, limits(99.0))), EMPTY)
+        self.assertEqual(self.tail_test([], item(NOW + 5, "reasoning")), EMPTY)
+        found = self.session([count(NOW + 1, limits(10.0))], last="\n" + json.dumps(count(NOW + 2, limits(99.0))))
+        self.assertEqual(found["snapshot"]["primary"]["used_percent"], 10.0)
+        self.assertEqual(self.session([], last="\n" + json.dumps(call(NOW + 2))[:-1]), EMPTY)
+
+    def cut_then(self, records):
+        """usage.session of a rollout whose tail starts inside a long line, then RECORDS."""
+        path = self.write([])
+        with open(path, "a") as stream:
+            stream.write('{"type": "compacted", "payload": {"message": "' + "x" * usage.TAIL + '"}}\n')
+            stream.write("".join(json.dumps(record) + "\n" for record in records))
+        with open(path, "rb") as stream:
+            stream.seek(-usage.TAIL, os.SEEK_END)
+            self.assertNotIn(b'"compacted"', stream.read())
+        return usage.session(path, NOW)
+
+    def test_after_a_cut_line_a_compactions_token_count_is_not_accounted(self):
+        # A compacted line can be megabytes long: the tail cuts it, and what follows it is still its own.
+        self.assertEqual(self.cut_then([*compaction(NOW + 1)[1:], call(NOW + 2)]), dict(EMPTY, responded=True, tools=True))
+        self.assertEqual(self.cut_then([count(NOW + 1)]), EMPTY)
+        self.assertTrue(self.cut_then([item(NOW + 1, "message", role="user"), count(NOW + 1)])["accounted"])
+        self.assertTrue(self.cut_then([line(NOW + 1, "turn_context", {}), count(NOW + 1), count(NOW + 2)])["accounted"])
+
+    def test_other_lines_and_shapes_are_skipped(self):
+        records = [count(NOW + 1, limits(30.0)), "not json", [1, 2],
+                   {"timestamp": "yesterday", "type": "response_item", "payload": {"type": "reasoning"}},
+                   {"type": "response_item", "payload": {"type": "function_call", "name": "exec_command"}},
+                   line(NOW + 2, "response_item", "text"), line(NOW + 2, "response_item", {"type": ["function_call"]}),
+                   line(NOW + 2, "event_msg", {"type": "token_count", "rate_limits": 5})]
+        path = self.write([])
+        with open(path, "a") as stream:
+            for record in records:
+                stream.write((record if isinstance(record, str) else json.dumps(record)) + "\n")
+            stream.write("[" * 100000 + "\n")  # deeper than the parser's recursion limit
+        found = usage.session(path, NOW)
+        self.assertEqual((found["snapshot"]["seen_at"], found["accounted"], found["responded"], found["tools"]),
+                         (NOW + 1, True, False, False))
+
+    def test_only_a_readable_regular_file_is_read(self):
+        good = self.write([count(NOW + 1, limits(30.0))])
+        link = self.root / "link.jsonl"
+        link.symlink_to(good)
+        fifo = self.root / "fifo.jsonl"
+        os.mkfifo(fifo)
+        self.addCleanup(CodexUsage.release, fifo)
+        for path in (link, self.root, self.root / "missing.jsonl", fifo, str(self.root / "missing.jsonl")):
+            with self.subTest(path=path):
+                self.assertIsNone(usage.session(path, NOW))
+        for path in (None, "", "bad\0path"):
+            with self.subTest(path=path):
+                self.assertIsNone(usage.session(path, NOW))
+        self.assertEqual(usage.session(str(good), NOW)["snapshot"]["seen_at"], NOW + 1)
+        unreadable = self.write([])
+        unreadable.chmod(0)
+        if os.geteuid() != 0:
+            self.assertIsNone(usage.session(unreadable, NOW))
+
+
+class RanTools(unittest.TestCase):
+    """usage.ran_tools: whether a run's rollouts of this account show a call that a tool hook sees."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-ran-tools-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        patcher = patch.dict(os.environ, {"TZ": "UTC"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        time.tzset()
+        self.addCleanup(time.tzset)
+        self.start, self.end = NOW - 600, NOW + 600
+
+    def rollout(self, thread, records, creator=(USER, WORKSPACE), meta=None, touched=NOW):
+        path = self.root / "sessions/2026/01/01" / f"rollout-2026-01-01T11-50-00-{thread}.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"id": thread, "timestamp": iso(self.start), "cwd": "/", "cli_version": "0.169.0", **(meta or {})}
+        if creator:
+            payload.update(creator_user_id=creator[0], creator_account_id=creator[1])
+        path.write_text("".join(json.dumps(record) + "\n" for record in [line(self.start, "session_meta", payload),
+                                                                          *records]))
+        os.utime(path, (touched, touched))
+        return path
+
+    def ran(self, ids=(), account=(USER, WORKSPACE)):
+        return usage.ran_tools(self.root, ids, account, self.start, self.end)
+
+    def test_a_call_in_this_accounts_rollout_during_the_run(self):
+        self.assertFalse(self.ran())
+        self.rollout(THREAD, [item(NOW, "reasoning"), item(NOW, "message", role="assistant")])
+        self.assertFalse(self.ran(), "a run without calls")
+        self.rollout(OTHER, [call(NOW)], creator=("user-fixture-B", "workspace-fixture-B"))
+        self.assertFalse(self.ran(), "another account's call counted")
+        self.assertFalse(self.ran(account=None), "an API-key login has no creator to match")
+        self.rollout(THREAD, [item(NOW, "custom_tool_call", name="exec", input="")])
+        self.assertTrue(self.ran())
+
+    def test_calls_outside_the_run_and_calls_no_tool_hook_sees_do_not_count(self):
+        slack = usage.SLACK
+        for records in ([call(self.start - slack - 1)], [call(self.end + slack + 1)],
+                        [call(NOW, "wait"), call(NOW, "write_stdin"), item(NOW, "web_search_call"),
+                         item(NOW, "tool_search_call")],
+                        [call(NOW, inherited=True), item(NOW, "local_shell_call", inherited=True)]):
+            with self.subTest(records=records):
+                self.rollout(THREAD, records)
+                self.assertFalse(self.ran())
+        for records in ([call(self.start - slack)], [call(self.end + slack)], [item(NOW, "local_shell_call")],
+                        [call(NOW, "wait", "collaboration")]):
+            with self.subTest(records=records):
+                self.rollout(THREAD, records)
+                self.assertTrue(self.ran())
+
+    def test_a_rollout_untouched_during_the_run_is_not_read(self):
+        self.rollout(THREAD, [call(NOW)], touched=self.start - 3600)
+        self.assertFalse(self.ran())
+
+    def test_guardian_review_threads_are_skipped(self):
+        guardian = {"thread_source": "guardian_review", "source": {"subagent": {"other": "guardian"}}}
+        self.rollout(THREAD, [call(NOW)], meta=guardian)
+        self.assertFalse(self.ran())
+        self.assertFalse(self.ran(ids=(THREAD,)))
+        # Reviews never crowd this account's own rollout out of the files read.
+        for number in range(usage.MAX_FILES + 2):
+            self.rollout(f"019a0000-0000-7000-8000-0000000020{number:02x}", [call(NOW)], meta=guardian,
+                         touched=NOW + 60)
+        self.rollout(OTHER, [call(NOW)])
+        self.assertTrue(self.ran())
+
+    def test_a_resumed_thread_counts_by_its_id_whoever_created_it(self):
+        self.rollout(RESUMED, [call(NOW)], creator=("user-fixture-B", "workspace-fixture-B"))
+        self.assertFalse(self.ran())
+        self.assertTrue(self.ran(ids=(RESUMED,)))
+        self.assertTrue(self.ran(ids=(RESUMED,), account=None))
+
+
 CODEX_FAKE = r"""
 import json, os, pathlib, sys, time
 if sys.argv[1:] == ["--version"]:
