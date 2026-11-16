@@ -622,16 +622,22 @@ class Codex(Fixture):
         blind = {kind: reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"), kind, NOW)
                  for kind in ("prompt", "tool")}
         for stamp in ((NOW - 20), (NOW - 20) * 1000, "absent"):
-            records = [reply(NOW - 20), count(NOW - 20, rates=False), count(NOW - 20, slot(97, 10080))]
-            for record in records:
-                if stamp == "absent":
-                    del record["timestamp"]
-                else:
-                    record["timestamp"] = stamp
-            transcript = self.rollout(records)
-            for kind in ("prompt", "tool"):
-                with self.subTest(stamp=stamp, kind=kind):
-                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)), (2, "", blind[kind]))
+            # The second rollout is a new session at its first tool call: a response and its token_usage_record,
+            # and no token_count yet.
+            for name, records in (("counted", [reply(NOW - 20), count(NOW - 20, rates=False),
+                                               count(NOW - 20, slot(97, 10080))]),
+                                  ("responses only", [reply(NOW - 20), shell_call(NOW - 20),
+                                                      line(NOW - 20, "token_usage_record", {"input_tokens": 1})])):
+                for record in records:
+                    if stamp == "absent":
+                        del record["timestamp"]
+                    else:
+                        record["timestamp"] = stamp
+                transcript = self.rollout(records)
+                for kind in ("tool", "prompt"):
+                    with self.subTest(stamp=stamp, rollout=name, kind=kind):
+                        self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
+                                         (2, "", blind[kind]))
 
     def test_a_response_without_a_token_count_is_blind_on_prompt_only(self):
         launch = self.launch("codex-as", weekly="10")
