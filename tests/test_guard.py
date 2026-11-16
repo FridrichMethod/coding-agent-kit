@@ -839,13 +839,30 @@ class Main(Fixture):
                         self.assertEqual(answer, (2, "", text + "\n"))
                     self.assertEqual(self.state(launch, "blocked").read_text(), text)
 
-    def test_a_sigint_while_the_guard_waits_for_its_event(self):
+    def sigint_cases(self):
+        """A Codex launch whose account record is at the weekly reserve by the real clock, the environment of its
+        hook commands, and a check of a guard's answer to KIND: the threshold block on prompt and tool, silence
+        elsewhere. SIGINT reaches the guard as a terminal's Ctrl-C would, also from a suite started with it ignored
+        (a shell's background job)."""
         launch = self.launch("codex-as", weekly="10")
-        script = ROOT / "lib/coding-agent-kit/guard.py"
+        self.codex_record(launch, slot(95, 10080, int(time.time()) + 3600))
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **self.environ(launch)}
-        # A suite started with SIGINT ignored (a shell's background job) would pass that on to the guard.
         self.addCleanup(signal.signal, signal.SIGINT, signal.getsignal(signal.SIGINT))
         signal.signal(signal.SIGINT, signal.default_int_handler)
+
+        def check(kind, code, out, err):
+            if kind in guard.QUIET:
+                self.assertEqual((code, out, err), (0, b"", b""))
+            else:
+                self.assertEqual((code, out), (2, b""), err)
+                self.assertTrue(err.decode().startswith("codex-as: lab: weekly window 5% remaining"), err)
+                self.assertTrue(err.decode().endswith(STOPPED[kind] + RELAUNCH_CODEX + "\n"), err)
+
+        return env, check
+
+    def test_a_sigint_while_the_guard_waits_for_its_event_is_ignored(self):
+        env, check = self.sigint_cases()
+        script = ROOT / "lib/coding-agent-kit/guard.py"
         for kind in ("prompt", "tool", "start", "stop", "status"):
             with self.subTest(kind=kind):
                 run = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(script), kind], stdin=subprocess.PIPE,
@@ -853,12 +870,38 @@ class Main(Fixture):
                 self.addCleanup(run.kill)
                 self.assertTrue(asleep(run.pid), "the guard never waited for its event")
                 run.send_signal(signal.SIGINT)
-                out, err = run.communicate(timeout=30)
-                if kind in guard.QUIET:
-                    self.assertEqual((run.returncode, out, err), (0, b"", b""))
-                else:
-                    text = reserve.failure_text("codex-as", "lab", kind, "KeyboardInterrupt")
-                    self.assertEqual((run.returncode, out, err.decode()), (2, b"", text + "\n"))
+                time.sleep(0.2)
+                self.assertIsNone(run.poll(), "a SIGINT ended the guard")
+                out, err = run.communicate(b"{}", timeout=30)
+                check(kind, run.returncode, out, err)
+
+    # guard.py run as a program, with a SIGINT sent to itself at the first import of enum (which signal.py would
+    # import) or dataclasses (its first import after the version check): the imports are the window a Ctrl-C most
+    # often hits in a hook's short life.
+    INTERRUPTED_IMPORT = ("import os, sys, _signal\n"
+                          "fired = sys.argv[1]\n"
+                          "class Interrupt:\n"
+                          "    def find_spec(self, name, path=None, target=None):\n"
+                          "        if name in ('enum', 'dataclasses'):\n"
+                          "            sys.meta_path.remove(self)\n"
+                          "            open(fired, 'w').close()\n"
+                          "            os.kill(os.getpid(), _signal.SIGINT)\n"
+                          "        return None\n"
+                          "sys.meta_path.insert(0, Interrupt())\n"
+                          "del sys.argv[:2]\n"
+                          "exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'), "
+                          "{'__name__': '__main__', '__file__': sys.argv[0]})\n")
+
+    def test_a_sigint_while_the_guard_imports_is_ignored(self):
+        env, check = self.sigint_cases()
+        script, fired = ROOT / "lib/coding-agent-kit/guard.py", self.root / "interrupted"
+        for kind in ("prompt", "tool", "start", "stop", "status"):
+            with self.subTest(kind=kind):
+                fired.unlink(missing_ok=True)
+                result = subprocess.run([sys.executable, "-I", "-B", "-S", "-c", self.INTERRUPTED_IMPORT, str(fired),
+                                         str(script), kind], input=b"{}", env=env, capture_output=True, timeout=60)
+                self.assertTrue(fired.exists(), "the guard imported neither enum nor dataclasses")
+                check(kind, result.returncode, result.stdout, result.stderr)
 
     def test_an_old_python_blocks_prompt_and_tool_and_stays_quiet_elsewhere(self):
         for kind, code in (("prompt", 2), ("tool", 2), ("start", 0), ("stop", 0), ("status", 0)):

@@ -105,18 +105,21 @@ has not run the injected hooks.
 
 Any error on a prompt or tool event (an event that is not a JSON object, a
 launch format, an unwritable state file, a missing module, an exception, a
-SIGINT while the event is read or answered) is a block with
-reserve.failure_text() and the error's class name, in the block shape above,
-also left in STATE.blocked when the launch names its state; without reserve.py
-the guard writes the same text itself (FAILURE_STOPPED, FAILURE_TAILS). On
-start, stop and status every error exits 0 without output. A Python older than
-3.11 blocks with one line on prompt and tool, and is silent elsewhere: the guard
-checks the version before it imports anything but sys.
+KeyboardInterrupt that reaches main()) is a block with reserve.failure_text()
+and the error's class name, in the block shape above, also left in
+STATE.blocked when the launch names its state; without reserve.py the guard
+writes the same text itself (FAILURE_STOPPED, FAILURE_TAILS). On start, stop
+and status every error exits 0 without output. Run as a program, the guard
+ignores SIGINT (a terminal's Ctrl-C reaches the native's whole process group)
+from right after its version check, so it gives its real answer; only a SIGINT
+before the interpreter has started it ends it. A Python older than 3.11 blocks
+with one line on prompt and tool, and is silent elsewhere: the guard checks the
+version before it imports anything but sys.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
 footer), handle(kind, raw, env, now) (an event's answer from its raw stdin;
-never raises), interrupted(kind, env) (the answer after a SIGINT),
+never raises), interrupted(kind, env) (the answer after a KeyboardInterrupt),
 main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe
 results: a PreToolUse continue false ends the turn, a Stop one ends it beside
 another Stop hook), BLIND_AFTER, RECORD_AGAIN, STATUS_TIMEOUT, LOCK_WAIT,
@@ -145,6 +148,16 @@ def old_python(kind):
 # answers such a Python with one line, never a traceback.
 if __name__ == "__main__" and sys.version_info < (3, 11):
     sys.exit(old_python(kind_of(None)))
+
+if __name__ == "__main__":
+    # A terminal's Ctrl-C reaches the native's whole process group, its hooks included. The guard ignores SIGINT
+    # from here on, before its imports, and so always gives its real answer in its short life. The handler that
+    # chained() sets while the user's status line command starts resets on exec, so the command never inherits this.
+    try:
+        import _signal as interrupts  # built in: signal.py would import enum, a window as long as the rest
+    except ImportError:
+        import signal as interrupts
+    interrupts.signal(interrupts.SIGINT, interrupts.SIG_IGN)
 
 from dataclasses import dataclass
 import importlib.util
@@ -819,8 +832,8 @@ def emit(stream, text):
 
 
 def interrupted(kind, env):
-    """The answer of a run that SIGINT interrupted (a terminal's Ctrl-C reaches the native's whole process
-    group, its hooks included): a guard failure, so a block on prompt and tool and silence elsewhere. A
+    """The answer of a run that a KeyboardInterrupt reached (main() in a process that has not ignored SIGINT,
+    as guard.py run as a program has): a guard failure, so a block on prompt and tool and silence elsewhere. A
     further SIGINT is ignored while the run answers."""
     import signal
     try:
