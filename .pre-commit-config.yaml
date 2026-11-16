@@ -97,7 +97,7 @@ repos:
         pass_filenames: false
         files: ^(CHANGELOG\.md|bin/(codex|claude)-as|tests/(config\.sh|test_config\.py))$
       - id: reserves
-        name: usage reserve flags, policy and evaluator (in process)
+        name: usage reserve flags and policy (in process)
         entry: tests/reserves.sh
         language: script
         pass_filenames: false
