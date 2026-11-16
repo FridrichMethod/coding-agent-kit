@@ -1270,6 +1270,7 @@ class StatusLine(Fixture):
                 self.addCleanup(run.kill)
                 run.stdin.write(status_input())
                 run.stdin.close()
+                run.stdin = None  # communicate() of Python 3.11 and 3.12 would flush the closed stream
                 deadline = time.monotonic() + 30
                 while not writing.exists() and time.monotonic() < deadline:
                     time.sleep(0.02)
@@ -1381,6 +1382,7 @@ class StatusLine(Fixture):
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, start_new_session=True)
                 run.stdin.write(status_input())
                 run.stdin.close()
+                run.stdin = None  # communicate() of Python 3.11 and 3.12 would flush the closed stream
                 deadline = time.monotonic() + 30
                 while not (pidfile.exists() and pidfile.read_text().endswith("\n")) and time.monotonic() < deadline:
                     time.sleep(0.02)
