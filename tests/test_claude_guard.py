@@ -420,6 +420,19 @@ class Guarded(Fixture):
                          (1, "", f"claude-as: {self.guard_dir}: must be an owned, real directory with permissions 0700.\n"))
         self.assertEqual(self.records(), [])
 
+    def test_a_state_directory_that_cannot_be_made_is_named(self):
+        """A regular file where the guard or the usage directory goes is named, not reported as a token problem."""
+        # The usage directory is made first, so its case comes first.
+        for path in (self.usage.parent, self.guard_dir):
+            with self.subTest(path=path):
+                self.state.mkdir(mode=0o700, parents=True, exist_ok=True)
+                write(path, "x")
+                code, out, err = self.run_launcher(["--reserve-5h", "10", "work"])
+                self.assertEqual((code, out, err), (1, "", f"claude-as: {path}: must be an owned, real directory with "
+                                                    "permissions 0700 (File exists).\n"))
+                self.assertEqual(self.records(), [])
+                path.unlink()
+
 
 class Refusals(Fixture):
     """Every form the guard cannot cover is refused before Claude Code starts, naming the way out."""

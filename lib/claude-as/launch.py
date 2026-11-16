@@ -662,6 +662,16 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
     return ["--settings", guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"], own["padding"])]
 
 
+def state_directory(metadata, config, name):
+    """The state directory NAME of a guarded launch, made when missing; a path that cannot be made one
+    is named with the reason."""
+    try:
+        return metadata.directory(config, create=True, name=name)
+    except OSError as error:
+        fail(f"{error.filename or config.state_dir / name}: must be an owned, real directory with permissions 0700 "
+             f"({error.strerror or error}).")
+
+
 def usage_environment(env, config, metadata, account, token):
     """The status line helper records this account's last rate limits through these, and
     only under the claude this process becomes (exec keeps its pid) and a token, where it
@@ -752,8 +762,8 @@ def main():
     if guarded:
         # All before a missing account is offered for enrolment.
         check_version(executable, account)
-        usage = metadata.directory(config, create=True) / f"claude-{account}.usage.json"
-        guard_dir = metadata.directory(config, create=True, name="guard")
+        usage = state_directory(metadata, config, "accounts") / f"claude-{account}.usage.json"
+        guard_dir = state_directory(metadata, config, "guard")
     if os.path.lexists(secret):
         directory(secret, config)
     if missing:
