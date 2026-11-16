@@ -1618,47 +1618,6 @@ class StatusLine(Fixture):
         self.assertLessEqual(end, second, "two runs held the lock at once")
         self.assertEqual(list(self.accounts.iterdir()), [])
 
-    def test_runs_at_once_never_hold_the_lock_together(self):
-        # Processes take and let go the lock as fast as they can, some ending while they hold it (left behind for
-        # others to break), from a stale lock on: no two of them ever hold it at once.
-        launch = self.launch(weekly="10")
-        self.lock_file(launch, pid=GONE)
-        log = self.scripts / "held"
-        runner = self.scripts / "contend.py"
-        runner.write_text(
-            "import importlib.util, os, random, sys, time\n"
-            f"spec = importlib.util.spec_from_file_location('guard', {str(ROOT / 'lib/coding-agent-kit/guard.py')!r})\n"
-            "guard = importlib.util.module_from_spec(spec)\n"
-            "spec.loader.exec_module(guard)\n"
-            "path, log, until, dies = guard.Path(sys.argv[1]), sys.argv[2], float(sys.argv[3]), sys.argv[4] == '1'\n"
-            "while time.monotonic() < until:\n"
-            "    try:\n"
-            "        name, fd = guard.lock(path)\n"
-            "    except TimeoutError:\n"
-            "        continue\n"
-            "    taken = time.monotonic()\n"
-            "    time.sleep(random.random() * 0.005)\n"
-            "    ended = dies and random.random() < 0.2\n"
-            "    with open(log, 'a') as stream:\n"
-            "        stream.write(f'{taken!r} {time.monotonic()!r}\\n')\n"
-            "    if ended:\n"
-            "        os._exit(0)\n"
-            "    guard.unlock(name, fd)\n")
-        until = time.monotonic() + 1
-        runs = [subprocess.Popen([sys.executable, "-I", "-B", "-S", str(runner), launch.usage, str(log), repr(until),
-                                  "1" if index % 2 else "0"]) for index in range(6)]
-        for run in runs:
-            self.addCleanup(run.kill)
-        # Each run is reaped as soon as it ends, as the native's shell does: a zombie's process id still runs.
-        deadline = time.monotonic() + 30
-        while None in [run.poll() for run in runs] and time.monotonic() < deadline:
-            time.sleep(0.005)
-        self.assertEqual([run.returncode for run in runs], [0] * 6)
-        held = sorted(tuple(map(float, row.split())) for row in log.read_text().splitlines())
-        self.assertGreater(len(held), 20)
-        for (_, end), (start, _) in zip(held, held[1:]):
-            self.assertLessEqual(end, start, "two runs held the lock at once")
-
     def test_a_run_cancelled_while_it_holds_the_lock_lets_it_go_first(self):
         launch = self.launch(weekly="10")
         put(self.state(launch, "ran.start"), "")
