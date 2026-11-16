@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -806,6 +807,14 @@ def gone(pid, wait=5):
         time.sleep(0.05)
 
 
+def kill_group(pid):
+    """Best effort: end what is left of the process group of PID when a case fails."""
+    try:
+        os.killpg(os.getpgid(pid), signal.SIGKILL)
+    except OSError:
+        pass
+
+
 def limits(five_hour=(42, NOW + 3600), seven_day=(17, NOW + 86400)):
     """The rate_limits of Claude Code's status line input; a window is (used, reset) or None for none."""
     return {key: {"used_percentage": value[0], "resets_at": value[1]}
@@ -1040,6 +1049,31 @@ class StatusLine(Fixture):
         # The whole process group of a command that runs too long is killed, its background children too.
         self.assertTrue(gone(int(pidfile.read_text())), "a background child of the status line command survived")
         self.assertEqual(guard.STATUS_TIMEOUT, 5)
+
+    def test_a_cancelled_status_line_run_ends_the_users_command_too(self):
+        pidfile = self.scripts / "chained pid"
+        launch = self.launch(weekly="10", statusline=f"sleep 47.5 & echo $! > {shlex.quote(str(pidfile))}; wait")
+        put(self.state(launch, "ran.start"), "")
+        script = ROOT / "lib/coding-agent-kit/guard.py"
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **self.environ(launch)}
+        for name, send in (("SIGTERM to the run's process group", lambda pid: os.killpg(pid, signal.SIGTERM)),
+                           ("SIGTERM", lambda pid: os.kill(pid, signal.SIGTERM)),
+                           ("SIGHUP", lambda pid: os.kill(pid, signal.SIGHUP)),
+                           ("SIGINT", lambda pid: os.kill(pid, signal.SIGINT))):
+            with self.subTest(name):
+                pidfile.unlink(missing_ok=True)
+                run = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(script), "status"], stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, start_new_session=True)
+                run.stdin.write(status_input())
+                run.stdin.close()
+                deadline = time.monotonic() + 30
+                while not (pidfile.exists() and pidfile.read_text().endswith("\n")) and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.addCleanup(kill_group, int(pidfile.read_text()))
+                send(run.pid)
+                out, err = run.communicate(timeout=30)
+                self.assertEqual((run.returncode, out, err), (0, b"", b""))
+                self.assertTrue(gone(int(pidfile.read_text())), "the user's status line command outlived the run")
 
     def test_a_reply_without_any_hook_run_is_reported_first(self):
         launch = self.launch(weekly="10", statusline="printf 'user footer\\n'")

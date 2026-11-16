@@ -79,9 +79,10 @@ absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart. Then it
 runs the user's own status line command (the launch's "statusline") through
 /bin/sh -c with the same input and the caller's environment, and prints its
 output unchanged as the footer: nothing when it fails, prints nothing or runs
-longer than STATUS_TIMEOUT seconds. When the input carries rate limits (the
-session had a reply) and no STATE.ran.* exists, the first footer line is
-WARNING: the native has not run the injected hooks.
+longer than STATUS_TIMEOUT seconds; a run cancelled by SIGTERM, SIGHUP or
+SIGINT kills the command's process group first. When the input carries rate
+limits (the session had a reply) and no STATE.ran.* exists, the first footer
+line is WARNING: the native has not run the injected hooks.
 
 Any error on a prompt or tool event (an event that is not a JSON object, a
 launch format, an unwritable state file, a missing module, an exception) is a
@@ -437,7 +438,9 @@ def record(path, limits, now):
 
 def chained(command, raw):
     """The output of the user's own status line COMMAND given RAW, or "" when it fails, prints
-    nothing or runs longer than STATUS_TIMEOUT seconds (its whole process group is killed)."""
+    nothing or runs longer than STATUS_TIMEOUT seconds (its whole process group is killed). The
+    command runs in its own process group, which a SIGTERM, SIGHUP or SIGINT of this run kills
+    before the run exits 0 without output: a native that cancels the run leaves nothing behind."""
     if not command:
         return ""
     import signal  # only the status line runs a command: the hook events stay light
@@ -447,16 +450,33 @@ def chained(command, raw):
                                  stderr=subprocess.DEVNULL, process_group=0)
     except (OSError, ValueError):
         return ""
-    try:
-        out, _ = child.communicate(raw, timeout=STATUS_TIMEOUT)
-    except Exception:
+
+    def end(*_):
         try:
             os.killpg(child.pid, signal.SIGKILL)
         except OSError:
             pass
+
+    def cancelled(*_):
+        end()
+        os._exit(0)
+
+    previous = {}
+    for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        try:
+            previous[signum] = signal.signal(signum, cancelled)
+        except (OSError, ValueError):  # not the main thread: the caller handles its signals
+            pass
+    try:
+        out, _ = child.communicate(raw, timeout=STATUS_TIMEOUT)
+    except Exception:
+        end()
         child.wait()
         child.stdout.close()
         return ""
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
     return out.decode("utf-8", "surrogateescape") if child.returncode == 0 else ""
 
 
