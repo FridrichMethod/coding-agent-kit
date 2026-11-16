@@ -4,7 +4,7 @@
 
 # The kit release of this launcher; tests/test_config.py checks it against
 # the first heading of CHANGELOG.md.
-_codex_as_version=0.8.0
+_codex_as_version=0.9.0
 
 # Native Codex gets the caller's umask, variables, cwd and options; the Python
 # launcher writes its own files under umask 077.
@@ -110,14 +110,14 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'the picker or --last finishes an interrupted one.' \
         'Same-account OAuth refresh retains native cross-process limitations.' \
         'Resume by UUID, --last or picker; explicit session names are refused.' \
-        'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer (0.167.2 or newer with reserves); no upper limit.' \
+        'Requires Python 3.11+ (stdlib) and Codex 0.161.0 or newer (0.169.0 or newer with reserves); no upper limit.' \
         'Own options, only as the first argument (codex options go after NAME):' \
         '  -l, --list: the account names; --labels: NAME<TAB>email lines for completion;' \
         '  -i, --info NAME: last-seen email, plan and usage of a run of NAME (offline, no credential read);' \
         '  -h, --help: this help; -V, -v, --version: the kit version (NAME --version prints the Codex version).' \
         'Usage reserves, only before NAME: --reserve-5h V, --reserve-weekly V (V 0 to 100, or off) keep that' \
-        'percentage of the 5-hour or weekly limit; with a reserve on, the interactive TUI runs behind a local' \
-        'quota gate and pauses at the reserve (F12 then a code asks for a fresh check); other modes refuse.' \
+        'percentage of the 5-hour or weekly limit unused: Codex hooks refuse new prompts and tool calls at the' \
+        'reserve, until the window resets or a relaunch with the flag off.' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_codex_as_docs"
     [ "$#" -gt 0 ] && exit 0
@@ -178,6 +178,5 @@ if [ ! -r "$_codex_as_launcher" ]; then
     exit 1
 fi
 # -S: no site-packages or .pth file of the python3 found on PATH (a workspace virtual
-# environment, which a protected session can write) runs in the launcher; the kit needs
-# only the standard library.
+# environment's, for example) runs in the launcher; the kit needs only the standard library.
 exec python3 -I -B -S "$_codex_as_launcher" "$@"

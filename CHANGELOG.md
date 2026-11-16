@@ -1,5 +1,72 @@
 # Changelog
 
+## 0.9.0
+
+Usage reserves become a guard on the natives' own hooks, which works with
+every account's own login and the natives' own folders, in place of the 0.8
+enforcement and the Claude login it needed, which leave the kit. A minor
+release that breaks the public contract: it removes an own option, a
+configuration table and public paths. A launch with both reserves off, as by
+default, is unchanged. A managed install takes it as a channel switch:
+`"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update --channel 0.9`.
+
+Breaking changes:
+
+- Protected mode is removed. A launch with a reserve on starts no request
+  gate, monitor or OS boundary, and protected mode's refusals
+  (`codex-as: usage reserve protection refused: REASON. ...` and
+  `claude-as: protected mode refused: REASON.`), its pause and passing-check
+  lines and its F12 continuation are gone with it. The reserve flags and the
+  `[usage_reserve]` tables keep their syntax, values and resolution. A 0.8
+  kit that reads the same file still runs a launch with a reserve on in
+  protected mode, which refuses among others every setup-token Claude
+  account, so a shared file that turns a reserve on needs 0.9.0 or newer on
+  every host.
+- Native login is removed. `claude-as --enroll-native NAME` is no own option:
+  it gets the hint of any other dash word before NAME
+  (`claude-as: --enroll-native is not a claude-as option; ...`, exit 1). A
+  `[claude_auth]` table warns `unknown key claude_auth ignored`, and every
+  Claude account launches with its setup-token `<secrets_dir>/claude-NAME`;
+  a name that only had a native-login enrollment has none, so `claude-as NAME`
+  offers to enroll one. The kit no longer reads, lists or completes the
+  native-login layout `<secrets_dir>/native-claude-accounts`, and leaves it in
+  place: sign out with
+  `CLAUDE_CONFIG_DIR=<secrets_dir>/native-claude-accounts/NAME/config claude auth logout`,
+  then remove the directory.
+- Thirteen public paths are removed, which a copied install drops too:
+  `lib/coding-agent-kit/gate.py`, `monitor.py`, `supervise.py`,
+  `sandbox_linux.py` and `sandbox_macos.py`; `lib/codex-as/protect.py`,
+  `gate.py` and `reader.py`; and `lib/claude-as/native.py`, `policy.py`,
+  `bearer.py`, `provider.py` and `protect.py`. No other path moved.
+
+Removed:
+
+- Protected mode: the per-invocation request gate and monitor, the
+  launcher-side supervisor, the OS boundaries (Landlock and seccomp on Linux,
+  the Seatbelt profile and its self-test on macOS), protected `codex-as` and
+  protected `claude-as`, with their host and release minimums (codex-cli
+  0.167.2, Claude Code 2.1.322, macOS 27.2), refusals, pause line and
+  continuation prompts.
+- `claude-as --enroll-native NAME`, its Bash and zsh completion and its help
+  line; `[claude_auth]` and its `mode` values `"setup-token"` and
+  `"native-login"`; the native-login layout
+  `<secrets_dir>/native-claude-accounts/NAME/{config,account.json}`.
+- The quota evaluator, its observation and verdict types, quota families and
+  tunables in `lib/coding-agent-kit/reserve.py`, which keeps the reserve
+  flags, the policy resolution and the number and time formatting.
+- The test suites `tests/sandbox.sh`, `gate.sh`, `supervise.sh`,
+  `codex-reserve.sh` and `claude-reserve.sh`, their fixtures and their
+  pre-commit hooks.
+- AGENTS.md's scoped exceptions to the dependency rules for protected mode.
+
+Added:
+
+Changed:
+
+- The help texts: the reserve flags keep that percentage of a window unused,
+  and hooks refuse new prompts and tool calls at the reserve; the `codex-as`
+  help names codex-cli 0.169.0 or newer for reserves, with no upper limit.
+
 ## 0.8.0
 
 Usage reserves: both launchers can keep a percentage of an account's 5-hour

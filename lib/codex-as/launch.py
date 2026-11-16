@@ -33,7 +33,6 @@ try:
     settings = load_module("config", "coding-agent-kit/config.py")
     metadata = load_module("accounts", "coding-agent-kit/accounts.py")
     reserve = load_module("reserve", "coding-agent-kit/reserve.py")
-    protect = load_module("protect", "codex-as/protect.py")
 except (OSError, ImportError, SyntaxError):
     message = f"codex-as: incomplete install at {LIB.parent}"
     print(guard.styled(message, "31", 2) if "guard" in globals() else message, file=sys.stderr)
@@ -56,12 +55,10 @@ def shown(word):
     return None if "sk-" in word.lower() or word in OPTIONS else word
 
 
-def enroll(layout, codex, protected=False):
+def enroll(layout, codex):
     if os.path.lexists(layout.target):
         guard.credential(layout.target)
         return
-    if protected:  # Session.check found the login; it went since, and no login runs outside the boundary
-        protect.no_login(layout.name)
     tty = guard.terminal()
     try:
         tty.write("Existing accounts: " + (", ".join(guard.accounts(layout.secrets)) or "(none)") + "\n")
@@ -93,18 +90,13 @@ RERAISED = {signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGKILL, signal
 class Supervision:
     """From just before native Codex starts until post-run repair ends: forward termination
     to it and ignore Ctrl-C, which the terminal already delivers to its whole process group.
-    Termination after it exits waits for the repair to finish, then ends the launcher.
-    ended=True guards a repair after a native that already exited (protected mode's supervisor
-    runs it): every termination waits for the repair."""
+    Termination after it exits waits for the repair to finish, then ends the launcher."""
 
-    def __init__(self, ended=False):
+    def __init__(self):
         self.child, self.pending, self.late, self.previous = None, [], [], {}
-        self.ended = ended
 
     def forward(self, signum, frame):
-        if self.ended:
-            self.late.append(signum)
-        elif self.child is None:
+        if self.child is None:
             self.pending.append(signum)
         elif self.child.poll() is None:
             self.child.send_signal(signum)
@@ -237,6 +229,9 @@ def main(args):
     account, *native_args = args
     policy = reserve.resolve("codex-as", account, reserves, config.usage_reserve)
     plan = guard.arguments(native_args, config)
+    # Help, version, update and completion forms run no model and stay plain.
+    if not policy.off and not plan.query and not plan.rootless:
+        guard.fail("usage reserves are not available in this build.")
     codex = config.which("codex")
     if codex is None:
         guard.fail("Codex is not installed on PATH." if config.codex == "codex"
@@ -253,19 +248,11 @@ def main(args):
     layout = storage.Layout(guard, account, config)
     sqlite = storage.shared_sqlite(guard, layout.root, plan.cwd, plan.profile)
     layout.root_check()
-    # An enabled reserve protects every launch but help and version forms, which run no model. A
-    # protected launch reads the native's version inside a boundary (Session.check), never outside.
-    session = None
-    if not policy.off and not plan.query:
-        session = protect.Session(guard, storage, reserve, config, layout, policy, native_args, codex, os.environ,
-                                  sqlite, plan.cwd, umask=CALLER_UMASK if CALLER_UMASK >= 0 else None)
-        session.check()
-    else:
-        version = subprocess.run([codex, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                 text=True, check=False)
-        if version.returncode:
-            return version.returncode
-        guard.codex_version(version.stdout)
+    version = subprocess.run([codex, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             text=True, check=False)
+    if version.returncode:
+        return version.returncode
+    guard.codex_version(version.stdout)
     env = os.environ.copy()
     env["CODEX_HOME"] = str(layout.home)
     env["CODEX_SQLITE_HOME"] = str(sqlite)
@@ -283,7 +270,7 @@ def main(args):
     baseline = None
     try:
         if layout.acquire():
-            enroll(layout, codex, protected=session is not None)
+            enroll(layout, codex)
             layout.prepare()
             fcntl.flock(layout.fd, fcntl.LOCK_SH)
         elif not layout.auth.is_symlink():
@@ -306,18 +293,6 @@ def main(args):
         layout.close()
         raise
     started = time.time()
-    if session is not None:
-        # The pre-launch refresh may already have written the credential when a refusal follows,
-        # so the repair runs however the protected run ends, and termination waits for it.
-        try:
-            status = session.run(baseline)
-        finally:
-            layout.close()
-            with Supervision(ended=True):
-                post_run(layout, baseline if session.baseline is None else session.baseline)
-                if os.path.lexists(layout.target):
-                    remember(config, layout, plan=plan, started=started)
-        return -os.WTERMSIG(status) if os.WIFSIGNALED(status) else os.waitstatus_to_exitcode(status)
     with Supervision():
         try:
             result = run_native(command, env, layout.fd)

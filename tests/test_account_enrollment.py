@@ -346,6 +346,9 @@ os.execv(sys.argv[2], sys.argv[2:])
         hint = 'claude-as: {0} is not a claude-as option; native options go after NAME (claude-as NAME {0} ...)\n'
         for args, message in ((['-x'], hint.format('-x')), (['-'], hint.format('-')), (['-c'], hint.format('-c')),
                               (['-x', '--help'], hint.format('-x')), (['-p', 'work'], hint.format('-p')),
+                              # Not an own option: native login is not part of the kit.
+                              (['--enroll-native', 'work'], hint.format('--enroll-native')),
+                              (['--enroll-native'], hint.format('--enroll-native')),
                               (['--list-accounts', 'x'], invalid), (['--show-config', 'x'], invalid),
                               (['-l', 'x'], invalid), (['--label'], invalid)):
             with self.subTest(args=args):
@@ -641,6 +644,107 @@ os.execv(sys.argv[2], sys.argv[2:])
         self.assertEqual(code, 0, err)
         record = json.loads(self.record.read_text())
         self.assertEqual((record['usage_file'], record['token_id'], record['claude_pid']), (None, None, None))
+
+    def test_claude_ignores_and_keeps_a_native_login_layout(self):
+        """<secrets_dir>/native-claude-accounts is no part of the kit: its names are neither listed, labelled
+        nor described, such a name is a missing account that claude-as offers to enroll, and the
+        directory stays exactly as it was."""
+        target = self.secret / 'claude-work'
+        target.write_text(CLAUDE_TOKEN + '\n')
+        target.chmod(0o600)
+        layout = self.secret / 'native-claude-accounts'
+        (layout / 'legacy/config').mkdir(parents=True)
+        (layout / 'legacy/config/.claude.json').write_text('{"oauthAccount": {}}\n')
+        (layout / 'legacy/account.json').write_text('{"name": "legacy", "label": "Legacy"}\n')
+        for path in (layout, layout / 'legacy', layout / 'legacy/config'):
+            path.chmod(0o700)
+        for path in (layout / 'legacy/config/.claude.json', layout / 'legacy/account.json'):
+            path.chmod(0o600)
+
+        def tree():
+            return {str(path.relative_to(layout)): (path.lstat().st_mode, path.lstat().st_mtime_ns,
+                                                    path.read_bytes() if path.is_file() else None)
+                    for path in sorted(layout.rglob('*'))}
+
+        before = tree()
+        for args, expected in ((['--list-accounts'], (0, 'work\n', '')), (['--labels'], (0, 'work\n', '')),
+                               (['--info', 'legacy'], (1, '', 'claude-as: no account legacy.\n'))):
+            with self.subTest(args=args):
+                code, out, err, tty = self.terminal(args, [], tool='claude-as')
+                self.assertEqual((code, out, err, tty), (*expected, ''))
+        code, out, err, tty = self.terminal(['legacy'], [('[y/N]', 'n')], tool='claude-as')
+        self.assertEqual((code, out, err), (1, '', 'claude-as: cancelled; no credentials saved or client launched.\n'))
+        self.assertIn('Existing accounts: work', tty)
+        self.assertIn('Account legacy does not exist. Login and save a new account?', tty)
+        self.assertFalse(self.record.exists(), 'a declined enrolment started Claude Code')
+        self.assertFalse((self.secret / 'claude-legacy').exists())
+        self.assertEqual(tree(), before)
+
+    def kit_file(self, text):
+        """The kit configuration file of this HOME, private like its directories, holding TEXT."""
+        path = self.home / '.config/coding-agent-kit/config.toml'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        for directory in (path.parent, path.parent.parent):
+            directory.chmod(0o700)  # whatever the umask: a shared group may not write them
+        path.write_text(text)
+        path.chmod(0o600)
+        return path
+
+    def test_interim_reserve_refusal(self):
+        """Until the reserve guard lands, a launch with a reserve on, by flag or by configuration, refuses
+        before Claude Code starts and before a missing account is offered for enrolment; the help and
+        version forms after NAME still reach Claude Code."""
+        target = self.secret / 'claude-work'
+        target.write_text(CLAUDE_TOKEN + '\n')
+        target.chmod(0o600)
+        refusal = 'claude-as: usage reserves are not available in this build.\n'
+        for args, text in ((['--reserve-5h', '10', 'work'], ''), (['--reserve-weekly', '0', 'work', '-p', 'hi'], ''),
+                           (['--reserve-5h', 'off', '--reserve-weekly', '100', 'work'], ''),
+                           (['work'], '[usage_reserve]\nweekly = 10\n'),
+                           (['work', '--model', 'x'], '[usage_reserve.claude_accounts.work]\nfive_hour = 12.5\n'),
+                           (['missing'], '[usage_reserve]\nfive_hour = 20\n')):
+            self.kit_file(text)
+            with self.subTest(args=args, config=text):
+                self.record.unlink(missing_ok=True)
+                code, out, err, tty = self.terminal(args, [('[y/N]', 'y')], tool='claude-as')
+                self.assertEqual((code, out, err, tty), (1, '', refusal, ''))
+                self.assertFalse(self.record.exists(), 'a refused launch started Claude Code')
+                self.assertNotIn(CLAUDE_TOKEN, err)
+        self.assertFalse((self.secret / 'claude-missing').exists())
+        self.kit_file('[usage_reserve]\nfive_hour = 20\n')
+        for args in (['work', '--version'], ['--reserve-weekly', '10', 'missing', '--version']):
+            with self.subTest(args=args):
+                code, out, err, tty = self.terminal(args, [], tool='claude-as')
+                self.assertEqual((code, out, err, tty), (0, '2.1.296 (Claude Code)\n', '', ''))
+        for args in (['work', '--help'], ['--reserve-5h', '5', 'work', '-v'], ['work', '-h']):
+            with self.subTest(args=args):
+                self.record.unlink(missing_ok=True)
+                code, _, err, tty = self.terminal(args, [], tool='claude-as')
+                self.assertEqual((code, tty), (0, ''), err)
+                record = json.loads(self.record.read_text())
+                self.assertEqual(record['args'], args[-1:])
+                self.assertFalse(record['selected'])
+
+    def test_claude_reserve_flag_errors_name_the_problem_and_start_nothing(self):
+        target = self.secret / 'claude-work'
+        target.write_text(CLAUDE_TOKEN + '\n')
+        target.chmod(0o600)
+        for args, message in ((['--reserve-5h', '10'], 'an account name must follow --reserve-5h and --reserve-weekly.'),
+                              (['--reserve-5h=10', 'work'], '--reserve-5h=VALUE is not accepted; write --reserve-5h VALUE.'),
+                              (['--reserve-5h', '101', 'work'], '--reserve-5h takes a number from 0 through 100, or off, '
+                                                                'as the next argument.'),
+                              (['--reserve-weekly', 'x', 'work'], '--reserve-weekly takes a number from 0 through 100, '
+                                                                  'or off, as the next argument.'),
+                              (['--reserve-5h', '1', '--reserve-5h', '2', 'work'], '--reserve-5h is given twice.'),
+                              (['--reserve-weekly', '5', '--list'], 'an account name must follow --reserve-5h and '
+                                                                    '--reserve-weekly.'),
+                              (['--reserve', '10', 'work'], '--reserve is not a claude-as option; native options go '
+                                                            'after NAME (claude-as NAME --reserve ...)')):
+            with self.subTest(args=args):
+                self.record.unlink(missing_ok=True)
+                code, out, err, tty = self.terminal(args, [], tool='claude-as')
+                self.assertEqual((code, out, err, tty), (1, '', f'claude-as: {message}\n', ''))
+                self.assertFalse(self.record.exists(), 'a flag error started Claude Code')
 
 
 
