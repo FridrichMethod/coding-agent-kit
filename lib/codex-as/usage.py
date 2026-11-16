@@ -44,9 +44,10 @@ parent (metadata.inherited_user_message) never count, whatever their time.
 
 A run's calls (ran_tools): the rollouts latest() would read, minus guardian
 review threads, which run no user hook and never take a file's place, with a
-call as in session() stamped within the run. Like latest() it reads only each
-rollout's tail, so a call followed by more than TAIL bytes of its rollout is
-missed.
+call as in session() stamped within the run. Each rollout is read back from
+its end, TAIL bytes at a time, until a chunk holds a line stamped before the
+run, so a call followed by any amount of output counts and the cost is what
+the run wrote plus one chunk (a rollout without readable times is read whole).
 """
 
 from datetime import datetime, timezone
@@ -68,6 +69,7 @@ FAMILY = re.compile(r"[A-Za-z0-9_.-]{1,64}")  # a limit_id named in a message
 CALLS = ("function_call", "custom_tool_call", "local_shell_call")  # payload types a tool hook sees
 UNHOOKED = ("wait", "write_stdin")  # plain function_call names no tool hook sees
 TURN_EVENTS = ("task_started", "task_complete", "turn_aborted", "token_count")  # events that end a compaction
+STAMP = re.compile(rb'\{\s*"timestamp"\s*:\s*"([^"\\]{1,64})"')  # how native Codex starts each line
 NAME = re.compile(r"rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})"
                   r"(?:_[0-9a-f-]{36})?\.jsonl")
 
@@ -166,6 +168,28 @@ def tail(stream):
     stream.seek(start)
     lines = stream.read(TAIL).split(b"\n")[:-1]  # the last piece is empty, or a line still being written
     return (lines[1:], True) if start else (lines, False)
+
+
+def backwards(stream):
+    """The rollout's complete lines, newest first, one list per TAIL bytes read back from the end;
+    a last line still being written is skipped, and a line longer than TAIL comes in a later list."""
+    position, carry, done = os.fstat(stream.fileno()).st_size, b"", False
+    while position > 0:
+        start = max(0, position - TAIL)
+        stream.seek(start)
+        data = stream.read(position - start) + carry
+        position = start
+        if not done:
+            cut = data.rfind(b"\n")
+            if cut < 0:
+                carry = b""  # all of it is the line still being written
+                continue
+            data, done = data[:cut], True
+        pieces = data.split(b"\n")
+        carry, lines = pieces[0], pieces[:0:-1]
+        if start == 0:
+            lines.append(carry)
+        yield lines
 
 
 def snapshots(stream, started, ended):
@@ -344,15 +368,22 @@ def ran_tools(root, ids, account, started, ended):
                 if payload is not None and payload.get("thread_source") == "guardian_review":
                     continue  # no user hook runs there, and reviews must not crowd the run's own threads out
                 owned += 1
-                for raw in tail(stream)[0]:
-                    found = parsed(raw) if b"_call" in raw else None
-                    if found is None:
-                        continue
-                    line, kind, payload, ptype = found
-                    when = moment(line.get("timestamp"))
-                    if (hooked(kind, ptype, payload) and not inherited(line) and when is not None
-                            and started - SLACK <= when <= ended + SLACK):
-                        return True
+                for lines in backwards(stream):
+                    older = False
+                    for raw in lines:
+                        found = parsed(raw) if b"_call" in raw else None
+                        if found is None:
+                            stamp = STAMP.match(raw)
+                            when = moment(stamp[1].decode("ascii", "replace")) if stamp else None
+                        else:
+                            line, kind, payload, ptype = found
+                            when = moment(line.get("timestamp"))
+                            if (hooked(kind, ptype, payload) and not inherited(line) and when is not None
+                                    and started - SLACK <= when <= ended + SLACK):
+                                return True
+                        older = older or when is not None and when < started - SLACK
+                    if older:
+                        break  # the lines before these are older still: the run wrote none of them
         except OSError:
             continue
     return False

@@ -721,6 +721,48 @@ class RanTools(unittest.TestCase):
         self.rollout(OTHER, [call(NOW)])
         self.assertTrue(self.ran())
 
+    def test_a_call_followed_by_more_than_the_tail_counts(self):
+        output = item(NOW + 1, "function_call_output", call_id="call_1", output="x" * (2 * usage.TAIL))
+        self.rollout(THREAD, [call(NOW), output, item(NOW + 2, "message", role="assistant"), count(NOW + 2, None)])
+        self.assertTrue(self.ran())
+        self.assertTrue(self.ran(ids=(THREAD,)))
+        reasoning = [item(NOW + 1, "reasoning", summary=[], encrypted_content="y" * 4096) for _ in range(600)]
+        self.rollout(THREAD, [call(NOW), *reasoning])
+        self.assertTrue(self.ran())
+        self.rollout(THREAD, [call(self.start - 3600), *[{**record, "timestamp": iso(self.start - 3600)}
+                                                         for record in reasoning], item(NOW, "reasoning")])
+        self.assertFalse(self.ran(), "a call from before the run counted")
+
+    def test_the_rollout_is_read_back_only_to_the_lines_before_the_run(self):
+        before = [item(self.start - 3600, "reasoning", encrypted_content="y" * 4096) for _ in range(1200)]
+        during = [item(NOW, "reasoning", encrypted_content="z" * 4096) for _ in range(600)]
+        path = self.rollout(THREAD, [*before, *during])
+        self.assertGreater(path.stat().st_size, 7 * usage.TAIL)
+        read, real = [], usage.opened
+
+        class Counted:
+            def __init__(self, stream):
+                self.stream = stream
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.stream.close()
+
+            def read(self, size=-1):
+                data = self.stream.read(size)
+                read.append(len(data))
+                return data
+
+            def __getattr__(self, name):
+                return getattr(self.stream, name)
+
+        with patch.object(usage, "opened", lambda path: Counted(real(path))):
+            self.assertFalse(self.ran())
+        # The first line, the lines of the run, and the one chunk that reaches back before it.
+        self.assertLessEqual(sum(read), usage.FIRST_LINE + 5 * usage.TAIL)
+
     def test_a_resumed_thread_counts_by_its_id_whoever_created_it(self):
         self.rollout(RESUMED, [call(NOW)], creator=("user-fixture-B", "workspace-fixture-B"))
         self.assertFalse(self.ran())
