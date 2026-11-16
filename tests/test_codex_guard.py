@@ -297,6 +297,43 @@ class HooksOff(Fixture):
         self.assertTrue(self.off(cwd=elsewhere / "link"))
 
 
+class ManagedGoals(Fixture):
+    """goals under [features] of a managed layer, which native Codex applies over the command line's -c
+    values and flags, set to anything but false keeps goals on in a launch that turns them off."""
+
+    def setUp(self):
+        super().setUp()
+        self.host_managed = layout.MANAGED_CONFIG
+        self.managed = (self.base / "etc/codex/managed_config.toml", self.base / "etc/codex/requirements.toml")
+        patcher = patch.object(layout, "MANAGED_CONFIG", self.managed)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_managed_layers(self):
+        self.assertEqual(tuple(map(str, self.host_managed)),
+                         ("/etc/codex/managed_config.toml", "/etc/codex/requirements.toml"))
+        self.assertIsNone(layout.goals_on(check))
+        for path in self.managed:
+            for text, on in (("[features]\ngoals = true\n", True), ('[features]\ngoals = "false"\n', True),
+                             ("[features.goals]\nenabled = false\n", True), ("features = { goals = 1 }\n", True),
+                             ("[features]\ngoals = false\n", False), ("[features]\nhooks = true\n", False),
+                             ("goals = true\n", False), ('model = "x"\n', False)):
+                with self.subTest(path=path.name, text=text):
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(text)
+                    self.assertEqual(layout.goals_on(check), path if on else None)
+            path.unlink()
+
+    def test_other_layers_do_not_count(self):
+        """The command line's -c features.goals=false wins over the shared, a profile's, a project's and
+        the system config.toml (measured with codex-cli 0.169.0)."""
+        for path in (self.root / "config.toml", self.root / "p.config.toml", self.cwd / ".codex/config.toml",
+                     self.base / "etc/codex/config.toml"):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("[features]\ngoals = true\n")
+        self.assertIsNone(layout.goals_on(check))
+
+
 # The two hook values, as settled for every release: a change asks every host to trust the hooks again.
 PROMPT_HOOK = (r'hooks.UserPromptSubmit=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S '
                r'\"$CODING_AGENT_KIT_GUARD_SCRIPT\" prompt",timeout=20}]}]')
@@ -618,6 +655,30 @@ class GuardedLaunch(unittest.TestCase):
         project.unlink()
         result = self.run_codex("--reserve-weekly", "10", "A", "-p", "q", "go")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_goals_on_in_a_managed_layer_are_refused(self):
+        """The kit copy's managed layers lie in the test's directory: /etc is never written."""
+        managed = self.base / "etc/codex/managed_config.toml"
+        requirements = self.base / "etc/codex/requirements.toml"
+        source = self.kit / "lib/codex-as/layout.py"
+        text = source.read_text()
+        line = 'MANAGED_CONFIG = (Path("/etc/codex/managed_config.toml"), Path("/etc/codex/requirements.toml"))'
+        self.assertEqual(text.count(line), 1)
+        source.write_text(text.replace(line, f"MANAGED_CONFIG = (Path({str(managed)!r}), Path({str(requirements)!r}))"))
+        managed.parent.mkdir(parents=True)
+        self.trusted()
+        message = ("{path} sets goals under [features], which native Codex applies over the goals off of a launch with "
+                   "usage reserves: a goal continues on its own after a denied tool call")
+        for path in (managed, requirements):
+            with self.subTest(path=path.name):
+                path.write_text("[features]\ngoals = true\n")
+                self.refused(["A", "exec", "go"], message.format(path=path))
+                path.write_text("[features]\ngoals = false\n")
+        result = self.run_codex("--reserve-weekly", "10", "A", "exec", "go")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        managed.write_text("[features]\ngoals = true\n")
+        result = self.run_codex("A", "exec", "go")
+        self.assertEqual((result.returncode, result.stderr), (0, ""), "a launch without reserves read the managed layer")
 
     def test_a_headless_run_waits_for_an_interactive_launch_whose_tool_hook_ran(self):
         reason = ("Codex has not run the usage reserve guard's tool hook on this host yet, and a headless run skips "

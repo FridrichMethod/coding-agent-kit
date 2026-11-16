@@ -269,6 +269,10 @@ def guarded(config, account, plan, layout):
     if off is not None:
         refuse(account, f"{off} turns the hooks feature off under [features], so Codex would not run the usage "
                         "reserve guard's hooks")
+    managed = storage.goals_on(guard)
+    if managed is not None:
+        refuse(account, f"{managed} sets goals under [features], which native Codex applies over the goals off of a "
+                        "launch with usage reserves: a goal continues on its own after a denied tool call")
     directory = metadata.directory(config, create=True, name="guard")
     marker = directory / ("codex-hooks-" + guard_fingerprint())
     if plan.form == "headless" and not os.path.lexists(marker):
