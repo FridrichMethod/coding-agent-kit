@@ -90,18 +90,19 @@ reply) and no STATE.ran.* exists, the first footer line is WARNING: the native
 has not run the injected hooks.
 
 Any error on a prompt or tool event (an event that is not a JSON object, a
-launch format, an unwritable state file, a missing module, an exception) is a
-block with reserve.failure_text() and the error's class name, in the block shape
-above, also left in STATE.blocked when the launch names its state; without
-reserve.py the guard writes the same text itself (FAILURE_STOPPED,
-FAILURE_TAILS). On start, stop and status every error exits 0 without output. A
-Python older than 3.11 blocks with one line on prompt and tool, and is silent
-elsewhere.
+launch format, an unwritable state file, a missing module, an exception, a
+SIGINT while the event is read or answered) is a block with
+reserve.failure_text() and the error's class name, in the block shape above,
+also left in STATE.blocked when the launch names its state; without reserve.py
+the guard writes the same text itself (FAILURE_STOPPED, FAILURE_TAILS). On
+start, stop and status every error exits 0 without output. A Python older than
+3.11 blocks with one line on prompt and tool, and is silent elsewhere.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
 footer), handle(kind, raw, env, now) (an event's answer from its raw stdin;
-never raises), main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe
+never raises), interrupted(kind, env) (the answer after a SIGINT),
+main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe
 results: a PreToolUse continue false ends the turn, a Stop one ends it beside
 another Stop hook), BLIND_AFTER, RECORD_AGAIN, STATUS_TIMEOUT, LOCK_WAIT and
 LOCK_STALE (seconds), WARNING, VARIABLE.
@@ -695,15 +696,37 @@ def old_python(kind):
     return 2
 
 
+def interrupted(kind, env):
+    """The answer of a run that SIGINT interrupted (a terminal's Ctrl-C reaches the native's whole process
+    group, its hooks included): a guard failure, so a block on prompt and tool and silence elsewhere. A
+    further SIGINT is ignored while the run answers."""
+    import signal
+    try:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    except (OSError, ValueError):  # not the main thread
+        pass
+    name = KeyboardInterrupt.__name__
+    try:
+        launch = launch_of(env)
+    except LaunchError as error:
+        return failed(kind, error.tool, error.account, name, error.state)
+    except Exception:
+        return failed(kind, None, None, name)
+    return OK if launch is None else failed(kind, launch.tool, launch.account, name, launch.state)
+
+
 def main(argv=None):
     if sys.version_info < (3, 11):
         return old_python(kind_of(argv))
     kind = kind_of(argv)
     try:
-        raw = sys.stdin.buffer.read()  # always drained, so the native never writes into a closed pipe
-    except Exception:
-        raw = None
-    code, out, err = handle(kind, raw, os.environ, time.time())
+        try:
+            raw = sys.stdin.buffer.read()  # always drained, so the native never writes into a closed pipe
+        except Exception:
+            raw = None
+        code, out, err = handle(kind, raw, os.environ, time.time())
+    except KeyboardInterrupt:
+        code, out, err = interrupted(kind, os.environ)
     if not emit(sys.stdout, out) and kind == "tool" and code == 0:
         # A turn stop the native never reads would be an allow: deny with exit 2 and the reason instead.
         try:

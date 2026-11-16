@@ -23,6 +23,7 @@ import sys
 import tempfile
 import threading
 import time
+import types
 import unittest
 from unittest.mock import patch
 
@@ -788,6 +789,54 @@ class Main(Fixture):
                     else:
                         self.assertEqual(result[2], "")
 
+    def test_an_interrupted_guard_blocks_prompt_and_tool_and_stays_quiet_elsewhere(self):
+        self.addCleanup(signal.signal, signal.SIGINT, signal.getsignal(signal.SIGINT))
+
+        def interrupt(*_):
+            raise KeyboardInterrupt
+
+        stdin = types.SimpleNamespace(buffer=types.SimpleNamespace(read=interrupt))
+        for launch in (self.launch(weekly="10"), self.launch("codex-as", weekly="10"), None):
+            for kind in ("prompt", "tool", "start", "stop", "status"):
+                for where in ("reading the event", "answering it"):
+                    if launch is not None:
+                        self.state(launch, "blocked").unlink(missing_ok=True)
+                    with self.subTest(tool=launch and launch.tool, kind=kind, where=where), \
+                            patch.dict(os.environ, {} if launch is None else self.environ(launch)), \
+                            patch.object(guard.sys, "stdin", stdin if where == "reading the event" else
+                                         io.TextIOWrapper(io.BytesIO(b"{}"))), \
+                            patch.object(guard, "handle", interrupt if where == "answering it" else guard.handle), \
+                            contextlib.redirect_stderr(io.StringIO()) as err, contextlib.redirect_stdout(io.StringIO()) as out:
+                        code = guard.main(["guard.py", kind])
+                    answer = (code, out.getvalue(), err.getvalue())
+                    if launch is None or kind in guard.QUIET:
+                        self.assertEqual(answer, OK)
+                        continue
+                    text = reserve.failure_text(launch.tool, launch.account, kind, "KeyboardInterrupt")
+                    if launch.tool == "claude-as" and kind == "tool":
+                        self.assertEqual(answer, (0, turn_json(text), ""))
+                    else:
+                        self.assertEqual(answer, (2, "", text + "\n"))
+                    self.assertEqual(self.state(launch, "blocked").read_text(), text)
+
+    def test_a_sigint_while_the_guard_waits_for_its_event(self):
+        launch = self.launch("codex-as", weekly="10")
+        script = ROOT / "lib/coding-agent-kit/guard.py"
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **self.environ(launch)}
+        for kind in ("prompt", "tool", "start", "stop", "status"):
+            with self.subTest(kind=kind):
+                run = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(script), kind], stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+                self.addCleanup(run.kill)
+                self.assertTrue(asleep(run.pid), "the guard never waited for its event")
+                run.send_signal(signal.SIGINT)
+                out, err = run.communicate(timeout=30)
+                if kind in guard.QUIET:
+                    self.assertEqual((run.returncode, out, err), (0, b"", b""))
+                else:
+                    text = reserve.failure_text("codex-as", "lab", kind, "KeyboardInterrupt")
+                    self.assertEqual((run.returncode, out, err.decode()), (2, b"", text + "\n"))
+
     def test_an_old_python_blocks_prompt_and_tool_and_stays_quiet_elsewhere(self):
         for kind, code in (("prompt", 2), ("tool", 2), ("start", 0), ("stop", 0), ("status", 0)):
             with self.subTest(kind=kind), patch.object(guard.sys, "version_info", (3, 10, 14)), \
@@ -815,6 +864,19 @@ def gone(pid, wait=5):
         if time.monotonic() > deadline:
             return False
         time.sleep(0.05)
+
+
+def asleep(pid, wait=30):
+    """Whether process PID is seen asleep (waiting, as on a read of an open pipe) in two checks in a row
+    within WAIT seconds; a starting interpreter is running, not asleep."""
+    deadline, seen = time.monotonic() + wait, 0
+    while time.monotonic() < deadline:
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+        seen = seen + 1 if state.startswith(("S", "I")) else 0
+        if seen == 2:
+            return True
+        time.sleep(0.1)
+    return False
 
 
 def kill_group(pid):
