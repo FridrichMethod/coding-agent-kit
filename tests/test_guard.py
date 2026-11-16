@@ -206,6 +206,11 @@ class LaunchOf(Fixture):
                                               "/abs/prefix", "/abs/path", "command"))
         self.assertEqual(str(launch.enabled["five_hour"]), "12.5")
 
+    def test_unknown_keys_are_ignored(self):
+        later = self.EXAMPLE[:-1] + ',"later":1,"hooks":{"v":2}}'
+        self.assertEqual(guard.launch_of({"CODING_AGENT_KIT_GUARD": later}),
+                         guard.launch_of({"CODING_AGENT_KIT_GUARD": self.EXAMPLE}))
+
     def test_edge_and_fractional_reserves_arrive_exactly(self):
         for text in ("0", "100", "12.5", "0.25", "99.99"):
             with self.subTest(text=text):
@@ -370,6 +375,18 @@ class ClaudeBlind(Fixture):
         self.answer("prompt", launch)
         self.answer("start", launch)
         self.assertFalse(self.state(launch, "reply").exists())
+
+    def test_a_denying_tool_event_records_the_first_reply(self):
+        # After a STOP_TURN deny no Stop hook runs for that turn (R3), so the denying tool event records the reply.
+        launch = self.launch(weekly="10")
+        self.claude_usage(launch, seven_day=(91, NOW + 3600))
+        text = WEEKLY_CLAUDE + STOPPED["tool"] + RELAUNCH_CLAUDE
+        self.assertEqual(self.answer("tool", launch, now=NOW - 50), (0, turn_json(text), ""))
+        self.assertEqual(self.state(launch, "reply").read_text(), str(NOW - 50))
+        self.assertFalse(self.state(launch, "ran.stop").exists())
+        for kind in ("tool", "stop", "prompt"):
+            self.assertNotEqual(self.answer(kind, launch, now=NOW - 10), OK)
+        self.assertEqual(self.state(launch, "reply").read_text(), str(NOW - 50))
 
     def test_two_minutes_after_the_first_reply_without_data_the_session_is_blind(self):
         launch = self.launch(weekly="10")
@@ -1014,6 +1031,18 @@ def kill_group(pid):
         pass
 
 
+def another_users(pid):
+    """os.kill as it behaves when process PID belongs to another user: EPERM for it, the real call otherwise."""
+    real = os.kill
+
+    def kill(target, signum):
+        if target == pid:
+            raise PermissionError(1, "Operation not permitted")
+        return real(target, signum)
+
+    return kill
+
+
 def limits(five_hour=(42, NOW + 3600), seven_day=(17, NOW + 86400)):
     """The rate_limits of Claude Code's status line input; a window is (used, reset) or None for none."""
     return {key: {"used_percentage": value[0], "resets_at": value[1]}
@@ -1332,6 +1361,17 @@ class StatusLine(Fixture):
         with patch.object(guard, "LOCK_WAIT", 0.2):
             self.assertFalse(guard.record(launch.usage, limits(), NOW + 10))
         self.assertEqual((guard.LOCK_WAIT, guard.LOCK_STALE, guard.LOCK_EMPTY), (2, 10, 1))
+
+    def test_a_lock_of_a_process_of_another_user_is_held(self):
+        # kill(pid, 0) refuses a process of another user with EPERM: such a process runs, and its lock holds.
+        launch = self.launch(weekly="10")
+        lock = self.lock_file(launch, pid=GONE + 7)
+        with patch.object(guard.os, "kill", another_users(GONE + 7)), patch.object(guard, "LOCK_WAIT", 0.2), \
+                self.assertRaises(TimeoutError):
+            guard.lock(Path(launch.usage))
+        self.assertTrue(lock.exists())
+        name, held = guard.lock(Path(launch.usage))  # unpatched, that process has ended
+        guard.unlock(name, held)
 
     def test_a_lock_that_took_the_place_of_a_stale_one_meanwhile_is_never_moved(self):
         launch = self.launch(weekly="10")
@@ -1876,6 +1916,14 @@ class GuardLaunch(Fixture):
         self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", None))
         self.assertFalse(Path(other + ".launched").exists())
         self.assertEqual(self.names(), sorted(os.path.basename(prefix) + ".launched" for prefix in (unnamed, cut)))
+
+    def test_a_launch_whose_process_belongs_to_another_user_still_runs(self):
+        # kill(pid, 0) refuses a process of another user with EPERM: such a process runs.
+        earlier = self.state_files("claude-as", "personal", GONE + 7, self.started - 3600, "launched")
+        with patch.object(guard_launch.os, "kill", another_users(GONE + 7)):
+            self.assertFalse(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", self.started))
+        self.assertTrue(Path(earlier + ".launched").exists())
+        self.assertTrue(guard_launch.unguarded(self.guard_dir, "claude-as", "personal", self.started))
 
     def test_launches_whose_hooks_ran_or_that_had_no_reply_do_not_count(self):
         ran = [self.state_files("claude-as", "personal", 4000 + index, self.started - 600, "launched", "seen", kind)
