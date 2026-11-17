@@ -43,8 +43,9 @@ Breaking changes:
   `lib/coding-agent-kit/guard.py` and `guard_launch.py`. Both launchers load
   `guard_launch.py` on every launch (`codex-as` also for its metadata
   queries), so a copy without it prints `incomplete install at ROOT`; a
-  launch with a reserve also needs `guard.py` and refuses the same way
-  without it. Linked and managed installs and checkouts are unaffected.
+  guarded launch (a reserve on and a form that starts model work) also needs
+  `guard.py` and refuses the same way without it. Linked and managed
+  installs and checkouts are unaffected.
 
 Removed:
 
@@ -78,9 +79,11 @@ Added:
   own usage data shows an enabled window at or below its reserve, the guard
   refuses new prompts, which are not sent, and tool calls, which are denied
   with the reason, and it allows again by itself once that window has reset.
-  A reading counts until its window resets, however old it is, and one above
-  100 percent counts as 100; a window without a current reading has nothing
-  to check.
+  A reading counts until its window resets, however old it is, and a Codex
+  reading above 100 percent counts as 100; in Claude Code the guard's status
+  line records only windows from 0 through 100 percent, like the status line
+  helper, so a window above 100 percent there is no reading. A window
+  without a current reading has nothing to check.
 - `claude-as` passes the guard in one `--settings` argument before the
   caller's arguments: `SessionStart`, `UserPromptSubmit`, `PreToolUse` for
   every tool and `Stop` hooks, and the guard as the launch's status line.
@@ -120,26 +123,27 @@ Added:
   then what was stopped and the relaunch, for example
   `claude-as --reserve-weekly off NAME --continue` or
   `codex-as --reserve-5h off NAME resume --last`.
-- Hooks that the native does not run are reported. In Claude Code the
-  guard's status line prints `reserve guard not running` as the first footer
-  line once the session has had a reply and no hook has run, and the next
-  guarded launch of the account warns `claude-as: NAME: an earlier launch
-  ran without its usage reserve guard: Claude Code did not run the injected
-  hooks.` After a Codex run, `codex-as` warns when the run's own sessions
-  show that Codex did not run the guard's hooks, and gives a notice when the
-  session that shows it may be another client's of the account; it also
-  prints the guard's latest block message of a headless run, which
-  `codex exec` does not show.
+- Hooks that the native does not run are reported where the kit can tell.
+  In Claude Code the guard's status line prints `reserve guard not running`
+  as the first footer line once the session has had a reply and no hook has
+  run, and the next guarded launch of the account warns `claude-as: NAME: an
+  earlier launch ran without its usage reserve guard: Claude Code did not run
+  the injected hooks.` After a Codex run, `codex-as` warns when the run's
+  own sessions show that Codex did not run the guard's hooks, and gives a
+  notice when the session that shows it may be another client's of the
+  account; it also prints the guard's latest block message of a headless
+  run, which `codex exec` does not show.
 - Headless Codex runs with a reserve (`exec` in every form, `review`) are
   refused until the guard's tool hook has run under Codex on this host,
   since a headless run skips a hook that is not trusted without a word; a
   marker in the guard directory records it, and goes when a run's own
   sessions show that the hooks did not run.
 - A guarded `claude-as` launch keeps its session in its own process: it sets
-  `CLAUDE_DISABLE_ADOPT=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1` and removes
-  `CLAUDE_CODE_RESUME_INTERRUPTED_TURN`, since a session in Claude Code's
-  background process would run with the environment and credential of
-  whichever launch started that process.
+  `CLAUDE_DISABLE_ADOPT=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, since a
+  session in Claude Code's background process would run with the environment
+  and credential of whichever launch started that process, and removes
+  `CLAUDE_CODE_RESUME_INTERRUPTED_TURN`, which would re-run a turn that the
+  guard stopped.
 - Minimum versions for a launch with a reserve: Claude Code 2.1.296 or newer,
   refused when older or when `claude --version` names no version; codex-cli
   0.161.0 or newer, the minimum of every `codex-as` launch, with no other one
@@ -169,7 +173,8 @@ Changed:
     `attach`, `respawn`, `ultrareview`, `auto-mode critique`, `plugin eval`,
     `mcp serve` and `gateway`; `remote`, `sync`, `bridge` and `daemon` as the
     first argument; a `--settings` of the caller's; `--safe-mode` or `--bare`
-    before `--`, also as an option's value; `CLAUDE_CODE_SAFE_MODE` or
+    as the value of an option before `--` (as options, both are refused on
+    every launch, with a reserve or without); `CLAUDE_CODE_SAFE_MODE` or
     `CLAUDE_CODE_SIMPLE` set to anything but off, or a non-empty
     `CLAUDE_CODE_SHELL_PREFIX`, in the environment or a settings `env`;
     `disableAllHooks` in a user, project, local or managed settings file,
@@ -207,8 +212,10 @@ Changed:
   more.
 - AGENTS.md describes the reserve guard as an exception to the rule that
   best effort falls back to plain native behavior: with a reserve on, a
-  session without usage data, a guard failure and a form the hooks cannot
-  cover block or are refused instead.
+  session without usage data, a guard failure on a prompt or a tool call and
+  a form the hooks cannot cover block or are refused instead, apart from the
+  Codex case in the known limits below, and hooks that the native does not
+  run are reported where the kit can tell.
 
 Fixed:
 
@@ -240,9 +247,10 @@ process that calls the provider itself, a native that a tool starts inside
 the session, requests that no hook sees (compaction, Codex memory
 consolidation and reviewers) and Codex tool calls outside `PreToolUse`
 (`write_stdin`, hosted tools such as web search) go through, and a Codex
-guard that cannot start at all lets the event through, which the check after
-the run reports. Clients without the launchers (plain `claude` or `codex`,
-IDE and desktop clients, native Windows) are unguarded.
+guard that ends without an answer (one that cannot start at all, or a Ctrl-C
+while it starts) lets the event through, which the check after the run
+reports where it can tell. Clients without the launchers (plain `claude` or
+`codex`, IDE and desktop clients, native Windows) are unguarded.
 
 ## 0.8.0
 
