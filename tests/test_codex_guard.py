@@ -4,7 +4,8 @@ LaunchForms, Version, HooksOff, HookState and ManagedGoals run
 check.arguments() and layout's hooks_off(), hook_off() and goals_on() in
 process against a temporary HOME, Codex home and working directory. Hooks
 pins the hook definitions in process. GuardedLaunch runs codex-as from a kit
-copy under a path with a space and a quote, in a temporary HOME, against a
+copy under a path with a space and a quote, whose /etc/codex layers lie in the
+test's directory, in a temporary HOME, against a
 fake codex that records its argv and environment, writes rollouts as native
 Codex does and runs the guard's hooks the way Codex runs them: the command of
 the -c value through a shell, with the event on stdin. No native, provider,
@@ -549,6 +550,14 @@ class GuardedLaunch(unittest.TestCase):
         self.kit = self.base / "kit o'clock dir"
         for part in ("bin", "lib", "docs"):
             shutil.copytree(ROOT / part, self.kit / part)
+        # The kit copy's system and managed layers lie in the test's directory, so a host's /etc/codex
+        # never changes a case, and /etc is never written.
+        self.etc = self.base / "etc codex"
+        for name, count in (("check.py", 3), ("layout.py", 4)):
+            source = self.kit / "lib/codex-as" / name
+            text = source.read_text()
+            self.assertEqual(text.count('Path("/etc/codex/'), count, name)
+            source.write_text(text.replace('Path("/etc/codex/', f"Path({str(self.etc)!r} + \"/"))
         self.home = self.base / "home with spaces"
         self.root = self.home / ".codex"
         self.root.mkdir(parents=True, mode=0o700)
@@ -764,6 +773,14 @@ class GuardedLaunch(unittest.TestCase):
         project.write_text("[features]\nhooks = false\n")
         self.refused(["A", "go"], message.format(path=project))
         project.unlink()
+        # A system layer, from the test's directory in place of /etc/codex (setUp).
+        self.etc.mkdir()
+        for name in ("config.toml", "managed_config.toml"):
+            with self.subTest(layer=name):
+                system = self.etc / name
+                system.write_text("[features]\nhooks = false\n")
+                self.refused(["A", "exec", "go"], message.format(path=system))
+                system.unlink()
         result = self.run_codex("--reserve-weekly", "10", "A", "-p", "q", "go")
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -812,15 +829,9 @@ class GuardedLaunch(unittest.TestCase):
         self.assertEqual((result.returncode, result.stderr), (0, ""))
 
     def test_goals_on_in_a_managed_layer_are_refused(self):
-        """The kit copy's managed layers lie in the test's directory: /etc is never written."""
-        managed = self.base / "etc/codex/managed_config.toml"
-        requirements = self.base / "etc/codex/requirements.toml"
-        source = self.kit / "lib/codex-as/layout.py"
-        text = source.read_text()
-        line = 'MANAGED_CONFIG = (Path("/etc/codex/managed_config.toml"), Path("/etc/codex/requirements.toml"))'
-        self.assertEqual(text.count(line), 1)
-        source.write_text(text.replace(line, f"MANAGED_CONFIG = (Path({str(managed)!r}), Path({str(requirements)!r}))"))
-        managed.parent.mkdir(parents=True)
+        """The kit copy's managed layers lie in the test's directory (setUp)."""
+        managed, requirements = self.etc / "managed_config.toml", self.etc / "requirements.toml"
+        self.etc.mkdir()
         self.trusted()
         message = ("{path} sets goals under [features], which native Codex applies over the goals off of a launch with "
                    "usage reserves: a goal continues on its own after a denied tool call")
