@@ -175,14 +175,16 @@ Changed:
     `attach`, `respawn`, `ultrareview`, `auto-mode critique`, `plugin eval`,
     `mcp serve` and `gateway`; `remote`, `sync`, `bridge` and `daemon` as the
     first argument; a `--settings` of the caller's; `--safe-mode` or `--bare`
-    as the value of an option before `--` (as options, both are refused on
-    every launch, with a reserve or without); `CLAUDE_CODE_SAFE_MODE` or
-    `CLAUDE_CODE_SIMPLE` set to anything but off, or a non-empty
-    `CLAUDE_CODE_SHELL_PREFIX`, in the environment or a settings `env`;
-    `disableAllHooks` in a user, project, local or managed settings file,
-    and `allowManagedHooksOnly`, `strictPluginOnlyCustomization` or a
-    `statusLine` in the machine's managed settings; a settings `env` that
-    reopens what a guarded launch closes; a Claude Code older than 2.1.296.
+    before `--` as a separate word that is an option's value, as in
+    `--model --bare` (spelled `--model=--bare` it is no switch and launches;
+    as options, both are refused on every launch, with a reserve or
+    without); `CLAUDE_CODE_SAFE_MODE` or `CLAUDE_CODE_SIMPLE` set to anything
+    but off, or a non-empty `CLAUDE_CODE_SHELL_PREFIX`, in the environment or
+    a settings `env`; `disableAllHooks` in a user, project, local or managed
+    settings file, and `allowManagedHooksOnly`,
+    `strictPluginOnlyCustomization` or a `statusLine` in the machine's
+    managed settings; a settings `env` that reopens what a guarded launch
+    closes; a Claude Code older than 2.1.296.
   - `codex-as`: `cloud`, `app-server`, `exec-server`, `remote-control` and
     `debug app-server`; a `-c` or `--config` value under `hooks`;
     `--disable hooks`, a `-c` value that turns the hooks feature off, or the
