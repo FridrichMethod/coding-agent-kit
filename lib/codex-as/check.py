@@ -305,8 +305,9 @@ def arguments(args, config):
                         command == "debug" and words == ["app-server", "help"]):
                     query = True  # these have subcommands too, so clap reads this word as their help subcommand
                     break
-                # Foreground remote-control and stdio app-server need no daemon; these manage one.
-                if command == "remote-control" or (command == "app-server" and "daemon" in words):
+                # Foreground remote-control and stdio app-server need no daemon; these manage one. After a schema
+                # generator, daemon is the generator's word (--out daemon).
+                if command == "remote-control" or (command == "app-server" and "daemon" in words and not schema):
                     fail("this command manages a Codex daemon; codex-as accounts run without one.")
                 if command == "features" and words[:1] == ["enable"] and arg in FEATURES:
                     fail("an authentication feature replaces the account login; it is refused.")

@@ -138,6 +138,8 @@ class LaunchForms(Fixture):
                       ["-c", "model=x", "app-server", "--listen", "stdio://", "generate-ts", "-oout"],
                       ["app-server", "--strict-config", "generate-json-schema", "-o", "out"],
                       ["app-server", "-c", "model=x", "generate-internal-json-schema", "-o", "out"],
+                      # A word after the generator is its own (a directory named daemon), never app-server's daemon.
+                      ["app-server", "generate-ts", "--out", "daemon"], ["app-server", "generate-json-schema", "--out", "daemon"],
                       ["responses-api-proxy"], ["stdio-to-uds", "x"], ["execpolicy"],
                       # Help and version print and run nothing.
                       ["--help"], ["-h"], ["-V"], ["--version"], ["help"], ["help", "exec"],
@@ -274,6 +276,8 @@ class LaunchForms(Fixture):
         """A guarded form never relaxes the checks every launch has."""
         for args in (["--oss", "exec", "go"], ["exec", "-c", "model_provider=x", "go"], ["agents"],
                      ["remote-control", "start"], ["remote-control", "help"], ["app-server", "daemon"],
+                     # An option the scan does not know may take the generator's name: daemon stays app-server's.
+                     ["app-server", "--cloud-skills-snapshot", "generate-ts", "daemon", "start"],
                      ["--enable", "use_agent_identity"]):
             with self.subTest(args=args):
                 with self.assertRaises(ValueError):
