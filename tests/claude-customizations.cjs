@@ -591,6 +591,29 @@ test('status line merges into the file another writer renamed over the one it ha
   assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a temporary file was left');
 });
 
+test('status line opens a usage file other writers keep replacing at most three times', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  const now = NOW / 1000;
+  const stored = { five_hour: usageWindow(50, now + 3600), seven_day: usageWindow(95, now + 86400), seen_at: now - 1000 };
+  put(file, stored);
+  // Replaced at every open (at most ten times here, so a regression cannot hang the test), the file holds no stored
+  // reading after the third open, as accounts.read refuses it: the merge keeps only the incoming window.
+  let replaced = 0;
+  patchFs(t, 'fstatSync', real => (fd, ...rest) => {
+    const info = real(fd, ...rest);
+    const there = fs.lstatSync(file, { throwIfNoEntry: false });
+    if (replaced >= 10 || !there || there.dev !== info.dev || there.ino !== info.ino) return info;
+    put(`${file}.other`, stored);
+    fs.renameSync(`${file}.other`, file);
+    replaced += 1;
+    return real(fd, ...rest);
+  });
+  assert.equal(recordUsage({ rate_limits: { five_hour: usageWindow(60, now + 3600) } }, env, NOW), true);
+  assert.equal(replaced, 3);
+  assert.deepEqual(readJson(file), { five_hour: usageWindow(60, now + 3600), seven_day: null, seen_at: now });
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a temporary file was left');
+});
+
 test('status line reads the usage file again after a pause when a rename over it is under way', posixOnly, (t) => {
   const { folder, file, env } = usageFixture(t);
   const now = NOW / 1000;
