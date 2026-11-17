@@ -500,16 +500,26 @@ def env_off(value):
     return not value or (not env_on(value) and env_text(value).strip().lower() in OFF_WORDS)
 
 
+def accepted_status_line(line):
+    """Whether Claude Code's settings schema accepts LINE as a statusLine: an object whose type is "command" and
+    whose command is a string, with a number as padding and a boolean as hideVimModeIndicator where given (other
+    keys are let through). Claude Code skips a settings file with any other statusLine entirely."""
+    return (isinstance(line, dict) and line.get("type") == "command" and isinstance(line.get("command"), str)
+            and ("padding" not in line or type(line["padding"]) in (int, float))
+            and ("hideVimModeIndicator" not in line or isinstance(line["hideVimModeIndicator"], bool)))
+
+
 def own_status_line(sources):
-    """The status line the user's settings give Claude Code, as {"command", "padding"}: the statusLine of
-    the last of SOURCES (parsed settings or None, lowest precedence first) that sets one, when it is a
-    command; None otherwise. The guard runs that command after it has recorded the launch's usage."""
-    line = None
+    """The status line the user's settings give Claude Code, as {"command", "padding"}: the statusLine objects of
+    SOURCES (parsed settings or None, lowest precedence first) that Claude Code accepts, merged as it merges them
+    (a later key wins), when the command is not blank; None otherwise. A padding that is not a whole number of
+    columns from 0 up is 0. The guard runs that command after it has recorded the launch's usage; best effort,
+    since Claude Code also skips a file that other keys make invalid."""
+    line = {}
     for settings in sources:
-        if isinstance(settings, dict) and "statusLine" in settings:
-            line = settings["statusLine"]
-    if (not isinstance(line, dict) or line.get("type") != "command" or not isinstance(line.get("command"), str)
-            or not line["command"].strip()):
+        if isinstance(settings, dict) and accepted_status_line(settings.get("statusLine")):
+            line.update(settings["statusLine"])
+    if not line or not line["command"].strip():
         return None
     padding = line.get("padding", 0)
     return {"command": line["command"], "padding": padding if type(padding) is int and padding >= 0 else 0}

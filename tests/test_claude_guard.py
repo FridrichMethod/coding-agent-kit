@@ -371,12 +371,17 @@ class Guarded(Fixture):
                  ({"statusLine": {"type": "command", "command": user}},
                   {"statusLine": {"type": "command", "command": "project status", "padding": 1}}, None,
                   "project status", 1),
+                 # Claude Code merges the status lines of its sources: the local command keeps the project's padding.
                  ({"statusLine": {"type": "command", "command": user, "padding": 2}},
                   {"statusLine": {"type": "command", "command": "project status", "padding": 1}},
-                  {"statusLine": {"type": "command", "command": "local status"}}, "local status", 0),
+                  {"statusLine": {"type": "command", "command": "local status"}}, "local status", 1),
+                 # A file whose status line Claude Code rejects (here one with a padding only) is skipped entirely.
+                 ({"statusLine": {"type": "command", "command": user, "padding": 2}},
+                  {"statusLine": {"type": "command", "command": "project status"}},
+                  {"statusLine": {"padding": 5}}, "project status", 2),
                  ({}, None, None, None, 0))
         for user_data, project, local, command, padding in cases:
-            with self.subTest(command=command):
+            with self.subTest(command=command, local=local):
                 self.user_settings(user_data)
                 for data, is_local in ((project, False), (local, True)):
                     path = self.cwd / ".claude" / ("settings.local.json" if is_local else "settings.json")
@@ -1023,18 +1028,34 @@ class Settings(unittest.TestCase):
             self.assertFalse(launch.env_on(value), value)
 
     def test_own_status_line(self):
+        """The status lines Claude Code accepts, merged in order (a later key wins); one it rejects, which skips its
+        whole settings file, adds nothing (Claude Code 2.1.326 in its terminal session)."""
         user = {"statusLine": {"type": "command", "command": "user", "padding": 3}}
         project = {"statusLine": {"type": "command", "command": "project"}}
         self.assertEqual(launch.own_status_line([user, None, {}]), {"command": "user", "padding": 3})
-        self.assertEqual(launch.own_status_line([user, project, None]), {"command": "project", "padding": 0})
-        self.assertIsNone(launch.own_status_line([user, {"statusLine": None}]))
+        self.assertEqual(launch.own_status_line([user, project, None]), {"command": "project", "padding": 3})
+        self.assertEqual(launch.own_status_line([project, user]), {"command": "user", "padding": 3})
         self.assertIsNone(launch.own_status_line([None, {}, {"other": 1}]))
-        for line in ({"type": "other", "command": "x"}, {"command": "x"}, {"type": "command", "command": ""},
-                     {"type": "command", "command": 7}, "text"):
-            self.assertIsNone(launch.own_status_line([{"statusLine": line}]), line)
-        for padding in (-1, True, 1.5, "2", None):
-            self.assertEqual(launch.own_status_line([{"statusLine": {"type": "command", "command": "x", "padding": padding}}]),
-                             {"command": "x", "padding": 0}, padding)
+        self.assertIsNone(launch.own_status_line([{"statusLine": {"type": "command", "command": " "}}]))
+        # An accepted empty command replaces the user's: Claude Code then runs none.
+        self.assertIsNone(launch.own_status_line([user, {"statusLine": {"type": "command", "command": ""}}]))
+        # Rejected: no type command, no string command, a padding that is no number, a hideVimModeIndicator that is
+        # no boolean, null or no object.
+        for line in ({"type": "other", "command": "x"}, {"command": "x"}, {"padding": 1}, {"type": "command"},
+                     {"type": "command", "command": 7}, {"type": "command", "command": "x", "padding": True},
+                     {"type": "command", "command": "x", "padding": "2"}, {"type": "command", "command": "x", "padding": None},
+                     {"type": "command", "command": "x", "hideVimModeIndicator": "yes"}, None, "text", ["x"]):
+            with self.subTest(rejected=line):
+                self.assertIsNone(launch.own_status_line([{"statusLine": line}]))
+                self.assertEqual(launch.own_status_line([user, {"statusLine": line}]), {"command": "user", "padding": 3})
+        # Accepted, with a padding that is no whole number of columns or is negative drawn as 0.
+        for line, padding in (({"type": "command", "command": "x", "padding": -1}, 0),
+                              ({"type": "command", "command": "x", "padding": 1.5}, 0),
+                              ({"type": "command", "command": "x", "padding": 0}, 0),
+                              ({"type": "command", "command": "x", "hideVimModeIndicator": True, "refreshInterval": "x",
+                                "other": 1}, 3)):
+            with self.subTest(accepted=line):
+                self.assertEqual(launch.own_status_line([user, {"statusLine": line}]), {"command": "x", "padding": padding})
 
     def test_guard_settings(self):
         script = "/kit o'clock/lib/coding-agent-kit/guard.py"
