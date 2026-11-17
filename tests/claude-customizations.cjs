@@ -542,14 +542,17 @@ test('status line keeps a newer reading of the same window', posixOnly, (t) => {
   assert.equal(recordUsage(input(usageWindow(5, five + 36000), usageWindow(2, seven)), env, (seven + 1) * 1000), true);
   assert.deepEqual(readJson(file), { five_hour: usageWindow(5, five + 36000), seven_day: usageWindow(2, seven),
     seen_at: seven + 1 });
-  // A file the guard would not read (not 0600, or linked elsewhere too) holds no stored reading.
+  // A file the guard would not read (not 0600, linked elsewhere too, or over 64 KiB) holds no stored reading.
+  const stored = { five_hour: usageWindow(91, five), seven_day: null, seen_at: now };
   for (const [name, unsafe] of [['0644', () => fs.chmodSync(file, 0o644)],
-    ['a second link', () => fs.linkSync(file, path.join(folder, 'second'))]]) {
-    put(file, { five_hour: usageWindow(91, five), seven_day: null, seen_at: now });
+    ['a second link', () => fs.linkSync(file, path.join(folder, 'second'))],
+    ['over 64 KiB', () => put(file, JSON.stringify(stored) + ' '.repeat(64 * 1024))]]) {
+    put(file, stored);
     unsafe();
     assert.equal(recordUsage(input(usageWindow(60, five), null), env, NOW), true, name);
     assert.deepEqual(readJson(file).five_hour, usageWindow(60, five), name);
     assert.equal(fs.statSync(file).mode & 0o777, 0o600, name);
+    assert.ok(fs.statSync(file).size <= 64 * 1024, name);
     fs.rmSync(path.join(folder, 'second'), { force: true });
   }
   assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a lock or temporary file was left');
