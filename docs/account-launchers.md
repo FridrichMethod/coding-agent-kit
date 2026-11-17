@@ -193,7 +193,7 @@ When Claude Code runs the guard's status line but not the injected hooks, as und
 claude-as: personal: an earlier launch ran without its usage reserve guard: Claude Code did not run the injected hooks.
 ```
 
-A server-managed or registry policy that sets `disableAllHooks` stops every status line too, the guard's included: such a launch runs without its guard and without a word, with no footer line, no blind refusal and no usage recorded by its sessions, so the warning above follows it, for a launch on this host, only once a later session of the account records its usage. A usage reserve is therefore not enforced on a host whose server-managed settings or registry policies set `disableAllHooks`.
+A server-managed or registry policy that sets `disableAllHooks` stops every status line too, the guard's included: such a launch runs without its guard and without a word, with no footer line, no blind refusal and no usage recorded by its sessions, so the warning above follows it, for a launch on this host, only once a later session of the account records its usage. A usage reserve is therefore not enforced for an account whose organization's server-managed settings set `disableAllHooks`, on any host, nor on a WSL host whose Windows registry policies set it.
 
 `claude-as` becomes Claude Code (it execs it), so it checks nothing after the session. A guarded launch that Claude Code ends before any hook runs (`--continue` in a directory without a conversation, `--resume` of a missing session, a picker closed with nothing in it) leaves the same trace, so the warning can also follow one of those once a later session of the account records its usage.
 
