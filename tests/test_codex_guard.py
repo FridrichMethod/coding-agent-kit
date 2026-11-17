@@ -526,6 +526,8 @@ for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
     with open(path, "a") as stream:
         for line in lines:
             stream.write(json.dumps({"timestamp": stamp, **line}) + "\n")
+    if "mtime" in item:  # the file's time as a file server sets it whose clock is "mtime" seconds off
+        os.utime(path, (now + item["mtime"], now + item["mtime"]))
     transcripts.append(str(path))
 # The guard's hooks as Codex runs them: the command of the -c value through a shell, the event on stdin.
 names = {"prompt": "UserPromptSubmit", "tool": "PreToolUse"}
@@ -1303,6 +1305,29 @@ class GuardedLaunch(unittest.TestCase):
                                         env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line))
                 self.assertTrue(self.marker.exists())
+
+    def test_a_file_server_s_clock_never_hides_the_run_s_rollouts(self):
+        """On a network home directory a rollout's file time comes from the file server's clock: one that
+        lags this host's by 30 seconds still has its lines, stamped by Codex on this host, read."""
+        warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's hooks "
+                   "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
+                   "\"Hooks need review\".\n")
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        for args in (["exec", "go"], [], ["resume", "--last"]):
+            with self.subTest(args=args):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                if args[:1] == ["resume"]:
+                    rollouts = [{"append": str(self.old_rollout(THREAD, 2 * 86400)), "lines": [CALL, snapshot(20.0)],
+                                 "mtime": -30}]
+                else:
+                    rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(20.0)],
+                                 "mtime": -30}]
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + warning))
+                self.assertFalse(self.marker.exists())
 
     def test_other_accounts_newer_sessions_never_crowd_out_the_run_s(self):
         """However many sessions other accounts write after this run's own (one guardian review per

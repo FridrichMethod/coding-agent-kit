@@ -331,6 +331,11 @@ STAMPED = 0.001
 # The session_meta source of the sessions each guarded form starts: the TUI's, and exec's and review's.
 SOURCES = {"interactive": "cli", "headless": "exec"}
 HEADS = 1024  # session_meta lines read after a run
+# A rollout is opened after a run when its file time is at most this many seconds before the run: on a
+# network home directory the file's time comes from the file server's clock, which may lag this host's
+# (Kerberos, under which NFSv4 often runs, refuses a skew above 5 minutes). The lines' own times, which
+# Codex writes with this host's clock, decide what is the run's.
+SKEW = 300
 CHUNK = 1 << 16
 
 
@@ -377,8 +382,8 @@ def run_threads(root, plan, owner, begun, ended, alone):
     sessions they may be; then none counts, and the TUI, which shows "Hooks need review" itself, is
     left to the next headless run's check.
 
-    Only rollouts written since BEGUN (by their time, less usage.SLACK) are opened, at most HEADS
-    session_meta lines, the oldest start first, whatever account wrote them."""
+    Only rollouts whose file time is at most SKEW before BEGUN are opened, at most HEADS session_meta
+    lines, the oldest start first, whatever account wrote them."""
     named = set(plan.continued)
     found = []
     for path in (Path(root) / "sessions").glob("*/*/*/rollout-*.jsonl"):
@@ -389,7 +394,7 @@ def run_threads(root, plan, owner, begun, ended, alone):
             info = path.lstat()
         except OSError:
             continue
-        if stat.S_ISREG(info.st_mode) and info.st_mtime >= begun - usage.SLACK:
+        if stat.S_ISREG(info.st_mode) and info.st_mtime >= begun - SKEW:
             found.append((match[1] not in named, path.name, match[1], path))
     resumes = plan.command == "exec-resume" and not plan.forked  # appends; starts no session of its own
     older = (alone and plan.form == "interactive") or (resumes and not named)
