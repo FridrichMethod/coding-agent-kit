@@ -192,6 +192,30 @@ class Fixture(unittest.TestCase):
     def answer(self, kind, launch, event=None, now=NOW):
         return guard.answer(kind, {} if event is None else event, launch, now)
 
+    @contextlib.contextmanager
+    def replaced_while_read(self, path, every=False):
+        """Another writer that renames a copy of the file at PATH over it right after a reader opened it: os.fstat
+        of a file open as PATH first replaces PATH (once, or EVERY time). Yields the list of replacements."""
+        real, replaced = os.fstat, []
+
+        def fstat(fd):
+            info = real(fd)
+            try:
+                there = os.lstat(path)
+            except OSError:
+                return info
+            if (info.st_dev, info.st_ino) != (there.st_dev, there.st_ino) or replaced and not every:
+                return info
+            copy = Path(f"{path}.other")
+            copy.write_bytes(Path(path).read_bytes())
+            copy.chmod(0o600)
+            os.replace(copy, path)
+            replaced.append(True)
+            return real(fd)
+
+        with patch.object(os, "fstat", fstat):
+            yield replaced
+
 
 class LaunchOf(Fixture):
     EXAMPLE = ('{"v":1,"tool":"claude-as","account":"NAME","five_hour":"12.5","weekly":null,"started":1800000000,'
@@ -337,6 +361,21 @@ class Claude(Fixture):
         Path(launch.usage).unlink()
         Path(launch.usage).mkdir()
         self.assertEqual(self.answer("prompt", launch), OK)
+
+    def test_a_usage_file_replaced_while_it_is_read_is_read_again(self):
+        # Another session's status line can rename its usage file over the one a hook has just opened, which then
+        # has no link left: the hook reads the file that is there now, so it still blocks at the reserve.
+        launch = self.launch(weekly="10")
+        self.claude_usage(launch, seven_day=(91, NOW + 3600))
+        with self.replaced_while_read(launch.usage) as replaced:
+            self.assertEqual(self.answer("prompt", launch), (2, "", WEEKLY_CLAUDE + STOPPED["prompt"] + RELAUNCH_CLAUDE))
+        self.assertEqual(replaced, [True])
+        # A bounded number of times: a file replaced at every open is still refused.
+        accounts = guard.module("accounts")
+        with self.replaced_while_read(launch.usage, every=True) as replaced, self.assertRaises(ValueError):
+            accounts.read(Path(launch.usage))
+        self.assertEqual(len(replaced), accounts.TRIES)
+        self.assertEqual(accounts.TRIES, 3)
 
     def test_reserves_at_the_edges_and_fractions_through_the_environment(self):
         for reserve_text, used, blocks in (("12.5", 87.5, True), ("12.5", 87.4, False), ("0", 100, True),
@@ -1250,6 +1289,17 @@ class StatusLine(Fixture):
         self.assertTrue(guard.record(newer.usage, limits((91, NOW + 3600), None), NOW + 1))
         self.assertEqual(self.usage_file(newer)["five_hour"], window(91, NOW + 3600))
         self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(newer.usage).name])
+
+    def test_a_usage_file_replaced_while_a_run_merges_keeps_its_windows(self):
+        # The merge reads the file that another writer renamed over the one it opened, so a stored window the
+        # incoming reading lacks stays.
+        launch = self.launch(weekly="10")
+        put(Path(launch.usage), {**limits((50, NOW + 3600), (95, NOW + 86400)), "seen_at": NOW - 1000})
+        with self.replaced_while_read(launch.usage) as replaced:
+            self.assertTrue(guard.record(launch.usage, limits((60, NOW + 3600), None), NOW))
+        self.assertEqual(replaced, [True])
+        self.assertEqual(self.usage_file(launch), {**limits((60, NOW + 3600), (95, NOW + 86400)), "seen_at": NOW})
+        self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(launch.usage).name])
 
     def test_the_usage_file_has_no_lock(self):
         # A run reads, merges and writes the file with no lock of any kind, so it needs no hard link either.
