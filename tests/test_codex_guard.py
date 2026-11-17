@@ -918,11 +918,13 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_forms_the_hooks_cannot_see_are_refused(self):
         self.trusted()
-        for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["app-server"], "app-server"),
+        for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["cloud", "list"], "cloud"),
+                           (["app-server"], "app-server"), (["app-server", "generate-ts"], "app-server"),
                            (["exec-server"], "exec-server"), (["remote-control"], "remote-control"),
                            (["debug", "app-server", "send-message-v2", "hi"], "debug app-server")):
             with self.subTest(args=args):
-                self.refused(["A", *args], f"codex {name} runs model work where the usage reserve guard's hooks "
+                # Refused as a whole (designer's call 4), also where a subcommand runs no model work itself.
+                self.refused(["A", *args], f"codex {name} can run model work where the usage reserve guard's hooks "
                                            "cannot see or stop it")
 
     def test_options_the_hooks_cannot_cover_are_refused(self):

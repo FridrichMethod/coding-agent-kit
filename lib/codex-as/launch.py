@@ -250,7 +250,8 @@ def unguardable(account, plan):
     """Refuses, with a reserve on, a launch form or a caller's option that the guard's hooks cannot cover."""
     if plan.form == "refused":
         name = "debug app-server" if plan.command == "debug" else plan.command
-        refuse(account, f"codex {name} runs model work where the usage reserve guard's hooks cannot see or stop it")
+        # Each is refused as a whole, also a subcommand of it that runs no model work itself.
+        refuse(account, f"codex {name} can run model work where the usage reserve guard's hooks cannot see or stop it")
     if plan.hooks_override:
         refuse(account, "a -c or --config value under hooks would meet the usage reserve guard's hooks, which "
                         "codex-as passes as -c values of its own")
