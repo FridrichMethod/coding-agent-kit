@@ -513,15 +513,58 @@ class Guarded(Fixture):
                                 capture_output=True, timeout=30)
         self.assertEqual((result.returncode, result.stderr), (0, b""))
 
-    def test_commands_that_run_no_model_launch_guarded(self):
-        """Only the commands that run the model outside the session are refused; the others get the guard."""
-        for args in (["auto-mode", "config"], ["auto-mode"], ["plugin", "list"], ["plugins", "list"], ["mcp", "list"],
-                     ["mcp", "get", "serve"], ["doctor"], ["ultrareviewer"], ["critique"], ["eval"],
-                     ["--model", "auto-mode", "critique"], ["mcp", "eval"]):
+    def test_commands_that_start_no_session_launch_as_without_reserves(self):
+        """Claude Code's commands that start no session, where no hook would ever run, launch as without reserves:
+        no guard, no launch state, no version check and no launch line (a piped standard output included)."""
+        cases = (["doctor"], ["--verbose", "doctor"], ["update"], ["upgrade"], ["install", "stable"], ["purge"],
+                 ["purge", "/x"], ["project", "purge"], ["auto-mode"], ["auto-mode", "config"], ["auto-mode", "defaults"],
+                 ["auto-mode", "reset"], ["mcp"], ["mcp", "list"], ["mcp", "get", "serve"],
+                 ["mcp", "add", "x", "--", "npx", "x"], ["mcp", "xaa", "show"], ["plugin", "list"], ["plugins", "list"],
+                 ["plugin", "marketplace", "list"], ["plugin", "i", "x"], ["plugin", "rm", "x"], ["logs"],
+                 ["logs", "0123abcd"], ["stop", "0123abcd"], ["kill"], ["rm", "0123abcd"])
+        for args in cases:
+            for tty in (False,) if args != ["doctor"] else (False, True):
+                with self.subTest(args=args, tty=tty):
+                    with_reserve = self.run_launcher(["--reserve-5h", "10", "work", *args], {RESUME: "1"}, tty=tty)
+                    without = self.run_launcher(["--reserve-5h", "off", "work", *args], {RESUME: "1"}, tty=tty)
+                    self.assertEqual(with_reserve, without)
+                    self.assertEqual((with_reserve[0], with_reserve[2]), (0, ""))
+                    first, second = self.records()[-2:]
+                    self.assertEqual(first["argv"], [str(self.fakes / "claude"), *args])
+                    self.assertEqual([name for name in (*VARIABLES, *CLOSED) if name in first["env"]], [])
+                    self.assertEqual(first["env"][RESUME], "1")
+                    del first["env"]["CODING_AGENT_KIT_CLAUDE_PID"], second["env"]["CODING_AGENT_KIT_CLAUDE_PID"]
+                    del first["pid"], second["pid"]
+                    self.assertEqual(first, second)
+        self.assertFalse(self.guard_dir.exists())
+        self.assertEqual(self.version_runs(), 0)
+
+    def test_commands_that_may_start_a_session_launch_guarded(self):
+        """A prompt, an unknown command or subcommand (import starts a session, and a later release may add one),
+        a command after -- and a background verb after options (a prompt unless a session id follows) get the
+        guard."""
+        for args in (["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"], ["mcp", "eval"],
+                     ["auto-mode", "other"], ["import"], ["import", "codex"], ["plugin", "test"], ["--", "doctor"],
+                     ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"]):
             with self.subTest(args=args):
                 record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assert_guarded(record, value, args, "10", None)
                 self.assertTrue(err.endswith(LAUNCH_LINE), err)
+
+    def test_a_command_that_starts_no_session_is_no_earlier_launch(self):
+        """It leaves no launch state, so a usage record that a later session of the account writes never makes
+        the next guarded launch warn of a launch without its hooks."""
+        for args in (["mcp", "list"], ["doctor"], ["logs"]):
+            with self.subTest(args=args):
+                code, out, err = self.run_launcher(["--reserve-5h", "10", "work", *args])
+                self.assertEqual((code, err), (0, ""))
+        self.assertFalse(self.guard_dir.exists())
+        self.usage.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        write(self.usage, json.dumps({"five_hour": None, "seven_day": None, "seen_at": int(time.time()) + 1}))
+        _, _, err = self.guarded(["--reserve-5h", "10", "work"])
+        self.assertNotIn(EARLIER, err)
+        self.assertEqual(err, "claude-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly off (default)"
+                         + LAUNCH_LINE)
 
     def test_help_and_version_are_neither_refused_nor_injected(self):
         self.configure('[usage_reserve]\nfive_hour = 10\nweekly = 10\n')
@@ -682,6 +725,8 @@ class Refusals(Fixture):
                  (["--bg"], f"--bg {background}"), (["--background", "task"], f"--background {background}"),
                  (["--model", "x", "--bg"], f"--bg {background}"), (["--verbose", "--background"], f"--background {background}"),
                  (["--bg=x"], f"--bg {background}"),
+                 # A command that starts no session is refused all the same with a headless or background word.
+                 (["-p", "doctor"], f"-p {outside}"), (["--bg", "mcp", "list"], f"--bg {background}"),
                  (["agents"], f"claude agents {elsewhere}"), (["attach", "id"], f"claude attach {elsewhere}"),
                  (["--verbose", "respawn"], f"claude respawn {elsewhere}"), (["--", "attach"], f"claude attach {elsewhere}"),
                  (["--settings", "x"], "a --settings of your own cannot be combined with usage reserves, whose hooks "

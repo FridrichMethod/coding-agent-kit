@@ -87,6 +87,18 @@ ELSEWHERE = ("agents", "attach", "respawn")
 # children of their own and whose grader runs outside any hook, and the MCP server, whose Agent tool runs
 # sub-agents on this launch's credential with none of its hooks. A command added by a later release is not here.
 DETACHED = (("ultrareview",), ("auto-mode", "critique"), ("plugin", "eval"), ("plugins", "eval"), ("mcp", "serve"))
+# The commands of Claude Code 2.1.326 that start no session, where no hook ever runs, by first operand, with the
+# second operands that keep them so (None: any second operand): with a reserve on they launch as without one, so
+# that no launch state expects the guard's hooks. A subcommand of a later release, an operand after --, and -p,
+# --print, --init-only, --bg or --background keep the launch guarded. Claude Code takes the background verbs as
+# verbs wherever they are the first argument; after options only before a session id, and as a prompt otherwise.
+PLUGIN = {"init", "new", "validate", "tag", "list", "details", "marketplace", "install", "i", "uninstall", "remove",
+          "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure"}
+SESSIONLESS = {"doctor": None, "update": None, "upgrade": None, "install": None, "purge": None, "project": {"purge"},
+               "auto-mode": {"defaults", "config", "reset"}, "plugin": PLUGIN, "plugins": PLUGIN,
+               "mcp": {"add", "add-json", "add-from-claude-desktop", "get", "list", "login", "logout", "remove",
+                       "reset-project-choices", "xaa"}}
+VERBS = ("logs", "stop", "kill", "rm")
 # A guarded launch keeps its session in this process: no move to the background, no agent view, and no
 # re-run of a turn that the guard stopped. Claude Code also reads these from a settings file's env.
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}
@@ -357,6 +369,7 @@ class Form:
     settings: bool = False  # a --settings of the caller
     operand: object = None  # the first operand, which Claude Code dispatches as a command
     subcommand: object = None  # the second operand, which a command with subcommands dispatches
+    dashed: bool = False  # the first or the second operand comes after --
     sources: dict = field(default_factory=dict)  # Path: parsed settings, for every settings file read
     statusline: object = None  # own_status_line() of the user, project and local settings (with a reserve)
 
@@ -401,6 +414,17 @@ def preflight(args, kit, enrollment, guarded=False):
         profiles = Path(os.environ.get("ANTHROPIC_CONFIG_DIR") or str(Path(os.environ.get("XDG_CONFIG_HOME") or str(kit.home / ".config")) / "anthropic"))
         if (profiles / "active_config").exists() or (profiles / "configs/default.json").exists():
             fail("Anthropic profile selection present; review its authentication before automatic enrollment.")
+    scan(args, form, kit, guarded)
+    scanned = args[:args.index("--")] if "--" in args else args
+    form.modes = [word for word in HOOKLESS_FLAGS if word in scanned]
+    return form
+
+
+def scan(args, form, kit, guarded):
+    """Scans the caller's native ARGS as Claude Code's command line parser takes them, into FORM: refuses an
+    option that would change the account's authentication or that is not audited, a --settings whose
+    content does, and the login commands; only a launch with a usage reserve (GUARDED) accepts --init-only,
+    --bg and --background."""
     values = {"--model", "--effort", "--output-format", "--input-format", "--system-prompt",
               "--append-system-prompt", "--system-prompt-file", "--append-system-prompt-file",
               "--agent", "--agents", "--permission-mode", "--max-budget-usd", "--json-schema",
@@ -456,13 +480,30 @@ def preflight(args, kit, enrollment, guarded=False):
             # even with --print/--continue or after --. Values remain values.
             if arg in {"login", "logout", "setup-token", "auth", "remote-control", "rc"}:
                 fail("login/logout/setup-token must not be passed through claude-as.")
-            form.operand = arg
+            form.operand, form.dashed = arg, not options
             root = False
         elif form.subcommand is None:
             form.subcommand = arg
-    scanned = args[:args.index("--")] if "--" in args else args
-    form.modes = [word for word in HOOKLESS_FLAGS if word in scanned]
-    return form
+            form.dashed |= not options
+
+
+def sessionless(args, kit):
+    """Whether the native ARGS run a command that starts no session (SESSIONLESS, or one of VERBS as the first
+    argument) with no headless or background word and no -- before the operands that tell; False when the scan
+    of ARGS refuses them, as the launch then does."""
+    form = Form()
+    try:
+        scan(args, form, kit, guarded=True)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
+        return False
+    if form.headless or form.background or form.dashed:
+        return False
+    if form.operand in VERBS:
+        return args[0] == form.operand
+    if form.operand not in SESSIONLESS:
+        return False
+    subcommands = SESSIONLESS[form.operand]
+    return subcommands is None or form.subcommand is None or form.subcommand in subcommands
 
 
 def hook_keys(settings, managed=False):
@@ -911,8 +952,8 @@ def main():
     # Only a launch with a reserve passes a guard on: inherited guard variables never reach Claude Code.
     guard_launch = kit_module("guard_launch")
     guard_launch.clear(os.environ)
-    # The help and version forms after NAME run no model and stay plain.
-    guarded = not policy.off and not query
+    # The help and version forms after NAME and the commands that start no session run no model and stay plain.
+    guarded = not policy.off and not query and not sessionless(args, config)
     target = secret / ("claude-" + account)
     missing = not os.path.lexists(target)
     form = preflight(args, config, enrollment=missing and not query, guarded=guarded)
