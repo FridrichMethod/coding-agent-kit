@@ -72,6 +72,7 @@ const RECORD_AGAIN = 300;
 const LAST_TIME = 253402300800; // 10000-01-01 UTC: no calendar time from here on
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
 const USAGE_LIMIT = 64 * 1024; // bytes of a usage file the guard reads
+const { O_NOFOLLOW, O_NONBLOCK, O_RDONLY } = fs.constants;
 
 function usageWindow(value) {
   const used = value?.used_percentage;
@@ -114,8 +115,9 @@ function underLauncher(pid, parent = process.ppid) {
 // the same must hash to the identifier. Nothing is recorded on Windows, outside an
 // owned 0700 directory, or when the merged values are unchanged and less than five
 // minutes old. The guard's status line (lib/coding-agent-kit/guard.py) writes the
-// same file, so a change is merged and written under the file's lock, which both
-// take. Returns whether it wrote.
+// same file and merges by the same rule; neither takes a lock, so two status lines
+// that write at the same instant can let an older reading replace a newer one until
+// the next run. Returns whether it wrote.
 function recordUsage(data, env = process.env, now = Date.now()) {
   if (process.platform === 'win32') return false;
   const file = env.CODING_AGENT_KIT_USAGE_FILE;
@@ -133,27 +135,10 @@ function recordUsage(data, env = process.env, now = Date.now()) {
   const folder = path.dirname(file);
   const info = fs.lstatSync(folder);
   if (!info.isDirectory() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) return false;
-  if (!mergedUsage(file, record, now)) return false; // most runs: nothing new, and no lock taken
-  // A run that a signal ended while it held the lock would leave it, so these signals are caught meanwhile.
-  // guard.py holds them back and is ended by one once it has let the lock go; this run drops them, since
-  // Node calls a signal listener only from its event loop, which this synchronous run reaches after its
-  // footer, and a listener removed before then never sees the signal. A run that Claude Code cancelled
-  // while it held the lock thus ends normally, with a footer that is no longer shown.
-  for (const signal of HELD_SIGNALS) process.on(signal, ignored);
-  try {
-    const held = lock(file);
-    if (!held) return false; // another writer held it LOCK.wait seconds
-    try {
-      const content = mergedUsage(file, record, now); // read again: another writer may have written since
-      if (!content) return false;
-      replacePrivate(file, `${JSON.stringify(content)}\n`, now);
-      return true;
-    } finally {
-      unlock(...held);
-    }
-  } finally {
-    for (const signal of HELD_SIGNALS) process.removeListener(signal, ignored);
-  }
+  const content = mergedUsage(file, record, now);
+  if (!content) return false; // most runs: nothing new
+  replacePrivate(file, `${JSON.stringify(content)}\n`, now);
+  return true;
 }
 
 // The usage file's content after merging RECORD into it by the guard's rule
@@ -195,181 +180,6 @@ function storedUsage(file) {
     return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
   } catch {
     return null;
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-// The usage file's lock, by the protocol in guard.py's module docstring, except
-// that a SIGTERM, SIGHUP or SIGINT that comes while this run holds the lock is
-// dropped rather than held back (see recordUsage); either way no lock is left: the
-// file .NAME.lock beside it, which names its holder ({"host", "pid", "at"}) from
-// the moment it exists. A lock is judged by that content, never by the file's
-// time; one that a run left when it ended is removed under the breaker
-// .NAME.lock.break, a lock of the same kind, and only while it is still the file
-// judged. A run waits LOCK.wait seconds at most and then records nothing.
-const LOCK = { wait: 2, stale: 10 }; // seconds: guard.py's LOCK_WAIT and LOCK_STALE
-const HELD_SIGNALS = ['SIGTERM', 'SIGHUP', 'SIGINT'];
-const ignored = () => {};
-const { O_CREAT, O_EXCL, O_NOFOLLOW, O_NONBLOCK, O_RDONLY, O_WRONLY } = fs.constants;
-const PAUSE = new Int32Array(new SharedArrayBuffer(4));
-
-function sameFile(fd, file) {
-  try {
-    const [mine, there] = [fs.fstatSync(fd, { bigint: true }), fs.lstatSync(file, { bigint: true })];
-    return mine.dev === there.dev && mine.ino === there.ino;
-  } catch {
-    return false;
-  }
-}
-
-// Takes the lock or breaker NAME and returns it open; EEXIST while another run
-// holds it. The holder is written to a hidden 0600 temporary file first, which is
-// then linked to NAME: NAME never exists without it.
-function createLock(name) {
-  const temporary = `${name}.${crypto.randomBytes(8).toString('hex')}.tmp`;
-  const content = JSON.stringify({ host: os.hostname(), pid: process.pid, at: Math.floor(Date.now() / 1000) });
-  const fd = fs.openSync(temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600);
-  try {
-    fs.fchmodSync(fd, 0o600); // whatever the umask took: other runs read the holder
-    if (fs.writeSync(fd, content) !== Buffer.byteLength(content)) throw new Error(`${temporary}: short write`);
-    try {
-      fs.fsyncSync(fd); // a run on another host of a network home reads the holder as soon as NAME exists
-    } catch {
-      // Best effort.
-    }
-    try {
-      fs.linkSync(temporary, name);
-    } catch (error) {
-      // A network file system can retry a link whose reply was lost.
-      if (error.code !== 'EEXIST' || !sameFile(fd, name)) throw error;
-    }
-  } catch (error) {
-    fs.closeSync(fd);
-    throw error;
-  } finally {
-    try {
-      fs.unlinkSync(temporary);
-    } catch {
-      // Gone already.
-    }
-  }
-  return fd;
-}
-
-// The lock or breaker FILE open to judge it (read-only, else write-only), or
-// null when it is gone; one that opens neither way is an error, never removed.
-function openLock(file) {
-  try {
-    return fs.openSync(file, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    if (error.code !== 'EACCES' && error.code !== 'EPERM') throw error;
-  }
-  try {
-    return fs.openSync(file, O_WRONLY | O_NOFOLLOW | O_NONBLOCK);
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  }
-}
-
-function running(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === 'EPERM';
-  }
-}
-
-// Whether the lock or breaker open as FD was left by a run that ended: it names
-// no holder, the holder's clock is more than LOCK.stale seconds from this one's
-// (plus the second its whole seconds may lag), or the holder is a process of
-// this host that has ended. JSON.parse reads a holder as guard.py's holder()
-// does except on content no writer produces: 5.0 or 1e3 count as whole numbers
-// here, and a holder in UTF-16 or behind a byte order mark names none here.
-function staleLock(fd) {
-  let holder;
-  try {
-    const buffer = Buffer.alloc(4096);
-    holder = JSON.parse(buffer.toString('utf8', 0, fs.readSync(fd, buffer, 0, buffer.length, 0)));
-  } catch {
-    return true;
-  }
-  const { host, pid, at } = holder && typeof holder === 'object' && !Array.isArray(holder) ? holder : {};
-  if (typeof host !== 'string' || !Number.isInteger(pid) || pid <= 0 || pid >= 2 ** 31
-    || !Number.isInteger(at) || at <= 0 || at >= LAST_TIME) return true;
-  return Math.abs(Date.now() / 1000 - at) > LOCK.stale + 1 || (host === os.hostname() && !running(pid));
-}
-
-// Removes the lock or breaker FILE when it is stale, judged and removed while it
-// is open here and only while FILE is still that file: false while it is held.
-function clearLock(file) {
-  const fd = openLock(file);
-  if (fd === null) return true;
-  try {
-    if (!staleLock(fd)) return false;
-    if (sameFile(fd, file)) fs.unlinkSync(file);
-    return true;
-  } catch (error) {
-    if (error.code === 'ENOENT') return true;
-    throw error;
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-// Removes the lock NAME when it is stale, under its breaker; true when the
-// caller should try to take the lock now, false while NAME or the breaker is held.
-function discardLock(name) {
-  const fd = openLock(name);
-  if (fd === null) return true;
-  try {
-    if (!staleLock(fd)) return false;
-  } finally {
-    fs.closeSync(fd);
-  }
-  const breaker = `${name}.break`;
-  let held;
-  try {
-    held = createLock(breaker);
-  } catch (error) {
-    if (error.code === 'EEXIST') return clearLock(breaker);
-    throw error;
-  }
-  try {
-    clearLock(name);
-  } finally {
-    unlock(breaker, held);
-  }
-  return true;
-}
-
-// Takes the lock of the usage file FILE: [its name, its fd], or null when
-// another writer held it LOCK.wait seconds.
-function lock(file) {
-  const name = path.join(path.dirname(file), `.${path.basename(file)}.lock`);
-  const deadline = performance.now() + LOCK.wait * 1000;
-  for (;;) {
-    if (discardLock(name)) {
-      try {
-        return [name, createLock(name)];
-      } catch (error) {
-        if (error.code !== 'EEXIST') throw error;
-      }
-    }
-    if (performance.now() >= deadline) return null;
-    Atomics.wait(PAUSE, 0, 0, 10);
-  }
-}
-
-// Lets the lock or breaker taken as (NAME, FD) go, unless it was removed as stale since.
-function unlock(name, fd) {
-  try {
-    if (sameFile(fd, name)) fs.unlinkSync(name);
-  } catch {
-    // Best effort.
   } finally {
     fs.closeSync(fd);
   }
@@ -617,5 +427,5 @@ function main() {
   process.stdout.write(`${formatStatus(data, gitBranch(data?.workspace?.current_dir || data?.cwd), colors, tokens)}\n`);
 }
 
-module.exports = { formatStatus, gitBranch, LOCK, lock, main, recordUsage, sessionTokens, unlock };
+module.exports = { formatStatus, gitBranch, main, recordUsage, sessionTokens };
 if (require.main === module) main();
