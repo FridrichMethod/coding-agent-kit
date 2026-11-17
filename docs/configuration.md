@@ -38,8 +38,9 @@ Neither the launchers nor `install.sh` ever create the file.
 The account metadata cache (see the account launchers documentation) is not
 configured here: it lives in `$XDG_STATE_HOME/coding-agent-kit/accounts/` when
 `XDG_STATE_HOME` is an absolute path, else in
-`$HOME/.local/state/coding-agent-kit/accounts/`. A `state_dir` key is an
-unknown key and only warns.
+`$HOME/.local/state/coding-agent-kit/accounts/`, and the state of launches with
+a usage reserve in `guard/` beside it. A `state_dir` key is an unknown key and
+only warns.
 
 ## Format and keys
 
@@ -121,8 +122,10 @@ a newer kit still works with an older one. `python3` is always found on
 ## Usage reserves
 
 A usage reserve keeps a percentage of an account's 5-hour or weekly limit
-unused: with a reserve on, the native CLI's own hooks refuse new prompts and
-tool calls once a window is at or below its reserve (see
+unused. `[usage_reserve]` selects the reserve guard: a launch whose policy has
+a reserve on gets the guard's hooks for that launch, which refuse new prompts
+and tool calls once a window is at or below its reserve, and a launch with
+both windows off gets none (see
 [account launchers](account-launchers.md#usage-reserves)). The two windows
 are set and resolved separately, never combined:
 
@@ -162,13 +165,35 @@ reserve of 10% (the flag) and a weekly one of 40% (the account table), and a
 plain `codex-as borrowed` to 20% and 40%. `claude-as borrowed` resolves to
 5-hour off and weekly 30%.
 
-A release older than 0.8.0 does not know `[usage_reserve]`: it warns
-`unknown key usage_reserve ignored` and launches without reserves, so a
-shared file keeps no reserve on a host with an older kit. A 0.8 release reads
-the same tables but enforces a reserve its own way, and refuses many launches
-with a reserve on that 0.9.0 and newer run, among them every `claude-as`
-launch of a setup-token account. Run 0.9.0 or newer on every host that shares
-a file that turns a reserve on.
+To turn a window off for one account, set it to `"off"` in that account's
+table. With both windows off there, the account's launches carry no guard,
+whatever `[usage_reserve]` sets, and a flag still turns a reserve on for one
+launch:
+
+```toml
+[usage_reserve]
+five_hour = 10
+weekly = 10
+
+[usage_reserve.claude_accounts.personal]
+five_hour = "off"
+weekly = "off"
+```
+
+Here `claude-as personal` launches without reserves,
+`claude-as --reserve-weekly 10 personal` with a weekly reserve of 10% for that
+launch, and every other Claude account with 10% of both windows; Codex
+accounts, `personal` included, keep 10% of both. An account whose usage
+reports no window at all needs both windows off this way: with a reserve on,
+its sessions are refused as blind once they have had a reply.
+`--reserve-5h off --reserve-weekly off` before `NAME` turns both off for one
+launch.
+
+Only kit 0.9.0 and newer apply these tables as this section describes. A kit
+older than 0.8.0 warns `unknown key usage_reserve ignored` and launches
+without reserves, and a 0.8 kit applies them by rules of its own (see the
+[changelog](../CHANGELOG.md)), so run 0.9.0 or newer on every host that
+shares a file that turns a reserve on.
 
 ## File permissions
 
