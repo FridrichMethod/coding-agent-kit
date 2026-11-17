@@ -101,12 +101,15 @@ def profile_files(root, home, profile):
 def hooks_off(guard, root, cwd, profile=None, home=None):
     """The first configuration file native Codex may load for this launch that turns its hooks off,
     or None: the shared config.toml, the selected profile's (profile_files: the account HOME's own
-    too), a system one, or a project's (check.project_layers: a lexical or resolved parent of CWD).
-    A project's file counts whatever Codex's trust of that project, which is not read (fail closed).
-    Managed requirements that pin hooks or allow managed hooks only (requirements.toml, cloud
-    requirements) are not read, as no policy state of Codex is; the check after the run reports
-    hooks that Codex did not run."""
-    paths = {root / "config.toml", *SYSTEM_CONFIG, *profile_files(root, home, profile), *guard.project_layers(cwd)}
+    too), a system or managed one (requirements.toml too, whose [features] pins a feature), or a
+    project's (check.project_layers: a lexical or resolved parent of CWD). A project's file counts
+    whatever Codex's trust of that project, which is not read (fail closed). Not read: cloud
+    requirements, which only Codex fetches, and a requirement that allows managed hooks only, whose
+    key in requirements.toml no measurement here has pinned. Under either Codex runs none of the
+    guard's hooks; the check after the run tells it from the sessions it takes as the run's
+    (launch.run_threads), with the notice where they may be another client's."""
+    paths = {root / "config.toml", *SYSTEM_CONFIG, *MANAGED_CONFIG, *profile_files(root, home, profile),
+             *guard.project_layers(cwd)}
     for path in sorted(paths):
         if path.exists():
             with path.open("rb") as stream:
@@ -136,7 +139,7 @@ def goals_on(guard):
     """The first managed layer that sets goals under [features] to anything but false, or None: it
     would keep goals on over the -c value and the flag that turn them off. The shared, profile,
     project and system config.toml layers lie below the command line. Cloud requirements, which
-    only Codex fetches, are not read, as no policy state of Codex is."""
+    only Codex fetches, cannot be read."""
     for path in MANAGED_CONFIG:
         if path.exists():
             with path.open("rb") as stream:

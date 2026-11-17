@@ -257,13 +257,16 @@ class HooksOff(Fixture):
         # The host's /etc/codex never counts here.
         self.host_system = layout.SYSTEM_CONFIG
         self.system = (self.base / "etc/codex/config.toml", self.base / "etc/codex/managed_config.toml")
-        patcher = patch.object(layout, "SYSTEM_CONFIG", self.system)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        managed = (self.system[1], self.base / "etc/codex/requirements.toml")
+        for name, value in (("SYSTEM_CONFIG", self.system), ("MANAGED_CONFIG", managed)):
+            patcher = patch.object(layout, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_system_layers(self):
+        """The system and managed layers; requirements.toml's [features] pins a feature."""
         self.assertEqual(tuple(map(str, self.host_system)), ("/etc/codex/config.toml", "/etc/codex/managed_config.toml"))
-        for path in self.system:
+        for path in (*self.system, self.base / "etc/codex/requirements.toml"):
             with self.subTest(path=path.name):
                 self.write(path, "[features]\nhooks = false\n")
                 self.assertTrue(self.off())
@@ -1052,7 +1055,7 @@ class GuardedLaunch(unittest.TestCase):
         project.unlink()
         # A system layer, from the test's directory in place of /etc/codex (setUp).
         self.etc.mkdir()
-        for name in ("config.toml", "managed_config.toml"):
+        for name in ("config.toml", "managed_config.toml", "requirements.toml"):
             with self.subTest(layer=name):
                 system = self.etc / name
                 system.write_text("[features]\nhooks = false\n")
