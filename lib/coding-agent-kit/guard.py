@@ -87,19 +87,59 @@ file and a rename, only in an owned 0700 directory, and then creates STATE.seen.
 A reading never goes back: a stored window that has not reset stays when the
 incoming one has the same reset and a lower percentage, an earlier reset, or is
 absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart. A
-change is read, merged and written under the lock .NAME.lock beside the file,
-so two launches of one account never lose the newer reading. A run creates the
-lock O_EXCL holding {"host", "pid", "at"} (its host name, process id and clock)
-and holds back SIGTERM, SIGHUP and SIGINT until it has let it go. Other runs
-judge a lock by that content, never by the file's time (on a network home
-directory the server's clock): a lock whose "at" is more than LOCK_STALE seconds
-from their clock, one of their host whose process has ended, and one that names
-no holder for LOCK_EMPTY seconds was left by a run that ended. Such a lock is
-removed under the breaker .NAME.lock.break, created O_EXCL and held only to
-check that the lock is still the file judged and to remove it, so a lock that
-another run took meanwhile is never moved; a breaker that stays LOCK_EMPTY
-seconds was left by a run killed while it held it. When another writer holds
-the lock LOCK_WAIT seconds, the run records nothing and creates no STATE.seen.
+change is read again, merged and written while the run holds the lock
+.NAME.lock beside the file (NAME the file's name), so two launches of one
+account keep the newer reading, within the limits below. Every writer that
+merges into the file takes the lock this way:
+
+1. Take: write {"host", "pid", "at"} (the host name, process id and clock in
+   whole seconds, as compact JSON) to a new hidden file .NAME.lock.HEX.tmp,
+   0600 whatever the umask, fsync it (best effort), link() it to the lock's
+   name and unlink the temporary file. The link takes the lock; EEXIST means
+   that another run has it (judge it as in 2), unless the name is already the
+   temporary file (a network file system retried a link whose reply was lost).
+   No lock exists without its holder. A run holds back SIGTERM, SIGHUP and
+   SIGINT from before it takes the lock until it has let it go.
+2. Judge: open the lock (read-only, else write-only; one that opens neither
+   way is never removed and fails the run) and keep it open while it is
+   judged, so its inode number cannot pass to a new file. It was left by a run
+   that ended (stale) when its content names no holder, when "at" is more
+   than LOCK_STALE + 1 seconds from this run's clock (one second for whole
+   seconds), or when "host" is this host's name and kill(pid, 0) fails with
+   anything but EPERM. The file's time is never used: on a network home
+   directory it is the server's clock.
+3. Break: a stale lock is removed only under the breaker .NAME.lock.break,
+   taken as in 1 and judged as in 2. Its holder opens and judges the lock
+   again, unlinks it only while lstat() of the name is still the file it holds
+   open (device and inode), and then lets the breaker go. A run that finds the
+   breaker taken removes it the same way when it is stale, without a breaker
+   of its own, and otherwise waits.
+4. Let go: unlink the lock or breaker only while lstat() of the name is still
+   the file this run took.
+5. Wait: retry every 10 ms; a run that has not taken the lock after LOCK_WAIT
+   seconds records nothing and creates no STATE.seen.
+6. Sweep: the holder of the lock removes the regular files .NAME.*.tmp that
+   cancelled runs left more than STALE seconds ago by their file time.
+
+The directory needs hard links, as local and network file systems have:
+without them every run records nothing and creates no STATE.seen, so the
+launch is blind BLIND_AFTER seconds after its first reply.
+
+Two runs can still hold the lock at once in two cases, each the lost update
+the lock is there to prevent (an older merge written over a newer reading,
+which lasts until the newer session's next status line run):
+
+- The judgment is a lease: it holds while the hosts that share the home
+  directory have host names of their own and clocks within LOCK_STALE seconds
+  of each other, less the longest time a run holds the lock or breaker. A run
+  stopped that long while it holds either counts as ended; once it resumes, it
+  can write an older merge or remove a lock that another run took since.
+- A breaker left by a run that ended while it held it (killed by SIGKILL, or
+  its host went down) is removed by name, and no unlink can be made
+  conditional on the inode: runs that remove it at the same moment can, with a
+  third, each go on to hold a breaker and remove a lock that another run took
+  meanwhile.
+
 Then it runs the user's own status line command (the launch's "statusline")
 through /bin/sh -c with the same input and the caller's environment, and prints
 its output unchanged as the footer: nothing when it fails, prints nothing or
@@ -116,10 +156,17 @@ STATE.blocked when the launch names its state; without reserve.py the guard
 writes the same text itself (FAILURE_STOPPED, FAILURE_TAILS). On start, stop
 and status every error exits 0 without output. Run as a program, the guard
 ignores SIGINT (a terminal's Ctrl-C reaches the native's whole process group)
-from right after its version check, so it gives its real answer; only a SIGINT
-before the interpreter has started it ends it. A Python older than 3.11 blocks
-with one line on prompt and tool, and is silent elsewhere: the guard checks the
-version before it imports anything but sys.
+from right after its version check, so it gives its real answer. A SIGINT
+before that, while the interpreter starts or begins this file, ends the run
+without its answer: killed by the signal with no output, or with Python's
+KeyboardInterrupt line or traceback (one during startup's check of the
+script's path can instead leave a traceback ahead of the real answer). Without
+a real answer Claude Code blocks prompt and tool (onFailure), and Codex lets
+the event through. No code in this file can close that window; a hook command
+that ignores SIGINT before it starts Python could, as Python keeps an
+inherited SIG_IGN. A Python older than 3.11 blocks with one line on prompt and
+tool, and is silent elsewhere: the guard checks the version before it imports
+anything but sys.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
@@ -128,7 +175,7 @@ never raises), interrupted(kind, env) (the answer after a KeyboardInterrupt),
 main(argv=None). Constants: STOP_TURN and END_AT_STOP (probe
 results: a PreToolUse continue false ends the turn, a Stop one ends it beside
 another Stop hook), BLIND_AFTER, RECORD_AGAIN, STATUS_TIMEOUT, LOCK_WAIT,
-LOCK_STALE and LOCK_EMPTY (seconds), WARNING, VARIABLE.
+and LOCK_STALE (seconds), WARNING, VARIABLE.
 """
 
 import sys
@@ -156,8 +203,9 @@ if __name__ == "__main__" and sys.version_info < (3, 11):
 
 if __name__ == "__main__":
     # A terminal's Ctrl-C reaches the native's whole process group, its hooks included. The guard ignores SIGINT
-    # from here on, before its imports, and so always gives its real answer in its short life. The handler that
-    # chained() sets while the user's status line command starts resets on exec, so the command never inherits this.
+    # from here on, before its imports, and gives its real answer to one that comes later (one that comes earlier
+    # ends it, see the module docstring). The handler that chained() sets while the user's status line command
+    # starts resets on exec, so the command never inherits this.
     try:
         import _signal as interrupts  # built in: signal.py would import enum, a window as long as the rest
     except ImportError:
@@ -194,7 +242,6 @@ USAGE_FILE = re.compile(r"claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json")  # th
 STALE = 60  # seconds after which a temporary file of a cancelled status line run is removed
 LOCK_WAIT = 2  # seconds a status line run waits for another writer of the usage file
 LOCK_STALE = 10  # seconds between a lock holder's clock and this run's past which the holder has ended
-LOCK_EMPTY = 1  # seconds of a run's wait after which a lock that names no holder counts as left
 
 # python3 -I puts no script directory on sys.path: the siblings load by path from
 # the real file, so a guard reached through a link uses the kit it belongs to.
@@ -480,7 +527,7 @@ def sweep(path, now):
 
 
 def holding():
-    """The content of a lock this run takes: its host, process id and clock, which other runs judge it by."""
+    """The content of a lock or breaker this run takes: its host, process id and clock in whole seconds."""
     return json.dumps({"host": os.uname().nodename, "pid": os.getpid(), "at": int(time.time())},
                       separators=(",", ":")).encode()
 
@@ -510,113 +557,152 @@ def running(pid):
     return True
 
 
-def judge(path, fd, seen):
-    """(identity, stale) of the lock or breaker PATH, open as FD. A file that names its holder is stale when the
-    holder's clock is more than LOCK_STALE seconds from this run's, or the holder is a process of this host that
-    has ended; one that names none (a breaker never does) when it has been the same file for LOCK_EMPTY seconds of
-    this run's wait. SEEN keeps, per path, (identity, first seen) of a file that names no holder."""
-    info = os.fstat(fd)
-    identity = (info.st_dev, info.st_ino)
+def same(fd, path):
+    """Whether PATH is still the file open as FD."""
     try:
-        owner = holder(os.read(fd, 256))
+        mine, there = os.fstat(fd), os.lstat(path)
+    except OSError:
+        return False
+    return (mine.st_dev, mine.st_ino) == (there.st_dev, there.st_ino)
+
+
+def create(name):
+    """Take the lock or breaker NAME: create it holding this run's holding(), owned and 0600, and return it open;
+    FileExistsError when it exists. NAME never exists without its holder in it: the content goes to a hidden
+    temporary file beside it, made 0600 whatever the umask, which is then linked to NAME and unlinked (link() is
+    atomic on a network file system too, and a link made but reported as failed is still taken)."""
+    temporary = name.with_name(f"{name.name}.{os.urandom(8).hex()}.tmp")
+    content = holding()
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        os.fchmod(fd, 0o600)  # whatever the umask took: other runs read the holder
+        if os.write(fd, content) != len(content):
+            raise OSError(f"{temporary}: short write")
+        try:
+            os.fsync(fd)  # a run on another host of a network home reads the holder as soon as NAME exists
+        except OSError:
+            pass
+        try:
+            os.link(temporary, name)
+        except FileExistsError:
+            if not same(fd, name):  # a network file system can retry a link whose reply was lost
+                raise
+    except BaseException:
+        os.close(fd)
+        raise
+    finally:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+    return fd
+
+
+def opened(path):
+    """The lock or breaker PATH open to judge it, or None when it is gone. A file whose owner may only write it
+    (no run makes one: create() links each file 0600) is opened write-only and names no holder; PermissionError
+    when it can be opened neither way, and such a file is never removed."""
+    try:
+        return os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except FileNotFoundError:
+        return None
+    except PermissionError:
+        pass
+    try:
+        return os.open(path, os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except FileNotFoundError:
+        return None
+
+
+def stale(fd):
+    """Whether the lock or breaker open as FD was left by a run that ended, judged by its content and never by the
+    file's time (on a network home directory the server's clock). It was when it names no holder (a run's own
+    never does, see create()), when the holder's clock is more than LOCK_STALE seconds from this run's (plus the
+    second its whole-second clock may lag), and when the holder is a process of this host that has ended."""
+    try:
+        owner = holder(os.read(fd, 4096))
     except OSError:
         owner = None
     if owner is None:
-        if path not in seen or seen[path][0] != identity:
-            seen[path] = (identity, time.monotonic())
-        return identity, time.monotonic() - seen[path][1] >= LOCK_EMPTY
+        return True
     host, pid, at = owner
-    return identity, abs(time.time() - at) > LOCK_STALE or host == os.uname().nodename and not running(pid)
+    return abs(time.time() - at) > LOCK_STALE + 1 or host == os.uname().nodename and not running(pid)
 
 
-def remove(path, identity):
-    """Remove PATH when it is still the file IDENTITY ((st_dev, st_ino))."""
+def clear(path):
+    """Remove the lock or breaker PATH when it is stale: False while it is held, True when it is gone or was
+    removed. PATH is judged and removed while this run holds it open, so its inode number cannot pass to a new
+    file in between, and only while PATH is still that file. The check and the unlink are two steps: a lock is
+    removed only by the holder of its breaker, but a breaker that a run left when it ended is removed by any run
+    that finds it, so another run's new breaker can take its name between one run's check and its unlink (see the
+    module docstring)."""
+    fd = opened(path)
+    if fd is None:
+        return True
     try:
-        info = os.lstat(path)
-        if (info.st_dev, info.st_ino) == identity:
+        if not stale(fd):
+            return False
+        if same(fd, path):
             os.unlink(path)
+        return True
     except FileNotFoundError:
-        pass
+        return True
+    finally:
+        os.close(fd)
 
 
-def discard(name, identity, seen):
-    """Remove the lock NAME, judged stale as the file IDENTITY, under its breaker NAME.break: True when NAME is no
-    longer that file, False while another run holds the breaker (try again later).
+def discard(name):
+    """Remove the lock NAME when it is stale, under its breaker NAME.break. True when the caller should try to take
+    the lock now: NAME is gone, or this run held the breaker and judged NAME again under it (and removed it if it
+    was still stale), or the breaker was left by a run that ended and is removed. False while NAME or the breaker
+    is held.
 
-    The breaker is created O_EXCL and held only to check that the lock is still the file judged and to remove it,
-    so one run at a time removes a lock and a lock that another run took meanwhile is never moved or removed. A
-    breaker names no holder: one that stays LOCK_EMPTY seconds was left by a run killed while it held it, and is
-    removed when it is still the file judged (SEEN as for judge())."""
+    The breaker is a lock of the same kind (create(), judged by stale()), held only to judge NAME again and remove
+    it while it is still the file judged. A lock that another run took meanwhile names a holder that runs and is
+    neither moved nor removed, as long as the lease holds and no breaker was left by a run that ended: runs that
+    remove such a breaker at once can each hold one (see the module docstring)."""
+    fd = opened(name)
+    if fd is None:
+        return True
+    try:
+        if not stale(fd):
+            return False
+    finally:
+        os.close(fd)
     breaker = name.with_name(name.name + ".break")
     try:
-        fd = os.open(breaker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+        fd = create(breaker)
     except FileExistsError:
-        try:
-            other = os.open(breaker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
-        except FileNotFoundError:
-            return False
-        try:
-            held, left = judge(breaker, other, seen)
-            if left:
-                remove(breaker, held)
-        finally:
-            os.close(other)
-        return left
+        return clear(breaker)
     try:
-        remove(name, identity)
+        clear(name)
     finally:
         unlock(breaker, fd)
     return True
 
 
 def lock(path):
-    """Take the lock of the usage file PATH: the file .NAME.lock beside it, created O_EXCL with this run's
-    holding(), which every writer that merges into PATH holds while it reads, merges and writes.
-
-    Another run's lock is judged by what it holds, never by the file's time (on a network home directory
-    the server's clock): one whose clock is more than LOCK_STALE seconds from this run's, one of this host
-    whose process has ended, and one that names no holder for LOCK_EMPTY seconds of this run's wait (its
-    run never wrote it) was left by a run that ended, and is discarded under its breaker. Returns (lock
-    path, fd); TimeoutError when another writer holds it LOCK_WAIT seconds."""
+    """Take the lock of the usage file PATH: the file .NAME.lock beside it (create()), which every writer that
+    merges into PATH holds while it reads, merges and writes. A lock that a run left when it ended (stale()) is
+    removed under its breaker (discard()). Returns (lock path, fd); TimeoutError when another writer holds it
+    LOCK_WAIT seconds."""
     name = path.with_name(f".{path.name}.lock")
-    deadline, seen = time.monotonic() + LOCK_WAIT, {}
+    deadline = time.monotonic() + LOCK_WAIT
     while True:
-        try:
-            fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
-        except FileExistsError:
-            pass
-        else:
+        if discard(name):  # judged first: a run that waits writes nothing
             try:
-                os.fchmod(fd, 0o600)  # whatever the umask took: other runs read the holder
-                os.write(fd, holding())
-            except BaseException:
-                unlock(name, fd)
-                raise
-            try:
-                os.fsync(fd)  # a run on another host of a network home reads the holder while this one holds it
-            except OSError:
+                return name, create(name)
+            except FileExistsError:
                 pass
-            return name, fd
-        try:
-            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
-        except FileNotFoundError:
-            continue
-        try:  # the open file keeps its inode number from another file until the judgment is done
-            identity, stale = judge(name, fd, seen)
-            if stale and discard(name, identity, seen):
-                continue
-        finally:
-            os.close(fd)
         if time.monotonic() >= deadline:
             raise TimeoutError(f"{name}: held by another writer")
         time.sleep(0.01)
 
 
 def unlock(name, fd):
-    """Best effort: release the lock taken as (NAME, FD), unless it was removed as stale since."""
+    """Best effort: release the lock or breaker taken as (NAME, FD), unless it was removed as stale since."""
     try:
-        mine, there = os.fstat(fd), os.lstat(name)
-        if (mine.st_dev, mine.st_ino) == (there.st_dev, there.st_ino):
+        if same(fd, name):
             os.unlink(name)
     except OSError:
         pass
@@ -642,9 +728,10 @@ def record(path, limits, now):
     Nothing is written without a valid window, or when the merged windows equal the stored
     ones and were stored less than RECORD_AGAIN seconds ago. A change is read, merged and
     written again under the file's lock, so a writer that reads the file while another
-    writes it never replaces a newer reading. ValueError (or OSError) when PATH is not an
-    absolute claude-NAME.usage.json in an owned, real 0700 directory, or the write fails;
-    TimeoutError when the lock is held LOCK_WAIT seconds."""
+    writes it keeps the newer reading, within the lock's limits (see the module docstring).
+    ValueError (or OSError) when PATH is not an absolute claude-NAME.usage.json in an
+    owned, real 0700 directory, or taking the lock (link() in a directory without hard
+    links) or the write fails; TimeoutError when the lock is held LOCK_WAIT seconds."""
     incoming = {key: entry(limits.get(key)) for key in USAGE_KEYS} if isinstance(limits, dict) else {}
     if not any(incoming.values()):
         return False

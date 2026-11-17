@@ -681,6 +681,15 @@ class SessionRollout(unittest.TestCase):
                     else:
                         record["timestamp"] = stamp
                 self.assertEqual(self.session(records), dict(EMPTY, accounted=True))
+                # A model response alone counts too: a new session's first tool call has a response and its
+                # token_usage_record, and no token_count yet.
+                for response in (item(NOW + 1, "message", role="assistant"), call(NOW + 1),
+                                 line(NOW + 1, "token_usage_record", {"input_tokens": 1})):
+                    if stamp == "absent":
+                        del response["timestamp"]
+                    else:
+                        response["timestamp"] = stamp
+                    self.assertEqual(self.session([response]), dict(EMPTY, accounted=True), response["type"])
         # Other lines without a readable time stay out, and so does an inherited one.
         others = [{"type": "turn_context", "payload": {}}, {"type": "event_msg", "payload": {"type": "task_started"}},
                   {"type": "response_item", "payload": {"type": "message", "role": "user"}},
