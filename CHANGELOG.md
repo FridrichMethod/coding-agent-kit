@@ -73,9 +73,9 @@ Added:
   `lib/coding-agent-kit/guard.py`, the hook command that the launcher
   injects for that one launch, one short process per hook event under the
   launcher's own Python, and `lib/coding-agent-kit/guard_launch.py`, what
-  both launchers need to start such a launch. Nothing is written to the
-  configuration under `~/.claude` or `~/.codex`. While the account's own
-  usage data shows an enabled window at or below its reserve, the guard
+  both launchers need to start such a launch. The launchers write nothing
+  to the configuration under `~/.claude` or `~/.codex`. While the account's
+  own usage data shows an enabled window at or below its reserve, the guard
   refuses new prompts, which are not sent, and tool calls, which are denied
   with the reason, and it allows again by itself once that window has reset.
   A reading counts until its window resets, however old it is, and one above
