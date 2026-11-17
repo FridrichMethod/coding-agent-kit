@@ -1029,6 +1029,10 @@ class Launchers(unittest.TestCase):
                     self.assertIn("With a reserve on, goals are off; cloud, app-server, --ephemeral and other forms the "
                                   "hooks cannot see are refused.", result.stdout)
                     self.assertNotIn("0.169.0", result.stdout)
+                else:
+                    self.assertIn("and Claude Code 2.1.296 or newer with reserves; no upper limit.", result.stdout)
+                    self.assertIn("With a reserve on, forms the hooks cannot cover are refused (-p, redirected output, "
+                                  "--bg, agents, --settings).", result.stdout)
                 # A lone copy, a broken kit or a kit without docs answers with the URL.
                 write(lone / "bin" / tool, (ROOT / "bin" / tool).read_text(), 0o700)
                 result = self.run_tool([lone / "bin" / tool, "--help"])
