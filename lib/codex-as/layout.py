@@ -86,14 +86,25 @@ def shared_sqlite(guard, root, cwd, profile=None):
     return result
 
 
-def hooks_off(guard, root, cwd, profile=None):
+def profile_files(root, home, profile):
+    """The selected profile's files: the shared ROOT/PROFILE.config.toml, which a launch links into the
+    account HOME, and the account home's own, which native -p loads ($CODEX_HOME/PROFILE.config.toml)
+    when it is not a link to the shared one."""
+    if profile is None:
+        return []
+    shared = root / (profile + ".config.toml")
+    own = None if home is None else home / shared.name
+    if own is None or not os.path.lexists(own) or os.path.realpath(own) == os.path.realpath(shared):
+        return [shared]
+    return [shared, own]
+
+
+def hooks_off(guard, root, cwd, profile=None, home=None):
     """The first configuration file native Codex may load for this launch that turns its hooks off,
-    or None: the shared config.toml, the selected profile's, a system one, or a project's
-    .codex/config.toml in a lexical or resolved parent of CWD (whether Codex trusts that project is
-    not read)."""
-    paths = {root / "config.toml", *SYSTEM_CONFIG}
-    if profile is not None:
-        paths.add(root / (profile + ".config.toml"))
+    or None: the shared config.toml, the selected profile's (profile_files: the account HOME's own
+    too), a system one, or a project's .codex/config.toml in a lexical or resolved parent of CWD
+    (whether Codex trusts that project is not read)."""
+    paths = {root / "config.toml", *SYSTEM_CONFIG, *profile_files(root, home, profile)}
     for place in (cwd, cwd.resolve()):
         paths.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
     for path in sorted(paths):
@@ -104,11 +115,11 @@ def hooks_off(guard, root, cwd, profile=None):
     return None
 
 
-def hook_off(guard, root, keys, profile=None):
-    """The first of the shared config.toml and the selected profile's file whose [hooks.state] entry
-    for one of KEYS sets enabled to anything but true, or None: native Codex skips such a hook,
-    trusted or not. Only enabled is read, never a trust record."""
-    paths = [root / "config.toml", *([root / (profile + ".config.toml")] if profile is not None else [])]
+def hook_off(guard, root, keys, profile=None, home=None):
+    """The first of the shared config.toml and the selected profile's files (profile_files) whose
+    [hooks.state] entry for one of KEYS sets enabled to anything but true, or None: native Codex skips
+    such a hook, trusted or not. Only enabled is read, never a trust record."""
+    paths = [root / "config.toml", *profile_files(root, home, profile)]
     for path in paths:
         if path.exists():
             with path.open("rb") as stream:

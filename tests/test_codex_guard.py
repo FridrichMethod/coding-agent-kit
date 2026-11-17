@@ -296,6 +296,26 @@ class HooksOff(Fixture):
         self.assertFalse(self.off(), "another profile's file is not loaded")
         self.assertFalse(self.off("missing"))
 
+    def test_the_account_home_s_profile(self):
+        """Native -p reads $CODEX_HOME/NAME.config.toml, the account home's: the launch links the shared
+        file there when it exists, and otherwise the account home's own file is the one Codex loads."""
+        home = self.root / "accounts/A"
+        own = self.write(home / "q.config.toml", "[features]\nhooks = false\n")
+        self.assertEqual(layout.hooks_off(check, self.root, self.cwd, "q", home), own)
+        self.assertIsNone(layout.hooks_off(check, self.root, self.cwd, "q"), "without the home only the shared file")
+        self.assertIsNone(layout.hooks_off(check, self.root, self.cwd, "r", home))
+        # The managed link to the shared file: the shared file is named.
+        own.unlink()
+        shared = self.write(self.root / "q.config.toml", "[features]\nhooks = false\n")
+        own.symlink_to(shared)
+        self.assertEqual(layout.hooks_off(check, self.root, self.cwd, "q", home), shared)
+        # A link elsewhere is followed, as Codex follows it.
+        shared.unlink()
+        own.unlink()
+        elsewhere = self.write(self.base / "elsewhere.toml", "[features]\ncodex_hooks = false\n")
+        own.symlink_to(elsewhere)
+        self.assertEqual(layout.hooks_off(check, self.root, self.cwd, "q", home), own)
+
     def test_project_layers(self):
         """A trusted project's .codex/config.toml turns hooks off too; trust is not read, so any
         project layer counts."""
@@ -390,6 +410,21 @@ class HookState(Fixture):
         self.assertEqual(self.off("p"), profile)
         self.assertIsNone(self.off(), "another profile's file is not loaded")
         self.assertIsNone(self.off("q"))
+
+    def test_the_account_home_s_profile(self):
+        """The account home's own NAME.config.toml, which native -p reads when the shared one is absent."""
+        home = self.root / "accounts/A"
+        home.mkdir(parents=True)
+        own = home / "q.config.toml"
+        own.write_text(f"[hooks.state.{json.dumps(self.KEYS[0])}]\nenabled = false\n")
+        self.assertEqual(layout.hook_off(check, self.root, self.KEYS, "q", home), own)
+        self.assertIsNone(layout.hook_off(check, self.root, self.KEYS, "q"))
+        self.assertIsNone(layout.hook_off(check, self.root, self.KEYS, "p", home))
+        own.unlink()
+        shared = self.root / "q.config.toml"
+        shared.write_text(f"[hooks.state.{json.dumps(self.KEYS[1])}]\nenabled = false\n")
+        own.symlink_to(shared)
+        self.assertEqual(layout.hook_off(check, self.root, self.KEYS, "q", home), shared)
 
 
 # The two hook values, as settled for every release: a change asks every host to trust the hooks again.
@@ -782,6 +817,27 @@ class GuardedLaunch(unittest.TestCase):
                 self.refused(["A", "exec", "go"], message.format(path=system))
                 system.unlink()
         result = self.run_codex("--reserve-weekly", "10", "A", "-p", "q", "go")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_the_profile_codex_loads_from_the_account_home_is_read(self):
+        """With no shared q.config.toml, -p q makes Codex load the account home's own file, which turns the
+        hooks or a guard hook off as well (the real codex-cli 0.169.0 ran no hook with hooks = false there)."""
+        self.trusted()
+        result = self.run_codex("A", "mcp", "list")  # prepares the account home
+        self.assertEqual(result.returncode, 0, result.stderr)
+        own = self.root / "accounts/A/q.config.toml"
+        for text, reason in (("[features]\nhooks = false\n",
+                              "{path} turns the hooks feature off under [features], so Codex would not run the usage "
+                              "reserve guard's hooks"),
+                             (f"[hooks.state.{json.dumps(list(TRUST_RECORDS)[1])}]\nenabled = false\n",
+                              "{path} turns a usage reserve guard hook off under [hooks.state], so Codex would not run it")):
+            with self.subTest(text=text):
+                own.write_text(text)
+                result = self.run_codex("--reserve-5h", "10", "A", "-p", "q", "exec", "go")
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (1, "", f"codex-as: A: {reason.format(path=own)}" + WITHOUT.format(account="A")))
+                self.assertFalse(self.record.exists(), "a refused launch started Codex")
+        result = self.run_codex("--reserve-5h", "10", "A", "-p", "r", "exec", "go")
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_a_login_without_a_chatgpt_user_and_workspace_is_refused(self):

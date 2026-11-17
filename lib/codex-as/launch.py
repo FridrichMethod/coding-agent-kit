@@ -275,11 +275,11 @@ def unguardable(account, plan):
 def guarded(config, account, plan, layout):
     """The checks of a guarded launch that read the Codex configuration and the guard's directory, all
     before a missing account is offered a login. Returns (guard directory, marker, account record)."""
-    off = storage.hooks_off(guard, layout.root, plan.cwd, plan.profile)
+    off = storage.hooks_off(guard, layout.root, plan.cwd, plan.profile, layout.home)
     if off is not None:
         refuse(account, f"{off} turns the hooks feature off under [features], so Codex would not run the usage "
                         "reserve guard's hooks")
-    off = storage.hook_off(guard, layout.root, HOOK_KEYS, plan.profile)
+    off = storage.hook_off(guard, layout.root, HOOK_KEYS, plan.profile, layout.home)
     if off is not None:
         refuse(account, f"{off} turns a usage reserve guard hook off under [hooks.state], so Codex would not run it")
     managed = storage.goals_on(guard)
