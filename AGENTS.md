@@ -96,7 +96,12 @@ behavior, not a machine interface. `CODING_AGENT_KIT_GUARD`,
 launcher-internal: the launcher's channel to the guard it injects, removed
 from every launch's environment and set only for a guarded one, never an
 interface for other programs; so are the guard's state files under
-`${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/guard/`.
+`${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/guard/`. A guarded
+session outlives kit updates, because a managed install's hooks reach
+`guard.py` through `current`, so every later release of a minor line accepts
+the `CODING_AGENT_KIT_GUARD` format (`"v": 1`), the hook kinds (`start`,
+`prompt`, `tool`, `stop`, `status`) and the state files of that line's
+earlier releases.
 
 The managed install is the interface other repositories install the kit
 through, so all of it is public, guarded by `tests/managed-install.sh`: the
