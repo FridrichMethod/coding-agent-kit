@@ -611,10 +611,11 @@ def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
                    "them in \"Hooks need review\".")
     elif unsure:
         # Never silent; the marker stays, since the session may be another client's whose hooks ran.
-        guard.warn(f"{account}: the usage reserve may not have been enforced in this run: Codex did not run {unsure} "
-                   f"in a session of {account} that this run or another one wrote during it (not trusted, disabled, "
-                   f"or managed hooks only). Start codex-as {account} interactively and trust them in \"Hooks need "
-                   "review\".")
+        guard.warn(f"{account}: the usage reserve may not have been enforced in this run: a session of {account} "
+                   f"written during it, by this run or by another client of {account}, shows that Codex did not run "
+                   f"{unsure} (not trusted, disabled, or managed hooks only), and the check after the run cannot tell "
+                   f"which client wrote it. If it was this run, start codex-as {account} interactively and trust them "
+                   "in \"Hooks need review\".")
 
 
 def main(args):

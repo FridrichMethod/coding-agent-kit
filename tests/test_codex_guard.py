@@ -766,9 +766,10 @@ WITHOUT = "; to launch without usage reserves, run codex-as --reserve-5h off --r
 # showing it, which another client of the account may have written instead.
 WARNING = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run {} (not trusted, disabled, "
            "or managed hooks only). Start codex-as A interactively and trust them in \"Hooks need review\".\n")
-NOTICE = ("codex-as: A: the usage reserve may not have been enforced in this run: Codex did not run {} in a session of "
-          "A that this run or another one wrote during it (not trusted, disabled, or managed hooks only). Start "
-          "codex-as A interactively and trust them in \"Hooks need review\".\n")
+NOTICE = ("codex-as: A: the usage reserve may not have been enforced in this run: a session of A written during it, by "
+          "this run or by another client of A, shows that Codex did not run {} (not trusted, disabled, or managed hooks "
+          "only), and the check after the run cannot tell which client wrote it. If it was this run, start codex-as A "
+          "interactively and trust them in \"Hooks need review\".\n")
 # Rollout lines as native Codex writes them (the fake stamps them).
 ANSWER = {"type": "response_item", "payload": {"type": "message", "role": "assistant", "content": []}}
 CALL = {"type": "response_item", "payload": {"type": "function_call", "name": "exec_command", "arguments": "{}",
