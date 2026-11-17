@@ -139,7 +139,8 @@ class LaunchForms(Fixture):
                       # codex-rs/cli/src/git_credential.rs at rust-v0.169.0 (check.COMMANDS has the evidence).
                       ["git-credential", "get"], ["git-credential", "store"], ["git-credential", "erase"],
                       ["-c", "model=x", "git-credential", "capability"], ["git-credential", "--help"],
-                      ["git-credential", "-c", "model=x", "erase"],
+                      ["git-credential", "-c", "model=x", "erase"], ["git-credential", "--", "get"],
+                      ["-c", "model=x", "git-credential", "--", "capability"],
                       # Before 0.169.0 another word after the prompt is clap's error, help its help subcommand.
                       ["git-credential", "help"], ["git-credential", "get", "exec", "go"],
                       # app-server's schema generators write protocol bindings and start no app server.
@@ -1128,7 +1129,7 @@ class GuardedLaunch(unittest.TestCase):
                             ["A", "exec", "help"], ["A", "e", "help", "resume"], ["A", "completion", "bash"],
                             ["A", "git-credential", "get"], ["A", "cloud", "help"], ["A", "app-server", "help"],
                             ["A", "git-credential", "store"], ["A", "git-credential", "erase"],
-                            ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"],
+                            ["A", "git-credential", "--", "get"], ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"],
                             ["A", "app-server", "generate-ts", "-o", "out"],
                             ["A", "app-server", "generate-json-schema", "--out", "out", "--experimental"],
                             ["A", "app-server", "generate-internal-json-schema", "-o", "out"])

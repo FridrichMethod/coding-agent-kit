@@ -238,6 +238,8 @@ def arguments(args, config):
         if arg == "--":
             if command in {"resume", "fork", "exec-resume"} and target is None and i < len(args):
                 target = args[i]
+            if command == "git-credential" and i < len(args):
+                words.append(args[i])  # its OPERATION from 0.169.0; before, clap refuses any word here
             break
         if arg.startswith("--"):
             flag, sep, value = arg.partition("=")
