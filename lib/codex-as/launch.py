@@ -411,16 +411,22 @@ def span(stream, begun, ended):
 def turned(path, cwd, begun, ended):
     """Whether a turn of the session at PATH began in CWD between BEGUN and ENDED: Codex starts each
     turn with a turn_context line that holds the session's working directory, which exec resume sets
-    to its own, whatever directory the session started in (measured with codex-cli 0.169.0)."""
+    to its own, whatever directory the session started in (measured with codex-cli 0.169.0). None when
+    the session has lines in that span but no turn began in it, so where cannot be told; False when
+    it has no line there, or its turns began elsewhere."""
+    written = turns = False
     try:
         with usage.opened(path) as stream:
             for raw in span(stream, begun, ended):
+                written = True
                 found = usage.parsed(raw) if b"turn_context" in raw else None
-                if found and found[1] == "turn_context" and same_place(found[2].get("cwd"), cwd):
-                    return True
+                if found and found[1] == "turn_context":
+                    if same_place(found[2].get("cwd"), cwd):
+                        return True
+                    turns = True
     except OSError:
         pass
-    return False
+    return None if written and not turns else False
 
 
 def run_threads(root, plan, owner, begun, ended, alone):
@@ -452,7 +458,10 @@ def run_threads(root, plan, owner, begun, ended, alone):
     sessions, of any day: an interactive form (the TUI, resume and fork) to one of any directory, so
     every such session written during the run is SURE when ALONE and MAYBE otherwise; exec resume
     without an id to one in which it begins a turn in its directory (turned), whatever directory the
-    session started in, so each such session is EITHER.
+    session started in, so each such session is EITHER. When it has no such session and started none
+    here, each older session written during the run in which no turn began is MAYBE, since its own may
+    be one of them (a Codex release that stops recording a turn's directory), never one whose turns
+    began elsewhere.
 
     Only rollouts whose file time is at most SKEW before BEGUN are opened, at most HEADS session_meta
     lines, the oldest start first, whatever account wrote them."""
@@ -470,7 +479,7 @@ def run_threads(root, plan, owner, begun, ended, alone):
             found.append((match[1] not in named, path.name, match[1], path))
     resumes = plan.command == "exec-resume" and not plan.forked  # appends to a session
     interactive = plan.form == "interactive"
-    sure, either, maybe, agents, moved = {}, {}, {}, [], []
+    sure, either, maybe, agents, moved, untold = {}, {}, {}, [], [], {}
     # Where the run's sessions that it does not name go, new or older alike.
     unnamed = either if not interactive else sure if alone else maybe
     for _, _, thread, path in sorted(found)[:HEADS]:
@@ -503,8 +512,13 @@ def run_threads(root, plan, owner, begun, ended, alone):
                 unnamed.setdefault(thread, []).append(path)
             elif interactive:
                 moved.append((parent, thread, path))
-        elif interactive or (resumes and not named and turned(path, plan.cwd, begun, ended)):
+        elif interactive:
             unnamed.setdefault(thread, []).append(path)
+        elif resumes and not named:
+            place = turned(path, plan.cwd, begun, ended)
+            (unnamed if place else untold if place is None else {}).setdefault(thread, []).append(path)
+    if resumes and not named and not either:
+        maybe.update(untold)  # exec resume's own session is not found: one written without a turn may be it
     # A /cd fork goes where the session it names went, along a chain; any other session elsewhere is MAYBE.
     while follow := [item for item in moved if item[0] in sure or item[0] in maybe]:
         for item in follow:

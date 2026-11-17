@@ -549,6 +549,30 @@ class RunAttribution(Fixture):
         sure, either, maybe = self.threads([], self.t0 - 1, self.t0 + 10, alone=False)
         self.assertEqual((sure, either, sorted(maybe)), ([], [], sorted([[main], [linked], [odd], [nul]])))
 
+    def test_exec_resume_s_own_session_not_found_leaves_older_sessions_without_a_turn_unsure(self):
+        """exec resume without an id continues an older session in which it begins a turn in its directory, or starts
+        one there. When the run has neither (as when a Codex release stops recording a turn's directory), an older
+        session of the account written during the run in which no turn began may be its own: MAYBE, so the check
+        tells of it. Never when the run's own session is found, never one whose turn began elsewhere, and never for
+        a run that continues no session it does not name."""
+        old = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(self.t0 - 3600))
+        rollout = lambda thread, lines, **meta: self.rollout(thread, lines, timestamp=old, **meta)
+        untold = rollout(self.THREAD, [CALL])
+        resume = ["exec", "resume", "--last", "go"]
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [], [[untold]]))
+        self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [], []))
+        self.assertEqual(self.threads(["exec", "resume", UUID, "go"], self.t0 - 1, self.t0 + 10), ([], [], []))
+        self.assertEqual(self.threads(resume, self.t0 + 1, self.t0 + 10), ([], [], []), "written before the run")
+        turned = rollout(self.OTHER, [turn(self.cwd), ANSWER])
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [[turned]], []))
+        turned.unlink()
+        new = self.rollout(self.OTHER, [ANSWER])
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [[new]], []))
+        new.unlink()
+        untold.unlink()
+        rollout(self.THREAD, [turn(self.base), CALL])
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [], []))
+
     def test_a_session_meta_line_longer_than_one_read_is_read(self):
         path = self.rollout(self.THREAD, [CALL], base_instructions={"text": "x" * (3 * launch.CHUNK)})
         self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [[path]], []))
@@ -1835,7 +1859,8 @@ class GuardedLaunch(unittest.TestCase):
         its own turn there, or starts a session there when it finds none (measured with codex-cli 0.169.0,
         RealCodex): a new session it starts is the run's (the warning, the marker removed, the next headless
         run refused), an older session counts only with a turn begun here during the run, and an older
-        session of the account that another client continued elsewhere meanwhile is not the run's."""
+        session of the account that another client continued elsewhere meanwhile is not the run's. Lines
+        written without a turn begun may be the run's only when its own session is not found: the notice."""
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
         refusal = ("codex-as: A: Codex has not run the usage reserve guard's tool hook on this host yet, and a headless "
                    "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
@@ -1866,8 +1891,11 @@ class GuardedLaunch(unittest.TestCase):
             # The run's older session, chat only, beside the same.
             ([{"append": str(older), "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}],
              [{"append": str(other), "lines": [turn(elsewhere), CALL, snapshot(20.0)]}], ""),
-            # Lines without a turn begun here are not a turn of this run.
-            ([], [{"append": str(other), "lines": [CALL, snapshot(20.0)]}], ""),
+            # Lines without a turn begun are not a turn of this run, whose own session is here.
+            ([{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}],
+             [{"append": str(other), "lines": [CALL, snapshot(20.0)]}], ""),
+            # Without a session of the run found, they may be its own, as with a Codex that records no turn's directory.
+            ([], [{"append": str(other), "lines": [CALL, snapshot(20.0)]}], NOTICE),
         )
         for own, others, printed in cases:
             with self.subTest(own=len(own), others=len(others), printed=printed[:20]):
@@ -1876,7 +1904,7 @@ class GuardedLaunch(unittest.TestCase):
                                         env={"FAKE_ROLLOUTS": json.dumps([*own, *others]), "FAKE_HOOKS": '["prompt"]'})
                 self.assertEqual((result.returncode, result.stderr),
                                  (0, launch_line + printed.format("the guard's tool hook")))
-                self.assertEqual(self.marker.exists(), not printed)
+                self.assertEqual(self.marker.exists(), printed != WARNING)
         result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
         self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
         self.assertEqual(self.launches(), [])
