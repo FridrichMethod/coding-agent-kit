@@ -96,6 +96,12 @@ HOOKLESS = {"CLAUDE_CODE_SAFE_MODE": "safe mode", "CLAUDE_CODE_SIMPLE": "bare mo
 # Their switches on the command line, which Claude Code finds by a plain scan of its arguments up to the first
 # --, so also as the value of an option (a word with = in it is not one).
 HOOKLESS_FLAGS = {"--safe-mode": "safe mode", "--bare": "bare mode"}
+# The command that Claude Code runs every command hook and the status line through when it is not empty, from the
+# environment or a settings file's env: a wrapper may run the guard without this launch's variables, so that it
+# allows and records nothing, or lose its exit code, so that a block becomes an allow.
+SHELL_PREFIX = "CLAUDE_CODE_SHELL_PREFIX"
+WRAPS = ("the command Claude Code runs the usage reserve guard's hooks and status line through, which can hide this "
+         "launch from the guard or turn its blocks into allows")
 # What Claude Code's isEnvTruthy reads as on, and the values it documents as off.
 ON_WORDS = ("1", "true", "yes", "on")
 OFF_WORDS = ("", "0", "false", "no", "off")
@@ -573,6 +579,8 @@ def check_form(form, account):
         if not env_off(os.environ.get(name)):
             refuse_guarded(account, f"the environment sets {name}, the switch of Claude Code's {mode}, which runs "
                            "none of the usage reserve guard's hooks")
+    if os.environ.get(SHELL_PREFIX):
+        refuse_guarded(account, f"the environment sets {SHELL_PREFIX}, {WRAPS}")
     for word in form.modes:
         refuse_guarded(account, f"{word} turns on Claude Code's {HOOKLESS_FLAGS[word]} wherever it stands before a --, "
                        "also as the value of an option, and that mode runs none of the usage reserve guard's hooks")
@@ -590,6 +598,9 @@ def check_form(form, account):
             if name in REOPENING or (name in CLOSED and not env_on(env[name])):
                 refuse_guarded(account, f"{path} sets {name} in its env, which would reopen what a launch with usage "
                                "reserves closes")
+            # Any value but an empty string counts, whatever this release makes of it.
+            if name == SHELL_PREFIX and env_text(env[name]) != "":
+                refuse_guarded(account, f"{path} sets {name} in its env, {WRAPS}")
 
 
 def check_version(executable, account):

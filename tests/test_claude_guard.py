@@ -46,6 +46,9 @@ VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_
 USAGE_VARIABLES = ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID", "CODING_AGENT_KIT_CLAUDE_PID")
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}  # set by a guarded launch only
 RESUME = "CLAUDE_CODE_RESUME_INTERRUPTED_TURN"  # removed by a guarded launch only
+PREFIX = "CLAUDE_CODE_SHELL_PREFIX"  # refused by a guarded launch
+WRAPS = ("the command Claude Code runs the usage reserve guard's hooks and status line through, which can hide this "
+         "launch from the guard or turn its blocks into allows")
 LAUNCH_LINE = "; hooks refuse new prompts and tool calls at a reserve.\n"
 WITHOUT = ("; to launch without usage reserves, run claude-as --reserve-5h off --reserve-weekly off {account} "
            "with the same arguments.\n")
@@ -781,6 +784,33 @@ class Refusals(Fixture):
                 self.assertEqual((code, err), (0, ""))
                 self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
 
+    def test_a_shell_prefix_wraps_the_hooks(self):
+        """Claude Code runs every command hook and the status line through CLAUDE_CODE_SHELL_PREFIX, from the
+        environment or a settings env (RealClaude pins that an env-scrubbing one lets a prompt at the reserve
+        through)."""
+        self.configure("[usage_reserve]\nweekly = 10\n")
+        user = self.home / ".claude/settings.json"
+        project = self.cwd / ".claude/settings.json"
+        local = self.cwd / ".claude/settings.local.json"
+        for text in ("/usr/bin/env -i", "0", " "):
+            with self.subTest(environment=text):
+                self.assert_refused(["work"], f"the environment sets {PREFIX}, {WRAPS}", {PREFIX: text})
+        for path in (user, project, local):
+            for value in ("/usr/bin/env -i", "0", 0, False, None):
+                with self.subTest(path=path, value=value):
+                    write(path, json.dumps({"env": {PREFIX: value}}))
+                    self.assert_refused(["work"], f"{path} sets {PREFIX} in its env, {WRAPS}")
+            path.unlink()
+        self.assertEqual(self.version_runs(), 0)
+        # An empty prefix wraps nothing.
+        write(user, json.dumps({"env": {PREFIX: ""}}))
+        record, _, _ = self.guarded(["work"], {PREFIX: ""})
+        self.assertEqual(record["env"][PREFIX], "")
+        # Without reserves it launches, as it did.
+        code, out, err = self.run_launcher(["--reserve-weekly", "off", "work"], {PREFIX: "/usr/bin/env -i"})
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(self.records()[-1]["env"][PREFIX], "/usr/bin/env -i")
+
     def test_the_cached_server_policy_is_not_checked(self):
         """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*"""
         write(self.home / ".claude/remote-settings.json",
@@ -1006,6 +1036,10 @@ class Settings(unittest.TestCase):
                 self.assertEqual(self.check_form({path: {"env": {"CLAUDE_CODE_SAFE_MODE": "1"}}}),
                                  f"{path} sets CLAUDE_CODE_SAFE_MODE in its env, the switch of Claude Code's safe mode, "
                                  "which runs none of the usage reserve guard's hooks")
+            with self.subTest(path=path, prefix=True):
+                self.assertEqual(self.check_form({path: {"env": {PREFIX: "/usr/bin/env -i"}}}),
+                                 f"{path} sets {PREFIX} in its env, {WRAPS}")
+                self.assertIsNone(self.check_form({path: {"env": {PREFIX: ""}}}))
             self.assertIsNone(self.check_form({path: {"strictPluginOnlyCustomization": ["skills"], "env": CLOSED}}))
         # The managed-only keys and the status line count only in a managed file.
         user = "/home/u/.claude/settings.json"
@@ -1017,6 +1051,8 @@ class Settings(unittest.TestCase):
                          "the environment sets CLAUDE_CODE_SIMPLE, the switch of Claude Code's bare mode, which runs "
                          "none of the usage reserve guard's hooks")
         self.assertIsNone(self.check_form({}, {"CLAUDE_CODE_SIMPLE": "0", "CLAUDE_CODE_SAFE_MODE": ""}))
+        self.assertEqual(self.check_form({}, {PREFIX: "wrap"}), f"the environment sets {PREFIX}, {WRAPS}")
+        self.assertIsNone(self.check_form({}, {PREFIX: ""}))
 
     def test_how_claude_code_reads_a_flag(self):
         """Its isEnvTruthy: falsy values are off, a boolean is itself, else String(value) trimmed and lower-cased
@@ -1348,6 +1384,24 @@ class RealClaude(unittest.TestCase):
                 self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
                 self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
                 self.assert_state(state, (".launched",), (".ran.start", ".ran.prompt", ".ran.stop", ".blocked"))
+
+    def test_a_shell_prefix_runs_the_hooks_through_its_wrapper(self):
+        """Why claude-as refuses CLAUDE_CODE_SHELL_PREFIX with a reserve on: a wrapper that runs the command in an
+        empty environment hides the launch from every hook, and one that pipes its output loses the block."""
+        wrapper = self.sandbox.base / "wrap prefix.sh"
+        for name, body, present, absent in (
+                ("empty environment", 'exec env -i /bin/sh -c "$1"', (".launched",),
+                 (".ran.start", ".ran.prompt", ".blocked")),
+                ("piped", '/bin/sh -c "$1" 2>&1 | cat', (".ran.start", ".ran.prompt", ".blocked"), ())):
+            with self.subTest(wrapper=name):
+                self.requests.unlink(missing_ok=True)
+                for leftover in self.guard_dir.iterdir():
+                    leftover.unlink()
+                write(wrapper, f"#!/bin/sh\n{body}\n", 0o700)
+                code, out, err, state, messages = self.run_claude("PLAIN say hello", 95, extra={PREFIX: str(wrapper)})
+                self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+                self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
+                self.assert_state(state, present, absent)
 
 
 @unittest.skipUnless(os.path.isdir("/proc/self"), "the sandbox finds its strays through /proc (Linux)")
