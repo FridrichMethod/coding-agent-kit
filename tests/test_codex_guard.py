@@ -594,6 +594,29 @@ class RunAttribution(Fixture):
         info = (self.root / "accounts/.locks/A.lock").lstat()
         self.assertEqual((info.st_mode & 0o7777, info.st_nlink), (0o600, 1))
 
+    def test_a_launch_that_holds_the_lease_alone_bounds_the_lease_file(self):
+        """Layout.arrive: a launch whose acquire() got the lease exclusively, so that no run in progress compares
+        sizes, empties a lease file of LEASE_LIMIT bytes or more before it appends; one that shares the lease never
+        empties it, so a run in progress still reads another size once a launch arrived."""
+        lease, other = (layout.Layout(check, "A", self.config) for _ in range(2))
+        for item in (lease, other):
+            self.addCleanup(item.close)
+        path = self.root / "accounts/.locks/A.lock"
+        self.assertTrue(lease.acquire())
+        path.write_bytes(b"\n" * (layout.LEASE_LIMIT - 1))
+        lease.close()
+        self.assertTrue(lease.acquire())
+        self.assertEqual(lease.arrive(True), layout.LEASE_LIMIT, "below the limit it only grows")
+        lease.close()
+        self.assertTrue(lease.acquire())
+        self.assertEqual(lease.arrive(True), 1)
+        fcntl.flock(lease.fd, fcntl.LOCK_SH)  # as a launch holds it while Codex runs
+        path.write_bytes(b"\n" * layout.LEASE_LIMIT)
+        self.assertFalse(other.acquire())
+        self.assertEqual(other.arrive(False), layout.LEASE_LIMIT + 1)
+        info = path.lstat()
+        self.assertEqual((info.st_mode & 0o7777, info.st_nlink), (0o600, 1))
+
     def test_a_native_killed_by_a_signal_is_re_raised(self):
         """SIGQUIT among them: codex-as forwards it, and a native whose default action it ended ends codex-as
         the same way (here with os.kill and signal.signal stubbed, so nothing dumps a core)."""
@@ -933,6 +956,20 @@ class GuardedLaunch(unittest.TestCase):
                     self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "fake codex ran\n", ""))
                     self.assertEqual(self.recorded(), plain, "the inherited guard variables reached Codex")
         self.assertFalse(self.guard_dir.exists(), "a launch without reserves made the guard directory")
+
+    def test_the_lease_file_stays_bounded(self):
+        """Each launch that can write sessions adds a byte to the account's lease file, with reserves or without; one
+        that holds the lease alone empties it first once it has reached LEASE_LIMIT bytes."""
+        lease = self.root / "accounts/.locks/A.lock"
+        for flags, size in (((), 1), ((), 2), (("--reserve-5h", "off"), 3)):
+            with self.subTest(flags=flags, size=size):
+                self.assertEqual(self.run_codex(*flags, "A", "exec", "go").returncode, 0)
+                self.assertEqual(lease.stat().st_size, size)
+        lease.write_bytes(b"\n" * layout.LEASE_LIMIT)
+        for flags, size in (((), 1), (("--reserve-5h", "off", "--reserve-weekly", "off"), 2)):
+            with self.subTest(flags=flags, size=size, full=True):
+                self.assertEqual(self.run_codex(*flags, "A").returncode, 0)
+                self.assertEqual(lease.stat().st_size, size)
 
     def test_an_interactive_launch_gets_the_hooks_the_guard_and_goals_off(self):
         before = int(time.time())

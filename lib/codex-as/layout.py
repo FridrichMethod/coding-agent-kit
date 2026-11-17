@@ -30,6 +30,8 @@ NETWORK_PATH_KEYS = {"certificate", "private_key", "tls_certificate", "tls_priva
 SYSTEM_CONFIG = (Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"))
 # The managed layers, which native Codex applies over the command line's -c values and flags.
 MANAGED_CONFIG = (Path("/etc/codex/managed_config.toml"), Path("/etc/codex/requirements.toml"))
+# The account lease file's size from which a launch that holds the lease alone empties it before it arrives.
+LEASE_LIMIT = 4096
 
 
 def validate_paths(guard, value, prefix=()):
@@ -260,12 +262,19 @@ class Layout:
             fcntl.flock(self.fd, fcntl.LOCK_SH)
             return False
 
-    def arrive(self):
+    def arrive(self, alone=False):
         """Counts this launch in the lease file that acquire() opened: appends one byte (atomically on one
         host; the content is never read) and returns the file's size after it. Another size when a later
         acquire() reads it shows that another launch of the account arrived meanwhile, also one that
-        started and ended in between, which the lease itself never shows."""
+        started and ended in between, which the lease itself never shows.
+
+        ALONE (acquire() got the lease exclusively, so no run in progress compares sizes) first empties a
+        file of LEASE_LIMIT bytes or more, which bounds it. A launch whose conversion to the shared lease
+        let this one in meanwhile left the file that long only when it arrived at LEASE_LIMIT bytes or
+        more itself, so it still reads another size afterwards unless as many launches arrive again."""
         fcntl.fcntl(self.fd, fcntl.F_SETFL, fcntl.fcntl(self.fd, fcntl.F_GETFL) | os.O_APPEND)
+        if alone and self.size >= LEASE_LIMIT:
+            os.ftruncate(self.fd, 0)
         os.write(self.fd, b"\n")
         return os.lseek(self.fd, 0, os.SEEK_CUR)
 
