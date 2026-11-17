@@ -184,13 +184,16 @@ def exit_status(result):
 def remember(config, layout, raw=None, plan=None, started=None, threads=()):
     """Best effort, for --account-info: this login's email and plan, and after a run the
     last rate limits its rollouts show (THREADS: the session ids of a guarded run, see run_threads).
-    Never fails a launch and writes no token."""
+    Never fails a launch and writes no token. The rollouts are looked for from SKEW before STARTED,
+    as run_threads does, since a file server's clock may lag this host's: a snapshot of this account's
+    from up to that long before the run is a reading of it all the same, and the record takes the
+    newest by its own time."""
     try:
         if raw is None:
             raw = guard.credential(layout.target)
         email, kind = storage.profile(raw)
         seen = None if plan is None else usage.latest(layout.root, {*plan.continued, *threads}, storage.owner(raw),
-                                                      started, time.time())
+                                                      started - SKEW, time.time())
         # The old record is read only after the scan, just before the write, so a run of
         # this account that finished meanwhile keeps its newer snapshot.
         path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
