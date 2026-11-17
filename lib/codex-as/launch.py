@@ -252,9 +252,9 @@ def refuse(account, reason):
 def unguardable(account, plan):
     """Refuses, with a reserve on, a launch form or a caller's option that the guard's hooks cannot cover."""
     if plan.form == "refused" and plan.command == "git-credential":
-        refuse(account, "codex git-credential with no OPERATION (get, store, erase or capability) is a prompt to a Codex "
-                        "before 0.169.0, which has no git-credential command, and would run model work without the usage "
-                        "reserve guard's hooks")
+        refuse(account, "codex git-credential with no OPERATION (get, store, erase or capability) as its first word is a "
+                        "prompt to a Codex before 0.169.0, which has no git-credential command, and would run model work "
+                        "without the usage reserve guard's hooks")
     if plan.form == "refused":
         name = "debug app-server" if plan.command == "debug" else plan.command
         # Each is refused as a whole, also a subcommand of it that runs no model work itself (cloud list), but for

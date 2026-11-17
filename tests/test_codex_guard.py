@@ -123,8 +123,12 @@ class LaunchForms(Fixture):
                         ["app-server", "--future", "generate-json-schema", "-o", "out"],
                         # A generator's name after another word is that word's argument.
                         ["app-server", "proxy", "generate-ts"], ["debug", "app-server", "generate-ts"],
-                        # Codex 0.161.0 to 0.168 have no git-credential: without an OPERATION it is their TUI's prompt.
-                        ["git-credential"], ["-c", "model=x", "git-credential"], ["git-credential", "-c", "model=x"]),
+                        # Codex 0.161.0 to 0.168 have no git-credential: without an OPERATION as its first word it is
+                        # their root prompt, the TUI's, or one clap drops for a subcommand after it, which then runs.
+                        ["git-credential"], ["-c", "model=x", "git-credential"], ["git-credential", "-c", "model=x"],
+                        ["git-credential", "exec", "go"], ["git-credential", "resume", "--last"],
+                        ["git-credential", "review"], ["git-credential", "-m", "x", "exec", "go"],
+                        ["git-credential", "--"], ["git-credential", "--", "exec"]),
             "plain": (["mcp", "list"], ["mcp"], ["plugin"], ["features", "list"], ["login", "status"],
                       ["apply"], ["a"], ["sandbox", "linux", "--", "exec"], ["debug"], ["debug", "models"],
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
@@ -135,6 +139,9 @@ class LaunchForms(Fixture):
                       # codex-rs/cli/src/git_credential.rs at rust-v0.169.0 (check.COMMANDS has the evidence).
                       ["git-credential", "get"], ["git-credential", "store"], ["git-credential", "erase"],
                       ["-c", "model=x", "git-credential", "capability"], ["git-credential", "--help"],
+                      ["git-credential", "-c", "model=x", "erase"],
+                      # Before 0.169.0 another word after the prompt is clap's error, help its help subcommand.
+                      ["git-credential", "help"], ["git-credential", "get", "exec", "go"],
                       # app-server's schema generators write protocol bindings and start no app server.
                       ["app-server", "generate-ts", "-o", "out"], ["app-server", "generate-ts", "--out=out", "-p", "x"],
                       ["app-server", "generate-ts", "--out", "out", "--prettier", "x", "--experimental"],
@@ -1146,10 +1153,14 @@ class GuardedLaunch(unittest.TestCase):
                 # list); app-server's schema generators alone launch plain.
                 self.refused(["A", *args], f"codex {name} can run model work where the usage reserve guard's hooks "
                                            "cannot see or stop it")
-        # Git always passes an OPERATION; without one, a Codex before 0.169.0 takes git-credential as its TUI's prompt.
-        self.refused(["A", "git-credential"], "codex git-credential with no OPERATION (get, store, erase or capability) is "
-                                              "a prompt to a Codex before 0.169.0, which has no git-credential command, "
-                                              "and would run model work without the usage reserve guard's hooks")
+        # Git always passes an OPERATION; without one as its first word, a Codex before 0.169.0 takes git-credential as
+        # its root prompt: the TUI's, or one dropped for a subcommand after it (exec), which then runs.
+        for args in (["git-credential"], ["git-credential", "exec", "go"]):
+            with self.subTest(args=args):
+                self.refused(["A", *args], "codex git-credential with no OPERATION (get, store, erase or capability) as "
+                                           "its first word is a prompt to a Codex before 0.169.0, which has no "
+                                           "git-credential command, and would run model work without the usage reserve "
+                                           "guard's hooks")
         # Signing the account out is refused in every launch, as logout is, before the form counts.
         result = self.run_codex("--reserve-weekly", "10", "A", "app-server", "--startup-sign-out", "--print-startup-config")
         self.assertEqual((result.returncode, result.stdout, result.stderr),

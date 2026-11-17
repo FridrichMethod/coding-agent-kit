@@ -74,8 +74,10 @@ EXEC = {"exec", "exec-prompt", "exec-resume"}
 # OPERATION: run_git_credential in codex-rs/cli/src/git_credential.rs (the same at rust-v0.169.0 and
 # rust-v0.171.0-alpha.12) reads Git's request and returns for store and erase ("Git approval/rejection
 # never stores another copy or changes the Codex login"), so, unlike logout, neither removes, replaces
-# or writes auth.json, the keyring or a credential store. Without an OPERATION (which Git always passes),
-# Codex 0.161.0 to 0.168 take it as their TUI's prompt, so with a reserve it is refused.
+# or writes auth.json, the keyring or a credential store. Codex 0.161.0 to 0.168 take git-credential as their
+# root prompt: clap runs the TUI with it, or drops it for a subcommand after it (git-credential exec go runs
+# exec), and refuses any other word after it but help, its help subcommand. So with a reserve git-credential
+# is refused unless its first word is an OPERATION (which Git always passes) or help.
 COMMANDS = {
     "agents", "tcp-tunnel", "exec", "e", "review", "login", "git-credential", "logout", "mcp", "plugin",
     "app-server", "remote-control", "app", "completion", "update", "doctor", "sandbox",
@@ -83,6 +85,8 @@ COMMANDS = {
     "migrate-rollouts", "migrate-nfs-db", "unarchive", "fork", "cloud", "cloud-tasks",
     "responses-api-proxy", "stdio-to-uds", "exec-server", "features", "help",
 }
+# git-credential's OPERATION values (codex-rs/cli/src/git_credential.rs, 0.169.0).
+OPERATIONS = {"get", "store", "erase", "capability"}
 # The launcher sets these; the update check is off because its installer writes under CODEX_HOME.
 FIXED_KEYS = {"cli_auth_credentials_store", "sqlite_home", "check_for_update_on_startup"}
 # Replaces the ChatGPT login with an agent identity.
@@ -337,9 +341,9 @@ def arguments(args, config):
     if query or rootless:
         form = "plain"
     elif command in UNGUARDED and not schema or (command == "debug" and words[:1] == ["app-server"]) or (
-            command == "git-credential" and not words):
-        # debug app-server send-message-v2 runs a turn through an app server; git-credential with no OPERATION is a
-        # prompt to Codex 0.161.0 to 0.168 (from 0.169.0 clap requires one and runs nothing without it).
+            command == "git-credential" and not (words and words[0] in {*OPERATIONS, "help"})):
+        # debug app-server send-message-v2 runs a turn through an app server; git-credential with no OPERATION as its
+        # first word is a prompt to Codex 0.161.0 to 0.168 (from 0.169.0 clap requires one and runs nothing else).
         form = "refused"
     else:
         form = "interactive" if command in INTERACTIVE else "headless" if command in HEADLESS else "plain"
