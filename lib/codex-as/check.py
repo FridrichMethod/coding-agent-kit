@@ -118,6 +118,7 @@ class Plan:
     goals_on: bool = False  # --enable goals, or a -c value that could turn goals on over the launcher's goals off
     ephemeral: bool = False  # --ephemeral: no rollout for the guard to read
     ignore_user_config: bool = False  # --ignore-user-config: no hook trust records
+    worktree: bool = False  # --worktree: the session runs in a Git worktree Codex manages, not in cwd
 
     @property
     def continued(self):
@@ -215,7 +216,7 @@ def arguments(args, config):
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query, show_all = None, None, False, False, False
     no_daemon, others, words, unknown, bare, profile, forked = False, False, [], [], False, None, False
-    hooks_override = hooks_disabled = goals_on = ephemeral = ignore_user_config = False
+    hooks_override = hooks_disabled = goals_on = ephemeral = ignore_user_config = worktree = False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -249,6 +250,7 @@ def arguments(args, config):
             no_daemon |= flag == "--no-daemon" and root
             ephemeral |= flag == "--ephemeral"
             ignore_user_config |= flag == "--ignore-user-config"
+            worktree |= flag == "--worktree"
             query |= flag in {"-h", "--help", "-V", "--version"}
             # Only root help or version is the same for every login; elsewhere -h may be a command's.
             bare |= flag in {"-h", "--help", "-V", "--version"} and root and not words
@@ -324,7 +326,7 @@ def arguments(args, config):
                 profile if profile is not None and PROFILE.fullmatch(profile) else None,
                 forked=forked or command == "fork", query=query, form=form, hooks_override=hooks_override,
                 hooks_disabled=hooks_disabled, goals_on=goals_on, ephemeral=ephemeral,
-                ignore_user_config=ignore_user_config)
+                ignore_user_config=ignore_user_config, worktree=worktree)
 
 
 

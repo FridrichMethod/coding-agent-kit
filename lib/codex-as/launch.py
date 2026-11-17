@@ -266,6 +266,10 @@ def unguardable(account, plan):
     if plan.ignore_user_config:
         refuse(account, "--ignore-user-config skips the configuration that holds Codex's trust of the usage reserve "
                         "guard's hooks")
+    if plan.worktree:
+        # Codex records such a session's cwd as CODEX_HOME/worktrees/ID/DIR, never the launch directory.
+        refuse(account, "--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check "
+                        "after the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
 
 
 def guarded(config, account, plan, layout):

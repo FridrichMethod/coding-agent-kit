@@ -185,6 +185,20 @@ class LaunchForms(Fixture):
                 plan = self.plan(args)
                 self.assertEqual((plan.ephemeral, plan.ignore_user_config), (ephemeral, ignore))
 
+    def test_worktree(self):
+        """--worktree moves the session into a Git worktree that Codex manages under CODEX_HOME, in any
+        position where Codex takes it (root, exec, resume, fork)."""
+        for args in (["--worktree"], ["--worktree", "go"], ["exec", "--worktree", "go"], ["--worktree", "exec", "go"],
+                     ["fork", UUID, "--worktree"], ["resume", "--last", "--worktree"],
+                     ["exec", "resume", "--last", "--worktree", "go"], ["review", "--worktree"]):
+            with self.subTest(args=args):
+                self.assertTrue(self.plan(args).worktree)
+        for args in ([], ["exec", "go"], ["exec", "--worktree go"], ["exec", "go", "--", "--worktree"],
+                     ["exec", "-m", "--worktree", "go"]):
+            with self.subTest(args=args):
+                self.assertFalse(self.plan(args).worktree)
+        self.assertEqual(self.plan(["exec", "--worktree", "go"]).form, "headless")
+
     def test_plain_launches_keep_their_plan(self):
         """The new fields add nothing to what a launch without reserves reads from its plan."""
         plan = self.plan(["resume", UUID])
@@ -196,7 +210,7 @@ class LaunchForms(Fixture):
             with self.subTest(args=args):
                 plan = self.plan(args)
                 self.assertEqual((plan.hooks_override, plan.hooks_disabled, plan.goals_on, plan.ephemeral,
-                                  plan.ignore_user_config), (False, False, False, False, False))
+                                  plan.ignore_user_config, plan.worktree), (False, False, False, False, False, False))
 
     def test_refused_options_still_refuse(self):
         """A guarded form never relaxes the checks every launch has."""
@@ -693,6 +707,10 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_forms_and_options_the_hooks_cannot_cover_are_refused(self):
         self.trusted()
+        # The session's cwd is a worktree under CODEX_HOME (measured with codex-cli 0.169.0): the check after
+        # the run, which finds the run's new sessions by their directory, would see none of them.
+        worktree = ("--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check after "
+                    "the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
         for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["app-server"], "app-server"),
                            (["exec-server"], "exec-server"), (["remote-control"], "remote-control"),
                            (["debug", "app-server", "send-message-v2", "hi"], "debug app-server")):
@@ -714,15 +732,21 @@ class GuardedLaunch(unittest.TestCase):
                              (["exec", "--ephemeral", "go"], "--ephemeral keeps no session rollout, from which the "
                                                              "usage reserve guard reads the session's usage"),
                              (["--ignore-user-config"], "--ignore-user-config skips the configuration that holds "
-                                                        "Codex's trust of the usage reserve guard's hooks")):
+                                                        "Codex's trust of the usage reserve guard's hooks"),
+                             *((args, worktree) for args in (["--worktree"], ["exec", "--worktree", "go"],
+                                                             ["--worktree", "exec", "go"], ["fork", UUID, "--worktree"],
+                                                             ["resume", "--last", "--worktree"]))):
             with self.subTest(args=args):
                 self.refused(["A", *args], reason)
         # Before a missing account is offered a login.
         self.refused(["missing", "exec", "--ephemeral", "go"], "--ephemeral keeps no session rollout, from which the "
                      "usage reserve guard reads the session's usage", account="missing")
         # Without a reserve, the same arguments reach Codex.
-        result = self.run_codex("A", "exec", "--ephemeral", "go")
-        self.assertEqual(result.returncode, 0, result.stderr)
+        for args in (["exec", "--ephemeral", "go"], ["exec", "--worktree", "go"]):
+            with self.subTest(args=args, reserves="off"):
+                result = self.run_codex("A", *args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.recorded()["args"], [*self.head(False), *args])
 
     def test_hooks_turned_off_in_a_configuration_file_are_refused(self):
         self.trusted()
