@@ -98,6 +98,7 @@ class LaunchForms(Fixture):
                       ["apply"], ["a"], ["sandbox", "linux", "--", "exec"], ["debug"], ["debug", "models"],
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
                       ["archive", UUID], ["delete", UUID], ["unarchive", UUID], ["migrate-rollouts"],
+                      ["migrate-nfs-db"], ["--no-daemon", "migrate-nfs-db"],
                       ["responses-api-proxy"], ["stdio-to-uds", "x"], ["execpolicy"],
                       # Help and version print and run nothing.
                       ["--help"], ["-h"], ["-V"], ["--version"], ["help"], ["help", "exec"],

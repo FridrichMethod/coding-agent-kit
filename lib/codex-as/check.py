@@ -69,13 +69,13 @@ REFUSED = {"--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
 # Native `app` is a subcommand only where the Desktop app exists; elsewhere it is a prompt.
 DESKTOP = sys.platform in {"darwin", "win32"}
 EXEC = {"exec", "exec-prompt", "exec-resume"}
-# Root subcommands and aliases of native Codex 0.163.0, plus clap's help.
+# Root subcommands and aliases of native Codex 0.163.0 and 0.169.0, plus clap's help.
 COMMANDS = {
     "agents", "tcp-tunnel", "exec", "e", "review", "login", "logout", "mcp", "plugin",
     "app-server", "remote-control", "app", "completion", "update", "doctor", "sandbox",
     "debug", "execpolicy", "apply", "a", "resume", "queue", "archive", "delete",
-    "migrate-rollouts", "unarchive", "fork", "cloud", "cloud-tasks", "responses-api-proxy",
-    "stdio-to-uds", "exec-server", "features", "help",
+    "migrate-rollouts", "migrate-nfs-db", "unarchive", "fork", "cloud", "cloud-tasks",
+    "responses-api-proxy", "stdio-to-uds", "exec-server", "features", "help",
 }
 # The launcher sets these; the update check is off because its installer writes under CODEX_HOME.
 FIXED_KEYS = {"cli_auth_credentials_store", "sqlite_home", "check_for_update_on_startup"}
