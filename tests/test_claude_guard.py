@@ -862,9 +862,11 @@ class Refusals(Fixture):
         self.assertEqual(self.records()[-1]["env"][PREFIX], "/usr/bin/env -i")
 
     def test_the_cached_server_policy_is_not_checked(self):
-        """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*"""
+        """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*,
+        and a status line there as the guard's blindness."""
         write(self.home / ".claude/remote-settings.json",
-              json.dumps({"allowManagedHooksOnly": True, "disableAllHooks": True, "env": {RESUME: "1"}}))
+              json.dumps({"allowManagedHooksOnly": True, "disableAllHooks": True, "env": {RESUME: "1"},
+                          "statusLine": {"type": "command", "command": "org status"}}))
         record, value, _ = self.guarded(["--reserve-5h", "10", "work"])
         self.assertNotIn(RESUME, record["env"])
 
@@ -1108,6 +1110,60 @@ class Settings(unittest.TestCase):
         self.assertIsNone(self.check_form({}, {"CLAUDE_CODE_SIMPLE": "0", "CLAUDE_CODE_SAFE_MODE": ""}))
         self.assertEqual(self.check_form({}, {PREFIX: "wrap"}), f"the environment sets {PREFIX}, {WRAPS}")
         self.assertIsNone(self.check_form({}, {PREFIX: ""}))
+
+    def test_a_managed_status_line_refuses_from_every_managed_source_preflight_reads(self):
+        """Claude Code ranks every managed source above --settings, so a statusLine there runs in place of the guard's,
+        whose recorder then never runs: a guarded preflight finds it in the managed file, a drop-in, the macOS managed
+        preferences and the inherited Windows policy, and check_form refuses naming the file. The cached server policy
+        in remote-settings.json, which describes whichever account ran last, is not read for it."""
+        line = {"type": "command", "command": "org status"}
+        reason = ("{} sets statusLine, which Claude Code runs in place of the usage reserve guard's status line, so the "
+                  "guard would never see this account's usage")
+        with tempfile.TemporaryDirectory(prefix="claude-guard-status-") as name:
+            base = Path(name).resolve()
+            home, cwd = base / "home", base / "project"
+            cwd.mkdir()
+            managed_file = base / "etc/managed-settings.json"
+            drop_in = base / "etc/managed-settings.d/10-org.json"
+            preferences = base / "prefs" / launch.MDM_NAME
+            windows = base / "windows/managed-settings.json"
+            remote = home / ".claude/remote-settings.json"
+            kit = type("Kit", (), {"home": home, "expand": staticmethod(Path)})()
+
+            def place(path):
+                """Only PATH holds a status line (the Windows policy also makes WSL inherit it)."""
+                for other in (managed_file, drop_in, preferences, windows, remote):
+                    other.unlink(missing_ok=True)
+                if path == preferences:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    with path.open("wb") as stream:
+                        plistlib.dump({"statusLine": line}, stream)
+                else:
+                    extra = {"wslInheritsWindowsSettings": True} if path == windows else {}
+                    write(path, json.dumps({"statusLine": line, **extra}))
+
+            def sources():
+                return {key: value for key, value in launch.preflight([], kit, enrollment=False, guarded=True)
+                        .sources.items() if base in key.parents}
+
+            previous = os.getcwd()
+            os.chdir(cwd)
+            try:
+                with self.policy_paths(base), \
+                        unittest.mock.patch.multiple(launch, MANAGED_FILES=(managed_file,), MACOS=True,
+                                                     MANAGED_DIRECTORIES=(drop_in.parent,), on_wsl=lambda: True), \
+                        unittest.mock.patch.dict(os.environ, {"PATH": os.environ.get("PATH", "")}, clear=True):
+                    for path in (managed_file, drop_in, preferences, windows):
+                        with self.subTest(path=path):
+                            place(path)
+                            found = sources()
+                            self.assertIn(path, found)
+                            self.assertEqual(self.check_form(found), reason.format(path))
+                    place(remote)
+                    self.assertEqual(sources(), {})
+                    self.assertIsNone(self.check_form({remote: {"statusLine": line}}))
+            finally:
+                os.chdir(previous)
 
     def test_how_claude_code_reads_a_flag(self):
         """Its isEnvTruthy: falsy values are off, a boolean is itself, else String(value) trimmed and lower-cased
