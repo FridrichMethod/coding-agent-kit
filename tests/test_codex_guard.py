@@ -3,7 +3,8 @@
 LaunchForms, Version, HooksOff, HookState and ManagedGoals run
 check.arguments() and layout's hooks_off(), hook_off() and goals_on() in
 process against a temporary HOME, Codex home and working directory. Hooks
-pins the hook definitions in process. GuardedLaunch runs codex-as from a kit
+pins the hook definitions in process, and RunAttribution the check after a run
+at edges a launch cannot set (exact times, .blocked, a native's signal). GuardedLaunch runs codex-as from a kit
 copy under a path with a space and a quote, whose /etc/codex layers lie in the
 test's directory, in a temporary HOME, against a
 fake codex that records its argv and environment, writes rollouts as native
@@ -17,6 +18,7 @@ this host's user it reads only the codex install's own files where they lie
 """
 
 import base64
+import dataclasses
 import fcntl
 import importlib.util
 import json
@@ -427,6 +429,105 @@ class HookState(Fixture):
         self.assertEqual(layout.hook_off(check, self.root, self.KEYS, "q", home), shared)
 
 
+class RunAttribution(Fixture):
+    """The check after a run in process, at the edges a launch cannot set: exact times around the run's
+    start and end, and what codex-as reads of .blocked and does with a native's signal."""
+
+    THREAD, OTHER = "019a0000-0000-7000-8000-00000000000a", "019a0000-0000-7000-8000-0000000000bb"
+    OWNER = ("user-fixture-A", "workspace-fixture-A")
+
+    def setUp(self):
+        super().setUp()
+        milliseconds = int(time.time() * 1000)
+        # A moment as Codex stamps it, to the millisecond, and that stamp.
+        self.t0 = milliseconds / 1000
+        self.stamp = (time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(milliseconds // 1000))
+                      + ".%03dZ" % (milliseconds % 1000))
+        self.plan_of = lambda args: dataclasses.replace(self.plan(args), cwd=self.cwd)
+
+    def rollout(self, thread, lines, **meta):
+        day = self.root / "sessions/2026/11/16"
+        day.mkdir(parents=True, exist_ok=True)
+        path = day / f"rollout-2026-11-16T10-00-00-{thread}.jsonl"
+        payload = {"id": thread, "session_id": thread, "timestamp": self.stamp, "cwd": str(self.cwd), "source": "exec",
+                   "thread_source": "user", "creator_user_id": self.OWNER[0], "creator_account_id": self.OWNER[1], **meta}
+        path.write_text("".join(json.dumps({"timestamp": self.stamp, **line}) + "\n"
+                                for line in ({"type": "session_meta", "payload": payload}, *lines)))
+        return path
+
+    def threads(self, args, begun, ended, alone=True):
+        return launch.run_threads(self.root, self.plan_of(args), self.OWNER, begun, ended, alone)
+
+    def test_a_session_stamped_in_the_run_s_first_millisecond_is_the_run_s(self):
+        """Codex truncates its stamps to the millisecond: a session and a line written half a millisecond
+        after the run began are stamped before it, and still count."""
+        path = self.rollout(self.THREAD, [CALL])
+        begun = self.t0 + 0.0005
+        self.assertEqual(self.threads(["exec", "go"], begun, begun + 10), ([], [[path]], []))
+        self.assertEqual(launch.activity([path], begun, begun + 10), (True, True, True))
+        self.assertEqual(launch.activity([path], self.t0 + 0.002, self.t0 + 10), (False, False, False))
+
+    def test_a_session_that_started_after_the_run_ended_is_not_the_run_s(self):
+        """As a host on the same home directory whose clock runs ahead writes it."""
+        path = self.rollout(self.THREAD, [CALL])
+        self.assertEqual(self.threads(["exec", "go"], self.t0 - 10, self.t0 - 0.5), ([], [], []))
+        self.assertEqual(self.threads([], self.t0 - 10, self.t0 - 0.5), ([], [], []))
+        self.assertEqual(self.threads([], self.t0 - 10, self.t0), ([], [], []), "source exec is not the TUI's")
+        self.assertEqual(self.threads(["exec", "go"], self.t0 - 10, self.t0), ([], [[path]], []))
+
+    def test_a_sub_agent_is_attached_by_session_id_or_by_parent(self):
+        main = self.rollout(self.THREAD, [ANSWER])
+        spawned = {"subagent": {"thread_spawn": {"parent_thread_id": self.THREAD, "depth": 1}}}
+        by_parent = self.rollout(self.OTHER, [CALL], source=spawned, session_id="019a0000-0000-7000-8000-0000000000cc",
+                                 parent_thread_id=self.THREAD)
+        self.rollout("019a0000-0000-7000-8000-0000000000dd", [CALL], source=spawned,
+                     session_id="019a0000-0000-7000-8000-0000000000cc", parent_thread_id=UUID)
+        [[group]] = self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10)[1:2]
+        self.assertEqual(sorted(group), sorted([main, by_parent]))
+
+    def test_a_session_meta_line_longer_than_one_read_is_read(self):
+        path = self.rollout(self.THREAD, [CALL], base_instructions={"text": "x" * (3 * launch.CHUNK)})
+        self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [[path]], []))
+        self.assertEqual(launch.session_meta(path)["id"], self.THREAD)
+
+    def test_only_a_regular_file_at_blocked_is_read(self):
+        state = str(self.base / "codex-as-A-1-1")
+        Path(state + ".blocked").mkdir()
+        self.assertIsNone(launch.blocked_message(state))
+        os.rmdir(state + ".blocked")
+        os.mkfifo(state + ".blocked")
+        try:
+            writer = os.open(state + ".blocked", os.O_RDWR | os.O_NONBLOCK)  # holds data, never blocks (Linux, macOS)
+        except OSError as error:
+            self.skipTest(f"a FIFO cannot be held open here: {error}")
+        try:
+            os.write(writer, b"codex-as: A: not the guard's\n")
+            self.assertIsNone(launch.blocked_message(state))
+        finally:
+            os.close(writer)
+        os.unlink(state + ".blocked")
+        Path(state + ".blocked").write_text("codex-as: A: stopped\n")
+        self.assertEqual(launch.blocked_message(state), "codex-as: A: stopped")
+
+    def test_a_native_killed_by_a_signal_is_re_raised(self):
+        """SIGQUIT among them: codex-as forwards it, and a native whose default action it ended ends codex-as
+        the same way (here with os.kill and signal.signal stubbed, so nothing dumps a core)."""
+        for signum in (signal.SIGQUIT, signal.SIGTERM, signal.SIGHUP, signal.SIGINT, signal.SIGPIPE):
+            with self.subTest(signal=signum.name), patch.object(launch.os, "kill") as kill, \
+                    patch.object(launch.signal, "signal") as handler:
+                self.assertEqual(launch.exit_status(-signum), 128 + signum)
+                kill.assert_called_once_with(os.getpid(), signum)
+                handler.assert_called_once_with(signum, signal.SIG_DFL)
+        with patch.object(launch.os, "kill") as kill, patch.object(launch.signal, "signal") as handler:
+            self.assertEqual(launch.exit_status(-signal.SIGKILL), 128 + signal.SIGKILL)
+            kill.assert_called_once_with(os.getpid(), signal.SIGKILL)
+            handler.assert_not_called()
+            kill.reset_mock()
+            self.assertEqual(launch.exit_status(-signal.SIGUSR1), 128 + signal.SIGUSR1)
+            kill.assert_not_called()
+            self.assertEqual(launch.exit_status(3), 3)
+
+
 # The two hook values, as settled for every release: a change asks every host to trust the hooks again.
 PROMPT_HOOK = (r'hooks.UserPromptSubmit=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S '
                r'\"$CODING_AGENT_KIT_GUARD_SCRIPT\" prompt",timeout=20}]}]')
@@ -522,6 +623,8 @@ for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
                 "creator_user_id": item["creator"][0], "creator_account_id": item["creator"][1]}
         if "parent" in item:
             meta["parent_thread_id"] = item["parent"]
+        if "padding" in item:  # long base instructions: a session_meta line of more than one read
+            meta["base_instructions"] = {"text": "x" * item["padding"]}
         lines = [{"type": "session_meta", "payload": meta}, *item["lines"]]
     with open(path, "a") as stream:
         for line in lines:
@@ -547,6 +650,8 @@ if blocked is not None:
         pathlib.Path(state + ".blocked").write_bytes(bytes.fromhex(blocked["hex"]))
     elif blocked["kind"] == "link":
         os.symlink(blocked["target"], state + ".blocked")
+    elif blocked["kind"] == "dir":
+        os.mkdir(state + ".blocked")
     else:
         os.mkfifo(state + ".blocked")
 pathlib.Path(os.environ["FAKE_RECORD"]).write_text(json.dumps(record))
@@ -978,6 +1083,13 @@ class GuardedLaunch(unittest.TestCase):
         # An interactive session shows its own blocks: nothing is printed after it.
         result = self.run_codex("--reserve-5h", "10", "A", env={"FAKE_BLOCKED": json.dumps(cases[0][0])})
         self.assertEqual(result.stderr, launch_line)
+        # A directory in its place: nothing printed, Codex's exit status (the launch's state keeps only it).
+        result = self.run_codex("--reserve-5h", "10", "A", "exec", "go", env={"FAKE_BLOCKED": '{"kind": "dir"}',
+                                                                            "FAKE_EXIT": "3"})
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (3, "fake codex ran\n", launch_line))
+        [left] = self.launches()
+        self.assertTrue(left.endswith(".blocked"), left)
+        (self.guard_dir / left).rmdir()
 
     def test_a_run_whose_hooks_did_not_run_is_reported_and_the_marker_goes(self):
         warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run {} (not trusted, "
@@ -1016,6 +1128,53 @@ class GuardedLaunch(unittest.TestCase):
                     self.assertEqual(result.stderr, launch_line + (warning.format(missing) if missing else ""))
                     self.assertEqual(self.marker.exists(), missing is None)
                     self.assertEqual(self.launches(), [], "the launch's state outlived it")
+
+    def test_a_fork_s_new_session_is_the_run_s(self):
+        """exec fork and the TUI's fork start a session of their own, from the forked one: it is the run's,
+        so its tool call without the tool hook gives the warning, the marker goes and the next headless run
+        is refused. The same holds for a session_meta line longer than one read (long base instructions)."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        refusal = ("codex-as: A: Codex has not run the usage reserve guard's tool hook on this host yet, and a headless "
+                   "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
+                   "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
+        cases = ((["exec", "fork", UUID, "go"], {}, [], "the guard's hooks"),
+                 (["exec", "fork", UUID, "go"], {}, ["prompt"], "the guard's tool hook"),
+                 (["fork", UUID], {}, [], "the guard's hooks"),
+                 (["fork", UUID], {}, ["prompt"], "the guard's tool hook"),
+                 (["exec", "go"], {"padding": 200 * 1024}, [], "the guard's hooks"),
+                 ([], {"padding": 200 * 1024}, ["prompt"], "the guard's tool hook"))
+        for args, extra, hooks, missing in cases:
+            with self.subTest(args=args, extra=bool(extra), hooks=hooks):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(20.0)], **extra}]
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": json.dumps(hooks)})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + WARNING.format(missing)))
+                self.assertFalse(self.marker.exists())
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual((result.returncode, result.stderr), (1, refusal))
+        self.assertEqual(self.launches(), [])
+
+    def test_a_sub_agent_named_by_its_parent_only_is_the_run_s(self):
+        """A sub-agent whose session_id names no session of the run still belongs to it by its
+        parent_thread_id; one that names neither is another session's."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        spawned = {"subagent": {"thread_spawn": {"parent_thread_id": THREAD, "depth": 1}}}
+        main = {"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(20.0)]}
+        sub = {"thread": OTHER, "creator": [USER, WORKSPACE], "source": spawned, "thread_source": "subagent",
+               "lines": [CALL, snapshot(20.0)], "session_id": "019a0000-0000-7000-8000-0000000000cc"}
+        for parent, printed in ((THREAD, WARNING.format("the guard's tool hook")), (UUID, "")):
+            with self.subTest(parent=parent):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                rollouts = [main, {**sub, "parent": parent}]
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + printed))
+                self.assertEqual(self.marker.exists(), not printed)
 
     def old_rollout(self, thread, seconds, source="cli"):
         """A rollout of this account's THREAD that started SECONDS ago, as Codex left it then."""

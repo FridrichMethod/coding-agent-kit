@@ -318,9 +318,15 @@ def blocked_message(state):
         fd = os.open(state + ".blocked", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     except OSError:
         return None
+    # Checked on the descriptor itself: Python refuses to wrap a directory's, and a FIFO is never read.
+    try:
+        regular = stat.S_ISREG(os.fstat(fd).st_mode)
+    except OSError:
+        regular = False
+    if not regular:
+        os.close(fd)
+        return None
     with os.fdopen(fd, "rb") as stream:
-        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            return None
         raw = stream.read(BLOCKED_LIMIT)
     return CONTROL.sub("", raw.decode("utf-8", "replace")).strip() or None
 
