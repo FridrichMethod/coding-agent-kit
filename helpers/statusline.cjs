@@ -119,7 +119,8 @@ function underLauncher(pid, parent = process.ppid) {
 // minutes old. The guard's status line (lib/coding-agent-kit/guard.py) writes the
 // same file and merges by the same rule; neither takes a lock, so two status lines
 // that write at the same instant can let an older reading replace a newer one until
-// the next run. Returns whether it wrote.
+// a run with a reading at least as new (the newer session's next run, or any
+// session's after its next reply) writes it again. Returns whether it wrote.
 function recordUsage(data, env = process.env, now = Date.now()) {
   if (process.platform === 'win32') return false;
   const file = env.CODING_AGENT_KIT_USAGE_FILE;

@@ -89,13 +89,15 @@ incoming one has the same reset and a lower percentage, an earlier reset, or is
 absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart.
 helpers/statusline.cjs merges by the same rule. The file has no lock, so two
 status lines that write it at the same instant can let an older reading replace
-a newer one until the next status line run. After it writes, a run removes the
-temporary files .NAME.*.tmp (NAME the file's name) that are more than STALE
-seconds older than the file it wrote, judged by the file times alone: on a
-network home directory they come from the server's clock, which this host's
-may not match. So it removes what a run cancelled before its rename left (or
-the file of a writer stopped that long), and such a file stays until a later
-run writes.
+a newer one until a status line run with a reading at least as new (the newer
+session's next one, or any session's after its next reply) writes it again; a
+run that carries the same older reading does not. After it writes, a run
+removes the temporary files .NAME.*.tmp (NAME the file's name) that are more
+than STALE seconds older than the file it wrote, judged by the file times
+alone: on a network home directory they come from the server's clock, which
+this host's may not match. So it removes what a run cancelled before its
+rename left (or the file of a writer stopped that long), and such a file stays
+until a later run writes.
 
 Then it runs the user's own status line command (the launch's "statusline")
 through /bin/sh -c with the same input and the caller's environment, and prints
