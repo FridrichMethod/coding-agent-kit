@@ -59,10 +59,10 @@ EARLIER = ("claude-as: work: an earlier launch ran without its usage reserve gua
 DAY = 86400
 GONE = 4_194_400  # a process id above every host's limit: a launch that has ended
 MARKER = "codex-hooks-90aeb3ec484a2ca6"
-# Records argv and environment, never a token; one JSON line per run. --version prints
-# CLAUDE_FAKE_VERSION, exits with CLAUDE_FAKE_VERSION_EXIT (0 by default) and leaves a line in
-# FAKE_VERSIONS; setup-token prints CLAUDE_FAKE_TOKEN as Claude Code 2.1.296 frames it, for the
-# launcher's capture.
+# Records argv and environment, never a token; one JSON line per run, which then exits with
+# CLAUDE_FAKE_EXIT (0 by default). --version prints CLAUDE_FAKE_VERSION, exits with
+# CLAUDE_FAKE_VERSION_EXIT (0 by default) and leaves a line in FAKE_VERSIONS; setup-token prints
+# CLAUDE_FAKE_TOKEN as Claude Code 2.1.296 frames it, for the launcher's capture.
 FAKE = r'''
 import hashlib, json, os, sys
 if sys.argv[1:] == ["--version"]:
@@ -82,6 +82,7 @@ record = {"argv": sys.argv, "env": env, "pid": os.getpid(), "tty": os.isatty(1),
 with open(os.environ["FAKE_RECORD"], "a") as stream:
     stream.write(json.dumps(record) + "\n")
 print("stdout sentinel")
+sys.exit(int(os.environ.get("CLAUDE_FAKE_EXIT", "0")))
 '''
 
 
@@ -585,6 +586,29 @@ class Guarded(Fixture):
         self.assertNotIn(EARLIER, err)
         self.assertEqual(err, "claude-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly off (default)"
                          + LAUNCH_LINE)
+
+    def test_a_resume_that_finds_nothing_is_reported_as_an_earlier_launch(self):
+        """-c, --continue and --resume launch guarded, since they may open a session. Claude Code ends one that finds
+        nothing to open before any hook runs (no conversation in the directory, a missing session id, its picker
+        closed with nothing in it), which leaves launch state no hook completes: once a later session of the account
+        records its usage, the next guarded launch warns of it as of a launch without its hooks. claude-as cannot tell
+        these apart before it becomes Claude Code."""
+        for args in (["-c"], ["--continue"], ["--resume"], ["-r", "00000000-0000-4000-8000-000000000000"]):
+            with self.subTest(args=args):
+                for name in os.listdir(self.guard_dir) if self.guard_dir.exists() else ():
+                    (self.guard_dir / name).unlink()
+                code, out, err = self.run_launcher(["--reserve-5h", "10", "work", *args], {"CLAUDE_FAKE_EXIT": "1"})
+                self.assertEqual(code, 1, err)
+                self.assertTrue(err.endswith(LAUNCH_LINE), err)
+                record = self.records()[-1]
+                self.assertEqual(record["argv"][3:], args)
+                state = json.loads(record["env"]["CODING_AGENT_KIT_GUARD"])["state"]
+                self.assertEqual(os.listdir(self.guard_dir), [os.path.basename(state) + ".launched"])
+                self.usage.unlink(missing_ok=True)
+                write(self.usage, json.dumps({"five_hour": None, "seven_day": None, "seen_at": int(time.time())}))
+                _, _, err = self.guarded(["--reserve-5h", "10", "work"])
+                self.assertTrue(err.startswith(EARLIER), err)
+                self.assertFalse(os.path.exists(state + ".launched"))
 
     def test_help_and_version_are_neither_refused_nor_injected(self):
         self.configure('[usage_reserve]\nfive_hour = 10\nweekly = 10\n')

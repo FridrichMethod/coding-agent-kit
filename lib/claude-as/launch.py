@@ -912,6 +912,10 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
         recorded = (metadata.read(usage) or {}).get("seen_at")
     except (OSError, ValueError):  # a usage file the guard cannot use either: no recorded reply
         recorded = None
+    # A launch that Claude Code ends before any hook runs leaves .launched alone, like one whose hooks never ran:
+    # -c or --continue in a directory with no conversation, --resume of a missing session, or its picker closed with
+    # nothing in it. claude-as becomes Claude Code and cannot tell these apart before it does, so once a later
+    # session of the account records its usage, this warns of such a launch too.
     if guard_launch.unguarded(directory, "claude-as", account, recorded):
         say(f"claude-as: {account}: an earlier launch ran without its usage reserve guard: Claude Code did not run "
             "the injected hooks.", "33")
