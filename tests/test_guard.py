@@ -1313,17 +1313,20 @@ class StatusLine(Fixture):
     def test_temporary_files_are_judged_by_their_file_times_alone(self):
         # On a network home directory file times come from the server's clock, which this host's may run ahead of or
         # behind. A run removes a temporary file that is STALE seconds older than the file it has just written,
-        # whatever its own clock says, and keeps another writer's fresh one.
+        # whatever this host's clock and the run's time say, and keeps another writer's fresh one.
         launch = self.launch(weekly="10")
         name = Path(launch.usage).name
-        for offset in (-3600, 0, 3600, NOW - time.time()):
+        real = time.time
+        for offset in (-3600, 0, 3600, NOW - real()):
             with self.subTest(clock_ahead_by=round(offset)):
                 Path(launch.usage).unlink(missing_ok=True)
                 stale = put(self.accounts / f".{name}.0123abcd.tmp", "half")
                 fresh = put(self.accounts / f".{name}.4567cdef.tmp", "half")
-                old = time.time() - guard.STALE - 60
+                old = real() - guard.STALE - 60
                 os.utime(stale, (old, old))
-                self.assertTrue(guard.record(launch.usage, limits(), time.time() + offset))
+                now = real() + offset
+                with patch.object(guard.time, "time", lambda: now):
+                    self.assertTrue(guard.record(launch.usage, limits(), now))
                 self.assertFalse(stale.exists())
                 self.assertTrue(fresh.exists())
                 fresh.unlink()
