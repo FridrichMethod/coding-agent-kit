@@ -200,7 +200,9 @@ function storedUsage(file) {
   }
 }
 
-// The usage file's lock, by the protocol in guard.py's module docstring: the
+// The usage file's lock, by the protocol in guard.py's module docstring, except
+// that a SIGTERM, SIGHUP or SIGINT that comes while this run holds the lock is
+// dropped rather than held back (see recordUsage); either way no lock is left: the
 // file .NAME.lock beside it, which names its holder ({"host", "pid", "at"}) from
 // the moment it exists. A lock is judged by that content, never by the file's
 // time; one that a run left when it ended is removed under the breaker

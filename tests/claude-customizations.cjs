@@ -707,6 +707,44 @@ test('status line lock: a link reported as failed but made is taken, and another
   assert.equal(fs.readFileSync(lockOf(file), 'utf8'), 'another run\'s lock');
 });
 
+test('status line never removes a lock or breaker that took the place of the stale one it judged', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  waitFor(t, 0.2);
+  const lock = lockOf(file);
+  const breaker = `${lock}.break`;
+  const [stale, live] = [holding({ pid: GONE }), holding()];
+  // Once the run has read the stale file at SWAP.target SWAP.count times, a running run's lock or breaker
+  // is renamed over that name, between the run's judgement and its removal of what it judged.
+  let swap = null;
+  patchFs(t, 'readSync', real => (fd, ...rest) => {
+    const read = real(fd, ...rest);
+    if (swap && !swap.done) {
+      const [mine, there] = [fs.fstatSync(fd), fs.lstatSync(swap.target, { throwIfNoEntry: false })];
+      if (there && mine.dev === there.dev && mine.ino === there.ino && ++swap.reads === swap.count) {
+        put(`${swap.target}.swap`, live);
+        fs.renameSync(`${swap.target}.swap`, swap.target);
+        swap.done = true;
+      }
+    }
+    return read;
+  });
+  // A stale lock is judged once, and again under its breaker right before it would be removed.
+  put(lock, stale);
+  swap = { target: lock, count: 2, reads: 0 };
+  assert.equal(recordUsage(usageInput(10, 20), env, NOW), false);
+  assert.ok(swap.done, 'the lock was not judged twice');
+  assert.equal(fs.readFileSync(lock, 'utf8'), live);
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(lock)], 'the breaker or a temporary file was left');
+  // A breaker that a run left is judged once, right before it would be removed.
+  put(lock, stale);
+  put(breaker, stale);
+  swap = { target: breaker, count: 1, reads: 0 };
+  assert.equal(recordUsage(usageInput(10, 20), env, NOW), false);
+  assert.ok(swap.done, 'the breaker was not judged');
+  assert.deepEqual([fs.readFileSync(lock, 'utf8'), fs.readFileSync(breaker, 'utf8')], [stale, live]);
+  assert.deepEqual(fs.readdirSync(folder).sort(), [path.basename(lock), path.basename(breaker)].sort());
+});
+
 test('status line removes a lock or breaker that a run left when it ended, and records', posixOnly, (t) => {
   const { folder, file, env } = usageFixture(t);
   waitFor(t, 0.2);
