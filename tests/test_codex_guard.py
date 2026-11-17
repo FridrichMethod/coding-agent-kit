@@ -509,6 +509,20 @@ class RunAttribution(Fixture):
         [[group]] = self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10)[1:2]
         self.assertEqual(sorted(group), sorted([main, by_parent]))
 
+    def test_a_tui_session_elsewhere_that_names_none_of_the_run_s_is_unsure(self):
+        """A new TUI session in another directory that names no session of the run, also by a forked_from_id
+        that is no id or a directory with a NUL in it, may be another client's: MAYBE, and never an error,
+        which would leave the check after the run nothing to tell."""
+        main = self.rollout(self.THREAD, [ANSWER], source="cli")
+        odd = self.rollout(self.OTHER, [CALL], source="cli", cwd=str(self.base), forked_from_id=["x"])
+        nul = self.rollout("019a0000-0000-7000-8000-0000000000cc", [CALL], source="cli", cwd=str(self.cwd) + "\0x")
+        linked = self.rollout("019a0000-0000-7000-8000-0000000000dd", [CALL], source="cli", cwd=str(self.base),
+                              forked_from_id=self.THREAD.upper())
+        sure, either, maybe = self.threads([], self.t0 - 1, self.t0 + 10)
+        self.assertEqual((sorted(sure), either, sorted(maybe)), (sorted([[main], [linked]]), [], sorted([[odd], [nul]])))
+        sure, either, maybe = self.threads([], self.t0 - 1, self.t0 + 10, alone=False)
+        self.assertEqual((sure, either, sorted(maybe)), ([], [], sorted([[main], [linked], [odd], [nul]])))
+
     def test_a_session_meta_line_longer_than_one_read_is_read(self):
         path = self.rollout(self.THREAD, [CALL], base_instructions={"text": "x" * (3 * launch.CHUNK)})
         self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [[path]], []))
@@ -706,6 +720,8 @@ for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
                 "creator_user_id": item["creator"][0], "creator_account_id": item["creator"][1]}
         if "parent" in item:
             meta["parent_thread_id"] = item["parent"]
+        if "forked_from" in item:  # a fork's session names the one it was forked from
+            meta["forked_from_id"] = item["forked_from"]
         if "padding" in item:  # long base instructions: a session_meta line of more than one read
             meta["base_instructions"] = {"text": "x" * item["padding"]}
         lines = [{"type": "session_meta", "payload": meta}, *item["lines"]]
@@ -1263,6 +1279,67 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stderr), (1, refusal))
         self.assertEqual(self.launches(), [])
 
+    def test_a_tui_s_work_is_followed_into_the_sessions_it_moves_to(self):
+        """A TUI moves its work to new sessions of its own elsewhere (measured with codex-cli 0.169.0): /cd forks
+        the conversation into the new directory, naming the session it left (forked_from_id, also along a
+        chain); /worktree starts one in a worktree under CODEX_HOME/worktrees; fork starts one in the forked
+        session's directory by default. Each is the run's: what it shows gives the warning and removes the
+        marker, and the next headless run is refused; with another client of the account at the run's start
+        or end, the notice. A new session elsewhere that names none of the run's (after /cd and /new, or
+        another client's) gets the notice."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        refusal = ("codex-as: A: Codex has not run the usage reserve guard's tool hook on this host yet, and a headless "
+                   "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
+                   "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
+        here, chat, work = str(self.cwd), [ANSWER, snapshot(20.0)], [CALL, snapshot(20.0)]
+        elsewhere, further = str(self.base / "elsewhere"), str(self.base / "further")
+        worktree = str(self.root / "accounts/A/worktrees/738e/work dir")
+        first, second = "019a0000-0000-7000-8000-0000000000c1", "019a0000-0000-7000-8000-0000000000c2"
+        session = lambda thread, cwd, lines, **extra: {"thread": thread, "creator": [USER, WORKSPACE], "cwd": cwd,
+                                                       "lines": lines, **extra}
+        cases = (  # the arguments, the sessions the run writes, the hooks it ran, the message, what it names
+            # /cd: the conversation forked into the new directory, and again from there.
+            ([], [session(THREAD, here, chat), session(first, elsewhere, work, forked_from=THREAD)], ["prompt"],
+             WARNING, "the guard's tool hook"),
+            ([], [session(THREAD, here, chat), session(first, elsewhere, chat, forked_from=THREAD),
+                  session(second, further, work, forked_from=first)], ["prompt"], WARNING, "the guard's tool hook"),
+            # /cd, then /new: a session elsewhere that names none of the run's.
+            ([], [session(THREAD, here, chat), session(first, elsewhere, work)], ["prompt"], NOTICE,
+             "the guard's tool hook"),
+            ([], [session(first, elsewhere, [ANSWER, *work])], [], NOTICE, "the guard's hooks"),
+            # /worktree: the session lies in a worktree that Codex manages.
+            ([], [session(THREAD, worktree, work)], [], WARNING, "the guard's hooks"),
+            # fork UUID, and the picker: the session the fork starts in the forked one's directory.
+            (["fork", UUID], [session(THREAD, elsewhere, work, forked_from=UUID)], [], WARNING, "the guard's hooks"),
+            (["fork"], [session(THREAD, elsewhere, work, forked_from=OTHER)], [], WARNING, "the guard's hooks"),
+            (["fork", UUID], [session(THREAD, elsewhere, work, forked_from=OTHER)], [], NOTICE, "the guard's hooks"),
+        )
+        for args, rollouts, hooks, message, missing in cases:
+            with self.subTest(args=args, sessions=len(rollouts), message=message[:30], missing=missing):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": json.dumps(hooks)})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + message.format(missing)))
+                self.assertEqual(self.marker.exists(), message == NOTICE)
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual(result.returncode, 0 if message == NOTICE else 1, result.stderr)
+                if message == WARNING:
+                    self.assertEqual(result.stderr, refusal)
+        self.hold_the_account()
+        for rollouts in ([session(THREAD, here, chat), session(first, elsewhere, work, forked_from=THREAD)],
+                         [session(THREAD, worktree, work)]):
+            with self.subTest(held=True, sessions=len(rollouts)):
+                for child in (self.root / "sessions").iterdir():
+                    shutil.rmtree(child)
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + NOTICE.format("the guard's tool hook")))
+                self.assertTrue(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
     def test_a_sub_agent_named_by_its_parent_only_is_the_run_s(self):
         """A sub-agent whose session_id names no session of the run still belongs to it by its
         parent_thread_id; one that names neither is another session's."""
@@ -1501,8 +1578,9 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_a_concurrent_launch_of_the_account_is_not_this_run_s(self):
         """A session another program started during the run is this run's only when this run's kind of
-        Codex wrote it here: the TUI leaves out an exec's, an exec a TUI's, and both one of another
-        directory. Of several exec sessions started here during a headless run, one is the run's: what
+        Codex wrote it here: the TUI leaves out an exec's, an exec a TUI's and one of another directory,
+        while a TUI session of another directory may be the TUI's own (after /cd and /new) and gets the
+        notice. Of several exec sessions started here during a headless run, one is the run's: what
         every one of them shows gives the warning, and what only some show the notice, with the marker
         kept, since that session may be another run's."""
         tool_hook = WARNING.format("the guard's tool hook")
@@ -1516,7 +1594,8 @@ class GuardedLaunch(unittest.TestCase):
             (["exec", "go"], own, [{"lines": others, "source": "cli"}], ""),
             (["exec", "go"], own, [{"lines": others, "cwd": elsewhere}], ""),
             ([], own, [{"lines": others, "source": "exec"}], ""),
-            ([], own, [{"lines": others, "cwd": elsewhere}], ""),
+            # A TUI session elsewhere may be this TUI's after /cd and /new, or another client's.
+            ([], own, [{"lines": others, "cwd": elsewhere}], unsure),
             (["exec", "go"], others, [{"lines": others}, {"lines": others}], tool_hook),
             (["exec", "go"], others, [{"lines": own}], unsure),
             (["exec", "go"], others, [{"lines": own, "source": "cli"}], tool_hook),

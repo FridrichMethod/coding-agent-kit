@@ -372,6 +372,17 @@ def same_place(path, cwd):
         return False
 
 
+def inside(path, directory):
+    """Whether PATH, an absolute path, lies below DIRECTORY once both are resolved."""
+    try:
+        if not (isinstance(path, str) and os.path.isabs(path)):
+            return False
+        path, directory = os.path.realpath(path), os.path.realpath(directory)
+    except ValueError:  # a NUL in the recorded path
+        return False
+    return path != directory and os.path.commonpath((path, directory)) == directory
+
+
 def span(stream, begun, ended):
     """The lines of a rollout stamped between BEGUN and ENDED: read back from the end of STREAM,
     usage.TAIL bytes at a time, to the lines from before BEGUN; a line whose time cannot be read never
@@ -423,6 +434,14 @@ def run_threads(root, plan, owner, begun, ended, alone):
     several: SURE when ALONE, MAYBE when another codex-as client of the account ran at the run's start or
     end or arrived during it (not ALONE), which may be a second TUI here.
 
+    A TUI also moves its work to new sessions of its own elsewhere (measured with codex-cli 0.169.0): /cd
+    forks the conversation into the new directory, in a session that names the one it left as its
+    forked_from_id; /worktree starts one in a worktree that Codex manages under CODEX_HOME/worktrees
+    (ROOT/worktrees, which every account home links); fork starts one from the session it forks, in that
+    session's directory by default. These go where the run's sessions here go (a /cd fork where the
+    session it names went, along a chain of them). Any other new session of the account elsewhere that
+    the TUI's kind of Codex started may be its own, after /cd and /new, or another client's: MAYBE.
+
     A form that can switch to an older session it does not name appends to one of this account's older
     sessions, of any day: an interactive form (the TUI, resume and fork) to one of any directory, so
     every such session written during the run is SURE when ALONE and MAYBE otherwise; exec resume
@@ -444,9 +463,10 @@ def run_threads(root, plan, owner, begun, ended, alone):
         if stat.S_ISREG(info.st_mode) and info.st_mtime >= begun - SKEW:
             found.append((match[1] not in named, path.name, match[1], path))
     resumes = plan.command == "exec-resume" and not plan.forked  # appends to a session
-    sure, either, maybe, agents = {}, {}, {}, []
+    interactive = plan.form == "interactive"
+    sure, either, maybe, agents, moved = {}, {}, {}, [], []
     # Where the run's sessions that it does not name go, new or older alike.
-    unnamed = either if plan.form == "headless" else sure if alone else maybe
+    unnamed = either if not interactive else sure if alone else maybe
     for _, _, thread, path in sorted(found)[:HEADS]:
         try:
             meta = session_meta(path)
@@ -468,11 +488,24 @@ def run_threads(root, plan, owner, begun, ended, alone):
         if start is None:
             continue
         if start >= begun - STAMPED:
-            if (start <= ended and not (resumes and named) and source == SOURCES[plan.form]
-                    and same_place(meta.get("cwd"), plan.cwd)):
+            if start > ended or (resumes and named) or source != SOURCES[plan.form]:
+                continue
+            parent = guard.session_id(meta.get("forked_from_id"))
+            if same_place(meta.get("cwd"), plan.cwd) or interactive and (
+                    inside(meta.get("cwd"), Path(root) / "worktrees")
+                    or plan.forked and parent is not None and plan.recover_id in (None, parent)):
                 unnamed.setdefault(thread, []).append(path)
-        elif plan.form == "interactive" or (resumes and not named and turned(path, plan.cwd, begun, ended)):
+            elif interactive:
+                moved.append((parent, thread, path))
+        elif interactive or (resumes and not named and turned(path, plan.cwd, begun, ended)):
             unnamed.setdefault(thread, []).append(path)
+    # A /cd fork goes where the session it names went, along a chain; any other session elsewhere is MAYBE.
+    while follow := [item for item in moved if item[0] in sure or item[0] in maybe]:
+        for item in follow:
+            moved.remove(item)
+            (sure if item[0] in sure else maybe).setdefault(item[1], []).append(item[2])
+    for _, thread, path in moved:
+        maybe.setdefault(thread, []).append(path)
     groups = {**sure, **either, **maybe}
     for meta, path in agents:
         parent = next((key for key in (meta.get("session_id"), meta.get("parent_thread_id"))
