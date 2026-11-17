@@ -1252,7 +1252,7 @@ class StatusLine(Fixture):
         self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(newer.usage).name])
 
     def test_the_usage_file_has_no_lock(self):
-        # A run reads, merges and writes the file without a lock or a breaker, so it needs no hard link either.
+        # A run reads, merges and writes the file with no lock of any kind, so it needs no hard link either.
         launch = self.launch(weekly="10")
         put(self.state(launch, "ran.start"), "")
         real = {name: getattr(os, name) for name in ("open", "rename", "replace", "mkdir", "symlink")}
