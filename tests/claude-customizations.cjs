@@ -542,11 +542,17 @@ test('status line writes a 0600 usage file whatever the umask, with no lock and 
   assert.equal(linked, 0, 'a hard link was made');
 });
 
-test('status line leaves no temporary file when its write fails', posixOnly, (t) => {
-  const { folder, env } = usageFixture(t);
-  patchFs(t, 'renameSync', () => () => { throw Object.assign(new Error('EIO: fixture'), { code: 'EIO' }); });
-  assert.throws(() => recordUsage(usageInput(10, 20), env, NOW), { code: 'EIO' });
-  assert.deepEqual(fs.readdirSync(folder), [], 'a temporary file was left');
+test('status line leaves no temporary file when its write fails', posixOnly, async (t) => {
+  // A full disk or a home directory at its quota fails the write itself, other errors the rename.
+  for (const [name, code] of [['fchmodSync', 'EPERM'], ['writeSync', 'ENOSPC'], ['writeSync', 'EDQUOT'],
+    ['renameSync', 'EIO']]) {
+    await t.test(`${name} ${code}`, (t) => {
+      const { folder, env } = usageFixture(t);
+      patchFs(t, name, () => () => { throw Object.assign(new Error(`${code}: fixture`), { code }); });
+      assert.throws(() => recordUsage(usageInput(10, 20), env, NOW), { code });
+      assert.deepEqual(fs.readdirSync(folder), [], 'a temporary file was left');
+    });
+  }
 });
 
 test('status line removes temporary files cancelled runs left, judged by their file times alone', posixOnly, (t) => {

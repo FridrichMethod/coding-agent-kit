@@ -200,7 +200,8 @@ function storedUsage(file) {
   }
 }
 
-// Replaces FILE with CONTENTS through a 0600 temporary file beside it and a rename.
+// Replaces FILE with CONTENTS through a 0600 temporary file beside it and a rename;
+// the temporary file goes when the write or the rename fails.
 // Then, best effort, it removes the temporary files of FILE that are more than
 // TEMPORARY_AGE older than FILE, by the file times alone, which on a network home
 // directory come from the server's clock, never by this host's: what a status line
@@ -211,12 +212,12 @@ function replacePrivate(file, contents) {
   const temporary = path.join(folder, `${prefix}${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`);
   const fd = fs.openSync(temporary, 'wx', 0o600);
   try {
-    fs.fchmodSync(fd, 0o600);
-    fs.writeSync(fd, contents);
-  } finally {
-    fs.closeSync(fd);
-  }
-  try {
+    try {
+      fs.fchmodSync(fd, 0o600);
+      fs.writeSync(fd, contents);
+    } finally {
+      fs.closeSync(fd);
+    }
     fs.renameSync(temporary, file);
   } catch (error) {
     fs.rmSync(temporary, { force: true });
