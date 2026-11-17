@@ -153,7 +153,7 @@ To go on without reserves, exit and run:
 Each window at its reserve gets a sentence of its own, with the time to its reset when the reading has one. For `claude-as` the blindness cause reads `the status line has reported no rate limits: the workspace is not trusted yet, or this account reports none`. At a tool call the second line reads `This tool call was stopped. Stop working now and tell the user why.`, which the model reads, and at the end of a Claude turn `The work stops here.`
 
 - Claude Code shows a refused prompt as `UserPromptSubmit operation blocked by hook: [COMMAND]: MESSAGE`. A refused tool call ends the turn, shown as `PreToolUse:TOOL hook stopped continuation: MESSAGE`, and no `Stop` hook runs after such a turn, yours included (a notification, or a loop that starts the next turn). A turn that ends while a window is at its reserve ends the work with the message, so that another `Stop` hook cannot start a new turn.
-- Codex does not send a refused prompt. A refused tool call does not run; the model gets the message as the call's output and replies. `codex exec` shows no reason and exits 0, so after a headless run codex-as prints the guard's latest message on stderr.
+- Codex does not send a refused prompt. A refused tool call does not run; the model gets the message as the call's output and replies. `codex exec` exits 0 either way and shows no reason for a refused prompt, so after a headless run codex-as prints the guard's latest message on stderr.
 
 ### The relaunch
 

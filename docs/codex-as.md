@@ -287,8 +287,10 @@ arguments:
   rate limits. When the rollout cannot be read, the guard uses the account's
   record, and the session is never blind.
 - After a headless run (`exec`, `review`), codex-as prints the guard's latest
-  refusal of that run on stderr, since `codex exec` shows no reason and exits
-  0 for a refused prompt or tool call.
+  refusal of that run on stderr, since `codex exec` exits 0 after a refused
+  prompt or tool call and, for a refused prompt, shows no reason (for a
+  refused tool call Codex logs the reason on stderr, and the model reports
+  it).
 
 ### Which sessions are the run's own
 
