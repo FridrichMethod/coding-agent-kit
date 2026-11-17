@@ -363,25 +363,25 @@ def same_place(path, cwd):
 
 
 def run_threads(root, plan, owner, begun, ended, alone):
-    """The sessions this guarded run wrote, as (SURE, EITHER): lists of groups, each the rollout paths
-    of one session and of its sub-agents (whose session_meta names it as session_id, or as parent). The
-    run wrote every group of SURE and one group of EITHER, which one cannot be told.
+    """The sessions this guarded run may have written, as (SURE, EITHER, MAYBE): lists of groups, each
+    the rollout paths of one session and of its sub-agents (whose session_meta names it as session_id,
+    or as parent). The run wrote every group of SURE, one group of EITHER if it wrote any, which one
+    cannot be told, and any of MAYBE, perhaps none: the others are other clients' of the account.
 
-    They are the sessions the run resumed or recovered by id, and the sessions of this account (OWNER,
-    the creator in each rollout's session_meta; None, when the login no longer tells it, counts only
-    those named by id) that started in this run's span, BEGUN to ENDED, in its directory, from its kind
-    of Codex: source cli for the TUI, resume and fork, exec for exec and review. So a codex-as exec run
-    from a TUI is not the TUI's, nor a TUI the exec's, nor a run in another directory either's; a
-    guardian review runs no user hook and never counts. A TUI may start several sessions, all SURE; a
-    headless run starts one (exec resume none), so when more started here, other headless runs of the
-    account did too, and they go to EITHER.
+    They are the sessions the run resumed or recovered by id (SURE), and the sessions of this account
+    (OWNER, the creator in each rollout's session_meta; None, when the login no longer tells it, counts
+    only those named by id) that started in this run's span, BEGUN to ENDED, in its directory, from its
+    kind of Codex: source cli for the TUI, resume and fork, exec for exec and review. So a codex-as exec
+    run from a TUI is not the TUI's, nor a TUI the exec's, nor a run in another directory either's; a
+    guardian review runs no user hook and never counts. A headless run starts one session (exec resume
+    none), so when more started here, other headless runs of the account did too: they are EITHER. A
+    TUI may start several: SURE when ALONE, MAYBE when another codex-as client of the account ran at the
+    run's start or end (not ALONE), which may be a second TUI here.
 
     A form that can switch to an older session it does not name (the TUI, resume and fork; exec resume
-    without an id) appends to one of this account's older sessions, of any day. For exec resume, every
-    such session written during the run goes to EITHER. For an interactive form every one is SURE,
-    unless another codex-as client of the account ran at the run's start or end (not ALONE), whose
-    sessions they may be; then none counts, and the TUI, which shows "Hooks need review" itself, is
-    left to the next headless run's check.
+    without an id) appends to one of this account's older sessions, of any day and directory: for exec
+    resume every such session written during the run is EITHER, for an interactive form SURE when ALONE
+    and MAYBE otherwise.
 
     Only rollouts whose file time is at most SKEW before BEGUN are opened, at most HEADS session_meta
     lines, the oldest start first, whatever account wrote them."""
@@ -398,8 +398,10 @@ def run_threads(root, plan, owner, begun, ended, alone):
         if stat.S_ISREG(info.st_mode) and info.st_mtime >= begun - SKEW:
             found.append((match[1] not in named, path.name, match[1], path))
     resumes = plan.command == "exec-resume" and not plan.forked  # appends; starts no session of its own
-    older = (alone and plan.form == "interactive") or (resumes and not named)
-    sure, either, agents = {}, {}, []
+    older = plan.form == "interactive" or (resumes and not named)
+    sure, either, maybe, agents = {}, {}, {}, []
+    # Where the run's sessions that it does not name go, new or older alike.
+    unnamed = either if plan.form == "headless" else sure if alone else maybe
     for _, _, thread, path in sorted(found)[:HEADS]:
         try:
             meta = session_meta(path)
@@ -423,16 +425,16 @@ def run_threads(root, plan, owner, begun, ended, alone):
         if start >= begun - STAMPED:
             if (start <= ended and not resumes and source == SOURCES[plan.form]
                     and same_place(meta.get("cwd"), plan.cwd)):
-                (sure if plan.form == "interactive" else either).setdefault(thread, []).append(path)
+                unnamed.setdefault(thread, []).append(path)
         elif older:
-            (sure if plan.form == "interactive" else either).setdefault(thread, []).append(path)
-    groups = {**sure, **either}
+            unnamed.setdefault(thread, []).append(path)
+    groups = {**sure, **either, **maybe}
     for meta, path in agents:
         parent = next((key for key in (meta.get("session_id"), meta.get("parent_thread_id"))
                        if isinstance(key, str) and key in groups), None)
         if parent is not None:
             groups[parent].append(path)
-    return list(sure.values()), list(either.values())
+    return list(sure.values()), list(either.values()), list(maybe.values())
 
 
 def this_run(layout, plan, baseline, begun, ended, alone):
@@ -485,29 +487,38 @@ def activity(paths, begun, ended):
     return written, requested, tools
 
 
+def missed(views, prompt):
+    """What VIEWS (activity() results) show of the guard's hooks that Codex did not run, PROMPT telling
+    whether the prompt hook ran: a tool call needs the tool hook, a model request either hook."""
+    if any(view[2] for view in views):
+        return "the guard's tool hook" if prompt else "the guard's hooks"
+    return "the guard's hooks" if not prompt and any(view[1] for view in views) else None
+
+
 def unenforced(state, threads, begun, ended):
-    """Which of the guard's hooks this run shows that Codex did not run: "the guard's hooks", "the
-    guard's tool hook" or None. THREADS is run_threads(): a group of EITHER counts only for what every
-    one of them written during the run shows. A tool call needs the tool hook; a model request (a
-    rate-limit snapshot) needs either hook."""
+    """What this run shows of the guard's hooks that Codex did not run, as (OWN, UNSURE), each "the
+    guard's hooks", "the guard's tool hook" or None. THREADS is run_threads(). OWN is what the run's own
+    sessions show: every group of SURE, and of the groups of EITHER written during the run what every
+    one shows. UNSURE, when OWN is None, is what any group of EITHER or MAYBE written during the run
+    shows, a session that may be this run's or another client's of the account."""
     prompt, tool = (os.path.lexists(f"{state}.ran.{kind}") for kind in ("prompt", "tool"))
     if tool:
-        return None
-    sure, either = threads
-    seen = [activity(group, begun, ended) for group in sure]
-    written = [view for view in (activity(group, begun, ended) for group in either) if view[0]]
-    if written:
-        seen.append(tuple(all(view[index] for view in written) for index in range(3)))
-    if any(view[2] for view in seen):
-        return "the guard's tool hook" if prompt else "the guard's hooks"
-    return "the guard's hooks" if not prompt and any(view[1] for view in seen) else None
+        return None, None
+    sure, either, maybe = threads
+    own = [activity(group, begun, ended) for group in sure]
+    either, maybe = ([view for view in (activity(group, begun, ended) for group in groups) if view[0]]
+                     for groups in (either, maybe))
+    if either:
+        own.append(tuple(all(view[index] for view in either) for index in range(3)))
+    found = missed(own, prompt)
+    return found, None if found else missed([*either, *maybe], prompt)
 
 
 def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
     """After a guarded run: the guard's latest block message of a headless run, which Codex itself
     does not show; then, when this run's THREADS show that Codex did not run the guard's hooks, the
     warning, and the marker goes, so headless runs wait until an interactive launch has trusted them
-    again."""
+    again; when only a session that may be another client's shows it, a notice, and the marker stays."""
     if plan.form == "headless":
         message = blocked_message(state)
         if message:
@@ -515,7 +526,7 @@ def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
     if threads is None:
         return  # what the run did cannot be told
     try:
-        missing = unenforced(state, threads, begun, ended)
+        missing, unsure = unenforced(state, threads, begun, ended)
     except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
         return
     if missing:
@@ -526,6 +537,12 @@ def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
             os.unlink(marker)
         except OSError:
             pass
+    elif unsure:
+        # Never silent; the marker stays, since the session may be another client's whose hooks ran.
+        guard.warn(f"{account}: the usage reserve may not have been enforced in this run: Codex did not run {unsure} "
+                   f"in a session of {account} that this run or another one wrote during it (not trusted, disabled, "
+                   f"or managed hooks only). Start codex-as {account} interactively and trust them in \"Hooks need "
+                   "review\".")
 
 
 def main(args):
@@ -658,7 +675,7 @@ def main(args):
             # Use a fresh open-file description: surviving descendants still hold SH.
             alone = post_run(layout, baseline) and alone
             threads = None if state is None else this_run(layout, plan, baseline, begun, ended, alone)
-            groups = (*threads[0], *threads[1]) if threads else ()
+            groups = [group for kind in threads for group in kind] if threads else ()
             if os.path.lexists(layout.target):
                 remember(config, layout, plan=plan, started=started,
                          threads={usage.NAME.fullmatch(path.name)[1] for group in groups for path in group})
