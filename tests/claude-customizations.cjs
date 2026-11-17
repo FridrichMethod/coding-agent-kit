@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn, spawnSync } = require('node:child_process');
+const { spawnSync } = require('node:child_process');
 const { after, test } = require('node:test');
 const { stripVTControlCharacters } = require('node:util');
 
@@ -474,45 +474,6 @@ const python = (() => {
 })();
 const withPython = { skip: process.platform === 'win32' ? 'claude-as and its usage file are POSIX-only'
   : !python && 'python3 3.11 or newer is not on PATH', timeout: 60000 };
-// The start of a python3 -c program that loads guard.py (argv[1]) as the module guard.
-const LOAD_GUARD = 'import importlib.util, json, sys, time\nfrom pathlib import Path\n'
-  + 'spec = importlib.util.spec_from_file_location("guard", sys.argv[1])\n'
-  + 'guard = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(guard)\n';
-
-function runGuard(program, ...args) {
-  const result = spawnSync(python, ['-I', '-B', '-S', '-c', LOAD_GUARD + program, guardScript, ...args],
-    { encoding: 'utf8', timeout: 20000 });
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout.trim();
-}
-
-// A child that takes the usage file's lock, prints "held" and keeps the lock until its stdin ends;
-// killed at the end of test T at the latest.
-function lockHolder(t, command, args) {
-  const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
-  let out = '';
-  let ended = false;
-  const done = new Promise(resolve => child.on('close', (code, signal) => { ended = true; resolve({ code, signal, out }); }));
-  t.after(() => { if (!ended) child.kill('SIGKILL'); });
-  const ready = new Promise((resolve, reject) => {
-    child.stdout.on('data', chunk => { out += chunk; if (out.includes('held\n')) resolve(); });
-    child.stderr.on('data', chunk => { out += chunk; });
-    done.then(() => reject(new Error(`ended before it held the lock: ${out}`)));
-  });
-  return { child, ready, done };
-}
-
-const guardHolder = (t, file) => lockHolder(t, python, ['-I', '-B', '-S', '-c', `${LOAD_GUARD}name, fd = guard.lock(Path(sys.argv[2]))
-print("held", flush=True)
-sys.stdin.read()
-guard.unlock(name, fd)`, guardScript, file]);
-const helperHolder = (t, file) => lockHolder(t, process.execPath, ['-e', `const helper = require(process.argv[1]);
-const held = helper.lock(process.argv[2]);
-if (!held) process.exit(3);
-process.stdout.write('held\\n');
-require('node:fs').readFileSync(0);
-helper.unlock(...held);`, statusline, file]);
-
 test('status line keeps a newer reading of the same window', posixOnly, (t) => {
   const { folder, file, env } = usageFixture(t);
   const now = NOW / 1000;
@@ -807,70 +768,6 @@ process.stdout.write(String(helper.recordUsage(JSON.parse(process.argv[4]), proc
     assert.equal(readJson(file).five_hour.used_percentage, 10, signal);
     assert.deepEqual([result.status, result.signal, result.stdout], [0, null, 'true'], `${signal}: ${result.stderr}`);
   }
-});
-
-test('status line and the guard honor each other\'s usage file lock', withPython, async (t) => {
-  const { folder, file, env } = usageFixture(t);
-  // One protocol: the guard's constants are the helper's (the waits below are shortened in both).
-  assert.equal(runGuard('print(guard.LOCK_WAIT, guard.LOCK_STALE, guard.RECORD_AGAIN)'), `${LOCK.wait} ${LOCK.stale} 300`);
-  assert.deepEqual(LOCK, { wait: 2, stale: 10 });
-  waitFor(t, 0.3);
-  const now = Math.floor(Date.now() / 1000);
-  const reading = used => ({ rate_limits: { five_hour: usageWindow(used, now + 3600), seven_day: usageWindow(20, now + 86400) } });
-  const guardRecord = used => runGuard(`guard.LOCK_WAIT = 0.3
-try:
-    print(guard.record(sys.argv[2], json.loads(sys.argv[3])["rate_limits"], time.time()))
-except Exception as error:
-    print(type(error).__name__)`, file, JSON.stringify(reading(used)));
-  const lock = lockOf(file);
-
-  // guard.py's lock() holds: the helper waits LOCK.wait seconds, records nothing and leaves the lock as it is.
-  let holder = guardHolder(t, file);
-  await holder.ready;
-  const content = fs.readFileSync(lock, 'utf8');
-  assert.equal(JSON.parse(content).pid, holder.child.pid);
-  let started = performance.now();
-  assert.equal(recordUsage(reading(10), env, Date.now()), false);
-  const elapsed = performance.now() - started;
-  assert.ok(elapsed >= LOCK.wait * 1000 && elapsed < LOCK.wait * 1000 + 1500, `waited ${elapsed} ms`);
-  assert.equal(fs.readFileSync(lock, 'utf8'), content);
-  assert.ok(!fs.existsSync(file));
-  holder.child.stdin.end();
-  assert.equal((await holder.done).code, 0);
-  assert.deepEqual(fs.readdirSync(folder), []);
-  assert.equal(recordUsage(reading(10), env, Date.now()), true);
-  // A guard run that ended holding its lock left it behind: the helper removes it at once and records.
-  holder = guardHolder(t, file);
-  await holder.ready;
-  holder.child.kill('SIGKILL');
-  await holder.done;
-  assert.ok(fs.existsSync(lock));
-  started = performance.now();
-  assert.equal(recordUsage(reading(11), env, Date.now()), true);
-  assert.ok(performance.now() - started < 1000);
-  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
-
-  // The helper's lock holds: guard.record() waits LOCK_WAIT seconds, raises TimeoutError and writes nothing.
-  holder = helperHolder(t, file);
-  await holder.ready;
-  const helperContent = fs.readFileSync(lock, 'utf8');
-  assert.equal(JSON.parse(helperContent).pid, holder.child.pid);
-  assert.equal(guardRecord(12), 'TimeoutError');
-  assert.equal(fs.readFileSync(lock, 'utf8'), helperContent);
-  assert.equal(readJson(file).five_hour.used_percentage, 11);
-  holder.child.stdin.end();
-  assert.equal((await holder.done).code, 0);
-  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
-  assert.equal(guardRecord(12), 'True');
-  // A helper run that ended holding its lock left it behind: the guard removes it at once and records.
-  holder = helperHolder(t, file);
-  await holder.ready;
-  holder.child.kill('SIGKILL');
-  await holder.done;
-  assert.ok(fs.existsSync(lock));
-  assert.equal(guardRecord(13), 'True');
-  assert.equal(readJson(file).five_hour.used_percentage, 13);
-  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)]);
 });
 
 test('status line records nothing as the user\'s own status line of a guarded launch', withPython, (t) => {
