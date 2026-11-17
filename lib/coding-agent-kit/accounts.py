@@ -30,8 +30,11 @@ Public API (load this file by path; it is never on sys.path):
     label_problem(text) -> str | None
         Why TEXT cannot be a label: control characters, more than 100
         characters, or a Claude token prefix (a pasted token is never stored).
-    info(tool, name, config, now) -> str
+    info(tool, name, config, now, paint=plain) -> str
         The --account-info text of NAME for "codex-as" or "claude-as".
+        PAINT(text, sgr) styles the heading, missing data and each window's
+        use (the launchers pass their colour policy for stdout); the default
+        leaves the text plain. Only the module's own words are painted.
     labels(tool, names, config) -> list[str]
         "NAME<TAB>LABEL" (the email for Codex, the label for Claude), or a bare
         NAME, for each name: the --account-labels lines. Unsafe metadata, or a
@@ -69,6 +72,8 @@ LABEL_LIMIT = 100
 CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 WINDOWS = {"codex-as": ("primary", "secondary"), "claude-as": ("five_hour", "seven_day")}
 NAMES = {"five_hour": "5h", "seven_day": "weekly"}
+# --account-info styles (SGR parameters): the heading cyan like the launchers' own, missing data yellow.
+HEADING, MISSING = "36", "33"
 LAST = 253402300800  # 10000-01-01 UTC: no calendar time from here on
 
 
@@ -279,7 +284,16 @@ def age(seconds):
     return f"{seconds // 86400} d ago"
 
 
-def usage_lines(tool, usage, now):
+def plain(text, _style):
+    return text
+
+
+def used_style(used):
+    """The status line helper's colour for a window USED percent full: red from 90, yellow from 70, else green."""
+    return "31" if used >= 90 else "33" if used >= 70 else "32"
+
+
+def usage_lines(tool, usage, now, paint=plain):
     """The window lines and the seen line of a usage record, or None without any window."""
     if not isinstance(usage, dict):
         return None
@@ -292,11 +306,12 @@ def usage_lines(tool, usage, now):
         name = window_name(key, minutes)
         at = None if resets is None else clock(resets, now)
         if at is None:
-            lines.append(f"{name:<8}{round(used)}% used")
+            lines.append(f"{name:<8}{paint(f'{round(used)}% used', used_style(used))}")
         elif resets <= now:
-            lines.append(f"{name:<8}reset since {at}")
+            lines.append(f"{name:<8}{paint(f'reset since {at}', used_style(0))}")
         else:
-            lines.append(f"{name:<8}{round(used)}% used, resets {at} (in {span(resets - now)})")
+            lines.append(f"{name:<8}{paint(f'{round(used)}% used', used_style(used))}, resets {at} "
+                         f"(in {span(resets - now)})")
     seen = usage.get("seen_at")
     if not lines:
         return None
@@ -305,20 +320,22 @@ def usage_lines(tool, usage, now):
     return lines
 
 
-def info(tool, name, config, now):
+def info(tool, name, config, now, paint=plain):
     folder = directory(config)
+    missing = paint("not recorded yet", MISSING)
     if tool == "codex-as":
         data = read(folder / f"codex-{name}.json") or {}
-        lines = [f"{name} (Codex)"]
+        lines = [paint(f"{name} (Codex)", HEADING)]
         for key in ("email", "plan"):
-            lines.append(f"{key:<8}{clean(data.get(key), 254) or 'not recorded yet'}")
+            lines.append(f"{key:<8}{clean(data.get(key), 254) or missing}")
         usage = data.get("usage")
     else:
         data = read(folder / f"claude-{name}.json") or {}
         label = clean(data.get("label"), LABEL_LIMIT)
-        lines = [f"{name} (Claude)", f"{'label':<8}{label or f'not set (claude-as --label {name} LABEL)'}"]
+        unset = paint(f"not set (claude-as --label {name} LABEL)", MISSING)
+        lines = [paint(f"{name} (Claude)", HEADING), f"{'label':<8}{label or unset}"]
         usage = read(folder / f"claude-{name}.usage.json")
-    lines.extend(usage_lines(tool, usage, now) or [f"{'usage':<8}not recorded yet"])
+    lines.extend(usage_lines(tool, usage, now, paint) or [f"{'usage':<8}{missing}"])
     return "\n".join(lines)
 
 

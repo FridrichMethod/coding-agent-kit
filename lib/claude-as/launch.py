@@ -992,7 +992,8 @@ def main():
                 fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
             if name not in accounts(secret, config):
                 fail(f"no account {name}.")
-            text = metadata.info("claude-as", name, config, time.time())
+            text = metadata.info("claude-as", name, config, time.time(),
+                                  lambda part, style: styled(part, style, 1))
         elif args[0] == "--account-labels":
             text = "\n".join(metadata.labels("claude-as", accounts(secret, config), config))
         else:

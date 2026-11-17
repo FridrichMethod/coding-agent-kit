@@ -140,7 +140,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
   - Bash: `shfmt -i 4 -ci -ln bash`
   - POSIX: `shfmt -i 4 -ci -ln posix`
   - Zsh: `shfmt -i 4 -ci -ln zsh` (needs shfmt 3.13+, the first release with a zsh dialect)
-- Launcher messages follow one colour policy in shell and Python: `CODING_AGENT_KIT_COLOR=auto|always|never` (unset or invalid means `auto`, styled only when the destination is a terminal), and a nonempty `NO_COLOR` or `TERM=dumb` disables color. Native CLI output, completion lists and the output of `--list`, `--labels`, `--info` and `--show-config` stay untouched, and redirected logs stay plain by default.
+- Launcher messages follow one colour policy in shell and Python: `CODING_AGENT_KIT_COLOR=auto|always|never` (unset or invalid means `auto`, styled only when the destination is a terminal), and a nonempty `NO_COLOR` or `TERM=dumb` disables color. Native CLI output, completion lists and the output of `--list`, `--labels` and `--show-config` stay untouched; `--info` styles only its own words (the heading, missing data and each window's use, in the status line's colours) under the same policy for stdout, and redirected logs stay plain by default.
 
 ## Testing
 
