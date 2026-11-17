@@ -290,6 +290,10 @@ def arguments(args, config):
                 target = arg
             else:
                 words.append(arg)
+                if words == ["help"] and command in UNGUARDED - {"remote-control"} or (
+                        command == "debug" and words == ["app-server", "help"]):
+                    query = True  # these have subcommands too, so clap reads this word as their help subcommand
+                    break
                 # Foreground remote-control and stdio app-server need no daemon; these manage one.
                 if command == "remote-control" or (command == "app-server" and "daemon" in words):
                     fail("this command manages a Codex daemon; codex-as accounts run without one.")

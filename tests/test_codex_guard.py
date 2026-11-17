@@ -108,7 +108,10 @@ class LaunchForms(Fixture):
             # send-message-v2 runs a turn through one: model work as in app-server.
             "refused": (["cloud"], ["cloud-tasks"], ["cloud", "exec", "--env", "x", "go"], ["app-server"],
                         ["exec-server"], ["remote-control"], ["remote-control", "--no-daemon"],
-                        ["debug", "app-server", "send-message-v2", "hi"], ["-c", "model=x", "app-server"]),
+                        ["debug", "app-server", "send-message-v2", "hi"], ["-c", "model=x", "app-server"],
+                        # help after another word is that word's argument: a cloud task's query, say.
+                        ["cloud", "exec", "--env", "x", "help"], ["app-server", "proxy", "help"],
+                        ["debug", "app-server", "send-message-v2", "help"]),
             "plain": (["mcp", "list"], ["mcp"], ["plugin"], ["features", "list"], ["login", "status"],
                       ["apply"], ["a"], ["sandbox", "linux", "--", "exec"], ["debug"], ["debug", "models"],
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
@@ -124,7 +127,11 @@ class LaunchForms(Fixture):
                       ["exec", "help"], ["e", "help", "resume"], ["exec", "-m", "x", "help"], ["exec", "help", "fork"],
                       ["exec", "--image=a.png", "help"], ["exec", "-ia.png", "help"], ["exec", "-i", "a.png", "-m", "x", "help"],
                       ["cloud", "--help"], ["app-server", "--help"], ["remote-control", "-h"],
-                      ["debug", "app-server", "--help"], ["login", "--help"]),
+                      ["debug", "app-server", "--help"], ["login", "--help"],
+                      # These have subcommands too, so clap reads help as the first word after them as theirs.
+                      ["cloud", "help"], ["cloud-tasks", "help"], ["cloud", "help", "exec"], ["cloud", "-c", "model=x", "help"],
+                      ["app-server", "help"], ["app-server", "help", "proxy"], ["exec-server", "help"],
+                      ["debug", "app-server", "help"]),
         }
         for form, argument_lists in cases.items():
             for args in argument_lists:
@@ -247,7 +254,8 @@ class LaunchForms(Fixture):
     def test_refused_options_still_refuse(self):
         """A guarded form never relaxes the checks every launch has."""
         for args in (["--oss", "exec", "go"], ["exec", "-c", "model_provider=x", "go"], ["agents"],
-                     ["remote-control", "start"], ["app-server", "daemon"], ["--enable", "use_agent_identity"]):
+                     ["remote-control", "start"], ["remote-control", "help"], ["app-server", "daemon"],
+                     ["--enable", "use_agent_identity"]):
             with self.subTest(args=args):
                 with self.assertRaises(ValueError):
                     self.plan(args)
@@ -998,7 +1006,8 @@ class GuardedLaunch(unittest.TestCase):
     def test_plain_forms_launch_as_without_reserves(self):
         self.launches_plain(["A", "features", "list"], ["A", "login", "status"], ["A", "--help"], ["A", "exec", "--help"],
                             ["A", "exec", "help"], ["A", "e", "help", "resume"], ["A", "completion", "bash"],
-                            ["A", "git-credential", "get"])
+                            ["A", "git-credential", "get"], ["A", "cloud", "help"], ["A", "app-server", "help"],
+                            ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"])
 
     def refused(self, args, reason, account="A", env=None):
         result = self.run_codex("--reserve-weekly", "10", *args, env=env)
@@ -1012,6 +1021,7 @@ class GuardedLaunch(unittest.TestCase):
         for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["cloud", "list"], "cloud"),
                            (["app-server"], "app-server"), (["app-server", "generate-ts"], "app-server"),
                            (["exec-server"], "exec-server"), (["remote-control"], "remote-control"),
+                           (["cloud", "exec", "--env", "x", "help"], "cloud"),
                            (["debug", "app-server", "send-message-v2", "hi"], "debug app-server")):
             with self.subTest(args=args):
                 # Refused as a whole (designer's call 4), also where a subcommand runs no model work itself.
