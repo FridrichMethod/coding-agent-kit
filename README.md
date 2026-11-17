@@ -6,6 +6,9 @@ Multi-account wrappers and helpers for Codex and Claude Code:
   `claude-as NAME [claude arguments...]` run the native CLI as a named
   account, with private stored credentials and the shared everyday
   configuration and history;
+- optional usage reserves, which keep a percentage of each account's 5-hour
+  and weekly limits unused: the native CLI's own hooks, given for that launch,
+  refuse new prompts and tool calls at the reserve;
 - three Claude Code helpers: a status line, terminal notifications and a Git
   hook guard.
 
@@ -35,9 +38,11 @@ your own with `install.sh`, or link or copy its files.
   for `claude-as`; its token capture is audited for 2.1.296, and other
   versions fall back to an explicit manual paste.
 - Node.js 22 or newer for the helpers; Git is optional for the status line.
+  Usage reserves need no Node.
 - Optional: bash-completion or zsh for account-name completion.
-- Usage reserves need codex-cli 0.169.0 or newer for `codex-as` and Claude
-  Code 2.1.325 or newer for `claude-as`, with no upper limit.
+- Usage reserves need Claude Code 2.1.296 or newer for `claude-as`, and for
+  `codex-as` codex-cli 0.161.0 or newer, the minimum of every launch, with no
+  upper limit.
 
 ## Install
 
@@ -316,14 +321,24 @@ codex-as -V                           # the kit's version and install form (--ve
   unused: `--reserve-5h V` and `--reserve-weekly V` before `NAME`, or the
   `[usage_reserve]` tables of the configuration file, each window on its own
   (`V` from 0 through 100, or `off`; off by default). With a reserve on, the
-  native CLI's own hooks refuse new prompts and tool calls at the reserve
-  ([usage reserves](docs/account-launchers.md#usage-reserves)). With both
-  windows off a launch is unchanged.
+  launcher gives the native CLI hooks for that launch (`claude-as` in its own
+  `--settings`, `codex-as` as `-c` values; nothing is written to `~/.claude`
+  or `<codex_home>`), and the kit's reserve guard refuses new prompts and
+  tool calls once a window is at or below its reserve, from the usage data
+  the native already receives, until the window resets or a relaunch turns
+  the flag off. It is a soft guard, not a hard limit: a streaming reply
+  finishes, and every agent running in parallel at the reserve finishes its
+  reply and makes one more request to report the refusal.
+  Launch forms the guard cannot cover, such as `claude-as NAME -p`, are
+  refused with a reserve on, and Codex asks once per host to trust the
+  hooks ([usage reserves](docs/account-launchers.md#usage-reserves)). With
+  both windows off a launch is unchanged.
 - Each launcher keeps a small metadata cache per account in
   `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/`: the Codex
   email and plan from the account's token and the last rate limits a run saw
   in its own rollouts, and the Claude label asked at enrolment and the last
-  rate limits the status line helper saw. `--info NAME` prints it
+  rate limits the status line helper or, in a launch with a usage reserve,
+  the reserve guard saw. `--info NAME` prints it
   offline, without opening a credential, and the zsh completions show the
   email or label as each account's description. Emails show in previews and
   transcripts; no token is ever stored there.
@@ -349,8 +364,9 @@ secrets_dir = "~/.secrets"
 ```
 
 One optional table adds behavior: `[usage_reserve]` (usage reserves, global
-and per account); a kit older than 0.8.0 ignores it with a warning, and a 0.8
-kit enforces it its own way, refusing many launches that 0.9.0 runs.
+and per account), which only kit 0.9.0 and newer apply as documented here; a
+kit older than 0.8.0 ignores it with a warning, and a 0.8 kit applies it by
+rules of its own.
 
 The file, and the directories and symlinks on its way, must be owned by you
 (or root) and not writable by others; unknown keys only warn. Choose `codex_home` and `secrets_dir` before the first
@@ -360,7 +376,7 @@ enrolment, and after moving `codex_home` export `CODEX_HOME` for plain
 
 ## Claude Code helpers
 
-- **Status line:** shows the active model, reported effort, project and Git branch (or detached commit), context usage, the tokens the session has used, estimated session cost, and the 5-hour and weekly rate limits left. For example: `Opus | xhigh | coding-agent-kit (main) | ctx 38% | 13.7M used | ~$1.23 | 5h 88% left | weekly 58% left`. The limit segments use Claude's native `rate_limits.five_hour` and `rate_limits.seven_day` data and show 100 minus the rounded consumed percentage, as Codex shows its limits; each is omitted when its window is absent or invalid, and a valid full limit shows `0% left`. Missing context/cost data shows `?`; cost is Claude's estimate, not an invoice. It performs only bounded Git ref reads, without scanning the worktree or contacting the network. See the [status-line reference](https://code.claude.com/docs/en/statusline).
+- **Status line:** shows the active model, reported effort, project and Git branch (or detached commit), context usage, the tokens the session has used, estimated session cost, and the 5-hour and weekly rate limits left. For example: `Opus | xhigh | coding-agent-kit (main) | ctx 38% | 13.7M used | ~$1.23 | 5h 88% left | weekly 58% left`. The limit segments use Claude's native `rate_limits.five_hour` and `rate_limits.seven_day` data and show 100 minus the rounded consumed percentage, as Codex shows its limits; each is omitted when its window is absent or invalid, and a valid full limit shows `0% left`. Missing context/cost data shows `?`; cost is Claude's estimate, not an invoice. It performs only bounded Git ref reads, without scanning the worktree or contacting the network. See the [status-line reference](https://code.claude.com/docs/en/statusline). Usage reserves do not need it: a `claude-as` launch with a reserve makes the reserve guard its status line, which records the account's usage itself, without Node, and then runs this helper, or whatever status line command your settings name, for the footer ([usage reserves](docs/account-launchers.md#what-the-guard-checks)).
 - **Session tokens:** the `used` segment counts as Codex's `used-tokens` does: input not read from the prompt cache (`input_tokens` plus `cache_creation_input_tokens`) and output, summed over every response in the session's transcript (`transcript_path`) and its subagents' transcripts under `SESSION/subagents/`, workflow agents included; cache reads never count. Claude Code reports no such total, and reading a long session's transcripts in full can take over a second, so the helper keeps how far it has read each transcript, and the sums so far, in one private cache file per session under `${XDG_CACHE_HOME:-~/.cache}/coding-agent-kit/statusline/` (folder 0700, files 0600, holding the transcript path, the subagent transcript names, read offsets, a fingerprint of each transcript's first 64 bytes, the last message id and the counts, never what was said). Each run reads only what was appended since, at most 16 MiB, so a long session seen for the first time catches up over a few refreshes and shows `13.7M+ used` meanwhile; `+` also marks a total that leaves out a transcript it cannot read now, or subagent transcripts past the first 1000. A transcript that is shorter, replaced, or starts otherwise than when it was read is counted again from the start. A cache unchanged for 30 days is removed when another session starts one. The transcript format is Claude Code's internal one: the segment is omitted when the transcript or the cache folder cannot be used, and responses the transcripts do not record are not counted, so the count can trail the cost estimate.
 - **Notifications:** `permission_prompt` and `idle_prompt` events emit [Claude's `terminalSequence`](https://code.claude.com/docs/en/hooks#emit-terminal-notifications), using OSC 99 for Kitty, OSC 777 for Ghostty/Warp/rxvt, or OSC 9 for iTerm2/WezTerm/Windows Terminal. The terminal handles desktop delivery, including remote sessions when terminal identification is available. Enable notifications for the terminal in OS settings; unsupported terminals and non-interactive sessions may ignore them. The notice contains only the project name and a fixed status, never prompt or command contents. Other events and notification types produce nothing.
 - **Git hook checks:** a local `PreToolUse` helper does the common bypass checks of `block-no-verify@1.1.2` in process, without npm startup or downloads: it blocks the usual `--no-verify`, commit `-n`, and `-c core.hooksPath=...` forms. This is a conservative text check, not a shell parser; quoted text can trigger it, and indirect bypasses are outside its scope. Successful checks do not grant permission or skip the classifier.
@@ -397,15 +413,18 @@ pre-commit run --all-files
 
 - `run.sh` needs bash, sh, git, python3 and node. Without zsh it skips the zsh
   cases and says so; `--ci` requires zsh. Without `codex` on `PATH` it skips
-  the native Codex sharing checks, and without GNU Stow the folded Stow cases
-  of `standalone-e2e.sh`, and says so; as root it skips the read-only
+  the native Codex sharing and hook checks, without `claude` the real Claude
+  Code hook checks, and without GNU Stow the folded Stow cases of
+  `standalone-e2e.sh`, and says so; as root it skips the read-only
   directory cases.
 - Every suite runs in a temporary HOME with fake CLIs and fictitious
   credentials, reaches no network beyond local fixtures, and first unsets
   `CODING_AGENT_KIT_CONFIG`, `CODING_AGENT_KIT_COLOR`,
   `CODING_AGENT_KIT_USAGE_FILE`, `CODING_AGENT_KIT_TOKEN_ID`,
   `CODING_AGENT_KIT_CLAUDE_PID`, `CODING_AGENT_KIT_REPO_URL`,
-  `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `NO_COLOR`.
+  `CODING_AGENT_KIT_GUARD`, `CODING_AGENT_KIT_GUARD_SCRIPT`,
+  `CODING_AGENT_KIT_GUARD_PYTHON`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and
+  `NO_COLOR`.
 - `tests/standalone-e2e.sh` installs with `install.sh` under `/bin/sh`, bash and
   (when present) dash, checks its refusals and drives both launchers and their
   completions through the links;
