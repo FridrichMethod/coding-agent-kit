@@ -111,8 +111,8 @@ and launches.
 
 ## Version compatibility
 
-There is no version allowlist. The launcher accepts `codex-cli 0.161.0` or newer
-(0.169.0 or newer for a launch with a [usage reserve](account-launchers.md#usage-reserves)),
+There is no version allowlist. The launcher accepts `codex-cli 0.161.0` or newer,
+for a launch with a [usage reserve](#usage-reserves) as for any other,
 including prereleases of later versions (a prerelease precedes its release, so
 `0.161.0-alpha.1` is refused), and refuses version output it cannot parse.
 0.161.0 is the oldest release with a recorded pass of the native suite below. In
@@ -124,8 +124,10 @@ takeover fixture, and 0.155.1 also fails the refresh writeback test and lacks
   `-c cli_auth_credentials_store="file"` and `-c sqlite_home=...`; every command
   but `exec` also gets `-c check_for_update_on_startup=false` and `--no-daemon`
   (not repeated when the caller gives a root `--no-daemon`, which clap allows
-  once). Subcommands and options added by later releases pass through; the
-  launcher never parses `codex --help`.
+  once). A launch with a [usage reserve](#usage-reserves) adds the guard's two
+  hooks and turns goals off before the caller's arguments. Subcommands and
+  options added by later releases pass through; the launcher never parses
+  `codex --help`.
 - A help or version flag before any subcommand or prompt (`NAME --help`,
   `NAME -V`), `help`, `update` and `completion` are the same for every login,
   so they run as plain `codex` with the root `CODEX_HOME`, no added flags and no
@@ -198,12 +200,149 @@ A root daemon at 0.166.0 or newer needs kit 0.7.5 or newer. A takeover that an
 older kit left pending completes when the same command runs again with the
 current kit.
 
+## Usage reserves
+
+[Account launchers](account-launchers.md#usage-reserves) describe what the
+reserve guard does, its messages, the launch forms and refusals, the trust
+step and the check after a run. These are the Codex details.
+
+A launch with a reserve on passes these values after the launcher's own `-c`
+values and `--no-daemon`, before the caller's arguments:
+
+```text
+-c 'hooks.UserPromptSubmit=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S \"$CODING_AGENT_KIT_GUARD_SCRIPT\" prompt",timeout=20}]}]'
+-c 'hooks.PreToolUse=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S \"$CODING_AGENT_KIT_GUARD_SCRIPT\" tool",timeout=20}]}]'
+-c features.goals=false --disable goals
+```
+
+- The tool hook has no matcher, so it sees every tool that reaches Codex's
+  `PreToolUse`, namespaced tools and calls nested in code mode included.
+- The hook's shell takes both paths from the environment that codex-as
+  exports: `CODING_AGENT_KIT_GUARD_PYTHON` is the launcher's own interpreter,
+  so another `python3` on the hook's `PATH` cannot make the hook fail, and
+  `CODING_AGENT_KIT_GUARD_SCRIPT` is `guard.py`, in a managed install through
+  its `current` link, so a session that outlives a kit update still finds a
+  guard. With `CODING_AGENT_KIT_GUARD`, which holds the launch (the account,
+  the reserves, the start time, the paths of the account's record, of the
+  launch's state and of the marker below), they are the launcher's channel to
+  its guard, no interface for other programs; every codex-as launch first
+  removes inherited ones.
+- The two hook values are the same on every launch, account, host and kit
+  release, because Codex trusts a hook by a hash of its definition. "Trust all"
+  in "Hooks need review" writes these records into the shared
+  `<codex_home>/config.toml`, through the account home's link, which stays a
+  link; codex-cli 0.161.0 through 0.169.0 compute the same keys and hashes:
+
+  ```toml
+  [hooks.state."/<session-flags>/config.toml:user_prompt_submit:0:0"]
+  trusted_hash = "sha256:c80a71faf46fb72216d9c2f64df47b9d71695077111da55efa23e7add88d05b6"
+
+  [hooks.state."/<session-flags>/config.toml:pre_tool_use:0:0"]
+  trusted_hash = "sha256:3171e9d47605b7a9d46f6bbd57941f1de4cbec6880ccf75955321f963ed35733"
+  ```
+
+  A hook that another program passes on Codex's command line for the same
+  event, as its first group and first handler, has the same key and another
+  hash, so the two replace each other's trust. `enabled` set to anything but
+  true under one of these keys turns that hook off; a guarded launch refuses
+  that in the shared `config.toml` and in the selected profile's files.
+- The marker that lets headless launches run is `codex-hooks-90aeb3ec484a2ca6`
+  in the guard directory beside the account metadata, named by the first 16
+  hex digits of the SHA-256 of the two hook values. The guard creates it at a
+  tool call, and the warning after a run removes it.
+- Goals: native Codex applies `--disable` after every `-c` value and
+  `--enable`, but a `--disable` after a subcommand replaces clap's list, so the
+  `-c` value has to hold on its own; a caller's `--enable goals` and a `-c`
+  value that could turn goals on are refused. In codex-cli 0.161.0 through
+  0.169.0 `goals` is a stable feature and `--disable goals` is accepted
+  without a warning.
+- The hooks feature is checked off in every configuration file that Codex may
+  load for the launch: `<codex_home>/config.toml`, the selected profile's
+  `<codex_home>/NAME.config.toml` (and the account home's own file of that
+  name where it is not a link to it), `/etc/codex/config.toml`,
+  `/etc/codex/managed_config.toml`, `/etc/codex/requirements.toml`, and the
+  `.codex/config.toml` of the launch directory and of every directory above
+  it, as given and resolved, whatever Codex's trust of that project. A goal
+  setting other than false counts in the managed files only
+  (`/etc/codex/managed_config.toml`, `/etc/codex/requirements.toml`), which
+  Codex applies over the command line. Cloud requirements, which only Codex
+  fetches, and a requirement that allows managed hooks only are not read:
+  under either Codex runs none of the guard's hooks, which the check after the
+  run reports.
+- The guard reads at most the last 1 MiB of the rollout that the event's
+  `transcript_path` names, and of it the lines stamped from 5 seconds before
+  the launch started; lines a sub-agent inherited from its parent never count.
+  A snapshot is the newest `token_count` line with at least one usable window
+  (a finite percentage of 0 or more, above 100 counting as 100); its limit
+  family is its own `limit_id`, `codex` being the general one. A snapshot of
+  the general family takes from the account's record the windows it does not
+  name; one of another family stands alone, as the limit the session's
+  requests count against. A token count without a usable window makes the
+  session blind unless it is a compaction's, and a model response is a
+  reasoning item, an assistant message, a `_call` item or a
+  `token_usage_record` line. A format change fails closed: a snapshot that
+  names no window of a known length counts as none, and a token count or a
+  model response whose time cannot be read counts as a token count without
+  rate limits. When the rollout cannot be read, the guard uses the account's
+  record, and the session is never blind.
+- After a headless run (`exec`, `review`), codex-as prints the guard's latest
+  refusal of that run on stderr, since `codex exec` shows no reason and exits
+  0 for a refused prompt or tool call.
+
+### Which sessions are the run's own
+
+After Codex exits, codex-as reads the rollouts under `<codex_home>/sessions`
+whose file time is at most 300 seconds before the run began (on a network home
+directory the file times come from the server's clock): at most 1024
+`session_meta` lines, those of the sessions it resumed by id first, then the
+oldest start first. It keeps the sessions of this account's ChatGPT user and
+workspace, as Codex records each session's creator, and groups each sub-agent with its parent; guardian reviews run no
+user hook and never count. The evidence is in the rollout lines stamped during
+the run: a model request is a line of a model response or a usable rate-limit
+snapshot, and a tool call one that the tool hook sees (a code-mode `exec`
+counts as one, although only the calls nested in it reach the hook).
+
+- The run's own, which give the warning and remove the marker: the sessions
+  it resumed by id (a fork's source is not one); for a headless run, the exec sessions started in
+  its directory during the run and, for `exec resume` without an id, the
+  older sessions in which it began a turn in its directory, where several
+  (other headless runs of the account) count only for what all of them show;
+  and for an interactive run that is alone, the sessions it started in its
+  directory or in a worktree that Codex manages under
+  `<codex_home>/worktrees`, a `fork`'s new session, the sessions its `/cd` forks moved to, and every older session
+  of the account written during it.
+- Perhaps another client's, which give the notice and keep the marker: a new
+  interactive session of the account in another directory that does not come
+  from the run's own, also for a run that is alone; any session an
+  interactive run wrote when it was not alone; during `exec resume --last`
+  whose own session is not found, an older session written without a turn;
+  and the sessions started in the directory of a headless run when only some
+  of them show it.
+
+An interactive run is alone when no other codex-as launch of the account held
+the lease at its start or at its end and none arrived during it. Every launch
+that can write sessions, with reserves or without, appends one byte to the
+lease file `<codex_home>/accounts/.locks/NAME.lock`, so a launch that starts
+and ends during the run shows too; a launch that holds the lease alone empties
+the file once it reaches 4096 bytes. A client that takes no codex-as lease
+(plain `codex` started with the account's `CODEX_HOME`, the desktop app or an
+IDE extension, logged in as the same ChatGPT user and workspace) is not seen
+this way: an older session of the account that it continues during an
+interactive run that is otherwise alone, or a TUI session it starts in the
+run's directory, counts as the run's own. `--worktree` is refused with a
+reserve on because Codex creates that worktree under its home, whose project
+configuration the launch checks do not read and where the check after a
+headless run does not look for its session; the TUI's own `/worktree` is
+followed.
+
 ## Remaining differences from native Codex
 
 `codex-as NAME ARGS...` aims to behave like logging in natively as NAME and
 running `codex ARGS...`. What still differs:
 
 - The refusals above, and the update prompt turned off in account launches.
+- With a usage reserve on, the guard's hooks, goals turned off, and the
+  refusals of [usage reserves](account-launchers.md#codex-as-with-a-reserve).
 - Account launches never use a daemon, so `queue` and `agents`, which need
   one, are refused. Commands that act on a session the root daemon holds, such
   as `archive`, `delete` or `unarchive`, act through a separate backend, so for
