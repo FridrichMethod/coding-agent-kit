@@ -300,7 +300,7 @@ class Unguarded(Fixture):
     def test_without_reserves_the_forms_a_guard_refuses_stay_as_they_were(self):
         """-p and a piped standard output launch; --init-only, --bg and --background stay unsupported options."""
         for args in (["agents"], ["ultrareview"], ["auto-mode", "critique"], ["plugin", "eval"], ["plugins", "eval", "x"],
-                     ["mcp", "serve"]):
+                     ["mcp", "serve"], ["gateway"]):
             with self.subTest(args=args):
                 code, out, err = self.run_launcher(["work", *args], tty=False)
                 self.assertEqual((code, out, err), (0, "stdout sentinel\n", ""))
@@ -522,7 +522,11 @@ class Guarded(Fixture):
                  ["auto-mode", "reset"], ["mcp"], ["mcp", "list"], ["mcp", "get", "serve"],
                  ["mcp", "add", "x", "--", "npx", "x"], ["mcp", "xaa", "show"], ["plugin", "list"], ["plugins", "list"],
                  ["plugin", "marketplace", "list"], ["plugin", "i", "x"], ["plugin", "rm", "x"], ["logs"],
-                 ["logs", "0123abcd"], ["stop", "0123abcd"], ["kill"], ["rm", "0123abcd"])
+                 ["logs", "0123abcd"], ["stop", "0123abcd"], ["kill"], ["rm", "0123abcd"],
+                 # The help of a command with subcommands, and the hidden commands that run no model.
+                 ["auto-mode", "help"], ["mcp", "help", "serve"], ["plugin", "help", "eval"], ["project", "help"],
+                 ["import-conversations", "export.zip"], ["apply-project-settings"], ["sandbox"], ["sandbox", "status"],
+                 ["sandbox", "install"], ["sandbox", "uninstall"])
         for args in cases:
             for tty in (False,) if args != ["doctor"] else (False, True):
                 with self.subTest(args=args, tty=tty):
@@ -546,7 +550,10 @@ class Guarded(Fixture):
         guard."""
         for args in (["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"], ["mcp", "eval"],
                      ["auto-mode", "other"], ["import"], ["import", "codex"], ["plugin", "test"], ["--", "doctor"],
-                     ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"]):
+                     ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"], ["sandbox", "other"],
+                     # Claude Code dispatches these by its first argument only, which the guard's --settings is: after
+                     # it they are prompts, as is a connect URL (Claude Code 2.1.326 on a terminal).
+                     ["remote"], ["sync"], ["bridge"], ["cc+unix:///tmp/x.sock"], ["cc://127.0.0.1:1/x"]):
             with self.subTest(args=args):
                 record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assert_guarded(record, value, args, "10", None)
@@ -870,6 +877,12 @@ class Refusals(Fixture):
         record, value, _ = self.guarded(["--reserve-5h", "10", "work"])
         self.assertNotIn(RESUME, record["env"])
 
+    def test_the_table_of_refused_forms(self):
+        """launch.REFUSED is the one list of the forms a reserve refuses, and each has its test in RefusedForms."""
+        self.assertEqual(set(launch.REFUSED), set(REFUSED))
+        for words in REFUSED:
+            self.assertTrue(hasattr(RefusedForms, "test_" + refused_test_name(words)), words)
+
     def test_a_claude_code_older_than_the_guard_minimum(self):
         self.assertEqual(launch.GUARD_MINIMUM, (2, 1, 296))
         unreadable = "claude --version printed no Claude Code version"
@@ -894,6 +907,65 @@ class Refusals(Fixture):
         for version in ("2.1.296 (Claude Code)", "2.1.325 (Claude Code)", "2.2.0 (Claude Code)", "10.0.0"):
             with self.subTest(version=version):
                 self.guarded(["--reserve-5h", "10", "work"], {"CLAUDE_FAKE_VERSION": version})
+
+
+OUTSIDE = "runs Claude Code outside its interactive session, where the usage reserve guard cannot stop it"
+HANDED = ("hands the session to Claude Code's background process, which runs it with the environment and credential of "
+          "whichever launch started that process")
+JOINED = "runs or joins sessions in Claude Code's background process, outside this launch's usage reserve guard"
+DETACHED = "runs the model outside Claude Code's interactive session, where the usage reserve guard cannot stop it"
+SERVED = ("serves other clients' model requests outside Claude Code's interactive session, where the usage reserve guard "
+          "cannot stop them")
+# The forms a reserve refuses in Claude Code 2.1.326, by their words (an option, or a command by its operands), with the
+# reason claude-as gives.
+REFUSED = {
+    "-p": f"-p {OUTSIDE}", "--print": f"--print {OUTSIDE}", "--init-only": f"--init-only {OUTSIDE}",
+    "--bg": f"--bg {HANDED}", "--background": f"--background {HANDED}",
+    ("agents",): f"claude agents {JOINED}", ("attach",): f"claude attach {JOINED}",
+    ("respawn",): f"claude respawn {JOINED}",
+    ("ultrareview",): f"claude ultrareview {DETACHED}", ("auto-mode", "critique"): f"claude auto-mode critique {DETACHED}",
+    ("plugin", "eval"): f"claude plugin eval {DETACHED}", ("plugins", "eval"): f"claude plugins eval {DETACHED}",
+    ("mcp", "serve"): f"claude mcp serve {DETACHED}", ("gateway",): f"claude gateway {SERVED}",
+}
+# The options a launch without a reserve leaves to the authentication audit, which refuses them.
+UNAUDITED = ("--init-only", "--bg", "--background")
+
+
+def refused_test_name(words):
+    """The name of the RefusedForms test of WORDS."""
+    return "refuses_" + "_".join(words.strip("-") for words in ((words,) if isinstance(words, str) else words)) \
+        .replace("-", "_")
+
+
+class RefusedForms(Fixture):
+    """One test per form a reserve refuses (REFUSED): refused with its reason as given, after another option and,
+    for a command, with an operand of its own and after --; without a reserve it launches unchanged, or, for an
+    option only a guarded launch accepts, stays an unsupported option."""
+
+    def check(self, words, reason):
+        if isinstance(words, str):
+            forms = ([words], ["--verbose", words], ["--model", "x", words], [f"{words}=x"])
+        else:
+            forms = (list(words), [*words, "target"], ["--verbose", *words], ["--", *words])
+        for flags in (["--reserve-5h", "10"], ["--reserve-weekly", "0"]):
+            for args in forms:
+                with self.subTest(flags=flags, args=args):
+                    self.assert_refused([*flags, "work", *args], reason)
+        self.assertEqual(self.version_runs(), 0)
+        self.assertFalse(self.guard_dir.exists())
+        args = list(forms[0])
+        if words in UNAUDITED:
+            self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", *args]),
+                             (1, "", "claude-as: unsupported/combined option; authentication safety is only audited for "
+                                     "the supported local CLI options.\n"))
+            return
+        self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", *args], tty=False), (0, "stdout sentinel\n", ""))
+        self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
+
+
+for _words, _reason in REFUSED.items():
+    setattr(RefusedForms, "test_" + refused_test_name(_words),
+            lambda self, words=_words, reason=_reason: self.check(words, reason))
 
 
 class Settings(unittest.TestCase):
