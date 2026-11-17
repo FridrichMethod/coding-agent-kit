@@ -140,6 +140,8 @@ class LaunchForms(Fixture):
                       ["-c", "model=x", "app-server", "--listen", "stdio://", "generate-ts", "-oout"],
                       ["app-server", "--strict-config", "generate-json-schema", "-o", "out"],
                       ["app-server", "-c", "model=x", "generate-internal-json-schema", "-o", "out"],
+                      # A root option the scan does not know is read as a switch, as before every other command.
+                      ["--future", "app-server", "generate-ts", "-o", "out"], ["--future", "mcp", "list"],
                       # A word after the generator is its own (a directory named daemon), never app-server's daemon.
                       ["app-server", "generate-ts", "--out", "daemon"], ["app-server", "generate-json-schema", "--out", "daemon"],
                       ["responses-api-proxy"], ["stdio-to-uds", "x"], ["execpolicy"],
