@@ -4,7 +4,9 @@ LaunchForms, Version, HooksOff, HookState and ManagedGoals run
 check.arguments() and layout's hooks_off(), hook_off() and goals_on() in
 process against a temporary HOME, Codex home and working directory. Hooks
 pins the hook definitions in process, and RunAttribution the check after a run
-at edges a launch cannot set (exact times, .blocked, a native's signal). GuardedLaunch runs codex-as from a kit
+at edges a launch cannot set (exact times, .blocked, a native's signal).
+HookSelection checks the cases codex-guard.sh --hook (the pre-commit hook)
+selects. GuardedLaunch runs codex-as from a kit
 copy under a path with a space and a quote, whose /etc/codex layers lie in the
 test's directory, in a temporary HOME, against a
 fake codex that records its argv and environment, writes rollouts as native
@@ -573,6 +575,37 @@ class Hooks(unittest.TestCase):
                 self.assertTrue(check.arguments(["-c", value], None).hooks_override)
 
 
+class HookSelection(unittest.TestCase):
+    """The pre-commit hook runs codex-guard.sh --hook: every in-process class, and of GuardedLaunch one case
+    per launch form; ./tests/run.sh runs every case. unittest's -k matches a substring of each test's name."""
+
+    def test_the_hook_runs_every_in_process_class_and_named_launch_cases(self):
+        text = (ROOT / "tests/codex-guard.sh").read_text()
+        block = re.search(r'(?ms)^if \[\[ "\$\{1:-\}" == --hook \]\]; then$(.*?)^fi$', text)
+        self.assertIsNotNone(block, "codex-guard.sh has no --hook selection")
+        patterns = re.findall(r"-k (\S+)", block[1])
+        loader = unittest.TestLoader()
+        classes = [item for item in globals().values() if isinstance(item, type) and issubclass(item, unittest.TestCase)]
+        names = {cls.__name__: [f"test_codex_guard.{cls.__name__}.{name}" for name in loader.getTestCaseNames(cls)]
+                 for cls in classes}
+        every = [name for group in names.values() for name in group]
+        for pattern in patterns:
+            with self.subTest(pattern=pattern):
+                found = [name for name in every if pattern in name]
+                self.assertTrue(found, "the hook names a test that does not exist")
+                if pattern.startswith(".GuardedLaunch."):
+                    self.assertEqual(len(found), 1, "a launch case pattern selects more than one case")
+        chosen = lambda name: any(pattern in name for pattern in patterns)
+        for cls, group in names.items():
+            with self.subTest(cls=cls):
+                if cls == "RealCodex":
+                    self.assertFalse(any(map(chosen, group)), "the hook runs the real Codex")
+                elif cls == "GuardedLaunch":
+                    self.assertEqual(sum(map(chosen, group)), 4, "one launch case per form")
+                else:
+                    self.assertTrue(all(map(chosen, group)), "an in-process case is left out of the hook")
+
+
 FAKE = r'''
 import json, os, pathlib, signal, subprocess, sys, time, tomllib
 if sys.argv[1:] == ["--version"]:
@@ -851,10 +884,10 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual(self.recorded()["args"], expected)
         self.assertEqual(self.launches(), [])
 
-    def test_plain_forms_launch_as_without_reserves(self):
+    def launches_plain(self, *argument_lists):
+        """With a reserve configured, each launch is the one --reserve-5h off gives, without the guard."""
         self.configure("[usage_reserve]\nfive_hour = 10\n")
-        for args in (["A", "mcp", "list"], ["A", "features", "list"], ["A", "login", "status"], ["A", "--help"],
-                     ["A", "exec", "--help"], ["A", "completion", "bash"], ["A", "git-credential", "get"]):
+        for args in argument_lists:
             with self.subTest(args=args):
                 result = self.run_codex("--reserve-5h", "off", *args)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -864,6 +897,13 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual(self.recorded(), plain)
         self.assertFalse(self.guard_dir.exists())
 
+    def test_a_plain_form_launches_as_without_reserves(self):
+        self.launches_plain(["A", "mcp", "list"])
+
+    def test_plain_forms_launch_as_without_reserves(self):
+        self.launches_plain(["A", "features", "list"], ["A", "login", "status"], ["A", "--help"], ["A", "exec", "--help"],
+                            ["A", "completion", "bash"], ["A", "git-credential", "get"])
+
     def refused(self, args, reason, account="A", env=None):
         result = self.run_codex("--reserve-weekly", "10", *args, env=env)
         self.assertEqual((result.returncode, result.stdout, result.stderr),
@@ -871,18 +911,21 @@ class GuardedLaunch(unittest.TestCase):
         self.assertFalse(self.record.exists(), "a refused launch started Codex")
         self.assertFalse((self.root / f"accounts/{account}").exists(), "a refused launch prepared the account")
 
-    def test_forms_and_options_the_hooks_cannot_cover_are_refused(self):
+    def test_forms_the_hooks_cannot_see_are_refused(self):
         self.trusted()
-        # The session's cwd is a worktree under CODEX_HOME (measured with codex-cli 0.169.0): the check after
-        # the run, which finds the run's new sessions by their directory, would see none of them.
-        worktree = ("--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check after "
-                    "the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
         for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["app-server"], "app-server"),
                            (["exec-server"], "exec-server"), (["remote-control"], "remote-control"),
                            (["debug", "app-server", "send-message-v2", "hi"], "debug app-server")):
             with self.subTest(args=args):
                 self.refused(["A", *args], f"codex {name} runs model work where the usage reserve guard's hooks "
                                            "cannot see or stop it")
+
+    def test_options_the_hooks_cannot_cover_are_refused(self):
+        self.trusted()
+        # The session's cwd is a worktree under CODEX_HOME (measured with codex-cli 0.169.0): the check after
+        # the run, which finds the run's new sessions by their directory, would see none of them.
+        worktree = ("--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check after "
+                    "the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
         override = ("a -c or --config value under hooks would meet the usage reserve guard's hooks, which codex-as "
                     "passes as -c values of its own")
         disabled = "--disable hooks or a -c value under features turns off the hooks that enforce usage reserves"
