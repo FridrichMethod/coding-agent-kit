@@ -93,7 +93,9 @@ class LaunchForms(Fixture):
             "headless": (["exec"], ["exec", "go"], ["e", "go"], ["exec", "resume", "--last"],
                          ["exec", "resume", UUID, "go"], ["exec", "fork", UUID, "go"], ["exec", "review"],
                          ["review"], ["review", "--uncommitted"], ["-C", "/tmp", "exec", "go"],
-                         ["exec", "-m", "o3", "go"]),
+                         ["exec", "-m", "o3", "go"],
+                         # After -- help is a prompt, and review has no subcommands: help is its prompt.
+                         ["exec", "--", "help"], ["review", "help"], ["exec", "go", "help"]),
             # remote-control runs an app server that remote clients drive, and debug app-server
             # send-message-v2 runs a turn through one: model work as in app-server.
             "refused": (["cloud"], ["cloud-tasks"], ["cloud", "exec", "--env", "x", "go"], ["app-server"],
@@ -110,6 +112,8 @@ class LaunchForms(Fixture):
                       # Help and version print and run nothing.
                       ["--help"], ["-h"], ["-V"], ["--version"], ["help"], ["help", "exec"],
                       ["resume", "--help"], ["exec", "--help"], ["exec", "go", "-V"], ["review", "-h"],
+                      # exec has subcommands, so clap reads help after it as its help subcommand.
+                      ["exec", "help"], ["e", "help", "resume"], ["exec", "-m", "x", "help"], ["exec", "help", "fork"],
                       ["cloud", "--help"], ["app-server", "--help"], ["remote-control", "-h"],
                       ["debug", "app-server", "--help"], ["login", "--help"]),
         }
@@ -902,7 +906,8 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_plain_forms_launch_as_without_reserves(self):
         self.launches_plain(["A", "features", "list"], ["A", "login", "status"], ["A", "--help"], ["A", "exec", "--help"],
-                            ["A", "completion", "bash"], ["A", "git-credential", "get"])
+                            ["A", "exec", "help"], ["A", "e", "help", "resume"], ["A", "completion", "bash"],
+                            ["A", "git-credential", "get"])
 
     def refused(self, args, reason, account="A", env=None):
         result = self.run_codex("--reserve-weekly", "10", *args, env=env)
