@@ -16,8 +16,10 @@ Public API (load this file by path; it is never on sys.path):
         One metadata file, or None when it is absent. Never follows a link;
         only an owned regular 0600 file with one link, at most 64 KiB, holding
         a JSON object with unique keys. Raises ValueError otherwise. A file
-        that another writer renamed a new one over right after it was opened
-        (no link left) is opened again, up to TRIES opens in all.
+        that another writer renamed a new one over while it was opened or read
+        (no link left, or ESTALE on a network file system) is opened again
+        after PAUSE seconds, up to TRIES opens in all: on Linux a rename drops
+        the replaced file's link before the name leads to the new one.
     write(path, data) -> bool
         Replaces the file atomically (an O_EXCL|O_NOFOLLOW 0600 temporary file
         in the same directory, then rename) unless it already holds exactly
@@ -47,6 +49,7 @@ Times in them come from a token, a Codex rollout or the status line, never
 from the launcher's clock; one from year 10000 on is ignored.
 """
 
+import errno
 import importlib.util
 import json
 import math
@@ -60,7 +63,8 @@ import time
 
 
 LIMIT = 64 * 1024
-TRIES = 3  # opens of a metadata file that another writer keeps replacing while it is read
+TRIES = 3  # opens of a metadata file that other writers keep replacing while it is read
+PAUSE = 0.002  # seconds before such a file is opened again
 LABEL_LIMIT = 100
 CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 WINDOWS = {"codex-as": ("primary", "secondary"), "claude-as": ("five_hour", "seven_day")}
@@ -142,20 +146,30 @@ def finite(_):
 
 def read(path):
     for attempt in range(1, TRIES + 1):
+        again = attempt < TRIES
+        if attempt > 1:
+            time.sleep(PAUSE)  # the rename that replaced the file may not lead the name to the new one yet
         try:
             fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
         except FileNotFoundError:
             return None
         except OSError as error:
+            if again and error.errno == errno.ESTALE:
+                continue
             raise ValueError(f"{path.name}: unreadable metadata ({error.strerror}).") from None
-        with os.fdopen(fd, "rb") as stream:
-            info = os.fstat(stream.fileno())
-            if info.st_nlink == 0 and attempt < TRIES:
-                continue  # another writer renamed a new file over the one just opened: read that one
-            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1
-                    or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size > LIMIT):
-                raise ValueError(f"{path.name}: unsafe metadata (not an owned 0600 file up to 64 KiB).")
-            raw = stream.read(LIMIT + 1)
+        try:
+            with os.fdopen(fd, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if again and info.st_nlink == 0:
+                    continue  # another writer renamed a new file over the one just opened: read that one
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1
+                        or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size > LIMIT):
+                    raise ValueError(f"{path.name}: unsafe metadata (not an owned 0600 file up to 64 KiB).")
+                raw = stream.read(LIMIT + 1)
+        except OSError as error:
+            if again and error.errno == errno.ESTALE:
+                continue  # the same on a network file system, where the replaced file can be gone
+            raise
         break
     try:
         data = json.loads(raw.decode("utf-8"), object_pairs_hook=unique, parse_constant=finite)

@@ -216,6 +216,87 @@ class Fixture(unittest.TestCase):
         with patch.object(os, "fstat", fstat):
             yield replaced
 
+    @contextlib.contextmanager
+    def renamed_while_opened(self, path, window):
+        """Another writer renames a copy of the file at PATH over it as a reader first opens it, and for WINDOW
+        seconds the name still leads to the replaced file, which has no link left: on Linux a rename drops that
+        link before the name moves to the new file. Yields the list of opens of PATH that got the replaced file."""
+        real, kept, stale = os.open, [], []
+
+        def open_(file, flags, *args, **options):
+            if os.fspath(file) != os.fspath(path):
+                return real(file, flags, *args, **options)
+            if not kept:
+                kept.append(real(file, flags, *args, **options))
+                copy = Path(f"{path}.other")
+                copy.write_bytes(Path(path).read_bytes())
+                copy.chmod(0o600)
+                os.replace(copy, path)
+                kept.append(time.monotonic() + window)
+            elif time.monotonic() >= kept[1]:
+                return real(file, flags, *args, **options)
+            stale.append(True)
+            return os.dup(kept[0])
+
+        try:
+            with patch.object(os, "open", open_):
+                yield stale
+        finally:
+            if kept:
+                os.close(kept[0])
+
+    @contextlib.contextmanager
+    def stale_handle(self, path, call):
+        """A network file system's answer once another host has renamed a new file over PATH: the first os.open of
+        PATH, or the first os.fstat or read of a file open as PATH (CALL), fails with ESTALE. Yields the failures."""
+        real_open, real_fstat, real_fdopen, failed = os.open, os.fstat, os.fdopen, []
+
+        def usage(fd):
+            try:
+                there, info = os.lstat(path), real_fstat(fd)
+            except OSError:
+                return False
+            return (info.st_dev, info.st_ino) == (there.st_dev, there.st_ino)
+
+        def fail():
+            failed.append(call)
+            raise OSError(errno.ESTALE, os.strerror(errno.ESTALE))
+
+        class Reading:
+            def __init__(self, stream):
+                self.stream = stream
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.stream.close()
+
+            def fileno(self):
+                return self.stream.fileno()
+
+            def read(self, *args):
+                if not failed:
+                    fail()
+                return self.stream.read(*args)
+
+        def open_(file, *args, **options):
+            if call == "open" and not failed and os.fspath(file) == os.fspath(path):
+                fail()
+            return real_open(file, *args, **options)
+
+        def fstat(fd):
+            if call == "fstat" and not failed and usage(fd):
+                fail()
+            return real_fstat(fd)
+
+        def fdopen(fd, *args, **options):
+            stream = real_fdopen(fd, *args, **options)
+            return Reading(stream) if call == "read" and not failed and usage(fd) else stream
+
+        with patch.object(os, "open", open_), patch.object(os, "fstat", fstat), patch.object(os, "fdopen", fdopen):
+            yield failed
+
 
 class LaunchOf(Fixture):
     EXAMPLE = ('{"v":1,"tool":"claude-as","account":"NAME","five_hour":"12.5","weekly":null,"started":1800000000,'
@@ -376,6 +457,28 @@ class Claude(Fixture):
             accounts.read(Path(launch.usage))
         self.assertEqual(len(replaced), accounts.TRIES)
         self.assertEqual(accounts.TRIES, 3)
+
+    def test_a_usage_file_opened_while_a_rename_over_it_is_under_way_is_read_again_after_a_pause(self):
+        # On Linux a rename drops the replaced file's link before the name moves to the new file, so opens right after
+        # the hook's first one can still get the replaced file: the hook waits before it opens the file again.
+        launch = self.launch(weekly="10")
+        self.claude_usage(launch, seven_day=(91, NOW + 3600))
+        with self.renamed_while_opened(launch.usage, 0.001) as stale:
+            self.assertEqual(self.answer("prompt", launch), (2, "", WEEKLY_CLAUDE + STOPPED["prompt"] + RELAUNCH_CLAUDE))
+        self.assertEqual(stale, [True])
+        self.assertEqual(guard.module("accounts").PAUSE, 0.002)  # longer than the 1 ms the fixture keeps the name
+
+    def test_a_stale_usage_file_handle_is_opened_again(self):
+        # On a network home directory another host's rename over the usage file can leave the hook's handle stale
+        # (ESTALE) instead of without a link: the hook opens the file again and still blocks at the reserve.
+        launch = self.launch(weekly="10")
+        self.claude_usage(launch, seven_day=(91, NOW + 3600))
+        for call in ("open", "fstat", "read"):
+            with self.subTest(call=call):
+                with self.stale_handle(launch.usage, call) as failed:
+                    self.assertEqual(self.answer("prompt", launch),
+                                     (2, "", WEEKLY_CLAUDE + STOPPED["prompt"] + RELAUNCH_CLAUDE))
+                self.assertEqual(failed, [call])
 
     def test_reserves_at_the_edges_and_fractions_through_the_environment(self):
         for reserve_text, used, blocks in (("12.5", 87.5, True), ("12.5", 87.4, False), ("0", 100, True),
@@ -1324,6 +1427,24 @@ class StatusLine(Fixture):
         self.assertEqual(replaced, [True])
         self.assertEqual(self.usage_file(launch), {**limits((60, NOW + 3600), (95, NOW + 86400)), "seen_at": NOW})
         self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(launch.usage).name])
+
+    def test_a_usage_file_a_rename_or_another_host_replaces_while_a_run_merges_keeps_its_windows(self):
+        # The same for a merge that opens the file while a rename over it is under way, or whose handle another
+        # host's rename made stale (ESTALE): the run reads the new file and keeps the window the reading lacks.
+        launch = self.launch(weekly="10")
+        stored = {**limits((50, NOW + 3600), (95, NOW + 86400)), "seen_at": NOW - 1000}
+        cases = [("a rename under way", lambda: self.renamed_while_opened(launch.usage, 0.001))]
+        cases += [(f"ESTALE from {call}", lambda call=call: self.stale_handle(launch.usage, call))
+                  for call in ("open", "fstat", "read")]
+        for name, replaced in cases:
+            with self.subTest(name):
+                put(Path(launch.usage), stored)
+                with replaced() as events:
+                    self.assertTrue(guard.record(launch.usage, limits((60, NOW + 3600), None), NOW))
+                self.assertEqual(len(events), 1)
+                self.assertEqual(self.usage_file(launch),
+                                 {**limits((60, NOW + 3600), (95, NOW + 86400)), "seen_at": NOW})
+                self.assertEqual([path.name for path in self.accounts.iterdir()], [Path(launch.usage).name])
 
     def test_the_usage_file_has_no_lock(self):
         # A run reads, merges and writes the file with no lock of any kind, so it needs no hard link either.
