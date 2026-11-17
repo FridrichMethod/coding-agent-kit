@@ -2314,14 +2314,15 @@ class Sandbox:
         return child.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
 
     def strays(self):
-        """Processes still running with this sandbox's CODEX_HOME, killed; Linux only."""
+        """Processes still running with this sandbox's CODEX_HOME or a Codex home under it (codex-as gives Codex
+        the account's, CODEX_HOME/accounts/NAME), killed; Linux only."""
         if not os.path.isdir("/proc/self"):
             return []
         needle, found = f"CODEX_HOME={self.codex_home}".encode(), []
         for entry in filter(str.isdigit, os.listdir("/proc")):
             try:
                 with open(f"/proc/{entry}/environ", "rb") as stream:
-                    if needle in stream.read().split(b"\0"):
+                    if any(item == needle or item.startswith(needle + b"/") for item in stream.read().split(b"\0")):
                         found.append(int(entry))
             except OSError:
                 pass
@@ -2341,7 +2342,7 @@ def load_kit_module(kit, name):
 
 
 class SandboxPath(unittest.TestCase):
-    """What the real Codex's sandbox puts on PATH, with fakes for codex and node."""
+    """The real Codex's sandbox, with fakes: what it puts on PATH and the processes it finds left running."""
 
     def test_only_codex_and_its_interpreter_join_the_system_directories(self):
         with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
@@ -2362,6 +2363,28 @@ class SandboxPath(unittest.TestCase):
             shim = (sandbox.shims / "git").read_text()
             self.assertNotIn(str(tools), shim, "the git shim runs the caller's git")
             self.assertRegex(shim, r"(?m)^(exec /usr(/local)?/bin/git \"\$@\"|exit 127)$")
+
+    def test_strays_are_the_processes_of_the_sandbox_s_codex_homes(self):
+        """Sandbox.strays() finds and kills what still runs, in a session of its own too, with the sandbox's
+        CODEX_HOME or a Codex home under it (codex-as gives Codex the account's, CODEX_HOME/accounts/NAME), and
+        leaves a process whose CODEX_HOME only begins with the same text."""
+        if not os.path.isdir("/proc/self"):
+            self.skipTest("Sandbox.strays() reads /proc, which this host does not have")
+        with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
+            base = Path(temp).resolve()
+            write(base / "codex", "#!/bin/sh\n", 0o700)
+            sandbox = Sandbox(base / "sandbox", base / "codex")
+            children = {}
+            for name, home in (("root", sandbox.codex_home), ("account", sandbox.codex_home / "accounts/A"),
+                               ("other", Path(f"{sandbox.codex_home}-other"))):
+                child = subprocess.Popen(["sleep", "60"], env={"PATH": "/usr/bin:/bin", "CODEX_HOME": str(home)},
+                                         stdin=subprocess.DEVNULL, start_new_session=True)
+                self.addCleanup(child.wait)
+                self.addCleanup(kill_group, child.pid)
+                children[name] = child.pid
+            self.assertEqual(sorted(sandbox.strays()), sorted((children["root"], children["account"])))
+            self.assertEqual(sandbox.strays(), [])
+            os.kill(children["other"], 0)  # still running
 
 
 class RealCodex(unittest.TestCase):
@@ -2502,8 +2525,8 @@ class RealCodex(unittest.TestCase):
     def test_app_server_s_schema_generators_launch_plain_with_a_reserve(self):
         """codex-as with a reserve on launches app-server generate-ts, generate-json-schema and
         generate-internal-json-schema, with their options, as with --reserve-5h off: no launch line and no guard,
-        and the real Codex writes the same files, starts no session and makes no request (every proxy is closed,
-        and no model provider is configured)."""
+        and the real Codex writes the same files, starts nothing that outlives it, starts no session and makes no
+        request (every proxy is closed, and no model provider is configured)."""
         shutil.copytree(ROOT / "bin", self.kit / "bin")
         home = self.sandbox.home
         home.chmod(0o700)
@@ -2532,6 +2555,7 @@ class RealCodex(unittest.TestCase):
                 self.assertEqual(runs[0][0], 0, runs[0][2])
                 self.assertTrue(runs[0][3], "Codex wrote no file")
                 self.assertEqual(runs[1], runs[0])
+        # strays() finds processes by CODEX_HOME, the account's home (home/.codex/accounts/A) included.
         self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
         self.assertEqual(list(home.rglob("rollout-*.jsonl*")), [], "a schema generator started a session")
         self.assertEqual([line for line in self.sandbox.netlog.read_text().splitlines()
