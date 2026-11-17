@@ -558,9 +558,11 @@ class Guarded(Fixture):
                      ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"], ["sandbox", "other"],
                      # An operand for a command that takes none in Claude Code 2.1.326, as a later release may add one.
                      ["doctor", "fix"], ["update", "x"], ["upgrade", "x"], ["apply-project-settings", "x"],
-                     # Claude Code dispatches these by its first argument only, which the guard's --settings is: after
-                     # it they are prompts, as is a connect URL (Claude Code 2.1.326 on a terminal).
-                     ["remote"], ["sync"], ["bridge"], ["cc+unix:///tmp/x.sock"], ["cc://127.0.0.1:1/x"]):
+                     # Remote Control's names that Claude Code dispatches only as its first argument are prompts
+                     # behind an option or --, with or without the guard's --settings; a connect URL is a prompt
+                     # wherever it stands (Claude Code 2.1.326 on a terminal).
+                     ["--verbose", "remote"], ["--", "sync"], ["--model", "x", "bridge"], ["cc+unix:///tmp/x.sock"],
+                     ["cc://127.0.0.1:1/x"], ["--verbose", "cc://127.0.0.1:1/x"]):
             with self.subTest(args=args):
                 record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assert_guarded(record, value, args, "10", None)
@@ -744,6 +746,8 @@ class Refusals(Fixture):
                  (["-p", "doctor"], f"-p {outside}"), (["--bg", "mcp", "list"], f"--bg {background}"),
                  (["agents"], f"claude agents {elsewhere}"), (["attach", "id"], f"claude attach {elsewhere}"),
                  (["--verbose", "respawn"], f"claude respawn {elsewhere}"), (["--", "attach"], f"claude attach {elsewhere}"),
+                 (["remote"], f"claude remote {FIRST}"), (["sync", "x"], f"claude sync {FIRST}"),
+                 (["bridge"], f"claude bridge {FIRST}"),
                  (["--settings", "x"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
                                        "claude-as passes in its own --settings"),
                  (["--settings={}"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
@@ -885,10 +889,14 @@ class Refusals(Fixture):
         self.assertNotIn(RESUME, record["env"])
 
     def test_the_table_of_refused_forms(self):
-        """launch.REFUSED is the one list of the forms a reserve refuses, and each has its test in RefusedForms."""
+        """launch.REFUSED and launch.LEADING are the lists of the forms a reserve refuses, and each has its test in
+        RefusedForms."""
         self.assertEqual(set(launch.REFUSED), set(REFUSED))
         for words in REFUSED:
             self.assertTrue(hasattr(RefusedForms, "test_" + refused_test_name(words)), words)
+        self.assertEqual(launch.LEADING.keys(), LEADING.keys())
+        for word in LEADING:
+            self.assertTrue(hasattr(RefusedForms, f"test_refuses_{word}_as_the_first_argument"), word)
 
     def test_a_claude_code_older_than_the_guard_minimum(self):
         self.assertEqual(launch.GUARD_MINIMUM, (2, 1, 296))
@@ -934,6 +942,11 @@ REFUSED = {
     ("plugin", "eval"): f"claude plugin eval {DETACHED}", ("plugins", "eval"): f"claude plugins eval {DETACHED}",
     ("mcp", "serve"): f"claude mcp serve {DETACHED}", ("gateway",): f"claude gateway {SERVED}",
 }
+# The words a reserve refuses as the first argument only in Claude Code 2.1.326 (Remote Control's fast path), with the
+# reason claude-as gives.
+FIRST = ("is Claude Code's Remote Control only as its first argument, where a launch with usage reserves puts the guard's "
+         "--settings, so Claude Code would send it to the model as a prompt")
+LEADING = {word: f"claude {word} {FIRST}" for word in ("remote", "sync", "bridge")}
 # The options a launch without a reserve leaves to the authentication audit, which refuses them.
 UNAUDITED = ("--init-only", "--bg", "--background")
 
@@ -969,10 +982,31 @@ class RefusedForms(Fixture):
         self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", *args], tty=False), (0, "stdout sentinel\n", ""))
         self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
 
+    def check_leading(self, word, reason):
+        """A word of LEADING: refused as the first argument, also with an operand after it; behind an option or --,
+        where Claude Code takes it as a prompt with or without the guard's --settings, it launches guarded; without
+        a reserve it launches unchanged."""
+        for flags in (["--reserve-5h", "10"], ["--reserve-weekly", "0"]):
+            for args in ([word], [word, "target"]):
+                with self.subTest(flags=flags, args=args):
+                    self.assert_refused([*flags, "work", *args], reason)
+        self.assertEqual(self.version_runs(), 0)
+        self.assertFalse(self.guard_dir.exists())
+        for args in (["--verbose", word], ["--", word]):
+            with self.subTest(prompt=args):
+                record, _, err = self.guarded(["--reserve-5h", "10", "work", *args])
+                self.assertEqual(record["argv"][3:], args)
+                self.assertTrue(err.endswith(LAUNCH_LINE), err)
+        self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", word], tty=False), (0, "stdout sentinel\n", ""))
+        self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), word])
+
 
 for _words, _reason in REFUSED.items():
     setattr(RefusedForms, "test_" + refused_test_name(_words),
             lambda self, words=_words, reason=_reason: self.check(words, reason))
+for _word, _reason in LEADING.items():
+    setattr(RefusedForms, f"test_refuses_{_word}_as_the_first_argument",
+            lambda self, word=_word, reason=_reason: self.check_leading(word, reason))
 
 
 class Settings(unittest.TestCase):

@@ -85,8 +85,9 @@ SERVED = ("claude {} serves other clients' model requests outside Claude Code's 
 # option (a word), wherever the command line parser takes it as one (also spelled with =), or a command (a tuple), by
 # its first and second operands, also after options and after --. Claude Code's modes that run none of the hooks are
 # refused through HOOKLESS and HOOKLESS_FLAGS, beside their environment switches; every other option or command either
-# runs the interactive session, where the hooks run, starts none (SESSIONLESS, VERBS), or is refused for every launch
-# by the authentication audit (scan). A form a later release adds is not here.
+# runs the interactive session, where the hooks run, starts none (SESSIONLESS, VERBS), is refused as the first
+# argument (LEADING), or is refused for every launch by the authentication audit (scan). A form a later release adds
+# is not here.
 REFUSED = {
     # Print mode: one turn with no terminal session and no status line, so the guard never records this account's
     # usage; an option every launch accepts.
@@ -117,6 +118,14 @@ REFUSED = {
     # Its required --config is not an audited option, so in practice the audit refuses it first.
     ("gateway",): SERVED,
 }
+FIRST = ("claude {} is Claude Code's Remote Control only as its first argument, where a launch with usage reserves puts "
+         "the guard's --settings, so Claude Code would send it to the model as a prompt")
+# The words Claude Code 2.1.326 runs as a command only as its first argument, with the reason claude-as refuses them
+# with there when a reserve is on: the names of Remote Control's fast path that its command line parser does not know.
+# Behind the guard's --settings Claude Code would take the word as the first prompt of a session, as it does behind
+# any option or --. remote-control and rc, the names the parser knows, are refused for every launch by the
+# authentication audit (scan). A cc:// or cc+unix:// connect URL is a prompt wherever it stands in this release.
+LEADING = {"remote": FIRST, "sync": FIRST, "bridge": FIRST}
 # The commands of Claude Code 2.1.326 that start no session, where no hook ever runs, by first operand, with the
 # second operands that keep them so (empty for a command that takes no operand, which counts alone; None for one whose
 # operand is a path, a version or a file, where any second operand counts): with a reserve on they launch as without
@@ -404,6 +413,7 @@ class Form:
     refused: list = field(default_factory=list)  # the options of REFUSED given, in order
     modes: list = field(default_factory=list)  # HOOKLESS_FLAGS words before the first --, wherever they stand
     settings: bool = False  # a --settings of the caller
+    first: object = None  # the first argument, which Claude Code's fast paths dispatch (LEADING)
     operand: object = None  # the first operand, which Claude Code dispatches as a command
     subcommand: object = None  # the second operand, which a command with subcommands dispatches
     dashed: bool = False  # the first or the second operand comes after --
@@ -452,6 +462,7 @@ def preflight(args, kit, enrollment, guarded=False):
         if (profiles / "active_config").exists() or (profiles / "configs/default.json").exists():
             fail("Anthropic profile selection present; review its authentication before automatic enrollment.")
     scan(args, form, kit, guarded)
+    form.first = args[0] if args else None
     scanned = args[:args.index("--")] if "--" in args else args
     form.modes = [word for word in HOOKLESS_FLAGS if word in scanned]
     return form
@@ -640,6 +651,8 @@ def check_form(form, account):
     for words, reason in REFUSED.items():
         if isinstance(words, tuple) and (form.operand, form.subcommand)[:len(words)] == words:
             refuse_guarded(account, reason.format(" ".join(words)))
+    if form.first in LEADING:
+        refuse_guarded(account, LEADING[form.first].format(form.first))
     if form.settings:
         refuse_guarded(account, "a --settings of your own cannot be combined with usage reserves, whose hooks "
                        "claude-as passes in its own --settings")
