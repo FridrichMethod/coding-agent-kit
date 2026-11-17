@@ -50,6 +50,9 @@ fi
 if ! command -v codex >/dev/null 2>&1; then
     printf 'SKIP: optional installed-Codex native sharing checks.\n'
 fi
+if ! command -v claude >/dev/null 2>&1; then
+    printf 'SKIP: optional installed-Claude-Code hook contract checks.\n'
+fi
 [[ "$missing" == 0 ]] || exit 1
 if [[ "$prerequisites_only" == 1 ]]; then
     printf 'test-prerequisites=PASS\n'
@@ -64,6 +67,7 @@ tests=(
     config.sh
     reserves.sh
     guard.sh
+    claude-guard.sh
     account-info.sh
     codex-as.sh
     codex-guard.sh

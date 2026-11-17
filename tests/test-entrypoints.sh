@@ -19,6 +19,7 @@ PATH="$TEST_TMP/bin" /bin/bash "$TEST_DIR/run.sh" --check-prerequisites \
     >"$TEST_TMP/local.stdout" 2>"$TEST_TMP/local.stderr"
 grep -Fq 'SKIP: optional zsh launcher and completion checks' "$TEST_TMP/local.stdout"
 grep -Fq 'SKIP: optional installed-Codex native sharing checks' "$TEST_TMP/local.stdout"
+grep -Fq 'SKIP: optional installed-Claude-Code hook contract checks' "$TEST_TMP/local.stdout"
 grep -Fxq 'test-prerequisites=PASS' "$TEST_TMP/local.stdout"
 
 # CI installs zsh, so there its launcher and completion cases cannot skip.

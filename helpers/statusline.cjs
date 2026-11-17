@@ -71,6 +71,7 @@ const USAGE_FILE = /^claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json$/;
 const RECORD_AGAIN = 300;
 const LAST_TIME = 253402300800; // 10000-01-01 UTC: no calendar time from here on
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
+const USAGE_LIMIT = 64 * 1024; // bytes of a usage file the guard reads
 
 function usageWindow(value) {
   const used = value?.used_percentage;
@@ -111,8 +112,10 @@ function underLauncher(pid, parent = process.ppid) {
 // claude. Claude Code passes CLAUDE_CODE_OAUTH_TOKEN to none of the commands it
 // starts, so the session is recognised by that pid; a token that is visible all
 // the same must hash to the identifier. Nothing is recorded on Windows, outside an
-// owned 0700 directory, or when the values are unchanged and less than five
-// minutes old. Returns whether it wrote.
+// owned 0700 directory, or when the merged values are unchanged and less than five
+// minutes old. The guard's status line (lib/coding-agent-kit/guard.py) writes the
+// same file, so a change is merged and written under the file's lock, which both
+// take. Returns whether it wrote.
 function recordUsage(data, env = process.env, now = Date.now()) {
   if (process.platform === 'win32') return false;
   const file = env.CODING_AGENT_KIT_USAGE_FILE;
@@ -130,17 +133,246 @@ function recordUsage(data, env = process.env, now = Date.now()) {
   const folder = path.dirname(file);
   const info = fs.lstatSync(folder);
   if (!info.isDirectory() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) return false;
-  const seen = Math.floor(now / 1000);
-  let old = null;
+  if (!mergedUsage(file, record, now)) return false; // most runs: nothing new, and no lock taken
+  // A run that a signal ended while it held the lock would leave it, so these signals are caught meanwhile.
+  // guard.py holds them back and is ended by one once it has let the lock go; this run drops them, since
+  // Node calls a signal listener only from its event loop, which this synchronous run reaches after its
+  // footer, and a listener removed before then never sees the signal. A run that Claude Code cancelled
+  // while it held the lock thus ends normally, with a footer that is no longer shown.
+  for (const signal of HELD_SIGNALS) process.on(signal, ignored);
   try {
-    if (fs.lstatSync(file).isFile()) old = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    // No usable earlier record: write a fresh one.
+    const held = lock(file);
+    if (!held) return false; // another writer held it LOCK.wait seconds
+    try {
+      const content = mergedUsage(file, record, now); // read again: another writer may have written since
+      if (!content) return false;
+      replacePrivate(file, `${JSON.stringify(content)}\n`, now);
+      return true;
+    } finally {
+      unlock(...held);
+    }
+  } finally {
+    for (const signal of HELD_SIGNALS) process.removeListener(signal, ignored);
   }
-  if (old && JSON.stringify([old.five_hour, old.seven_day]) === JSON.stringify([record.five_hour, record.seven_day])
-    && Number.isInteger(old.seen_at) && seen - old.seen_at < RECORD_AGAIN) return false;
-  replacePrivate(file, `${JSON.stringify({ ...record, seen_at: seen })}\n`, now);
+}
+
+// The usage file's content after merging RECORD into it by the guard's rule
+// (guard.py merge and merged_record): a reading never goes back, so a stored
+// window that has not reset stays when the incoming one has the same reset and a
+// lower percentage, an earlier reset, or is absent. Null when the merged windows
+// equal the stored ones and were stored less than RECORD_AGAIN seconds ago.
+function mergedUsage(file, record, now) {
+  const old = storedUsage(file) || {};
+  const seconds = now / 1000;
+  const merge = (kept, incoming) => (!kept || kept.resets_at <= seconds ? incoming
+    : !incoming || incoming.resets_at < kept.resets_at
+      || (incoming.resets_at === kept.resets_at && incoming.used_percentage < kept.used_percentage) ? kept : incoming);
+  const kept = { five_hour: usageWindow(old.five_hour), seven_day: usageWindow(old.seven_day) };
+  const merged = { five_hour: merge(kept.five_hour, record.five_hour), seven_day: merge(kept.seven_day, record.seven_day) };
+  const age = Math.floor(seconds) - old.seen_at;
+  if (JSON.stringify(merged) === JSON.stringify(kept) && Number.isInteger(old.seen_at) && age >= 0 && age < RECORD_AGAIN) {
+    return null;
+  }
+  return { ...merged, seen_at: Math.floor(seconds) };
+}
+
+// The usage file's JSON object under the guard's checks (accounts.read): an owned
+// 0600 regular file with one link and at most USAGE_LIMIT bytes; else null.
+// JSON.parse accepts a little more than accounts.read (a repeated key keeps its
+// last value, bytes that are not UTF-8 are replaced): content no writer produces.
+function storedUsage(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+  } catch {
+    return null;
+  }
+  try {
+    const info = fs.fstatSync(fd);
+    if (!info.isFile() || info.uid !== process.getuid() || info.nlink !== 1 || (info.mode & 0o7777) !== 0o600
+      || info.size > USAGE_LIMIT) return null;
+    const data = JSON.parse(fs.readFileSync(fd, 'utf8'));
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+  } catch {
+    return null;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// The usage file's lock, by the protocol in guard.py's module docstring, except
+// that a SIGTERM, SIGHUP or SIGINT that comes while this run holds the lock is
+// dropped rather than held back (see recordUsage); either way no lock is left: the
+// file .NAME.lock beside it, which names its holder ({"host", "pid", "at"}) from
+// the moment it exists. A lock is judged by that content, never by the file's
+// time; one that a run left when it ended is removed under the breaker
+// .NAME.lock.break, a lock of the same kind, and only while it is still the file
+// judged. A run waits LOCK.wait seconds at most and then records nothing.
+const LOCK = { wait: 2, stale: 10 }; // seconds: guard.py's LOCK_WAIT and LOCK_STALE
+const HELD_SIGNALS = ['SIGTERM', 'SIGHUP', 'SIGINT'];
+const ignored = () => {};
+const { O_CREAT, O_EXCL, O_NOFOLLOW, O_NONBLOCK, O_RDONLY, O_WRONLY } = fs.constants;
+const PAUSE = new Int32Array(new SharedArrayBuffer(4));
+
+function sameFile(fd, file) {
+  try {
+    const [mine, there] = [fs.fstatSync(fd, { bigint: true }), fs.lstatSync(file, { bigint: true })];
+    return mine.dev === there.dev && mine.ino === there.ino;
+  } catch {
+    return false;
+  }
+}
+
+// Takes the lock or breaker NAME and returns it open; EEXIST while another run
+// holds it. The holder is written to a hidden 0600 temporary file first, which is
+// then linked to NAME: NAME never exists without it.
+function createLock(name) {
+  const temporary = `${name}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+  const content = JSON.stringify({ host: os.hostname(), pid: process.pid, at: Math.floor(Date.now() / 1000) });
+  const fd = fs.openSync(temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600);
+  try {
+    fs.fchmodSync(fd, 0o600); // whatever the umask took: other runs read the holder
+    if (fs.writeSync(fd, content) !== Buffer.byteLength(content)) throw new Error(`${temporary}: short write`);
+    try {
+      fs.fsyncSync(fd); // a run on another host of a network home reads the holder as soon as NAME exists
+    } catch {
+      // Best effort.
+    }
+    try {
+      fs.linkSync(temporary, name);
+    } catch (error) {
+      // A network file system can retry a link whose reply was lost.
+      if (error.code !== 'EEXIST' || !sameFile(fd, name)) throw error;
+    }
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  } finally {
+    try {
+      fs.unlinkSync(temporary);
+    } catch {
+      // Gone already.
+    }
+  }
+  return fd;
+}
+
+// The lock or breaker FILE open to judge it (read-only, else write-only), or
+// null when it is gone; one that opens neither way is an error, never removed.
+function openLock(file) {
+  try {
+    return fs.openSync(file, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    if (error.code !== 'EACCES' && error.code !== 'EPERM') throw error;
+  }
+  try {
+    return fs.openSync(file, O_WRONLY | O_NOFOLLOW | O_NONBLOCK);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function running(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
+}
+
+// Whether the lock or breaker open as FD was left by a run that ended: it names
+// no holder, the holder's clock is more than LOCK.stale seconds from this one's
+// (plus the second its whole seconds may lag), or the holder is a process of
+// this host that has ended. JSON.parse reads a holder as guard.py's holder()
+// does except on content no writer produces: 5.0 or 1e3 count as whole numbers
+// here, and a holder in UTF-16 or behind a byte order mark names none here.
+function staleLock(fd) {
+  let holder;
+  try {
+    const buffer = Buffer.alloc(4096);
+    holder = JSON.parse(buffer.toString('utf8', 0, fs.readSync(fd, buffer, 0, buffer.length, 0)));
+  } catch {
+    return true;
+  }
+  const { host, pid, at } = holder && typeof holder === 'object' && !Array.isArray(holder) ? holder : {};
+  if (typeof host !== 'string' || !Number.isInteger(pid) || pid <= 0 || pid >= 2 ** 31
+    || !Number.isInteger(at) || at <= 0 || at >= LAST_TIME) return true;
+  return Math.abs(Date.now() / 1000 - at) > LOCK.stale + 1 || (host === os.hostname() && !running(pid));
+}
+
+// Removes the lock or breaker FILE when it is stale, judged and removed while it
+// is open here and only while FILE is still that file: false while it is held.
+function clearLock(file) {
+  const fd = openLock(file);
+  if (fd === null) return true;
+  try {
+    if (!staleLock(fd)) return false;
+    if (sameFile(fd, file)) fs.unlinkSync(file);
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') return true;
+    throw error;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// Removes the lock NAME when it is stale, under its breaker; true when the
+// caller should try to take the lock now, false while NAME or the breaker is held.
+function discardLock(name) {
+  const fd = openLock(name);
+  if (fd === null) return true;
+  try {
+    if (!staleLock(fd)) return false;
+  } finally {
+    fs.closeSync(fd);
+  }
+  const breaker = `${name}.break`;
+  let held;
+  try {
+    held = createLock(breaker);
+  } catch (error) {
+    if (error.code === 'EEXIST') return clearLock(breaker);
+    throw error;
+  }
+  try {
+    clearLock(name);
+  } finally {
+    unlock(breaker, held);
+  }
   return true;
+}
+
+// Takes the lock of the usage file FILE: [its name, its fd], or null when
+// another writer held it LOCK.wait seconds.
+function lock(file) {
+  const name = path.join(path.dirname(file), `.${path.basename(file)}.lock`);
+  const deadline = performance.now() + LOCK.wait * 1000;
+  for (;;) {
+    if (discardLock(name)) {
+      try {
+        return [name, createLock(name)];
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+      }
+    }
+    if (performance.now() >= deadline) return null;
+    Atomics.wait(PAUSE, 0, 0, 10);
+  }
+}
+
+// Lets the lock or breaker taken as (NAME, FD) go, unless it was removed as stale since.
+function unlock(name, fd) {
+  try {
+    if (sameFile(fd, name)) fs.unlinkSync(name);
+  } catch {
+    // Best effort.
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 // Replaces FILE with CONTENTS through a 0600 temporary file beside it and a rename.
@@ -151,7 +383,9 @@ function replacePrivate(file, contents, now) {
   for (const name of fs.readdirSync(folder)) {
     if (name.startsWith(prefix) && name.endsWith('.tmp')) {
       const stale = path.join(folder, name);
-      if (now - fs.lstatSync(stale).mtimeMs > 60000) fs.rmSync(stale, { force: true });
+      // Another writer's temporary file may go meanwhile.
+      const info = fs.lstatSync(stale, { throwIfNoEntry: false });
+      if (info?.isFile() && now - info.mtimeMs > 60000) fs.rmSync(stale, { force: true });
     }
   }
   const temporary = path.join(folder, `${prefix}${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`);
@@ -383,5 +617,5 @@ function main() {
   process.stdout.write(`${formatStatus(data, gitBranch(data?.workspace?.current_dir || data?.cwd), colors, tokens)}\n`);
 }
 
-module.exports = { formatStatus, gitBranch, main, recordUsage, sessionTokens };
+module.exports = { formatStatus, gitBranch, LOCK, lock, main, recordUsage, sessionTokens, unlock };
 if (require.main === module) main();
