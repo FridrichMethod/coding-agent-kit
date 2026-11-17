@@ -532,7 +532,12 @@ class Guarded(Fixture):
                  # The help of a command with subcommands, and the hidden commands that run no model.
                  ["auto-mode", "help"], ["mcp", "help", "serve"], ["plugin", "help", "eval"], ["project", "help"],
                  ["import-conversations", "export.zip"], ["apply-project-settings"], ["sandbox"], ["sandbox", "status"],
-                 ["sandbox", "install"], ["sandbox", "uninstall"])
+                 ["sandbox", "install"], ["sandbox", "uninstall"],
+                 # A help or version option beside other options and no operand: Claude Code prints its help, or its
+                 # version where both are given, in either order.
+                 ["--verbose", "--help"], ["--help", "--verbose"], ["--model", "x", "-h"], ["-c", "--help"],
+                 ["-r", "--help"], ["--debug", "-h"], ["--add-dir", "a", "b", "-h"], ["--help", "--"],
+                 ["--version", "--verbose"], ["--verbose", "-v"], ["-v", "--help"], ["--help", "-v"])
         for args in cases:
             for tty in (False,) if args != ["doctor"] else (False, True):
                 with self.subTest(args=args, tty=tty):
@@ -552,10 +557,10 @@ class Guarded(Fixture):
 
     def test_other_commands_launch_guarded(self):
         """A prompt and an unknown command, subcommand or operand (import starts a session, and a later release may add
-        one) get the guard. So, on purpose, do a command after -- and a background verb behind options before a
-        session id, which start no session in Claude Code 2.1.326 either (it dispatches the command there, and takes
-        the verb as one), lest a release that read them as prompts run a session without its guard; behind options a
-        verb with no session id after it is a prompt."""
+        one) get the guard. So, on purpose, do a command after --, a background verb behind options before a session
+        id and a help option beside an operand, which start no session in Claude Code 2.1.326 either (it dispatches
+        the command there, takes the verb as one and prints its help), lest a release that read them as prompts run a
+        session without its guard; behind options a verb with no session id after it is a prompt."""
         for args in (["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"], ["mcp", "eval"],
                      ["auto-mode", "other"], ["import"], ["import", "codex"], ["--", "doctor"],
                      ["mcp", "--", "list"], ["plugin", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"],
@@ -566,7 +571,12 @@ class Guarded(Fixture):
                      # behind an option or --, with or without the guard's --settings; a connect URL is a prompt
                      # wherever it stands (Claude Code 2.1.326 on a terminal).
                      ["--verbose", "remote"], ["--", "sync"], ["--model", "x", "bridge"], ["cc+unix:///tmp/x.sock"],
-                     ["cc://127.0.0.1:1/x"], ["--verbose", "cc://127.0.0.1:1/x"]):
+                     ["cc://127.0.0.1:1/x"], ["--verbose", "cc://127.0.0.1:1/x"],
+                     # A help word after -- is a prompt, and one that is an option's value is no option. Beside an
+                     # operand a help option keeps the launch guarded on purpose: Claude Code 2.1.326 prints its help
+                     # for a prompt word too, but a word a later release dispatches before its command line parser
+                     # may run without reading it.
+                     ["--", "--help"], ["--model", "--help"], ["hello", "--help"], ["--help", "hello"]):
             with self.subTest(args=args):
                 record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assert_guarded(record, value, args, "10", None)
@@ -575,7 +585,7 @@ class Guarded(Fixture):
     def test_a_command_that_starts_no_session_is_no_earlier_launch(self):
         """It leaves no launch state, so a usage record that a later session of the account writes never makes
         the next guarded launch warn of a launch without its hooks."""
-        for args in (["mcp", "list"], ["doctor"], ["logs"]):
+        for args in (["mcp", "list"], ["doctor"], ["logs"], ["--verbose", "--help"], ["--version", "--verbose"]):
             with self.subTest(args=args):
                 code, out, err = self.run_launcher(["--reserve-5h", "10", "work", *args])
                 self.assertEqual((code, err), (0, ""))

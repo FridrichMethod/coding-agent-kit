@@ -132,16 +132,19 @@ LEADING = {"remote": FIRST, "sync": FIRST, "bridge": FIRST}
 # second operands that keep them so (empty for a command that takes no operand, which counts alone; None for one whose
 # operand is a path, a version or a file, where any second operand counts): with a reserve on they launch as without
 # one, so that no launch state expects the guard's hooks. A subcommand or an operand of a later release and an option
-# of REFUSED keep the launch guarded, and so, on purpose, do two forms that start no session in this release either,
-# lest a release that read them as prompts run that session without its guard: a command after -- (Claude Code
-# dispatches it there too), and a background verb behind options before a session id (Claude Code takes it as a
-# verb there, and then refuses it under the guard's CLAUDE_CODE_DISABLE_AGENT_VIEW; as the first argument it runs).
-# Like a launch Claude Code ends before any hook, they leave launch state that no hook completes, so a later usage
-# record of the account makes the next guarded launch warn. Claude Code takes the background verbs as verbs wherever
-# they are the first argument; behind options only before a session id, and as a prompt otherwise. The hidden
-# commands that need an option the audit refuses (--json) are not here. plugin test runs a mod's tests, each file in
-# a child of Claude Code that runs no model, and only with plugin as the first argument, which a guard's --settings
-# would take.
+# of REFUSED keep the launch guarded, and so, on purpose, do three forms that start no session in this release
+# either, lest a release that read them as prompts run that session without its guard: a command after -- (Claude Code
+# dispatches it there too), a background verb behind options before a session id (Claude Code takes it as a verb
+# there, and then refuses it under the guard's CLAUDE_CODE_DISABLE_AGENT_VIEW; as the first argument it runs), and a
+# help or version option beside an operand (Claude Code prints its help or version for a prompt word too, but a word
+# that a later release dispatches before its command line parser may run without reading the option). Like a launch
+# Claude Code ends before any hook, they leave launch state that no hook completes, so a later usage record of the
+# account makes the next guarded launch warn. A help or version option (HELP) with no operand launches as without a
+# reserve, also beside other options and before a --: Claude Code prints its help, or its version where both are
+# given. Claude Code takes the background verbs as verbs wherever they are the first argument; behind options only
+# before a session id, and as a prompt otherwise. The hidden commands that need an option the audit refuses (--json)
+# are not here. plugin test runs a mod's tests, each file in a child of Claude Code that runs no model, and only with
+# plugin as the first argument, which a guard's --settings would take.
 PLUGIN = {"init", "new", "validate", "tag", "list", "details", "marketplace", "install", "i", "uninstall", "remove",
           "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure", "test", "help"}
 SESSIONLESS = {"doctor": set(), "update": set(), "upgrade": set(), "install": None, "purge": None,
@@ -154,6 +157,7 @@ SESSIONLESS = {"doctor": set(), "update": set(), "upgrade": set(), "install": No
                "import-conversations": None, "apply-project-settings": set(),
                "sandbox": {"install", "status", "uninstall", "help"}}
 VERBS = ("logs", "stop", "kill", "rm")
+HELP = ("-h", "--help", "-v", "--version")
 # A guarded launch keeps its session in this process: no move to the background, no agent view, and no
 # re-run of a turn that the guard stopped. Claude Code also reads these from a settings file's env.
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}
@@ -421,6 +425,7 @@ class Form:
     refused: list = field(default_factory=list)  # the options of REFUSED given, in order
     modes: list = field(default_factory=list)  # HOOKLESS_FLAGS words before the first --, wherever they stand
     settings: bool = False  # a --settings of the caller
+    query: bool = False  # an option of HELP, where Claude Code with no operand prints its help or version
     first: object = None  # the first argument, which Claude Code's fast paths dispatch (LEADING)
     operand: object = None  # the first operand, which Claude Code dispatches as a command
     subcommand: object = None  # the second operand, which a command with subcommands dispatches
@@ -527,6 +532,7 @@ def scan(args, form, kit, guarded):
         elif options and arg in switches:
             if arg in REFUSED:
                 form.refused.append(arg)
+            form.query |= arg in HELP
         elif options and guarded and flag in REFUSED:  # -p=..., and the options unsupported without a reserve
             form.refused.append(flag)
         elif options and arg.startswith("-") and arg != "-":
@@ -544,9 +550,9 @@ def scan(args, form, kit, guarded):
 
 
 def sessionless(args, kit):
-    """Whether the native ARGS run a command that starts no session (SESSIONLESS, or one of VERBS as the first
-    argument) with no option of REFUSED and no -- before the operands that tell; False when the scan of ARGS
-    refuses them, as the launch then does."""
+    """Whether the native ARGS start no session, with no option of REFUSED and no -- before the operands that tell:
+    a command of SESSIONLESS, one of VERBS as the first argument, or no operand beside an option of HELP, where
+    Claude Code prints its help or version; False when the scan of ARGS refuses them, as the launch then does."""
     form = Form()
     try:
         scan(args, form, kit, guarded=True)
@@ -554,6 +560,8 @@ def sessionless(args, kit):
         return False
     if form.refused or form.dashed:
         return False
+    if form.operand is None:
+        return form.query
     if form.operand in VERBS:
         return args[0] == form.operand
     if form.operand not in SESSIONLESS:
