@@ -421,7 +421,7 @@ def run_threads(root, plan, owner, begun, ended, alone):
     by id none; exec resume without an id one when it finds no session of the directory to continue), so
     when more started here, other headless runs of the account did too: they are EITHER. A TUI may start
     several: SURE when ALONE, MAYBE when another codex-as client of the account ran at the run's start or
-    end (not ALONE), which may be a second TUI here.
+    end or arrived during it (not ALONE), which may be a second TUI here.
 
     A form that can switch to an older session it does not name appends to one of this account's older
     sessions, of any day: an interactive form (the TUI, resume and fork) to one of any directory, so
@@ -670,6 +670,10 @@ def main(args):
     baseline = None
     try:
         alone = layout.acquire()
+        try:
+            arrived = layout.arrive()
+        except OSError:
+            arrived = None  # a launch arriving later cannot be told: this one is never alone
         if alone:
             enroll(layout, codex)
             layout.prepare()
@@ -711,8 +715,9 @@ def main(args):
                 ended = time.time()
             finally:
                 layout.close()
-            # Use a fresh open-file description: surviving descendants still hold SH.
-            alone = post_run(layout, baseline) and alone
+            # Use a fresh open-file description: surviving descendants still hold SH. Alone: no other
+            # client of the account at the run's start or end, and none arrived meanwhile.
+            alone = post_run(layout, baseline) and alone and layout.size == arrived
             threads = None if state is None else this_run(layout, plan, baseline, begun, ended, alone)
             groups = [group for kind in threads for group in kind] if threads else ()
             if os.path.lexists(layout.target):

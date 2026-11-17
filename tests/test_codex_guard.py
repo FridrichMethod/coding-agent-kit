@@ -533,6 +533,27 @@ class RunAttribution(Fixture):
         Path(state + ".blocked").write_text("codex-as: A: stopped\n")
         self.assertEqual(launch.blocked_message(state), "codex-as: A: stopped")
 
+    def test_a_launch_that_arrives_in_between_changes_the_lease_file_s_size(self):
+        """Layout.arrive: each launch of the account appends to the lease file it holds, so the size a later
+        acquire() reads differs once another launch arrived, also one that ended again meanwhile."""
+        run, end, second = (layout.Layout(check, "A", self.config) for _ in range(3))
+        for lease in (run, end, second):
+            self.addCleanup(lease.close)
+        self.assertTrue(run.acquire())
+        fcntl.flock(run.fd, fcntl.LOCK_SH)  # as a launch holds it while Codex runs
+        mark = run.arrive()
+        self.assertEqual(mark, run.size + 1)
+        self.assertFalse(end.acquire())
+        self.assertEqual(end.size, mark, "nothing arrived")
+        end.close()
+        self.assertFalse(second.acquire())
+        second.arrive()
+        second.close()
+        self.assertFalse(end.acquire())
+        self.assertEqual(end.size, mark + 1)
+        info = (self.root / "accounts/.locks/A.lock").lstat()
+        self.assertEqual((info.st_mode & 0o7777, info.st_nlink), (0o600, 1))
+
     def test_a_native_killed_by_a_signal_is_re_raised(self):
         """SIGQUIT among them: codex-as forwards it, and a native whose default action it ended ends codex-as
         the same way (here with os.kill and signal.signal stubbed, so nothing dumps a core)."""
@@ -1501,7 +1522,8 @@ class GuardedLaunch(unittest.TestCase):
             (["exec", "go"], others, [{"lines": own, "source": "cli"}], tool_hook),
             (["exec", "go"], others, [{"lines": own, "cwd": elsewhere}], tool_hook),
             (["exec", "go"], own, [{"lines": own}], ""),
-            # Alone, a TUI cannot tell a second TUI here that started and ended inside its run from its own sessions.
+            # Alone, a TUI takes a session started here during its run for its own; a second codex-as launch
+            # arriving makes it not alone (test_a_launch_of_the_account_that_arrives_during_a_run_leaves_it_unsure).
             ([], own, [{"lines": others}], tool_hook),
         )
         for args, lines, concurrent, printed in cases:
@@ -1582,6 +1604,43 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stderr),
                                  (0, launch_line + WARNING.format("the guard's tool hook")))
                 self.assertFalse(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
+    def test_a_launch_of_the_account_that_arrives_during_a_run_leaves_it_unsure(self):
+        """A second codex-as launch of the account that starts and ends inside a TUI's run (a second terminal
+        tab, here or continuing an older session elsewhere) holds the lease only meanwhile, where neither of
+        the run's lease checks sees it; its arrival in the lease file makes the run not alone. What its
+        sessions show gets the notice, never the warning: the marker stays and the next headless run runs."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        elsewhere = self.base / "elsewhere"
+        elsewhere.mkdir()
+        second = [str(self.kit / "bin/codex-as"), "--reserve-5h", "10", "A"]
+        inner = self.base / "inner.json"
+        tab = [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, CALL, snapshot(20.0)]}]
+        cases = (  # this TUI's own lines, the hooks it ran, the second launch's arguments, what it names
+            ([], [], [], "the guard's hooks"),
+            ([ANSWER, snapshot(20.0)], ["prompt"], [], "the guard's tool hook"),
+            ([], [], ["-C", str(elsewhere), "exec", "resume", "--last", "go"], "the guard's hooks"),
+        )
+        for own, hooks, args, missing in cases:
+            with self.subTest(own=len(own), args=args):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                older = self.old_rollout(OTHER, 86400, cwd=elsewhere)
+                rollouts = ([{"append": str(older), "lines": [turn(elsewhere), ANSWER, CALL, snapshot(20.0)]}]
+                            if args else tab)
+                nested = {"argv": [*second, *args], "env": {"FAKE_ROLLOUTS": json.dumps(rollouts),
+                                                            "FAKE_HOOKS": '["prompt", "tool"]', "FAKE_RECORD": str(inner)}}
+                own_rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": own}] if own else []
+                result = self.run_codex("--reserve-5h", "10", "A", env={
+                    "FAKE_NESTED": json.dumps(nested), "FAKE_ROLLOUTS": json.dumps(own_rollouts),
+                    "FAKE_HOOKS": json.dumps(hooks)})
+                self.assertEqual(self.recorded()["nested"], [0, "fake codex ran\n", launch_line])
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + NOTICE.format(missing)))
+                self.assertTrue(self.marker.exists())
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
         self.assertEqual(self.launches(), [])
 
     def test_exec_resume_without_an_id_is_told_by_the_turn_it_begins_here(self):

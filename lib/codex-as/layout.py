@@ -205,7 +205,7 @@ class Layout:
         self.home = self.root / "accounts" / account
         self.auth = self.home / "auth.json"
         self.target = self.secrets / f"codex-{account}.json"
-        self.fd = None
+        self.fd = self.size = None
 
     def private_file(self, path):
         return self.g.private_metadata(path)
@@ -237,7 +237,8 @@ class Layout:
             self.g.directory(self.secrets, private=True)
 
     def acquire(self):
-        """Exclusive when no other client of this account runs, otherwise shared."""
+        """Exclusive when no other client of this account runs, otherwise shared. Sets SIZE to the lease
+        file's size (see arrive)."""
         self.root.mkdir(mode=0o700, exist_ok=True)
         for path in (self.root / "accounts", self.root / "accounts/.locks"):
             path.mkdir(mode=0o700, exist_ok=True)
@@ -248,12 +249,22 @@ class Layout:
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
                 or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600):
             self.g.fail("unsafe account lease; no launch performed.")
+        self.size = info.st_size
         try:
             fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return True
         except BlockingIOError:
             fcntl.flock(self.fd, fcntl.LOCK_SH)
             return False
+
+    def arrive(self):
+        """Counts this launch in the lease file that acquire() opened: appends one byte (atomically on one
+        host; the content is never read) and returns the file's size after it. Another size when a later
+        acquire() reads it shows that another launch of the account arrived meanwhile, also one that
+        started and ended in between, which the lease itself never shows."""
+        fcntl.fcntl(self.fd, fcntl.F_SETFL, fcntl.fcntl(self.fd, fcntl.F_GETFL) | os.O_APPEND)
+        os.write(self.fd, b"\n")
+        return os.lseek(self.fd, 0, os.SEEK_CUR)
 
     def close(self):
         if self.fd is not None:
