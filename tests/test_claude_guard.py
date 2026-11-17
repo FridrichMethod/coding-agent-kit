@@ -9,10 +9,12 @@ records its argv and environment; a guarded launch needs a terminal on standard
 output, so those launches run with standard output on a pseudo-terminal.
 
 RealClaude runs the guard's hooks in the real Claude Code when one at or above
-the guard's minimum is on PATH (it skips with the reason otherwise): offline,
+the guard's minimum is on PATH (it skips with the reason otherwise, and when the
+host's managed settings would stop the injected hooks or status line): offline,
 against the loopback fake tests/fixtures/guard/claude_api.py, in a temporary
 HOME and configuration directory with an environment built from scratch, git
-and ssh shims first on PATH and every proxy at a closed loopback port.
+and ssh shims first on PATH, git allowed the file protocol only and every proxy
+at a closed loopback port.
 """
 
 import hashlib
@@ -1319,10 +1321,33 @@ def kill_group(pid):
         pass
 
 
+def managed_policy_stop():
+    """Why this host's managed settings would keep a real Claude Code from running the guard's injected hooks or
+    status line: the first managed source, read as a guarded preflight reads them, that sets disableAllHooks,
+    allowManagedHooksOnly, strictPluginOnlyCustomization (launch.hook_keys) or statusLine; None when none does."""
+    sources = {}
+    drop_ins = (path for folder in launch.MANAGED_DIRECTORIES for path in sorted(folder.glob("*.json")))
+    for path in (*launch.MANAGED_FILES, *drop_ins):
+        try:
+            with open(path, "rb") as stream:
+                sources[path] = json.load(stream)
+        except (OSError, ValueError):
+            continue
+    sources.update(launch.machine_policies())
+    for path, data in sources.items():
+        if isinstance(data, dict):
+            keys = launch.hook_keys(data, managed=True) + (["statusLine"] if "statusLine" in data else [])
+            if keys:
+                return (f"the host's managed settings {path} set {', '.join(keys)}, so Claude Code would not run the "
+                        "guard's injected hooks or status line")
+    return None
+
+
 class Sandbox:
     """A Claude Code that reaches nothing of this host's user: a temporary HOME and configuration directory,
-    an environment built from scratch, git and ssh shims first on PATH, every proxy at a closed loopback
-    port, no session bus, and its background features closed (probe results R0, R8, R8D and R20)."""
+    an environment built from scratch, git and ssh shims first on PATH (and git allowed the file protocol only),
+    every proxy at a closed loopback port, no session bus, and its background features closed (probe results R0,
+    R8, R8D and R20)."""
 
     def __init__(self, base, bindir):
         self.base, self.bindir = base, bindir
@@ -1364,7 +1389,9 @@ class Sandbox:
                **CLOSED,
                **{name: closed for name in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")},
                "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost",
-               "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
+               "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1",
+               # For a git run by its absolute path, past the shim.
+               "GIT_ALLOW_PROTOCOL": "file"}
         return env | (extra or {})
 
     def run(self, claude, args, env, timeout=90):
@@ -1425,6 +1452,9 @@ class RealClaude(unittest.TestCase):
         found = shutil.which("claude")
         if not found:
             raise unittest.SkipTest("Claude Code (claude) is not on PATH")
+        stopped = managed_policy_stop()
+        if stopped:
+            raise unittest.SkipTest(stopped)
         try:
             socket.create_connection(CLOSED_PORT, timeout=2).close()
         except OSError:
@@ -1647,6 +1677,71 @@ class RealClaude(unittest.TestCase):
         messages = self.finished()
         self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
         self.assert_state(state, (".launched",), (".ran.start", ".ran.prompt", ".ran.tool", ".ran.stop", ".blocked"))
+
+
+class SandboxSetup(unittest.TestCase):
+    """What RealClaude builds before it runs a real Claude Code, and when it skips instead."""
+
+    def test_git_reaches_no_remote_even_by_its_absolute_path(self):
+        """Claude Code, Codex and other tools may run /usr/bin/git past the PATH shim: GIT_ALLOW_PROTOCOL then still
+        allows the file protocol only."""
+        with tempfile.TemporaryDirectory(prefix="claude-guard-sandbox-") as name:
+            sandbox = Sandbox(Path(name).resolve(), os.path.dirname(sys.executable))
+            env = sandbox.env(port=1234, extra={"EXTRA": "x"})
+            self.assertEqual(env["GIT_ALLOW_PROTOCOL"], "file")
+            self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")
+            self.assertEqual(env["PATH"].split(":")[0], str(sandbox.shims))
+            self.assertEqual(env["EXTRA"], "x")
+
+    def test_a_managed_policy_that_stops_the_injected_hooks_skips_the_real_claude(self):
+        """A managed file, drop-in or machine policy of the host that sets disableAllHooks, allowManagedHooksOnly,
+        strictPluginOnlyCustomization (true or naming hooks) or statusLine outranks the injected --settings: RealClaude
+        skips, naming the file and the keys, rather than fail. Other managed keys, a malformed file and the same keys
+        in a source that is not managed do not."""
+        with tempfile.TemporaryDirectory(prefix="claude-guard-managed-") as name:
+            base = Path(name).resolve()
+            managed_file, drop_ins = base / "etc/managed-settings.json", base / "etc/managed-settings.d"
+            preferences = base / "prefs" / launch.MDM_NAME
+            with unittest.mock.patch.multiple(launch, MANAGED_FILES=(managed_file,), MANAGED_DIRECTORIES=(drop_ins,),
+                                              MDM_PREFERENCES=base / "prefs", WINDOWS_POLICY=base / "windows",
+                                              MACOS=True, on_wsl=lambda: False):
+                self.assertIsNone(managed_policy_stop())
+                for data, keys in (({"disableAllHooks": True}, "disableAllHooks"),
+                                   ({"allowManagedHooksOnly": True}, "allowManagedHooksOnly"),
+                                   ({"strictPluginOnlyCustomization": ["hooks"]}, "strictPluginOnlyCustomization"),
+                                   ({"statusLine": {"type": "command", "command": "org"}}, "statusLine"),
+                                   ({"disableAllHooks": True, "statusLine": None}, "disableAllHooks, statusLine")):
+                    for path in (managed_file, drop_ins / "10-org.json", preferences):
+                        with self.subTest(path=path, data=data):
+                            if path == preferences:
+                                path.parent.mkdir(parents=True, exist_ok=True)
+                                with path.open("wb") as stream:
+                                    plistlib.dump({key: value for key, value in data.items() if value is not None},
+                                                  stream)
+                                expected = keys.replace(", statusLine", "")
+                            else:
+                                write(path, json.dumps(data))
+                                expected = keys
+                            self.assertEqual(managed_policy_stop(),
+                                             f"the host's managed settings {path} set {expected}, so Claude Code would "
+                                             "not run the guard's injected hooks or status line")
+                            path.unlink()
+                for data in ({"disableAllHooks": False, "allowManagedHooksOnly": "true", "env": {}},
+                             {"strictPluginOnlyCustomization": ["skills"]}, ["disableAllHooks"]):
+                    with self.subTest(data=data):
+                        write(managed_file, json.dumps(data))
+                        self.assertIsNone(managed_policy_stop())
+                write(managed_file, "{")
+                write(drop_ins / "notes.txt", json.dumps({"disableAllHooks": True}))
+                write(base / "etc/settings.json", json.dumps({"disableAllHooks": True}))
+                self.assertIsNone(managed_policy_stop())
+        # RealClaude asks before it runs any Claude Code (this one does not exist).
+        reason = "the host's managed settings /x set disableAllHooks, so ..."
+        with unittest.mock.patch(f"{__name__}.managed_policy_stop", lambda: reason), \
+                unittest.mock.patch.object(shutil, "which", lambda *args, **kwargs: "/nonexistent/claude"):
+            with self.assertRaises(unittest.SkipTest) as caught:
+                RealClaude.setUpClass()
+        self.assertEqual(str(caught.exception), reason)
 
 
 @unittest.skipUnless(os.path.isdir("/proc/self"), "the sandbox finds its strays through /proc (Linux)")
