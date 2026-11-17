@@ -89,9 +89,13 @@ incoming one has the same reset and a lower percentage, an earlier reset, or is
 absent; unchanged windows are rewritten only RECORD_AGAIN seconds apart.
 helpers/statusline.cjs merges by the same rule. The file has no lock, so two
 status lines that write it at the same instant can let an older reading replace
-a newer one until the next status line run. Before it writes, a run removes the
-temporary files .NAME.*.tmp (NAME the file's name) that cancelled runs left
-more than STALE seconds ago by their file time.
+a newer one until the next status line run. After it writes, a run removes the
+temporary files .NAME.*.tmp (NAME the file's name) that are more than STALE
+seconds older than the file it wrote, judged by the file times alone: on a
+network home directory they come from the server's clock, which this host's
+may not match. So it removes what a run cancelled before its rename left (or
+the file of a writer stopped that long), and such a file stays until a later
+run writes.
 
 Then it runs the user's own status line command (the launch's "statusline")
 through /bin/sh -c with the same input and the caller's environment, and prints
@@ -192,7 +196,7 @@ OK = (0, "", "")
 STATUS_TIMEOUT = 5  # seconds the user's own status line command may take
 WARNING = "reserve guard not running"  # the first footer line after a reply when no hook has run
 USAGE_FILE = re.compile(r"claude-[A-Za-z0-9_][A-Za-z0-9_-]*\.usage\.json")  # the name the status line helper writes
-STALE = 60  # seconds after which a temporary file of a cancelled status line run is removed
+STALE = 60  # seconds a temporary file is older than the usage file a run wrote when that run removes it
 
 # python3 -I puts no script directory on sys.path: the siblings load by path from
 # the real file, so a guard reached through a link uses the kit it belongs to.
@@ -460,10 +464,12 @@ def merge(kept, incoming, now):
     return incoming
 
 
-def sweep(path, now):
-    """Best effort: remove temporary files of PATH that a cancelled run left more than STALE seconds ago."""
+def sweep(path):
+    """Best effort, after a write: remove the temporary files of PATH that are more than STALE seconds older than
+    PATH, by the file times alone (on a network home directory the server's clock, which this host's may not match)."""
     prefix = "." + path.name + "."
     try:
+        newest = os.lstat(path).st_mtime
         names = os.listdir(path.parent)
     except OSError:
         return
@@ -471,7 +477,7 @@ def sweep(path, now):
         if name.startswith(prefix) and name.endswith(".tmp"):
             try:
                 info = os.lstat(path.parent / name)
-                if stat.S_ISREG(info.st_mode) and now - info.st_mtime > STALE:
+                if stat.S_ISREG(info.st_mode) and newest - info.st_mtime > STALE:
                     os.unlink(path.parent / name)
             except OSError:
                 pass
@@ -509,8 +515,9 @@ def record(path, limits, now):
     content = merged_record(path, incoming, now)
     if content is None:
         return False  # most runs: nothing new
-    sweep(path, now)
-    return module("accounts").write(path, content)
+    wrote = module("accounts").write(path, content)
+    sweep(path)
+    return wrote
 
 
 def chained(command, raw):

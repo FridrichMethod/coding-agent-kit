@@ -549,6 +549,25 @@ test('status line leaves no temporary file when its write fails', posixOnly, (t)
   assert.deepEqual(fs.readdirSync(folder), [], 'a temporary file was left');
 });
 
+test('status line removes temporary files cancelled runs left, judged by their file times alone', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  // On a network home directory file times come from the server's clock, which this host's may run ahead of or
+  // behind: a temporary file a minute older than the file just written goes, whatever the run's own clock says,
+  // and another writer's fresh one stays.
+  const stale = path.join(folder, '.claude-work.usage.json.0123abcd.tmp');
+  const fresh = path.join(folder, '.claude-work.usage.json.4567cdef.tmp');
+  for (const offset of [NOW - Date.now(), -3600000, 0, 3600000]) {
+    fs.rmSync(file, { force: true });
+    put(stale, 'half');
+    put(fresh, 'half');
+    const old = (Date.now() - 120000) / 1000;
+    fs.utimesSync(stale, old, old);
+    assert.equal(recordUsage(usageInput(10, 20), env, Date.now() + offset), true);
+    assert.ok(!fs.existsSync(stale), `clock ahead by ${offset} ms: a stale temporary file was kept`);
+    assert.ok(fs.existsSync(fresh), `clock ahead by ${offset} ms: a fresh temporary file was removed`);
+  }
+});
+
 test('status line merges into the file another writer renamed over the one it had just opened', posixOnly, (t) => {
   const { folder, file, env } = usageFixture(t);
   const now = NOW / 1000;

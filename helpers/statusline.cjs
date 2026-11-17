@@ -73,6 +73,7 @@ const LAST_TIME = 253402300800; // 10000-01-01 UTC: no calendar time from here o
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
 const USAGE_LIMIT = 64 * 1024; // bytes of a usage file the guard reads
 const USAGE_TRIES = 3; // opens of a usage file that another writer keeps replacing while it is read (accounts.TRIES)
+const TEMPORARY_AGE = 60000; // ms a temporary file is older than the file a run wrote when that run removes it (guard.STALE)
 const { O_NOFOLLOW, O_NONBLOCK, O_RDONLY } = fs.constants;
 
 function usageWindow(value) {
@@ -138,7 +139,7 @@ function recordUsage(data, env = process.env, now = Date.now()) {
   if (!info.isDirectory() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) return false;
   const content = mergedUsage(file, record, now);
   if (!content) return false; // most runs: nothing new
-  replacePrivate(file, `${JSON.stringify(content)}\n`, now);
+  replacePrivate(file, `${JSON.stringify(content)}\n`);
   return true;
 }
 
@@ -192,18 +193,13 @@ function storedUsage(file) {
 }
 
 // Replaces FILE with CONTENTS through a 0600 temporary file beside it and a rename.
-function replacePrivate(file, contents, now) {
+// Then, best effort, it removes the temporary files of FILE that are more than
+// TEMPORARY_AGE older than FILE, by the file times alone, which on a network home
+// directory come from the server's clock, never by this host's: what a status line
+// run that Claude Code cancelled before its rename left, kept until a later write.
+function replacePrivate(file, contents) {
   const folder = path.dirname(file);
-  // A status line run that Claude Code cancelled may have left its temporary file.
   const prefix = `.${path.basename(file)}.`;
-  for (const name of fs.readdirSync(folder)) {
-    if (name.startsWith(prefix) && name.endsWith('.tmp')) {
-      const stale = path.join(folder, name);
-      // Another writer's temporary file may go meanwhile.
-      const info = fs.lstatSync(stale, { throwIfNoEntry: false });
-      if (info?.isFile() && now - info.mtimeMs > 60000) fs.rmSync(stale, { force: true });
-    }
-  }
   const temporary = path.join(folder, `${prefix}${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`);
   const fd = fs.openSync(temporary, 'wx', 0o600);
   try {
@@ -217,6 +213,18 @@ function replacePrivate(file, contents, now) {
   } catch (error) {
     fs.rmSync(temporary, { force: true });
     throw error;
+  }
+  try {
+    const newest = fs.lstatSync(file).mtimeMs;
+    for (const name of fs.readdirSync(folder)) {
+      if (!name.startsWith(prefix) || !name.endsWith('.tmp')) continue;
+      const leftover = path.join(folder, name);
+      // Another writer's temporary file may go meanwhile.
+      const info = fs.lstatSync(leftover, { throwIfNoEntry: false });
+      if (info?.isFile() && newest - info.mtimeMs > TEMPORARY_AGE) fs.rmSync(leftover, { force: true });
+    }
+  } catch {
+    // The file is written; a leftover goes at a later write.
   }
 }
 
@@ -402,7 +410,7 @@ function sessionTokens(data, { folder = cacheFolder(), budget = READ_BUDGET, now
   const recorded = Object.fromEntries(files);
   if (old?.transcript !== transcript || JSON.stringify(recorded) !== JSON.stringify(known)) {
     if (!old) pruneCache(folder, now);
-    replacePrivate(file, `${JSON.stringify({ transcript, files: recorded })}\n`, now);
+    replacePrivate(file, `${JSON.stringify({ transcript, files: recorded })}\n`);
   }
   let total = 0;
   for (const record of files.values()) total += record.sum[0] + record.sum[1] + record.sum[2];
