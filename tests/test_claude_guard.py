@@ -10,7 +10,7 @@ output, so those launches run with standard output on a pseudo-terminal.
 
 RealClaude runs the guard's hooks in the real Claude Code when one at or above
 the guard's minimum is on PATH (it skips with the reason otherwise, and when the
-host's managed settings would stop the injected hooks or status line): offline,
+host has managed settings, which Claude Code applies over the sandbox): offline,
 against the loopback fake tests/fixtures/guard/claude_api.py, in a temporary
 HOME and configuration directory with an environment built from scratch, git
 and ssh shims first on PATH, git allowed the file protocol only and every proxy
@@ -1395,9 +1395,14 @@ def kill_group(pid):
 
 
 def managed_policy_stop():
-    """Why this host's managed settings would keep a real Claude Code from running the guard's injected hooks or
-    status line: the first managed source, read as a guarded preflight reads them, that sets disableAllHooks,
-    allowManagedHooksOnly, strictPluginOnlyCustomization (launch.hook_keys) or statusLine; None when none does."""
+    """Why a real Claude Code on this host would not stay inside the Sandbox, or not run the guard's injected hooks
+    or status line: it applies the host's managed settings over the sandbox's HOME, environment and settings. The
+    first managed source, read as a guarded preflight reads them, that sets any key, naming disableAllHooks,
+    allowManagedHooksOnly, strictPluginOnlyCustomization (launch.hook_keys) and statusLine as keys that stop the
+    hooks or the status line; any other key may send its requests past the loopback fake (an env with
+    ANTHROPIC_BASE_URL or a proxy), stop or wrap the hooks (CLAUDE_CODE_SAFE_MODE, CLAUDE_CODE_SHELL_PREFIX) or run a
+    command of the host (apiKeyHelper). Then a managed MCP configuration beside a managed settings file, whose
+    servers Claude Code would start. None when the host has none of these."""
     sources = {}
     drop_ins = (path for folder in launch.MANAGED_DIRECTORIES for path in sorted(folder.glob("*.json")))
     for path in (*launch.MANAGED_FILES, *drop_ins):
@@ -1408,11 +1413,17 @@ def managed_policy_stop():
             continue
     sources.update(launch.machine_policies())
     for path, data in sources.items():
-        if isinstance(data, dict):
+        if isinstance(data, dict) and data:
             keys = launch.hook_keys(data, managed=True) + (["statusLine"] if "statusLine" in data else [])
             if keys:
                 return (f"the host's managed settings {path} set {', '.join(keys)}, so Claude Code would not run the "
                         "guard's injected hooks or status line")
+            return (f"the host's managed settings {path} set {', '.join(sorted(data))}, which Claude Code applies over "
+                    "the sandbox's environment and settings")
+    for path in launch.MANAGED_FILES:
+        servers = path.with_name("managed-mcp.json")
+        if os.path.lexists(servers):
+            return f"the host's managed MCP configuration {servers} gives Claude Code servers it would start"
     return None
 
 
@@ -1756,20 +1767,39 @@ class SandboxSetup(unittest.TestCase):
     """What RealClaude builds before it runs a real Claude Code, and when it skips instead."""
 
     def test_git_reaches_no_remote_even_by_its_absolute_path(self):
-        """Claude Code, Codex and other tools may run /usr/bin/git past the PATH shim: GIT_ALLOW_PROTOCOL then still
-        allows the file protocol only."""
+        """Claude Code, Codex and other tools may run git by its absolute path, past the PATH shim: in the sandbox's
+        environment git refuses the http and ssh transports before it connects, and still clones over file://."""
+        git = shutil.which("git", path="/usr/local/bin:/usr/bin:/bin")
+        if not git:
+            self.skipTest("git is not installed")
         with tempfile.TemporaryDirectory(prefix="claude-guard-sandbox-") as name:
-            sandbox = Sandbox(Path(name).resolve(), os.path.dirname(sys.executable))
+            base = Path(name).resolve()
+            sandbox = Sandbox(base, os.path.dirname(sys.executable))
             env = sandbox.env(port=1234, extra={"EXTRA": "x"})
-            self.assertEqual(env["GIT_ALLOW_PROTOCOL"], "file")
-            self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")
             self.assertEqual(env["PATH"].split(":")[0], str(sandbox.shims))
             self.assertEqual(env["EXTRA"], "x")
+            for url, transport in (("http://127.0.0.1:9/x", "http"), ("git@127.0.0.1:x", "ssh")):
+                with self.subTest(url=url):
+                    code, out, err = sandbox.run(git, ["ls-remote", url], env, timeout=30)
+                    self.assertNotEqual(code, 0, out)
+                    self.assertIn(f"transport '{transport}' not allowed", err)
+            # Bare repositories, so that no .git directory is made.
+            for args in (["init", "-q", "--bare", str(base / "source")],
+                         ["clone", "-q", "--bare", (base / "source").as_uri(), str(base / "copy")]):
+                with self.subTest(args=args[:1]):
+                    code, out, err = sandbox.run(git, args, env, timeout=30)
+                    self.assertEqual(code, 0, err)
+            self.assertTrue((base / "copy/HEAD").is_file())
+            self.assertEqual(sandbox.netlog.read_text(), "", "git ran the ssh shim")
+            self.assertEqual(sandbox.strays(), [])
 
-    def test_a_managed_policy_that_stops_the_injected_hooks_skips_the_real_claude(self):
-        """A managed file, drop-in or machine policy of the host that sets disableAllHooks, allowManagedHooksOnly,
-        strictPluginOnlyCustomization (true or naming hooks) or statusLine outranks the injected --settings: RealClaude
-        skips, naming the file and the keys, rather than fail. Other managed keys, a malformed file and the same keys
+    def test_a_managed_policy_skips_the_real_claude(self):
+        """A managed file, drop-in or machine policy of the host outranks the sandbox: one that sets disableAllHooks,
+        allowManagedHooksOnly, strictPluginOnlyCustomization (true or naming hooks) or statusLine stops the injected
+        --settings, and one that sets any other key, such as an env that sends Claude Code to a gateway or through a
+        proxy, or stops or wraps its hooks, or an apiKeyHelper, applies over the sandbox's own environment and
+        settings, as a managed MCP configuration adds servers. RealClaude skips, naming the file and the keys, rather
+        than fail or leave the sandbox. An empty source, one that is not an object, a malformed file and the same keys
         in a source that is not managed do not."""
         with tempfile.TemporaryDirectory(prefix="claude-guard-managed-") as name:
             base = Path(name).resolve()
@@ -1799,11 +1829,33 @@ class SandboxSetup(unittest.TestCase):
                                              f"the host's managed settings {path} set {expected}, so Claude Code would "
                                              "not run the guard's injected hooks or status line")
                             path.unlink()
-                for data in ({"disableAllHooks": False, "allowManagedHooksOnly": "true", "env": {}},
-                             {"strictPluginOnlyCustomization": ["skills"]}, ["disableAllHooks"]):
+                for data, keys in (({"env": {"ANTHROPIC_BASE_URL": "https://gateway.example"}}, "env"),
+                                   ({"env": {"HTTPS_PROXY": "http://proxy.example:3128"}, "model": "x"}, "env, model"),
+                                   ({"env": {"CLAUDE_CODE_SAFE_MODE": "1"}}, "env"),
+                                   ({"env": {"CLAUDE_CODE_SHELL_PREFIX": "/usr/local/bin/audit"}}, "env"),
+                                   ({"apiKeyHelper": "/usr/local/bin/key"}, "apiKeyHelper"),
+                                   ({"disableAllHooks": False, "allowManagedHooksOnly": "true", "env": {}},
+                                    "allowManagedHooksOnly, disableAllHooks, env"),
+                                   ({"strictPluginOnlyCustomization": ["skills"]}, "strictPluginOnlyCustomization")):
+                    for path in (managed_file, drop_ins / "10-org.json", preferences):
+                        with self.subTest(path=path, data=data):
+                            if path == preferences:
+                                with path.open("wb") as stream:
+                                    plistlib.dump(data, stream)
+                            else:
+                                write(path, json.dumps(data))
+                            self.assertEqual(managed_policy_stop(),
+                                             f"the host's managed settings {path} set {keys}, which Claude Code applies "
+                                             "over the sandbox's environment and settings")
+                            path.unlink()
+                for data in ({}, ["disableAllHooks"]):
                     with self.subTest(data=data):
                         write(managed_file, json.dumps(data))
                         self.assertIsNone(managed_policy_stop())
+                servers = write(base / "etc/managed-mcp.json", json.dumps({"mcpServers": {}}))
+                self.assertEqual(managed_policy_stop(), f"the host's managed MCP configuration {servers} gives Claude "
+                                 "Code servers it would start")
+                servers.unlink()
                 write(managed_file, "{")
                 write(drop_ins / "notes.txt", json.dumps({"disableAllHooks": True}))
                 write(base / "etc/settings.json", json.dumps({"disableAllHooks": True}))
