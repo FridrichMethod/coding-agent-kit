@@ -1491,6 +1491,20 @@ class StatusLine(Fixture):
         self.assertFalse(self.state(launch, "seen").exists())
         self.assertFalse(Path(launch.usage).exists())
 
+    def test_a_failed_write_leaves_no_seen_and_no_temporary_file(self):
+        # A home directory at its quota: the write fails, so the launch has no data and turns blind, never seen.
+        blind = reserve.block_text("claude-as", "personal", reserve.Decision(False, "blind"), "prompt", NOW)
+        for call, code in (("replace", errno.ENOSPC), ("fsync", errno.EDQUOT)):
+            with self.subTest(call=call):
+                launch = self.launch(weekly="10", statusline="printf 'mine'")
+                put(self.state(launch, "ran.start"), "")
+                put(self.state(launch, "reply"), str(NOW - guard.BLIND_AFTER))
+                with patch.object(os, call, Mock(side_effect=OSError(code, os.strerror(code)))):
+                    self.assertEqual(guard.status(status_input(), launch, NOW), "mine")
+                self.assertFalse(self.state(launch, "seen").exists())
+                self.assertEqual(list(self.accounts.iterdir()), [])
+                self.assertEqual(self.answer("prompt", launch), (2, "", blind))
+
     def test_the_footer_is_the_users_own_status_line(self):
         counter = self.script("count it.py", "print(len(sys.stdin.buffer.read()))")
         raw = status_input()
