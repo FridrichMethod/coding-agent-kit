@@ -583,6 +583,12 @@ class HookSelection(unittest.TestCase):
     """The pre-commit hook runs codex-guard.sh --hook: every in-process class, and of GuardedLaunch one case
     per launch form; ./tests/run.sh runs every case. unittest's -k matches a substring of each test's name."""
 
+    # The GuardedLaunch case the hook runs for each launch form.
+    FORMS = {"interactive": "test_an_interactive_launch_gets_the_hooks_the_guard_and_goals_off",
+             "headless": "test_a_headless_run_prints_the_guard_s_block_after_codex_exits",
+             "refused": "test_forms_the_hooks_cannot_see_are_refused",
+             "plain": "test_a_plain_form_launches_as_without_reserves"}
+
     def test_the_hook_runs_every_in_process_class_and_named_launch_cases(self):
         text = (ROOT / "tests/codex-guard.sh").read_text()
         block = re.search(r'(?ms)^if \[\[ "\$\{1:-\}" == --hook \]\]; then$(.*?)^fi$', text)
@@ -605,7 +611,8 @@ class HookSelection(unittest.TestCase):
                 if cls == "RealCodex":
                     self.assertFalse(any(map(chosen, group)), "the hook runs the real Codex")
                 elif cls == "GuardedLaunch":
-                    self.assertEqual(sum(map(chosen, group)), 4, "one launch case per form")
+                    self.assertEqual(sorted(name.rpartition(".")[2] for name in group if chosen(name)),
+                                     sorted(self.FORMS.values()), "one launch case per form")
                 else:
                     self.assertTrue(all(map(chosen, group)), "an in-process case is left out of the hook")
 
