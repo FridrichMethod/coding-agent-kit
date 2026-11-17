@@ -100,7 +100,10 @@ class LaunchForms(Fixture):
                          ["review"], ["review", "--uncommitted"], ["-C", "/tmp", "exec", "go"],
                          ["exec", "-m", "o3", "go"],
                          # After -- help is a prompt, and review has no subcommands: help is its prompt.
-                         ["exec", "--", "help"], ["review", "help"], ["exec", "go", "help"]),
+                         ["exec", "--", "help"], ["review", "help"], ["exec", "go", "help"],
+                         # exec's spaced -i takes every word up to an option: help is an image, the prompt stdin's.
+                         ["exec", "-i", "a.png", "help"], ["exec", "--image", "a.png", "help"],
+                         ["e", "-i", "a.png", "help", "resume"], ["exec", "-i", "a.png", "resume", UUID, "go"]),
             # remote-control runs an app server that remote clients drive, and debug app-server
             # send-message-v2 runs a turn through one: model work as in app-server.
             "refused": (["cloud"], ["cloud-tasks"], ["cloud", "exec", "--env", "x", "go"], ["app-server"],
@@ -119,6 +122,7 @@ class LaunchForms(Fixture):
                       ["resume", "--help"], ["exec", "--help"], ["exec", "go", "-V"], ["review", "-h"],
                       # exec has subcommands, so clap reads help after it as its help subcommand.
                       ["exec", "help"], ["e", "help", "resume"], ["exec", "-m", "x", "help"], ["exec", "help", "fork"],
+                      ["exec", "--image=a.png", "help"], ["exec", "-ia.png", "help"], ["exec", "-i", "a.png", "-m", "x", "help"],
                       ["cloud", "--help"], ["app-server", "--help"], ["remote-control", "-h"],
                       ["debug", "app-server", "--help"], ["login", "--help"]),
         }
@@ -126,6 +130,17 @@ class LaunchForms(Fixture):
             for args in argument_lists:
                 with self.subTest(args=args):
                     self.assertEqual(self.plan(args).form, form)
+
+    def test_exec_s_image_option_takes_every_word_after_it(self):
+        """codex-cli 0.169.0: exec's -i/--image takes every following word up to an option (`<FILE>...`), so a
+        help, resume or fork word after it is an image and Codex reads the prompt from stdin, in a new session;
+        exec resume's and exec fork's take one value (`<FILE>`), and the session id after it stays theirs."""
+        plan = self.plan(["exec", "-i", "a.png", "resume", UUID, "go"])
+        self.assertEqual((plan.command, plan.form, plan.continued, plan.recover_id), ("exec", "headless", (), None))
+        plan = self.plan(["exec", "resume", "-i", "a.png", UUID, "go"])
+        self.assertEqual((plan.command, plan.form, plan.continued), ("exec-resume", "headless", (UUID,)))
+        plan = self.plan(["exec", "fork", "--image", "a.png", UUID, "go"])
+        self.assertEqual((plan.command, plan.forked, plan.recover_id), ("exec-resume", True, UUID))
 
     def test_app_is_a_prompt_without_the_desktop_app(self):
         if check.DESKTOP:
@@ -945,6 +960,8 @@ class GuardedLaunch(unittest.TestCase):
                                (["A", "review"], [*self.guarded(), "review"]),
                                (["A", "exec", "go"], [*self.guarded(False), "exec", "go"]),
                                (["A", "-m", "o3", "exec", "go"], [*self.guarded(False), "-m", "o3", "exec", "go"]),
+                               # help is an image here, and the prompt comes from stdin.
+                               (["A", "exec", "-i", "shot.png", "help"], [*self.guarded(False), "exec", "-i", "shot.png", "help"]),
                                # A caller's --no-daemon is not given twice; goals stay off after the caller's values.
                                (["A", "--no-daemon", "go"], [*self.head()[:-1], "-c", PROMPT_HOOK, "-c", TOOL_HOOK,
                                                              "-c", "features.goals=false", "--disable", "goals",

@@ -240,8 +240,10 @@ def arguments(args, config):
                     fail("option requires a value; no account switch performed.")
                 value = args[i]
                 i += 1
-                # Outside exec, a spaced -i/--image takes every following non-option word.
-                while flag in {"-i", "--image"} and command not in EXEC and i < len(args) and not args[i].startswith("-"):
+                # A spaced -i/--image takes every following non-option word (`<FILE>...`), exec's too, so a
+                # help, resume or fork word after it is an image; exec resume's and exec fork's take one.
+                while (flag in {"-i", "--image"} and command != "exec-resume" and i < len(args)
+                       and not args[i].startswith("-")):
                     i += 1
         elif flag in SWITCHES:
             last |= flag == "--last"
