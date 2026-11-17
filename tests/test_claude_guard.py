@@ -23,6 +23,7 @@ from pathlib import Path
 import plistlib
 import pty
 import pwd
+import select
 import shlex
 import shutil
 import signal
@@ -40,6 +41,7 @@ from test_codex_as import ENV_CONFLICTS, KIT_KNOBS
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "sk-ant-oat01-" + "fabricated-guard-claude-" * 3
+ENROLLED = "sk-ant-oat01-" + "fabricated-enrolled-claude-" * 3  # what the fake's setup-token prints
 VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_AGENT_KIT_GUARD_PYTHON")
 USAGE_VARIABLES = ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID", "CODING_AGENT_KIT_CLAUDE_PID")
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}  # set by a guarded launch only
@@ -53,7 +55,8 @@ DAY = 86400
 GONE = 4_194_400  # a process id above every host's limit: a launch that has ended
 MARKER = "codex-hooks-90aeb3ec484a2ca6"
 # Records argv and environment, never a token; one JSON line per run. --version prints
-# CLAUDE_FAKE_VERSION and leaves a line in FAKE_VERSIONS.
+# CLAUDE_FAKE_VERSION and leaves a line in FAKE_VERSIONS; setup-token prints CLAUDE_FAKE_TOKEN as
+# Claude Code 2.1.296 frames it, for the launcher's capture.
 FAKE = r'''
 import hashlib, json, os, sys
 if sys.argv[1:] == ["--version"]:
@@ -61,7 +64,12 @@ if sys.argv[1:] == ["--version"]:
         stream.write("--version\n")
     print(os.environ.get("CLAUDE_FAKE_VERSION", "2.1.296 (Claude Code)"))
     sys.exit(0)
+if sys.argv[1:] == ["setup-token"]:
+    print("Your OAuth token (valid for 1 year):\n\n" + os.environ["CLAUDE_FAKE_TOKEN"] + "\n\nStore this token securely.",
+          flush=True)
+    sys.exit(0)
 env = dict(os.environ)
+env.pop("CLAUDE_FAKE_TOKEN", None)
 token = env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
 record = {"argv": sys.argv, "env": env, "pid": os.getpid(), "tty": os.isatty(1),
           "token": token and hashlib.sha256(token.encode()).hexdigest()}
@@ -171,6 +179,46 @@ class Fixture(unittest.TestCase):
         self.assertNotIn(TOKEN, out + err)
         return result.returncode, out, err
 
+    def run_on_terminal(self, args, answers, env=None):
+        """(exit code, terminal transcript, stderr) of claude-as ARGS with a pseudo-terminal as its controlling
+        terminal and standard output; the reply of each (prompt, reply) in ANSWERS is typed once its prompt shows."""
+        master, slave = pty.openpty()
+        program = "import os, sys\nos.setsid()\nos.close(os.open(sys.argv[1], os.O_RDWR))\nos.execv(sys.argv[2], sys.argv[2:])\n"
+        transcript, pending, remaining = bytearray(), bytearray(), list(answers)
+        errors = self.base / "terminal stderr"
+        try:
+            with errors.open("wb") as stream:
+                process = subprocess.Popen([sys.executable, "-I", "-c", program, os.ttyname(slave),
+                                            str(self.kit / "bin/claude-as"), *args], cwd=self.cwd, env=self.env | (env or {}),
+                                           stdin=subprocess.DEVNULL, stdout=slave, stderr=stream)
+            try:
+                deadline = time.monotonic() + 30
+                while process.poll() is None and time.monotonic() < deadline:
+                    if not select.select([master], [], [], 0.1)[0]:
+                        continue
+                    try:
+                        chunk = os.read(master, 4096)
+                    except OSError:
+                        break
+                    transcript += chunk
+                    pending += chunk
+                    if remaining and remaining[0][0].encode() in pending:
+                        os.write(master, remaining.pop(0)[1].encode() + b"\n")
+                        pending.clear()
+                code = process.wait(timeout=10)
+            finally:
+                if process.poll() is None:
+                    process.kill()  # only the launcher under test, with its fake
+                    process.wait()
+            text = transcript.decode("utf-8", "replace") + drain(master)
+        finally:
+            os.close(slave)
+            os.close(master)
+        err = errors.read_text()
+        for secret in (TOKEN, ENROLLED):
+            self.assertNotIn(secret, text + err)
+        return code, text, err
+
     def records(self):
         if not self.record.exists():
             return []
@@ -266,8 +314,9 @@ class Unguarded(Fixture):
 class Guarded(Fixture):
     """A launch with a reserve on: hooks injected, the launch exported, the background closed."""
 
-    def assert_guarded(self, record, value, args, five_hour, weekly, kit=None):
+    def assert_guarded(self, record, value, args, five_hour, weekly, kit=None, account="work", token=TOKEN):
         kit = kit or self.kit
+        usage = self.state / f"accounts/claude-{account}.usage.json"
         python, script = record["env"]["CODING_AGENT_KIT_GUARD_PYTHON"], record["env"]["CODING_AGENT_KIT_GUARD_SCRIPT"]
         self.assertEqual(script, str(kit / "lib/coding-agent-kit/guard.py"))
         self.assertTrue(os.path.isabs(python))
@@ -281,9 +330,9 @@ class Guarded(Fixture):
                                                           for group in groups for hook in group["hooks"]]
         self.assertEqual([shlex.split(text) for text in commands],
                          [[python, "-I", "-B", "-S", script, kind] for kind in ("status", "start", "prompt", "tool", "stop")])
-        state = self.guard_dir / f"claude-as-work-{record['pid']}-{value['started']}"
-        expected = {"v": 1, "tool": "claude-as", "account": "work", "five_hour": five_hour, "weekly": weekly,
-                    "started": value["started"], "usage": str(self.usage), "state": str(state)}
+        state = self.guard_dir / f"claude-as-{account}-{record['pid']}-{value['started']}"
+        expected = {"v": 1, "tool": "claude-as", "account": account, "five_hour": five_hour, "weekly": weekly,
+                    "started": value["started"], "usage": str(usage), "state": str(state)}
         self.assertEqual({key: value[key] for key in value if key != "statusline"}, expected)
         self.assertEqual(value["usage"], record["env"]["CODING_AGENT_KIT_USAGE_FILE"])
         self.assertEqual(stat.S_IMODE(self.guard_dir.lstat().st_mode), 0o700)
@@ -291,7 +340,7 @@ class Guarded(Fixture):
         for name, text in CLOSED.items():
             self.assertEqual(record["env"][name], text)
         self.assertNotIn(RESUME, record["env"])
-        self.assertEqual(record["token"], hashlib.sha256(TOKEN.encode()).hexdigest())
+        self.assertEqual(record["token"], hashlib.sha256(token.encode()).hexdigest())
         return settings
 
     def test_a_reserve_by_flag(self):
@@ -386,6 +435,50 @@ class Guarded(Fixture):
         write(project / ".claude/settings.local.json", line("project local"))
         write(self.home / ".claude/settings.local.json", line("user local"))
         self.assertEqual(status(project), "project local")
+
+    def test_an_account_enrolled_by_the_launch_is_guarded(self):
+        """A reserve on a missing account: after the checks, the enrolment through /dev/tty, then the guarded launch."""
+        code, text, err = self.run_on_terminal(["--reserve-5h", "10", "fresh", "--model", "x"],
+                                               [("[y/N]", "y"), ("Label for this account", "")],
+                                               {"CLAUDE_FAKE_TOKEN": ENROLLED})
+        self.assertEqual(code, 0, text + err)
+        self.assertIn("Credentials saved for account fresh.", text)
+        self.assertTrue(text.replace("\r\n", "\n").endswith("stdout sentinel\n"), text)
+        self.assertEqual((self.home / ".secrets/claude-fresh").read_text(), ENROLLED + "\n")
+        self.assertEqual(err, "claude-as: usage reserves for fresh: five-hour 10% (--reserve-5h), weekly off (default)"
+                         + LAUNCH_LINE)
+        record = self.records()[-1]
+        self.assertTrue(record["tty"])
+        value = json.loads(record["env"]["CODING_AGENT_KIT_GUARD"])
+        self.assert_guarded(record, value, ["--model", "x"], "10", None, account="fresh", token=ENROLLED)
+        self.assertEqual(self.version_runs(), 2, "the guard's version check and the enrolment's")
+
+    def test_a_managed_install_reaches_its_guard_through_current(self):
+        """Designer's call 12: every hook and the status line name <M>/current/lib/coding-agent-kit/guard.py, so a
+        session that outlives a kit update still runs a guard once the release it started from is gone."""
+        managed = self.base / "managed root"
+        release = self.install(managed / "releases/v0.9.0")
+        (managed / "current").symlink_to("releases/v0.9.0")
+        guard = str(managed / "current/lib/coding-agent-kit/guard.py")
+        for kit in (release, managed / "current"):
+            with self.subTest(kit=kit):
+                record, value, _ = self.guarded(["--reserve-5h", "10", "work"], kit=kit)
+                self.assertEqual(record["env"]["CODING_AGENT_KIT_GUARD_SCRIPT"], guard)
+                settings = json.loads(record["argv"][2])
+                commands = [settings["statusLine"]["command"]] + [
+                    hook["command"] for groups in settings["hooks"].values() for group in groups for hook in group["hooks"]]
+                self.assertEqual([shlex.split(text)[4] for text in commands], [guard] * 5)
+        # An update: a new release, current moved to it, the release the session started from removed.
+        self.install(managed / "releases/v0.9.1")
+        (managed / "current.new").symlink_to("releases/v0.9.1")
+        os.replace(managed / "current.new", managed / "current")
+        shutil.rmtree(release)
+        env = {name: record["env"][name] for name in (*VARIABLES, "PATH", "HOME")}
+        result = subprocess.run(["/bin/sh", "-c", settings["hooks"]["SessionStart"][0]["hooks"][0]["command"]],
+                                input=json.dumps({"hook_event_name": "SessionStart"}).encode(), env=env,
+                                capture_output=True, timeout=30)
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b"", b""))
+        self.assertTrue(Path(value["state"] + ".ran.start").is_file())
 
     def test_a_kit_path_with_a_space_and_a_quote_runs_the_hooks(self):
         """Review Focus 1: the injected commands run through /bin/sh, as Claude Code runs them."""
