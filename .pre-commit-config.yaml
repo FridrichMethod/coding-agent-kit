@@ -66,7 +66,7 @@ repos:
         types: [file]
         files: '(?i)(\.(md|markdown|mdx|rst|txt)$|(^|/)(README|CHANGELOG|CONTRIBUTING|AUTHORS|LICENSE|NOTICE)(\.[^/]*)?$)'
       - id: claude-customizations
-        name: Claude status line, notifications and Git hook guard (the usage file lock beside the guard's)
+        name: Claude status line, notifications and Git hook guard (the helper beside the guard's status line)
         entry: node --test tests/claude-customizations.cjs
         language: system
         pass_filenames: false
@@ -113,7 +113,7 @@ repos:
         entry: tests/guard.sh
         language: script
         pass_filenames: false
-        files: ^(lib/coding-agent-kit/(reserve|guard|guard_launch|accounts)\.py|lib/codex-as/usage\.py|tests/(guard\.sh|test_guard\.py))$
+        files: ^(helpers/statusline\.cjs|lib/coding-agent-kit/(reserve|guard|guard_launch|accounts)\.py|lib/codex-as/usage\.py|tests/(guard\.sh|test_guard\.py))$
       - id: claude-guard
         name: claude-as launches with a usage reserve (isolated HOME, fake Claude Code on a pseudo-terminal; a real one offline when installed)
         entry: tests/claude-guard.sh
