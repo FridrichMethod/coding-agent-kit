@@ -132,8 +132,9 @@ Added:
   the injected hooks.` After a Codex run, `codex-as` warns when the run's
   own sessions show that Codex did not run the guard's hooks, and gives a
   notice when the session that shows it may be another client's of the
-  account; it also prints the guard's latest block message of a headless
-  run, which `codex exec` does not show.
+  account; it also prints the guard's latest block message after a headless
+  run, since `codex exec` exits 0 either way and shows no reason for a
+  refused prompt.
 - Headless Codex runs with a reserve (`exec` in every form, `review`) are
   refused until the guard's tool hook has run under Codex on this host,
   since a headless run skips a hook that is not trusted without a word; a
