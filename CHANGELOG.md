@@ -82,8 +82,9 @@ Added:
   A reading counts until its window resets, however old it is, and a Codex
   reading above 100 percent counts as 100; in Claude Code the guard's status
   line records only windows from 0 through 100 percent, like the status line
-  helper, so a window above 100 percent there is no reading. A window
-  without a current reading has nothing to check.
+  helper, so a window above 100 percent there is no reading, and a session
+  whose status line reports only such windows has no usage data (below). A
+  window without a current reading has nothing to check.
 - `claude-as` passes the guard in one `--settings` argument before the
   caller's arguments: `SessionStart`, `UserPromptSubmit`, `PreToolUse` for
   every tool and `Stop` hooks, and the guard as the launch's status line.
@@ -107,13 +108,13 @@ Added:
   continues on its own after a denied tool call; a launch with both reserves
   off keeps them.
 - A session without usage data is blocked, never before its first reply: a
-  Claude Code session whose status line has reported no rate limits 120
-  seconds after the first sign of a reply (a tool call or the end of a turn),
-  as in a workspace not trusted yet, where Claude Code runs no status line,
-  or on an account that reports no window; a Codex session whose rollout
-  since the launch started has a usage line, or at a prompt a model
-  response, but no rate limits. An account whose server reports no window
-  needs its reserves set to `"off"`.
+  Claude Code session whose status line has reported no usable window (from
+  0 through 100 percent, with a reset time) 120 seconds after the first sign
+  of a reply (a tool call or the end of a turn), as on an account that
+  reports no window, or with a status line input whose only windows are
+  above 100 percent; a Codex session whose rollout since the launch started
+  has a usage line, or at a prompt a model response, but no rate limits. An
+  account whose server reports no window needs its reserves set to `"off"`.
 - A guard that fails on a prompt or a tool call (an event it cannot read, a
   launch format it does not know, any error) blocks it with a message that
   names the error and the way out; on its other events a failing guard
