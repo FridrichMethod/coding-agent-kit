@@ -117,6 +117,7 @@ The guard refuses new prompts and tool calls; it is not a hard limit.
 - Usage elsewhere, on other hosts or by other clients of the account, shows only with the session's next reply, and nothing is known before a session's first reply but what earlier sessions recorded.
 - A reading of a Claude account never goes back: a stored window that has not reset stays when the incoming one has the same reset time and a lower percentage, an earlier reset time, or no window at all, and the [status line helper](#account-metadata) writes the file by the same rule. The file has no lock, so two status lines that write it at the same instant can briefly let an older reading replace a newer one, until a status line run with a reading at least as new writes it again.
 - Hosts and clients without the launchers are unguarded: plain `claude` and `codex`, IDE and desktop clients and the Codex app-servers they start, the web, and native Windows, where the kit does not run. So is a host whose configuration sets no reserve.
+- A claude-as launch under a server-managed or registry policy that sets `disableAllHooks` runs without its guard and says nothing ([claude-as with a reserve](#claude-as-with-a-reserve)).
 - There is no way to use the reserve from inside a session: that takes a relaunch.
 
 ### Messages
@@ -184,11 +185,13 @@ Launch forms with a reserve on:
 
 The settings checked are your `settings.json` and `settings.local.json` in the Claude configuration directory, the project and local settings of the launch directory and of every directory above it (and the local settings of a linked worktree's main checkout), the machine's managed settings files and their `managed-settings.d` drop-ins, on macOS the managed preferences of the `com.anthropic.claudecode` domain, and on WSL the Windows managed settings when one of them sets `wslInheritsWindowsSettings`. Server-managed settings, whose cached copy describes whichever account ran last, and on WSL the Windows registry policies are not checked for these keys.
 
-When Claude Code does not run the injected hooks, as under a server-managed policy that stops them, the guard's status line still runs, and once it has rate-limit data (a reply happened) while no hook of the launch has run, it prints `reserve guard not running` as the first line of the footer. Since that line travels in the same `--settings` as the hooks, the next guarded launch of the account also warns once, when an earlier launch shows no hook run and a sign of a reply (its status line saw rate limits, or, for a launch on this host whose Claude Code has exited, the account's usage was recorded after it started):
+When Claude Code runs the guard's status line but not the injected hooks, as under a server-managed or registry policy that sets `allowManagedHooksOnly`, the status line, once it has rate-limit data (a reply happened) while no hook of the launch has run, prints `reserve guard not running` as the first line of the footer. The next guarded launch of the account also warns once, when an earlier launch shows no hook run and a sign of a reply (its status line saw rate limits, or, for a launch on this host whose Claude Code has exited, the account's usage was recorded after it started):
 
 ```text
 claude-as: personal: an earlier launch ran without its usage reserve guard: Claude Code did not run the injected hooks.
 ```
+
+A server-managed or registry policy that sets `disableAllHooks` stops every status line too, the guard's included: such a launch runs without its guard and without a word, with no footer line, no blind refusal and no usage recorded by its sessions, so the warning above follows it, for a launch on this host, only once a later session of the account records its usage. A usage reserve is therefore not enforced on a host whose server-managed settings or registry policies set `disableAllHooks`.
 
 `claude-as` becomes Claude Code (it execs it), so it checks nothing after the session. A guarded launch that Claude Code ends before any hook runs (`--continue` in a directory without a conversation, `--resume` of a missing session, a picker closed with nothing in it) leaves the same trace, so the warning can also follow one of those once a later session of the account records its usage.
 
