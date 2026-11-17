@@ -39,10 +39,8 @@ Files under directory(config), with their writers:
     claude-NAME.usage.json  the last rate-limit windows, from two writers: the
                             status line helper (helpers/statusline.cjs) and the
                             reserve guard's status line (guard.py record()), which
-                            keeps a stored window that has not reset against an
-                            older reading, and reads, merges and writes under the
-                            lock .claude-NAME.usage.json.lock beside the file, which
-                            names its holder (guard.py lock()).
+                            both keep a stored window that has not reset against an
+                            older reading, and read, merge and write it with no lock.
 Times in them come from a token, a Codex rollout or the status line, never
 from the launcher's clock; one from year 10000 on is ignored.
 """
