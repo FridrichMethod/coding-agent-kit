@@ -99,7 +99,7 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'No server validation, OAuth implementation or automatic token renewal.' \
         'login/logout/setup-token, --bare, unsupported flags and auth/provider overrides are refused.' \
         'Daily configuration is inherited. No global process killing or concurrency lock.' \
-        'Requires Python 3.11+ (stdlib).' \
+        'Requires Python 3.11+ (stdlib), and Claude Code 2.1.296 or newer with reserves; no upper limit.' \
         'Own options, only as the first argument (claude options go after NAME):' \
         '  -l, --list: the account names; --labels: NAME<TAB>label lines for completion;' \
         '  -i, --info NAME: its label and the last usage its status line saw (offline, no token read);' \
@@ -107,6 +107,7 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         '  -V, -v, --version: the kit version (NAME --version prints the Claude Code version).' \
         'Usage reserves, before NAME: --reserve-5h V, --reserve-weekly V (V 0-100 or off) keep V% of the' \
         '  5-hour or weekly limit unused: hooks refuse new prompts and tool calls at the reserve.' \
+        '  With a reserve on, forms the hooks cannot cover are refused (-p, redirected output, --bg, agents, --settings).' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_claude_as_docs"
     [ "$#" -gt 0 ] && exit 0
