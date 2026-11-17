@@ -591,6 +591,67 @@ test('status line merges into the file another writer renamed over the one it ha
   assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a temporary file was left');
 });
 
+test('status line reads the usage file again after a pause when a rename over it is under way', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  const now = NOW / 1000;
+  const stored = { five_hour: usageWindow(50, now + 3600), seven_day: usageWindow(95, now + 86400), seen_at: now - 1000 };
+  put(file, stored);
+  // On Linux a rename drops the replaced file's link before the name leads to the new file, so opens right after the
+  // first one can still get the replaced file: here for 1 ms, less than the helper waits before it opens the file again.
+  const spare = [];
+  let deadline = null;
+  let stale = 0;
+  patchFs(t, 'openSync', real => (name, ...rest) => {
+    if (name !== file) return real(name, ...rest);
+    if (deadline === null) {
+      for (let count = 0; count < 3; count += 1) spare.push(real(file, fs.constants.O_RDONLY));
+      put(`${file}.other`, stored);
+      fs.renameSync(`${file}.other`, file);
+      deadline = performance.now() + 1;
+    } else if (performance.now() >= deadline || !spare.length) {
+      return real(name, ...rest);
+    }
+    stale += 1;
+    return spare.pop();
+  });
+  t.after(() => spare.forEach(fd => fs.closeSync(fd)));
+  assert.equal(recordUsage({ rate_limits: { five_hour: usageWindow(60, now + 3600) } }, env, NOW), true);
+  assert.equal(stale, 1);
+  assert.deepEqual(readJson(file), { five_hour: usageWindow(60, now + 3600), seven_day: usageWindow(95, now + 86400),
+    seen_at: now });
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a temporary file was left');
+});
+
+test('status line reads the usage file again when another host made its handle stale', posixOnly, async (t) => {
+  // On a network home directory another host's rename over the file can leave an open handle stale (ESTALE) instead
+  // of without a link: the helper opens the file again, so the merge keeps the window the reading lacks.
+  for (const name of ['openSync', 'fstatSync', 'readFileSync']) {
+    await t.test(name, (t) => {
+      const { folder, file, env } = usageFixture(t);
+      const now = NOW / 1000;
+      put(file, { five_hour: usageWindow(50, now + 3600), seven_day: usageWindow(95, now + 86400), seen_at: now - 1000 });
+      const realFstat = fs.fstatSync;
+      const usage = (target) => {
+        if (typeof target !== 'number') return target === file;
+        const there = fs.lstatSync(file, { throwIfNoEntry: false });
+        const info = realFstat(target);
+        return Boolean(there) && there.dev === info.dev && there.ino === info.ino;
+      };
+      let failed = 0;
+      patchFs(t, name, real => (target, ...rest) => {
+        if (failed || !usage(target)) return real(target, ...rest);
+        failed += 1;
+        throw Object.assign(new Error('ESTALE: fixture'), { code: 'ESTALE' });
+      });
+      assert.equal(recordUsage({ rate_limits: { five_hour: usageWindow(60, now + 3600) } }, env, NOW), true);
+      assert.equal(failed, 1);
+      assert.deepEqual(readJson(file), { five_hour: usageWindow(60, now + 3600), seven_day: usageWindow(95, now + 86400),
+        seen_at: now });
+      assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a temporary file was left');
+    });
+  }
+});
+
 test('status line records nothing as the user\'s own status line of a guarded launch', withPython, (t) => {
   const { root, folder, file, env } = usageFixture(t);
   // claude-as passes the helper's variables on in a guarded launch too, and the guard's status line runs the
