@@ -366,7 +366,44 @@ def session_meta(path):
 
 
 def same_place(path, cwd):
-    return isinstance(path, str) and os.path.isabs(path) and os.path.realpath(path) == os.path.realpath(cwd)
+    try:
+        return isinstance(path, str) and os.path.isabs(path) and os.path.realpath(path) == os.path.realpath(cwd)
+    except ValueError:  # a NUL in the recorded path
+        return False
+
+
+def span(stream, begun, ended):
+    """The lines of a rollout stamped between BEGUN and ENDED: read back from the end of STREAM,
+    usage.TAIL bytes at a time, to the lines from before BEGUN; a line whose time cannot be read never
+    counts."""
+    for lines in usage.backwards(stream):
+        earlier = False
+        for raw in lines:
+            stamp = usage.STAMP.match(raw)
+            when = usage.moment(stamp[1].decode("ascii", "replace")) if stamp else None
+            if when is None or when > ended:
+                continue
+            if when < begun - STAMPED:
+                earlier = True
+                continue
+            yield raw
+        if earlier:
+            break
+
+
+def turned(path, cwd, begun, ended):
+    """Whether a turn of the session at PATH began in CWD between BEGUN and ENDED: Codex starts each
+    turn with a turn_context line that holds the session's working directory, which exec resume sets
+    to its own, whatever directory the session started in (measured with codex-cli 0.169.0)."""
+    try:
+        with usage.opened(path) as stream:
+            for raw in span(stream, begun, ended):
+                found = usage.parsed(raw) if b"turn_context" in raw else None
+                if found and found[1] == "turn_context" and same_place(found[2].get("cwd"), cwd):
+                    return True
+    except OSError:
+        pass
+    return False
 
 
 def run_threads(root, plan, owner, begun, ended, alone):
@@ -381,14 +418,16 @@ def run_threads(root, plan, owner, begun, ended, alone):
     kind of Codex: source cli for the TUI, resume and fork, exec for exec and review. So a codex-as exec
     run from a TUI is not the TUI's, nor a TUI the exec's, nor a run in another directory either's; a
     guardian review runs no user hook and never counts. A headless run starts one session (exec resume
-    none), so when more started here, other headless runs of the account did too: they are EITHER. A
-    TUI may start several: SURE when ALONE, MAYBE when another codex-as client of the account ran at the
-    run's start or end (not ALONE), which may be a second TUI here.
+    by id none; exec resume without an id one when it finds no session of the directory to continue), so
+    when more started here, other headless runs of the account did too: they are EITHER. A TUI may start
+    several: SURE when ALONE, MAYBE when another codex-as client of the account ran at the run's start or
+    end (not ALONE), which may be a second TUI here.
 
-    A form that can switch to an older session it does not name (the TUI, resume and fork; exec resume
-    without an id) appends to one of this account's older sessions, of any day and directory: for exec
-    resume every such session written during the run is EITHER, for an interactive form SURE when ALONE
-    and MAYBE otherwise.
+    A form that can switch to an older session it does not name appends to one of this account's older
+    sessions, of any day: an interactive form (the TUI, resume and fork) to one of any directory, so
+    every such session written during the run is SURE when ALONE and MAYBE otherwise; exec resume
+    without an id to one in which it begins a turn in its directory (turned), whatever directory the
+    session started in, so each such session is EITHER.
 
     Only rollouts whose file time is at most SKEW before BEGUN are opened, at most HEADS session_meta
     lines, the oldest start first, whatever account wrote them."""
@@ -404,8 +443,7 @@ def run_threads(root, plan, owner, begun, ended, alone):
             continue
         if stat.S_ISREG(info.st_mode) and info.st_mtime >= begun - SKEW:
             found.append((match[1] not in named, path.name, match[1], path))
-    resumes = plan.command == "exec-resume" and not plan.forked  # appends; starts no session of its own
-    older = plan.form == "interactive" or (resumes and not named)
+    resumes = plan.command == "exec-resume" and not plan.forked  # appends to a session
     sure, either, maybe, agents = {}, {}, {}, []
     # Where the run's sessions that it does not name go, new or older alike.
     unnamed = either if plan.form == "headless" else sure if alone else maybe
@@ -430,10 +468,10 @@ def run_threads(root, plan, owner, begun, ended, alone):
         if start is None:
             continue
         if start >= begun - STAMPED:
-            if (start <= ended and not resumes and source == SOURCES[plan.form]
+            if (start <= ended and not (resumes and named) and source == SOURCES[plan.form]
                     and same_place(meta.get("cwd"), plan.cwd)):
                 unnamed.setdefault(thread, []).append(path)
-        elif older:
+        elif plan.form == "interactive" or (resumes and not named and turned(path, plan.cwd, begun, ended)):
             unnamed.setdefault(thread, []).append(path)
     groups = {**sure, **either, **maybe}
     for meta, path in agents:
@@ -460,36 +498,24 @@ def activity(paths, begun, ended):
     """(written, requested, tools) of the rollouts at PATHS between BEGUN and ENDED: a line, a model
     request (a line of a model response, usage.responded, or a usable rate-limit snapshot, which a
     reply without rate-limit headers does not leave), and a call that a tool hook sees. Each rollout is
-    read back from its end, usage.TAIL bytes at a time, to the lines from before BEGUN; inherited lines
-    and lines whose time cannot be read never count. These lines are the only evidence of a model
+    read as span() reads it; inherited lines never count. These lines are the only evidence of a model
     request: nothing else of the run, such as its exit status or output, is read."""
     written = requested = tools = False
     for path in paths:
         try:
             with usage.opened(path) as stream:
-                for lines in usage.backwards(stream):
-                    earlier = False
-                    for raw in lines:
-                        stamp = usage.STAMP.match(raw)
-                        when = usage.moment(stamp[1].decode("ascii", "replace")) if stamp else None
-                        if when is None or when > ended:
-                            continue
-                        if when < begun - STAMPED:
-                            earlier = True
-                            continue
-                        written = True
-                        if not any(word in raw for word in RELEVANT):
-                            continue
-                        found = usage.parsed(raw)
-                        if found is None or usage.inherited(found[0]):
-                            continue
-                        _, kind, payload, ptype = found
-                        if kind == "event_msg" and ptype == "token_count":
-                            requested = requested or usage.usable(payload.get("rate_limits")) is not None
-                        requested = requested or usage.responded(kind, ptype, payload)
-                        tools = tools or usage.hooked(kind, ptype, payload)
-                    if earlier:
-                        break
+                for raw in span(stream, begun, ended):
+                    written = True
+                    if not any(word in raw for word in RELEVANT):
+                        continue
+                    found = usage.parsed(raw)
+                    if found is None or usage.inherited(found[0]):
+                        continue
+                    _, kind, payload, ptype = found
+                    if kind == "event_msg" and ptype == "token_count":
+                        requested = requested or usage.usable(payload.get("rate_limits")) is not None
+                    requested = requested or usage.responded(kind, ptype, payload)
+                    tools = tools or usage.hooked(kind, ptype, payload)
         except OSError:
             continue
     return written, requested, tools

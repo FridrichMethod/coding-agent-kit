@@ -738,6 +738,11 @@ CALL = {"type": "response_item", "payload": {"type": "function_call", "name": "e
                                              "call_id": "call-1"}}
 
 
+def turn(cwd):
+    """The turn_context line Codex starts a turn with: the session's working directory at that turn."""
+    return {"type": "turn_context", "payload": {"cwd": str(cwd), "model": "fixture-model"}}
+
+
 # A token_count line as Codex writes it when a reply carries no rate-limit headers.
 NO_LIMITS = {"type": "event_msg", "payload": {"type": "token_count", "info": None, "rate_limits": {
     "limit_id": "codex", "limit_name": None, "primary": None, "secondary": None, "credits": None, "plan_type": None}}}
@@ -1256,14 +1261,15 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + printed))
                 self.assertEqual(self.marker.exists(), not printed)
 
-    def old_rollout(self, thread, seconds, source="cli"):
-        """A rollout of this account's THREAD that started SECONDS ago, as Codex left it then."""
+    def old_rollout(self, thread, seconds, source="cli", cwd=None):
+        """A rollout of this account's THREAD that started SECONDS ago (in CWD, by default the work
+        directory), as Codex left it then."""
         then = time.time() - seconds
         day = self.root / "sessions" / time.strftime("%Y/%m/%d", time.localtime(then))
         day.mkdir(parents=True, exist_ok=True)
         path = day / ("rollout-" + time.strftime("%Y-%m-%dT%H-%M-%S", time.localtime(then)) + f"-{thread}.jsonl")
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(then))
-        meta = {"id": thread, "session_id": thread, "timestamp": stamp, "cwd": str(self.cwd), "originator": "codex-tui",
+        meta = {"id": thread, "session_id": thread, "timestamp": stamp, "cwd": str(cwd or self.cwd), "originator": "codex-tui",
                 "source": source, "thread_source": "user", "creator_user_id": USER, "creator_account_id": WORKSPACE}
         path.write_text("".join(json.dumps({"timestamp": stamp, **line}) + "\n"
                                 for line in ({"type": "session_meta", "payload": meta}, ANSWER)))
@@ -1280,7 +1286,7 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_a_resumed_session_of_any_day_is_this_run_s(self):
         """resume --last, the picker and exec resume --last append to a thread they do not name, whose
-        rollout lies in the date directory of the day it started."""
+        rollout lies in the date directory of the day it started; exec resume begins its turn here."""
         warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's hooks "
                    "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
                    "\"Hooks need review\".\n")
@@ -1291,7 +1297,7 @@ class GuardedLaunch(unittest.TestCase):
                         shutil.rmtree(self.root / "sessions")
                     self.trusted()
                     path = self.old_rollout(THREAD, days * 86400)
-                    rollouts = [{"append": str(path), "lines": [CALL, snapshot(20.0)]}]
+                    rollouts = [{"append": str(path), "lines": [turn(self.cwd), CALL, snapshot(20.0)]}]
                     result = self.run_codex("--reserve-5h", "10", "A", *form,
                                             env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
                     self.assertEqual(result.returncode, 0, result.stderr)
@@ -1435,7 +1441,8 @@ class GuardedLaunch(unittest.TestCase):
                    "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
                    "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
         older = self.old_rollout(THREAD, 2 * 86400)
-        runs = ((["exec", "resume", "--last", "go"], [{"append": str(older), "lines": [CALL, snapshot(20.0)]}]),
+        runs = ((["exec", "resume", "--last", "go"], [{"append": str(older), "lines": [turn(self.cwd), CALL,
+                                                                                       snapshot(20.0)]}]),
                 (["exec", "go"], [{"thread": OTHER, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(95.0)]}]),
                 (["review"], [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(20.0)]}]))
         for args, rollouts in runs:
@@ -1460,7 +1467,8 @@ class GuardedLaunch(unittest.TestCase):
                                 env={"FAKE_ROLLOUTS": json.dumps(first), "FAKE_HOOKS": '["prompt", "tool"]'})
         self.assertEqual((result.returncode, result.stderr), (0, launch_line))
         [path] = (self.root / "sessions").glob("*/*/*/rollout-*.jsonl")
-        for args, rollouts in ((["exec", "resume", "--last", "next"], [{"append": str(path), "lines": [ANSWER, snapshot(21.0)]}]),
+        for args, rollouts in ((["exec", "resume", "--last", "next"],
+                                [{"append": str(path), "lines": [turn(self.cwd), ANSWER, snapshot(21.0)]}]),
                                (["exec", "next"], [{"thread": OTHER, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(21.0)]}]),
                                ([], [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(21.0)]}])):
             with self.subTest(args=args):
@@ -1533,8 +1541,9 @@ class GuardedLaunch(unittest.TestCase):
     def test_a_run_next_to_another_of_the_account_is_never_silent(self):
         """A run whose tool hook did not run, beside another session of the account that may be its own
         and made no tool call, gets the notice on every run, not silence: an exec next to another exec in
-        its directory, and exec resume --last next to an older TUI session of the account elsewhere. The
-        marker stays, since either session may be another run's whose hooks ran."""
+        its directory, and exec resume --last next to an older session of the account, begun elsewhere,
+        in which another client took a turn here. The marker stays, since either session may be another
+        run's whose hooks ran."""
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
         unsure = NOTICE.format("the guard's tool hook")
         for number in range(3):
@@ -1557,19 +1566,73 @@ class GuardedLaunch(unittest.TestCase):
         for number in range(3):
             with self.subTest(run=number, args="exec resume --last"):
                 self.trusted()
-                rollouts = [{"append": str(older), "lines": [CALL, snapshot(20.0)]},
-                            {"append": str(elsewhere), "lines": [ANSWER, snapshot(20.0)]}]
+                rollouts = [{"append": str(older), "lines": [turn(self.cwd), CALL, snapshot(20.0)]},
+                            {"append": str(elsewhere), "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}]
                 result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
                                         env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + unsure))
                 self.assertTrue(self.marker.exists())
-        # Without the other session's lines the run's own show it: the warning, and the marker goes.
-        self.trusted()
-        rollouts = [{"append": str(older), "lines": [CALL, snapshot(20.0)]}]
-        result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
-                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
-        self.assertEqual((result.returncode, result.stderr), (0, launch_line + WARNING.format("the guard's tool hook")))
-        self.assertFalse(self.marker.exists())
+        # Without the other session's turn here the run's own show it: the warning, and the marker goes.
+        for other in ([], [{"append": str(elsewhere), "lines": [turn(self.base), ANSWER, snapshot(20.0)]}]):
+            with self.subTest(other=bool(other)):
+                self.trusted()
+                rollouts = [{"append": str(older), "lines": [turn(self.cwd), CALL, snapshot(20.0)]}, *other]
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr),
+                                 (0, launch_line + WARNING.format("the guard's tool hook")))
+                self.assertFalse(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
+    def test_exec_resume_without_an_id_is_told_by_the_turn_it_begins_here(self):
+        """exec resume --last continues the newest session whose latest turn was in its directory, and begins
+        its own turn there, or starts a session there when it finds none (measured with codex-cli 0.169.0,
+        RealCodex): a new session it starts is the run's (the warning, the marker removed, the next headless
+        run refused), an older session counts only with a turn begun here during the run, and an older
+        session of the account that another client continued elsewhere meanwhile is not the run's."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        refusal = ("codex-as: A: Codex has not run the usage reserve guard's tool hook on this host yet, and a headless "
+                   "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
+                   "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
+        for number, hooks in enumerate(([], ["prompt"], [])):
+            fresh = self.base / f"fresh {number}"
+            fresh.mkdir()
+            with self.subTest(fresh=fresh.name, hooks=hooks):
+                self.trusted()
+                rollouts = [{"thread": f"019a0000-0000-7000-8000-{number + 1:012x}", "creator": [USER, WORKSPACE],
+                             "cwd": str(fresh), "lines": [turn(fresh), ANSWER, CALL, snapshot(20.0)]}]
+                result = self.run_codex("--reserve-5h", "10", "A", "-C", str(fresh), "exec", "resume", "--last", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": json.dumps(hooks)})
+                missing = "the guard's tool hook" if hooks else "the guard's hooks"
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + WARNING.format(missing)))
+                self.assertFalse(self.marker.exists())
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual((result.returncode, result.stderr), (1, refusal))
+        shutil.rmtree(self.root / "sessions")
+        elsewhere = self.base / "elsewhere"
+        older, other = self.old_rollout(THREAD, 86400), self.old_rollout(OTHER, 2 * 86400, cwd=elsewhere)
+        cases = (  # what this run writes, what another client writes meanwhile, what is printed
+            # A session that started elsewhere, continued here: the run's.
+            ([{"append": str(other), "lines": [turn(self.cwd), CALL, snapshot(20.0)]}], [], WARNING),
+            # The run's new session here, chat only, beside an older session continued elsewhere.
+            ([{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}],
+             [{"append": str(other), "lines": [turn(elsewhere), CALL, snapshot(20.0)]}], ""),
+            # The run's older session, chat only, beside the same.
+            ([{"append": str(older), "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}],
+             [{"append": str(other), "lines": [turn(elsewhere), CALL, snapshot(20.0)]}], ""),
+            # Lines without a turn begun here are not a turn of this run.
+            ([], [{"append": str(other), "lines": [CALL, snapshot(20.0)]}], ""),
+        )
+        for own, others, printed in cases:
+            with self.subTest(own=len(own), others=len(others), printed=printed[:20]):
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps([*own, *others]), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr),
+                                 (0, launch_line + printed.format("the guard's tool hook")))
+                self.assertEqual(self.marker.exists(), not printed)
+        result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+        self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
         self.assertEqual(self.launches(), [])
 
     def test_an_exec_of_the_account_inside_a_session_is_not_the_session_s(self):
@@ -2016,18 +2079,12 @@ class RealCodex(unittest.TestCase):
         the five-hour window used in the account record of earlier runs, SENT percent in the rate limits
         the fake sends with every answer (None: no record, no rate limits)."""
         now = int(time.time())
+        self.serve({} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]})
         if recorded is not None:
             window = {"used_percent": float(recorded), "window_minutes": 300, "resets_at": now + 3600}
             load_kit_module(self.kit, "accounts").write(self.record, {
                 "email": "alice@example.com", "plan": "plus",
                 "usage": {"primary": window, "secondary": None, "seen_at": now - 60}})
-        limits = {} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]}
-        fake = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(CODEX_BACKEND), "--log", str(self.requests),
-                                 "--limits", json.dumps(limits), "--shell", f"echo call >> {shlex.quote(str(self.calls))}"],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, env={}, start_new_session=True)
-        for cleanup in (fake.stdout.close, fake.stdin.close, lambda: fake.wait(10), lambda: kill_group(fake.pid)):
-            self.addCleanup(cleanup)
-        self.sandbox.configure(int(fake.stdout.readline()))
         guard_launch = load_kit_module(self.kit, "guard_launch")
         policy = self.reserve.Policy("codex-as", "A",
                                      self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
@@ -2053,6 +2110,15 @@ class RealCodex(unittest.TestCase):
                             "Codex said something about the goals flag")
         return code, out, err, state, models
 
+    def serve(self, limits):
+        """The loopback fake as Codex's model provider, its answers carrying the rate limits LIMITS."""
+        fake = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(CODEX_BACKEND), "--log", str(self.requests),
+                                 "--limits", json.dumps(limits), "--shell", f"echo call >> {shlex.quote(str(self.calls))}"],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, env={}, start_new_session=True)
+        for cleanup in (fake.stdout.close, fake.stdin.close, lambda: fake.wait(10), lambda: kill_group(fake.pid)):
+            self.addCleanup(cleanup)
+        self.sandbox.configure(int(fake.stdout.readline()))
+
     def shell_calls(self):
         return len(self.calls.read_text().splitlines()) if self.calls.exists() else 0
 
@@ -2061,6 +2127,33 @@ class RealCodex(unittest.TestCase):
             self.assertTrue(os.path.exists(state + name), f"{name} is missing")
         for name in absent:
             self.assertFalse(os.path.exists(state + name), f"{name} exists")
+
+    def test_exec_resume_begins_its_turn_here_or_starts_a_session_here(self):
+        """What the check after a run takes as exec resume's own session: exec resume --last with no session of
+        its directory starts one there, and a session it continues, from whatever directory that session
+        started in (with --all), records this directory in the turn_context of its new turn."""
+        self.serve({"primary": [20.0, 300, 3600]})
+        other = self.sandbox.base / "other"
+        other.mkdir()
+        with open(self.sandbox.codex_home / "config.toml", "a") as stream:
+            stream.write(f"[projects.{json.dumps(str(other))}]\ntrust_level = \"trusted\"\n")
+        env = self.sandbox.env()
+        for args in (["exec", "--skip-git-repo-check", "resume", "--last", "PLAIN here"],
+                     ["exec", "-C", str(other), "--skip-git-repo-check", "PLAIN there"],
+                     ["exec", "--skip-git-repo-check", "resume", "--last", "--all", "PLAIN back here"]):
+            with self.subTest(args=args):
+                code, out, err = self.sandbox.run(self.codex, args, env)
+                self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
+        refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED ssh")]
+        self.assertEqual(refused, [], "Codex tried to reach a host through ssh")
+        found = {}
+        for path in (self.sandbox.codex_home / "sessions").glob("*/*/*/rollout-*.jsonl"):
+            lines = [json.loads(line) for line in path.read_text().splitlines()]
+            found[lines[0]["payload"]["cwd"]] = (lines[0]["payload"]["source"],
+                                                 [line["payload"]["cwd"] for line in lines if line["type"] == "turn_context"])
+        work = str(self.sandbox.work)
+        self.assertEqual(found, {work: ("exec", [work]), str(other): ("exec", [str(other), work])})
 
     def test_a_prompt_at_the_reserve_is_never_sent(self):
         code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=95)
