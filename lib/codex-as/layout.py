@@ -76,8 +76,7 @@ def shared_sqlite(guard, root, cwd, profile=None):
     inherited = os.environ.get("CODEX_SQLITE_HOME")
     if inherited and Path(os.path.abspath(inherited)) != result:
         guard.fail("CODEX_SQLITE_HOME conflicts with shared SQLite storage (value hidden).")
-    for parent in {*(cwd, *cwd.parents), *(cwd.resolve(), *cwd.resolve().parents)}:
-        path = parent / ".codex/config.toml"
+    for path in guard.project_layers(cwd):
         if path.exists() and path != config:
             with path.open("rb") as stream:
                 data = guard.tomllib.load(stream)
@@ -102,14 +101,12 @@ def profile_files(root, home, profile):
 def hooks_off(guard, root, cwd, profile=None, home=None):
     """The first configuration file native Codex may load for this launch that turns its hooks off,
     or None: the shared config.toml, the selected profile's (profile_files: the account HOME's own
-    too), a system one, or a project's .codex/config.toml in a lexical or resolved parent of CWD.
+    too), a system one, or a project's (check.project_layers: a lexical or resolved parent of CWD).
     A project's file counts whatever Codex's trust of that project, which is not read (fail closed).
     Managed requirements that pin hooks or allow managed hooks only (requirements.toml, cloud
     requirements) are not read, as no policy state of Codex is; the check after the run reports
     hooks that Codex did not run."""
-    paths = {root / "config.toml", *SYSTEM_CONFIG, *profile_files(root, home, profile)}
-    for place in (cwd, cwd.resolve()):
-        paths.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
+    paths = {root / "config.toml", *SYSTEM_CONFIG, *profile_files(root, home, profile), *guard.project_layers(cwd)}
     for path in sorted(paths):
         if path.exists():
             with path.open("rb") as stream:

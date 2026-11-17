@@ -76,6 +76,11 @@ class Fixture(unittest.TestCase):
         env["HOME"] = str(self.home)
         with patch.dict(os.environ, env, clear=True):
             self.config = settings.load()
+        # Project layers above the test's directory (/tmp/.codex, or the real home's under a TMPDIR there)
+        # never count here.
+        patcher = patch.object(check, "PROJECT_TOP", self.base)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def plan(self, args):
         return check.arguments(args, self.config)
@@ -325,6 +330,17 @@ class HooksOff(Fixture):
         elsewhere = self.write(self.base / "elsewhere.toml", "[features]\ncodex_hooks = false\n")
         own.symlink_to(elsewhere)
         self.assertEqual(layout.hooks_off(check, self.root, self.cwd, "q", home), own)
+
+    def test_project_layers_end_at_the_top(self):
+        """check.PROJECT_TOP is / for a launch, so every parent's layer counts; above a lower top none does."""
+        self.assertEqual(launch.guard.PROJECT_TOP, Path("/"))
+        self.assertIn(Path("/.codex/config.toml"), launch.guard.project_layers(self.cwd))
+        self.write(self.base / ".codex/config.toml", "[features]\nhooks = false\n")
+        self.assertTrue(self.off())
+        with patch.object(check, "PROJECT_TOP", self.base / "project"):
+            self.assertEqual(check.project_layers(self.cwd), {self.cwd / ".codex/config.toml",
+                                                              self.base / "project/.codex/config.toml"})
+            self.assertFalse(self.off(), "a layer above the top counts")
 
     def test_project_layers(self):
         """A trusted project's .codex/config.toml turns hooks off too; trust is not read, so any
@@ -757,7 +773,12 @@ class GuardedLaunch(unittest.TestCase):
             source = self.kit / "lib/codex-as" / name
             text = source.read_text()
             self.assertEqual(text.count('Path("/etc/codex/'), count, name)
-            source.write_text(text.replace('Path("/etc/codex/', f"Path({str(self.etc)!r} + \"/"))
+            text = text.replace('Path("/etc/codex/', f"Path({str(self.etc)!r} + \"/")
+            if name == "check.py":
+                # Nor does a project layer above the test's directory (/tmp/.codex, say).
+                self.assertEqual(text.count('\nPROJECT_TOP = Path("/")\n'), 1)
+                text = text.replace('\nPROJECT_TOP = Path("/")\n', f"\nPROJECT_TOP = Path({str(self.base)!r})\n")
+            source.write_text(text)
         self.home = self.base / "home with spaces"
         self.root = self.home / ".codex"
         self.root.mkdir(parents=True, mode=0o700)

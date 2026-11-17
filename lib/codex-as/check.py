@@ -519,15 +519,25 @@ def exclusive(path, raw):
         raise
 
 
+# The highest directory whose .codex/config.toml counts as a project layer: with /, every parent of the
+# working directory, more than native Codex loads (fail closed). The tests set their own directory.
+PROJECT_TOP = Path("/")
+
+
+def project_layers(cwd):
+    """The .codex/config.toml of every lexical and resolved parent of CWD (a symlinked -C has both) at or
+    below PROJECT_TOP: each file native Codex may load as a project layer."""
+    top = PROJECT_TOP
+    return {parent / ".codex/config.toml" for place in (cwd, cwd.resolve()) for parent in (place, *place.parents)
+            if parent == top or top in parent.parents}
+
+
 def config_sources(root, cwd, profile=None):
     user = {root / "config.toml", Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"),
             Path("/etc/codex/requirements.toml")}
     if profile is not None:
         user.add(root / (profile + ".config.toml"))
-    project = set()
-    # Lexical and resolved parents: a symlinked -C has both.
-    for place in (cwd, cwd.resolve()):
-        project.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
+    project = project_layers(cwd)
     for path in sorted(user | project):
         if not path.exists():
             continue
