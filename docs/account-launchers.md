@@ -99,7 +99,7 @@ At each prompt and each tool call the guard compares the current reading of ever
 
 A session can also be **blind**: it has had replies and still has no usage data. Blindness never refuses a session's first prompt; after that a blind session is refused with a message of its own:
 
-- Claude: the first sign of a reply (the session's first tool call or turn end) was at least 120 seconds ago, and the launch's status line has reported no rate limits since it started. Claude Code runs no status line in a workspace it does not trust yet, and an account whose plan reports no window gives none, so both become blind this way two minutes after their first reply.
+- Claude: the first sign of a reply (the session's first tool call or turn end) was at least 120 seconds ago, and the launch's status line has reported no rate limits since it started. An account whose plan reports no window gives none, so its sessions become blind this way two minutes after their first reply. Claude Code runs the hooks and the status line only in a workspace you trust, both or neither, so a workspace it does not trust yet makes no session blind.
 - Codex: at a tool call, the rollout holds token counts since the launch started and none has rate limits; at a prompt, also when it shows a model response since the launch started and no rate limits.
 
 An account whose server reports no window at all therefore needs its reserves set to `"off"` in its [account table](configuration.md#usage-reserves).
