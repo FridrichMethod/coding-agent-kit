@@ -57,8 +57,8 @@ MANAGED_DIRECTORIES = (Path("/etc/claude-code/managed-settings.d"),
 # The machine's other policy sources that a launch with a usage reserve checks with them (machine_policies): on
 # macOS the managed preferences an MDM profile installs for the com.anthropic.claudecode domain, the machine's and
 # this user's; on WSL the Windows managed settings, which Claude Code takes in only when one of them sets
-# wslInheritsWindowsSettings. Server-managed settings and the HKLM policy key (which Claude Code on WSL reads
-# through reg.exe) are not checked: hooks they stop show as the footer line and the warning at the account's
+# wslInheritsWindowsSettings. Server-managed settings and the HKLM and HKCU policy keys (which Claude Code on WSL
+# reads through reg.exe) are not checked: hooks they stop show as the footer line and the warning at the account's
 # next guarded launch.
 MACOS = sys.platform == "darwin"
 MDM_PREFERENCES = Path("/Library/Managed Preferences")

@@ -10,7 +10,8 @@ output, so those launches run with standard output on a pseudo-terminal.
 
 RealClaude runs the guard's hooks in the real Claude Code when one at or above
 the guard's minimum is on PATH (it skips with the reason otherwise, and when the
-host has managed settings, which Claude Code applies over the sandbox): offline,
+host has managed settings or, on WSL, a Windows registry policy, which Claude
+Code applies over the sandbox): offline,
 against the loopback fake tests/fixtures/guard/claude_api.py, in a temporary
 HOME and configuration directory with an environment built from scratch, git
 and ssh shims first on PATH, git allowed the file protocol only and every proxy
@@ -1411,6 +1412,18 @@ SSH_SHIM = """#!/bin/sh
 printf 'REFUSED ssh %s\\n' "$*" >> {log}
 exit 255
 """
+# Claude Code 2.1.326 on WSL reads a Windows registry policy, the Settings value of these keys, through this reg.exe.
+WINDOWS_REG = Path("/mnt/c/Windows/System32/reg.exe")
+REGISTRY_KEYS = ("HKLM\\SOFTWARE\\Policies\\ClaudeCode", "HKCU\\SOFTWARE\\Policies\\ClaudeCode")
+# A fake reg.exe for SandboxSetup: logs each query and exits with its code for the key.
+REG_FAKE = """#!/bin/sh
+printf '%s\\n' "$*" >> {log}
+case "$2" in
+'HKLM\\SOFTWARE\\Policies\\ClaudeCode') exit {hklm} ;;
+'HKCU\\SOFTWARE\\Policies\\ClaudeCode') exit {hkcu} ;;
+esac
+exit 9
+"""
 
 
 def load_kit_module(kit, name):
@@ -1435,7 +1448,8 @@ def managed_policy_stop():
     hooks or the status line; any other key may send its requests past the loopback fake (an env with
     ANTHROPIC_BASE_URL or a proxy), stop or wrap the hooks (CLAUDE_CODE_SAFE_MODE, CLAUDE_CODE_SHELL_PREFIX) or run a
     command of the host (apiKeyHelper). Then a managed MCP configuration beside a managed settings file, whose
-    servers Claude Code would start. None when the host has none of these."""
+    servers Claude Code would start, and on WSL a Windows registry policy (registry_policy_stop). None when the host
+    has none of these."""
     sources = {}
     drop_ins = (path for folder in launch.MANAGED_DIRECTORIES for path in sorted(folder.glob("*.json")))
     for path in (*launch.MANAGED_FILES, *drop_ins):
@@ -1457,6 +1471,28 @@ def managed_policy_stop():
         servers = path.with_name("managed-mcp.json")
         if os.path.lexists(servers):
             return f"the host's managed MCP configuration {servers} gives Claude Code servers it would start"
+    return registry_policy_stop()
+
+
+def registry_policy_stop():
+    """Why a real Claude Code on this WSL host would apply a Windows registry policy over the Sandbox: the Settings
+    value of one of REGISTRY_KEYS, which it reads through WINDOWS_REG, is there (reg.exe exits 0), or reg.exe cannot
+    tell (it exits with a code other than 1, the code for a missing value, does not start or runs too long). None off
+    WSL, without reg.exe, or when both values are missing."""
+    if not launch.on_wsl() or not os.path.lexists(WINDOWS_REG):
+        return None
+    for key in REGISTRY_KEYS:
+        try:
+            code = subprocess.run([str(WINDOWS_REG), "query", key, "/v", "Settings"], stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30).returncode
+        except (OSError, subprocess.SubprocessError):
+            code = None
+        if code == 0:
+            return (f"the Windows registry value {key}\\Settings holds a Claude Code policy, which Claude Code on WSL "
+                    "applies over the sandbox's environment and settings")
+        if code != 1:
+            return (f"{WINDOWS_REG} could not tell whether {key}\\Settings holds a Claude Code policy, which Claude Code "
+                    "on WSL would apply over the sandbox")
     return None
 
 
@@ -1900,6 +1936,46 @@ class SandboxSetup(unittest.TestCase):
             with self.assertRaises(unittest.SkipTest) as caught:
                 RealClaude.setUpClass()
         self.assertEqual(str(caught.exception), reason)
+
+    def test_a_windows_registry_policy_skips_the_real_claude_on_wsl(self):
+        """Claude Code on WSL reads the Settings value of HKLM and HKCU\\SOFTWARE\\Policies\\ClaudeCode through
+        reg.exe and applies it over the sandbox: on WSL RealClaude skips, naming the key, when reg.exe finds the value
+        (exit 0), and also when it cannot tell (another exit code, or it does not start); not when it reports both
+        missing (exit 1), when there is no reg.exe, or off WSL."""
+        reason = ("the Windows registry value {key}\\Settings holds a Claude Code policy, which Claude Code on WSL "
+                  "applies over the sandbox's environment and settings")
+        unknown = ("{reg} could not tell whether {key}\\Settings holds a Claude Code policy, which Claude Code on WSL "
+                   "would apply over the sandbox")
+        hklm, hkcu = REGISTRY_KEYS
+        with tempfile.TemporaryDirectory(prefix="claude-guard-registry-") as name:
+            base = Path(name).resolve()
+            reg, queries = base / "System32/reg.exe", base / "queries"
+            wsl = [True]
+            with unittest.mock.patch.multiple(launch, MANAGED_FILES=(base / "etc/managed-settings.json",),
+                                              MANAGED_DIRECTORIES=(base / "etc/managed-settings.d",),
+                                              MDM_PREFERENCES=base / "prefs", WINDOWS_POLICY=base / "windows",
+                                              MACOS=False, on_wsl=lambda: wsl[0]), \
+                    unittest.mock.patch(f"{__name__}.WINDOWS_REG", reg):
+                self.assertIsNone(managed_policy_stop())
+                for codes, expected in (((1, 1), None), ((0, 1), reason.format(key=hklm)),
+                                        ((1, 0), reason.format(key=hkcu)), ((0, 0), reason.format(key=hklm)),
+                                        ((5, 1), unknown.format(reg=reg, key=hklm)),
+                                        ((1, 2), unknown.format(reg=reg, key=hkcu))):
+                    with self.subTest(codes=codes):
+                        write(reg, REG_FAKE.format(log=shlex.quote(str(queries)), hklm=codes[0], hkcu=codes[1]), 0o700)
+                        queries.unlink(missing_ok=True)
+                        self.assertEqual(managed_policy_stop(), expected)
+                        asked = queries.read_text().splitlines()
+                        self.assertEqual(asked[0], f"query {hklm} /v Settings")
+                        self.assertEqual(asked, asked[:1] if codes[0] != 1 else [asked[0], f"query {hkcu} /v Settings"])
+                reg.chmod(0o600)  # a reg.exe that does not start
+                self.assertEqual(managed_policy_stop(), unknown.format(reg=reg, key=hklm))
+                write(reg, REG_FAKE.format(log=shlex.quote(str(queries)), hklm=0, hkcu=0), 0o700)
+                wsl[0] = False
+                self.assertIsNone(managed_policy_stop())
+                wsl[0] = True
+                reg.unlink()
+                self.assertIsNone(managed_policy_stop())
 
 
 @unittest.skipUnless(os.path.isdir("/proc/self"), "the sandbox finds its strays through /proc (Linux)")
