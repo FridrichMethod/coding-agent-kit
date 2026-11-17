@@ -69,6 +69,11 @@ HEADLESS = ("-p", "--print", "--init-only")
 # sessions there.
 BACKGROUND = ("--bg", "--background")
 ELSEWHERE = ("agents", "attach", "respawn")
+# The commands, by their first and second operands, that run the model outside the interactive session, where
+# no hook of this launch sees their requests, in Claude Code 2.1.326 (the reviewed release): the cloud-hosted
+# review, the AI critique of auto mode rules, and plugin evals (plugins is plugin's alias), whose runs are claude
+# children of their own and whose grader runs outside any hook. A command added by a later release is not here.
+DETACHED = (("ultrareview",), ("auto-mode", "critique"), ("plugin", "eval"), ("plugins", "eval"))
 # A guarded launch keeps its session in this process: no move to the background, no agent view, and no
 # re-run of a turn that the guard stopped. Claude Code also reads these from a settings file's env.
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}
@@ -225,6 +230,7 @@ class Form:
     modes: list = field(default_factory=list)  # HOOKLESS_FLAGS words before the first --, wherever they stand
     settings: bool = False  # a --settings of the caller
     operand: object = None  # the first operand, which Claude Code dispatches as a command
+    subcommand: object = None  # the second operand, which a command with subcommands dispatches
     sources: dict = field(default_factory=dict)  # Path: parsed settings, for every settings file read
     statusline: object = None  # own_status_line() of the user's and the project's settings
 
@@ -317,6 +323,8 @@ def preflight(args, kit, enrollment, guarded=False):
                 fail("login/logout/setup-token must not be passed through claude-as.")
             form.operand = arg
             root = False
+        elif form.subcommand is None:
+            form.subcommand = arg
     scanned = args[:args.index("--")] if "--" in args else args
     form.modes = [word for word in HOOKLESS_FLAGS if word in scanned]
     return form
@@ -413,6 +421,10 @@ def check_form(form, account):
     if form.operand in ELSEWHERE:
         refuse_guarded(account, f"claude {form.operand} runs or joins sessions in Claude Code's background process, "
                        "outside this launch's usage reserve guard")
+    for words in DETACHED:
+        if (form.operand, form.subcommand)[:len(words)] == words:
+            refuse_guarded(account, f"claude {' '.join(words)} runs the model outside Claude Code's interactive session, "
+                           "where the usage reserve guard cannot stop it")
     if form.settings:
         refuse_guarded(account, "a --settings of your own cannot be combined with usage reserves, whose hooks "
                        "claude-as passes in its own --settings")

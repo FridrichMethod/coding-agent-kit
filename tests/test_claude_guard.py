@@ -238,8 +238,11 @@ class Unguarded(Fixture):
 
     def test_without_reserves_the_forms_a_guard_refuses_stay_as_they_were(self):
         """-p and a piped standard output launch; --init-only, --bg and --background stay unsupported options."""
-        code, out, err = self.run_launcher(["work", "agents"], tty=False)
-        self.assertEqual((code, out, err), (0, "stdout sentinel\n", ""))
+        for args in (["agents"], ["ultrareview"], ["auto-mode", "critique"], ["plugin", "eval"], ["plugins", "eval", "x"]):
+            with self.subTest(args=args):
+                code, out, err = self.run_launcher(["work", *args], tty=False)
+                self.assertEqual((code, out, err), (0, "stdout sentinel\n", ""))
+                self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
         for word in ("--init-only", "--bg", "--background"):
             with self.subTest(word=word):
                 code, out, err = self.run_launcher(["work", word])
@@ -346,6 +349,16 @@ class Guarded(Fixture):
                                 capture_output=True, timeout=30)
         self.assertEqual((result.returncode, result.stderr), (0, b""))
 
+    def test_commands_that_run_no_model_launch_guarded(self):
+        """Only the commands that run the model outside the session are refused; the others get the guard."""
+        for args in (["auto-mode", "config"], ["auto-mode"], ["plugin", "list"], ["plugins", "list"], ["mcp", "list"],
+                     ["doctor"], ["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"],
+                     ["mcp", "eval"]):
+            with self.subTest(args=args):
+                record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
+                self.assert_guarded(record, value, args, "10", None)
+                self.assertTrue(err.endswith(LAUNCH_LINE), err)
+
     def test_help_and_version_are_neither_refused_nor_injected(self):
         self.configure('[usage_reserve]\nfive_hour = 10\nweekly = 10\n')
         for args in (["work", "--help"], ["work", "-h"], ["--reserve-5h", "5", "work", "-v"]):
@@ -448,7 +461,20 @@ class Refusals(Fixture):
         background = ("hands the session to Claude Code's background process, which runs it with the environment and "
                       "credential of whichever launch started that process")
         elsewhere = "runs or joins sessions in Claude Code's background process, outside this launch's usage reserve guard"
+        detached = "runs the model outside Claude Code's interactive session, where the usage reserve guard cannot stop it"
         cases = ((["-p", "hi"], f"-p {outside}"), (["--print", "hi"], f"--print {outside}"),
+                 (["ultrareview"], f"claude ultrareview {detached}"), (["ultrareview", "123"], f"claude ultrareview {detached}"),
+                 (["--model", "x", "ultrareview"], f"claude ultrareview {detached}"),
+                 (["--", "ultrareview"], f"claude ultrareview {detached}"),
+                 (["auto-mode", "critique"], f"claude auto-mode critique {detached}"),
+                 (["auto-mode", "critique", "--model", "x"], f"claude auto-mode critique {detached}"),
+                 (["--verbose", "auto-mode", "critique"], f"claude auto-mode critique {detached}"),
+                 (["--", "auto-mode", "critique"], f"claude auto-mode critique {detached}"),
+                 (["plugin", "eval"], f"claude plugin eval {detached}"),
+                 (["plugin", "eval", "my-plugin"], f"claude plugin eval {detached}"),
+                 (["plugin", "eval", "init", "x"], f"claude plugin eval {detached}"),
+                 (["plugins", "eval"], f"claude plugins eval {detached}"),
+                 (["plugin", "--", "eval"], f"claude plugin eval {detached}"),
                  (["--model", "x", "--verbose", "-p", "hi"], f"-p {outside}"), (["--init-only"], f"--init-only {outside}"),
                  (["--bg"], f"--bg {background}"), (["--background", "task"], f"--background {background}"),
                  (["--model", "x", "--bg"], f"--bg {background}"), (["--verbose", "--background"], f"--background {background}"),
