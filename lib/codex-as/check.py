@@ -279,6 +279,7 @@ def arguments(args, config):
                     elif command == "sandbox":
                         break  # the rest is the sandboxed command line
             elif command == "exec":
+                # exec help is read as a prompt: with a reserve on it is headless, though Codex only prints help.
                 command = "exec-resume" if arg in {"resume", "fork"} else "exec-prompt"
                 forked = arg == "fork"
             elif command in {"resume", "fork", "exec-resume"} and target is None:

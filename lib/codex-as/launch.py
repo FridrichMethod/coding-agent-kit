@@ -460,7 +460,8 @@ def activity(paths, begun, ended):
     request (a line of a model response, usage.responded, or a usable rate-limit snapshot, which a
     reply without rate-limit headers does not leave), and a call that a tool hook sees. Each rollout is
     read back from its end, usage.TAIL bytes at a time, to the lines from before BEGUN; inherited lines
-    and lines whose time cannot be read never count."""
+    and lines whose time cannot be read never count. These lines are the only evidence of a model
+    request: nothing else of the run, such as its exit status or output, is read."""
     written = requested = tools = False
     for path in paths:
         try:

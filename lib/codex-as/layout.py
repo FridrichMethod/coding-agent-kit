@@ -102,8 +102,11 @@ def profile_files(root, home, profile):
 def hooks_off(guard, root, cwd, profile=None, home=None):
     """The first configuration file native Codex may load for this launch that turns its hooks off,
     or None: the shared config.toml, the selected profile's (profile_files: the account HOME's own
-    too), a system one, or a project's .codex/config.toml in a lexical or resolved parent of CWD
-    (whether Codex trusts that project is not read)."""
+    too), a system one, or a project's .codex/config.toml in a lexical or resolved parent of CWD.
+    A project's file counts whatever Codex's trust of that project, which is not read (fail closed).
+    Managed requirements that pin hooks or allow managed hooks only (requirements.toml, cloud
+    requirements) are not read, as no policy state of Codex is; the check after the run reports
+    hooks that Codex did not run."""
     paths = {root / "config.toml", *SYSTEM_CONFIG, *profile_files(root, home, profile)}
     for place in (cwd, cwd.resolve()):
         paths.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
@@ -135,7 +138,8 @@ def hook_off(guard, root, keys, profile=None, home=None):
 def goals_on(guard):
     """The first managed layer that sets goals under [features] to anything but false, or None: it
     would keep goals on over the -c value and the flag that turn them off. The shared, profile,
-    project and system config.toml layers lie below the command line."""
+    project and system config.toml layers lie below the command line. Cloud requirements, which
+    only Codex fetches, are not read, as no policy state of Codex is."""
     for path in MANAGED_CONFIG:
         if path.exists():
             with path.open("rb") as stream:
