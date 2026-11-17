@@ -577,15 +577,31 @@ def private_metadata(path):
         return stream.read()
 
 
+def emit(text):
+    """TEXT and a newline on stderr. A stderr that is gone (its reader closed, a terminal hung up) loses
+    the text, never the run: it is pointed at /dev/null, so no later write, nor Python's flush at exit
+    (which would make the exit status 120), fails again."""
+    try:
+        print(text, file=sys.stderr)
+    except OSError:
+        try:
+            fd, target = os.open(os.devnull, os.O_WRONLY), sys.stderr.fileno()
+            if fd != target:
+                os.dup2(fd, target)
+                os.close(fd)
+        except (OSError, ValueError):
+            pass
+
+
 def warn(message):
-    print(styled("codex-as: " + message, "33", 2), file=sys.stderr)
+    emit(styled("codex-as: " + message, "33", 2))
 
 
 def report(error):
     # Only messages written by codex-as are shown; other errors may quote file contents.
     own = type(error) is ValueError or getattr(error, "own_message", False)
     message = str(error) if own else "missing, unreadable or malformed credential/configuration; no unsafe repair performed."
-    print(styled("codex-as: " + message, "31", 2), file=sys.stderr)
+    emit(styled("codex-as: " + message, "31", 2))
 
 
 if __name__ == "__main__":

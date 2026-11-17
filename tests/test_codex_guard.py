@@ -1486,6 +1486,39 @@ class GuardedLaunch(unittest.TestCase):
         self.assertNotIn("Traceback", result.stderr)
         self.assertEqual(self.launches(), [], "the launch's state outlived it")
 
+    def test_a_stderr_gone_after_the_launch_line_loses_only_the_text(self):
+        """A stderr whose reader closed while Codex ran (a pipe, or a terminal after a hang-up): the run that
+        shows Codex skipped the guard's hooks still removes the marker and the launch's state, and codex-as
+        exits with Codex's status, the block message and the warning lost."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        ready, go = self.base / "ready", self.base / "go"
+        rollouts = json.dumps([{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(20.0)]}])
+        for form in (["exec", "go"], []):
+            with self.subTest(form=form):
+                self.trusted()
+                ready.unlink(missing_ok=True)
+                go.unlink(missing_ok=True)
+                blocked = {"kind": "bytes", "hex": b"codex-as: A: stopped\n".hex()}
+                child = subprocess.Popen([str(self.kit / "bin/codex-as"), "--reserve-5h", "10", "A", *form], cwd=self.cwd,
+                                         env=self.env | {"FAKE_PAUSE": json.dumps([str(ready), str(go)]),
+                                                         "FAKE_ROLLOUTS": rollouts, "FAKE_HOOKS": "[]", "FAKE_EXIT": "3",
+                                                         "FAKE_BLOCKED": json.dumps(blocked)},
+                                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                         text=True, start_new_session=True)
+                try:
+                    self.assertEqual(child.stderr.readline(), launch_line)
+                    deadline = time.monotonic() + 30
+                    while not ready.exists() and time.monotonic() < deadline and child.poll() is None:
+                        time.sleep(0.02)
+                    self.assertTrue(ready.exists(), "Codex did not start")
+                    child.stderr.close()
+                    go.touch()
+                    self.assertEqual(child.wait(timeout=60), 3, "the exit status is Codex's")
+                finally:
+                    kill_group(child.pid)
+                self.assertFalse(self.marker.exists(), "the marker stayed after a run whose hooks did not run")
+                self.assertEqual(self.launches(), [], "the launch's state outlived it")
+
     def test_old_launch_state_is_pruned_and_markers_stay(self):
         self.trusted()
         now = int(time.time())

@@ -518,25 +518,30 @@ def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
     """After a guarded run: the guard's latest block message of a headless run, which Codex itself
     does not show; then, when this run's THREADS show that Codex did not run the guard's hooks, the
     warning, and the marker goes, so headless runs wait until an interactive launch has trusted them
-    again; when only a session that may be another client's shows it, a notice, and the marker stays."""
-    if plan.form == "headless":
-        message = blocked_message(state)
-        if message:
-            print(guard.styled(message, "31", 2), file=sys.stderr)
-    if threads is None:
-        return  # what the run did cannot be told
-    try:
-        missing, unsure = unenforced(state, threads, begun, ended)
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
-        return
+    again; when only a session that may be another client's shows it, a notice, and the marker stays.
+    The marker goes before anything is printed, and printing never fails (check.emit)."""
+    missing = unsure = None
+    if threads is not None:  # else what the run did cannot be told
+        try:
+            missing, unsure = unenforced(state, threads, begun, ended)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
+            pass
     if missing:
-        guard.warn(f"{account}: the usage reserve was not enforced in this run: Codex did not run {missing} (not "
-                   f"trusted, disabled, or managed hooks only). Start codex-as {account} interactively and trust "
-                   "them in \"Hooks need review\".")
         try:
             os.unlink(marker)
         except OSError:
             pass
+    if plan.form == "headless":
+        try:
+            message = blocked_message(state)
+        except OSError:
+            message = None
+        if message:
+            guard.emit(guard.styled(message, "31", 2))
+    if missing:
+        guard.warn(f"{account}: the usage reserve was not enforced in this run: Codex did not run {missing} (not "
+                   f"trusted, disabled, or managed hooks only). Start codex-as {account} interactively and trust "
+                   "them in \"Hooks need review\".")
     elif unsure:
         # Never silent; the marker stays, since the session may be another client's whose hooks ran.
         guard.warn(f"{account}: the usage reserve may not have been enforced in this run: Codex did not run {unsure} "
