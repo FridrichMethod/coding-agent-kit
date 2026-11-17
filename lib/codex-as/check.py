@@ -243,6 +243,11 @@ def arguments(args, config):
             flag, sep, value = arg, "", ""
         if flag in REFUSED:
             fail("unsupported option; profiles, remote/provider/auth overrides are refused.")
+        if flag == "--startup-sign-out" and command == "app-server":
+            # Removes auth.json and revokes the tokens (codex-cli 0.169.0). clap takes it only before app-server's
+            # subcommand, but a word before it may be the value of an option this scan does not know.
+            fail("unsupported option; app-server --startup-sign-out signs the account out and revokes its tokens, "
+                 "as logout does.")
         if flag in VALUES:
             if not sep:
                 if i == len(args):

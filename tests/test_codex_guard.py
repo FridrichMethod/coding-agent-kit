@@ -278,10 +278,32 @@ class LaunchForms(Fixture):
                      ["remote-control", "start"], ["remote-control", "help"], ["app-server", "daemon"],
                      # An option the scan does not know may take the generator's name: daemon stays app-server's.
                      ["app-server", "--cloud-skills-snapshot", "generate-ts", "daemon", "start"],
+                     ["app-server", "--startup-sign-out", "--print-startup-config"],
                      ["--enable", "use_agent_identity"]):
             with self.subTest(args=args):
                 with self.assertRaises(ValueError):
                     self.plan(args)
+
+    def test_app_server_s_startup_sign_out_is_refused_as_logout_is(self):
+        """codex-cli 0.169.0: app-server --startup-sign-out (which needs --print-startup-config) signs the account out
+        as logout does, removing its auth.json and revoking its tokens. clap takes the switch only before app-server's
+        subcommand, exactly as written (no prefix, no value), so it is refused wherever it follows app-server: a word
+        before it may be the value of an option the scan does not know."""
+        for args in (["app-server", "--startup-sign-out", "--print-startup-config"],
+                     ["app-server", "--print-startup-config", "--startup-sign-out"],
+                     ["-c", "model=x", "app-server", "-c", "model=y", "--startup-sign-out", "--print-startup-config"],
+                     ["app-server", "--cloud-skills-snapshot", "s.json", "--startup-sign-out", "--print-startup-config"],
+                     ["app-server", "--startup-sign-out=true", "--print-startup-config"]):
+            with self.subTest(args=args):
+                with self.assertRaisesRegex(ValueError, r"^unsupported option; app-server --startup-sign-out signs the "
+                                                        r"account out and revokes its tokens, as logout does\.$"):
+                    self.plan(args)
+        # Without it the form is app-server's as before; after -- or elsewhere it is no such switch.
+        for args in (["app-server", "--print-startup-config"], ["app-server", "--", "--startup-sign-out"],
+                     ["exec", "go", "--startup-sign-out"], ["debug", "app-server", "--startup-sign-out"],
+                     ["--startup-sign-out", "go"]):
+            with self.subTest(args=args):
+                self.plan(args)
 
 
 class Version(unittest.TestCase):
@@ -1117,6 +1139,12 @@ class GuardedLaunch(unittest.TestCase):
                 # list); app-server's schema generators alone launch plain.
                 self.refused(["A", *args], f"codex {name} can run model work where the usage reserve guard's hooks "
                                            "cannot see or stop it")
+        # Signing the account out is refused in every launch, as logout is, before the form counts.
+        result = self.run_codex("--reserve-weekly", "10", "A", "app-server", "--startup-sign-out", "--print-startup-config")
+        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                         (1, "", "codex-as: unsupported option; app-server --startup-sign-out signs the account out and "
+                                 "revokes its tokens, as logout does.\n"))
+        self.assertFalse(self.record.exists(), "a refused launch started Codex")
 
     def test_options_the_hooks_cannot_cover_are_refused(self):
         self.trusted()

@@ -1675,6 +1675,8 @@ class CodexAs(unittest.TestCase):
                          ["A", "agents"], *([["A", "app"]] if sys.platform in ("darwin", "win32") else []),
                          ["A", "remote-control", "start"],
                          ["A", "app-server", "daemon", "start"], ["A", "app-server", "--listen", "x", "daemon", "start"],
+                         # Signs the account out and revokes its tokens, as logout does.
+                         ["A", "app-server", "--startup-sign-out", "--print-startup-config"],
                          ["A", "-c", "check_for_update_on_startup=true"],
                          ["A", "resume", "uuid:12345678-1234-4234-8234-123456789abc"])):
                 with self.subTest(shell=shell, case=index):
@@ -1712,6 +1714,7 @@ class CodexAs(unittest.TestCase):
                             (["sandbox", "brew", "update"], interactive), (["review", "--base", "update"], interactive),
                             (["login", "status"], interactive),
                             (["remote-control"], interactive), (["app-server", "proxy"], interactive),
+                            (["app-server", "--print-startup-config"], interactive),
                             # clap's attached values and a root --no-daemon of the caller's own.
                             (["-C" + str(self.base), "resume", "--last"], interactive),
                             (["--no-daemon", "hello"], interactive[:2]),
