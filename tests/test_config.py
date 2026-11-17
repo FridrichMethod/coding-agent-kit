@@ -1024,11 +1024,11 @@ class Launchers(unittest.TestCase):
                 for gone in ("--enroll-native", "native-login", "protected", "F12", "gate"):
                     self.assertNotIn(gone, result.stdout)
                 if tool == "codex-as":
-                    # One minimum for every launch: reserves need no newer Codex.
+                    # One minimum for every launch: reserves need no newer Codex, so the help names no other version.
                     self.assertIn("and Codex 0.161.0 or newer, also with reserves; no upper limit.", result.stdout)
+                    self.assertEqual(re.findall(r"\d+\.\d+\.\d+", "\n".join(result.stdout.splitlines()[:-1])), ["0.161.0"])
                     self.assertIn("With a reserve on, goals are off; cloud, app-server, --ephemeral and other forms the "
-                                  "hooks cannot see are refused.", result.stdout)
-                    self.assertNotIn("0.169.0", result.stdout)
+                                  "guard cannot check are refused.", result.stdout)
                 else:
                     self.assertIn("and Claude Code 2.1.296 or newer with reserves; no upper limit.", result.stdout)
                     self.assertIn("With a reserve on, forms the hooks cannot cover are refused (-p, redirected output, "
