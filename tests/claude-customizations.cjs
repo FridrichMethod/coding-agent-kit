@@ -549,6 +549,29 @@ test('status line leaves no temporary file when its write fails', posixOnly, (t)
   assert.deepEqual(fs.readdirSync(folder), [], 'a temporary file was left');
 });
 
+test('status line merges into the file another writer renamed over the one it had just opened', posixOnly, (t) => {
+  const { folder, file, env } = usageFixture(t);
+  const now = NOW / 1000;
+  const stored = { five_hour: usageWindow(50, now + 3600), seven_day: usageWindow(95, now + 86400), seen_at: now - 1000 };
+  put(file, stored);
+  // The open file then has no link left; the helper reads the one there now and keeps the window the reading lacks.
+  let replaced = 0;
+  patchFs(t, 'fstatSync', real => (fd, ...rest) => {
+    const info = real(fd, ...rest);
+    const there = fs.lstatSync(file, { throwIfNoEntry: false });
+    if (replaced || !there || there.dev !== info.dev || there.ino !== info.ino) return info;
+    put(`${file}.other`, stored);
+    fs.renameSync(`${file}.other`, file);
+    replaced += 1;
+    return real(fd, ...rest);
+  });
+  assert.equal(recordUsage({ rate_limits: { five_hour: usageWindow(60, now + 3600) } }, env, NOW), true);
+  assert.equal(replaced, 1);
+  assert.deepEqual(readJson(file), { five_hour: usageWindow(60, now + 3600), seven_day: usageWindow(95, now + 86400),
+    seen_at: now });
+  assert.deepEqual(fs.readdirSync(folder), [path.basename(file)], 'a temporary file was left');
+});
+
 test('status line records nothing as the user\'s own status line of a guarded launch', withPython, (t) => {
   const { root, folder, file, env } = usageFixture(t);
   // claude-as passes the helper's variables on in a guarded launch too, and the guard's status line runs the

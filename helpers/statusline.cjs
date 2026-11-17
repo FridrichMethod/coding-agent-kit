@@ -72,6 +72,7 @@ const RECORD_AGAIN = 300;
 const LAST_TIME = 253402300800; // 10000-01-01 UTC: no calendar time from here on
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
 const USAGE_LIMIT = 64 * 1024; // bytes of a usage file the guard reads
+const USAGE_TRIES = 3; // opens of a usage file that another writer keeps replacing while it is read (accounts.TRIES)
 const { O_NOFOLLOW, O_NONBLOCK, O_RDONLY } = fs.constants;
 
 function usageWindow(value) {
@@ -162,26 +163,31 @@ function mergedUsage(file, record, now) {
 }
 
 // The usage file's JSON object under the guard's checks (accounts.read): an owned
-// 0600 regular file with one link and at most USAGE_LIMIT bytes; else null.
+// 0600 regular file with one link and at most USAGE_LIMIT bytes; else null. A file
+// that another writer renamed a new one over right after it was opened (no link
+// left) is opened again, up to USAGE_TRIES opens in all.
 // JSON.parse accepts a little more than accounts.read (a repeated key keeps its
 // last value, bytes that are not UTF-8 are replaced): content no writer produces.
 function storedUsage(file) {
-  let fd;
-  try {
-    fd = fs.openSync(file, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
-  } catch {
-    return null;
-  }
-  try {
-    const info = fs.fstatSync(fd);
-    if (!info.isFile() || info.uid !== process.getuid() || info.nlink !== 1 || (info.mode & 0o7777) !== 0o600
-      || info.size > USAGE_LIMIT) return null;
-    const data = JSON.parse(fs.readFileSync(fd, 'utf8'));
-    return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
-  } catch {
-    return null;
-  } finally {
-    fs.closeSync(fd);
+  for (let attempt = 1; ; attempt += 1) {
+    let fd;
+    try {
+      fd = fs.openSync(file, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+    } catch {
+      return null;
+    }
+    try {
+      const info = fs.fstatSync(fd);
+      if (info.nlink === 0 && attempt < USAGE_TRIES) continue;
+      if (!info.isFile() || info.uid !== process.getuid() || info.nlink !== 1 || (info.mode & 0o7777) !== 0o600
+        || info.size > USAGE_LIMIT) return null;
+      const data = JSON.parse(fs.readFileSync(fd, 'utf8'));
+      return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+    } catch {
+      return null;
+    } finally {
+      fs.closeSync(fd);
+    }
   }
 }
 
