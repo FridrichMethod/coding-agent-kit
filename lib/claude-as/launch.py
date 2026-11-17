@@ -57,8 +57,8 @@ MANAGED_DIRECTORIES = (Path("/etc/claude-code/managed-settings.d"),
 # The machine's other policy sources that a launch with a usage reserve checks with them (machine_policies): on
 # macOS the managed preferences an MDM profile installs for the com.anthropic.claudecode domain, the machine's and
 # this user's; on WSL the Windows managed settings, which Claude Code takes in only when one of them sets
-# wslInheritsWindowsSettings. Server-managed settings and the HKLM policy key (which Claude Code on WSL reads
-# through reg.exe) are not checked: hooks they stop show as the footer line and the warning at the account's
+# wslInheritsWindowsSettings. Server-managed settings and the HKLM and HKCU policy keys (which Claude Code on WSL
+# reads through reg.exe) are not checked: hooks they stop show as the footer line and the warning at the account's
 # next guarded launch.
 MACOS = sys.platform == "darwin"
 MDM_PREFERENCES = Path("/Library/Managed Preferences")
@@ -72,33 +72,99 @@ GUARD_MINIMUM = (2, 1, 296)
 HOOK_TIMEOUT = 20  # seconds Claude Code gives each guard hook
 VERSION_TIMEOUT = 30  # seconds claude --version may take
 VERSION = re.compile(r"\s*(\d+)\.(\d+)\.(\d+)(?![\d.])")
-# Forms that run the model outside the interactive session, where no prompt or status line reaches the
-# guard: claude-as refuses them with a reserve on. -p and --print are options every launch accepts;
-# --init-only, --bg and --background are unsupported options without a reserve, and named with one.
-HEADLESS = ("-p", "--print", "--init-only")
-# Forms that hand the session to Claude Code's background process, whose sessions run with the
-# environment and credential of whichever launch started it, and the first operands that run or join
-# sessions there.
-BACKGROUND = ("--bg", "--background")
-ELSEWHERE = ("agents", "attach", "respawn")
-# The commands, by their first and second operands, that run the model outside the interactive session, where
-# no hook of this launch sees their requests, in Claude Code 2.1.326 (the reviewed release): the cloud-hosted
-# review, the AI critique of auto mode rules, plugin evals (plugins is plugin's alias), whose runs are claude
-# children of their own and whose grader runs outside any hook, and the MCP server, whose Agent tool runs
-# sub-agents on this launch's credential with none of its hooks. A command added by a later release is not here.
-DETACHED = (("ultrareview",), ("auto-mode", "critique"), ("plugin", "eval"), ("plugins", "eval"), ("mcp", "serve"))
+# The reasons claude-as gives when it refuses a form of REFUSED, given its words.
+OUTSIDE = "{} runs Claude Code outside its interactive session, where the usage reserve guard cannot stop it"
+HANDED = ("{} hands the session to Claude Code's background process, which runs it with the environment and credential "
+          "of whichever launch started that process")
+JOINED = "claude {} runs or joins sessions in Claude Code's background process, outside this launch's usage reserve guard"
+DETACHED = "claude {} runs the model outside Claude Code's interactive session, where the usage reserve guard cannot stop it"
+SERVED = ("claude {} serves other clients' model requests outside Claude Code's interactive session, where the usage "
+          "reserve guard cannot stop them")
+# Every form of Claude Code 2.1.326 (the reviewed release) that runs model work outside the session hooks a guarded
+# launch injects, or away from this terminal, with the reason claude-as refuses it with when a reserve is on: an
+# option (a word), wherever the command line parser takes it as one (also spelled with =), or a command (a tuple), by
+# its first and second operands, also after options and after --. Claude Code's modes that run none of the hooks are
+# refused through HOOKLESS and HOOKLESS_FLAGS, beside their environment switches; every other option or command either
+# runs the interactive session, where the hooks run, starts none (SESSIONLESS, VERBS), is refused as the first
+# argument (LEADING), or is refused for every launch by the authentication audit (scan). A form a later release adds
+# is not here. A refused form is refused with -h or --help too, since Claude Code dispatches some of them before its
+# command line parser sees a help option (attach and respawn as the first argument go to its background path): their
+# help is read through the parent command (claude mcp help serve) or without reserves.
+REFUSED = {
+    # Print mode: one turn with no terminal session and no status line, so the guard never records this account's
+    # usage; an option every launch accepts.
+    "-p": OUTSIDE,
+    "--print": OUTSIDE,  # -p's long name
+    # Non-interactive like -p: runs the Setup and SessionStart hooks, then exits. Hidden, and an unsupported option
+    # without a reserve, so that a launch with one names this reason.
+    "--init-only": OUTSIDE,
+    # Starts the session in Claude Code's background process and returns at once; unsupported without a reserve.
+    "--bg": HANDED,
+    "--background": HANDED,  # --bg's long name
+    # The agent view: lists, dispatches and opens the background process's sessions.
+    ("agents",): JOINED,
+    # Opens one of those sessions in this terminal; its turns still run in the background process.
+    ("attach",): JOINED,
+    # Restarts one of them, or all of them with --all, in the background process.
+    ("respawn",): JOINED,
+    # A cloud-hosted multi-agent review of the branch, on this account, whose findings it waits for and prints.
+    ("ultrareview",): DETACHED,
+    # One model request that critiques the user's auto mode rules, outside any session.
+    ("auto-mode", "critique"): DETACHED,
+    # Plugin evals: each run is a claude child of its own, and a model grader runs outside any hook.
+    ("plugin", "eval"): DETACHED,
+    ("plugins", "eval"): DETACHED,  # plugins is plugin's alias
+    # The MCP server, whose Agent tool runs sub-agents on this launch's credential with none of its hooks.
+    ("mcp", "serve"): DETACHED,
+    # The enterprise gateway: a server that forwards other clients' Messages API requests upstream until stopped.
+    # Its required --config is not an audited option, so in practice the audit refuses it first.
+    ("gateway",): SERVED,
+}
+FIRST = ("claude {} is Claude Code's Remote Control only as its first argument, where a launch with usage reserves puts "
+         "the guard's --settings, so Claude Code would send it to the model as a prompt")
+DAEMON = ("claude {} manages Claude Code's background daemon only as its first argument, or behind nothing but "
+          "--dangerously-skip-permissions and --allow-dangerously-skip-permissions, where a launch with usage reserves "
+          "puts the guard's --settings, so Claude Code would send it to the model as a prompt")
+# The words Claude Code 2.1.326 runs as a command only as its first argument, which its command line parser does not
+# know, with the reason claude-as refuses them with there when a reserve is on: the names of Remote Control's fast
+# path, and daemon, the background daemon's command (list, status, hub, run, install and others), which Claude Code
+# also finds behind any number of SKIPS (daemon only). Behind the guard's --settings Claude Code would take the word as
+# the first prompt of a session, as it does behind any other option or --. daemon is refused rather than launched as
+# without a reserve because some of its subcommands start or drive the background process, which stays outside
+# launches with a reserve. remote-control and rc, the names the parser knows, are refused for every launch by the
+# authentication audit (scan). A cc:// or cc+unix:// connect URL is a prompt wherever it stands in this release.
+LEADING = {"remote": FIRST, "sync": FIRST, "bridge": FIRST, "daemon": DAEMON}
+SKIPS = ("--dangerously-skip-permissions", "--allow-dangerously-skip-permissions")
 # The commands of Claude Code 2.1.326 that start no session, where no hook ever runs, by first operand, with the
-# second operands that keep them so (None: any second operand): with a reserve on they launch as without one, so
-# that no launch state expects the guard's hooks. A subcommand of a later release, an operand after --, and -p,
-# --print, --init-only, --bg or --background keep the launch guarded. Claude Code takes the background verbs as
-# verbs wherever they are the first argument; after options only before a session id, and as a prompt otherwise.
+# second operands that keep them so (empty for a command that takes no operand, which counts alone; None for one whose
+# operand is a path, a version or a file, where any second operand counts): with a reserve on they launch as without
+# one, so that no launch state expects the guard's hooks. A subcommand or an operand of a later release and an option
+# of REFUSED keep the launch guarded, and so, on purpose, do three forms that start no session in this release
+# either, lest a release that read them as prompts run that session without its guard: a command after -- (Claude Code
+# dispatches it there too), a background verb behind options before a session id (Claude Code takes it as a verb
+# there, and then refuses it under the guard's CLAUDE_CODE_DISABLE_AGENT_VIEW; as the first argument it runs), and a
+# help or version option beside an operand (Claude Code prints its help or version for a prompt word too, but a word
+# that a later release dispatches before its command line parser may run without reading the option). Like a launch
+# Claude Code ends before any hook, they leave launch state that no hook completes, so a later usage record of the
+# account makes the next guarded launch warn. A help or version option (HELP) with no operand launches as without a
+# reserve, also beside other options and before a --: Claude Code prints its help, or its version where both are
+# given. Claude Code takes the background verbs as verbs wherever they are the first argument; behind options only
+# before a session id, and as a prompt otherwise. The hidden commands that need an option the audit refuses (--json)
+# are not here. plugin test runs a mod's tests, each file in a child of Claude Code that runs no model, and only with
+# plugin as the first argument, which a guard's --settings would take.
 PLUGIN = {"init", "new", "validate", "tag", "list", "details", "marketplace", "install", "i", "uninstall", "remove",
-          "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure"}
-SESSIONLESS = {"doctor": None, "update": None, "upgrade": None, "install": None, "purge": None, "project": {"purge"},
-               "auto-mode": {"defaults", "config", "reset"}, "plugin": PLUGIN, "plugins": PLUGIN,
+          "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure", "test", "help"}
+SESSIONLESS = {"doctor": set(), "update": set(), "upgrade": set(), "install": None, "purge": None,
+               "project": {"purge", "help"}, "auto-mode": {"defaults", "config", "reset", "help"},
+               "plugin": PLUGIN, "plugins": PLUGIN,
                "mcp": {"add", "add-json", "add-from-claude-desktop", "get", "list", "login", "logout", "remove",
-                       "reset-project-choices", "xaa"}}
+                       "reset-project-choices", "xaa", "help"},
+               # Hidden: imports exported conversations; reviews and accepts the settings cloud sessions use; reports,
+               # installs or removes the Windows sandbox.
+               "import-conversations": None, "apply-project-settings": set(),
+               "sandbox": {"install", "status", "uninstall", "help"}}
 VERBS = ("logs", "stop", "kill", "rm")
+HELP = ("-h", "--help", "-v", "--version")
 # A guarded launch keeps its session in this process: no move to the background, no agent view, and no
 # re-run of a turn that the guard stopped. Claude Code also reads these from a settings file's env.
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}
@@ -363,10 +429,11 @@ def local_root(cwd, home):
 @dataclass
 class Form:
     """What preflight saw that a launch with a usage reserve checks."""
-    headless: list = field(default_factory=list)  # HEADLESS words given as options
-    background: list = field(default_factory=list)  # BACKGROUND words given as options
+    refused: list = field(default_factory=list)  # the options of REFUSED given, in order
     modes: list = field(default_factory=list)  # HOOKLESS_FLAGS words before the first --, wherever they stand
     settings: bool = False  # a --settings of the caller
+    query: bool = False  # an option of HELP, where Claude Code with no operand prints its help or version
+    leading: object = None  # the word of LEADING that Claude Code's fast paths would run as a command
     operand: object = None  # the first operand, which Claude Code dispatches as a command
     subcommand: object = None  # the second operand, which a command with subcommands dispatches
     dashed: bool = False  # the first or the second operand comes after --
@@ -415,6 +482,13 @@ def preflight(args, kit, enrollment, guarded=False):
         if (profiles / "active_config").exists() or (profiles / "configs/default.json").exists():
             fail("Anthropic profile selection present; review its authentication before automatic enrollment.")
     scan(args, form, kit, guarded)
+    words = list(args)
+    while words[:1] and words[0] in SKIPS:
+        words.pop(0)
+    if args[:1] and args[0] in LEADING:
+        form.leading = args[0]
+    elif words[:1] == ["daemon"]:
+        form.leading = "daemon"
     scanned = args[:args.index("--")] if "--" in args else args
     form.modes = [word for word in HOOKLESS_FLAGS if word in scanned]
     return form
@@ -469,10 +543,11 @@ def scan(args, form, kit, guarded):
             if not sep and i < len(args) and not (len(args[i]) > 1 and args[i].startswith("-")):
                 i += 1
         elif options and arg in switches:
-            if arg in HEADLESS:
-                form.headless.append(arg)
-        elif options and guarded and flag in (*HEADLESS, *BACKGROUND):
-            (form.background if flag in BACKGROUND else form.headless).append(flag)
+            if arg in REFUSED:
+                form.refused.append(arg)
+            form.query |= arg in HELP
+        elif options and guarded and flag in REFUSED:  # -p=..., and the options unsupported without a reserve
+            form.refused.append(flag)
         elif options and arg.startswith("-") and arg != "-":
             fail("unsupported/combined option; authentication safety is only audited for the supported local CLI options.")
         elif root:
@@ -488,16 +563,18 @@ def scan(args, form, kit, guarded):
 
 
 def sessionless(args, kit):
-    """Whether the native ARGS run a command that starts no session (SESSIONLESS, or one of VERBS as the first
-    argument) with no headless or background word and no -- before the operands that tell; False when the scan
-    of ARGS refuses them, as the launch then does."""
+    """Whether the native ARGS start no session, with no option of REFUSED and no -- before the operands that tell:
+    a command of SESSIONLESS, one of VERBS as the first argument, or no operand beside an option of HELP, where
+    Claude Code prints its help or version; False when the scan of ARGS refuses them, as the launch then does."""
     form = Form()
     try:
         scan(args, form, kit, guarded=True)
     except (OSError, ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError):
         return False
-    if form.headless or form.background or form.dashed:
+    if form.refused or form.dashed:
         return False
+    if form.operand is None:
+        return form.query
     if form.operand in VERBS:
         return args[0] == form.operand
     if form.operand not in SESSIONLESS:
@@ -598,19 +675,13 @@ def refuse_guarded(account, reason):
 
 def check_form(form, account):
     """Refuses, with a reserve on, every form the guard's hooks cannot cover."""
-    if form.headless:
-        refuse_guarded(account, f"{form.headless[0]} runs Claude Code outside its interactive session, where the "
-                       "usage reserve guard cannot stop it")
-    if form.background:
-        refuse_guarded(account, f"{form.background[0]} hands the session to Claude Code's background process, which "
-                       "runs it with the environment and credential of whichever launch started that process")
-    if form.operand in ELSEWHERE:
-        refuse_guarded(account, f"claude {form.operand} runs or joins sessions in Claude Code's background process, "
-                       "outside this launch's usage reserve guard")
-    for words in DETACHED:
-        if (form.operand, form.subcommand)[:len(words)] == words:
-            refuse_guarded(account, f"claude {' '.join(words)} runs the model outside Claude Code's interactive session, "
-                           "where the usage reserve guard cannot stop it")
+    for word in form.refused[:1]:
+        refuse_guarded(account, REFUSED[word].format(word))
+    for words, reason in REFUSED.items():
+        if isinstance(words, tuple) and (form.operand, form.subcommand)[:len(words)] == words:
+            refuse_guarded(account, reason.format(" ".join(words)))
+    if form.leading:
+        refuse_guarded(account, LEADING[form.leading].format(form.leading))
     if form.settings:
         refuse_guarded(account, "a --settings of your own cannot be combined with usage reserves, whose hooks "
                        "claude-as passes in its own --settings")
@@ -862,6 +933,10 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
         recorded = (metadata.read(usage) or {}).get("seen_at")
     except (OSError, ValueError):  # a usage file the guard cannot use either: no recorded reply
         recorded = None
+    # A launch that Claude Code ends before any hook runs leaves .launched alone, like one whose hooks never ran:
+    # -c or --continue in a directory with no conversation, --resume of a missing session, or its picker closed with
+    # nothing in it. claude-as becomes Claude Code and cannot tell these apart before it does, so once a later
+    # session of the account records its usage, this warns of such a launch too.
     if guard_launch.unguarded(directory, "claude-as", account, recorded):
         say(f"claude-as: {account}: an earlier launch ran without its usage reserve guard: Claude Code did not run "
             "the injected hooks.", "33")

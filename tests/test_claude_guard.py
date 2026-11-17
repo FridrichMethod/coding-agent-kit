@@ -9,10 +9,13 @@ records its argv and environment; a guarded launch needs a terminal on standard
 output, so those launches run with standard output on a pseudo-terminal.
 
 RealClaude runs the guard's hooks in the real Claude Code when one at or above
-the guard's minimum is on PATH (it skips with the reason otherwise): offline,
+the guard's minimum is on PATH (it skips with the reason otherwise, and when the
+host has managed settings or, on WSL, a Windows registry policy, which Claude
+Code applies over the sandbox): offline,
 against the loopback fake tests/fixtures/guard/claude_api.py, in a temporary
 HOME and configuration directory with an environment built from scratch, git
-and ssh shims first on PATH and every proxy at a closed loopback port.
+and ssh shims first on PATH, git allowed the file protocol only and every proxy
+at a closed loopback port.
 """
 
 import hashlib
@@ -57,10 +60,10 @@ EARLIER = ("claude-as: work: an earlier launch ran without its usage reserve gua
 DAY = 86400
 GONE = 4_194_400  # a process id above every host's limit: a launch that has ended
 MARKER = "codex-hooks-90aeb3ec484a2ca6"
-# Records argv and environment, never a token; one JSON line per run. --version prints
-# CLAUDE_FAKE_VERSION, exits with CLAUDE_FAKE_VERSION_EXIT (0 by default) and leaves a line in
-# FAKE_VERSIONS; setup-token prints CLAUDE_FAKE_TOKEN as Claude Code 2.1.296 frames it, for the
-# launcher's capture.
+# Records argv and environment, never a token; one JSON line per run, which then exits with
+# CLAUDE_FAKE_EXIT (0 by default). --version prints CLAUDE_FAKE_VERSION, exits with
+# CLAUDE_FAKE_VERSION_EXIT (0 by default) and leaves a line in FAKE_VERSIONS; setup-token prints
+# CLAUDE_FAKE_TOKEN as Claude Code 2.1.296 frames it, for the launcher's capture.
 FAKE = r'''
 import hashlib, json, os, sys
 if sys.argv[1:] == ["--version"]:
@@ -80,6 +83,7 @@ record = {"argv": sys.argv, "env": env, "pid": os.getpid(), "tty": os.isatty(1),
 with open(os.environ["FAKE_RECORD"], "a") as stream:
     stream.write(json.dumps(record) + "\n")
 print("stdout sentinel")
+sys.exit(int(os.environ.get("CLAUDE_FAKE_EXIT", "0")))
 '''
 
 
@@ -300,7 +304,7 @@ class Unguarded(Fixture):
     def test_without_reserves_the_forms_a_guard_refuses_stay_as_they_were(self):
         """-p and a piped standard output launch; --init-only, --bg and --background stay unsupported options."""
         for args in (["agents"], ["ultrareview"], ["auto-mode", "critique"], ["plugin", "eval"], ["plugins", "eval", "x"],
-                     ["mcp", "serve"]):
+                     ["mcp", "serve"], ["gateway"]):
             with self.subTest(args=args):
                 code, out, err = self.run_launcher(["work", *args], tty=False)
                 self.assertEqual((code, out, err), (0, "stdout sentinel\n", ""))
@@ -521,8 +525,20 @@ class Guarded(Fixture):
                  ["purge", "/x"], ["project", "purge"], ["auto-mode"], ["auto-mode", "config"], ["auto-mode", "defaults"],
                  ["auto-mode", "reset"], ["mcp"], ["mcp", "list"], ["mcp", "get", "serve"],
                  ["mcp", "add", "x", "--", "npx", "x"], ["mcp", "xaa", "show"], ["plugin", "list"], ["plugins", "list"],
-                 ["plugin", "marketplace", "list"], ["plugin", "i", "x"], ["plugin", "rm", "x"], ["logs"],
-                 ["logs", "0123abcd"], ["stop", "0123abcd"], ["kill"], ["rm", "0123abcd"])
+                 ["plugin", "marketplace", "list"], ["plugin", "i", "x"], ["plugin", "rm", "x"],
+                 # A mod's tests, each file in a child of Claude Code that runs no model; Claude Code runs them only
+                 # with plugin as its first argument, which a guard's --settings would take.
+                 ["plugin", "test"], ["plugin", "test", "my-mod"], ["plugins", "test"], ["logs"],
+                 ["logs", "0123abcd"], ["stop", "0123abcd"], ["kill"], ["rm", "0123abcd"],
+                 # The help of a command with subcommands, and the hidden commands that run no model.
+                 ["auto-mode", "help"], ["mcp", "help", "serve"], ["plugin", "help", "eval"], ["project", "help"],
+                 ["import-conversations", "export.zip"], ["apply-project-settings"], ["sandbox"], ["sandbox", "status"],
+                 ["sandbox", "install"], ["sandbox", "uninstall"],
+                 # A help or version option beside other options and no operand: Claude Code prints its help, or its
+                 # version where both are given, in either order.
+                 ["--verbose", "--help"], ["--help", "--verbose"], ["--model", "x", "-h"], ["-c", "--help"],
+                 ["-r", "--help"], ["--debug", "-h"], ["--add-dir", "a", "b", "-h"], ["--help", "--"],
+                 ["--version", "--verbose"], ["--verbose", "-v"], ["-v", "--help"], ["--help", "-v"])
         for args in cases:
             for tty in (False,) if args != ["doctor"] else (False, True):
                 with self.subTest(args=args, tty=tty):
@@ -540,13 +556,32 @@ class Guarded(Fixture):
         self.assertFalse(self.guard_dir.exists())
         self.assertEqual(self.version_runs(), 0)
 
-    def test_commands_that_may_start_a_session_launch_guarded(self):
-        """A prompt, an unknown command or subcommand (import starts a session, and a later release may add one),
-        a command after -- and a background verb after options (a prompt unless a session id follows) get the
-        guard."""
+    def test_other_commands_launch_guarded(self):
+        """A prompt and an unknown command, subcommand or operand (import starts a session, and a later release may add
+        one) get the guard. So, on purpose, do a command after --, a background verb behind options before a session
+        id and a help option beside an operand, which start no session in Claude Code 2.1.326 either (it dispatches
+        the command there, takes the verb as one and prints its help), lest a release that read them as prompts run a
+        session without its guard; behind options a verb with no session id after it is a prompt."""
         for args in (["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"], ["mcp", "eval"],
-                     ["auto-mode", "other"], ["import"], ["import", "codex"], ["plugin", "test"], ["--", "doctor"],
-                     ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"]):
+                     ["auto-mode", "other"], ["import"], ["import", "codex"], ["--", "doctor"],
+                     ["mcp", "--", "list"], ["plugin", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"],
+                     ["--verbose", "logs", "0123abcd"], ["--model", "x", "rm", "0123abcd"], ["sandbox", "other"],
+                     # An operand for a command that takes none in Claude Code 2.1.326, as a later release may add one.
+                     ["doctor", "fix"], ["update", "x"], ["upgrade", "x"], ["apply-project-settings", "x"],
+                     # Remote Control's names that Claude Code dispatches only as its first argument are prompts
+                     # behind an option or --, with or without the guard's --settings; a connect URL is a prompt
+                     # wherever it stands (Claude Code 2.1.326 on a terminal).
+                     ["--verbose", "remote"], ["--", "sync"], ["--model", "x", "bridge"], ["cc+unix:///tmp/x.sock"],
+                     ["cc://127.0.0.1:1/x"], ["--verbose", "cc://127.0.0.1:1/x"],
+                     # A help word after -- is a prompt, and one that is an option's value is no option. Beside an
+                     # operand a help option keeps the launch guarded on purpose: Claude Code 2.1.326 prints its help
+                     # for a prompt word too, but a word a later release dispatches before its command line parser
+                     # may run without reading it.
+                     ["--", "--help"], ["--model", "--help"], ["hello", "--help"], ["--help", "hello"],
+                     # daemon is Claude Code's background daemon only as the first argument or behind nothing but the
+                     # two permission switches, and a prompt behind any other option.
+                     ["--verbose", "daemon"], ["--model", "x", "daemon", "status"],
+                     ["--dangerously-skip-permissions", "--verbose", "daemon", "status"]):
             with self.subTest(args=args):
                 record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assert_guarded(record, value, args, "10", None)
@@ -555,7 +590,7 @@ class Guarded(Fixture):
     def test_a_command_that_starts_no_session_is_no_earlier_launch(self):
         """It leaves no launch state, so a usage record that a later session of the account writes never makes
         the next guarded launch warn of a launch without its hooks."""
-        for args in (["mcp", "list"], ["doctor"], ["logs"]):
+        for args in (["mcp", "list"], ["doctor"], ["logs"], ["--verbose", "--help"], ["--version", "--verbose"]):
             with self.subTest(args=args):
                 code, out, err = self.run_launcher(["--reserve-5h", "10", "work", *args])
                 self.assertEqual((code, err), (0, ""))
@@ -566,6 +601,29 @@ class Guarded(Fixture):
         self.assertNotIn(EARLIER, err)
         self.assertEqual(err, "claude-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly off (default)"
                          + LAUNCH_LINE)
+
+    def test_a_resume_that_finds_nothing_is_reported_as_an_earlier_launch(self):
+        """-c, --continue and --resume launch guarded, since they may open a session. Claude Code ends one that finds
+        nothing to open before any hook runs (no conversation in the directory, a missing session id, its picker
+        closed with nothing in it), which leaves launch state no hook completes: once a later session of the account
+        records its usage, the next guarded launch warns of it as of a launch without its hooks. claude-as cannot tell
+        these apart before it becomes Claude Code."""
+        for args in (["-c"], ["--continue"], ["--resume"], ["-r", "00000000-0000-4000-8000-000000000000"]):
+            with self.subTest(args=args):
+                for name in os.listdir(self.guard_dir) if self.guard_dir.exists() else ():
+                    (self.guard_dir / name).unlink()
+                code, out, err = self.run_launcher(["--reserve-5h", "10", "work", *args], {"CLAUDE_FAKE_EXIT": "1"})
+                self.assertEqual(code, 1, err)
+                self.assertTrue(err.endswith(LAUNCH_LINE), err)
+                record = self.records()[-1]
+                self.assertEqual(record["argv"][3:], args)
+                state = json.loads(record["env"]["CODING_AGENT_KIT_GUARD"])["state"]
+                self.assertEqual(os.listdir(self.guard_dir), [os.path.basename(state) + ".launched"])
+                self.usage.unlink(missing_ok=True)
+                write(self.usage, json.dumps({"five_hour": None, "seven_day": None, "seen_at": int(time.time())}))
+                _, _, err = self.guarded(["--reserve-5h", "10", "work"])
+                self.assertTrue(err.startswith(EARLIER), err)
+                self.assertFalse(os.path.exists(state + ".launched"))
 
     def test_help_and_version_are_neither_refused_nor_injected(self):
         self.configure('[usage_reserve]\nfive_hour = 10\nweekly = 10\n')
@@ -730,6 +788,19 @@ class Refusals(Fixture):
                  (["-p", "doctor"], f"-p {outside}"), (["--bg", "mcp", "list"], f"--bg {background}"),
                  (["agents"], f"claude agents {elsewhere}"), (["attach", "id"], f"claude attach {elsewhere}"),
                  (["--verbose", "respawn"], f"claude respawn {elsewhere}"), (["--", "attach"], f"claude attach {elsewhere}"),
+                 (["remote"], f"claude remote {FIRST}"), (["sync", "x"], f"claude sync {FIRST}"),
+                 (["bridge"], f"claude bridge {FIRST}"),
+                 (["daemon", "status"], f"claude daemon {DAEMON}"),
+                 (["--dangerously-skip-permissions", "daemon", "hub"], f"claude daemon {DAEMON}"),
+                 (["--allow-dangerously-skip-permissions", "daemon", "list"], f"claude daemon {DAEMON}"),
+                 # The help of a refused form is refused with it: Claude Code dispatches some of them before its
+                 # command line parser sees a help option.
+                 (["ultrareview", "--help"], f"claude ultrareview {detached}"),
+                 (["attach", "--help"], f"claude attach {elsewhere}"), (["respawn", "-h"], f"claude respawn {elsewhere}"),
+                 (["mcp", "serve", "--help"], f"claude mcp serve {detached}"),
+                 (["plugin", "eval", "-h"], f"claude plugin eval {detached}"),
+                 (["remote", "--help"], f"claude remote {FIRST}"), (["-p", "--help"], f"-p {outside}"),
+                 (["daemon", "--help"], f"claude daemon {DAEMON}"),
                  (["--settings", "x"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
                                        "claude-as passes in its own --settings"),
                  (["--settings={}"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
@@ -862,11 +933,23 @@ class Refusals(Fixture):
         self.assertEqual(self.records()[-1]["env"][PREFIX], "/usr/bin/env -i")
 
     def test_the_cached_server_policy_is_not_checked(self):
-        """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*"""
+        """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*,
+        and a status line there as the guard's blindness."""
         write(self.home / ".claude/remote-settings.json",
-              json.dumps({"allowManagedHooksOnly": True, "disableAllHooks": True, "env": {RESUME: "1"}}))
+              json.dumps({"allowManagedHooksOnly": True, "disableAllHooks": True, "env": {RESUME: "1"},
+                          "statusLine": {"type": "command", "command": "org status"}}))
         record, value, _ = self.guarded(["--reserve-5h", "10", "work"])
         self.assertNotIn(RESUME, record["env"])
+
+    def test_the_table_of_refused_forms(self):
+        """launch.REFUSED and launch.LEADING are the lists of the forms a reserve refuses, and each has its test in
+        RefusedForms."""
+        self.assertEqual(set(launch.REFUSED), set(REFUSED))
+        for words in REFUSED:
+            self.assertTrue(hasattr(RefusedForms, "test_" + refused_test_name(words)), words)
+        self.assertEqual(launch.LEADING.keys(), LEADING.keys())
+        for word in LEADING:
+            self.assertTrue(hasattr(RefusedForms, f"test_refuses_{word}_as_the_first_argument"), word)
 
     def test_a_claude_code_older_than_the_guard_minimum(self):
         self.assertEqual(launch.GUARD_MINIMUM, (2, 1, 296))
@@ -892,6 +975,106 @@ class Refusals(Fixture):
         for version in ("2.1.296 (Claude Code)", "2.1.325 (Claude Code)", "2.2.0 (Claude Code)", "10.0.0"):
             with self.subTest(version=version):
                 self.guarded(["--reserve-5h", "10", "work"], {"CLAUDE_FAKE_VERSION": version})
+
+
+OUTSIDE = "runs Claude Code outside its interactive session, where the usage reserve guard cannot stop it"
+HANDED = ("hands the session to Claude Code's background process, which runs it with the environment and credential of "
+          "whichever launch started that process")
+JOINED = "runs or joins sessions in Claude Code's background process, outside this launch's usage reserve guard"
+DETACHED = "runs the model outside Claude Code's interactive session, where the usage reserve guard cannot stop it"
+SERVED = ("serves other clients' model requests outside Claude Code's interactive session, where the usage reserve guard "
+          "cannot stop them")
+# The forms a reserve refuses in Claude Code 2.1.326, by their words (an option, or a command by its operands), with the
+# reason claude-as gives.
+REFUSED = {
+    "-p": f"-p {OUTSIDE}", "--print": f"--print {OUTSIDE}", "--init-only": f"--init-only {OUTSIDE}",
+    "--bg": f"--bg {HANDED}", "--background": f"--background {HANDED}",
+    ("agents",): f"claude agents {JOINED}", ("attach",): f"claude attach {JOINED}",
+    ("respawn",): f"claude respawn {JOINED}",
+    ("ultrareview",): f"claude ultrareview {DETACHED}", ("auto-mode", "critique"): f"claude auto-mode critique {DETACHED}",
+    ("plugin", "eval"): f"claude plugin eval {DETACHED}", ("plugins", "eval"): f"claude plugins eval {DETACHED}",
+    ("mcp", "serve"): f"claude mcp serve {DETACHED}", ("gateway",): f"claude gateway {SERVED}",
+}
+# The words a reserve refuses as the first argument only in Claude Code 2.1.326 (Remote Control's fast path, and the
+# background daemon's, which passes over SKIPS first), with the reason claude-as gives.
+FIRST = ("is Claude Code's Remote Control only as its first argument, where a launch with usage reserves puts the guard's "
+         "--settings, so Claude Code would send it to the model as a prompt")
+DAEMON = ("manages Claude Code's background daemon only as its first argument, or behind nothing but "
+          "--dangerously-skip-permissions and --allow-dangerously-skip-permissions, where a launch with usage reserves "
+          "puts the guard's --settings, so Claude Code would send it to the model as a prompt")
+LEADING = {**{word: f"claude {word} {FIRST}" for word in ("remote", "sync", "bridge")}, "daemon": f"claude daemon {DAEMON}"}
+# The switches Claude Code 2.1.326 passes over before it looks for daemon, and only daemon, as its first argument.
+SKIPS = ("--dangerously-skip-permissions", "--allow-dangerously-skip-permissions")
+# The options a launch without a reserve leaves to the authentication audit, which refuses them.
+UNAUDITED = ("--init-only", "--bg", "--background")
+
+
+def refused_test_name(words):
+    """The name of the RefusedForms test of WORDS."""
+    return "refuses_" + "_".join(words.strip("-") for words in ((words,) if isinstance(words, str) else words)) \
+        .replace("-", "_")
+
+
+class RefusedForms(Fixture):
+    """One test per form a reserve refuses (REFUSED): refused with its reason as given, after another option and,
+    for a command, with an operand of its own and after --; without a reserve it launches unchanged, or, for an
+    option only a guarded launch accepts, stays an unsupported option."""
+
+    def check(self, words, reason):
+        if isinstance(words, str):
+            forms = ([words], ["--verbose", words], ["--model", "x", words], [f"{words}=x"])
+        else:
+            forms = (list(words), [*words, "target"], ["--verbose", *words], ["--", *words])
+        for flags in (["--reserve-5h", "10"], ["--reserve-weekly", "0"]):
+            for args in forms:
+                with self.subTest(flags=flags, args=args):
+                    self.assert_refused([*flags, "work", *args], reason)
+        self.assertEqual(self.version_runs(), 0)
+        self.assertFalse(self.guard_dir.exists())
+        args = list(forms[0])
+        if words in UNAUDITED:
+            self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", *args]),
+                             (1, "", "claude-as: unsupported/combined option; authentication safety is only audited for "
+                                     "the supported local CLI options.\n"))
+            return
+        self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", *args], tty=False), (0, "stdout sentinel\n", ""))
+        self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
+
+    def check_leading(self, word, reason):
+        """A word of LEADING: refused as the first argument, also with an operand after it, and daemon also behind
+        nothing but the permission switches Claude Code passes over for it (SKIPS); behind another option or --,
+        where Claude Code takes it as a prompt with or without the guard's --settings, it launches guarded, and so
+        does a word other than daemon behind those switches; without a reserve it launches unchanged."""
+        skipped = ([SKIPS[0], word], [*SKIPS, word, "target"], [SKIPS[1], SKIPS[0], SKIPS[1], word])
+        refused, prompts = ([word], [word, "target"]), (["--verbose", word], ["--", word], [SKIPS[0], "--verbose", word])
+        if word == "daemon":
+            refused += skipped
+        else:
+            prompts += skipped[:1]
+        for flags in (["--reserve-5h", "10"], ["--reserve-weekly", "0"]):
+            for args in refused:
+                with self.subTest(flags=flags, args=args):
+                    self.assert_refused([*flags, "work", *args], reason)
+        self.assertEqual(self.version_runs(), 0)
+        self.assertFalse(self.guard_dir.exists())
+        for args in prompts:
+            with self.subTest(prompt=args):
+                record, _, err = self.guarded(["--reserve-5h", "10", "work", *args])
+                self.assertEqual(record["argv"][3:], args)
+                self.assertTrue(err.endswith(LAUNCH_LINE), err)
+        for args in refused:
+            with self.subTest(without=args):
+                self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", *args], tty=False),
+                                 (0, "stdout sentinel\n", ""))
+                self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
+
+
+for _words, _reason in REFUSED.items():
+    setattr(RefusedForms, "test_" + refused_test_name(_words),
+            lambda self, words=_words, reason=_reason: self.check(words, reason))
+for _word, _reason in LEADING.items():
+    setattr(RefusedForms, f"test_refuses_{_word}_as_the_first_argument",
+            lambda self, word=_word, reason=_reason: self.check_leading(word, reason))
 
 
 class Settings(unittest.TestCase):
@@ -1109,6 +1292,60 @@ class Settings(unittest.TestCase):
         self.assertEqual(self.check_form({}, {PREFIX: "wrap"}), f"the environment sets {PREFIX}, {WRAPS}")
         self.assertIsNone(self.check_form({}, {PREFIX: ""}))
 
+    def test_a_managed_status_line_refuses_from_every_managed_source_preflight_reads(self):
+        """Claude Code ranks every managed source above --settings, so a statusLine there runs in place of the guard's,
+        whose recorder then never runs: a guarded preflight finds it in the managed file, a drop-in, the macOS managed
+        preferences and the inherited Windows policy, and check_form refuses naming the file. The cached server policy
+        in remote-settings.json, which describes whichever account ran last, is not read for it."""
+        line = {"type": "command", "command": "org status"}
+        reason = ("{} sets statusLine, which Claude Code runs in place of the usage reserve guard's status line, so the "
+                  "guard would never see this account's usage")
+        with tempfile.TemporaryDirectory(prefix="claude-guard-status-") as name:
+            base = Path(name).resolve()
+            home, cwd = base / "home", base / "project"
+            cwd.mkdir()
+            managed_file = base / "etc/managed-settings.json"
+            drop_in = base / "etc/managed-settings.d/10-org.json"
+            preferences = base / "prefs" / launch.MDM_NAME
+            windows = base / "windows/managed-settings.json"
+            remote = home / ".claude/remote-settings.json"
+            kit = type("Kit", (), {"home": home, "expand": staticmethod(Path)})()
+
+            def place(path):
+                """Only PATH holds a status line (the Windows policy also makes WSL inherit it)."""
+                for other in (managed_file, drop_in, preferences, windows, remote):
+                    other.unlink(missing_ok=True)
+                if path == preferences:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    with path.open("wb") as stream:
+                        plistlib.dump({"statusLine": line}, stream)
+                else:
+                    extra = {"wslInheritsWindowsSettings": True} if path == windows else {}
+                    write(path, json.dumps({"statusLine": line, **extra}))
+
+            def sources():
+                return {key: value for key, value in launch.preflight([], kit, enrollment=False, guarded=True)
+                        .sources.items() if base in key.parents}
+
+            previous = os.getcwd()
+            os.chdir(cwd)
+            try:
+                with self.policy_paths(base), \
+                        unittest.mock.patch.multiple(launch, MANAGED_FILES=(managed_file,), MACOS=True,
+                                                     MANAGED_DIRECTORIES=(drop_in.parent,), on_wsl=lambda: True), \
+                        unittest.mock.patch.dict(os.environ, {"PATH": os.environ.get("PATH", "")}, clear=True):
+                    for path in (managed_file, drop_in, preferences, windows):
+                        with self.subTest(path=path):
+                            place(path)
+                            found = sources()
+                            self.assertIn(path, found)
+                            self.assertEqual(self.check_form(found), reason.format(path))
+                    place(remote)
+                    self.assertEqual(sources(), {})
+                    self.assertIsNone(self.check_form({remote: {"statusLine": line}}))
+            finally:
+                os.chdir(previous)
+
     def test_how_claude_code_reads_a_flag(self):
         """Its isEnvTruthy: falsy values are off, a boolean is itself, else String(value) trimmed and lower-cased
         is one of 1, true, yes and on."""
@@ -1175,6 +1412,18 @@ SSH_SHIM = """#!/bin/sh
 printf 'REFUSED ssh %s\\n' "$*" >> {log}
 exit 255
 """
+# Claude Code 2.1.326 on WSL reads a Windows registry policy, the Settings value of these keys, through this reg.exe.
+WINDOWS_REG = Path("/mnt/c/Windows/System32/reg.exe")
+REGISTRY_KEYS = ("HKLM\\SOFTWARE\\Policies\\ClaudeCode", "HKCU\\SOFTWARE\\Policies\\ClaudeCode")
+# A fake reg.exe for SandboxSetup: logs each query and exits with its code for the key.
+REG_FAKE = """#!/bin/sh
+printf '%s\\n' "$*" >> {log}
+case "$2" in
+'HKLM\\SOFTWARE\\Policies\\ClaudeCode') exit {hklm} ;;
+'HKCU\\SOFTWARE\\Policies\\ClaudeCode') exit {hkcu} ;;
+esac
+exit 9
+"""
 
 
 def load_kit_module(kit, name):
@@ -1191,10 +1440,67 @@ def kill_group(pid):
         pass
 
 
+def managed_policy_stop():
+    """Why a real Claude Code on this host would not stay inside the Sandbox, or not run the guard's injected hooks
+    or status line: it applies the host's managed settings over the sandbox's HOME, environment and settings. The
+    first managed source, read as a guarded preflight reads them, that sets any key, naming disableAllHooks,
+    allowManagedHooksOnly, strictPluginOnlyCustomization (launch.hook_keys) and statusLine as keys that stop the
+    hooks or the status line; any other key may send its requests past the loopback fake (an env with
+    ANTHROPIC_BASE_URL or a proxy), stop or wrap the hooks (CLAUDE_CODE_SAFE_MODE, CLAUDE_CODE_SHELL_PREFIX) or run a
+    command of the host (apiKeyHelper). Then a managed MCP configuration beside a managed settings file, whose
+    servers Claude Code would start, and on WSL a Windows registry policy (registry_policy_stop). None when the host
+    has none of these."""
+    sources = {}
+    drop_ins = (path for folder in launch.MANAGED_DIRECTORIES for path in sorted(folder.glob("*.json")))
+    for path in (*launch.MANAGED_FILES, *drop_ins):
+        try:
+            with open(path, "rb") as stream:
+                sources[path] = json.load(stream)
+        except (OSError, ValueError):
+            continue
+    sources.update(launch.machine_policies())
+    for path, data in sources.items():
+        if isinstance(data, dict) and data:
+            keys = launch.hook_keys(data, managed=True) + (["statusLine"] if "statusLine" in data else [])
+            if keys:
+                return (f"the host's managed settings {path} set {', '.join(keys)}, so Claude Code would not run the "
+                        "guard's injected hooks or status line")
+            return (f"the host's managed settings {path} set {', '.join(sorted(data))}, which Claude Code applies over "
+                    "the sandbox's environment and settings")
+    for path in launch.MANAGED_FILES:
+        servers = path.with_name("managed-mcp.json")
+        if os.path.lexists(servers):
+            return f"the host's managed MCP configuration {servers} gives Claude Code servers it would start"
+    return registry_policy_stop()
+
+
+def registry_policy_stop():
+    """Why a real Claude Code on this WSL host would apply a Windows registry policy over the Sandbox: the Settings
+    value of one of REGISTRY_KEYS, which it reads through WINDOWS_REG, is there (reg.exe exits 0), or reg.exe cannot
+    tell (it exits with a code other than 1, the code for a missing value, does not start or runs too long). None off
+    WSL, without reg.exe, or when both values are missing."""
+    if not launch.on_wsl() or not os.path.lexists(WINDOWS_REG):
+        return None
+    for key in REGISTRY_KEYS:
+        try:
+            code = subprocess.run([str(WINDOWS_REG), "query", key, "/v", "Settings"], stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30).returncode
+        except (OSError, subprocess.SubprocessError):
+            code = None
+        if code == 0:
+            return (f"the Windows registry value {key}\\Settings holds a Claude Code policy, which Claude Code on WSL "
+                    "applies over the sandbox's environment and settings")
+        if code != 1:
+            return (f"{WINDOWS_REG} could not tell whether {key}\\Settings holds a Claude Code policy, which Claude Code "
+                    "on WSL would apply over the sandbox")
+    return None
+
+
 class Sandbox:
     """A Claude Code that reaches nothing of this host's user: a temporary HOME and configuration directory,
-    an environment built from scratch, git and ssh shims first on PATH, every proxy at a closed loopback
-    port, no session bus, and its background features closed (probe results R0, R8, R8D and R20)."""
+    an environment built from scratch, git and ssh shims first on PATH (and git allowed the file protocol only),
+    every proxy at a closed loopback port, no session bus, and its background features closed (probe results R0,
+    R8, R8D and R20)."""
 
     def __init__(self, base, bindir):
         self.base, self.bindir = base, bindir
@@ -1236,7 +1542,9 @@ class Sandbox:
                **CLOSED,
                **{name: closed for name in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")},
                "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost",
-               "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
+               "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1",
+               # For a git run by its absolute path, past the shim.
+               "GIT_ALLOW_PROTOCOL": "file"}
         return env | (extra or {})
 
     def run(self, claude, args, env, timeout=90):
@@ -1297,6 +1605,9 @@ class RealClaude(unittest.TestCase):
         found = shutil.which("claude")
         if not found:
             raise unittest.SkipTest("Claude Code (claude) is not on PATH")
+        stopped = managed_policy_stop()
+        if stopped:
+            raise unittest.SkipTest(stopped)
         try:
             socket.create_connection(CLOSED_PORT, timeout=2).close()
         except OSError:
@@ -1519,6 +1830,152 @@ class RealClaude(unittest.TestCase):
         messages = self.finished()
         self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
         self.assert_state(state, (".launched",), (".ran.start", ".ran.prompt", ".ran.tool", ".ran.stop", ".blocked"))
+
+
+class SandboxSetup(unittest.TestCase):
+    """What RealClaude builds before it runs a real Claude Code, and when it skips instead."""
+
+    def test_git_reaches_no_remote_even_by_its_absolute_path(self):
+        """Claude Code, Codex and other tools may run git by its absolute path, past the PATH shim: in the sandbox's
+        environment git refuses the http and ssh transports before it connects, and still clones over file://."""
+        git = shutil.which("git", path="/usr/local/bin:/usr/bin:/bin")
+        if not git:
+            self.skipTest("git is not installed")
+        with tempfile.TemporaryDirectory(prefix="claude-guard-sandbox-") as name:
+            base = Path(name).resolve()
+            sandbox = Sandbox(base, os.path.dirname(sys.executable))
+            env = sandbox.env(port=1234, extra={"EXTRA": "x"})
+            self.assertEqual(env["PATH"].split(":")[0], str(sandbox.shims))
+            self.assertEqual(env["EXTRA"], "x")
+            for url, transport in (("http://127.0.0.1:9/x", "http"), ("git@127.0.0.1:x", "ssh")):
+                with self.subTest(url=url):
+                    code, out, err = sandbox.run(git, ["ls-remote", url], env, timeout=30)
+                    self.assertNotEqual(code, 0, out)
+                    self.assertIn(f"transport '{transport}' not allowed", err)
+            # Bare repositories, so that no .git directory is made.
+            for args in (["init", "-q", "--bare", str(base / "source")],
+                         ["clone", "-q", "--bare", (base / "source").as_uri(), str(base / "copy")]):
+                with self.subTest(args=args[:1]):
+                    code, out, err = sandbox.run(git, args, env, timeout=30)
+                    self.assertEqual(code, 0, err)
+            self.assertTrue((base / "copy/HEAD").is_file())
+            self.assertEqual(sandbox.netlog.read_text(), "", "git ran the ssh shim")
+            self.assertEqual(sandbox.strays(), [])
+
+    def test_a_managed_policy_skips_the_real_claude(self):
+        """A managed file, drop-in or machine policy of the host outranks the sandbox: one that sets disableAllHooks,
+        allowManagedHooksOnly, strictPluginOnlyCustomization (true or naming hooks) or statusLine stops the injected
+        --settings, and one that sets any other key, such as an env that sends Claude Code to a gateway or through a
+        proxy, or stops or wraps its hooks, or an apiKeyHelper, applies over the sandbox's own environment and
+        settings, as a managed MCP configuration adds servers. RealClaude skips, naming the file and the keys, rather
+        than fail or leave the sandbox. An empty source, one that is not an object, a malformed file and the same keys
+        in a source that is not managed do not."""
+        with tempfile.TemporaryDirectory(prefix="claude-guard-managed-") as name:
+            base = Path(name).resolve()
+            managed_file, drop_ins = base / "etc/managed-settings.json", base / "etc/managed-settings.d"
+            preferences = base / "prefs" / launch.MDM_NAME
+            with unittest.mock.patch.multiple(launch, MANAGED_FILES=(managed_file,), MANAGED_DIRECTORIES=(drop_ins,),
+                                              MDM_PREFERENCES=base / "prefs", WINDOWS_POLICY=base / "windows",
+                                              MACOS=True, on_wsl=lambda: False):
+                self.assertIsNone(managed_policy_stop())
+                for data, keys in (({"disableAllHooks": True}, "disableAllHooks"),
+                                   ({"allowManagedHooksOnly": True}, "allowManagedHooksOnly"),
+                                   ({"strictPluginOnlyCustomization": ["hooks"]}, "strictPluginOnlyCustomization"),
+                                   ({"statusLine": {"type": "command", "command": "org"}}, "statusLine"),
+                                   ({"disableAllHooks": True, "statusLine": None}, "disableAllHooks, statusLine")):
+                    for path in (managed_file, drop_ins / "10-org.json", preferences):
+                        with self.subTest(path=path, data=data):
+                            if path == preferences:
+                                path.parent.mkdir(parents=True, exist_ok=True)
+                                with path.open("wb") as stream:
+                                    plistlib.dump({key: value for key, value in data.items() if value is not None},
+                                                  stream)
+                                expected = keys.replace(", statusLine", "")
+                            else:
+                                write(path, json.dumps(data))
+                                expected = keys
+                            self.assertEqual(managed_policy_stop(),
+                                             f"the host's managed settings {path} set {expected}, so Claude Code would "
+                                             "not run the guard's injected hooks or status line")
+                            path.unlink()
+                for data, keys in (({"env": {"ANTHROPIC_BASE_URL": "https://gateway.example"}}, "env"),
+                                   ({"env": {"HTTPS_PROXY": "http://proxy.example:3128"}, "model": "x"}, "env, model"),
+                                   ({"env": {"CLAUDE_CODE_SAFE_MODE": "1"}}, "env"),
+                                   ({"env": {"CLAUDE_CODE_SHELL_PREFIX": "/usr/local/bin/audit"}}, "env"),
+                                   ({"apiKeyHelper": "/usr/local/bin/key"}, "apiKeyHelper"),
+                                   ({"disableAllHooks": False, "allowManagedHooksOnly": "true", "env": {}},
+                                    "allowManagedHooksOnly, disableAllHooks, env"),
+                                   ({"strictPluginOnlyCustomization": ["skills"]}, "strictPluginOnlyCustomization")):
+                    for path in (managed_file, drop_ins / "10-org.json", preferences):
+                        with self.subTest(path=path, data=data):
+                            if path == preferences:
+                                with path.open("wb") as stream:
+                                    plistlib.dump(data, stream)
+                            else:
+                                write(path, json.dumps(data))
+                            self.assertEqual(managed_policy_stop(),
+                                             f"the host's managed settings {path} set {keys}, which Claude Code applies "
+                                             "over the sandbox's environment and settings")
+                            path.unlink()
+                for data in ({}, ["disableAllHooks"]):
+                    with self.subTest(data=data):
+                        write(managed_file, json.dumps(data))
+                        self.assertIsNone(managed_policy_stop())
+                servers = write(base / "etc/managed-mcp.json", json.dumps({"mcpServers": {}}))
+                self.assertEqual(managed_policy_stop(), f"the host's managed MCP configuration {servers} gives Claude "
+                                 "Code servers it would start")
+                servers.unlink()
+                write(managed_file, "{")
+                write(drop_ins / "notes.txt", json.dumps({"disableAllHooks": True}))
+                write(base / "etc/settings.json", json.dumps({"disableAllHooks": True}))
+                self.assertIsNone(managed_policy_stop())
+        # RealClaude asks before it runs any Claude Code (this one does not exist).
+        reason = "the host's managed settings /x set disableAllHooks, so ..."
+        with unittest.mock.patch(f"{__name__}.managed_policy_stop", lambda: reason), \
+                unittest.mock.patch.object(shutil, "which", lambda *args, **kwargs: "/nonexistent/claude"):
+            with self.assertRaises(unittest.SkipTest) as caught:
+                RealClaude.setUpClass()
+        self.assertEqual(str(caught.exception), reason)
+
+    def test_a_windows_registry_policy_skips_the_real_claude_on_wsl(self):
+        """Claude Code on WSL reads the Settings value of HKLM and HKCU\\SOFTWARE\\Policies\\ClaudeCode through
+        reg.exe and applies it over the sandbox: on WSL RealClaude skips, naming the key, when reg.exe finds the value
+        (exit 0), and also when it cannot tell (another exit code, or it does not start); not when it reports both
+        missing (exit 1), when there is no reg.exe, or off WSL."""
+        reason = ("the Windows registry value {key}\\Settings holds a Claude Code policy, which Claude Code on WSL "
+                  "applies over the sandbox's environment and settings")
+        unknown = ("{reg} could not tell whether {key}\\Settings holds a Claude Code policy, which Claude Code on WSL "
+                   "would apply over the sandbox")
+        hklm, hkcu = REGISTRY_KEYS
+        with tempfile.TemporaryDirectory(prefix="claude-guard-registry-") as name:
+            base = Path(name).resolve()
+            reg, queries = base / "System32/reg.exe", base / "queries"
+            wsl = [True]
+            with unittest.mock.patch.multiple(launch, MANAGED_FILES=(base / "etc/managed-settings.json",),
+                                              MANAGED_DIRECTORIES=(base / "etc/managed-settings.d",),
+                                              MDM_PREFERENCES=base / "prefs", WINDOWS_POLICY=base / "windows",
+                                              MACOS=False, on_wsl=lambda: wsl[0]), \
+                    unittest.mock.patch(f"{__name__}.WINDOWS_REG", reg):
+                self.assertIsNone(managed_policy_stop())
+                for codes, expected in (((1, 1), None), ((0, 1), reason.format(key=hklm)),
+                                        ((1, 0), reason.format(key=hkcu)), ((0, 0), reason.format(key=hklm)),
+                                        ((5, 1), unknown.format(reg=reg, key=hklm)),
+                                        ((1, 2), unknown.format(reg=reg, key=hkcu))):
+                    with self.subTest(codes=codes):
+                        write(reg, REG_FAKE.format(log=shlex.quote(str(queries)), hklm=codes[0], hkcu=codes[1]), 0o700)
+                        queries.unlink(missing_ok=True)
+                        self.assertEqual(managed_policy_stop(), expected)
+                        asked = queries.read_text().splitlines()
+                        self.assertEqual(asked[0], f"query {hklm} /v Settings")
+                        self.assertEqual(asked, asked[:1] if codes[0] != 1 else [asked[0], f"query {hkcu} /v Settings"])
+                reg.chmod(0o600)  # a reg.exe that does not start
+                self.assertEqual(managed_policy_stop(), unknown.format(reg=reg, key=hklm))
+                write(reg, REG_FAKE.format(log=shlex.quote(str(queries)), hklm=0, hkcu=0), 0o700)
+                wsl[0] = False
+                self.assertIsNone(managed_policy_stop())
+                wsl[0] = True
+                reg.unlink()
+                self.assertIsNone(managed_policy_stop())
 
 
 @unittest.skipUnless(os.path.isdir("/proc/self"), "the sandbox finds its strays through /proc (Linux)")
