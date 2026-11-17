@@ -278,10 +278,11 @@ arguments:
   family is its own `limit_id`, `codex` being the general one. A snapshot of
   the general family takes from the account's record the windows it does not
   name; one of another family stands alone, as the limit the session's
-  requests count against. A token count without a usable window makes the
-  session blind unless it is a compaction's, and a model response is a
-  reasoning item, an assistant message, a `_call` item or a
-  `token_usage_record` line. A format change fails closed: a snapshot that
+  requests count against. While the session has no snapshot, or one that
+  names no window of a known length, a token count without a usable window
+  makes it blind unless it is a compaction's (at a prompt, a model response
+  does too); a model response is a reasoning item, an assistant message, a
+  `_call` item or a `token_usage_record` line. A format change fails closed: a snapshot that
   names no window of a known length counts as none, and a token count or a
   model response whose time cannot be read counts as a token count without
   rate limits. When the rollout cannot be read, the guard uses the account's
