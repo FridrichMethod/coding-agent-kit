@@ -391,7 +391,8 @@ class Guarded(Fixture):
     def test_the_local_settings_are_read_where_claude_code_reads_them(self):
         """Claude Code reads the local settings at the root of the git repository the launch directory lies in, or
         a linked worktree's main repository, unless that root is the launch directory or HOME (or is not this
-        user's), and the project settings at the launch directory."""
+        user's), and below them the launch directory's own local settings; the project settings at the launch
+        directory rank below both."""
         def line(command):
             return json.dumps({"statusLine": {"type": "command", "command": command}})
 
@@ -408,8 +409,12 @@ class Guarded(Fixture):
         self.assertEqual(status(sub), "repo local")
         write(sub / ".claude/settings.json", line("sub project"))
         self.assertEqual(status(sub), "repo local")
+        # From a subdirectory Claude Code also reads the launch directory's own local file, above the project's.
         (repo / ".claude/settings.local.json").unlink()
+        self.assertEqual(status(sub), "sub local")
+        (sub / ".claude/settings.local.json").unlink()
         self.assertEqual(status(sub), "sub project")
+        write(sub / ".claude/settings.local.json", line("sub local"))
         write(repo / ".claude/settings.local.json", line("repo local"))
         self.assertEqual(status(repo), "repo local")
         # A linked worktree, here outside its main repository, reads the main repository's local settings.

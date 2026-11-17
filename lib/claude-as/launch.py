@@ -317,7 +317,9 @@ def canonical_root(root):
 def local_root(cwd, home):
     """The directory whose .claude/settings.local.json Claude Code reads as the local settings of a session started
     in CWD: the canonical root of the git repository CWD lies in (the nearest directory with a .git directory or
-    file), unless that root is CWD or HOME, or it, its .git or its .claude is not this user's; CWD otherwise."""
+    file), unless that root is CWD or HOME, or it, its .git or its .claude is not this user's; CWD otherwise.
+    Where that root is not CWD, Claude Code also reads CWD's own .claude/settings.local.json, ranked below the
+    root's and above the project settings."""
     for folder in (cwd, *cwd.parents):
         try:
             mode = (folder / ".git").lstat().st_mode
@@ -380,9 +382,11 @@ def preflight(args, kit, enrollment, guarded=False):
             form.sources[path] = cfg
     if guarded:
         form.sources.update(machine_policies())
-        # Claude Code's precedence below the command line: local, project (at the launch directory), user.
+        # Claude Code's precedence below the command line: the local settings at local_root, the launch directory's
+        # own local settings (the same file when that root is the launch directory), the project settings at the
+        # launch directory, the user's.
         form.statusline = own_status_line([form.sources.get(path) for path in (
-            config / "settings.json", cwd / ".claude/settings.json", local)])
+            config / "settings.json", cwd / ".claude/settings.json", cwd / ".claude/settings.local.json", local)])
     config_check(config / "remote-settings.json", enrollment=enrollment)
     if enrollment and (config / "remote-settings-helper-consent").exists():
         fail("managed policy helper present; automatic enrollment cannot preserve its loading chain.")
