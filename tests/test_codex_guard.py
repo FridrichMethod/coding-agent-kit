@@ -564,6 +564,11 @@ CALL = {"type": "response_item", "payload": {"type": "function_call", "name": "e
                                              "call_id": "call-1"}}
 
 
+# A token_count line as Codex writes it when a reply carries no rate-limit headers.
+NO_LIMITS = {"type": "event_msg", "payload": {"type": "token_count", "info": None, "rate_limits": {
+    "limit_id": "codex", "limit_name": None, "primary": None, "secondary": None, "credits": None, "plan_type": None}}}
+
+
 def snapshot(used):
     window = {"used_percent": used, "window_minutes": 300, "resets_at": int(time.time()) + 3600}
     return {"type": "event_msg", "payload": {"type": "token_count", "info": None, "rate_limits": {
@@ -975,6 +980,12 @@ class GuardedLaunch(unittest.TestCase):
             ([ANSWER, snapshot(20.0)], [], "the guard's hooks"),
             ([CALL, snapshot(20.0)], [], "the guard's hooks"),
             ([CALL], [], "the guard's hooks"),  # a tool call shows a model request without rate limits too
+            # A model response is a model request, whether or not its rate limits reached the rollout.
+            ([ANSWER, NO_LIMITS], [], "the guard's hooks"),
+            ([ANSWER], [], "the guard's hooks"),
+            ([{"type": "response_item", "payload": {"type": "reasoning", "summary": []}}], [], "the guard's hooks"),
+            ([NO_LIMITS], [], None),  # no response: nothing the model returned
+            ([{**ANSWER, "metadata": {"inherited_user_message": True}}], [], None),  # a copy of another's
             ([CALL, snapshot(20.0)], ["prompt"], "the guard's tool hook"),
             ([CALL, snapshot(20.0)], ["prompt", "tool"], None),
             ([CALL, snapshot(20.0)], ["tool"], None),

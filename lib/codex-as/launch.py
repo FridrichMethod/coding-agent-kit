@@ -331,6 +331,7 @@ STAMPED = 0.001
 # The session_meta source of the sessions each guarded form starts: the TUI's, and exec's and review's.
 SOURCES = {"interactive": "cli", "headless": "exec"}
 HEADS = 1024  # session_meta lines read after a run
+RELEVANT = (b"token_count", b"response_item", b"token_usage_record")  # the lines activity() parses
 # A rollout is opened after a run when its file time is at most this many seconds before the run: on a
 # network home directory the file's time comes from the file server's clock, which may lag this host's
 # (Kerberos, under which NFSv4 often runs, refuses a skew above 5 minutes). The lines' own times, which
@@ -447,10 +448,11 @@ def this_run(layout, plan, baseline, begun, ended, alone):
 
 
 def activity(paths, begun, ended):
-    """(written, requested, tools) of the rollouts at PATHS between BEGUN and ENDED: a line, a usable
-    rate-limit snapshot (a model request), and a call that a tool hook sees. Each rollout is read back
-    from its end, usage.TAIL bytes at a time, to the lines from before BEGUN; inherited lines and lines
-    whose time cannot be read never count."""
+    """(written, requested, tools) of the rollouts at PATHS between BEGUN and ENDED: a line, a model
+    request (a line of a model response, usage.responded, or a usable rate-limit snapshot, which a
+    reply without rate-limit headers does not leave), and a call that a tool hook sees. Each rollout is
+    read back from its end, usage.TAIL bytes at a time, to the lines from before BEGUN; inherited lines
+    and lines whose time cannot be read never count."""
     written = requested = tools = False
     for path in paths:
         try:
@@ -466,7 +468,7 @@ def activity(paths, begun, ended):
                             earlier = True
                             continue
                         written = True
-                        if b"token_count" not in raw and b"_call" not in raw:
+                        if not any(word in raw for word in RELEVANT):
                             continue
                         found = usage.parsed(raw)
                         if found is None or usage.inherited(found[0]):
@@ -474,6 +476,7 @@ def activity(paths, begun, ended):
                         _, kind, payload, ptype = found
                         if kind == "event_msg" and ptype == "token_count":
                             requested = requested or usage.usable(payload.get("rate_limits")) is not None
+                        requested = requested or usage.responded(kind, ptype, payload)
                         tools = tools or usage.hooked(kind, ptype, payload)
                     if earlier:
                         break
