@@ -322,13 +322,14 @@ codex-as -V                           # the kit's version and install form (--ve
   `[usage_reserve]` tables of the configuration file, each window on its own
   (`V` from 0 through 100, or `off`; off by default). With a reserve on, the
   launcher gives the native CLI hooks for that launch (`claude-as` in its own
-  `--settings`, `codex-as` as `-c` values; nothing is written to `~/.claude`
-  or `<codex_home>`), and the kit's reserve guard refuses new prompts and
-  tool calls once a window is at or below its reserve, from the usage data
-  the native already receives, until the window resets or a relaunch turns
-  the flag off. It is a soft guard, not a hard limit: a streaming reply
-  finishes, and every agent running in parallel at the reserve finishes its
-  reply and makes one more request to report the refusal.
+  `--settings`, `codex-as` as `-c` values; the kit writes no hook
+  configuration to `~/.claude` or `<codex_home>`), and the kit's reserve
+  guard refuses new prompts and tool calls once a window is at or below its
+  reserve, from the usage data the native already receives, until the window
+  resets or a relaunch turns the flag off. It is a soft guard, not a hard
+  limit: a streaming reply finishes, and every agent running in parallel at
+  the reserve finishes its reply and can make one more request to report the
+  refusal.
   Launch forms the guard cannot cover, such as `claude-as NAME -p`, are
   refused with a reserve on, and Codex asks once per host to trust the
   hooks ([usage reserves](docs/account-launchers.md#usage-reserves)). With
