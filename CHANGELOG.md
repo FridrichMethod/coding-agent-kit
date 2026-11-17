@@ -254,7 +254,18 @@ consolidation and reviewers) and Codex tool calls outside `PreToolUse`
 guard that ends without an answer (one that cannot start at all, or a Ctrl-C
 while it starts) lets the event through, which the check after the run
 reports where it can tell. Clients without the launchers (plain `claude` or
-`codex`, IDE and desktop clients, native Windows) are unguarded.
+`codex`, IDE and desktop clients, native Windows) are unguarded. Claude Code
+under a server-managed setting or, on WSL, a Windows registry policy that
+sets `disableAllHooks` (sources the launch checks do not read for it) runs
+neither the guard's hooks nor its status line, so such a launch is unguarded
+with no footer line and no blind refusal, and a later guarded launch on the
+host warns of it only once a session has recorded the account's usage since.
+Once Codex has lost its trust of the guard's hooks, headless runs beside
+another client of the account can each go unguarded: where the check after a
+run cannot tell the run's sessions from that client's, it gives only a
+notice and keeps the marker. The same notice can also come while every hook
+runs, to a run that made no tool call or sent no prompt while another client
+of the account worked.
 
 ## 0.8.0
 
