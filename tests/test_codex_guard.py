@@ -125,8 +125,11 @@ class LaunchForms(Fixture):
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
                       ["archive", UUID], ["delete", UUID], ["unarchive", UUID], ["migrate-rollouts"],
                       ["migrate-nfs-db"], ["--no-daemon", "migrate-nfs-db"],
-                      # git-credential hands the account's login to Git's credential helper protocol.
-                      ["git-credential", "get"], ["git-credential", "erase"], ["-c", "model=x", "git-credential", "capability"],
+                      # git-credential hands the account's login to Git's credential helper protocol. Its store and
+                      # erase read Git's request and return, changing no login: run_git_credential in
+                      # codex-rs/cli/src/git_credential.rs at rust-v0.169.0 (check.COMMANDS has the evidence).
+                      ["git-credential", "get"], ["git-credential", "store"], ["git-credential", "erase"],
+                      ["-c", "model=x", "git-credential", "capability"],
                       # app-server's schema generators write protocol bindings and start no app server.
                       ["app-server", "generate-ts", "-o", "out"], ["app-server", "generate-ts", "--out=out", "-p", "x"],
                       ["app-server", "generate-ts", "--out", "out", "--prettier", "x", "--experimental"],
@@ -1084,6 +1087,7 @@ class GuardedLaunch(unittest.TestCase):
         self.launches_plain(["A", "features", "list"], ["A", "login", "status"], ["A", "--help"], ["A", "exec", "--help"],
                             ["A", "exec", "help"], ["A", "e", "help", "resume"], ["A", "completion", "bash"],
                             ["A", "git-credential", "get"], ["A", "cloud", "help"], ["A", "app-server", "help"],
+                            ["A", "git-credential", "store"], ["A", "git-credential", "erase"],
                             ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"],
                             ["A", "app-server", "generate-ts", "-o", "out"],
                             ["A", "app-server", "generate-json-schema", "--out", "out", "--experimental"],

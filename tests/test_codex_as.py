@@ -1719,6 +1719,9 @@ class CodexAs(unittest.TestCase):
                             # Native forms that change no login.
                             (["login", "--help"], interactive), (["login", "-c", "x=1", "status"], interactive),
                             (["logout", "--help"], interactive), (["--yolo", "resume", "--last"], interactive),
+                            # Git's approval and rejection: Codex reads the request and changes no login
+                            # (check.COMMANDS says where).
+                            (["git-credential", "store"], interactive), (["git-credential", "erase"], interactive),
                             (["-i", "a.png", "b.png", "resume"], interactive),
                             (["-c", 'profile="legacy"'], interactive), (["-c", 'profiles.x.model_provider="o"'], interactive),
                             (["--enable", "secret_auth_storage"], interactive),

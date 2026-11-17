@@ -70,6 +70,11 @@ REFUSED = {"--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
 DESKTOP = sys.platform in {"darwin", "win32"}
 EXEC = {"exec", "exec-prompt", "exec-resume"}
 # Root subcommands and aliases of native Codex 0.163.0 and 0.169.0, hidden ones included, plus clap's help.
+# git-credential (hidden, from 0.169.0) is a plain form, refused in no launch, whatever its OPERATION:
+# run_git_credential in codex-rs/cli/src/git_credential.rs (the same at rust-v0.169.0 and
+# rust-v0.171.0-alpha.12) reads Git's request and returns for store and erase ("Git approval/rejection
+# never stores another copy or changes the Codex login"), so, unlike logout, neither removes, replaces
+# or writes auth.json, the keyring or a credential store.
 COMMANDS = {
     "agents", "tcp-tunnel", "exec", "e", "review", "login", "git-credential", "logout", "mcp", "plugin",
     "app-server", "remote-control", "app", "completion", "update", "doctor", "sandbox",
