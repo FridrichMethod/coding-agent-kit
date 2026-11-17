@@ -1725,6 +1725,8 @@ class CodexAs(unittest.TestCase):
                             # Git's approval and rejection: Codex reads the request and changes no login
                             # (check.COMMANDS says where).
                             (["git-credential", "store"], interactive), (["git-credential", "erase"], interactive),
+                            # Without an OPERATION (refused only with a reserve: a prompt to Codex before 0.169.0).
+                            (["git-credential"], interactive),
                             (["-i", "a.png", "b.png", "resume"], interactive),
                             (["-c", 'profile="legacy"'], interactive), (["-c", 'profiles.x.model_provider="o"'], interactive),
                             (["--enable", "secret_auth_storage"], interactive),
