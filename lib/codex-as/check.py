@@ -69,9 +69,9 @@ REFUSED = {"--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
 # Native `app` is a subcommand only where the Desktop app exists; elsewhere it is a prompt.
 DESKTOP = sys.platform in {"darwin", "win32"}
 EXEC = {"exec", "exec-prompt", "exec-resume"}
-# Root subcommands and aliases of native Codex 0.163.0 and 0.169.0, plus clap's help.
+# Root subcommands and aliases of native Codex 0.163.0 and 0.169.0, hidden ones included, plus clap's help.
 COMMANDS = {
-    "agents", "tcp-tunnel", "exec", "e", "review", "login", "logout", "mcp", "plugin",
+    "agents", "tcp-tunnel", "exec", "e", "review", "login", "git-credential", "logout", "mcp", "plugin",
     "app-server", "remote-control", "app", "completion", "update", "doctor", "sandbox",
     "debug", "execpolicy", "apply", "a", "resume", "queue", "archive", "delete",
     "migrate-rollouts", "migrate-nfs-db", "unarchive", "fork", "cloud", "cloud-tasks",

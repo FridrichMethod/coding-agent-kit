@@ -102,6 +102,8 @@ class LaunchForms(Fixture):
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
                       ["archive", UUID], ["delete", UUID], ["unarchive", UUID], ["migrate-rollouts"],
                       ["migrate-nfs-db"], ["--no-daemon", "migrate-nfs-db"],
+                      # git-credential hands the account's login to Git's credential helper protocol.
+                      ["git-credential", "get"], ["git-credential", "erase"], ["-c", "model=x", "git-credential", "capability"],
                       ["responses-api-proxy"], ["stdio-to-uds", "x"], ["execpolicy"],
                       # Help and version print and run nothing.
                       ["--help"], ["-h"], ["-V"], ["--version"], ["help"], ["help", "exec"],
@@ -852,7 +854,7 @@ class GuardedLaunch(unittest.TestCase):
     def test_plain_forms_launch_as_without_reserves(self):
         self.configure("[usage_reserve]\nfive_hour = 10\n")
         for args in (["A", "mcp", "list"], ["A", "features", "list"], ["A", "login", "status"], ["A", "--help"],
-                     ["A", "exec", "--help"], ["A", "completion", "bash"]):
+                     ["A", "exec", "--help"], ["A", "completion", "bash"], ["A", "git-credential", "get"]):
             with self.subTest(args=args):
                 result = self.run_codex("--reserve-5h", "off", *args)
                 self.assertEqual(result.returncode, 0, result.stderr)
