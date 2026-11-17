@@ -271,9 +271,12 @@ def unguardable(account, plan):
         refuse(account, "--ignore-user-config skips the configuration that holds Codex's trust of the usage reserve "
                         "guard's hooks")
     if plan.worktree:
-        # Codex records such a session's cwd as CODEX_HOME/worktrees/ID/DIR, never the launch directory.
-        refuse(account, "--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check "
-                        "after the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
+        # Codex records such a session's cwd as CODEX_HOME/worktrees/ID/DIR, never the launch directory. The launch
+        # checks read the launch directory's project layers; run_threads follows a TUI's sessions there, but not a
+        # headless run's. Refused for every form (the TUI's own /worktree is followed).
+        refuse(account, "--worktree runs the session in a Git worktree that Codex creates under its home, whose project "
+                        "configuration the launch checks do not read, and where the check after a headless run does not "
+                        "look for the session to tell whether Codex ran the usage reserve guard's hooks")
 
 
 def guarded(config, account, plan, layout):

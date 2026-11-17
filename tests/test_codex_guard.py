@@ -1067,10 +1067,12 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_options_the_hooks_cannot_cover_are_refused(self):
         self.trusted()
-        # The session's cwd is a worktree under CODEX_HOME (measured with codex-cli 0.169.0): the check after
-        # the run, which finds the run's new sessions by their directory, would see none of them.
-        worktree = ("--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check after "
-                    "the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
+        # The session's cwd is a worktree under CODEX_HOME (measured with codex-cli 0.169.0). The launch checks read
+        # the launch directory's project layers, and the check after a headless run, which finds its new session by
+        # its directory, would not see it there (a TUI's sessions under CODEX_HOME/worktrees are followed).
+        worktree = ("--worktree runs the session in a Git worktree that Codex creates under its home, whose project "
+                    "configuration the launch checks do not read, and where the check after a headless run does not "
+                    "look for the session to tell whether Codex ran the usage reserve guard's hooks")
         override = ("a -c or --config value under hooks would meet the usage reserve guard's hooks, which codex-as "
                     "passes as -c values of its own")
         disabled = "--disable hooks or a -c value under features turns off the hooks that enforce usage reserves"
