@@ -328,11 +328,12 @@ that can write sessions, with reserves or without, appends one byte to the
 lease file `<codex_home>/accounts/.locks/NAME.lock`, so a launch that starts
 and ends during the run shows too; a launch that holds the lease alone empties
 the file once it reaches 4096 bytes. A client that takes no codex-as lease
-(plain `codex` started with the account's `CODEX_HOME`, the desktop app or an
-IDE extension, logged in as the same ChatGPT user and workspace) is not seen
-this way: an older session of the account that it continues during an
-interactive run that is otherwise alone, or a TUI session it starts in the
-run's directory, counts as the run's own. `--worktree` is refused with a
+(plain `codex` in the root home or started with the account's `CODEX_HOME`,
+the desktop app or an IDE extension, logged in as the same ChatGPT user and
+workspace) is not seen this way: an older session of the account that it
+continues during an interactive run that is otherwise alone, or a TUI session
+it starts in the run's directory, counts as the run's own, so its tool calls
+there give that run the warning when the run made none. `--worktree` is refused with a
 reserve on because Codex creates that worktree under its home, whose project
 configuration the launch checks do not read and where the check after a
 headless run does not look for its session; the TUI's own `/worktree` is
