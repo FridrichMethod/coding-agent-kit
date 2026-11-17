@@ -20,7 +20,9 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import plistlib
 import pty
+import pwd
 import shlex
 import shutil
 import signal
@@ -670,6 +672,109 @@ class Settings(unittest.TestCase):
         self.assertEqual(sorted(path for path in guarded.sources if base in path.parents),
                          [macos / "10-org.json", linux / "10-org.json"])
         self.assertEqual([path for path in plain.sources if base in path.parents], [linux / "10-org.json"])
+
+    @staticmethod
+    def policy_paths(base):
+        """The machine policy sources under BASE: the managed preferences under BASE/prefs and the Windows policy
+        under BASE/windows."""
+        return unittest.mock.patch.multiple(launch, MDM_PREFERENCES=base / "prefs", WINDOWS_POLICY=base / "windows")
+
+    def machine_policy_form(self, base, guarded=True, macos=True, wsl=True):
+        """The Form of a preflight in BASE/project whose machine policy sources lie under BASE (policy_paths), with
+        only the sources under BASE."""
+        home, cwd = base / "home", base / "project"
+        cwd.mkdir(exist_ok=True)
+        kit = type("Kit", (), {"home": home, "expand": staticmethod(Path)})()
+        previous = os.getcwd()
+        os.chdir(cwd)
+        try:
+            with self.policy_paths(base), \
+                    unittest.mock.patch.multiple(launch, MANAGED_FILES=(), MANAGED_DIRECTORIES=(), MACOS=macos,
+                                                 on_wsl=lambda: wsl), \
+                    unittest.mock.patch.dict(os.environ, {"PATH": os.environ.get("PATH", "")}, clear=True):
+                form = launch.preflight([], kit, enrollment=False, guarded=guarded)
+                self.assertTrue(launch.managed(base / "prefs" / launch.MDM_NAME))
+                self.assertTrue(launch.managed(base / "prefs/someone" / launch.MDM_NAME))
+                self.assertTrue(launch.managed(base / "windows/managed-settings.json"))
+                self.assertTrue(launch.managed(base / "windows/managed-settings.d/10-org.json"))
+                self.assertFalse(launch.managed(base / "prefs/other.plist"))
+                self.assertFalse(launch.managed(base / "windows/other.json"))
+        finally:
+            os.chdir(previous)
+        form.sources = {path: data for path, data in form.sources.items() if base in path.parents}
+        return form
+
+    def test_the_machine_policy_beyond_the_managed_files(self):
+        """macOS managed preferences of the com.anthropic.claudecode domain, the machine's and this user's, and on
+        WSL the Windows managed settings once one of them makes WSL inherit them, count as managed sources."""
+        hooks = "so Claude Code would not run the usage reserve guard's hooks"
+        with tempfile.TemporaryDirectory(prefix="claude-guard-policy-") as name:
+            base = Path(name).resolve()
+            # check_form judges a source managed by these paths too.
+            self.enterContext(self.policy_paths(base))
+            machine = base / "prefs" / launch.MDM_NAME
+            mine = base / "prefs" / pwd.getpwuid(os.getuid()).pw_name / launch.MDM_NAME
+            for path, data in ((machine, {"allowManagedHooksOnly": True}), (mine, {"disableAllHooks": True})):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("wb") as stream:
+                    plistlib.dump(data, stream, fmt=plistlib.FMT_BINARY if path == mine else plistlib.FMT_XML)
+            form = self.machine_policy_form(base, wsl=False)
+            self.assertEqual(form.sources, {machine: {"allowManagedHooksOnly": True}, mine: {"disableAllHooks": True}})
+            self.assertEqual(self.check_form({machine: form.sources[machine]}),
+                             f"{machine} sets allowManagedHooksOnly, {hooks}")
+            self.assertEqual(self.check_form({mine: form.sources[mine]}), f"{mine} sets disableAllHooks, {hooks}")
+            # Neither without a reserve, nor on another system; an unreadable or non-dictionary one is left out.
+            self.assertEqual(self.machine_policy_form(base, guarded=False, wsl=False).sources, {})
+            self.assertEqual(self.machine_policy_form(base, macos=False, wsl=False).sources, {})
+            machine.write_bytes(b"<plist")
+            with mine.open("wb") as stream:
+                plistlib.dump(["disableAllHooks"], stream)
+            self.assertEqual(self.machine_policy_form(base, wsl=False).sources, {})
+            with machine.open("wb") as stream:
+                plistlib.dump({"statusLine": {"type": "command", "command": "org"}, "env": {"CLAUDE_CODE_SAFE_MODE": True}},
+                              stream)
+            self.assertEqual(self.check_form(self.machine_policy_form(base, wsl=False).sources),
+                             f"{machine} sets statusLine, which Claude Code runs in place of the usage reserve guard's "
+                             "status line, so the guard would never see this account's usage")
+            machine.unlink()
+            # WSL: read only when a document sets wslInheritsWindowsSettings (any value but false or null counts).
+            windows = base / "windows/managed-settings.json"
+            drop_in = base / "windows/managed-settings.d/10-org.json"
+            write(windows, json.dumps({"allowManagedHooksOnly": True}))
+            write(drop_in.parent / "notes.txt", "{")
+            for flag, read in ((None, False), (False, False), ("false", False), (True, True), ("true", True), (1, True),
+                               (0, True)):
+                with self.subTest(flag=flag):
+                    write(drop_in, json.dumps({} if flag is None else {"wslInheritsWindowsSettings": flag}))
+                    form = self.machine_policy_form(base, macos=False)
+                    self.assertEqual(sorted(form.sources), sorted([windows, drop_in]) if read else [])
+                    self.assertEqual(self.check_form(form.sources),
+                                     f"{windows} sets allowManagedHooksOnly, {hooks}" if read else None)
+            self.assertEqual(self.machine_policy_form(base, macos=False, wsl=False).sources, {})
+            self.assertEqual(self.machine_policy_form(base, guarded=False, macos=False).sources, {})
+            write(windows, json.dumps({"wslInheritsWindowsSettings": True, "disableAllHooks": True}))
+            drop_in.unlink()
+            self.assertEqual(self.check_form(self.machine_policy_form(base, macos=False).sources),
+                             f"{windows} sets disableAllHooks, {hooks}")
+
+    def test_the_machine_policy_readers_find_the_platforms_sources(self):
+        self.assertEqual(launch.MDM_PREFERENCES, Path("/Library/Managed Preferences"))
+        self.assertEqual(launch.MDM_NAME, "com.anthropic.claudecode.plist")
+        self.assertEqual(launch.WINDOWS_POLICY, Path("/mnt/c/Program Files/ClaudeCode"))
+        self.assertEqual(launch.MACOS, sys.platform == "darwin")
+        with tempfile.TemporaryDirectory(prefix="claude-guard-wsl-") as name:
+            version = Path(name) / "version"
+            for text, expected in (("Linux version 6.6.36.3-microsoft-standard-WSL2 (root@...)", True),
+                                   ("Linux version 5.15.0 (wsl build)", True), ("Linux version 6.8.0-1021-azure", False)):
+                write(version, text)
+                with self.subTest(text=text), unittest.mock.patch.object(launch, "PROC_VERSION", str(version)), \
+                        unittest.mock.patch.dict(os.environ, {}, clear=True):
+                    self.assertEqual(launch.on_wsl(), expected)
+            with unittest.mock.patch.object(launch, "PROC_VERSION", str(Path(name) / "missing")), \
+                    unittest.mock.patch.dict(os.environ, {}, clear=True):
+                self.assertFalse(launch.on_wsl())
+                os.environ["WSL_DISTRO_NAME"] = "Ubuntu"
+                self.assertTrue(launch.on_wsl())
 
     def check_form(self, sources, environ=None):
         """launch.check_form of a Form with SOURCES and a terminal on standard output, in ENVIRON: the reason

@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import pwd
 import re
 import shlex
 import shutil
@@ -53,6 +54,17 @@ MANAGED_FILES = (Path("/etc/claude-code/managed-settings.json"),
                  Path("/Library/Application Support/ClaudeCode/managed-settings.json"))
 MANAGED_DIRECTORIES = (Path("/etc/claude-code/managed-settings.d"),
                        Path("/Library/Application Support/ClaudeCode/managed-settings.d"))
+# The machine's other policy sources that a launch with a usage reserve checks with them (machine_policies): on
+# macOS the managed preferences an MDM profile installs for the com.anthropic.claudecode domain, the machine's and
+# this user's; on WSL the Windows managed settings, which Claude Code takes in only when one of them sets
+# wslInheritsWindowsSettings. Server-managed settings and the HKLM policy key (which Claude Code on WSL reads
+# through reg.exe) are not checked: hooks they stop show as the footer line and the warning at the account's
+# next guarded launch.
+MACOS = sys.platform == "darwin"
+MDM_PREFERENCES = Path("/Library/Managed Preferences")
+MDM_NAME = "com.anthropic.claudecode.plist"
+WINDOWS_POLICY = Path("/mnt/c/Program Files/ClaudeCode")
+PROC_VERSION = "/proc/version"
 
 # A launch with a usage reserve on (the guarded launch): Claude Code 2.1.296 has every hook contract the
 # guard relies on (onFailure "block", a prompt hook that Esc cannot skip, continue false ending a turn).
@@ -218,8 +230,68 @@ def inspect_config(cfg):
 
 
 def managed(path):
-    """Whether PATH is one of the machine's managed settings files."""
-    return path in MANAGED_FILES or path.parent in MANAGED_DIRECTORIES
+    """Whether PATH is one of the machine's managed settings sources."""
+    return (path in MANAGED_FILES or path.parent in MANAGED_DIRECTORIES
+            or (path.name == MDM_NAME and MDM_PREFERENCES in path.parents)
+            or path == WINDOWS_POLICY / "managed-settings.json" or path.parent == WINDOWS_POLICY / "managed-settings.d")
+
+
+def on_wsl():
+    """Whether Claude Code takes this host for WSL: WSL_DISTRO_NAME is set, or /proc/version names microsoft or wsl."""
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open(PROC_VERSION, "rb") as stream:
+            text = stream.read(4096).decode("utf-8", "replace").lower()
+    except OSError:
+        return False
+    return "microsoft" in text or "wsl" in text
+
+
+def machine_policies():
+    """{path: parsed settings} of the policy sources beside the managed settings files (MDM_PREFERENCES, and on WSL
+    WINDOWS_POLICY once inherited); one that is absent, unreadable or not a dictionary is left out, as Claude Code
+    leaves it out. Claude Code reads a wslInheritsWindowsSettings other than true, false or null as withheld
+    policy; it counts as inherited here."""
+    found = {}
+    if MACOS:
+        try:
+            import plistlib  # needs pyexpat, which nothing else of a launch needs
+            from xml.parsers.expat import ExpatError
+        except ImportError:
+            fail("this python3 cannot read the macOS managed preferences (plistlib), which a launch with usage "
+                 "reserves checks.")
+        paths = [MDM_PREFERENCES / MDM_NAME]
+        try:
+            paths.append(MDM_PREFERENCES / pwd.getpwuid(os.getuid()).pw_name / MDM_NAME)
+        except KeyError:
+            pass
+        for path in paths:
+            try:
+                with path.open("rb") as stream:
+                    data = plistlib.load(stream)
+            except (OSError, ValueError, ExpatError):
+                continue
+            if isinstance(data, dict):
+                found[path] = data
+    if on_wsl():
+        documents = {}
+        try:
+            drop_ins = sorted((WINDOWS_POLICY / "managed-settings.d").glob("*.json"))
+        except OSError:
+            drop_ins = []
+        for path in (WINDOWS_POLICY / "managed-settings.json", *drop_ins):
+            try:
+                with path.open("rb") as stream:
+                    data = json.load(stream)
+            except (OSError, ValueError):
+                continue
+            if isinstance(data, dict):
+                documents[path] = data
+        flags = [data.get("wslInheritsWindowsSettings") for data in documents.values()]
+        if any(not (flag is None or flag is False or flag == "false") for flag in flags):
+            found.update(documents)
+    return found
 
 
 @dataclass
@@ -256,6 +328,8 @@ def preflight(args, kit, enrollment, guarded=False):
         cfg = config_check(path, enrollment=enrollment and managed(path))
         if cfg is not None:
             form.sources[path] = cfg
+    if guarded:
+        form.sources.update(machine_policies())
     # Claude Code's precedence below the command line: project local, project, user.
     form.statusline = own_status_line([form.sources.get(path) for path in (
         config / "settings.json", Path.cwd() / ".claude/settings.json", Path.cwd() / ".claude/settings.local.json")])
