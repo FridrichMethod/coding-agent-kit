@@ -87,7 +87,9 @@ SERVED = ("claude {} serves other clients' model requests outside Claude Code's 
 # refused through HOOKLESS and HOOKLESS_FLAGS, beside their environment switches; every other option or command either
 # runs the interactive session, where the hooks run, starts none (SESSIONLESS, VERBS), is refused as the first
 # argument (LEADING), or is refused for every launch by the authentication audit (scan). A form a later release adds
-# is not here.
+# is not here. A refused form is refused with -h or --help too, since Claude Code dispatches some of them before its
+# command line parser sees a help option (attach and respawn as the first argument go to its background path): their
+# help is read through the parent command (claude mcp help serve) or without reserves.
 REFUSED = {
     # Print mode: one turn with no terminal session and no status line, so the guard never records this account's
     # usage; an option every launch accepts.
@@ -129,11 +131,17 @@ LEADING = {"remote": FIRST, "sync": FIRST, "bridge": FIRST}
 # The commands of Claude Code 2.1.326 that start no session, where no hook ever runs, by first operand, with the
 # second operands that keep them so (empty for a command that takes no operand, which counts alone; None for one whose
 # operand is a path, a version or a file, where any second operand counts): with a reserve on they launch as without
-# one, so that no launch state expects the guard's hooks. A subcommand or an operand of a later release, an operand
-# after --, and an option of REFUSED keep the launch guarded. Claude Code takes the background verbs as verbs wherever they are the
-# first argument; after options only before a session id, and as a prompt otherwise. The hidden commands that need
-# an option the audit refuses (--json) are not here. plugin test runs a mod's tests, each file in a child of Claude
-# Code that runs no model, and only with plugin as the first argument, which a guard's --settings would take.
+# one, so that no launch state expects the guard's hooks. A subcommand or an operand of a later release and an option
+# of REFUSED keep the launch guarded, and so, on purpose, do two forms that start no session in this release either,
+# lest a release that read them as prompts run that session without its guard: a command after -- (Claude Code
+# dispatches it there too), and a background verb behind options before a session id (Claude Code takes it as a
+# verb there, and then refuses it under the guard's CLAUDE_CODE_DISABLE_AGENT_VIEW; as the first argument it runs).
+# Like a launch Claude Code ends before any hook, they leave launch state that no hook completes, so a later usage
+# record of the account makes the next guarded launch warn. Claude Code takes the background verbs as verbs wherever
+# they are the first argument; behind options only before a session id, and as a prompt otherwise. The hidden
+# commands that need an option the audit refuses (--json) are not here. plugin test runs a mod's tests, each file in
+# a child of Claude Code that runs no model, and only with plugin as the first argument, which a guard's --settings
+# would take.
 PLUGIN = {"init", "new", "validate", "tag", "list", "details", "marketplace", "install", "i", "uninstall", "remove",
           "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure", "test", "help"}
 SESSIONLESS = {"doctor": set(), "update": set(), "upgrade": set(), "install": None, "purge": None,

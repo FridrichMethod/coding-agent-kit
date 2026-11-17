@@ -549,13 +549,16 @@ class Guarded(Fixture):
         self.assertFalse(self.guard_dir.exists())
         self.assertEqual(self.version_runs(), 0)
 
-    def test_commands_that_may_start_a_session_launch_guarded(self):
-        """A prompt, an unknown command or subcommand (import starts a session, and a later release may add one),
-        a command after -- and a background verb after options (a prompt unless a session id follows) get the
-        guard."""
+    def test_other_commands_launch_guarded(self):
+        """A prompt and an unknown command, subcommand or operand (import starts a session, and a later release may add
+        one) get the guard. So, on purpose, do a command after -- and a background verb behind options before a
+        session id, which start no session in Claude Code 2.1.326 either (it dispatches the command there, and takes
+        the verb as one), lest a release that read them as prompts run a session without its guard; behind options a
+        verb with no session id after it is a prompt."""
         for args in (["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"], ["mcp", "eval"],
                      ["auto-mode", "other"], ["import"], ["import", "codex"], ["--", "doctor"],
-                     ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"], ["sandbox", "other"],
+                     ["mcp", "--", "list"], ["plugin", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"],
+                     ["--verbose", "logs", "0123abcd"], ["--model", "x", "rm", "0123abcd"], ["sandbox", "other"],
                      # An operand for a command that takes none in Claude Code 2.1.326, as a later release may add one.
                      ["doctor", "fix"], ["update", "x"], ["upgrade", "x"], ["apply-project-settings", "x"],
                      # Remote Control's names that Claude Code dispatches only as its first argument are prompts
@@ -748,6 +751,13 @@ class Refusals(Fixture):
                  (["--verbose", "respawn"], f"claude respawn {elsewhere}"), (["--", "attach"], f"claude attach {elsewhere}"),
                  (["remote"], f"claude remote {FIRST}"), (["sync", "x"], f"claude sync {FIRST}"),
                  (["bridge"], f"claude bridge {FIRST}"),
+                 # The help of a refused form is refused with it: Claude Code dispatches some of them before its
+                 # command line parser sees a help option.
+                 (["ultrareview", "--help"], f"claude ultrareview {detached}"),
+                 (["attach", "--help"], f"claude attach {elsewhere}"), (["respawn", "-h"], f"claude respawn {elsewhere}"),
+                 (["mcp", "serve", "--help"], f"claude mcp serve {detached}"),
+                 (["plugin", "eval", "-h"], f"claude plugin eval {detached}"),
+                 (["remote", "--help"], f"claude remote {FIRST}"), (["-p", "--help"], f"-p {outside}"),
                  (["--settings", "x"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
                                        "claude-as passes in its own --settings"),
                  (["--settings={}"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
