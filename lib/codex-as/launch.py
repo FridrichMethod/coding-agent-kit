@@ -707,8 +707,9 @@ def main(args):
     baseline = None
     try:
         alone = layout.acquire()
+        # Every launch that can write sessions arrives, with reserves or without; a plain form writes none.
         try:
-            arrived = layout.arrive()
+            arrived = layout.arrive() if plan.form != "plain" else None
         except OSError:
             arrived = None  # a launch arriving later cannot be told: this one is never alone
         if alone:

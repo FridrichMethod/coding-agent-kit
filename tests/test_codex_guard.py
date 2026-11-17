@@ -1717,40 +1717,78 @@ class GuardedLaunch(unittest.TestCase):
         self.assertEqual(self.launches(), [])
 
     def test_a_launch_of_the_account_that_arrives_during_a_run_leaves_it_unsure(self):
-        """A second codex-as launch of the account that starts and ends inside a TUI's run (a second terminal
-        tab, here or continuing an older session elsewhere) holds the lease only meanwhile, where neither of
-        the run's lease checks sees it; its arrival in the lease file makes the run not alone. What its
-        sessions show gets the notice, never the warning: the marker stays and the next headless run runs."""
+        """A second codex-as launch of the account that can write sessions, with reserves or without, and that starts
+        and ends inside a TUI's run (a second terminal tab: here, in another repository, or continuing an older
+        session elsewhere) holds the lease only meanwhile, where neither of the run's lease checks sees it; its
+        arrival in the lease file makes the run not alone. What its sessions show gets the notice, never the
+        warning: the marker stays and the next headless run runs. That includes a second guarded TUI in another
+        repository whose tool hook ran, beside this TUI that only chatted: the check cannot tell whose hooks ran."""
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
-        elsewhere = self.base / "elsewhere"
+        elsewhere, repository = self.base / "elsewhere", self.base / "other repo"
         elsewhere.mkdir()
-        second = [str(self.kit / "bin/codex-as"), "--reserve-5h", "10", "A"]
-        inner = self.base / "inner.json"
-        tab = [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, CALL, snapshot(20.0)]}]
-        cases = (  # this TUI's own lines, the hooks it ran, the second launch's arguments, what it names
-            ([], [], [], "the guard's hooks"),
-            ([ANSWER, snapshot(20.0)], ["prompt"], [], "the guard's tool hook"),
-            ([], [], ["-C", str(elsewhere), "exec", "resume", "--last", "go"], "the guard's hooks"),
+        repository.mkdir()
+        codex_as, inner = str(self.kit / "bin/codex-as"), self.base / "inner.json"
+        guarded, unguarded = ["--reserve-5h", "10"], ["--reserve-5h", "off", "--reserve-weekly", "off"]
+        tab = lambda cwd=self.cwd: [{"thread": UUID, "creator": [USER, WORKSPACE], "cwd": str(cwd),
+                                     "lines": [ANSWER, CALL, snapshot(20.0)]}]
+        chat = [ANSWER, snapshot(20.0)]
+        cases = (  # this TUI's own lines and hooks, the second launch's flags, arguments, sessions and hooks, what is missed
+            ([], [], guarded, [], tab, ["prompt", "tool"], "the guard's hooks"),
+            (chat, ["prompt"], guarded, [], tab, ["prompt", "tool"], "the guard's tool hook"),
+            (chat, ["prompt"], guarded, ["-C", str(repository)], lambda: tab(repository), ["prompt", "tool"],
+             "the guard's tool hook"),
+            ([], [], guarded, ["-C", str(elsewhere), "exec", "resume", "--last", "go"],
+             lambda: [{"append": str(self.old_rollout(OTHER, 86400, cwd=elsewhere)),
+                       "lines": [turn(elsewhere), ANSWER, CALL, snapshot(20.0)]}], ["prompt", "tool"], "the guard's hooks"),
+            # A tab without reserves runs no hook at all.
+            ([], [], unguarded, [], tab, [], "the guard's hooks"),
+            (chat, ["prompt"], unguarded, [], tab, [], "the guard's tool hook"),
         )
-        for own, hooks, args, missing in cases:
-            with self.subTest(own=len(own), args=args):
+        for own, hooks, flags, args, rollouts, nested_hooks, missing in cases:
+            with self.subTest(own=len(own), flags=flags, args=args):
                 if (self.root / "sessions").exists():
                     shutil.rmtree(self.root / "sessions")
                 self.trusted()
-                older = self.old_rollout(OTHER, 86400, cwd=elsewhere)
-                rollouts = ([{"append": str(older), "lines": [turn(elsewhere), ANSWER, CALL, snapshot(20.0)]}]
-                            if args else tab)
-                nested = {"argv": [*second, *args], "env": {"FAKE_ROLLOUTS": json.dumps(rollouts),
-                                                            "FAKE_HOOKS": '["prompt", "tool"]', "FAKE_RECORD": str(inner)}}
+                nested = {"argv": [codex_as, *flags, "A", *args],
+                          "env": {"FAKE_ROLLOUTS": json.dumps(rollouts()), "FAKE_HOOKS": json.dumps(nested_hooks),
+                                  "FAKE_RECORD": str(inner)}}
                 own_rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": own}] if own else []
                 result = self.run_codex("--reserve-5h", "10", "A", env={
                     "FAKE_NESTED": json.dumps(nested), "FAKE_ROLLOUTS": json.dumps(own_rollouts),
                     "FAKE_HOOKS": json.dumps(hooks)})
-                self.assertEqual(self.recorded()["nested"], [0, "fake codex ran\n", launch_line])
+                self.assertEqual(self.recorded()["nested"],
+                                 [0, "fake codex ran\n", launch_line if flags == guarded else ""])
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + NOTICE.format(missing)))
                 self.assertTrue(self.marker.exists())
                 result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
                 self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
+        self.assertEqual(self.launches(), [])
+
+    def test_a_plain_launch_of_the_account_during_a_run_leaves_it_alone(self):
+        """A launch of a plain form writes no session and does not arrive in the lease file, with a reserve or
+        without: a TUI whose own session shows that Codex did not run the guard's hooks still gets the warning,
+        the marker goes and the next headless run is refused."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        lease, inner = self.root / "accounts/.locks/A.lock", self.base / "inner.json"
+        own = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, CALL, snapshot(20.0)]}]
+        for flags, args in (([], ["mcp", "list"]), (["--reserve-5h", "10"], ["login", "status"]),
+                            (["--reserve-5h", "10"], ["exec", "--help"])):
+            with self.subTest(flags=flags, args=args):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                size = lease.stat().st_size if lease.exists() else 0
+                nested = {"argv": [str(self.kit / "bin/codex-as"), *flags, "A", *args],
+                          "env": {"FAKE_ROLLOUTS": "[]", "FAKE_HOOKS": "[]", "FAKE_RECORD": str(inner)}}
+                result = self.run_codex("--reserve-5h", "10", "A", env={
+                    "FAKE_NESTED": json.dumps(nested), "FAKE_ROLLOUTS": json.dumps(own), "FAKE_HOOKS": "[]"})
+                self.assertEqual(self.recorded()["nested"], [0, "fake codex ran\n", ""])
+                self.assertEqual((result.returncode, result.stderr),
+                                 (0, launch_line + WARNING.format("the guard's hooks")))
+                self.assertEqual(lease.stat().st_size, size + 1, "only the TUI arrived")
+                self.assertFalse(self.marker.exists())
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self.launches(), [])
 
     def test_exec_resume_without_an_id_is_told_by_the_turn_it_begins_here(self):
