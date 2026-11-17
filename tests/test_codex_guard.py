@@ -14,7 +14,8 @@ Codex does and runs the guard's hooks the way Codex runs them: the command of
 the -c value through a shell, with the event on stdin. No native, provider,
 credential or network is involved. RealCodex runs the real codex, when it is on
 PATH, in a temporary HOME against tests/fixtures/guard/codex_backend.py on
-127.0.0.1, with every proxy at a closed loopback port; it skips otherwise. Of
+127.0.0.1, with every proxy at a closed loopback port, or for one case at a
+loopback recorder that answers 502 and connects nowhere; it skips otherwise. Of
 this host's user it reads only the codex install's own files where they lie
 (Sandbox says which).
 """
@@ -22,6 +23,7 @@ this host's user it reads only the codex install's own files where they lie
 import base64
 import dataclasses
 import fcntl
+import hashlib
 import importlib.util
 import json
 import os
@@ -31,9 +33,11 @@ import shlex
 import shutil
 import signal
 import socket
+import socketserver
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tomllib
 import unittest
@@ -109,16 +113,48 @@ class LaunchForms(Fixture):
             "refused": (["cloud"], ["cloud-tasks"], ["cloud", "exec", "--env", "x", "go"], ["app-server"],
                         ["exec-server"], ["remote-control"], ["remote-control", "--no-daemon"],
                         ["debug", "app-server", "send-message-v2", "hi"], ["-c", "model=x", "app-server"],
+                        ["app-server", "proxy"], ["app-server", "--listen", "stdio://"],
                         # help after another word is that word's argument: a cloud task's query, say.
                         ["cloud", "exec", "--env", "x", "help"], ["app-server", "proxy", "help"],
-                        ["debug", "app-server", "send-message-v2", "help"]),
+                        ["debug", "app-server", "send-message-v2", "help"],
+                        # An option this scan does not know may take the next word as its value, as
+                        # --cloud-skills-snapshot PATH does: Codex would run the app server.
+                        ["app-server", "--cloud-skills-snapshot", "generate-ts"],
+                        ["app-server", "--future", "generate-json-schema", "-o", "out"],
+                        # A generator's name after another word is that word's argument.
+                        ["app-server", "proxy", "generate-ts"], ["debug", "app-server", "generate-ts"],
+                        # Codex 0.161.0 to 0.168 have no git-credential: without an OPERATION as its first word it is
+                        # their root prompt, the TUI's, or one clap drops for a subcommand after it, which then runs.
+                        ["git-credential"], ["-c", "model=x", "git-credential"], ["git-credential", "-c", "model=x"],
+                        ["git-credential", "exec", "go"], ["git-credential", "resume", "--last"],
+                        ["git-credential", "review"], ["git-credential", "-m", "x", "exec", "go"],
+                        ["git-credential", "--"], ["git-credential", "--", "exec"]),
             "plain": (["mcp", "list"], ["mcp"], ["plugin"], ["features", "list"], ["login", "status"],
                       ["apply"], ["a"], ["sandbox", "linux", "--", "exec"], ["debug"], ["debug", "models"],
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
                       ["archive", UUID], ["delete", UUID], ["unarchive", UUID], ["migrate-rollouts"],
                       ["migrate-nfs-db"], ["--no-daemon", "migrate-nfs-db"],
-                      # git-credential hands the account's login to Git's credential helper protocol.
-                      ["git-credential", "get"], ["git-credential", "erase"], ["-c", "model=x", "git-credential", "capability"],
+                      # git-credential hands the account's login to Git's credential helper protocol. Its store and
+                      # erase read Git's request and return, changing no login: run_git_credential in
+                      # codex-rs/cli/src/git_credential.rs at rust-v0.169.0 (check.COMMANDS has the evidence).
+                      ["git-credential", "get"], ["git-credential", "store"], ["git-credential", "erase"],
+                      ["-c", "model=x", "git-credential", "capability"], ["git-credential", "--help"],
+                      ["git-credential", "-c", "model=x", "erase"], ["git-credential", "--", "get"],
+                      ["-c", "model=x", "git-credential", "--", "capability"],
+                      # Before 0.169.0 another word after the prompt is clap's error, help its help subcommand.
+                      ["git-credential", "help"], ["git-credential", "get", "exec", "go"],
+                      # app-server's schema generators write protocol bindings and start no app server.
+                      ["app-server", "generate-ts", "-o", "out"], ["app-server", "generate-ts", "--out=out", "-p", "x"],
+                      ["app-server", "generate-ts", "--out", "out", "--prettier", "x", "--experimental"],
+                      ["app-server", "generate-json-schema", "-o", "out", "--experimental"],
+                      ["app-server", "generate-internal-json-schema", "--out", "out"],
+                      ["-c", "model=x", "app-server", "--listen", "stdio://", "generate-ts", "-oout"],
+                      ["app-server", "--strict-config", "generate-json-schema", "-o", "out"],
+                      ["app-server", "-c", "model=x", "generate-internal-json-schema", "-o", "out"],
+                      # A root option the scan does not know is read as a switch, as before every other command.
+                      ["--future", "app-server", "generate-ts", "-o", "out"], ["--future", "mcp", "list"],
+                      # A word after the generator is its own (a directory named daemon), never app-server's daemon.
+                      ["app-server", "generate-ts", "--out", "daemon"], ["app-server", "generate-json-schema", "--out", "daemon"],
                       ["responses-api-proxy"], ["stdio-to-uds", "x"], ["execpolicy"],
                       # Help and version print and run nothing.
                       ["--help"], ["-h"], ["-V"], ["--version"], ["help"], ["help", "exec"],
@@ -255,10 +291,34 @@ class LaunchForms(Fixture):
         """A guarded form never relaxes the checks every launch has."""
         for args in (["--oss", "exec", "go"], ["exec", "-c", "model_provider=x", "go"], ["agents"],
                      ["remote-control", "start"], ["remote-control", "help"], ["app-server", "daemon"],
+                     # An option the scan does not know may take the generator's name: daemon stays app-server's.
+                     ["app-server", "--cloud-skills-snapshot", "generate-ts", "daemon", "start"],
+                     ["app-server", "--startup-sign-out", "--print-startup-config"],
                      ["--enable", "use_agent_identity"]):
             with self.subTest(args=args):
                 with self.assertRaises(ValueError):
                     self.plan(args)
+
+    def test_app_server_s_startup_sign_out_is_refused_as_logout_is(self):
+        """codex-cli 0.169.0: app-server --startup-sign-out (which needs --print-startup-config) signs the account out
+        as logout does, removing its auth.json and revoking its tokens. clap takes the switch only before app-server's
+        subcommand, exactly as written (no prefix, no value), so it is refused wherever it follows app-server: a word
+        before it may be the value of an option the scan does not know."""
+        for args in (["app-server", "--startup-sign-out", "--print-startup-config"],
+                     ["app-server", "--print-startup-config", "--startup-sign-out"],
+                     ["-c", "model=x", "app-server", "-c", "model=y", "--startup-sign-out", "--print-startup-config"],
+                     ["app-server", "--cloud-skills-snapshot", "s.json", "--startup-sign-out", "--print-startup-config"],
+                     ["app-server", "--startup-sign-out=true", "--print-startup-config"]):
+            with self.subTest(args=args):
+                with self.assertRaisesRegex(ValueError, r"^unsupported option; app-server --startup-sign-out signs the "
+                                                        r"account out and revokes its tokens, as logout does\.$"):
+                    self.plan(args)
+        # Without it the form is app-server's as before; after -- or elsewhere it is no such switch.
+        for args in (["app-server", "--print-startup-config"], ["app-server", "--", "--startup-sign-out"],
+                     ["exec", "go", "--startup-sign-out"], ["debug", "app-server", "--startup-sign-out"],
+                     ["--startup-sign-out", "go"]):
+            with self.subTest(args=args):
+                self.plan(args)
 
 
 class Version(unittest.TestCase):
@@ -1068,7 +1128,11 @@ class GuardedLaunch(unittest.TestCase):
         self.launches_plain(["A", "features", "list"], ["A", "login", "status"], ["A", "--help"], ["A", "exec", "--help"],
                             ["A", "exec", "help"], ["A", "e", "help", "resume"], ["A", "completion", "bash"],
                             ["A", "git-credential", "get"], ["A", "cloud", "help"], ["A", "app-server", "help"],
-                            ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"])
+                            ["A", "git-credential", "store"], ["A", "git-credential", "erase"],
+                            ["A", "git-credential", "--", "get"], ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"],
+                            ["A", "app-server", "generate-ts", "-o", "out"],
+                            ["A", "app-server", "generate-json-schema", "--out", "out", "--experimental"],
+                            ["A", "app-server", "generate-internal-json-schema", "-o", "out"])
 
     def refused(self, args, reason, account="A", env=None):
         result = self.run_codex("--reserve-weekly", "10", *args, env=env)
@@ -1080,14 +1144,30 @@ class GuardedLaunch(unittest.TestCase):
     def test_forms_the_hooks_cannot_see_are_refused(self):
         self.trusted()
         for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["cloud", "list"], "cloud"),
-                           (["app-server"], "app-server"), (["app-server", "generate-ts"], "app-server"),
+                           (["app-server"], "app-server"), (["app-server", "proxy"], "app-server"),
+                           (["app-server", "--cloud-skills-snapshot", "generate-ts"], "app-server"),
                            (["exec-server"], "exec-server"), (["remote-control"], "remote-control"),
                            (["cloud", "exec", "--env", "x", "help"], "cloud"),
                            (["debug", "app-server", "send-message-v2", "hi"], "debug app-server")):
             with self.subTest(args=args):
-                # Refused as a whole (designer's call 4), also where a subcommand runs no model work itself.
+                # Refused as a whole (designer's call 4), also where a subcommand runs no model work itself (cloud
+                # list); app-server's schema generators alone launch plain.
                 self.refused(["A", *args], f"codex {name} can run model work where the usage reserve guard's hooks "
                                            "cannot see or stop it")
+        # Git always passes an OPERATION; without one as its first word, a Codex before 0.169.0 takes git-credential as
+        # its root prompt: the TUI's, or one dropped for a subcommand after it (exec), which then runs.
+        for args in (["git-credential"], ["git-credential", "exec", "go"]):
+            with self.subTest(args=args):
+                self.refused(["A", *args], "codex git-credential with no OPERATION (get, store, erase or capability) as "
+                                           "its first word is a prompt to a Codex before 0.169.0, which has no "
+                                           "git-credential command, and would run model work without the usage reserve "
+                                           "guard's hooks")
+        # Signing the account out is refused in every launch, as logout is, before the form counts.
+        result = self.run_codex("--reserve-weekly", "10", "A", "app-server", "--startup-sign-out", "--print-startup-config")
+        self.assertEqual((result.returncode, result.stdout, result.stderr),
+                         (1, "", "codex-as: unsupported option; app-server --startup-sign-out signs the account out and "
+                                 "revokes its tokens, as logout does.\n"))
+        self.assertFalse(self.record.exists(), "a refused launch started Codex")
 
     def test_options_the_hooks_cannot_cover_are_refused(self):
         self.trusted()
@@ -2131,6 +2211,7 @@ class GuardedLaunch(unittest.TestCase):
 
 CODEX_BACKEND = ROOT / "tests/fixtures/guard/codex_backend.py"
 CLOSED_PORT = ("127.0.0.1", 9)  # the discard port: nothing listens there unless a host runs that service
+PROXIES = ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")
 REFUSED_GIT = ("clone", "fetch", "pull", "push", "ls-remote", "remote-*", "*://*", "*@*:*")
 GIT_SHIM = """#!/bin/sh
 # Test shim for git: local commands pass to the real git, network forms are refused; every call is logged.
@@ -2154,6 +2235,39 @@ def kill_group(pid):
         os.killpg(pid, signal.SIGKILL)
     except OSError:
         pass
+
+
+class RecordingProxy:
+    """A loopback listener to put in every proxy variable where a closed port would hide an attempt: it records
+    the request line of each connection (an HTTPS client's CONNECT host:443, an empty line for a connection that
+    sends none) and answers each 502 Bad Gateway, connecting nowhere."""
+
+    def __init__(self):
+        self.lines = lines = []
+
+        class Handler(socketserver.StreamRequestHandler):
+            timeout = 10
+
+            def handle(self):
+                try:
+                    line = self.rfile.readline(4096)
+                except OSError:
+                    line = b""
+                lines.append(line.decode("latin-1").rstrip("\r\n"))
+                try:
+                    self.wfile.write(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                except OSError:
+                    pass
+
+        self.server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        self.address = self.server.server_address
+        self.url = "http://%s:%d" % self.address
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
 
 
 def write(path, text, mode=0o600):
@@ -2228,7 +2342,7 @@ class Sandbox:
                 "XDG_RUNTIME_DIR": str(self.base / "run"),
                 **{f"XDG_{name.upper()}_HOME": str(self.base / "xdg" / name) for name in ("config", "cache", "data", "state")},
                 "DBUS_SESSION_BUS_ADDRESS": f"unix:path={self.base / 'run/no-bus'}", "CODEX_HOME": str(self.codex_home),
-                **{name: closed for name in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")},
+                **dict.fromkeys(PROXIES, closed),
                 "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost",
                 # Codex runs /usr/bin/git by its path, past the shim: git itself may use local repositories only.
                 "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1",
@@ -2249,14 +2363,15 @@ class Sandbox:
         return child.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
 
     def strays(self):
-        """Processes still running with this sandbox's CODEX_HOME, killed; Linux only."""
+        """Processes still running with this sandbox's CODEX_HOME or a Codex home under it (codex-as gives Codex
+        the account's, CODEX_HOME/accounts/NAME), killed; Linux only."""
         if not os.path.isdir("/proc/self"):
             return []
         needle, found = f"CODEX_HOME={self.codex_home}".encode(), []
         for entry in filter(str.isdigit, os.listdir("/proc")):
             try:
                 with open(f"/proc/{entry}/environ", "rb") as stream:
-                    if needle in stream.read().split(b"\0"):
+                    if any(item == needle or item.startswith(needle + b"/") for item in stream.read().split(b"\0")):
                         found.append(int(entry))
             except OSError:
                 pass
@@ -2276,7 +2391,8 @@ def load_kit_module(kit, name):
 
 
 class SandboxPath(unittest.TestCase):
-    """What the real Codex's sandbox puts on PATH, with fakes for codex and node."""
+    """The real Codex's sandbox, with fakes: what it puts on PATH, the processes it finds left running, and the
+    proxy recorder."""
 
     def test_only_codex_and_its_interpreter_join_the_system_directories(self):
         with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
@@ -2298,14 +2414,53 @@ class SandboxPath(unittest.TestCase):
             self.assertNotIn(str(tools), shim, "the git shim runs the caller's git")
             self.assertRegex(shim, r"(?m)^(exec /usr(/local)?/bin/git \"\$@\"|exit 127)$")
 
+    def test_strays_are_the_processes_of_the_sandbox_s_codex_homes(self):
+        """Sandbox.strays() finds and kills what still runs, in a session of its own too, with the sandbox's
+        CODEX_HOME or a Codex home under it (codex-as gives Codex the account's, CODEX_HOME/accounts/NAME), and
+        leaves a process whose CODEX_HOME only begins with the same text."""
+        if not os.path.isdir("/proc/self"):
+            self.skipTest("Sandbox.strays() reads /proc, which this host does not have")
+        with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
+            base = Path(temp).resolve()
+            write(base / "codex", "#!/bin/sh\n", 0o700)
+            sandbox = Sandbox(base / "sandbox", base / "codex")
+            children = {}
+            for name, home in (("root", sandbox.codex_home), ("account", sandbox.codex_home / "accounts/A"),
+                               ("other", Path(f"{sandbox.codex_home}-other"))):
+                child = subprocess.Popen(["sleep", "60"], env={"PATH": "/usr/bin:/bin", "CODEX_HOME": str(home)},
+                                         stdin=subprocess.DEVNULL, start_new_session=True)
+                self.addCleanup(child.wait)
+                self.addCleanup(kill_group, child.pid)
+                children[name] = child.pid
+            self.assertEqual(sorted(sandbox.strays()), sorted((children["root"], children["account"])))
+            self.assertEqual(sandbox.strays(), [])
+            os.kill(children["other"], 0)  # still running
+
+    def test_the_proxy_recorder_sees_each_attempt_and_forwards_none(self):
+        """RecordingProxy, which a RealCodex case puts in every proxy variable, records the request line of each
+        connection (an HTTPS client's CONNECT, a plain request's absolute URL, nothing for one that sends none)
+        and answers each 502 Bad Gateway without connecting anywhere."""
+        proxy = RecordingProxy()
+        self.addCleanup(proxy.close)
+        self.assertEqual(proxy.url, "http://127.0.0.1:%d" % proxy.address[1])
+        for request in (b"CONNECT auth.openai.com:443 HTTP/1.1\r\nHost: auth.openai.com:443\r\n\r\n",
+                        b"GET http://example.invalid/ HTTP/1.1\r\nHost: example.invalid\r\n\r\n", b""):
+            with socket.create_connection(proxy.address, timeout=10) as stream:
+                stream.sendall(request)
+                stream.shutdown(socket.SHUT_WR)
+                answer = stream.makefile("rb").read()
+            self.assertTrue(answer.startswith(b"HTTP/1.1 502 Bad Gateway\r\n"), answer)
+        self.assertEqual(proxy.lines, ["CONNECT auth.openai.com:443 HTTP/1.1", "GET http://example.invalid/ HTTP/1.1", ""])
+
 
 class RealCodex(unittest.TestCase):
     """The guard's hook contract against the real Codex, offline: the two hook values and goals off as
     codex-as passes them, a launch as codex-as exports it, and a loopback fake of the Responses API that
     answers from a script and sends rate limits as the real backend does. codex exec runs directly on the
     native, with --dangerously-bypass-hook-trust standing in for the user's trust in "Hooks need review";
-    the trust prompt and the terminal session are left to the live acceptance. Codex reads its own
-    install's files where they lie (Sandbox), nothing else of the user's."""
+    the trust prompt and the terminal session are left to the live acceptance. One case runs codex-as itself,
+    from the kit copy with a fictitious login, for forms it launches plain. Codex reads its own install's files
+    where they lie (Sandbox), nothing else of the user's."""
 
     @classmethod
     def setUpClass(cls):
@@ -2432,6 +2587,49 @@ class RealCodex(unittest.TestCase):
                                                  [line["payload"]["cwd"] for line in lines if line["type"] == "turn_context"])
         work = str(self.sandbox.work)
         self.assertEqual(found, {work: ("exec", [work]), str(other): ("exec", [str(other), work])})
+
+    def test_app_server_s_schema_generators_launch_plain_with_a_reserve(self):
+        """codex-as with a reserve on launches app-server generate-ts, generate-json-schema and
+        generate-internal-json-schema, with their options, as with --reserve-5h off: no launch line and no guard,
+        and the real Codex writes the same files, starts nothing that outlives it, starts no session and tries no
+        host through a proxy (every proxy is a RecordingProxy), git or ssh; no model provider is configured."""
+        shutil.copytree(ROOT / "bin", self.kit / "bin")
+        home = self.sandbox.home
+        home.chmod(0o700)
+        (home / ".secrets").mkdir(mode=0o700)
+        claims = {"sub": "fixture-A", "email": "alice@example.com",
+                  "https://api.openai.com/auth": {"chatgpt_plan_type": "plus", "chatgpt_user_id": USER}}
+        write(home / ".secrets/codex-A.json", json.dumps({
+            "auth_mode": "chatgpt", "OPENAI_API_KEY": None, "last_refresh": "2026-10-01T00:00:00Z",
+            "tokens": {"id_token": id_token(claims), "access_token": "fabricated-sensitive-access",
+                       "refresh_token": "fabricated-sensitive-refresh", "account_id": WORKSPACE}}))
+        proxy = RecordingProxy()
+        self.addCleanup(proxy.close)
+        env = self.sandbox.env() | dict.fromkeys(PROXIES, proxy.url)
+        del env["CODEX_HOME"]  # codex-as sets it to the account's home
+        out = self.sandbox.base / "out"
+        for args in (["generate-ts", "-o", str(out)], ["generate-ts", "--out", str(out), "--experimental"],
+                     ["generate-json-schema", "--out", str(out), "--experimental"],
+                     ["generate-internal-json-schema", "-o", str(out)]):
+            with self.subTest(args=args):
+                runs = []
+                for reserve in ("off", "10"):
+                    shutil.rmtree(out, ignore_errors=True)
+                    code, stdout, stderr = self.sandbox.run(str(self.kit / "bin/codex-as"),
+                                                            ["--reserve-5h", reserve, "A", "app-server", *args], env)
+                    files = sorted((str(path.relative_to(out)), hashlib.sha256(path.read_bytes()).hexdigest())
+                                   for path in out.rglob("*") if path.is_file()) if out.is_dir() else []
+                    runs.append((code, stdout, stderr, files))
+                self.assertEqual(runs[0][0], 0, runs[0][2])
+                self.assertTrue(runs[0][3], "Codex wrote no file")
+                self.assertEqual(runs[1], runs[0])
+        # strays() finds processes by CODEX_HOME, the account's home (home/.codex/accounts/A) included.
+        self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
+        self.assertEqual(list(home.rglob("rollout-*.jsonl*")), [], "a schema generator started a session")
+        self.assertEqual(proxy.lines, [], "Codex tried to reach a host through a proxy")
+        self.assertEqual([line for line in self.sandbox.netlog.read_text().splitlines()
+                          if line.startswith("REFUSED")], [], "Codex tried to reach a host through git or ssh")
+        self.assertFalse((self.sandbox.base / "xdg/state/coding-agent-kit/guard").exists(), "the launch was guarded")
 
     def test_a_prompt_at_the_reserve_is_never_sent(self):
         code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=95)
