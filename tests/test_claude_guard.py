@@ -556,6 +556,8 @@ class Guarded(Fixture):
         for args in (["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"], ["mcp", "eval"],
                      ["auto-mode", "other"], ["import"], ["import", "codex"], ["--", "doctor"],
                      ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"], ["sandbox", "other"],
+                     # An operand for a command that takes none in Claude Code 2.1.326, as a later release may add one.
+                     ["doctor", "fix"], ["update", "x"], ["upgrade", "x"], ["apply-project-settings", "x"],
                      # Claude Code dispatches these by its first argument only, which the guard's --settings is: after
                      # it they are prompts, as is a connect URL (Claude Code 2.1.326 on a terminal).
                      ["remote"], ["sync"], ["bridge"], ["cc+unix:///tmp/x.sock"], ["cc://127.0.0.1:1/x"]):

@@ -118,22 +118,23 @@ REFUSED = {
     ("gateway",): SERVED,
 }
 # The commands of Claude Code 2.1.326 that start no session, where no hook ever runs, by first operand, with the
-# second operands that keep them so (None: any second operand): with a reserve on they launch as without one, so
-# that no launch state expects the guard's hooks. A subcommand of a later release, an operand after --, and an
-# option of REFUSED keep the launch guarded. Claude Code takes the background verbs as verbs wherever they are the
+# second operands that keep them so (empty for a command that takes no operand, which counts alone; None for one whose
+# operand is a path, a version or a file, where any second operand counts): with a reserve on they launch as without
+# one, so that no launch state expects the guard's hooks. A subcommand or an operand of a later release, an operand
+# after --, and an option of REFUSED keep the launch guarded. Claude Code takes the background verbs as verbs wherever they are the
 # first argument; after options only before a session id, and as a prompt otherwise. The hidden commands that need
 # an option the audit refuses (--json) are not here. plugin test runs a mod's tests, each file in a child of Claude
 # Code that runs no model, and only with plugin as the first argument, which a guard's --settings would take.
 PLUGIN = {"init", "new", "validate", "tag", "list", "details", "marketplace", "install", "i", "uninstall", "remove",
           "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure", "test", "help"}
-SESSIONLESS = {"doctor": None, "update": None, "upgrade": None, "install": None, "purge": None,
+SESSIONLESS = {"doctor": set(), "update": set(), "upgrade": set(), "install": None, "purge": None,
                "project": {"purge", "help"}, "auto-mode": {"defaults", "config", "reset", "help"},
                "plugin": PLUGIN, "plugins": PLUGIN,
                "mcp": {"add", "add-json", "add-from-claude-desktop", "get", "list", "login", "logout", "remove",
                        "reset-project-choices", "xaa", "help"},
                # Hidden: imports exported conversations; reviews and accepts the settings cloud sessions use; reports,
                # installs or removes the Windows sandbox.
-               "import-conversations": None, "apply-project-settings": None,
+               "import-conversations": None, "apply-project-settings": set(),
                "sandbox": {"install", "status", "uninstall", "help"}}
 VERBS = ("logs", "stop", "kill", "rm")
 # A guarded launch keeps its session in this process: no move to the background, no agent view, and no
