@@ -207,7 +207,8 @@ reserve guard does, its messages, the launch forms and refusals, the trust
 step and the check after a run. These are the Codex details.
 
 A launch with a reserve on passes these values after the launcher's own `-c`
-values and `--no-daemon`, before the caller's arguments:
+values (and `--no-daemon`, for every command but `exec`), before the caller's
+arguments:
 
 ```text
 -c 'hooks.UserPromptSubmit=[{hooks=[{type="command",command="\"$CODING_AGENT_KIT_GUARD_PYTHON\" -I -B -S \"$CODING_AGENT_KIT_GUARD_SCRIPT\" prompt",timeout=20}]}]'
@@ -361,6 +362,8 @@ running `codex ARGS...`. What still differs:
   after native Codex exited takes effect once the exit repair is done. When
   native Codex dies of SIGINT, SIGTERM, SIGHUP, SIGKILL or SIGPIPE, the launcher
   dies of the same signal; other signals exit with 128 plus the signal number.
+- Codex's own hint at exit, `To continue this session, run: codex resume ID`,
+  names plain `codex`; continue the session with `codex-as NAME resume ID`.
 - A logout inside Codex (`/logout`) is native and revokes the account's tokens
   in `<secrets_dir>/codex-NAME.json`; the launcher cannot stop it, and warns at
   exit with the steps to log in again. A write through the link that names
