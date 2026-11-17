@@ -576,7 +576,11 @@ class Guarded(Fixture):
                      # operand a help option keeps the launch guarded on purpose: Claude Code 2.1.326 prints its help
                      # for a prompt word too, but a word a later release dispatches before its command line parser
                      # may run without reading it.
-                     ["--", "--help"], ["--model", "--help"], ["hello", "--help"], ["--help", "hello"]):
+                     ["--", "--help"], ["--model", "--help"], ["hello", "--help"], ["--help", "hello"],
+                     # daemon is Claude Code's background daemon only as the first argument or behind nothing but the
+                     # two permission switches, and a prompt behind any other option.
+                     ["--verbose", "daemon"], ["--model", "x", "daemon", "status"],
+                     ["--dangerously-skip-permissions", "--verbose", "daemon", "status"]):
             with self.subTest(args=args):
                 record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assert_guarded(record, value, args, "10", None)
@@ -785,6 +789,9 @@ class Refusals(Fixture):
                  (["--verbose", "respawn"], f"claude respawn {elsewhere}"), (["--", "attach"], f"claude attach {elsewhere}"),
                  (["remote"], f"claude remote {FIRST}"), (["sync", "x"], f"claude sync {FIRST}"),
                  (["bridge"], f"claude bridge {FIRST}"),
+                 (["daemon", "status"], f"claude daemon {DAEMON}"),
+                 (["--dangerously-skip-permissions", "daemon", "hub"], f"claude daemon {DAEMON}"),
+                 (["--allow-dangerously-skip-permissions", "daemon", "list"], f"claude daemon {DAEMON}"),
                  # The help of a refused form is refused with it: Claude Code dispatches some of them before its
                  # command line parser sees a help option.
                  (["ultrareview", "--help"], f"claude ultrareview {detached}"),
@@ -792,6 +799,7 @@ class Refusals(Fixture):
                  (["mcp", "serve", "--help"], f"claude mcp serve {detached}"),
                  (["plugin", "eval", "-h"], f"claude plugin eval {detached}"),
                  (["remote", "--help"], f"claude remote {FIRST}"), (["-p", "--help"], f"-p {outside}"),
+                 (["daemon", "--help"], f"claude daemon {DAEMON}"),
                  (["--settings", "x"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
                                        "claude-as passes in its own --settings"),
                  (["--settings={}"], "a --settings of your own cannot be combined with usage reserves, whose hooks "
@@ -986,11 +994,16 @@ REFUSED = {
     ("plugin", "eval"): f"claude plugin eval {DETACHED}", ("plugins", "eval"): f"claude plugins eval {DETACHED}",
     ("mcp", "serve"): f"claude mcp serve {DETACHED}", ("gateway",): f"claude gateway {SERVED}",
 }
-# The words a reserve refuses as the first argument only in Claude Code 2.1.326 (Remote Control's fast path), with the
-# reason claude-as gives.
+# The words a reserve refuses as the first argument only in Claude Code 2.1.326 (Remote Control's fast path, and the
+# background daemon's, which passes over SKIPS first), with the reason claude-as gives.
 FIRST = ("is Claude Code's Remote Control only as its first argument, where a launch with usage reserves puts the guard's "
          "--settings, so Claude Code would send it to the model as a prompt")
-LEADING = {word: f"claude {word} {FIRST}" for word in ("remote", "sync", "bridge")}
+DAEMON = ("manages Claude Code's background daemon only as its first argument, or behind nothing but "
+          "--dangerously-skip-permissions and --allow-dangerously-skip-permissions, where a launch with usage reserves "
+          "puts the guard's --settings, so Claude Code would send it to the model as a prompt")
+LEADING = {**{word: f"claude {word} {FIRST}" for word in ("remote", "sync", "bridge")}, "daemon": f"claude daemon {DAEMON}"}
+# The switches Claude Code 2.1.326 passes over before it looks for daemon, and only daemon, as its first argument.
+SKIPS = ("--dangerously-skip-permissions", "--allow-dangerously-skip-permissions")
 # The options a launch without a reserve leaves to the authentication audit, which refuses them.
 UNAUDITED = ("--init-only", "--bg", "--background")
 
@@ -1027,22 +1040,32 @@ class RefusedForms(Fixture):
         self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
 
     def check_leading(self, word, reason):
-        """A word of LEADING: refused as the first argument, also with an operand after it; behind an option or --,
-        where Claude Code takes it as a prompt with or without the guard's --settings, it launches guarded; without
-        a reserve it launches unchanged."""
+        """A word of LEADING: refused as the first argument, also with an operand after it, and daemon also behind
+        nothing but the permission switches Claude Code passes over for it (SKIPS); behind another option or --,
+        where Claude Code takes it as a prompt with or without the guard's --settings, it launches guarded, and so
+        does a word other than daemon behind those switches; without a reserve it launches unchanged."""
+        skipped = ([SKIPS[0], word], [*SKIPS, word, "target"], [SKIPS[1], SKIPS[0], SKIPS[1], word])
+        refused, prompts = ([word], [word, "target"]), (["--verbose", word], ["--", word], [SKIPS[0], "--verbose", word])
+        if word == "daemon":
+            refused += skipped
+        else:
+            prompts += skipped[:1]
         for flags in (["--reserve-5h", "10"], ["--reserve-weekly", "0"]):
-            for args in ([word], [word, "target"]):
+            for args in refused:
                 with self.subTest(flags=flags, args=args):
                     self.assert_refused([*flags, "work", *args], reason)
         self.assertEqual(self.version_runs(), 0)
         self.assertFalse(self.guard_dir.exists())
-        for args in (["--verbose", word], ["--", word]):
+        for args in prompts:
             with self.subTest(prompt=args):
                 record, _, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assertEqual(record["argv"][3:], args)
                 self.assertTrue(err.endswith(LAUNCH_LINE), err)
-        self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", word], tty=False), (0, "stdout sentinel\n", ""))
-        self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), word])
+        for args in refused:
+            with self.subTest(without=args):
+                self.assertEqual(self.run_launcher(["--reserve-5h", "off", "work", *args], tty=False),
+                                 (0, "stdout sentinel\n", ""))
+                self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
 
 
 for _words, _reason in REFUSED.items():
