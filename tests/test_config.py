@@ -1024,7 +1024,11 @@ class Launchers(unittest.TestCase):
                 for gone in ("--enroll-native", "native-login", "protected", "F12", "gate"):
                     self.assertNotIn(gone, result.stdout)
                 if tool == "codex-as":
-                    self.assertIn("Codex 0.161.0 or newer (0.169.0 or newer with reserves); no upper limit.", result.stdout)
+                    # One minimum for every launch: reserves need no newer Codex.
+                    self.assertIn("and Codex 0.161.0 or newer, also with reserves; no upper limit.", result.stdout)
+                    self.assertIn("With a reserve on, goals are off; cloud, app-server, --ephemeral and other forms the "
+                                  "hooks cannot see are refused.", result.stdout)
+                    self.assertNotIn("0.169.0", result.stdout)
                 # A lone copy, a broken kit or a kit without docs answers with the URL.
                 write(lone / "bin" / tool, (ROOT / "bin" / tool).read_text(), 0o700)
                 result = self.run_tool([lone / "bin" / tool, "--help"])
