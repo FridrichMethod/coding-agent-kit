@@ -294,6 +294,51 @@ def machine_policies():
     return found
 
 
+def canonical_root(root):
+    """The git root ROOT as Claude Code canonicalizes it: for a linked worktree (its .git a file that names an
+    administrative directory under the main repository's worktrees, which names the worktree back) the main
+    repository's root; ROOT otherwise."""
+    try:
+        if not stat.S_ISREG((root / ".git").lstat().st_mode):
+            return root
+        text = (root / ".git").read_text(encoding="utf-8").strip()
+        if not text.startswith("gitdir:"):
+            return root
+        admin = Path(os.path.normpath(root / text[7:].strip()))
+        common = Path(os.path.normpath(admin / (admin / "commondir").read_text(encoding="utf-8").strip()))
+        back = (admin / "gitdir").read_text(encoding="utf-8").strip()
+    except (OSError, ValueError):
+        return root
+    if admin.parent != common / "worktrees" or os.path.realpath(admin / back) != os.path.realpath(root / ".git"):
+        return root
+    return common.parent if common.name == ".git" else common
+
+
+def local_root(cwd, home):
+    """The directory whose .claude/settings.local.json Claude Code reads as the local settings of a session started
+    in CWD: the canonical root of the git repository CWD lies in (the nearest directory with a .git directory or
+    file), unless that root is CWD or HOME, or it, its .git or its .claude is not this user's; CWD otherwise."""
+    for folder in (cwd, *cwd.parents):
+        try:
+            mode = (folder / ".git").lstat().st_mode
+        except OSError:
+            continue
+        if stat.S_ISDIR(mode) or stat.S_ISREG(mode):
+            break
+    else:
+        return cwd
+    root = canonical_root(folder)
+    if root == cwd or root == Path(os.path.realpath(home)):
+        return cwd
+    try:
+        owners = [root.stat().st_uid, (root / ".git").lstat().st_uid]
+        if os.path.lexists(root / ".claude"):
+            owners.append((root / ".claude").lstat().st_uid)
+    except OSError:
+        return cwd
+    return root if set(owners) == {os.geteuid()} else cwd
+
+
 @dataclass
 class Form:
     """What preflight saw that a launch with a usage reserve checks."""
@@ -304,7 +349,7 @@ class Form:
     operand: object = None  # the first operand, which Claude Code dispatches as a command
     subcommand: object = None  # the second operand, which a command with subcommands dispatches
     sources: dict = field(default_factory=dict)  # Path: parsed settings, for every settings file read
-    statusline: object = None  # own_status_line() of the user's and the project's settings
+    statusline: object = None  # own_status_line() of the user, project and local settings (with a reserve)
 
 
 def preflight(args, kit, enrollment, guarded=False):
@@ -319,8 +364,13 @@ def preflight(args, kit, enrollment, guarded=False):
     # expansion. Inspect exactly the configuration the real CLI will load.
     config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or str(kit.home / ".claude")).absolute()
     sources = [config / "settings.json", config / "settings.local.json", *MANAGED_FILES]
-    for parent in (Path.cwd(), *Path.cwd().parents):
+    cwd = Path.cwd()
+    for parent in (cwd, *cwd.parents):
         sources += [parent / ".claude/settings.json", parent / ".claude/settings.local.json"]
+    # A linked worktree's local settings may lie outside the launch directory's parents.
+    local = local_root(cwd, kit.home) / ".claude/settings.local.json" if guarded else None
+    if local:
+        sources.append(local)
     for folder in MANAGED_DIRECTORIES if guarded else MANAGED_DIRECTORIES[:1]:
         if folder.exists():
             sources += sorted(folder.glob("*.json"))
@@ -330,9 +380,9 @@ def preflight(args, kit, enrollment, guarded=False):
             form.sources[path] = cfg
     if guarded:
         form.sources.update(machine_policies())
-    # Claude Code's precedence below the command line: project local, project, user.
-    form.statusline = own_status_line([form.sources.get(path) for path in (
-        config / "settings.json", Path.cwd() / ".claude/settings.json", Path.cwd() / ".claude/settings.local.json")])
+        # Claude Code's precedence below the command line: local, project (at the launch directory), user.
+        form.statusline = own_status_line([form.sources.get(path) for path in (
+            config / "settings.json", cwd / ".claude/settings.json", local)])
     config_check(config / "remote-settings.json", enrollment=enrollment)
     if enrollment and (config / "remote-settings-helper-consent").exists():
         fail("managed policy helper present; automatic enrollment cannot preserve its loading chain.")

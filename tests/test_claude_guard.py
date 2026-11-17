@@ -149,15 +149,15 @@ class Fixture(unittest.TestCase):
             shutil.copytree(ROOT / part, target / part)
         return target
 
-    def run_launcher(self, args, env=None, tty=True, kit=None):
-        """(exit code, stdout, stderr) of claude-as ARGS; standard output on a pseudo-terminal when TTY.
-        The launcher runs in a session of its own, without a controlling terminal."""
+    def run_launcher(self, args, env=None, tty=True, kit=None, cwd=None):
+        """(exit code, stdout, stderr) of claude-as ARGS in CWD (the project directory); standard output on a
+        pseudo-terminal when TTY. The launcher runs in a session of its own, without a controlling terminal."""
         command = [str((kit or self.kit) / "bin/claude-as"), *args]
         master = slave = None
         if tty:
             master, slave = pty.openpty()
         try:
-            result = subprocess.run(command, cwd=self.cwd, env=self.env | (env or {}), stdin=subprocess.DEVNULL,
+            result = subprocess.run(command, cwd=cwd or self.cwd, env=self.env | (env or {}), stdin=subprocess.DEVNULL,
                                     stdout=slave if tty else subprocess.PIPE, stderr=subprocess.PIPE, timeout=60,
                                     start_new_session=True)
             # Read while this end of the terminal is still open: some systems drop what is buffered once
@@ -191,11 +191,18 @@ class Fixture(unittest.TestCase):
     def project_settings(self, data, local=False):
         return write(self.cwd / ".claude" / ("settings.local.json" if local else "settings.json"), json.dumps(data))
 
-    def guarded(self, args, env=None, kit=None):
+    def assert_refused(self, args, reason, env=None, tty=True, account="work", cwd=None):
+        """A launch with a reserve refused for REASON before Claude Code starts, naming the way out."""
+        count = len(self.records())
+        code, out, err = self.run_launcher(args, env, tty=tty, cwd=cwd)
+        self.assertEqual((code, out, err), (1, "", f"claude-as: {account}: {reason}" + WITHOUT.format(account=account)))
+        self.assertEqual(len(self.records()), count, "a refused launch started Claude Code")
+
+    def guarded(self, args, env=None, kit=None, cwd=None):
         """A guarded launch that must succeed: its record, its launch JSON and its stderr."""
         count = len(self.records())
         before = int(time.time())
-        code, out, err = self.run_launcher(args, env, kit=kit)
+        code, out, err = self.run_launcher(args, env, kit=kit, cwd=cwd)
         after = int(time.time())
         self.assertEqual((code, out.replace("\r\n", "\n")), (0, "stdout sentinel\n"), err)
         records = self.records()
@@ -332,6 +339,54 @@ class Guarded(Fixture):
                 self.assertEqual(value.get("statusline"), command)
                 self.assertEqual(settings["statusLine"]["padding"], padding)
 
+    def test_the_local_settings_are_read_where_claude_code_reads_them(self):
+        """Claude Code reads the local settings at the root of the git repository the launch directory lies in, or
+        a linked worktree's main repository, unless that root is the launch directory or HOME (or is not this
+        user's), and the project settings at the launch directory."""
+        def line(command):
+            return json.dumps({"statusLine": {"type": "command", "command": command}})
+
+        def status(cwd):
+            record, value, _ = self.guarded(["--reserve-weekly", "10", "work"], cwd=cwd)
+            self.assert_guarded(record, value, [], None, "10")
+            return value.get("statusline")
+
+        repo = self.base / "repo"
+        (repo / ".git").mkdir(parents=True)
+        sub = repo / "sub dir/deeper"
+        write(repo / ".claude/settings.local.json", line("repo local"))
+        write(sub / ".claude/settings.local.json", line("sub local"))
+        self.assertEqual(status(sub), "repo local")
+        write(sub / ".claude/settings.json", line("sub project"))
+        self.assertEqual(status(sub), "repo local")
+        (repo / ".claude/settings.local.json").unlink()
+        self.assertEqual(status(sub), "sub project")
+        write(repo / ".claude/settings.local.json", line("repo local"))
+        self.assertEqual(status(repo), "repo local")
+        # A linked worktree, here outside its main repository, reads the main repository's local settings.
+        main, tree = self.base / "main repo", self.base / "linked tree"
+        admin = main / ".git/worktrees/linked"
+        write(admin / "commondir", "../..\n")
+        write(admin / "gitdir", f"{tree}/.git\n")
+        write(tree / ".git", f"gitdir: {admin}\n")
+        write(tree / ".claude/settings.local.json", line("tree local"))
+        write(main / ".claude/settings.local.json", line("main local"))
+        self.assertEqual(status(tree), "main local")
+        self.assertEqual(status(tree / ".claude"), "main local")
+        write(main / ".claude/settings.local.json", json.dumps({"disableAllHooks": True}))
+        self.assert_refused(["--reserve-weekly", "10", "work"], f"{main}/.claude/settings.local.json sets disableAllHooks, "
+                            "so Claude Code would not run the usage reserve guard's hooks", cwd=tree)
+        write(main / ".claude/settings.local.json", line("main local"))
+        # A worktree whose administrative directory does not name it back is its own root.
+        write(admin / "gitdir", f"{self.base}/elsewhere/.git\n")
+        self.assertEqual(status(tree), "tree local")
+        # HOME as the root of a repository: the launch directory's own local settings.
+        (self.home / ".git").mkdir()
+        project = self.home / "project"
+        write(project / ".claude/settings.local.json", line("project local"))
+        write(self.home / ".claude/settings.local.json", line("user local"))
+        self.assertEqual(status(project), "project local")
+
     def test_a_kit_path_with_a_space_and_a_quote_runs_the_hooks(self):
         """Review Focus 1: the injected commands run through /bin/sh, as Claude Code runs them."""
         kit = self.install(self.base / "kit o'clock dir")
@@ -451,12 +506,6 @@ class Guarded(Fixture):
 
 class Refusals(Fixture):
     """Every form the guard cannot cover is refused before Claude Code starts, naming the way out."""
-
-    def assert_refused(self, args, reason, env=None, tty=True, account="work"):
-        count = len(self.records())
-        code, out, err = self.run_launcher(args, env, tty=tty)
-        self.assertEqual((code, out, err), (1, "", f"claude-as: {account}: {reason}" + WITHOUT.format(account=account)))
-        self.assertEqual(len(self.records()), count, "a refused launch started Claude Code")
 
     def test_forms_outside_the_interactive_session(self):
         outside = "runs Claude Code outside its interactive session, where the usage reserve guard cannot stop it"
