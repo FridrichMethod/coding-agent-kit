@@ -793,7 +793,7 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
     guard_launch.prune(directory, now)
     try:
         recorded = (metadata.read(usage) or {}).get("seen_at")
-    except ValueError:
+    except (OSError, ValueError):  # a usage file the guard cannot use either: no recorded reply
         recorded = None
     if guard_launch.unguarded(directory, "claude-as", account, recorded):
         say(f"claude-as: {account}: an earlier launch ran without its usage reserve guard: Claude Code did not run "

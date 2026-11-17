@@ -482,6 +482,48 @@ class Guarded(Fixture):
         _, _, err = self.guarded(["--reserve-5h", "10", "work"])
         self.assertNotIn(EARLIER, err)
 
+    def test_an_earlier_launch_is_reported_by_the_usage_file_it_left(self):
+        """The second sign of a reply: the account's usage file recorded at or after the start of an earlier launch
+        of this host whose process has ended. A usage file the guard cannot use is no sign and fails no launch."""
+        self.guard_dir.mkdir(mode=0o700, parents=True)
+        self.usage.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+        def earlier(started):
+            return write(self.guard_dir / f"claude-as-work-{GONE}-{started}.launched", os.uname().nodename)
+
+        def usage(seen_at, mode=0o600):
+            self.usage.unlink(missing_ok=True)
+            return write(self.usage, json.dumps({"five_hour": None, "seven_day": None, "seen_at": seen_at}), mode)
+
+        started = int(time.time()) - 600
+        launched = earlier(started)
+        usage(started)
+        _, _, err = self.guarded(["--reserve-5h", "10", "work"])
+        self.assertTrue(err.startswith(EARLIER), err)
+        self.assertEqual(err.count("\n"), 2)
+        self.assertFalse(launched.exists())
+        _, _, err = self.guarded(["--reserve-5h", "10", "work"])
+        self.assertNotIn(EARLIER, err)
+        # Recorded before that launch started: no sign of its reply.
+        launched = earlier(started + 60)
+        usage(started + 59)
+        _, _, err = self.guarded(["--reserve-5h", "10", "work"])
+        self.assertNotIn(EARLIER, err)
+        self.assertTrue(launched.exists())
+        # A usage file the guard would not read, one that is malformed and a directory in its place.
+        for name, make in (("0644", lambda: usage(started + 300, 0o644)),
+                           ("malformed", lambda: write(self.usage, "{", 0o600)),
+                           ("a directory", lambda: self.usage.mkdir(mode=0o700))):
+            with self.subTest(usage=name):
+                self.usage.unlink(missing_ok=True)
+                make()
+                record, value, err = self.guarded(["--reserve-5h", "10", "work"])
+                self.assert_guarded(record, value, [], "10", None)
+                self.assertNotIn(EARLIER, err)
+                self.assertTrue(launched.exists())
+                if self.usage.is_dir():
+                    self.usage.rmdir()
+
     def test_a_guard_directory_that_others_could_change_refuses(self):
         self.guard_dir.mkdir(mode=0o700, parents=True)
         self.guard_dir.chmod(0o755)
