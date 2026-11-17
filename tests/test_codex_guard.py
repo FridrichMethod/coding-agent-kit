@@ -14,7 +14,8 @@ Codex does and runs the guard's hooks the way Codex runs them: the command of
 the -c value through a shell, with the event on stdin. No native, provider,
 credential or network is involved. RealCodex runs the real codex, when it is on
 PATH, in a temporary HOME against tests/fixtures/guard/codex_backend.py on
-127.0.0.1, with every proxy at a closed loopback port; it skips otherwise. Of
+127.0.0.1, with every proxy at a closed loopback port, or for one case at a
+loopback recorder that answers 502 and connects nowhere; it skips otherwise. Of
 this host's user it reads only the codex install's own files where they lie
 (Sandbox says which).
 """
@@ -32,9 +33,11 @@ import shlex
 import shutil
 import signal
 import socket
+import socketserver
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tomllib
 import unittest
@@ -2196,6 +2199,7 @@ class GuardedLaunch(unittest.TestCase):
 
 CODEX_BACKEND = ROOT / "tests/fixtures/guard/codex_backend.py"
 CLOSED_PORT = ("127.0.0.1", 9)  # the discard port: nothing listens there unless a host runs that service
+PROXIES = ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")
 REFUSED_GIT = ("clone", "fetch", "pull", "push", "ls-remote", "remote-*", "*://*", "*@*:*")
 GIT_SHIM = """#!/bin/sh
 # Test shim for git: local commands pass to the real git, network forms are refused; every call is logged.
@@ -2219,6 +2223,39 @@ def kill_group(pid):
         os.killpg(pid, signal.SIGKILL)
     except OSError:
         pass
+
+
+class RecordingProxy:
+    """A loopback listener to put in every proxy variable where a closed port would hide an attempt: it records
+    the request line of each connection (an HTTPS client's CONNECT host:443, an empty line for a connection that
+    sends none) and answers each 502 Bad Gateway, connecting nowhere."""
+
+    def __init__(self):
+        self.lines = lines = []
+
+        class Handler(socketserver.StreamRequestHandler):
+            timeout = 10
+
+            def handle(self):
+                try:
+                    line = self.rfile.readline(4096)
+                except OSError:
+                    line = b""
+                lines.append(line.decode("latin-1").rstrip("\r\n"))
+                try:
+                    self.wfile.write(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                except OSError:
+                    pass
+
+        self.server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        self.address = self.server.server_address
+        self.url = "http://%s:%d" % self.address
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
 
 
 def write(path, text, mode=0o600):
@@ -2293,7 +2330,7 @@ class Sandbox:
                 "XDG_RUNTIME_DIR": str(self.base / "run"),
                 **{f"XDG_{name.upper()}_HOME": str(self.base / "xdg" / name) for name in ("config", "cache", "data", "state")},
                 "DBUS_SESSION_BUS_ADDRESS": f"unix:path={self.base / 'run/no-bus'}", "CODEX_HOME": str(self.codex_home),
-                **{name: closed for name in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy")},
+                **dict.fromkeys(PROXIES, closed),
                 "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost",
                 # Codex runs /usr/bin/git by its path, past the shim: git itself may use local repositories only.
                 "GIT_SSH_COMMAND": str(self.shims / "ssh"), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1",
@@ -2342,7 +2379,8 @@ def load_kit_module(kit, name):
 
 
 class SandboxPath(unittest.TestCase):
-    """The real Codex's sandbox, with fakes: what it puts on PATH and the processes it finds left running."""
+    """The real Codex's sandbox, with fakes: what it puts on PATH, the processes it finds left running, and the
+    proxy recorder."""
 
     def test_only_codex_and_its_interpreter_join_the_system_directories(self):
         with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
@@ -2385,6 +2423,22 @@ class SandboxPath(unittest.TestCase):
             self.assertEqual(sorted(sandbox.strays()), sorted((children["root"], children["account"])))
             self.assertEqual(sandbox.strays(), [])
             os.kill(children["other"], 0)  # still running
+
+    def test_the_proxy_recorder_sees_each_attempt_and_forwards_none(self):
+        """RecordingProxy, which a RealCodex case puts in every proxy variable, records the request line of each
+        connection (an HTTPS client's CONNECT, a plain request's absolute URL, nothing for one that sends none)
+        and answers each 502 Bad Gateway without connecting anywhere."""
+        proxy = RecordingProxy()
+        self.addCleanup(proxy.close)
+        self.assertEqual(proxy.url, "http://127.0.0.1:%d" % proxy.address[1])
+        for request in (b"CONNECT auth.openai.com:443 HTTP/1.1\r\nHost: auth.openai.com:443\r\n\r\n",
+                        b"GET http://example.invalid/ HTTP/1.1\r\nHost: example.invalid\r\n\r\n", b""):
+            with socket.create_connection(proxy.address, timeout=10) as stream:
+                stream.sendall(request)
+                stream.shutdown(socket.SHUT_WR)
+                answer = stream.makefile("rb").read()
+            self.assertTrue(answer.startswith(b"HTTP/1.1 502 Bad Gateway\r\n"), answer)
+        self.assertEqual(proxy.lines, ["CONNECT auth.openai.com:443 HTTP/1.1", "GET http://example.invalid/ HTTP/1.1", ""])
 
 
 class RealCodex(unittest.TestCase):
@@ -2525,8 +2579,8 @@ class RealCodex(unittest.TestCase):
     def test_app_server_s_schema_generators_launch_plain_with_a_reserve(self):
         """codex-as with a reserve on launches app-server generate-ts, generate-json-schema and
         generate-internal-json-schema, with their options, as with --reserve-5h off: no launch line and no guard,
-        and the real Codex writes the same files, starts nothing that outlives it, starts no session and makes no
-        request (every proxy is closed, and no model provider is configured)."""
+        and the real Codex writes the same files, starts nothing that outlives it, starts no session and tries no
+        host through a proxy (every proxy is a RecordingProxy), git or ssh; no model provider is configured."""
         shutil.copytree(ROOT / "bin", self.kit / "bin")
         home = self.sandbox.home
         home.chmod(0o700)
@@ -2537,7 +2591,9 @@ class RealCodex(unittest.TestCase):
             "auth_mode": "chatgpt", "OPENAI_API_KEY": None, "last_refresh": "2026-10-01T00:00:00Z",
             "tokens": {"id_token": id_token(claims), "access_token": "fabricated-sensitive-access",
                        "refresh_token": "fabricated-sensitive-refresh", "account_id": WORKSPACE}}))
-        env = self.sandbox.env()
+        proxy = RecordingProxy()
+        self.addCleanup(proxy.close)
+        env = self.sandbox.env() | dict.fromkeys(PROXIES, proxy.url)
         del env["CODEX_HOME"]  # codex-as sets it to the account's home
         out = self.sandbox.base / "out"
         for args in (["generate-ts", "-o", str(out)], ["generate-ts", "--out", str(out), "--experimental"],
@@ -2558,8 +2614,9 @@ class RealCodex(unittest.TestCase):
         # strays() finds processes by CODEX_HOME, the account's home (home/.codex/accounts/A) included.
         self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
         self.assertEqual(list(home.rglob("rollout-*.jsonl*")), [], "a schema generator started a session")
+        self.assertEqual(proxy.lines, [], "Codex tried to reach a host through a proxy")
         self.assertEqual([line for line in self.sandbox.netlog.read_text().splitlines()
-                          if line.startswith("REFUSED")], [], "Codex tried to reach a host")
+                          if line.startswith("REFUSED")], [], "Codex tried to reach a host through git or ssh")
         self.assertFalse((self.sandbox.base / "xdg/state/coding-agent-kit/guard").exists(), "the launch was guarded")
 
     def test_a_prompt_at_the_reserve_is_never_sent(self):
