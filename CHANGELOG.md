@@ -70,7 +70,7 @@ Removed:
 
 Added:
 
-- The reserve guard, which a launch with a reserve on uses:
+- The reserve guard, which a guarded launch uses:
   `lib/coding-agent-kit/guard.py`, the hook command that the launcher
   injects for that one launch, one short process per hook event under the
   launcher's own Python, and `lib/coding-agent-kit/guard_launch.py`, what
@@ -145,14 +145,14 @@ Added:
   and credential of whichever launch started that process, and removes
   `CLAUDE_CODE_RESUME_INTERRUPTED_TURN`, which would re-run a turn that the
   guard stopped.
-- Minimum versions for a launch with a reserve: Claude Code 2.1.296 or newer,
+- Minimum versions for a guarded launch: Claude Code 2.1.296 or newer,
   refused when older or when `claude --version` names no version; codex-cli
   0.161.0 or newer, the minimum of every `codex-as` launch, with no other one
   for reserves. Minimums only, with no upper bound.
 - The guard directory `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/guard/`,
-  owned and 0700: the state files of each guarded launch, which a launch
-  with a reserve removes 30 days after that launch started (`codex-as` also
-  when its own run ends), and the Codex marker. A managed install's guard is
+  owned and 0700: the state files of each guarded launch, which a guarded
+  launch removes 30 days after that launch started (`codex-as` also when its
+  own run ends), and the Codex marker. A managed install's guard is
   reached through its `current` link, so a session keeps a guard across kit
   updates.
 - `CODING_AGENT_KIT_GUARD`, `CODING_AGENT_KIT_GUARD_SCRIPT` and
@@ -197,9 +197,9 @@ Changed:
   commands that start no session (`doctor`, `update`, `mcp list` and
   others), and for `codex-as` help and version and every subcommand that is
   neither guarded nor refused.
-- A launch with a reserve prints `TOOL: usage reserves for NAME: ...; hooks
-  refuse new prompts and tool calls at a reserve.` on standard error before
-  the native starts.
+- A guarded launch prints `TOOL: usage reserves for NAME: ...; hooks refuse
+  new prompts and tool calls at a reserve.` on standard error before the
+  native starts.
 - The help texts: the reserve flags keep that percentage of a window unused,
   and hooks refuse new prompts and tool calls at the reserve; one line names
   forms refused with a reserve on (and, for `codex-as`, that goals are off);
