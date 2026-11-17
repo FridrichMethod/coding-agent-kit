@@ -76,6 +76,9 @@ REOPENING = ("CLAUDE_CODE_RESUME_INTERRUPTED_TURN",)
 # The switches of Claude Code's modes that run none of the hooks of a --settings, from the environment or
 # a settings file's env (CLAUDE_CODE_SIMPLE is what --bare sets).
 HOOKLESS = {"CLAUDE_CODE_SAFE_MODE": "safe mode", "CLAUDE_CODE_SIMPLE": "bare mode"}
+# Their switches on the command line, which Claude Code finds by a plain scan of its arguments up to the first
+# --, so also as the value of an option (a word with = in it is not one).
+HOOKLESS_FLAGS = {"--safe-mode": "safe mode", "--bare": "bare mode"}
 # What Claude Code's isEnvTruthy reads as on, and the values it documents as off.
 ON_WORDS = ("1", "true", "yes", "on")
 OFF_WORDS = ("", "0", "false", "no", "off")
@@ -219,6 +222,7 @@ class Form:
     """What preflight saw that a launch with a usage reserve checks."""
     headless: list = field(default_factory=list)  # HEADLESS words given as options
     background: list = field(default_factory=list)  # BACKGROUND words given as options
+    modes: list = field(default_factory=list)  # HOOKLESS_FLAGS words before the first --, wherever they stand
     settings: bool = False  # a --settings of the caller
     operand: object = None  # the first operand, which Claude Code dispatches as a command
     sources: dict = field(default_factory=dict)  # Path: parsed settings, for every settings file read
@@ -313,6 +317,8 @@ def preflight(args, kit, enrollment, guarded=False):
                 fail("login/logout/setup-token must not be passed through claude-as.")
             form.operand = arg
             root = False
+    scanned = args[:args.index("--")] if "--" in args else args
+    form.modes = [word for word in HOOKLESS_FLAGS if word in scanned]
     return form
 
 
@@ -417,6 +423,9 @@ def check_form(form, account):
         if not env_off(os.environ.get(name)):
             refuse_guarded(account, f"the environment sets {name}, the switch of Claude Code's {mode}, which runs "
                            "none of the usage reserve guard's hooks")
+    for word in form.modes:
+        refuse_guarded(account, f"{word} turns on Claude Code's {HOOKLESS_FLAGS[word]} wherever it stands before a --, "
+                       "also as the value of an option, and that mode runs none of the usage reserve guard's hooks")
     for path, settings in sorted(form.sources.items()):
         for key in hook_keys(settings, managed(path)):
             refuse_guarded(account, f"{path} sets {key}, so Claude Code would not run the usage reserve guard's hooks")

@@ -532,6 +532,33 @@ class Refusals(Fixture):
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.records()[-1]["env"]["CLAUDE_CODE_SAFE_MODE"], "1")
 
+    def test_safe_mode_and_bare_mode_from_the_arguments(self):
+        """Claude Code finds --safe-mode and --bare by a plain scan of its arguments up to the first --, so also
+        where the launcher's parse sees an option's value (RealClaude pins it); an option spelled with = is not."""
+        self.configure("[usage_reserve]\nweekly = 10\n")
+        for args, word, mode in ((["--append-system-prompt", "--safe-mode"], "--safe-mode", "safe mode"),
+                                 (["--add-dir", "--safe-mode"], "--safe-mode", "safe mode"),
+                                 (["--model", "x", "--add-dir", "a", "--model", "--safe-mode", "-c"], "--safe-mode",
+                                  "safe mode"),
+                                 (["--system-prompt", "--bare"], "--bare", "bare mode"),
+                                 (["--append-system-prompt", "--bare", "--", "a prompt"], "--bare", "bare mode")):
+            with self.subTest(args=args):
+                self.assert_refused(["work", *args], f"{word} turns on Claude Code's {mode} wherever it stands before a "
+                                    "--, also as the value of an option, and that mode runs none of the usage reserve "
+                                    "guard's hooks")
+        self.assertEqual(self.version_runs(), 0)
+        for args in (["--", "--safe-mode"], ["--append-system-prompt=--safe-mode"], ["--system-prompt=--bare"],
+                     ["--model", "x", "--", "--bare"]):
+            with self.subTest(launches=args):
+                record, _, _ = self.guarded(["work", *args])
+                self.assertEqual(record["argv"][3:], args)
+        # Without reserves they launch, as they did.
+        for args in (["--append-system-prompt", "--safe-mode"], ["--system-prompt", "--bare"]):
+            with self.subTest(unguarded=args):
+                code, out, err = self.run_launcher(["--reserve-weekly", "off", "work", *args])
+                self.assertEqual((code, err), (0, ""))
+                self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), *args])
+
     def test_the_cached_server_policy_is_not_checked(self):
         """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*"""
         write(self.home / ".claude/remote-settings.json",
@@ -881,10 +908,10 @@ class RealClaude(unittest.TestCase):
         return json.dumps({"five_hour": None, "seven_day": {"used_percentage": used, "resets_at": now + DAY},
                            "seen_at": now})
 
-    def run_claude(self, prompt, used, cross=None, extra=None):
+    def run_claude(self, prompt, used, cross=None, extra=None, args=()):
         """claude -p PROMPT under the guard with the weekly reserve at 10 and USED percent of the week used;
         CROSS, a percentage, replaces the usage file when the fake answers with its tool call. EXTRA is added
-        to Claude Code's environment."""
+        to Claude Code's environment, and ARGS go after the guard's --settings."""
         write(self.usage, self.usage_text(used))
         command = [sys.executable, "-I", "-B", "-S", str(CLAUDE_API), "--log", str(self.requests),
                    "--bash", shlex.join(["touch", str(self.marker)])]
@@ -904,8 +931,8 @@ class RealClaude(unittest.TestCase):
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
         settings = launch.guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"])
         # Claude Code's own permission rules allow every Bash call, so only the guard can stop one.
-        code, out, err = self.sandbox.run(self.claude, ["--settings", settings, "--allowedTools", "Bash", "-p", prompt],
-                                          env)
+        code, out, err = self.sandbox.run(self.claude, ["--settings", settings, *args, "--allowedTools", "Bash", "-p",
+                                                        prompt], env)
         self.assertEqual(self.sandbox.strays(), [], "Claude Code left a process behind")
         refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED")]
         self.assertEqual(refused, [], "Claude Code tried to reach the network through git or ssh")
@@ -961,9 +988,10 @@ class RealClaude(unittest.TestCase):
 
     def test_safe_mode_and_bare_mode_run_none_of_the_hooks(self):
         """Why claude-as refuses CLAUDE_CODE_SAFE_MODE and CLAUDE_CODE_SIMPLE with a reserve on: either one,
-        in the environment or in a settings env, lets a prompt at the reserve through unchecked."""
+        in the environment or in a settings env, lets a prompt at the reserve through unchecked. So does
+        --safe-mode as the value of an option, which Claude Code finds by a plain scan of its arguments."""
         cases = (("CLAUDE_CODE_SAFE_MODE", "environment"), ("CLAUDE_CODE_SIMPLE", "environment"),
-                 ("CLAUDE_CODE_SAFE_MODE", "settings"))
+                 ("CLAUDE_CODE_SAFE_MODE", "settings"), ("--safe-mode", "arguments"))
         for name, where in cases:
             with self.subTest(name=name, where=where):
                 self.requests.unlink(missing_ok=True)
@@ -972,8 +1000,9 @@ class RealClaude(unittest.TestCase):
                 settings = self.sandbox.config / "settings.json"
                 if where == "settings":
                     write(settings, json.dumps({"env": {name: "1"}}))
-                code, out, err, state, messages = self.run_claude("PLAIN say hello", 95,
-                                                                  extra={name: "1"} if where == "environment" else None)
+                code, out, err, state, messages = self.run_claude(
+                    "PLAIN say hello", 95, extra={name: "1"} if where == "environment" else None,
+                    args=["--append-system-prompt", name] if where == "arguments" else ())
                 settings.unlink(missing_ok=True)
                 self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
                 self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
