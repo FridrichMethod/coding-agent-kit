@@ -187,8 +187,10 @@ takeover fixture, and 0.155.1 also fails the refresh writeback test and lacks
   kept until a later run recovers.
 
 After `codex update`, run `tests/codex-as.sh`; it uses the `codex` on PATH, or
-`CODEX_NATIVE_BINARY`. Recorded passing runs, by the kit release whose code and
-suite ran:
+`CODEX_NATIVE_BINARY`. For usage reserves also run `tests/codex-guard.sh`,
+whose `RealCodex` cases check the guard's hook contract offline against the
+`codex` on PATH only. Recorded passing runs of `tests/codex-as.sh`, by the kit
+release whose code and suite ran:
 
 | Kit | Codex releases | Takeover daemon / client |
 | --- | --- | --- |
