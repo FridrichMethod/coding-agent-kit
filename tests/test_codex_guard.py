@@ -22,6 +22,7 @@ this host's user it reads only the codex install's own files where they lie
 import base64
 import dataclasses
 import fcntl
+import hashlib
 import importlib.util
 import json
 import os
@@ -109,9 +110,16 @@ class LaunchForms(Fixture):
             "refused": (["cloud"], ["cloud-tasks"], ["cloud", "exec", "--env", "x", "go"], ["app-server"],
                         ["exec-server"], ["remote-control"], ["remote-control", "--no-daemon"],
                         ["debug", "app-server", "send-message-v2", "hi"], ["-c", "model=x", "app-server"],
+                        ["app-server", "proxy"], ["app-server", "--listen", "stdio://"],
                         # help after another word is that word's argument: a cloud task's query, say.
                         ["cloud", "exec", "--env", "x", "help"], ["app-server", "proxy", "help"],
-                        ["debug", "app-server", "send-message-v2", "help"]),
+                        ["debug", "app-server", "send-message-v2", "help"],
+                        # An option this scan does not know may take the next word as its value, as
+                        # --cloud-skills-snapshot PATH does: Codex would run the app server.
+                        ["app-server", "--cloud-skills-snapshot", "generate-ts"],
+                        ["app-server", "--future", "generate-json-schema", "-o", "out"],
+                        # A generator's name after another word is that word's argument.
+                        ["app-server", "proxy", "generate-ts"], ["debug", "app-server", "generate-ts"]),
             "plain": (["mcp", "list"], ["mcp"], ["plugin"], ["features", "list"], ["login", "status"],
                       ["apply"], ["a"], ["sandbox", "linux", "--", "exec"], ["debug"], ["debug", "models"],
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
@@ -119,6 +127,14 @@ class LaunchForms(Fixture):
                       ["migrate-nfs-db"], ["--no-daemon", "migrate-nfs-db"],
                       # git-credential hands the account's login to Git's credential helper protocol.
                       ["git-credential", "get"], ["git-credential", "erase"], ["-c", "model=x", "git-credential", "capability"],
+                      # app-server's schema generators write protocol bindings and start no app server.
+                      ["app-server", "generate-ts", "-o", "out"], ["app-server", "generate-ts", "--out=out", "-p", "x"],
+                      ["app-server", "generate-ts", "--out", "out", "--prettier", "x", "--experimental"],
+                      ["app-server", "generate-json-schema", "-o", "out", "--experimental"],
+                      ["app-server", "generate-internal-json-schema", "--out", "out"],
+                      ["-c", "model=x", "app-server", "--listen", "stdio://", "generate-ts", "-oout"],
+                      ["app-server", "--strict-config", "generate-json-schema", "-o", "out"],
+                      ["app-server", "-c", "model=x", "generate-internal-json-schema", "-o", "out"],
                       ["responses-api-proxy"], ["stdio-to-uds", "x"], ["execpolicy"],
                       # Help and version print and run nothing.
                       ["--help"], ["-h"], ["-V"], ["--version"], ["help"], ["help", "exec"],
@@ -1068,7 +1084,10 @@ class GuardedLaunch(unittest.TestCase):
         self.launches_plain(["A", "features", "list"], ["A", "login", "status"], ["A", "--help"], ["A", "exec", "--help"],
                             ["A", "exec", "help"], ["A", "e", "help", "resume"], ["A", "completion", "bash"],
                             ["A", "git-credential", "get"], ["A", "cloud", "help"], ["A", "app-server", "help"],
-                            ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"])
+                            ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"],
+                            ["A", "app-server", "generate-ts", "-o", "out"],
+                            ["A", "app-server", "generate-json-schema", "--out", "out", "--experimental"],
+                            ["A", "app-server", "generate-internal-json-schema", "-o", "out"])
 
     def refused(self, args, reason, account="A", env=None):
         result = self.run_codex("--reserve-weekly", "10", *args, env=env)
@@ -1080,12 +1099,14 @@ class GuardedLaunch(unittest.TestCase):
     def test_forms_the_hooks_cannot_see_are_refused(self):
         self.trusted()
         for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["cloud", "list"], "cloud"),
-                           (["app-server"], "app-server"), (["app-server", "generate-ts"], "app-server"),
+                           (["app-server"], "app-server"), (["app-server", "proxy"], "app-server"),
+                           (["app-server", "--cloud-skills-snapshot", "generate-ts"], "app-server"),
                            (["exec-server"], "exec-server"), (["remote-control"], "remote-control"),
                            (["cloud", "exec", "--env", "x", "help"], "cloud"),
                            (["debug", "app-server", "send-message-v2", "hi"], "debug app-server")):
             with self.subTest(args=args):
-                # Refused as a whole (designer's call 4), also where a subcommand runs no model work itself.
+                # Refused as a whole (designer's call 4), also where a subcommand runs no model work itself (cloud
+                # list); app-server's schema generators alone launch plain.
                 self.refused(["A", *args], f"codex {name} can run model work where the usage reserve guard's hooks "
                                            "cannot see or stop it")
 
@@ -2304,8 +2325,9 @@ class RealCodex(unittest.TestCase):
     codex-as passes them, a launch as codex-as exports it, and a loopback fake of the Responses API that
     answers from a script and sends rate limits as the real backend does. codex exec runs directly on the
     native, with --dangerously-bypass-hook-trust standing in for the user's trust in "Hooks need review";
-    the trust prompt and the terminal session are left to the live acceptance. Codex reads its own
-    install's files where they lie (Sandbox), nothing else of the user's."""
+    the trust prompt and the terminal session are left to the live acceptance. One case runs codex-as itself,
+    from the kit copy with a fictitious login, for forms it launches plain. Codex reads its own install's files
+    where they lie (Sandbox), nothing else of the user's."""
 
     @classmethod
     def setUpClass(cls):
@@ -2432,6 +2454,45 @@ class RealCodex(unittest.TestCase):
                                                  [line["payload"]["cwd"] for line in lines if line["type"] == "turn_context"])
         work = str(self.sandbox.work)
         self.assertEqual(found, {work: ("exec", [work]), str(other): ("exec", [str(other), work])})
+
+    def test_app_server_s_schema_generators_launch_plain_with_a_reserve(self):
+        """codex-as with a reserve on launches app-server generate-ts, generate-json-schema and
+        generate-internal-json-schema, with their options, as with --reserve-5h off: no launch line and no guard,
+        and the real Codex writes the same files, starts no session and makes no request (every proxy is closed,
+        and no model provider is configured)."""
+        shutil.copytree(ROOT / "bin", self.kit / "bin")
+        home = self.sandbox.home
+        home.chmod(0o700)
+        (home / ".secrets").mkdir(mode=0o700)
+        claims = {"sub": "fixture-A", "email": "alice@example.com",
+                  "https://api.openai.com/auth": {"chatgpt_plan_type": "plus", "chatgpt_user_id": USER}}
+        write(home / ".secrets/codex-A.json", json.dumps({
+            "auth_mode": "chatgpt", "OPENAI_API_KEY": None, "last_refresh": "2026-10-01T00:00:00Z",
+            "tokens": {"id_token": id_token(claims), "access_token": "fabricated-sensitive-access",
+                       "refresh_token": "fabricated-sensitive-refresh", "account_id": WORKSPACE}}))
+        env = self.sandbox.env()
+        del env["CODEX_HOME"]  # codex-as sets it to the account's home
+        out = self.sandbox.base / "out"
+        for args in (["generate-ts", "-o", str(out)], ["generate-ts", "--out", str(out), "--experimental"],
+                     ["generate-json-schema", "--out", str(out), "--experimental"],
+                     ["generate-internal-json-schema", "-o", str(out)]):
+            with self.subTest(args=args):
+                runs = []
+                for reserve in ("off", "10"):
+                    shutil.rmtree(out, ignore_errors=True)
+                    code, stdout, stderr = self.sandbox.run(str(self.kit / "bin/codex-as"),
+                                                            ["--reserve-5h", reserve, "A", "app-server", *args], env)
+                    files = sorted((str(path.relative_to(out)), hashlib.sha256(path.read_bytes()).hexdigest())
+                                   for path in out.rglob("*") if path.is_file()) if out.is_dir() else []
+                    runs.append((code, stdout, stderr, files))
+                self.assertEqual(runs[0][0], 0, runs[0][2])
+                self.assertTrue(runs[0][3], "Codex wrote no file")
+                self.assertEqual(runs[1], runs[0])
+        self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
+        self.assertEqual(list(home.rglob("rollout-*.jsonl*")), [], "a schema generator started a session")
+        self.assertEqual([line for line in self.sandbox.netlog.read_text().splitlines()
+                          if line.startswith("REFUSED")], [], "Codex tried to reach a host")
+        self.assertFalse((self.sandbox.base / "xdg/state/coding-agent-kit/guard").exists(), "the launch was guarded")
 
     def test_a_prompt_at_the_reserve_is_never_sent(self):
         code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=95)

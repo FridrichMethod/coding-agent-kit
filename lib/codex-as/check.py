@@ -88,6 +88,9 @@ HOOK_FEATURES = ("hooks", "codex_hooks")
 INTERACTIVE = {None, "resume", "fork"}
 HEADLESS = {*EXEC, "review"}
 UNGUARDED = {"cloud", "app-server", "exec-server", "remote-control"}
+# app-server's schema generators (codex-rs/cli/src/main.rs, AppServerSubcommand, 0.169.0) write protocol
+# bindings and start no app server, so they are plain as the first word after app-server.
+SCHEMAS = {"generate-ts", "generate-json-schema", "generate-internal-json-schema"}
 PROFILE = re.compile(r"[A-Za-z0-9_-]+")  # native ProfileV2Name
 # uuid::Uuid::parse_str forms; anything else is a session name to native Codex.
 HYPHENATED = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -216,7 +219,8 @@ def arguments(args, config):
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query, show_all = None, None, False, False, False
     no_daemon, others, words, unknown, bare, profile, forked = False, False, [], [], False, None, False
-    hooks_override = hooks_disabled = goals_on = ephemeral = ignore_user_config = worktree = False
+    hooks_override = hooks_disabled = goals_on = ephemeral = ignore_user_config = worktree = schema = False
+    known = 0  # how many unknown options came before the subcommand
     i = 0
     while i < len(args):
         arg = args[i]
@@ -274,7 +278,7 @@ def arguments(args, config):
                     query = bare = True  # help never runs the subcommand it describes
                     break
                 if arg in COMMANDS and (arg != "app" or DESKTOP):
-                    root, words = False, []
+                    root, words, known = False, [], len(unknown)
                     command = {"e": "exec", "a": "apply", "cloud-tasks": "cloud"}.get(arg, arg)
                     if command == "exec":
                         mode = "exec"
@@ -290,6 +294,8 @@ def arguments(args, config):
                 target = arg
             else:
                 words.append(arg)
+                # An option this scan does not know may have taken the word as its value (--cloud-skills-snapshot).
+                schema |= command == "app-server" and words == [arg] and arg in SCHEMAS and len(unknown) == known
                 if words == ["help"] and command in UNGUARDED - {"remote-control"} or (
                         command == "debug" and words == ["app-server", "help"]):
                     query = True  # these have subcommands too, so clap reads this word as their help subcommand
@@ -318,7 +324,7 @@ def arguments(args, config):
     rootless = bare or command in {"update", "completion"}
     if query or rootless:
         form = "plain"
-    elif command in UNGUARDED or (command == "debug" and words[:1] == ["app-server"]):
+    elif command in UNGUARDED and not schema or (command == "debug" and words[:1] == ["app-server"]):
         form = "refused"  # debug app-server send-message-v2 runs a turn through an app server
     else:
         form = "interactive" if command in INTERACTIVE else "headless" if command in HEADLESS else "plain"
