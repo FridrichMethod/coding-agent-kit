@@ -1219,6 +1219,21 @@ class Launchers(unittest.TestCase):
                                      (1, "", f"{tool}: incomplete install at {self.kit}\n"))
         self.assertEqual(self.records(), [])
 
+    def test_a_kit_without_guard_launch_py_names_the_root(self):
+        """Both launchers load lib/coding-agent-kit/guard_launch.py for every launch, with a reserve or without
+        one, and codex-as also for its metadata queries: a kit copy without it refuses in one line, without a
+        traceback and before any native CLI."""
+        (self.kit / "lib/coding-agent-kit/guard_launch.py").unlink()
+        commands = [(tool, [*flags, *args]) for tool, args in (("codex-as", ["A", "exec", "x"]), ("claude-as", ["work"]))
+                    for flags in ([], ["--reserve-5h", "10"], ["--reserve-5h", "off", "--reserve-weekly", "off"])]
+        commands += [("codex-as", query) for query in (["--show-config"], ["--list"], ["--labels"], ["--info", "A"])]
+        for tool, args in commands:
+            with self.subTest(tool=tool, args=args):
+                result = self.run_tool([self.kit / "bin" / tool, *args])
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (1, "", f"{tool}: incomplete install at {self.kit}\n"))
+        self.assertEqual(self.records(), [])
+
     def test_metadata_queries_start_nothing_and_ignore_launch_policy(self):
         shutil.rmtree(self.home / ".codex")
         # Safe but unusable credentials: a query that opened one would fail.
