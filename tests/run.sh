@@ -66,6 +66,7 @@ tests=(
     guard.sh
     account-info.sh
     codex-as.sh
+    codex-guard.sh
     account-enrollment.sh
     reserve-completion.sh
     standalone-e2e.sh

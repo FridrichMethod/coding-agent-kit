@@ -26,6 +26,10 @@ ROOT_PATH_KEYS = {
 }
 TLS_PATH_KEYS = {"ca-certificate", "client-certificate", "client-private-key"}
 NETWORK_PATH_KEYS = {"certificate", "private_key", "tls_certificate", "tls_private_key", "tls_ca_certificate"}
+# The system configuration layers check.config_sources reads too.
+SYSTEM_CONFIG = (Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"))
+# The managed layers, which native Codex applies over the command line's -c values and flags.
+MANAGED_CONFIG = (Path("/etc/codex/managed_config.toml"), Path("/etc/codex/requirements.toml"))
 
 
 def validate_paths(guard, value, prefix=()):
@@ -80,6 +84,65 @@ def shared_sqlite(guard, root, cwd, profile=None):
             if "sqlite_home" in data and Path(data["sqlite_home"]) != result:
                 guard.fail("project configuration conflicts with shared SQLite storage; no launch performed.")
     return result
+
+
+def profile_files(root, home, profile):
+    """The selected profile's files: the shared ROOT/PROFILE.config.toml, which a launch links into the
+    account HOME, and the account home's own, which native -p loads ($CODEX_HOME/PROFILE.config.toml)
+    when it is not a link to the shared one."""
+    if profile is None:
+        return []
+    shared = root / (profile + ".config.toml")
+    own = None if home is None else home / shared.name
+    if own is None or not os.path.lexists(own) or os.path.realpath(own) == os.path.realpath(shared):
+        return [shared]
+    return [shared, own]
+
+
+def hooks_off(guard, root, cwd, profile=None, home=None):
+    """The first configuration file native Codex may load for this launch that turns its hooks off,
+    or None: the shared config.toml, the selected profile's (profile_files: the account HOME's own
+    too), a system one, or a project's .codex/config.toml in a lexical or resolved parent of CWD
+    (whether Codex trusts that project is not read)."""
+    paths = {root / "config.toml", *SYSTEM_CONFIG, *profile_files(root, home, profile)}
+    for place in (cwd, cwd.resolve()):
+        paths.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
+    for path in sorted(paths):
+        if path.exists():
+            with path.open("rb") as stream:
+                if guard.disables_hooks(guard.tomllib.load(stream)):
+                    return path
+    return None
+
+
+def hook_off(guard, root, keys, profile=None, home=None):
+    """The first of the shared config.toml and the selected profile's files (profile_files) whose
+    [hooks.state] entry for one of KEYS sets enabled to anything but true, or None: native Codex skips
+    such a hook, trusted or not. Only enabled is read, never a trust record."""
+    paths = [root / "config.toml", *profile_files(root, home, profile)]
+    for path in paths:
+        if path.exists():
+            with path.open("rb") as stream:
+                hooks = guard.tomllib.load(stream).get("hooks")
+            state = hooks.get("state") if isinstance(hooks, dict) else None
+            for key in keys:
+                entry = state.get(key) if isinstance(state, dict) else None
+                if isinstance(entry, dict) and "enabled" in entry and entry["enabled"] is not True:
+                    return path
+    return None
+
+
+def goals_on(guard):
+    """The first managed layer that sets goals under [features] to anything but false, or None: it
+    would keep goals on over the -c value and the flag that turn them off. The shared, profile,
+    project and system config.toml layers lie below the command line."""
+    for path in MANAGED_CONFIG:
+        if path.exists():
+            with path.open("rb") as stream:
+                features = guard.tomllib.load(stream).get("features")
+            if isinstance(features, dict) and "goals" in features and features["goals"] is not False:
+                return path
+    return None
 
 
 def claims(data):
