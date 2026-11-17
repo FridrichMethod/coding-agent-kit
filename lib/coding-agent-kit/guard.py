@@ -490,7 +490,8 @@ def merged_record(path, incoming, now):
     kept = {key: entry(old.get(key)) for key in USAGE_KEYS}
     merged = {key: merge(kept[key], incoming[key], now) for key in USAGE_KEYS}
     seen, last = int(now), old.get("seen_at")
-    if merged == kept and type(last) is int and 0 <= seen - last < RECORD_AGAIN:
+    whole = type(last) is int or type(last) is float and last.is_integer()  # as the helper's Number.isInteger
+    if merged == kept and whole and 0 <= seen - last < RECORD_AGAIN:
         return None
     return {**merged, "seen_at": seen}
 

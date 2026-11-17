@@ -1235,6 +1235,11 @@ class StatusLine(Fixture):
         self.assertEqual(self.usage_file(launch)["seen_at"], NOW + 300)
         self.assertTrue(guard.record(launch.usage, limits((43, NOW + 3600)), NOW + 301))
         self.assertEqual(self.usage_file(launch)["five_hour"], window(43, NOW + 3600))
+        # A whole seen_at written as a float is that second, as the status line helper reads it.
+        put(Path(launch.usage), {**limits((43, NOW + 3600)), "seen_at": float(NOW + 301)})
+        self.assertFalse(guard.record(launch.usage, limits((43, NOW + 3600)), NOW + 600))
+        self.assertTrue(guard.record(launch.usage, limits((43, NOW + 3600)), NOW + 601))
+        self.assertEqual(self.usage_file(launch)["seen_at"], NOW + 601)
 
     def merged(self, stored, incoming, now=NOW):
         """The windows stored after recording INCOMING over STORED (both rate_limits shapes)."""
@@ -1386,6 +1391,8 @@ class StatusLine(Fixture):
             ("a reset window gives way to an earlier reading", stored(window(91, NOW - 1)), limits((5, NOW - 100), None)),
             ("unchanged within RECORD_AGAIN", stored(window(42, five), window(17, week), NOW - 299), limits()),
             ("unchanged after RECORD_AGAIN", stored(window(42, five), window(17, week), NOW - 300), limits()),
+            ("a stored seen_at written as a float", stored(window(42, five), window(17, week), float(NOW - 10)), limits()),
+            ("a stored seen_at with a fraction", stored(window(42, five), window(17, week), NOW - 10.5), limits()),
             ("a weekly window alone", None, limits(None, (95, week))),
             ("a whole reset written as a float", None, {"five_hour": window(7, float(five))}),
             ("an unusable stored window", stored(window(150, five)), limits((10, five), None)),
