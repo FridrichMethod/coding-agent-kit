@@ -69,9 +69,9 @@ REFUSED = {"--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
 # Native `app` is a subcommand only where the Desktop app exists; elsewhere it is a prompt.
 DESKTOP = sys.platform in {"darwin", "win32"}
 EXEC = {"exec", "exec-prompt", "exec-resume"}
-# Root subcommands and aliases of native Codex 0.163.0 and 0.169.0, plus clap's help.
+# Root subcommands and aliases of native Codex 0.163.0 and 0.169.0, hidden ones included, plus clap's help.
 COMMANDS = {
-    "agents", "tcp-tunnel", "exec", "e", "review", "login", "logout", "mcp", "plugin",
+    "agents", "tcp-tunnel", "exec", "e", "review", "login", "git-credential", "logout", "mcp", "plugin",
     "app-server", "remote-control", "app", "completion", "update", "doctor", "sandbox",
     "debug", "execpolicy", "apply", "a", "resume", "queue", "archive", "delete",
     "migrate-rollouts", "migrate-nfs-db", "unarchive", "fork", "cloud", "cloud-tasks",
@@ -240,8 +240,10 @@ def arguments(args, config):
                     fail("option requires a value; no account switch performed.")
                 value = args[i]
                 i += 1
-                # Outside exec, a spaced -i/--image takes every following non-option word.
-                while flag in {"-i", "--image"} and command not in EXEC and i < len(args) and not args[i].startswith("-"):
+                # A spaced -i/--image takes every following non-option word (`<FILE>...`), exec's too, so a
+                # help, resume or fork word after it is an image; exec resume's and exec fork's take one.
+                while (flag in {"-i", "--image"} and command != "exec-resume" and i < len(args)
+                       and not args[i].startswith("-")):
                     i += 1
         elif flag in SWITCHES:
             last |= flag == "--last"
@@ -279,12 +281,19 @@ def arguments(args, config):
                     elif command == "sandbox":
                         break  # the rest is the sandboxed command line
             elif command == "exec":
+                if arg == "help":
+                    query = True  # exec has subcommands, so clap reads this word as its help subcommand
+                    break
                 command = "exec-resume" if arg in {"resume", "fork"} else "exec-prompt"
                 forked = arg == "fork"
             elif command in {"resume", "fork", "exec-resume"} and target is None:
                 target = arg
             else:
                 words.append(arg)
+                if words == ["help"] and command in UNGUARDED - {"remote-control"} or (
+                        command == "debug" and words == ["app-server", "help"]):
+                    query = True  # these have subcommands too, so clap reads this word as their help subcommand
+                    break
                 # Foreground remote-control and stdio app-server need no daemon; these manage one.
                 if command == "remote-control" or (command == "app-server" and "daemon" in words):
                     fail("this command manages a Codex daemon; codex-as accounts run without one.")
@@ -516,15 +525,25 @@ def exclusive(path, raw):
         raise
 
 
+# The highest directory whose .codex/config.toml counts as a project layer: with /, every parent of the
+# working directory, more than native Codex loads (fail closed). The tests set their own directory.
+PROJECT_TOP = Path("/")
+
+
+def project_layers(cwd):
+    """The .codex/config.toml of every lexical and resolved parent of CWD (a symlinked -C has both) at or
+    below PROJECT_TOP: each file native Codex may load as a project layer."""
+    top = PROJECT_TOP
+    return {parent / ".codex/config.toml" for place in (cwd, cwd.resolve()) for parent in (place, *place.parents)
+            if parent == top or top in parent.parents}
+
+
 def config_sources(root, cwd, profile=None):
     user = {root / "config.toml", Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"),
             Path("/etc/codex/requirements.toml")}
     if profile is not None:
         user.add(root / (profile + ".config.toml"))
-    project = set()
-    # Lexical and resolved parents: a symlinked -C has both.
-    for place in (cwd, cwd.resolve()):
-        project.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
+    project = project_layers(cwd)
     for path in sorted(user | project):
         if not path.exists():
             continue

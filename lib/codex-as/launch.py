@@ -184,13 +184,16 @@ def exit_status(result):
 def remember(config, layout, raw=None, plan=None, started=None, threads=()):
     """Best effort, for --account-info: this login's email and plan, and after a run the
     last rate limits its rollouts show (THREADS: the session ids of a guarded run, see run_threads).
-    Never fails a launch and writes no token."""
+    Never fails a launch and writes no token. The rollouts are looked for from SKEW before STARTED,
+    as run_threads does, since a file server's clock may lag this host's: a snapshot of this account's
+    from up to that long before the run is a reading of it all the same, and the record takes the
+    newest by its own time."""
     try:
         if raw is None:
             raw = guard.credential(layout.target)
         email, kind = storage.profile(raw)
         seen = None if plan is None else usage.latest(layout.root, {*plan.continued, *threads}, storage.owner(raw),
-                                                      started, time.time())
+                                                      started - SKEW, time.time())
         # The old record is read only after the scan, just before the write, so a run of
         # this account that finished meanwhile keeps its newer snapshot.
         path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
@@ -250,7 +253,8 @@ def unguardable(account, plan):
     """Refuses, with a reserve on, a launch form or a caller's option that the guard's hooks cannot cover."""
     if plan.form == "refused":
         name = "debug app-server" if plan.command == "debug" else plan.command
-        refuse(account, f"codex {name} runs model work where the usage reserve guard's hooks cannot see or stop it")
+        # Each is refused as a whole, also a subcommand of it that runs no model work itself.
+        refuse(account, f"codex {name} can run model work where the usage reserve guard's hooks cannot see or stop it")
     if plan.hooks_override:
         refuse(account, "a -c or --config value under hooks would meet the usage reserve guard's hooks, which "
                         "codex-as passes as -c values of its own")
@@ -267,9 +271,12 @@ def unguardable(account, plan):
         refuse(account, "--ignore-user-config skips the configuration that holds Codex's trust of the usage reserve "
                         "guard's hooks")
     if plan.worktree:
-        # Codex records such a session's cwd as CODEX_HOME/worktrees/ID/DIR, never the launch directory.
-        refuse(account, "--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check "
-                        "after the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
+        # Codex records such a session's cwd as CODEX_HOME/worktrees/ID/DIR, never the launch directory. The launch
+        # checks read the launch directory's project layers; run_threads follows a TUI's sessions there, but not a
+        # headless run's. Refused for every form (the TUI's own /worktree is followed).
+        refuse(account, "--worktree runs the session in a Git worktree that Codex creates under its home, whose project "
+                        "configuration the launch checks do not read, and where the check after a headless run does not "
+                        "look for the session to tell whether Codex ran the usage reserve guard's hooks")
 
 
 def guarded(config, account, plan, layout):
@@ -365,7 +372,61 @@ def session_meta(path):
 
 
 def same_place(path, cwd):
-    return isinstance(path, str) and os.path.isabs(path) and os.path.realpath(path) == os.path.realpath(cwd)
+    try:
+        return isinstance(path, str) and os.path.isabs(path) and os.path.realpath(path) == os.path.realpath(cwd)
+    except ValueError:  # a NUL in the recorded path
+        return False
+
+
+def inside(path, directory):
+    """Whether PATH, an absolute path, lies below DIRECTORY once both are resolved."""
+    try:
+        if not (isinstance(path, str) and os.path.isabs(path)):
+            return False
+        path, directory = os.path.realpath(path), os.path.realpath(directory)
+    except ValueError:  # a NUL in the recorded path
+        return False
+    return path != directory and os.path.commonpath((path, directory)) == directory
+
+
+def span(stream, begun, ended):
+    """The lines of a rollout stamped between BEGUN and ENDED: read back from the end of STREAM,
+    usage.TAIL bytes at a time, to the lines from before BEGUN; a line whose time cannot be read never
+    counts."""
+    for lines in usage.backwards(stream):
+        earlier = False
+        for raw in lines:
+            stamp = usage.STAMP.match(raw)
+            when = usage.moment(stamp[1].decode("ascii", "replace")) if stamp else None
+            if when is None or when > ended:
+                continue
+            if when < begun - STAMPED:
+                earlier = True
+                continue
+            yield raw
+        if earlier:
+            break
+
+
+def turned(path, cwd, begun, ended):
+    """Whether a turn of the session at PATH began in CWD between BEGUN and ENDED: Codex starts each
+    turn with a turn_context line that holds the session's working directory, which exec resume sets
+    to its own, whatever directory the session started in (measured with codex-cli 0.169.0). None when
+    the session has lines in that span but no turn began in it, so where cannot be told; False when
+    it has no line there, or its turns began elsewhere."""
+    written = turns = False
+    try:
+        with usage.opened(path) as stream:
+            for raw in span(stream, begun, ended):
+                written = True
+                found = usage.parsed(raw) if b"turn_context" in raw else None
+                if found and found[1] == "turn_context":
+                    if same_place(found[2].get("cwd"), cwd):
+                        return True
+                    turns = True
+    except OSError:
+        pass
+    return None if written and not turns else False
 
 
 def run_threads(root, plan, owner, begun, ended, alone):
@@ -380,14 +441,27 @@ def run_threads(root, plan, owner, begun, ended, alone):
     kind of Codex: source cli for the TUI, resume and fork, exec for exec and review. So a codex-as exec
     run from a TUI is not the TUI's, nor a TUI the exec's, nor a run in another directory either's; a
     guardian review runs no user hook and never counts. A headless run starts one session (exec resume
-    none), so when more started here, other headless runs of the account did too: they are EITHER. A
-    TUI may start several: SURE when ALONE, MAYBE when another codex-as client of the account ran at the
-    run's start or end (not ALONE), which may be a second TUI here.
+    by id none; exec resume without an id one when it finds no session of the directory to continue), so
+    when more started here, other headless runs of the account did too: they are EITHER. A TUI may start
+    several: SURE when ALONE, MAYBE when another codex-as client of the account ran at the run's start or
+    end or arrived during it (not ALONE), which may be a second TUI here.
 
-    A form that can switch to an older session it does not name (the TUI, resume and fork; exec resume
-    without an id) appends to one of this account's older sessions, of any day and directory: for exec
-    resume every such session written during the run is EITHER, for an interactive form SURE when ALONE
-    and MAYBE otherwise.
+    A TUI also moves its work to new sessions of its own elsewhere (measured with codex-cli 0.169.0): /cd
+    forks the conversation into the new directory, in a session that names the one it left as its
+    forked_from_id; /worktree starts one in a worktree that Codex manages under CODEX_HOME/worktrees
+    (ROOT/worktrees, which every account home links); fork starts one from the session it forks, in that
+    session's directory by default. These go where the run's sessions here go (a /cd fork where the
+    session it names went, along a chain of them). Any other new session of the account elsewhere that
+    the TUI's kind of Codex started may be its own, after /cd and /new, or another client's: MAYBE.
+
+    A form that can switch to an older session it does not name appends to one of this account's older
+    sessions, of any day: an interactive form (the TUI, resume and fork) to one of any directory, so
+    every such session written during the run is SURE when ALONE and MAYBE otherwise; exec resume
+    without an id to one in which it begins a turn in its directory (turned), whatever directory the
+    session started in, so each such session is EITHER. When it has no such session and started none
+    here, each older session written during the run in which no turn began is MAYBE, since its own may
+    be one of them (a Codex release that stops recording a turn's directory), never one whose turns
+    began elsewhere.
 
     Only rollouts whose file time is at most SKEW before BEGUN are opened, at most HEADS session_meta
     lines, the oldest start first, whatever account wrote them."""
@@ -403,11 +477,11 @@ def run_threads(root, plan, owner, begun, ended, alone):
             continue
         if stat.S_ISREG(info.st_mode) and info.st_mtime >= begun - SKEW:
             found.append((match[1] not in named, path.name, match[1], path))
-    resumes = plan.command == "exec-resume" and not plan.forked  # appends; starts no session of its own
-    older = plan.form == "interactive" or (resumes and not named)
-    sure, either, maybe, agents = {}, {}, {}, []
+    resumes = plan.command == "exec-resume" and not plan.forked  # appends to a session
+    interactive = plan.form == "interactive"
+    sure, either, maybe, agents, moved, untold = {}, {}, {}, [], [], {}
     # Where the run's sessions that it does not name go, new or older alike.
-    unnamed = either if plan.form == "headless" else sure if alone else maybe
+    unnamed = either if not interactive else sure if alone else maybe
     for _, _, thread, path in sorted(found)[:HEADS]:
         try:
             meta = session_meta(path)
@@ -429,11 +503,29 @@ def run_threads(root, plan, owner, begun, ended, alone):
         if start is None:
             continue
         if start >= begun - STAMPED:
-            if (start <= ended and not resumes and source == SOURCES[plan.form]
-                    and same_place(meta.get("cwd"), plan.cwd)):
+            if start > ended or (resumes and named) or source != SOURCES[plan.form]:
+                continue
+            parent = guard.session_id(meta.get("forked_from_id"))
+            if same_place(meta.get("cwd"), plan.cwd) or interactive and (
+                    inside(meta.get("cwd"), Path(root) / "worktrees")
+                    or plan.forked and parent is not None and plan.recover_id in (None, parent)):
                 unnamed.setdefault(thread, []).append(path)
-        elif older:
+            elif interactive:
+                moved.append((parent, thread, path))
+        elif interactive:
             unnamed.setdefault(thread, []).append(path)
+        elif resumes and not named:
+            place = turned(path, plan.cwd, begun, ended)
+            (unnamed if place else untold if place is None else {}).setdefault(thread, []).append(path)
+    if resumes and not named and not either:
+        maybe.update(untold)  # exec resume's own session is not found: one written without a turn may be it
+    # A /cd fork goes where the session it names went, along a chain; any other session elsewhere is MAYBE.
+    while follow := [item for item in moved if item[0] in sure or item[0] in maybe]:
+        for item in follow:
+            moved.remove(item)
+            (sure if item[0] in sure else maybe).setdefault(item[1], []).append(item[2])
+    for _, thread, path in moved:
+        maybe.setdefault(thread, []).append(path)
     groups = {**sure, **either, **maybe}
     for meta, path in agents:
         parent = next((key for key in (meta.get("session_id"), meta.get("parent_thread_id"))
@@ -459,35 +551,24 @@ def activity(paths, begun, ended):
     """(written, requested, tools) of the rollouts at PATHS between BEGUN and ENDED: a line, a model
     request (a line of a model response, usage.responded, or a usable rate-limit snapshot, which a
     reply without rate-limit headers does not leave), and a call that a tool hook sees. Each rollout is
-    read back from its end, usage.TAIL bytes at a time, to the lines from before BEGUN; inherited lines
-    and lines whose time cannot be read never count."""
+    read as span() reads it; inherited lines never count. These lines are the only evidence of a model
+    request: nothing else of the run, such as its exit status or output, is read."""
     written = requested = tools = False
     for path in paths:
         try:
             with usage.opened(path) as stream:
-                for lines in usage.backwards(stream):
-                    earlier = False
-                    for raw in lines:
-                        stamp = usage.STAMP.match(raw)
-                        when = usage.moment(stamp[1].decode("ascii", "replace")) if stamp else None
-                        if when is None or when > ended:
-                            continue
-                        if when < begun - STAMPED:
-                            earlier = True
-                            continue
-                        written = True
-                        if not any(word in raw for word in RELEVANT):
-                            continue
-                        found = usage.parsed(raw)
-                        if found is None or usage.inherited(found[0]):
-                            continue
-                        _, kind, payload, ptype = found
-                        if kind == "event_msg" and ptype == "token_count":
-                            requested = requested or usage.usable(payload.get("rate_limits")) is not None
-                        requested = requested or usage.responded(kind, ptype, payload)
-                        tools = tools or usage.hooked(kind, ptype, payload)
-                    if earlier:
-                        break
+                for raw in span(stream, begun, ended):
+                    written = True
+                    if not any(word in raw for word in RELEVANT):
+                        continue
+                    found = usage.parsed(raw)
+                    if found is None or usage.inherited(found[0]):
+                        continue
+                    _, kind, payload, ptype = found
+                    if kind == "event_msg" and ptype == "token_count":
+                        requested = requested or usage.usable(payload.get("rate_limits")) is not None
+                    requested = requested or usage.responded(kind, ptype, payload)
+                    tools = tools or usage.hooked(kind, ptype, payload)
         except OSError:
             continue
     return written, requested, tools
@@ -550,10 +631,11 @@ def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
                    "them in \"Hooks need review\".")
     elif unsure:
         # Never silent; the marker stays, since the session may be another client's whose hooks ran.
-        guard.warn(f"{account}: the usage reserve may not have been enforced in this run: Codex did not run {unsure} "
-                   f"in a session of {account} that this run or another one wrote during it (not trusted, disabled, "
-                   f"or managed hooks only). Start codex-as {account} interactively and trust them in \"Hooks need "
-                   "review\".")
+        guard.warn(f"{account}: the usage reserve may not have been enforced in this run: a session of {account} "
+                   f"written during it, by this run or by another client of {account}, shows that Codex did not run "
+                   f"{unsure} (not trusted, disabled, or managed hooks only), and the check after the run cannot tell "
+                   f"which client wrote it. If it was this run, start codex-as {account} interactively and trust them "
+                   "in \"Hooks need review\".")
 
 
 def main(args):
@@ -642,6 +724,11 @@ def main(args):
     baseline = None
     try:
         alone = layout.acquire()
+        # Every launch that can write sessions arrives, with reserves or without; a plain form writes none.
+        try:
+            arrived = layout.arrive(alone) if plan.form != "plain" else None
+        except OSError:
+            arrived = None  # a launch arriving later cannot be told: this one is never alone
         if alone:
             enroll(layout, codex)
             layout.prepare()
@@ -683,8 +770,9 @@ def main(args):
                 ended = time.time()
             finally:
                 layout.close()
-            # Use a fresh open-file description: surviving descendants still hold SH.
-            alone = post_run(layout, baseline) and alone
+            # Use a fresh open-file description: surviving descendants still hold SH. Alone: no other
+            # client of the account at the run's start or end, and none arrived meanwhile.
+            alone = post_run(layout, baseline) and alone and layout.size == arrived
             threads = None if state is None else this_run(layout, plan, baseline, begun, ended, alone)
             groups = [group for kind in threads for group in kind] if threads else ()
             if os.path.lexists(layout.target):

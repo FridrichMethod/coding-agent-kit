@@ -30,6 +30,8 @@ NETWORK_PATH_KEYS = {"certificate", "private_key", "tls_certificate", "tls_priva
 SYSTEM_CONFIG = (Path("/etc/codex/config.toml"), Path("/etc/codex/managed_config.toml"))
 # The managed layers, which native Codex applies over the command line's -c values and flags.
 MANAGED_CONFIG = (Path("/etc/codex/managed_config.toml"), Path("/etc/codex/requirements.toml"))
+# The account lease file's size from which a launch that holds the lease alone empties it before it arrives.
+LEASE_LIMIT = 4096
 
 
 def validate_paths(guard, value, prefix=()):
@@ -76,8 +78,7 @@ def shared_sqlite(guard, root, cwd, profile=None):
     inherited = os.environ.get("CODEX_SQLITE_HOME")
     if inherited and Path(os.path.abspath(inherited)) != result:
         guard.fail("CODEX_SQLITE_HOME conflicts with shared SQLite storage (value hidden).")
-    for parent in {*(cwd, *cwd.parents), *(cwd.resolve(), *cwd.resolve().parents)}:
-        path = parent / ".codex/config.toml"
+    for path in guard.project_layers(cwd):
         if path.exists() and path != config:
             with path.open("rb") as stream:
                 data = guard.tomllib.load(stream)
@@ -102,11 +103,15 @@ def profile_files(root, home, profile):
 def hooks_off(guard, root, cwd, profile=None, home=None):
     """The first configuration file native Codex may load for this launch that turns its hooks off,
     or None: the shared config.toml, the selected profile's (profile_files: the account HOME's own
-    too), a system one, or a project's .codex/config.toml in a lexical or resolved parent of CWD
-    (whether Codex trusts that project is not read)."""
-    paths = {root / "config.toml", *SYSTEM_CONFIG, *profile_files(root, home, profile)}
-    for place in (cwd, cwd.resolve()):
-        paths.update(parent / ".codex/config.toml" for parent in (place, *place.parents))
+    too), a system or managed one (requirements.toml too, whose [features] pins a feature), or a
+    project's (check.project_layers: a lexical or resolved parent of CWD). A project's file counts
+    whatever Codex's trust of that project, which is not read (fail closed). Not read: cloud
+    requirements, which only Codex fetches, and a requirement that allows managed hooks only, whose
+    key in requirements.toml no measurement here has pinned. Under either Codex runs none of the
+    guard's hooks; the check after the run tells it from the sessions it takes as the run's
+    (launch.run_threads), with the notice where they may be another client's."""
+    paths = {root / "config.toml", *SYSTEM_CONFIG, *MANAGED_CONFIG, *profile_files(root, home, profile),
+             *guard.project_layers(cwd)}
     for path in sorted(paths):
         if path.exists():
             with path.open("rb") as stream:
@@ -135,7 +140,8 @@ def hook_off(guard, root, keys, profile=None, home=None):
 def goals_on(guard):
     """The first managed layer that sets goals under [features] to anything but false, or None: it
     would keep goals on over the -c value and the flag that turn them off. The shared, profile,
-    project and system config.toml layers lie below the command line."""
+    project and system config.toml layers lie below the command line. Cloud requirements, which
+    only Codex fetches, cannot be read."""
     for path in MANAGED_CONFIG:
         if path.exists():
             with path.open("rb") as stream:
@@ -204,7 +210,7 @@ class Layout:
         self.home = self.root / "accounts" / account
         self.auth = self.home / "auth.json"
         self.target = self.secrets / f"codex-{account}.json"
-        self.fd = None
+        self.fd = self.size = None
 
     def private_file(self, path):
         return self.g.private_metadata(path)
@@ -236,7 +242,8 @@ class Layout:
             self.g.directory(self.secrets, private=True)
 
     def acquire(self):
-        """Exclusive when no other client of this account runs, otherwise shared."""
+        """Exclusive when no other client of this account runs, otherwise shared. Sets SIZE to the lease
+        file's size (see arrive)."""
         self.root.mkdir(mode=0o700, exist_ok=True)
         for path in (self.root / "accounts", self.root / "accounts/.locks"):
             path.mkdir(mode=0o700, exist_ok=True)
@@ -247,12 +254,29 @@ class Layout:
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
                 or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600):
             self.g.fail("unsafe account lease; no launch performed.")
+        self.size = info.st_size
         try:
             fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return True
         except BlockingIOError:
             fcntl.flock(self.fd, fcntl.LOCK_SH)
             return False
+
+    def arrive(self, alone=False):
+        """Counts this launch in the lease file that acquire() opened: appends one byte (atomically on one
+        host; the content is never read) and returns the file's size after it. Another size when a later
+        acquire() reads it shows that another launch of the account arrived meanwhile, also one that
+        started and ended in between, which the lease itself never shows.
+
+        ALONE (acquire() got the lease exclusively, so no run in progress compares sizes) first empties a
+        file of LEASE_LIMIT bytes or more, which bounds it. A launch whose conversion to the shared lease
+        let this one in meanwhile left the file that long only when it arrived at LEASE_LIMIT bytes or
+        more itself, so it still reads another size afterwards unless as many launches arrive again."""
+        fcntl.fcntl(self.fd, fcntl.F_SETFL, fcntl.fcntl(self.fd, fcntl.F_GETFL) | os.O_APPEND)
+        if alone and self.size >= LEASE_LIMIT:
+            os.ftruncate(self.fd, 0)
+        os.write(self.fd, b"\n")
+        return os.lseek(self.fd, 0, os.SEEK_CUR)
 
     def close(self):
         if self.fd is not None:

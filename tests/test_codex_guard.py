@@ -4,7 +4,9 @@ LaunchForms, Version, HooksOff, HookState and ManagedGoals run
 check.arguments() and layout's hooks_off(), hook_off() and goals_on() in
 process against a temporary HOME, Codex home and working directory. Hooks
 pins the hook definitions in process, and RunAttribution the check after a run
-at edges a launch cannot set (exact times, .blocked, a native's signal). GuardedLaunch runs codex-as from a kit
+at edges a launch cannot set (exact times, .blocked, a native's signal).
+HookSelection checks the cases codex-guard.sh --hook (the pre-commit hook)
+selects. GuardedLaunch runs codex-as from a kit
 copy under a path with a space and a quote, whose /etc/codex layers lie in the
 test's directory, in a temporary HOME, against a
 fake codex that records its argv and environment, writes rollouts as native
@@ -74,6 +76,11 @@ class Fixture(unittest.TestCase):
         env["HOME"] = str(self.home)
         with patch.dict(os.environ, env, clear=True):
             self.config = settings.load()
+        # Project layers above the test's directory (/tmp/.codex, or the real home's under a TMPDIR there)
+        # never count here.
+        patcher = patch.object(check, "PROJECT_TOP", self.base)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def plan(self, args):
         return check.arguments(args, self.config)
@@ -91,28 +98,56 @@ class LaunchForms(Fixture):
             "headless": (["exec"], ["exec", "go"], ["e", "go"], ["exec", "resume", "--last"],
                          ["exec", "resume", UUID, "go"], ["exec", "fork", UUID, "go"], ["exec", "review"],
                          ["review"], ["review", "--uncommitted"], ["-C", "/tmp", "exec", "go"],
-                         ["exec", "-m", "o3", "go"]),
+                         ["exec", "-m", "o3", "go"],
+                         # After -- help is a prompt, and review has no subcommands: help is its prompt.
+                         ["exec", "--", "help"], ["review", "help"], ["exec", "go", "help"],
+                         # exec's spaced -i takes every word up to an option: help is an image, the prompt stdin's.
+                         ["exec", "-i", "a.png", "help"], ["exec", "--image", "a.png", "help"],
+                         ["e", "-i", "a.png", "help", "resume"], ["exec", "-i", "a.png", "resume", UUID, "go"]),
             # remote-control runs an app server that remote clients drive, and debug app-server
             # send-message-v2 runs a turn through one: model work as in app-server.
             "refused": (["cloud"], ["cloud-tasks"], ["cloud", "exec", "--env", "x", "go"], ["app-server"],
                         ["exec-server"], ["remote-control"], ["remote-control", "--no-daemon"],
-                        ["debug", "app-server", "send-message-v2", "hi"], ["-c", "model=x", "app-server"]),
+                        ["debug", "app-server", "send-message-v2", "hi"], ["-c", "model=x", "app-server"],
+                        # help after another word is that word's argument: a cloud task's query, say.
+                        ["cloud", "exec", "--env", "x", "help"], ["app-server", "proxy", "help"],
+                        ["debug", "app-server", "send-message-v2", "help"]),
             "plain": (["mcp", "list"], ["mcp"], ["plugin"], ["features", "list"], ["login", "status"],
                       ["apply"], ["a"], ["sandbox", "linux", "--", "exec"], ["debug"], ["debug", "models"],
                       ["debug", "prompt-input", "hi"], ["completion", "bash"], ["update"], ["doctor"],
                       ["archive", UUID], ["delete", UUID], ["unarchive", UUID], ["migrate-rollouts"],
                       ["migrate-nfs-db"], ["--no-daemon", "migrate-nfs-db"],
+                      # git-credential hands the account's login to Git's credential helper protocol.
+                      ["git-credential", "get"], ["git-credential", "erase"], ["-c", "model=x", "git-credential", "capability"],
                       ["responses-api-proxy"], ["stdio-to-uds", "x"], ["execpolicy"],
                       # Help and version print and run nothing.
                       ["--help"], ["-h"], ["-V"], ["--version"], ["help"], ["help", "exec"],
                       ["resume", "--help"], ["exec", "--help"], ["exec", "go", "-V"], ["review", "-h"],
+                      # exec has subcommands, so clap reads help after it as its help subcommand.
+                      ["exec", "help"], ["e", "help", "resume"], ["exec", "-m", "x", "help"], ["exec", "help", "fork"],
+                      ["exec", "--image=a.png", "help"], ["exec", "-ia.png", "help"], ["exec", "-i", "a.png", "-m", "x", "help"],
                       ["cloud", "--help"], ["app-server", "--help"], ["remote-control", "-h"],
-                      ["debug", "app-server", "--help"], ["login", "--help"]),
+                      ["debug", "app-server", "--help"], ["login", "--help"],
+                      # These have subcommands too, so clap reads help as the first word after them as theirs.
+                      ["cloud", "help"], ["cloud-tasks", "help"], ["cloud", "help", "exec"], ["cloud", "-c", "model=x", "help"],
+                      ["app-server", "help"], ["app-server", "help", "proxy"], ["exec-server", "help"],
+                      ["debug", "app-server", "help"]),
         }
         for form, argument_lists in cases.items():
             for args in argument_lists:
                 with self.subTest(args=args):
                     self.assertEqual(self.plan(args).form, form)
+
+    def test_exec_s_image_option_takes_every_word_after_it(self):
+        """codex-cli 0.169.0: exec's -i/--image takes every following word up to an option (`<FILE>...`), so a
+        help, resume or fork word after it is an image and Codex reads the prompt from stdin, in a new session;
+        exec resume's and exec fork's take one value (`<FILE>`), and the session id after it stays theirs."""
+        plan = self.plan(["exec", "-i", "a.png", "resume", UUID, "go"])
+        self.assertEqual((plan.command, plan.form, plan.continued, plan.recover_id), ("exec", "headless", (), None))
+        plan = self.plan(["exec", "resume", "-i", "a.png", UUID, "go"])
+        self.assertEqual((plan.command, plan.form, plan.continued), ("exec-resume", "headless", (UUID,)))
+        plan = self.plan(["exec", "fork", "--image", "a.png", UUID, "go"])
+        self.assertEqual((plan.command, plan.forked, plan.recover_id), ("exec-resume", True, UUID))
 
     def test_app_is_a_prompt_without_the_desktop_app(self):
         if check.DESKTOP:
@@ -219,7 +254,8 @@ class LaunchForms(Fixture):
     def test_refused_options_still_refuse(self):
         """A guarded form never relaxes the checks every launch has."""
         for args in (["--oss", "exec", "go"], ["exec", "-c", "model_provider=x", "go"], ["agents"],
-                     ["remote-control", "start"], ["app-server", "daemon"], ["--enable", "use_agent_identity"]):
+                     ["remote-control", "start"], ["remote-control", "help"], ["app-server", "daemon"],
+                     ["--enable", "use_agent_identity"]):
             with self.subTest(args=args):
                 with self.assertRaises(ValueError):
                     self.plan(args)
@@ -244,13 +280,16 @@ class HooksOff(Fixture):
         # The host's /etc/codex never counts here.
         self.host_system = layout.SYSTEM_CONFIG
         self.system = (self.base / "etc/codex/config.toml", self.base / "etc/codex/managed_config.toml")
-        patcher = patch.object(layout, "SYSTEM_CONFIG", self.system)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        managed = (self.system[1], self.base / "etc/codex/requirements.toml")
+        for name, value in (("SYSTEM_CONFIG", self.system), ("MANAGED_CONFIG", managed)):
+            patcher = patch.object(layout, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_system_layers(self):
+        """The system and managed layers; requirements.toml's [features] pins a feature."""
         self.assertEqual(tuple(map(str, self.host_system)), ("/etc/codex/config.toml", "/etc/codex/managed_config.toml"))
-        for path in self.system:
+        for path in (*self.system, self.base / "etc/codex/requirements.toml"):
             with self.subTest(path=path.name):
                 self.write(path, "[features]\nhooks = false\n")
                 self.assertTrue(self.off())
@@ -317,6 +356,17 @@ class HooksOff(Fixture):
         elsewhere = self.write(self.base / "elsewhere.toml", "[features]\ncodex_hooks = false\n")
         own.symlink_to(elsewhere)
         self.assertEqual(layout.hooks_off(check, self.root, self.cwd, "q", home), own)
+
+    def test_project_layers_end_at_the_top(self):
+        """check.PROJECT_TOP is / for a launch, so every parent's layer counts; above a lower top none does."""
+        self.assertEqual(launch.guard.PROJECT_TOP, Path("/"))
+        self.assertIn(Path("/.codex/config.toml"), launch.guard.project_layers(self.cwd))
+        self.write(self.base / ".codex/config.toml", "[features]\nhooks = false\n")
+        self.assertTrue(self.off())
+        with patch.object(check, "PROJECT_TOP", self.base / "project"):
+            self.assertEqual(check.project_layers(self.cwd), {self.cwd / ".codex/config.toml",
+                                                              self.base / "project/.codex/config.toml"})
+            self.assertFalse(self.off(), "a layer above the top counts")
 
     def test_project_layers(self):
         """A trusted project's .codex/config.toml turns hooks off too; trust is not read, so any
@@ -485,6 +535,44 @@ class RunAttribution(Fixture):
         [[group]] = self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10)[1:2]
         self.assertEqual(sorted(group), sorted([main, by_parent]))
 
+    def test_a_tui_session_elsewhere_that_names_none_of_the_run_s_is_unsure(self):
+        """A new TUI session in another directory that names no session of the run, also by a forked_from_id
+        that is no id or a directory with a NUL in it, may be another client's: MAYBE, and never an error,
+        which would leave the check after the run nothing to tell."""
+        main = self.rollout(self.THREAD, [ANSWER], source="cli")
+        odd = self.rollout(self.OTHER, [CALL], source="cli", cwd=str(self.base), forked_from_id=["x"])
+        nul = self.rollout("019a0000-0000-7000-8000-0000000000cc", [CALL], source="cli", cwd=str(self.cwd) + "\0x")
+        linked = self.rollout("019a0000-0000-7000-8000-0000000000dd", [CALL], source="cli", cwd=str(self.base),
+                              forked_from_id=self.THREAD.upper())
+        sure, either, maybe = self.threads([], self.t0 - 1, self.t0 + 10)
+        self.assertEqual((sorted(sure), either, sorted(maybe)), (sorted([[main], [linked]]), [], sorted([[odd], [nul]])))
+        sure, either, maybe = self.threads([], self.t0 - 1, self.t0 + 10, alone=False)
+        self.assertEqual((sure, either, sorted(maybe)), ([], [], sorted([[main], [linked], [odd], [nul]])))
+
+    def test_exec_resume_s_own_session_not_found_leaves_older_sessions_without_a_turn_unsure(self):
+        """exec resume without an id continues an older session in which it begins a turn in its directory, or starts
+        one there. When the run has neither (as when a Codex release stops recording a turn's directory), an older
+        session of the account written during the run in which no turn began may be its own: MAYBE, so the check
+        tells of it. Never when the run's own session is found, never one whose turn began elsewhere, and never for
+        a run that continues no session it does not name."""
+        old = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(self.t0 - 3600))
+        rollout = lambda thread, lines, **meta: self.rollout(thread, lines, timestamp=old, **meta)
+        untold = rollout(self.THREAD, [CALL])
+        resume = ["exec", "resume", "--last", "go"]
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [], [[untold]]))
+        self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [], []))
+        self.assertEqual(self.threads(["exec", "resume", UUID, "go"], self.t0 - 1, self.t0 + 10), ([], [], []))
+        self.assertEqual(self.threads(resume, self.t0 + 1, self.t0 + 10), ([], [], []), "written before the run")
+        turned = rollout(self.OTHER, [turn(self.cwd), ANSWER])
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [[turned]], []))
+        turned.unlink()
+        new = self.rollout(self.OTHER, [ANSWER])
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [[new]], []))
+        new.unlink()
+        untold.unlink()
+        rollout(self.THREAD, [turn(self.base), CALL])
+        self.assertEqual(self.threads(resume, self.t0 - 1, self.t0 + 10), ([], [], []))
+
     def test_a_session_meta_line_longer_than_one_read_is_read(self):
         path = self.rollout(self.THREAD, [CALL], base_instructions={"text": "x" * (3 * launch.CHUNK)})
         self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [[path]], []))
@@ -508,6 +596,50 @@ class RunAttribution(Fixture):
         os.unlink(state + ".blocked")
         Path(state + ".blocked").write_text("codex-as: A: stopped\n")
         self.assertEqual(launch.blocked_message(state), "codex-as: A: stopped")
+
+    def test_a_launch_that_arrives_in_between_changes_the_lease_file_s_size(self):
+        """Layout.arrive: each launch of the account appends to the lease file it holds, so the size a later
+        acquire() reads differs once another launch arrived, also one that ended again meanwhile."""
+        run, end, second = (layout.Layout(check, "A", self.config) for _ in range(3))
+        for lease in (run, end, second):
+            self.addCleanup(lease.close)
+        self.assertTrue(run.acquire())
+        fcntl.flock(run.fd, fcntl.LOCK_SH)  # as a launch holds it while Codex runs
+        mark = run.arrive()
+        self.assertEqual(mark, run.size + 1)
+        self.assertFalse(end.acquire())
+        self.assertEqual(end.size, mark, "nothing arrived")
+        end.close()
+        self.assertFalse(second.acquire())
+        second.arrive()
+        second.close()
+        self.assertFalse(end.acquire())
+        self.assertEqual(end.size, mark + 1)
+        info = (self.root / "accounts/.locks/A.lock").lstat()
+        self.assertEqual((info.st_mode & 0o7777, info.st_nlink), (0o600, 1))
+
+    def test_a_launch_that_holds_the_lease_alone_bounds_the_lease_file(self):
+        """Layout.arrive: a launch whose acquire() got the lease exclusively, so that no run in progress compares
+        sizes, empties a lease file of LEASE_LIMIT bytes or more before it appends; one that shares the lease never
+        empties it, so a run in progress still reads another size once a launch arrived."""
+        lease, other = (layout.Layout(check, "A", self.config) for _ in range(2))
+        for item in (lease, other):
+            self.addCleanup(item.close)
+        path = self.root / "accounts/.locks/A.lock"
+        self.assertTrue(lease.acquire())
+        path.write_bytes(b"\n" * (layout.LEASE_LIMIT - 1))
+        lease.close()
+        self.assertTrue(lease.acquire())
+        self.assertEqual(lease.arrive(True), layout.LEASE_LIMIT, "below the limit it only grows")
+        lease.close()
+        self.assertTrue(lease.acquire())
+        self.assertEqual(lease.arrive(True), 1)
+        fcntl.flock(lease.fd, fcntl.LOCK_SH)  # as a launch holds it while Codex runs
+        path.write_bytes(b"\n" * layout.LEASE_LIMIT)
+        self.assertFalse(other.acquire())
+        self.assertEqual(other.arrive(False), layout.LEASE_LIMIT + 1)
+        info = path.lstat()
+        self.assertEqual((info.st_mode & 0o7777, info.st_nlink), (0o600, 1))
 
     def test_a_native_killed_by_a_signal_is_re_raised(self):
         """SIGQUIT among them: codex-as forwards it, and a native whose default action it ended ends codex-as
@@ -571,6 +703,44 @@ class Hooks(unittest.TestCase):
                 self.assertTrue(check.arguments(["-c", value], None).hooks_override)
 
 
+class HookSelection(unittest.TestCase):
+    """The pre-commit hook runs codex-guard.sh --hook: every in-process class, and of GuardedLaunch one case
+    per launch form; ./tests/run.sh runs every case. unittest's -k matches a substring of each test's name."""
+
+    # The GuardedLaunch case the hook runs for each launch form.
+    FORMS = {"interactive": "test_an_interactive_launch_gets_the_hooks_the_guard_and_goals_off",
+             "headless": "test_a_headless_run_prints_the_guard_s_block_after_codex_exits",
+             "refused": "test_forms_the_hooks_cannot_see_are_refused",
+             "plain": "test_a_plain_form_launches_as_without_reserves"}
+
+    def test_the_hook_runs_every_in_process_class_and_named_launch_cases(self):
+        text = (ROOT / "tests/codex-guard.sh").read_text()
+        block = re.search(r'(?ms)^if \[\[ "\$\{1:-\}" == --hook \]\]; then$(.*?)^fi$', text)
+        self.assertIsNotNone(block, "codex-guard.sh has no --hook selection")
+        patterns = re.findall(r"-k (\S+)", block[1])
+        loader = unittest.TestLoader()
+        classes = [item for item in globals().values() if isinstance(item, type) and issubclass(item, unittest.TestCase)]
+        names = {cls.__name__: [f"test_codex_guard.{cls.__name__}.{name}" for name in loader.getTestCaseNames(cls)]
+                 for cls in classes}
+        every = [name for group in names.values() for name in group]
+        for pattern in patterns:
+            with self.subTest(pattern=pattern):
+                found = [name for name in every if pattern in name]
+                self.assertTrue(found, "the hook names a test that does not exist")
+                if pattern.startswith(".GuardedLaunch."):
+                    self.assertEqual(len(found), 1, "a launch case pattern selects more than one case")
+        chosen = lambda name: any(pattern in name for pattern in patterns)
+        for cls, group in names.items():
+            with self.subTest(cls=cls):
+                if cls == "RealCodex":
+                    self.assertFalse(any(map(chosen, group)), "the hook runs the real Codex")
+                elif cls == "GuardedLaunch":
+                    self.assertEqual(sorted(name.rpartition(".")[2] for name in group if chosen(name)),
+                                     sorted(self.FORMS.values()), "one launch case per form")
+                else:
+                    self.assertTrue(all(map(chosen, group)), "an in-process case is left out of the hook")
+
+
 FAKE = r'''
 import json, os, pathlib, signal, subprocess, sys, time, tomllib
 if sys.argv[1:] == ["--version"]:
@@ -623,6 +793,8 @@ for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
                 "creator_user_id": item["creator"][0], "creator_account_id": item["creator"][1]}
         if "parent" in item:
             meta["parent_thread_id"] = item["parent"]
+        if "forked_from" in item:  # a fork's session names the one it was forked from
+            meta["forked_from_id"] = item["forked_from"]
         if "padding" in item:  # long base instructions: a session_meta line of more than one read
             meta["base_instructions"] = {"text": "x" * item["padding"]}
         lines = [{"type": "session_meta", "payload": meta}, *item["lines"]]
@@ -667,13 +839,19 @@ WITHOUT = "; to launch without usage reserves, run codex-as --reserve-5h off --r
 # showing it, which another client of the account may have written instead.
 WARNING = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run {} (not trusted, disabled, "
            "or managed hooks only). Start codex-as A interactively and trust them in \"Hooks need review\".\n")
-NOTICE = ("codex-as: A: the usage reserve may not have been enforced in this run: Codex did not run {} in a session of "
-          "A that this run or another one wrote during it (not trusted, disabled, or managed hooks only). Start "
-          "codex-as A interactively and trust them in \"Hooks need review\".\n")
+NOTICE = ("codex-as: A: the usage reserve may not have been enforced in this run: a session of A written during it, by "
+          "this run or by another client of A, shows that Codex did not run {} (not trusted, disabled, or managed hooks "
+          "only), and the check after the run cannot tell which client wrote it. If it was this run, start codex-as A "
+          "interactively and trust them in \"Hooks need review\".\n")
 # Rollout lines as native Codex writes them (the fake stamps them).
 ANSWER = {"type": "response_item", "payload": {"type": "message", "role": "assistant", "content": []}}
 CALL = {"type": "response_item", "payload": {"type": "function_call", "name": "exec_command", "arguments": "{}",
                                              "call_id": "call-1"}}
+
+
+def turn(cwd):
+    """The turn_context line Codex starts a turn with: the session's working directory at that turn."""
+    return {"type": "turn_context", "payload": {"cwd": str(cwd), "model": "fixture-model"}}
 
 
 # A token_count line as Codex writes it when a reply carries no rate-limit headers.
@@ -711,7 +889,12 @@ class GuardedLaunch(unittest.TestCase):
             source = self.kit / "lib/codex-as" / name
             text = source.read_text()
             self.assertEqual(text.count('Path("/etc/codex/'), count, name)
-            source.write_text(text.replace('Path("/etc/codex/', f"Path({str(self.etc)!r} + \"/"))
+            text = text.replace('Path("/etc/codex/', f"Path({str(self.etc)!r} + \"/")
+            if name == "check.py":
+                # Nor does a project layer above the test's directory (/tmp/.codex, say).
+                self.assertEqual(text.count('\nPROJECT_TOP = Path("/")\n'), 1)
+                text = text.replace('\nPROJECT_TOP = Path("/")\n', f"\nPROJECT_TOP = Path({str(self.base)!r})\n")
+            source.write_text(text)
         self.home = self.base / "home with spaces"
         self.root = self.home / ".codex"
         self.root.mkdir(parents=True, mode=0o700)
@@ -798,6 +981,20 @@ class GuardedLaunch(unittest.TestCase):
                     self.assertEqual(self.recorded(), plain, "the inherited guard variables reached Codex")
         self.assertFalse(self.guard_dir.exists(), "a launch without reserves made the guard directory")
 
+    def test_the_lease_file_stays_bounded(self):
+        """Each launch that can write sessions adds a byte to the account's lease file, with reserves or without; one
+        that holds the lease alone empties it first once it has reached LEASE_LIMIT bytes."""
+        lease = self.root / "accounts/.locks/A.lock"
+        for flags, size in (((), 1), ((), 2), (("--reserve-5h", "off"), 3)):
+            with self.subTest(flags=flags, size=size):
+                self.assertEqual(self.run_codex(*flags, "A", "exec", "go").returncode, 0)
+                self.assertEqual(lease.stat().st_size, size)
+        lease.write_bytes(b"\n" * layout.LEASE_LIMIT)
+        for flags, size in (((), 1), (("--reserve-5h", "off", "--reserve-weekly", "off"), 2)):
+            with self.subTest(flags=flags, size=size, full=True):
+                self.assertEqual(self.run_codex(*flags, "A").returncode, 0)
+                self.assertEqual(lease.stat().st_size, size)
+
     def test_an_interactive_launch_gets_the_hooks_the_guard_and_goals_off(self):
         before = int(time.time())
         result = self.run_codex("--reserve-5h", "12.5", "A", "fix it", env=dict.fromkeys(VARIABLES, "inherited"))
@@ -832,6 +1029,8 @@ class GuardedLaunch(unittest.TestCase):
                                (["A", "review"], [*self.guarded(), "review"]),
                                (["A", "exec", "go"], [*self.guarded(False), "exec", "go"]),
                                (["A", "-m", "o3", "exec", "go"], [*self.guarded(False), "-m", "o3", "exec", "go"]),
+                               # help is an image here, and the prompt comes from stdin.
+                               (["A", "exec", "-i", "shot.png", "help"], [*self.guarded(False), "exec", "-i", "shot.png", "help"]),
                                # A caller's --no-daemon is not given twice; goals stay off after the caller's values.
                                (["A", "--no-daemon", "go"], [*self.head()[:-1], "-c", PROMPT_HOOK, "-c", TOOL_HOOK,
                                                              "-c", "features.goals=false", "--disable", "goals",
@@ -849,10 +1048,10 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual(self.recorded()["args"], expected)
         self.assertEqual(self.launches(), [])
 
-    def test_plain_forms_launch_as_without_reserves(self):
+    def launches_plain(self, *argument_lists):
+        """With a reserve configured, each launch is the one --reserve-5h off gives, without the guard."""
         self.configure("[usage_reserve]\nfive_hour = 10\n")
-        for args in (["A", "mcp", "list"], ["A", "features", "list"], ["A", "login", "status"], ["A", "--help"],
-                     ["A", "exec", "--help"], ["A", "completion", "bash"]):
+        for args in argument_lists:
             with self.subTest(args=args):
                 result = self.run_codex("--reserve-5h", "off", *args)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -862,6 +1061,15 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual(self.recorded(), plain)
         self.assertFalse(self.guard_dir.exists())
 
+    def test_a_plain_form_launches_as_without_reserves(self):
+        self.launches_plain(["A", "mcp", "list"])
+
+    def test_plain_forms_launch_as_without_reserves(self):
+        self.launches_plain(["A", "features", "list"], ["A", "login", "status"], ["A", "--help"], ["A", "exec", "--help"],
+                            ["A", "exec", "help"], ["A", "e", "help", "resume"], ["A", "completion", "bash"],
+                            ["A", "git-credential", "get"], ["A", "cloud", "help"], ["A", "app-server", "help"],
+                            ["A", "exec-server", "help"], ["A", "debug", "app-server", "help"])
+
     def refused(self, args, reason, account="A", env=None):
         result = self.run_codex("--reserve-weekly", "10", *args, env=env)
         self.assertEqual((result.returncode, result.stdout, result.stderr),
@@ -869,18 +1077,26 @@ class GuardedLaunch(unittest.TestCase):
         self.assertFalse(self.record.exists(), "a refused launch started Codex")
         self.assertFalse((self.root / f"accounts/{account}").exists(), "a refused launch prepared the account")
 
-    def test_forms_and_options_the_hooks_cannot_cover_are_refused(self):
+    def test_forms_the_hooks_cannot_see_are_refused(self):
         self.trusted()
-        # The session's cwd is a worktree under CODEX_HOME (measured with codex-cli 0.169.0): the check after
-        # the run, which finds the run's new sessions by their directory, would see none of them.
-        worktree = ("--worktree runs the session in a Git worktree that Codex manages elsewhere, where the check after "
-                    "the run cannot find it to tell whether Codex ran the usage reserve guard's hooks")
-        for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["app-server"], "app-server"),
+        for args, name in ((["cloud"], "cloud"), (["cloud-tasks"], "cloud"), (["cloud", "list"], "cloud"),
+                           (["app-server"], "app-server"), (["app-server", "generate-ts"], "app-server"),
                            (["exec-server"], "exec-server"), (["remote-control"], "remote-control"),
+                           (["cloud", "exec", "--env", "x", "help"], "cloud"),
                            (["debug", "app-server", "send-message-v2", "hi"], "debug app-server")):
             with self.subTest(args=args):
-                self.refused(["A", *args], f"codex {name} runs model work where the usage reserve guard's hooks "
+                # Refused as a whole (designer's call 4), also where a subcommand runs no model work itself.
+                self.refused(["A", *args], f"codex {name} can run model work where the usage reserve guard's hooks "
                                            "cannot see or stop it")
+
+    def test_options_the_hooks_cannot_cover_are_refused(self):
+        self.trusted()
+        # The session's cwd is a worktree under CODEX_HOME (measured with codex-cli 0.169.0). The launch checks read
+        # the launch directory's project layers, and the check after a headless run, which finds its new session by
+        # its directory, would not see it there (a TUI's sessions under CODEX_HOME/worktrees are followed).
+        worktree = ("--worktree runs the session in a Git worktree that Codex creates under its home, whose project "
+                    "configuration the launch checks do not read, and where the check after a headless run does not "
+                    "look for the session to tell whether Codex ran the usage reserve guard's hooks")
         override = ("a -c or --config value under hooks would meet the usage reserve guard's hooks, which codex-as "
                     "passes as -c values of its own")
         disabled = "--disable hooks or a -c value under features turns off the hooks that enforce usage reserves"
@@ -929,7 +1145,7 @@ class GuardedLaunch(unittest.TestCase):
         project.unlink()
         # A system layer, from the test's directory in place of /etc/codex (setUp).
         self.etc.mkdir()
-        for name in ("config.toml", "managed_config.toml"):
+        for name in ("config.toml", "managed_config.toml", "requirements.toml"):
             with self.subTest(layer=name):
                 system = self.etc / name
                 system.write_text("[features]\nhooks = false\n")
@@ -1157,6 +1373,67 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stderr), (1, refusal))
         self.assertEqual(self.launches(), [])
 
+    def test_a_tui_s_work_is_followed_into_the_sessions_it_moves_to(self):
+        """A TUI moves its work to new sessions of its own elsewhere (measured with codex-cli 0.169.0): /cd forks
+        the conversation into the new directory, naming the session it left (forked_from_id, also along a
+        chain); /worktree starts one in a worktree under CODEX_HOME/worktrees; fork starts one in the forked
+        session's directory by default. Each is the run's: what it shows gives the warning and removes the
+        marker, and the next headless run is refused; with another client of the account at the run's start
+        or end, the notice. A new session elsewhere that names none of the run's (after /cd and /new, or
+        another client's) gets the notice."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        refusal = ("codex-as: A: Codex has not run the usage reserve guard's tool hook on this host yet, and a headless "
+                   "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
+                   "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
+        here, chat, work = str(self.cwd), [ANSWER, snapshot(20.0)], [CALL, snapshot(20.0)]
+        elsewhere, further = str(self.base / "elsewhere"), str(self.base / "further")
+        worktree = str(self.root / "accounts/A/worktrees/738e/work dir")
+        first, second = "019a0000-0000-7000-8000-0000000000c1", "019a0000-0000-7000-8000-0000000000c2"
+        session = lambda thread, cwd, lines, **extra: {"thread": thread, "creator": [USER, WORKSPACE], "cwd": cwd,
+                                                       "lines": lines, **extra}
+        cases = (  # the arguments, the sessions the run writes, the hooks it ran, the message, what it names
+            # /cd: the conversation forked into the new directory, and again from there.
+            ([], [session(THREAD, here, chat), session(first, elsewhere, work, forked_from=THREAD)], ["prompt"],
+             WARNING, "the guard's tool hook"),
+            ([], [session(THREAD, here, chat), session(first, elsewhere, chat, forked_from=THREAD),
+                  session(second, further, work, forked_from=first)], ["prompt"], WARNING, "the guard's tool hook"),
+            # /cd, then /new: a session elsewhere that names none of the run's.
+            ([], [session(THREAD, here, chat), session(first, elsewhere, work)], ["prompt"], NOTICE,
+             "the guard's tool hook"),
+            ([], [session(first, elsewhere, [ANSWER, *work])], [], NOTICE, "the guard's hooks"),
+            # /worktree: the session lies in a worktree that Codex manages.
+            ([], [session(THREAD, worktree, work)], [], WARNING, "the guard's hooks"),
+            # fork UUID, and the picker: the session the fork starts in the forked one's directory.
+            (["fork", UUID], [session(THREAD, elsewhere, work, forked_from=UUID)], [], WARNING, "the guard's hooks"),
+            (["fork"], [session(THREAD, elsewhere, work, forked_from=OTHER)], [], WARNING, "the guard's hooks"),
+            (["fork", UUID], [session(THREAD, elsewhere, work, forked_from=OTHER)], [], NOTICE, "the guard's hooks"),
+        )
+        for args, rollouts, hooks, message, missing in cases:
+            with self.subTest(args=args, sessions=len(rollouts), message=message[:30], missing=missing):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A", *args,
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": json.dumps(hooks)})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + message.format(missing)))
+                self.assertEqual(self.marker.exists(), message == NOTICE)
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual(result.returncode, 0 if message == NOTICE else 1, result.stderr)
+                if message == WARNING:
+                    self.assertEqual(result.stderr, refusal)
+        self.hold_the_account()
+        for rollouts in ([session(THREAD, here, chat), session(first, elsewhere, work, forked_from=THREAD)],
+                         [session(THREAD, worktree, work)]):
+            with self.subTest(held=True, sessions=len(rollouts)):
+                for child in (self.root / "sessions").iterdir():
+                    shutil.rmtree(child)
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + NOTICE.format("the guard's tool hook")))
+                self.assertTrue(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
     def test_a_sub_agent_named_by_its_parent_only_is_the_run_s(self):
         """A sub-agent whose session_id names no session of the run still belongs to it by its
         parent_thread_id; one that names neither is another session's."""
@@ -1176,14 +1453,15 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + printed))
                 self.assertEqual(self.marker.exists(), not printed)
 
-    def old_rollout(self, thread, seconds, source="cli"):
-        """A rollout of this account's THREAD that started SECONDS ago, as Codex left it then."""
+    def old_rollout(self, thread, seconds, source="cli", cwd=None):
+        """A rollout of this account's THREAD that started SECONDS ago (in CWD, by default the work
+        directory), as Codex left it then."""
         then = time.time() - seconds
         day = self.root / "sessions" / time.strftime("%Y/%m/%d", time.localtime(then))
         day.mkdir(parents=True, exist_ok=True)
         path = day / ("rollout-" + time.strftime("%Y-%m-%dT%H-%M-%S", time.localtime(then)) + f"-{thread}.jsonl")
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(then))
-        meta = {"id": thread, "session_id": thread, "timestamp": stamp, "cwd": str(self.cwd), "originator": "codex-tui",
+        meta = {"id": thread, "session_id": thread, "timestamp": stamp, "cwd": str(cwd or self.cwd), "originator": "codex-tui",
                 "source": source, "thread_source": "user", "creator_user_id": USER, "creator_account_id": WORKSPACE}
         path.write_text("".join(json.dumps({"timestamp": stamp, **line}) + "\n"
                                 for line in ({"type": "session_meta", "payload": meta}, ANSWER)))
@@ -1200,7 +1478,7 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_a_resumed_session_of_any_day_is_this_run_s(self):
         """resume --last, the picker and exec resume --last append to a thread they do not name, whose
-        rollout lies in the date directory of the day it started."""
+        rollout lies in the date directory of the day it started; exec resume begins its turn here."""
         warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's hooks "
                    "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
                    "\"Hooks need review\".\n")
@@ -1211,7 +1489,7 @@ class GuardedLaunch(unittest.TestCase):
                         shutil.rmtree(self.root / "sessions")
                     self.trusted()
                     path = self.old_rollout(THREAD, days * 86400)
-                    rollouts = [{"append": str(path), "lines": [CALL, snapshot(20.0)]}]
+                    rollouts = [{"append": str(path), "lines": [turn(self.cwd), CALL, snapshot(20.0)]}]
                     result = self.run_codex("--reserve-5h", "10", "A", *form,
                                             env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
                     self.assertEqual(result.returncode, 0, result.stderr)
@@ -1355,7 +1633,8 @@ class GuardedLaunch(unittest.TestCase):
                    "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
                    "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
         older = self.old_rollout(THREAD, 2 * 86400)
-        runs = ((["exec", "resume", "--last", "go"], [{"append": str(older), "lines": [CALL, snapshot(20.0)]}]),
+        runs = ((["exec", "resume", "--last", "go"], [{"append": str(older), "lines": [turn(self.cwd), CALL,
+                                                                                       snapshot(20.0)]}]),
                 (["exec", "go"], [{"thread": OTHER, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(95.0)]}]),
                 (["review"], [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(20.0)]}]))
         for args, rollouts in runs:
@@ -1380,7 +1659,8 @@ class GuardedLaunch(unittest.TestCase):
                                 env={"FAKE_ROLLOUTS": json.dumps(first), "FAKE_HOOKS": '["prompt", "tool"]'})
         self.assertEqual((result.returncode, result.stderr), (0, launch_line))
         [path] = (self.root / "sessions").glob("*/*/*/rollout-*.jsonl")
-        for args, rollouts in ((["exec", "resume", "--last", "next"], [{"append": str(path), "lines": [ANSWER, snapshot(21.0)]}]),
+        for args, rollouts in ((["exec", "resume", "--last", "next"],
+                                [{"append": str(path), "lines": [turn(self.cwd), ANSWER, snapshot(21.0)]}]),
                                (["exec", "next"], [{"thread": OTHER, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(21.0)]}]),
                                ([], [{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [ANSWER, snapshot(21.0)]}])):
             with self.subTest(args=args):
@@ -1392,8 +1672,9 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_a_concurrent_launch_of_the_account_is_not_this_run_s(self):
         """A session another program started during the run is this run's only when this run's kind of
-        Codex wrote it here: the TUI leaves out an exec's, an exec a TUI's, and both one of another
-        directory. Of several exec sessions started here during a headless run, one is the run's: what
+        Codex wrote it here: the TUI leaves out an exec's, an exec a TUI's and one of another directory,
+        while a TUI session of another directory may be the TUI's own (after /cd and /new) and gets the
+        notice. Of several exec sessions started here during a headless run, one is the run's: what
         every one of them shows gives the warning, and what only some show the notice, with the marker
         kept, since that session may be another run's."""
         tool_hook = WARNING.format("the guard's tool hook")
@@ -1407,13 +1688,15 @@ class GuardedLaunch(unittest.TestCase):
             (["exec", "go"], own, [{"lines": others, "source": "cli"}], ""),
             (["exec", "go"], own, [{"lines": others, "cwd": elsewhere}], ""),
             ([], own, [{"lines": others, "source": "exec"}], ""),
-            ([], own, [{"lines": others, "cwd": elsewhere}], ""),
+            # A TUI session elsewhere may be this TUI's after /cd and /new, or another client's.
+            ([], own, [{"lines": others, "cwd": elsewhere}], unsure),
             (["exec", "go"], others, [{"lines": others}, {"lines": others}], tool_hook),
             (["exec", "go"], others, [{"lines": own}], unsure),
             (["exec", "go"], others, [{"lines": own, "source": "cli"}], tool_hook),
             (["exec", "go"], others, [{"lines": own, "cwd": elsewhere}], tool_hook),
             (["exec", "go"], own, [{"lines": own}], ""),
-            # Alone, a TUI cannot tell a second TUI here that started and ended inside its run from its own sessions.
+            # Alone, a TUI takes a session started here during its run for its own; a second codex-as launch
+            # arriving makes it not alone (test_a_launch_of_the_account_that_arrives_during_a_run_leaves_it_unsure).
             ([], own, [{"lines": others}], tool_hook),
         )
         for args, lines, concurrent, printed in cases:
@@ -1453,8 +1736,9 @@ class GuardedLaunch(unittest.TestCase):
     def test_a_run_next_to_another_of_the_account_is_never_silent(self):
         """A run whose tool hook did not run, beside another session of the account that may be its own
         and made no tool call, gets the notice on every run, not silence: an exec next to another exec in
-        its directory, and exec resume --last next to an older TUI session of the account elsewhere. The
-        marker stays, since either session may be another run's whose hooks ran."""
+        its directory, and exec resume --last next to an older session of the account, begun elsewhere,
+        in which another client took a turn here. The marker stays, since either session may be another
+        run's whose hooks ran."""
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
         unsure = NOTICE.format("the guard's tool hook")
         for number in range(3):
@@ -1477,19 +1761,152 @@ class GuardedLaunch(unittest.TestCase):
         for number in range(3):
             with self.subTest(run=number, args="exec resume --last"):
                 self.trusted()
-                rollouts = [{"append": str(older), "lines": [CALL, snapshot(20.0)]},
-                            {"append": str(elsewhere), "lines": [ANSWER, snapshot(20.0)]}]
+                rollouts = [{"append": str(older), "lines": [turn(self.cwd), CALL, snapshot(20.0)]},
+                            {"append": str(elsewhere), "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}]
                 result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
                                         env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + unsure))
                 self.assertTrue(self.marker.exists())
-        # Without the other session's lines the run's own show it: the warning, and the marker goes.
-        self.trusted()
-        rollouts = [{"append": str(older), "lines": [CALL, snapshot(20.0)]}]
-        result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
-                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
-        self.assertEqual((result.returncode, result.stderr), (0, launch_line + WARNING.format("the guard's tool hook")))
-        self.assertFalse(self.marker.exists())
+        # Without the other session's turn here the run's own show it: the warning, and the marker goes.
+        for other in ([], [{"append": str(elsewhere), "lines": [turn(self.base), ANSWER, snapshot(20.0)]}]):
+            with self.subTest(other=bool(other)):
+                self.trusted()
+                rollouts = [{"append": str(older), "lines": [turn(self.cwd), CALL, snapshot(20.0)]}, *other]
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr),
+                                 (0, launch_line + WARNING.format("the guard's tool hook")))
+                self.assertFalse(self.marker.exists())
+        self.assertEqual(self.launches(), [])
+
+    def test_a_launch_of_the_account_that_arrives_during_a_run_leaves_it_unsure(self):
+        """A second codex-as launch of the account that can write sessions, with reserves or without, and that starts
+        and ends inside a TUI's run (a second terminal tab: here, in another repository, or continuing an older
+        session elsewhere) holds the lease only meanwhile, where neither of the run's lease checks sees it; its
+        arrival in the lease file makes the run not alone. What its sessions show gets the notice, never the
+        warning: the marker stays and the next headless run runs. That includes a second guarded TUI in another
+        repository whose tool hook ran, beside this TUI that only chatted: the check cannot tell whose hooks ran."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        elsewhere, repository = self.base / "elsewhere", self.base / "other repo"
+        elsewhere.mkdir()
+        repository.mkdir()
+        codex_as, inner = str(self.kit / "bin/codex-as"), self.base / "inner.json"
+        guarded, unguarded = ["--reserve-5h", "10"], ["--reserve-5h", "off", "--reserve-weekly", "off"]
+        tab = lambda cwd=self.cwd: [{"thread": UUID, "creator": [USER, WORKSPACE], "cwd": str(cwd),
+                                     "lines": [ANSWER, CALL, snapshot(20.0)]}]
+        chat = [ANSWER, snapshot(20.0)]
+        cases = (  # this TUI's own lines and hooks, the second launch's flags, arguments, sessions and hooks, what is missed
+            ([], [], guarded, [], tab, ["prompt", "tool"], "the guard's hooks"),
+            (chat, ["prompt"], guarded, [], tab, ["prompt", "tool"], "the guard's tool hook"),
+            (chat, ["prompt"], guarded, ["-C", str(repository)], lambda: tab(repository), ["prompt", "tool"],
+             "the guard's tool hook"),
+            ([], [], guarded, ["-C", str(elsewhere), "exec", "resume", "--last", "go"],
+             lambda: [{"append": str(self.old_rollout(OTHER, 86400, cwd=elsewhere)),
+                       "lines": [turn(elsewhere), ANSWER, CALL, snapshot(20.0)]}], ["prompt", "tool"], "the guard's hooks"),
+            # A tab without reserves runs no hook at all.
+            ([], [], unguarded, [], tab, [], "the guard's hooks"),
+            (chat, ["prompt"], unguarded, [], tab, [], "the guard's tool hook"),
+        )
+        for own, hooks, flags, args, rollouts, nested_hooks, missing in cases:
+            with self.subTest(own=len(own), flags=flags, args=args):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                nested = {"argv": [codex_as, *flags, "A", *args],
+                          "env": {"FAKE_ROLLOUTS": json.dumps(rollouts()), "FAKE_HOOKS": json.dumps(nested_hooks),
+                                  "FAKE_RECORD": str(inner)}}
+                own_rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": own}] if own else []
+                result = self.run_codex("--reserve-5h", "10", "A", env={
+                    "FAKE_NESTED": json.dumps(nested), "FAKE_ROLLOUTS": json.dumps(own_rollouts),
+                    "FAKE_HOOKS": json.dumps(hooks)})
+                self.assertEqual(self.recorded()["nested"],
+                                 [0, "fake codex ran\n", launch_line if flags == guarded else ""])
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + NOTICE.format(missing)))
+                self.assertTrue(self.marker.exists())
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
+        self.assertEqual(self.launches(), [])
+
+    def test_a_plain_launch_of_the_account_during_a_run_leaves_it_alone(self):
+        """A launch of a plain form writes no session and does not arrive in the lease file, with a reserve or
+        without: a TUI whose own session shows that Codex did not run the guard's hooks still gets the warning,
+        the marker goes and the next headless run is refused."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        lease, inner = self.root / "accounts/.locks/A.lock", self.base / "inner.json"
+        own = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [ANSWER, CALL, snapshot(20.0)]}]
+        for flags, args in (([], ["mcp", "list"]), (["--reserve-5h", "10"], ["login", "status"]),
+                            (["--reserve-5h", "10"], ["exec", "--help"])):
+            with self.subTest(flags=flags, args=args):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                self.trusted()
+                size = lease.stat().st_size if lease.exists() else 0
+                nested = {"argv": [str(self.kit / "bin/codex-as"), *flags, "A", *args],
+                          "env": {"FAKE_ROLLOUTS": "[]", "FAKE_HOOKS": "[]", "FAKE_RECORD": str(inner)}}
+                result = self.run_codex("--reserve-5h", "10", "A", env={
+                    "FAKE_NESTED": json.dumps(nested), "FAKE_ROLLOUTS": json.dumps(own), "FAKE_HOOKS": "[]"})
+                self.assertEqual(self.recorded()["nested"], [0, "fake codex ran\n", ""])
+                self.assertEqual((result.returncode, result.stderr),
+                                 (0, launch_line + WARNING.format("the guard's hooks")))
+                self.assertEqual(lease.stat().st_size, size + 1, "only the TUI arrived")
+                self.assertFalse(self.marker.exists())
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(self.launches(), [])
+
+    def test_exec_resume_without_an_id_is_told_by_the_turn_it_begins_here(self):
+        """exec resume --last continues the newest session whose latest turn was in its directory, and begins
+        its own turn there, or starts a session there when it finds none (measured with codex-cli 0.169.0,
+        RealCodex): a new session it starts is the run's (the warning, the marker removed, the next headless
+        run refused), an older session counts only with a turn begun here during the run, and an older
+        session of the account that another client continued elsewhere meanwhile is not the run's. Lines
+        written without a turn begun may be the run's only when its own session is not found: the notice."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        refusal = ("codex-as: A: Codex has not run the usage reserve guard's tool hook on this host yet, and a headless "
+                   "run skips hooks that are not trusted without a word: start codex-as A once interactively, trust the "
+                   "hooks in \"Hooks need review\" and let it run one tool call" + WITHOUT.format(account="A"))
+        for number, hooks in enumerate(([], ["prompt"], [])):
+            fresh = self.base / f"fresh {number}"
+            fresh.mkdir()
+            with self.subTest(fresh=fresh.name, hooks=hooks):
+                self.trusted()
+                rollouts = [{"thread": f"019a0000-0000-7000-8000-{number + 1:012x}", "creator": [USER, WORKSPACE],
+                             "cwd": str(fresh), "lines": [turn(fresh), ANSWER, CALL, snapshot(20.0)]}]
+                result = self.run_codex("--reserve-5h", "10", "A", "-C", str(fresh), "exec", "resume", "--last", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": json.dumps(hooks)})
+                missing = "the guard's tool hook" if hooks else "the guard's hooks"
+                self.assertEqual((result.returncode, result.stderr), (0, launch_line + WARNING.format(missing)))
+                self.assertFalse(self.marker.exists())
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+                self.assertEqual((result.returncode, result.stderr), (1, refusal))
+        shutil.rmtree(self.root / "sessions")
+        elsewhere = self.base / "elsewhere"
+        older, other = self.old_rollout(THREAD, 86400), self.old_rollout(OTHER, 2 * 86400, cwd=elsewhere)
+        cases = (  # what this run writes, what another client writes meanwhile, what is printed
+            # A session that started elsewhere, continued here: the run's.
+            ([{"append": str(other), "lines": [turn(self.cwd), CALL, snapshot(20.0)]}], [], WARNING),
+            # The run's new session here, chat only, beside an older session continued elsewhere.
+            ([{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}],
+             [{"append": str(other), "lines": [turn(elsewhere), CALL, snapshot(20.0)]}], ""),
+            # The run's older session, chat only, beside the same.
+            ([{"append": str(older), "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}],
+             [{"append": str(other), "lines": [turn(elsewhere), CALL, snapshot(20.0)]}], ""),
+            # Lines without a turn begun are not a turn of this run, whose own session is here.
+            ([{"thread": UUID, "creator": [USER, WORKSPACE], "lines": [turn(self.cwd), ANSWER, snapshot(20.0)]}],
+             [{"append": str(other), "lines": [CALL, snapshot(20.0)]}], ""),
+            # Without a session of the run found, they may be its own, as with a Codex that records no turn's directory.
+            ([], [{"append": str(other), "lines": [CALL, snapshot(20.0)]}], NOTICE),
+        )
+        for own, others, printed in cases:
+            with self.subTest(own=len(own), others=len(others), printed=printed[:20]):
+                self.trusted()
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "resume", "--last", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps([*own, *others]), "FAKE_HOOKS": '["prompt"]'})
+                self.assertEqual((result.returncode, result.stderr),
+                                 (0, launch_line + printed.format("the guard's tool hook")))
+                self.assertEqual(self.marker.exists(), printed != WARNING)
+        result = self.run_codex("--reserve-5h", "10", "A", "exec", "go")
+        self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
         self.assertEqual(self.launches(), [])
 
     def test_an_exec_of_the_account_inside_a_session_is_not_the_session_s(self):
@@ -1567,26 +1984,30 @@ class GuardedLaunch(unittest.TestCase):
 
     def test_a_file_server_s_clock_never_hides_the_run_s_rollouts(self):
         """On a network home directory a rollout's file time comes from the file server's clock: one that
-        lags this host's by 30 seconds still has its lines, stamped by Codex on this host, read."""
+        lags this host's by 30 seconds still has its lines, stamped by Codex on this host, read, and the
+        account record takes its snapshot."""
         warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's hooks "
                    "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
                    "\"Hooks need review\".\n")
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
-        for args in (["exec", "go"], [], ["resume", "--last"]):
+        for number, args in enumerate((["exec", "go"], [], ["resume", "--last"])):
             with self.subTest(args=args):
                 if (self.root / "sessions").exists():
                     shutil.rmtree(self.root / "sessions")
+                # A snapshot replaces the record's only when newer by its own second.
+                (self.state / "accounts/codex-A.json").unlink(missing_ok=True)
                 self.trusted()
+                lines = [CALL, snapshot(21.0 + number)]
                 if args[:1] == ["resume"]:
-                    rollouts = [{"append": str(self.old_rollout(THREAD, 2 * 86400)), "lines": [CALL, snapshot(20.0)],
-                                 "mtime": -30}]
+                    rollouts = [{"append": str(self.old_rollout(THREAD, 2 * 86400)), "lines": lines, "mtime": -30}]
                 else:
-                    rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": [CALL, snapshot(20.0)],
-                                 "mtime": -30}]
+                    rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": lines, "mtime": -30}]
                 result = self.run_codex("--reserve-5h", "10", "A", *args,
                                         env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + warning))
                 self.assertFalse(self.marker.exists())
+                usage = json.loads((self.state / "accounts/codex-A.json").read_text())["usage"]
+                self.assertEqual(usage["primary"]["used_percent"], 21.0 + number)
 
     def test_other_accounts_newer_sessions_never_crowd_out_the_run_s(self):
         """However many sessions other accounts write after this run's own (one guardian review per
@@ -1936,18 +2357,12 @@ class RealCodex(unittest.TestCase):
         the five-hour window used in the account record of earlier runs, SENT percent in the rate limits
         the fake sends with every answer (None: no record, no rate limits)."""
         now = int(time.time())
+        self.serve({} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]})
         if recorded is not None:
             window = {"used_percent": float(recorded), "window_minutes": 300, "resets_at": now + 3600}
             load_kit_module(self.kit, "accounts").write(self.record, {
                 "email": "alice@example.com", "plan": "plus",
                 "usage": {"primary": window, "secondary": None, "seen_at": now - 60}})
-        limits = {} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]}
-        fake = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(CODEX_BACKEND), "--log", str(self.requests),
-                                 "--limits", json.dumps(limits), "--shell", f"echo call >> {shlex.quote(str(self.calls))}"],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, env={}, start_new_session=True)
-        for cleanup in (fake.stdout.close, fake.stdin.close, lambda: fake.wait(10), lambda: kill_group(fake.pid)):
-            self.addCleanup(cleanup)
-        self.sandbox.configure(int(fake.stdout.readline()))
         guard_launch = load_kit_module(self.kit, "guard_launch")
         policy = self.reserve.Policy("codex-as", "A",
                                      self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
@@ -1973,6 +2388,15 @@ class RealCodex(unittest.TestCase):
                             "Codex said something about the goals flag")
         return code, out, err, state, models
 
+    def serve(self, limits):
+        """The loopback fake as Codex's model provider, its answers carrying the rate limits LIMITS."""
+        fake = subprocess.Popen([sys.executable, "-I", "-B", "-S", str(CODEX_BACKEND), "--log", str(self.requests),
+                                 "--limits", json.dumps(limits), "--shell", f"echo call >> {shlex.quote(str(self.calls))}"],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, env={}, start_new_session=True)
+        for cleanup in (fake.stdout.close, fake.stdin.close, lambda: fake.wait(10), lambda: kill_group(fake.pid)):
+            self.addCleanup(cleanup)
+        self.sandbox.configure(int(fake.stdout.readline()))
+
     def shell_calls(self):
         return len(self.calls.read_text().splitlines()) if self.calls.exists() else 0
 
@@ -1981,6 +2405,33 @@ class RealCodex(unittest.TestCase):
             self.assertTrue(os.path.exists(state + name), f"{name} is missing")
         for name in absent:
             self.assertFalse(os.path.exists(state + name), f"{name} exists")
+
+    def test_exec_resume_begins_its_turn_here_or_starts_a_session_here(self):
+        """What the check after a run takes as exec resume's own session: exec resume --last with no session of
+        its directory starts one there, and a session it continues, from whatever directory that session
+        started in (with --all), records this directory in the turn_context of its new turn."""
+        self.serve({"primary": [20.0, 300, 3600]})
+        other = self.sandbox.base / "other"
+        other.mkdir()
+        with open(self.sandbox.codex_home / "config.toml", "a") as stream:
+            stream.write(f"[projects.{json.dumps(str(other))}]\ntrust_level = \"trusted\"\n")
+        env = self.sandbox.env()
+        for args in (["exec", "--skip-git-repo-check", "resume", "--last", "PLAIN here"],
+                     ["exec", "-C", str(other), "--skip-git-repo-check", "PLAIN there"],
+                     ["exec", "--skip-git-repo-check", "resume", "--last", "--all", "PLAIN back here"]):
+            with self.subTest(args=args):
+                code, out, err = self.sandbox.run(self.codex, args, env)
+                self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
+        refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED ssh")]
+        self.assertEqual(refused, [], "Codex tried to reach a host through ssh")
+        found = {}
+        for path in (self.sandbox.codex_home / "sessions").glob("*/*/*/rollout-*.jsonl"):
+            lines = [json.loads(line) for line in path.read_text().splitlines()]
+            found[lines[0]["payload"]["cwd"]] = (lines[0]["payload"]["source"],
+                                                 [line["payload"]["cwd"] for line in lines if line["type"] == "turn_context"])
+        work = str(self.sandbox.work)
+        self.assertEqual(found, {work: ("exec", [work]), str(other): ("exec", [str(other), work])})
 
     def test_a_prompt_at_the_reserve_is_never_sent(self):
         code, out, err, state, models = self.run_codex("PLAIN say hello", recorded=95)
