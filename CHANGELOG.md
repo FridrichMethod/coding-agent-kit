@@ -126,15 +126,15 @@ Added:
   `codex-as --reserve-5h off NAME resume --last`.
 - Hooks that the native does not run are reported where the kit can tell.
   In Claude Code the guard's status line prints `reserve guard not running`
-  as the first footer line once the session has had a reply and no hook has
-  run, and the next guarded launch of the account warns `claude-as: NAME: an
-  earlier launch ran without its usage reserve guard: Claude Code did not run
-  the injected hooks.` After a Codex run, `codex-as` warns when the run's
-  own sessions show that Codex did not run the guard's hooks, and gives a
-  notice when the session that shows it may be another client's of the
-  account; it also prints the guard's latest block message after a headless
-  run, since `codex exec` exits 0 either way and shows no reason for a
-  refused prompt.
+  as the first footer line when its input has a usable window (the session
+  has had a reply) and no hook has run, and the next guarded launch of the
+  account warns `claude-as: NAME: an earlier launch ran without its usage
+  reserve guard: Claude Code did not run the injected hooks.` After a Codex
+  run, `codex-as` warns when the run's own sessions show that Codex did not
+  run the guard's hooks, and gives a notice when the session that shows it
+  may be another client's of the account; it also prints the guard's latest
+  block message after a headless run, since `codex exec` exits 0 either way
+  and shows no reason for a refused prompt.
 - Headless Codex runs with a reserve (`exec` in every form, `review`) are
   refused until the guard's tool hook has run under Codex on this host,
   since a headless run skips a hook that is not trusted without a word; a
