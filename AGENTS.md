@@ -2,12 +2,13 @@
 
 This repository is coding-agent-kit, a standalone Codex and Claude Code
 multi-account wrapper: the `codex-as` and `claude-as` launchers, with optional
-usage reserves, and three Claude Code helpers (status line, notifications, Git
-hook guard). It installs on top of an existing `codex` or `claude` and never
-installs either. Users install it as a managed install that follows the newest
-patch release of a channel (`install.sh` piped to `sh`), with `install.sh`
-from a checkout of their own, or by linking or copying its files. It runs on
-Linux and macOS (WSL counts as Linux); native Windows is not supported.
+usage reserves that a reserve guard enforces through the natives' own hooks,
+and three Claude Code helpers (status line, notifications, Git hook guard). It
+installs on top of an existing `codex` or `claude` and never installs either.
+Users install it as a managed install that follows the newest patch release of
+a channel (`install.sh` piped to `sh`), with `install.sh` from a checkout of
+their own, or by linking or copying its files. It runs on Linux and macOS (WSL
+counts as Linux); native Windows is not supported.
 
 ## Scope and layout
 
@@ -17,7 +18,9 @@ lib/codex-as/*.py                codex-as modules: launch, check, layout, handof
 lib/claude-as/*.py               claude-as module: launch
 lib/coding-agent-kit/config.py   the configuration loader both launchers share
 lib/coding-agent-kit/accounts.py the account metadata cache both launchers share
-lib/coding-agent-kit/reserve.py  reserve flags, per-window policy and formatting (pure)
+lib/coding-agent-kit/reserve.py  reserve flags, per-window policy, the guard's decision and messages (pure)
+lib/coding-agent-kit/guard.py    the reserve guard: hook and status line command of a launch with a reserve
+lib/coding-agent-kit/guard_launch.py what both launchers need to start a guarded launch
 completions/{bash,zsh}/          account-name and own-option completion for both launchers
 helpers/*.cjs                    Claude Code helpers (Node)
 install.sh                       links a checkout's bin/ and completions/ into a prefix; the managed install
@@ -36,7 +39,8 @@ tests/                           suites, fixtures, runners, COVERAGE.md
   pure shell and work without `python3`; `--version` also needs no `git` and
   starts no native CLI. Every other Python entry checks the Python version first, then
   loads its modules inside the error handling, so a missing file prints
-  `incomplete install at ROOT`, never a traceback.
+  `incomplete install at ROOT`, never a traceback. The guard checks the
+  Python version first too, and a module it cannot load is a guard failure.
 - `lib/coding-agent-kit/config.py` is the only launcher or completion code
   that reads `HOME`, `XDG_STATE_HOME` or the configuration file (a test greps for other reads). It loads once per run into
   one frozen object that every consumer takes. Unknown keys warn and never
@@ -59,7 +63,7 @@ tagged only from a green `main` and never changes an interface.
 pre-commit hook:
 
 - The public paths and their modes (`git ls-files -s`): the launchers, their
-  `lib/` modules, the shared `lib/coding-agent-kit/` modules, the completions, the helpers, `install.sh`
+  `lib/` modules, the shared `lib/coding-agent-kit/` modules (`guard.py` and `guard_launch.py` among them), the completions, the helpers, `install.sh`
   and the three docs. Consumers may link these paths one by one from a tree of
   their own, copied installs depend on the `bin/` plus `lib/` shape, and
   `--help` points at `docs/account-launchers.md`.
@@ -77,13 +81,22 @@ and `--show-config`, with their outputs and exit codes (`--version` prints
 `coding-agent-kit X.Y.Z (FORM)`, FORM being `managed vX.Y.Z, channel X.Y`,
 `checkout ROOT`, `files ROOT` or `unknown`); the hint and exit code for any
 other dash word there; the launch flags `--reserve-5h V` and
-`--reserve-weekly V` before NAME, with their errors; the `main` each helper exports, the
+`--reserve-weekly V` before NAME, with their errors and their meaning (the
+reserve guard, and the launch forms it refuses); the `main` each helper exports, the
 configuration file location, keys and defaults, the account metadata files in
 `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/accounts/` with their
 fields, `install.sh` with its options and exit codes,
 `CODING_AGENT_KIT_COLOR`, and the `CODING_AGENT_KIT_USAGE_FILE`,
 `CODING_AGENT_KIT_TOKEN_ID` and `CODING_AGENT_KIT_CLAUDE_PID` that
-`claude-as` passes its child.
+`claude-as` passes its child. A launch with a reserve that the kit refuses
+exits 1; the refusal reasons, the guard's block messages, the line a guarded
+launch prints and the footer line `reserve guard not running` are documented
+behavior, not a machine interface. `CODING_AGENT_KIT_GUARD`,
+`CODING_AGENT_KIT_GUARD_SCRIPT` and `CODING_AGENT_KIT_GUARD_PYTHON` are
+launcher-internal: the launcher's channel to the guard it injects, removed
+from every launch's environment and set only for a guarded one, never an
+interface for other programs; so are the guard's state files under
+`${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/guard/`.
 
 The managed install is the interface other repositories install the kit
 through, so all of it is public, guarded by `tests/managed-install.sh`: the
@@ -117,6 +130,7 @@ The kit runs on what a host already has and stays small enough to audit.
 - A missing optional tool narrows the feature; a missing required tool fails once with a message that names it, never with a traceback or a half-done run. For example, codex-as without `git` limits takeover to the launch directory.
 - A wrapper forwards to the native tool instead of reimplementing it. It requires a minimum version, never an exact pin or an upper bound. Anything beyond the tool's documented CLI and files (internal socket paths, wire protocols, lock layouts) is best effort: a failure there warns and falls back to plain native behavior, and blocks or asks only where continuing could lose work.
 - Keep helper code proportional to what it adds over the native tool. A feature that needs its own protocol client, journal or lock scheme must justify its code and test cost; prefer the native tool's own feature when one exists.
+- Usage reserves are enforced by the reserve guard (`guard.py`), which a launch with a reserve on injects as the natives' own hooks (`claude-as` with `--settings`, also as Claude Code's status line; `codex-as` with `-c hooks.*`): one short process per hook event under the launcher's own `python3 -I -B -S`, never a service, daemon or background process. It reads, best effort, the usage data the native already has: the rate limits in Claude Code's status line input, which it records in the account's usage file, and the Codex session rollout and account record; what it cannot read or does not know counts as no data. Unlike the rule above, best effort never falls back to plain native behavior here: with a reserve on, a session that the guard sees has had a reply but no usage data, a guard failure on a prompt or a tool call, and a launch form the hooks cannot cover block or are refused, and hooks that the native does not run at all are reported (a footer line, a warning after the run or at the next launch), never ignored. A launch with both reserves off injects nothing and follows every rule above unchanged. The guard requires a minimum native release (`GUARD_MINIMUM` in `lib/claude-as/launch.py`; for Codex the `MINIMUM_VERSION` in `lib/codex-as/check.py` that every launch needs), never an exact pin or an upper bound, and its Codex hook definitions stay the same across releases, because Codex trusts a hook by a hash of its definition.
 - Tests use the Python standard library (`unittest`), Node's built-in test runner, the shells under test and fakes for third-party CLIs, run in a temporary HOME, and reach no network beyond `127.0.0.1` fixtures. A test may use a real host tool (zsh, dash, GNU Stow, codex, Claude Code) when it is present and must skip cleanly, with the reason, when it is absent. Nothing in the suites needs Docker, the internet or real credentials. Tests never touch the real home, its credentials or running daemons.
 - CI runs every pre-commit hook on every push, so keep hooks scoped by `files:` and fast: test parsing and other pure logic in process, and spawn real shells and child processes only for behavior that needs them (exec, signals, umask, TTY, file modes).
 
@@ -125,7 +139,7 @@ The kit runs on what a host already has and stays small enough to audit.
 - Install into a prefix: `./install.sh [--prefix DIR]`; remove: `./install.sh --uninstall`
 - Managed install: `install.sh --managed --channel MAJOR.MINOR` (or piped to `sh -s --`); update: `"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update`; remove: `--uninstall [--purge]`
 - Run the tests: `./tests/run.sh` (CI: `--ci`)
-- Run one suite: `tests/config.sh`, `tests/codex-as.sh`, `tests/account-enrollment.sh`, `tests/account-info.sh`, `tests/reserves.sh`, `tests/reserve-completion.sh`, `tests/standalone-e2e.sh`, `tests/managed-install.sh`, `tests/contract.sh`
+- Run one suite: `tests/config.sh`, `tests/codex-as.sh`, `tests/account-enrollment.sh`, `tests/account-info.sh`, `tests/standalone-e2e.sh`, `tests/managed-install.sh`, `tests/contract.sh`; usage reserves: `tests/reserves.sh`, `tests/guard.sh`, `tests/claude-guard.sh`, `tests/codex-guard.sh`, `tests/reserve-completion.sh`
 - Run checks: `pre-commit run --all-files`
 
 ## Verification
@@ -144,7 +158,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
 
 ## Testing
 
-- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh` (the statement, and that the entry point is in its suite list; every `tests/test_*.py` must be run by an entry point), and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
+- Every test entry point (`tests/*.sh`) starts with the one statement `unset CODING_AGENT_KIT_CONFIG CODING_AGENT_KIT_COLOR CODING_AGENT_KIT_USAGE_FILE CODING_AGENT_KIT_TOKEN_ID CODING_AGENT_KIT_CLAUDE_PID CODING_AGENT_KIT_REPO_URL CODING_AGENT_KIT_GUARD CODING_AGENT_KIT_GUARD_SCRIPT CODING_AGENT_KIT_GUARD_PYTHON XDG_CONFIG_HOME XDG_STATE_HOME NO_COLOR`. `tests/test-entrypoints.sh` checks each entry point against `tests/run.sh` (the statement, and that the entry point is in its suite list; every `tests/test_*.py` must be run by an entry point), and that the statement names every `CODING_AGENT_KIT_*` variable (pattern `_?CODING_AGENT_KIT_[A-Z_]+`) in a tracked file outside `tests/`, `docs/`, `.github/` and Markdown, so a knob a new file reads goes on that list too. Python tests that pass the caller's environment on drop the same names in `setUp`.
 - Behavior coverage is tracked as a source-to-test matrix in `tests/COVERAGE.md`; update it with the tests.
 
 ## Line endings
