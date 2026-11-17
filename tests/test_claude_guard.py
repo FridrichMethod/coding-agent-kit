@@ -58,15 +58,16 @@ DAY = 86400
 GONE = 4_194_400  # a process id above every host's limit: a launch that has ended
 MARKER = "codex-hooks-90aeb3ec484a2ca6"
 # Records argv and environment, never a token; one JSON line per run. --version prints
-# CLAUDE_FAKE_VERSION and leaves a line in FAKE_VERSIONS; setup-token prints CLAUDE_FAKE_TOKEN as
-# Claude Code 2.1.296 frames it, for the launcher's capture.
+# CLAUDE_FAKE_VERSION, exits with CLAUDE_FAKE_VERSION_EXIT (0 by default) and leaves a line in
+# FAKE_VERSIONS; setup-token prints CLAUDE_FAKE_TOKEN as Claude Code 2.1.296 frames it, for the
+# launcher's capture.
 FAKE = r'''
 import hashlib, json, os, sys
 if sys.argv[1:] == ["--version"]:
     with open(os.environ["FAKE_VERSIONS"], "a") as stream:
         stream.write("--version\n")
     print(os.environ.get("CLAUDE_FAKE_VERSION", "2.1.296 (Claude Code)"))
-    sys.exit(0)
+    sys.exit(int(os.environ.get("CLAUDE_FAKE_VERSION_EXIT", "0")))
 if sys.argv[1:] == ["setup-token"]:
     print("Your OAuth token (valid for 1 year):\n\n" + os.environ["CLAUDE_FAKE_TOKEN"] + "\n\nStore this token securely.",
           flush=True)
@@ -869,14 +870,19 @@ class Refusals(Fixture):
 
     def test_a_claude_code_older_than_the_guard_minimum(self):
         self.assertEqual(launch.GUARD_MINIMUM, (2, 1, 296))
-        for version, reason in (("2.1.295 (Claude Code)", "Claude Code 2.1.295 is older than 2.1.296, the first "
-                                                          "release whose hooks can enforce usage reserves"),
-                                ("1.9.999", "Claude Code 1.9.999 is older than 2.1.296, the first release whose hooks "
-                                            "can enforce usage reserves"),
-                                ("Claude Code", "claude --version printed no Claude Code version"),
-                                ("", "claude --version printed no Claude Code version")):
-            with self.subTest(version=version):
-                self.assert_refused(["--reserve-5h", "10", "work"], reason, {"CLAUDE_FAKE_VERSION": version})
+        unreadable = "claude --version printed no Claude Code version"
+        for version, exit_code, reason in (
+                ("2.1.295 (Claude Code)", "0", "Claude Code 2.1.295 is older than 2.1.296, the first release whose "
+                                               "hooks can enforce usage reserves"),
+                ("1.9.999", "0", "Claude Code 1.9.999 is older than 2.1.296, the first release whose hooks can enforce "
+                                 "usage reserves"),
+                ("Claude Code", "0", unreadable), ("", "0", unreadable),
+                # A version line from a claude --version that fails is no version.
+                ("2.1.326 (Claude Code)", "1", unreadable)):
+            with self.subTest(version=version, exit_code=exit_code):
+                self.assert_refused(["--reserve-5h", "10", "work"], reason,
+                                    {"CLAUDE_FAKE_VERSION": version, "CLAUDE_FAKE_VERSION_EXIT": exit_code})
+        self.assertFalse(self.guard_dir.exists())
         # Before a missing account is offered for enrolment.
         self.assert_refused(["--reserve-5h", "10", "missing"], "Claude Code 2.1.295 is older than 2.1.296, the first "
                             "release whose hooks can enforce usage reserves",
