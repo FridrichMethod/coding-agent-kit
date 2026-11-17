@@ -298,7 +298,8 @@ class Unguarded(Fixture):
 
     def test_without_reserves_the_forms_a_guard_refuses_stay_as_they_were(self):
         """-p and a piped standard output launch; --init-only, --bg and --background stay unsupported options."""
-        for args in (["agents"], ["ultrareview"], ["auto-mode", "critique"], ["plugin", "eval"], ["plugins", "eval", "x"]):
+        for args in (["agents"], ["ultrareview"], ["auto-mode", "critique"], ["plugin", "eval"], ["plugins", "eval", "x"],
+                     ["mcp", "serve"]):
             with self.subTest(args=args):
                 code, out, err = self.run_launcher(["work", *args], tty=False)
                 self.assertEqual((code, out, err), (0, "stdout sentinel\n", ""))
@@ -515,8 +516,8 @@ class Guarded(Fixture):
     def test_commands_that_run_no_model_launch_guarded(self):
         """Only the commands that run the model outside the session are refused; the others get the guard."""
         for args in (["auto-mode", "config"], ["auto-mode"], ["plugin", "list"], ["plugins", "list"], ["mcp", "list"],
-                     ["doctor"], ["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"],
-                     ["mcp", "eval"]):
+                     ["mcp", "get", "serve"], ["doctor"], ["ultrareviewer"], ["critique"], ["eval"],
+                     ["--model", "auto-mode", "critique"], ["mcp", "eval"]):
             with self.subTest(args=args):
                 record, value, err = self.guarded(["--reserve-5h", "10", "work", *args])
                 self.assert_guarded(record, value, args, "10", None)
@@ -674,6 +675,9 @@ class Refusals(Fixture):
                  (["plugin", "eval", "init", "x"], f"claude plugin eval {detached}"),
                  (["plugins", "eval"], f"claude plugins eval {detached}"),
                  (["plugin", "--", "eval"], f"claude plugin eval {detached}"),
+                 (["mcp", "serve"], f"claude mcp serve {detached}"), (["mcp", "serve", "--debug"], f"claude mcp serve {detached}"),
+                 (["--", "mcp", "serve"], f"claude mcp serve {detached}"),
+                 (["--verbose", "mcp", "serve"], f"claude mcp serve {detached}"),
                  (["--model", "x", "--verbose", "-p", "hi"], f"-p {outside}"), (["--init-only"], f"--init-only {outside}"),
                  (["--bg"], f"--bg {background}"), (["--background", "task"], f"--background {background}"),
                  (["--model", "x", "--bg"], f"--bg {background}"), (["--verbose", "--background"], f"--background {background}"),
@@ -1285,10 +1289,9 @@ class RealClaude(unittest.TestCase):
         return json.dumps({"five_hour": None, "seven_day": {"used_percentage": used, "resets_at": now + DAY},
                            "seen_at": now})
 
-    def run_claude(self, prompt, used, cross=None, extra=None, args=()):
-        """claude -p PROMPT under the guard with the weekly reserve at 10 and USED percent of the week used;
-        CROSS, a percentage, replaces the usage file when the fake answers with its tool call. EXTRA is added
-        to Claude Code's environment, and ARGS go after the guard's --settings."""
+    def start_fake(self, used, cross=None):
+        """The port of the loopback fake, with the usage file at USED percent of the week used; CROSS, a
+        percentage, replaces the usage file when the fake answers with its tool call."""
         write(self.usage, self.usage_text(used))
         command = [sys.executable, "-I", "-B", "-S", str(CLAUDE_API), "--log", str(self.requests),
                    "--bash", shlex.join(["touch", str(self.marker)])]
@@ -1298,7 +1301,11 @@ class RealClaude(unittest.TestCase):
                                 start_new_session=True)
         for cleanup in (fake.stdout.close, fake.stdin.close, lambda: fake.wait(10), lambda: kill_group(fake.pid)):
             self.addCleanup(cleanup)
-        port = int(fake.stdout.readline())
+        return int(fake.stdout.readline())
+
+    def prepared(self, port, extra=None):
+        """(environment, state prefix, --settings JSON) of a launch with the weekly reserve at 10 against the
+        fake at PORT, as claude-as exports and injects it; EXTRA is added to the environment."""
         guard_launch = load_kit_module(self.kit, "guard_launch")
         policy = self.reserve.Policy("claude-as", "work", self.reserve.Setting("five_hour", None, "default"),
                                      self.reserve.Setting("weekly", self.reserve.flag_value("10"), "invocation"))
@@ -1306,16 +1313,26 @@ class RealClaude(unittest.TestCase):
         started = int(time.time())
         state = guard_launch.prepare(env, str(self.guard_dir), "claude-as", "work", policy, str(self.usage), started)
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
-        settings = launch.guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"])
-        # Claude Code's own permission rules allow every Bash call, so only the guard can stop one.
-        code, out, err = self.sandbox.run(self.claude, ["--settings", settings, *args, "--allowedTools", "Bash", "-p",
-                                                        prompt], env)
+        return env, state, launch.guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"])
+
+    def finished(self):
+        """The /v1/messages requests the fake has logged, once no process of the sandbox is left and none has
+        reached for the network through git or ssh."""
         self.assertEqual(self.sandbox.strays(), [], "Claude Code left a process behind")
         refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED")]
         self.assertEqual(refused, [], "Claude Code tried to reach the network through git or ssh")
         lines = self.requests.read_text().splitlines() if self.requests.exists() else []
-        messages = [entry for entry in map(json.loads, lines) if entry["path"] == "/v1/messages"]
-        return code, out, err, state, messages
+        return [entry for entry in map(json.loads, lines) if entry["path"] == "/v1/messages"]
+
+    def run_claude(self, prompt, used, cross=None, extra=None, args=()):
+        """claude -p PROMPT under the guard with the weekly reserve at 10 and USED percent of the week used;
+        CROSS as for start_fake. EXTRA is added to Claude Code's environment, and ARGS go after the guard's
+        --settings."""
+        env, state, settings = self.prepared(self.start_fake(used, cross), extra)
+        # Claude Code's own permission rules allow every Bash call, so only the guard can stop one.
+        code, out, err = self.sandbox.run(self.claude, ["--settings", settings, *args, "--allowedTools", "Bash", "-p",
+                                                        prompt], env)
+        return code, out, err, state, self.finished()
 
     def assert_state(self, state, present, absent):
         for name in present:
@@ -1402,6 +1419,55 @@ class RealClaude(unittest.TestCase):
                 self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
                 self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
                 self.assert_state(state, present, absent)
+
+    def test_an_agent_call_through_mcp_serve_runs_no_hook(self):
+        """Why claude-as refuses claude mcp serve with a reserve on: its Agent tool runs a sub-agent on the
+        launch's credential and none of the guard's hooks run for it, so a prompt at the reserve reaches the API."""
+        env, state, settings = self.prepared(self.start_fake(95))
+        child = subprocess.Popen([self.claude, "--settings", settings, "mcp", "serve"], cwd=self.sandbox.work, env=env,
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                 start_new_session=True)
+        self.sandbox.sessions.add(child.pid)
+        replies, pending = {}, b""
+
+        def send(message, timeout=90):
+            """Writes the JSON-RPC MESSAGE and returns the reply to it (None for a notification)."""
+            nonlocal pending
+            child.stdin.write(json.dumps(message).encode() + b"\n")
+            child.stdin.flush()
+            deadline = time.monotonic() + timeout
+            while "id" in message and message["id"] not in replies:
+                self.assertLess(time.monotonic(), deadline, f"no reply to {message['method']}: {pending[-2000:]!r}")
+                if not select.select([child.stdout], [], [], 0.2)[0]:
+                    continue
+                chunk = os.read(child.stdout.fileno(), 65536)
+                self.assertTrue(chunk, f"claude mcp serve ended: {pending[-2000:]!r}")
+                pending += chunk
+                while b"\n" in pending:
+                    line, pending = pending.split(b"\n", 1)
+                    if line.strip():
+                        reply = json.loads(line)
+                        replies[reply.get("id")] = reply
+            return replies.get(message.get("id"))
+
+        try:
+            send({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                  "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                             "clientInfo": {"name": "claude-guard-test", "version": "1"}}})
+            send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+            tools = [tool["name"] for tool in send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]]
+            self.assertIn("Agent", tools)
+            call = send({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                         "params": {"name": "Agent", "arguments": {"description": "say hello", "prompt": "PLAIN say hello"}}})
+        finally:
+            kill_group(child.pid)
+            child.stdin.close()
+            child.stdout.close()
+            child.wait()
+        self.assertIn("PLAIN-ANSWER", json.dumps(call["result"]))
+        messages = self.finished()
+        self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["PLAIN"])
+        self.assert_state(state, (".launched",), (".ran.start", ".ran.prompt", ".ran.tool", ".ran.stop", ".blocked"))
 
 
 @unittest.skipUnless(os.path.isdir("/proc/self"), "the sandbox finds its strays through /proc (Linux)")

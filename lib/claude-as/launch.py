@@ -83,9 +83,10 @@ BACKGROUND = ("--bg", "--background")
 ELSEWHERE = ("agents", "attach", "respawn")
 # The commands, by their first and second operands, that run the model outside the interactive session, where
 # no hook of this launch sees their requests, in Claude Code 2.1.326 (the reviewed release): the cloud-hosted
-# review, the AI critique of auto mode rules, and plugin evals (plugins is plugin's alias), whose runs are claude
-# children of their own and whose grader runs outside any hook. A command added by a later release is not here.
-DETACHED = (("ultrareview",), ("auto-mode", "critique"), ("plugin", "eval"), ("plugins", "eval"))
+# review, the AI critique of auto mode rules, plugin evals (plugins is plugin's alias), whose runs are claude
+# children of their own and whose grader runs outside any hook, and the MCP server, whose Agent tool runs
+# sub-agents on this launch's credential with none of its hooks. A command added by a later release is not here.
+DETACHED = (("ultrareview",), ("auto-mode", "critique"), ("plugin", "eval"), ("plugins", "eval"), ("mcp", "serve"))
 # A guarded launch keeps its session in this process: no move to the background, no agent view, and no
 # re-run of a turn that the guard stopped. Claude Code also reads these from a settings file's env.
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}
