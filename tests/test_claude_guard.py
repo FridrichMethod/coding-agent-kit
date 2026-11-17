@@ -523,7 +523,10 @@ class Guarded(Fixture):
                  ["purge", "/x"], ["project", "purge"], ["auto-mode"], ["auto-mode", "config"], ["auto-mode", "defaults"],
                  ["auto-mode", "reset"], ["mcp"], ["mcp", "list"], ["mcp", "get", "serve"],
                  ["mcp", "add", "x", "--", "npx", "x"], ["mcp", "xaa", "show"], ["plugin", "list"], ["plugins", "list"],
-                 ["plugin", "marketplace", "list"], ["plugin", "i", "x"], ["plugin", "rm", "x"], ["logs"],
+                 ["plugin", "marketplace", "list"], ["plugin", "i", "x"], ["plugin", "rm", "x"],
+                 # A mod's tests, each file in a child of Claude Code that runs no model; Claude Code runs them only
+                 # with plugin as its first argument, which a guard's --settings would take.
+                 ["plugin", "test"], ["plugin", "test", "my-mod"], ["plugins", "test"], ["logs"],
                  ["logs", "0123abcd"], ["stop", "0123abcd"], ["kill"], ["rm", "0123abcd"],
                  # The help of a command with subcommands, and the hidden commands that run no model.
                  ["auto-mode", "help"], ["mcp", "help", "serve"], ["plugin", "help", "eval"], ["project", "help"],
@@ -551,7 +554,7 @@ class Guarded(Fixture):
         a command after -- and a background verb after options (a prompt unless a session id follows) get the
         guard."""
         for args in (["ultrareviewer"], ["critique"], ["eval"], ["--model", "auto-mode", "critique"], ["mcp", "eval"],
-                     ["auto-mode", "other"], ["import"], ["import", "codex"], ["plugin", "test"], ["--", "doctor"],
+                     ["auto-mode", "other"], ["import"], ["import", "codex"], ["--", "doctor"],
                      ["mcp", "--", "list"], ["--verbose", "logs"], ["--model", "x", "stop"], ["sandbox", "other"],
                      # Claude Code dispatches these by its first argument only, which the guard's --settings is: after
                      # it they are prompts, as is a connect URL (Claude Code 2.1.326 on a terminal).

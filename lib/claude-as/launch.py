@@ -122,9 +122,10 @@ REFUSED = {
 # that no launch state expects the guard's hooks. A subcommand of a later release, an operand after --, and an
 # option of REFUSED keep the launch guarded. Claude Code takes the background verbs as verbs wherever they are the
 # first argument; after options only before a session id, and as a prompt otherwise. The hidden commands that need
-# an option the audit refuses (--json) are not here.
+# an option the audit refuses (--json) are not here. plugin test runs a mod's tests, each file in a child of Claude
+# Code that runs no model, and only with plugin as the first argument, which a guard's --settings would take.
 PLUGIN = {"init", "new", "validate", "tag", "list", "details", "marketplace", "install", "i", "uninstall", "remove",
-          "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure", "help"}
+          "rm", "prune", "autoremove", "restore-set-aside", "enable", "disable", "update", "configure", "test", "help"}
 SESSIONLESS = {"doctor": None, "update": None, "upgrade": None, "install": None, "purge": None,
                "project": {"purge", "help"}, "auto-mode": {"defaults", "config", "reset", "help"},
                "plugin": PLUGIN, "plugins": PLUGIN,
