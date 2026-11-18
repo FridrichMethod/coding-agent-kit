@@ -687,7 +687,8 @@ def cached_policy_warning(account, path, settings):
 def guard_settings(script, padding=0):
     """The --settings JSON of a guarded launch: SCRIPT (guard.py) under this interpreter as the command of
     the SessionStart, UserPromptSubmit, PreToolUse (every tool) and Stop hooks and of the status line.
-    Claude Code runs each command through /bin/sh; the two hooks that block also block when they fail."""
+    Claude Code runs each command through /bin/sh; the two hooks that block also block when they fail. It
+    merges a statusLine into the user's key by key, so their refreshInterval and hideVimModeIndicator still apply."""
     command = shlex.join([sys.executable, "-I", "-B", "-S", script])
 
     def hooks(kind, block=False, **group):
@@ -979,7 +980,10 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
     if warning:
         say(warning, "33")
     own = form.statusline or {"command": None, "padding": 0}
-    guard_launch.prepare(env, directory, "claude-as", account, policy, str(usage), now, statusline=own["command"])
+    try:
+        guard_launch.prepare(env, directory, "claude-as", account, policy, str(usage), now, statusline=own["command"])
+    except OSError as error:  # a full disk or a home directory at its quota, say
+        fail(f"{directory}: cannot record this launch's usage reserve state ({error.strerror or error}).")
     for name in REOPENING:
         env.pop(name, None)
     env.update(CLOSED)

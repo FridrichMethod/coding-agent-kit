@@ -22,6 +22,7 @@ this host's user it reads only the codex install's own files where they lie
 
 import base64
 import dataclasses
+import errno
 import fcntl
 import hashlib
 import importlib.util
@@ -29,6 +30,7 @@ import json
 import os
 from pathlib import Path
 import re
+import resource
 import shlex
 import shutil
 import signal
@@ -638,6 +640,53 @@ class RunAttribution(Fixture):
         self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [[path]], []))
         self.assertEqual(launch.session_meta(path)["id"], self.THREAD)
 
+    def test_a_call_followed_by_more_output_than_one_read_counts(self):
+        output = {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "call-1",
+                                                       "output": "x" * (2 * launch.usage.TAIL)}}
+        path = self.rollout(self.THREAD, [CALL, output, ANSWER])
+        self.assertEqual(launch.activity([path], self.t0 - 1, self.t0 + 10), (True, True, True))
+
+    def test_a_rollout_is_read_back_only_to_the_lines_before_the_run(self):
+        """activity() reads each rollout back from its end, usage.TAIL bytes at a time, and stops at the read that
+        reaches the lines from before the run, so its cost is what the run wrote plus one read; a call stamped
+        before the run, in that read, never counts."""
+        usage, old = launch.usage, time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(self.t0 - 3600))
+        reasoning = {"type": "response_item", "payload": {"type": "reasoning", "summary": [], "encrypted_content": ""}}
+
+        def lines(stamp, fill, count):
+            line = {**reasoning, "payload": {**reasoning["payload"], "encrypted_content": fill * 4096}}
+            return "".join(json.dumps({"timestamp": stamp, **line}) + "\n" for _ in range(count))
+
+        path = self.rollout(self.THREAD, [])
+        with path.open("a") as stream:
+            stream.write(lines(old, "y", 1200) + json.dumps({"timestamp": old, **CALL}) + "\n"
+                         + lines(self.stamp, "z", 600))
+        self.assertGreater(path.stat().st_size, 7 * usage.TAIL)
+        read, real = [], usage.opened
+
+        class Counted:
+            def __init__(self, stream):
+                self.stream = stream
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.stream.close()
+
+            def read(self, size=-1):
+                data = self.stream.read(size)
+                read.append(len(data))
+                return data
+
+            def __getattr__(self, name):
+                return getattr(self.stream, name)
+
+        with patch.object(usage, "opened", lambda path: Counted(real(path))):
+            self.assertEqual(launch.activity([path], self.t0 - 1, self.t0 + 10), (True, True, False))
+        # The lines of the run and the one read that reaches back before it.
+        self.assertLessEqual(sum(read), 4 * usage.TAIL)
+
     def test_only_a_regular_file_at_blocked_is_read(self):
         state = str(self.base / "codex-as-A-1-1")
         Path(state + ".blocked").mkdir()
@@ -995,11 +1044,11 @@ class GuardedLaunch(unittest.TestCase):
         path.write_text(text)
         path.chmod(0o600)
 
-    def run_codex(self, *args, env=None):
+    def run_codex(self, *args, env=None, preexec_fn=None):
         self.record.unlink(missing_ok=True)
         result = subprocess.run([str(self.kit / "bin/codex-as"), *args], cwd=self.cwd, env=self.env | (env or {}),
                                 stdin=subprocess.DEVNULL, text=True, capture_output=True, timeout=60,
-                                start_new_session=True)
+                                start_new_session=True, preexec_fn=preexec_fn)
         self.assertNotIn("fabricated-sensitive", result.stdout + result.stderr)
         return result
 
@@ -1054,6 +1103,27 @@ class GuardedLaunch(unittest.TestCase):
             with self.subTest(flags=flags, size=size, full=True):
                 self.assertEqual(self.run_codex(*flags, "A").returncode, 0)
                 self.assertEqual(lease.stat().st_size, size)
+
+    def test_a_launch_whose_state_cannot_be_written_names_the_guard_directory(self):
+        """A write to the guard directory that fails, as on a full disk or a home directory at its quota, refuses the
+        launch naming that directory and the reason, not as a credential problem; Codex is not started and the guard
+        directory holds no launch state. Every file write fails here (RLIMIT_FSIZE 0) once a first launch has set the
+        account up: the lease's byte and the account record are best effort, so the first write that fails is the
+        launch's state file."""
+        self.trusted()
+        self.assertEqual(self.run_codex("A", "exec", "go").returncode, 0)
+
+        def no_file_writes():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (0, resource.getrlimit(resource.RLIMIT_FSIZE)[1]))
+
+        for args in (["A", "exec", "go"], ["A", "fix it"]):
+            with self.subTest(args=args):
+                result = self.run_codex("--reserve-5h", "10", *args, preexec_fn=no_file_writes)
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (1, "", f"codex-as: {self.guard_dir}: cannot record this launch's usage reserve state "
+                                         f"({os.strerror(errno.EFBIG)}).\n"))
+                self.assertFalse(self.record.exists(), "Codex started")
+                self.assertEqual(self.launches(), [])
 
     def test_an_interactive_launch_gets_the_hooks_the_guard_and_goals_off(self):
         before = int(time.time())
@@ -2306,6 +2376,7 @@ class Sandbox:
 
     def __init__(self, base, codex):
         self.base = base
+        self.sessions = set()  # the sessions run() started: each one's leader's process id
         self.home, self.work, self.shims, self.bin = base / "home", base / "work", base / "shims", base / "bin"
         self.codex_home = self.home / ".codex"
         for path in (self.codex_home, self.work, self.shims, self.bin, base / "tmp", base / "run",
@@ -2352,6 +2423,7 @@ class Sandbox:
         """(exit code, stdout, stderr) of CODEX ARGS in a session of its own, which is killed afterwards."""
         child = subprocess.Popen([codex, *args], cwd=self.work, env=env, stdin=subprocess.DEVNULL,
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        self.sessions.add(child.pid)
         try:
             out, err = child.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -2363,17 +2435,28 @@ class Sandbox:
         return child.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
 
     def strays(self):
-        """Processes still running with this sandbox's CODEX_HOME or a Codex home under it (codex-as gives Codex
-        the account's, CODEX_HOME/accounts/NAME), killed; Linux only."""
+        """Processes of this sandbox still running, killed; Linux only. A process of the sandbox is one in a
+        session that run() started, or one of this user's whose working directory lies in the sandbox (a
+        process that left the session; Codex runs in the work directory). Only /proc/PID/stat and this user's
+        /proc/PID/cwd links are read: never another process's environment, command line or files."""
         if not os.path.isdir("/proc/self"):
             return []
-        needle, found = f"CODEX_HOME={self.codex_home}".encode(), []
+        found, uid, base = [], os.getuid(), str(self.base)
         for entry in filter(str.isdigit, os.listdir("/proc")):
+            pid = int(entry)
             try:
-                with open(f"/proc/{entry}/environ", "rb") as stream:
-                    if any(item == needle or item.startswith(needle + b"/") for item in stream.read().split(b"\0")):
-                        found.append(int(entry))
-            except OSError:
+                with open(f"/proc/{entry}/stat", "rb") as stream:
+                    # pid (comm) state ppid pgrp session ...: the fields after the command name.
+                    state, _, _, session = stream.read().rpartition(b")")[2].split()[:4]
+                if state == b"Z" or pid == os.getpid():
+                    continue
+                if int(session) in self.sessions:
+                    found.append(pid)
+                elif os.stat(f"/proc/{entry}").st_uid == uid:
+                    cwd = os.readlink(f"/proc/{entry}/cwd")
+                    if cwd == base or cwd.startswith(base + "/"):
+                        found.append(pid)
+            except (OSError, ValueError):
                 pass
         for pid in found:
             try:
@@ -2414,27 +2497,44 @@ class SandboxPath(unittest.TestCase):
             self.assertNotIn(str(tools), shim, "the git shim runs the caller's git")
             self.assertRegex(shim, r"(?m)^(exec /usr(/local)?/bin/git \"\$@\"|exit 127)$")
 
-    def test_strays_are_the_processes_of_the_sandbox_s_codex_homes(self):
-        """Sandbox.strays() finds and kills what still runs, in a session of its own too, with the sandbox's
-        CODEX_HOME or a Codex home under it (codex-as gives Codex the account's, CODEX_HOME/accounts/NAME), and
-        leaves a process whose CODEX_HOME only begins with the same text."""
+    def test_strays_are_found_by_session_and_working_directory(self):
+        """Sandbox.strays() finds and kills what a run left running without reading any process's environment: a
+        process in a session that run() started, with a process group of its own so the group kill misses it, and
+        one that left the session with its working directory in the sandbox. A process outside the sandbox, in a
+        directory whose path only begins with the sandbox's, stays."""
         if not os.path.isdir("/proc/self"):
             self.skipTest("Sandbox.strays() reads /proc, which this host does not have")
         with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
             base = Path(temp).resolve()
             write(base / "codex", "#!/bin/sh\n", 0o700)
             sandbox = Sandbox(base / "sandbox", base / "codex")
-            children = {}
-            for name, home in (("root", sandbox.codex_home), ("account", sandbox.codex_home / "accounts/A"),
-                               ("other", Path(f"{sandbox.codex_home}-other"))):
-                child = subprocess.Popen(["sleep", "60"], env={"PATH": "/usr/bin:/bin", "CODEX_HOME": str(home)},
-                                         stdin=subprocess.DEVNULL, start_new_session=True)
-                self.addCleanup(child.wait)
-                self.addCleanup(kill_group, child.pid)
-                children[name] = child.pid
-            self.assertEqual(sorted(sandbox.strays()), sorted((children["root"], children["account"])))
-            self.assertEqual(sandbox.strays(), [])
-            os.kill(children["other"], 0)  # still running
+            beside = base / "sandbox-other"
+            beside.mkdir()
+            outside = subprocess.Popen(["sleep", "60"], cwd=beside, stdin=subprocess.DEVNULL, start_new_session=True)
+            self.addCleanup(outside.wait)
+            self.addCleanup(outside.kill)
+            program = ("import subprocess, sys\n"
+                       "quiet = {'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}\n"
+                       "grouped = subprocess.Popen(['sleep', '60'], process_group=0, **quiet)\n"
+                       "detached = subprocess.Popen(['sleep', '60'], start_new_session=True, **quiet)\n"
+                       "print(grouped.pid, detached.pid)\n")
+            code, out, err = sandbox.run(sys.executable, ["-I", "-c", program], {"PATH": "/usr/bin:/bin"})
+            self.assertEqual(code, 0, err)
+            expected = sorted(map(int, out.split()))
+            opened, real_open = [], open
+
+            def recording_open(file, *args, **kwargs):
+                opened.append(str(file))
+                return real_open(file, *args, **kwargs)
+
+            with patch("builtins.open", recording_open):
+                self.assertEqual(sorted(sandbox.strays()), expected)
+            self.assertEqual([name for name in opened if not name.endswith("/stat")], [])
+            deadline = time.monotonic() + 10
+            while (left := sandbox.strays()) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertEqual(left, [])
+            self.assertIsNone(outside.poll())
 
     def test_the_proxy_recorder_sees_each_attempt_and_forwards_none(self):
         """RecordingProxy, which a RealCodex case puts in every proxy variable, records the request line of each
@@ -2623,7 +2723,7 @@ class RealCodex(unittest.TestCase):
                 self.assertEqual(runs[0][0], 0, runs[0][2])
                 self.assertTrue(runs[0][3], "Codex wrote no file")
                 self.assertEqual(runs[1], runs[0])
-        # strays() finds processes by CODEX_HOME, the account's home (home/.codex/accounts/A) included.
+        # strays() finds what the runs left by the session of each and by a working directory in the sandbox.
         self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
         self.assertEqual(list(home.rglob("rollout-*.jsonl*")), [], "a schema generator started a session")
         self.assertEqual(proxy.lines, [], "Codex tried to reach a host through a proxy")

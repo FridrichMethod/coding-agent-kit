@@ -606,7 +606,7 @@ def unenforced(state, threads, begun, ended):
     return found, None if found else missed([*either, *maybe], prompt)
 
 
-def after_guarded(layout, plan, account, state, marker, threads, begun, ended):
+def after_guarded(plan, account, state, marker, threads, begun, ended):
     """After a guarded run: the guard's latest block message of a headless run, which Codex itself
     does not show; then, when this run's THREADS show that Codex did not run the guard's hooks, the
     warning, and the marker goes, so headless runs wait until an interactive launch has trusted them
@@ -766,8 +766,12 @@ def main(args):
             try:
                 if guarding:
                     guard_launch.prune(directory, started)
-                    state = guard_launch.prepare(env, directory, "codex-as", account, policy, record, started,
-                                                 marker=marker)
+                    try:
+                        state = guard_launch.prepare(env, directory, "codex-as", account, policy, record, started,
+                                                     marker=marker)
+                    except OSError as error:  # a full disk or a home directory at its quota, say
+                        guard.fail(f"{directory}: cannot record this launch's usage reserve state "
+                                   f"({error.strerror or error}).")
                     print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls "
                                        "at a reserve.", "36", 2), file=sys.stderr)
                 # The span of this run's own lines, for the check after it.
@@ -785,7 +789,7 @@ def main(args):
                 remember(config, layout, plan=plan, started=started,
                          threads={usage.NAME.fullmatch(path.name)[1] for group in groups for path in group})
             if state is not None:
-                after_guarded(layout, plan, account, state, marker, threads, begun, ended)
+                after_guarded(plan, account, state, marker, threads, begun, ended)
         finally:
             if state is not None:
                 guard_launch.forget(state)

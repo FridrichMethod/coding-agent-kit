@@ -9,15 +9,17 @@ records its argv and environment; a guarded launch needs a terminal on standard
 output, so those launches run with standard output on a pseudo-terminal.
 
 RealClaude runs the guard's hooks in the real Claude Code when one at or above
-the guard's minimum is on PATH (it skips with the reason otherwise, and when the
-host has managed settings or, on WSL, a Windows registry policy, which Claude
-Code applies over the sandbox): offline,
+the guard's minimum is on PATH (it skips with the reason otherwise, on macOS,
+where Claude Code reads the login Keychain, and when the host has managed
+settings or, on WSL, a Windows registry policy, which Claude Code applies over
+the sandbox): offline,
 against the loopback fake tests/fixtures/guard/claude_api.py, in a temporary
 HOME and configuration directory with an environment built from scratch, git
 and ssh shims first on PATH, git allowed the file protocol only and every proxy
 at a closed loopback port.
 """
 
+import errno
 import hashlib
 import importlib.util
 import json
@@ -26,6 +28,7 @@ from pathlib import Path
 import plistlib
 import pty
 import pwd
+import resource
 import select
 import shlex
 import shutil
@@ -46,7 +49,6 @@ ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "sk-ant-oat01-" + "fabricated-guard-claude-" * 3
 ENROLLED = "sk-ant-oat01-" + "fabricated-enrolled-claude-" * 3  # what the fake's setup-token prints
 VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_AGENT_KIT_GUARD_PYTHON")
-USAGE_VARIABLES = ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID", "CODING_AGENT_KIT_CLAUDE_PID")
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}  # set by a guarded launch only
 RESUME = "CLAUDE_CODE_RESUME_INTERRUPTED_TURN"  # removed by a guarded launch only
 PREFIX = "CLAUDE_CODE_SHELL_PREFIX"  # refused by a guarded launch
@@ -165,9 +167,10 @@ class Fixture(unittest.TestCase):
             shutil.copytree(ROOT / part, target / part)
         return target
 
-    def run_launcher(self, args, env=None, tty=True, kit=None, cwd=None):
+    def run_launcher(self, args, env=None, tty=True, kit=None, cwd=None, preexec_fn=None):
         """(exit code, stdout, stderr) of claude-as ARGS in CWD (the project directory); standard output on a
-        pseudo-terminal when TTY. The launcher runs in a session of its own, without a controlling terminal."""
+        pseudo-terminal when TTY. The launcher runs in a session of its own, without a controlling terminal, after
+        PREEXEC_FN where given."""
         command = [str((kit or self.kit) / "bin/claude-as"), *args]
         master = slave = None
         if tty:
@@ -175,7 +178,7 @@ class Fixture(unittest.TestCase):
         try:
             result = subprocess.run(command, cwd=cwd or self.cwd, env=self.env | (env or {}), stdin=subprocess.DEVNULL,
                                     stdout=slave if tty else subprocess.PIPE, stderr=subprocess.PIPE, timeout=60,
-                                    start_new_session=True)
+                                    start_new_session=True, preexec_fn=preexec_fn)
             # Read while this end of the terminal is still open: some systems drop what is buffered once
             # every slave descriptor has closed. The fake writes far less than a terminal buffers.
             out = drain(master) if tty else result.stdout.decode("utf-8", "replace")
@@ -753,6 +756,20 @@ class Guarded(Fixture):
                                                     "permissions 0700 (File exists).\n"))
                 self.assertEqual(self.records(), [])
                 path.unlink()
+
+    def test_a_launch_whose_state_cannot_be_written_names_the_guard_directory(self):
+        """A write to the guard directory that fails, as on a full disk or a home directory at its quota, refuses the
+        launch naming that directory and the reason, not as a token problem; Claude Code is not started. Every file
+        write fails here (RLIMIT_FSIZE 0), the first of a guarded launch being its state file."""
+        def no_file_writes():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (0, resource.getrlimit(resource.RLIMIT_FSIZE)[1]))
+
+        code, out, err = self.run_launcher(["--reserve-5h", "10", "work"], {"FAKE_VERSIONS": os.devnull},
+                                           preexec_fn=no_file_writes)
+        self.assertEqual((code, out, err), (1, "", f"claude-as: {self.guard_dir}: cannot record this launch's usage "
+                                                   f"reserve state ({os.strerror(errno.EFBIG)}).\n"))
+        self.assertEqual(self.records(), [])
+        self.assertEqual(os.listdir(self.guard_dir), [])
 
 
 class Refusals(Fixture):
@@ -1780,6 +1797,9 @@ class RealClaude(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        if sys.platform == "darwin":
+            raise unittest.SkipTest("on macOS a real Claude Code reads the login Keychain, which neither the sandbox's HOME "
+                                    "nor its CLAUDE_CONFIG_DIR keeps apart")
         found = shutil.which("claude")
         if not found:
             raise unittest.SkipTest("Claude Code (claude) is not on PATH")
@@ -2107,13 +2127,30 @@ class SandboxSetup(unittest.TestCase):
                 write(drop_ins / "notes.txt", json.dumps({"disableAllHooks": True}))
                 write(base / "etc/settings.json", json.dumps({"disableAllHooks": True}))
                 self.assertIsNone(managed_policy_stop())
-        # RealClaude asks before it runs any Claude Code (this one does not exist).
+        # RealClaude asks before it runs any Claude Code (this one does not exist), on any host but macOS, where it
+        # skips before it asks.
         reason = "the host's managed settings /x set disableAllHooks, so ..."
         with unittest.mock.patch(f"{__name__}.managed_policy_stop", lambda: reason), \
-                unittest.mock.patch.object(shutil, "which", lambda *args, **kwargs: "/nonexistent/claude"):
+                unittest.mock.patch.object(shutil, "which", lambda *args, **kwargs: "/nonexistent/claude"), \
+                unittest.mock.patch.object(sys, "platform", "linux"):
             with self.assertRaises(unittest.SkipTest) as caught:
                 RealClaude.setUpClass()
         self.assertEqual(str(caught.exception), reason)
+
+    def test_on_macos_the_real_claude_is_skipped_before_it_is_looked_for(self):
+        """On macOS a real Claude Code reads the login Keychain under the real user's name, which neither the sandbox's
+        HOME nor its CLAUDE_CONFIG_DIR keeps apart: RealClaude skips, naming the Keychain, before it looks for a Claude
+        Code on PATH or reads the host's managed settings."""
+        def looked(*args, **kwargs):
+            raise AssertionError("RealClaude looked for Claude Code or a managed policy on macOS")
+
+        with unittest.mock.patch(f"{__name__}.managed_policy_stop", looked), \
+                unittest.mock.patch.object(shutil, "which", looked), \
+                unittest.mock.patch.object(sys, "platform", "darwin"):
+            with self.assertRaises(unittest.SkipTest) as caught:
+                RealClaude.setUpClass()
+        self.assertEqual(str(caught.exception), "on macOS a real Claude Code reads the login Keychain, which neither "
+                                                "the sandbox's HOME nor its CLAUDE_CONFIG_DIR keeps apart")
 
     def test_a_windows_registry_policy_skips_the_real_claude_on_wsl(self):
         """Claude Code on WSL reads the Settings value of HKLM and HKCU\\SOFTWARE\\Policies\\ClaudeCode through
