@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="coding-agent-kit: run Codex and Claude Code as any of your accounts, with usage reserves and a Claude Code status line" width="100%">
+<img src="docs/assets/banner.svg" alt="coding-agent-kit: run Codex and Claude Code as any of your accounts, with usage reserves and the Claude Code status line, notifications and Git hook checks" width="100%">
 
 **Run Codex and Claude Code as any of your accounts, keep part of each account's limits in reserve,**<br>
 **and give Claude Code a status line, notifications and a Git hook guard.**

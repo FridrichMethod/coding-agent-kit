@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="t d">
   <title id="t">coding-agent-kit</title>
-  <desc id="d">A terminal window: the coding-agent-kit name, its parts, two launcher commands, one native CLI fanning out to four accounts, and the status line helper's footer.</desc>
+  <desc id="d">A terminal window: the coding-agent-kit name; pills for the two launchers, usage reserves and the three Claude Code helpers; two launcher commands; one native CLI fanning out to four accounts; and the status line helper's footer.</desc>
   <style>
     .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace; }
     .s { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
@@ -30,14 +30,16 @@
   <g class="m" font-size="14" text-anchor="middle">
     <rect x="70" y="182" width="96" height="28" rx="14" fill="#1e293b" stroke="#5eead4"/>
     <text x="118" y="201" fill="#5eead4">codex-as</text>
-    <rect x="176" y="182" width="104" height="28" rx="14" fill="#1e293b" stroke="#fdba74"/>
-    <text x="228" y="201" fill="#fdba74">claude-as</text>
-    <rect x="290" y="182" width="144" height="28" rx="14" fill="#1e293b" stroke="#93c5fd"/>
-    <text x="362" y="201" fill="#93c5fd">usage reserves</text>
-    <rect x="444" y="182" width="118" height="28" rx="14" fill="#1e293b" stroke="#c4b5fd"/>
-    <text x="503" y="201" fill="#c4b5fd">status line</text>
-    <rect x="572" y="182" width="118" height="28" rx="14" fill="#1e293b" stroke="#f9a8d4"/>
-    <text x="631" y="201" fill="#f9a8d4">hook guard</text>
+    <rect x="174" y="182" width="104" height="28" rx="14" fill="#1e293b" stroke="#fdba74"/>
+    <text x="226" y="201" fill="#fdba74">claude-as</text>
+    <rect x="286" y="182" width="144" height="28" rx="14" fill="#1e293b" stroke="#93c5fd"/>
+    <text x="358" y="201" fill="#93c5fd">usage reserves</text>
+    <rect x="438" y="182" width="118" height="28" rx="14" fill="#1e293b" stroke="#c4b5fd"/>
+    <text x="497" y="201" fill="#c4b5fd">status line</text>
+    <rect x="564" y="182" width="136" height="28" rx="14" fill="#1e293b" stroke="#f9a8d4"/>
+    <text x="632" y="201" fill="#f9a8d4">notifications</text>
+    <rect x="708" y="182" width="104" height="28" rx="14" fill="#1e293b" stroke="#86efac"/>
+    <text x="760" y="201" fill="#86efac">git hooks</text>
   </g>
 
   <g class="m" font-size="16">
