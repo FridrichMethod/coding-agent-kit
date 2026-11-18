@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 import hashlib
 import importlib.util
 import json
-import math
 import os
 from pathlib import Path
 import pwd
@@ -79,7 +78,6 @@ PROC_VERSION = "/proc/version"
 # guard relies on (onFailure "block", a prompt hook that Esc cannot skip, continue false ending a turn).
 GUARD_MINIMUM = (2, 1, 296)
 HOOK_TIMEOUT = 20  # seconds Claude Code gives each guard hook
-SHOWN = ("refreshInterval", "hideVimModeIndicator")  # keys of the user's status line its guard's takes, beside padding
 VERSION_TIMEOUT = 30  # seconds claude --version may take
 VERSION = re.compile(r"\s*(\d+)\.(\d+)\.(\d+)(?![\d.])")
 # The reasons claude-as gives when it refuses a form of REFUSED, given its words.
@@ -647,31 +645,20 @@ def accepted_status_line(line):
             and ("hideVimModeIndicator" not in line or isinstance(line["hideVimModeIndicator"], bool)))
 
 
-def refresh_interval(value):
-    """Whether Claude Code keeps VALUE as a statusLine's refreshInterval: a number of at least 1 (seconds). It
-    reads any other value as none, which leaves an earlier settings file's value in place."""
-    return type(value) in (int, float) and 1 <= value < math.inf
-
-
 def own_status_line(sources):
-    """The status line the user's settings give Claude Code, as {"command", "padding"} and, where given,
-    "refreshInterval" and "hideVimModeIndicator" (SHOWN): the statusLine objects of SOURCES (parsed settings or
-    None, lowest precedence first) that Claude Code accepts, merged as it merges them (a later key wins, and a
-    refreshInterval it reads as none is skipped), when the command is not blank; None otherwise. A padding that is
-    not a whole number of columns from 0 up is 0. The guard runs that command after it has recorded the launch's
-    usage, and its status line takes the padding and SHOWN, so the footer draws as the user's; best effort, since
-    Claude Code also skips a file that other keys make invalid."""
+    """The status line the user's settings give Claude Code, as {"command", "padding"}: the statusLine objects of
+    SOURCES (parsed settings or None, lowest precedence first) that Claude Code accepts, merged as it merges them
+    (a later key wins), when the command is not blank; None otherwise. A padding that is not a whole number of
+    columns from 0 up is 0. The guard runs that command after it has recorded the launch's usage; best effort,
+    since Claude Code also skips a file that other keys make invalid."""
     line = {}
     for settings in sources:
         if isinstance(settings, dict) and accepted_status_line(settings.get("statusLine")):
-            line.update((key, value) for key, value in settings["statusLine"].items()
-                        if key != "refreshInterval" or refresh_interval(value))
+            line.update(settings["statusLine"])
     if not line or not line["command"].strip():
         return None
     padding = line.get("padding", 0)
-    own = {"command": line["command"], "padding": padding if type(padding) is int and padding >= 0 else 0}
-    own.update((key, line[key]) for key in SHOWN if key in line)
-    return own
+    return {"command": line["command"], "padding": padding if type(padding) is int and padding >= 0 else 0}
 
 
 def cached_policy_warning(account, path, settings):
@@ -697,11 +684,11 @@ def cached_policy_warning(account, path, settings):
             "they may be another account's; launching anyway.")
 
 
-def guard_settings(script, padding=0, **shown):
+def guard_settings(script, padding=0):
     """The --settings JSON of a guarded launch: SCRIPT (guard.py) under this interpreter as the command of
-    the SessionStart, UserPromptSubmit, PreToolUse (every tool) and Stop hooks and of the status line, which
-    takes PADDING and SHOWN, the user's refreshInterval and hideVimModeIndicator where given. Claude Code runs
-    each command through /bin/sh; the two hooks that block also block when they fail."""
+    the SessionStart, UserPromptSubmit, PreToolUse (every tool) and Stop hooks and of the status line.
+    Claude Code runs each command through /bin/sh; the two hooks that block also block when they fail. It
+    merges a statusLine into the user's key by key, so their refreshInterval and hideVimModeIndicator still apply."""
     command = shlex.join([sys.executable, "-I", "-B", "-S", script])
 
     def hooks(kind, block=False, **group):
@@ -710,7 +697,7 @@ def guard_settings(script, padding=0, **shown):
             handler["onFailure"] = "block"
         return [{**group, "hooks": [handler]}]
 
-    settings = {"statusLine": {"type": "command", "command": f"{command} status", "padding": padding, **shown},
+    settings = {"statusLine": {"type": "command", "command": f"{command} status", "padding": padding},
                 "hooks": {"SessionStart": hooks("start"), "UserPromptSubmit": hooks("prompt", True),
                           "PreToolUse": hooks("tool", True, matcher="*"), "Stop": hooks("stop")}}
     return json.dumps(settings, separators=(",", ":"))
@@ -1001,8 +988,7 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
         env.pop(name, None)
     env.update(CLOSED)
     say("claude-as: " + policy.describe() + "; hooks refuse new prompts and tool calls at a reserve.", "36")
-    return ["--settings", guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"], own["padding"],
-                                         **{key: own[key] for key in SHOWN if key in own})]
+    return ["--settings", guard_settings(env["CODING_AGENT_KIT_GUARD_SCRIPT"], own["padding"])]
 
 
 def state_directory(metadata, config, name):
