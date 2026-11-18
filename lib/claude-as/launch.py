@@ -59,12 +59,14 @@ MANAGED_DIRECTORIES = (Path("/etc/claude-code/managed-settings.d"),
 # user's; on WSL the Windows managed settings, which Claude Code takes in only when one of them sets
 # wslInheritsWindowsSettings. The server-managed settings refuse no launch for the keys that keep the guard from
 # running: Claude Code caches them in its configuration directory (REMOTE), which every claude-as account shares, so the
-# copy describes whichever account fetched it last, and a guarded launch only warns, before Claude Code starts, of those
-# keys there (cached_policy_warning); the authentication audit (config_check) checks the copy for every launch, as
-# it checks the settings files. The HKLM and HKCU policy keys, which Claude Code on WSL reads through reg.exe, are not
-# checked: hooks they stop show as the footer line and the warning at the account's next guarded launch, and a status
-# line they set as the guard's blindness, but a disableAllHooks there also stops the guard's status line, so only a
-# later session's usage record can report it, at the account's next guarded launch on this host.
+# copy describes whichever account fetched it last, and a guarded launch only warns, before Claude Code starts, of the
+# hook keys and an accepted statusLine there (cached_policy_warning); the env switches that check_form refuses in every
+# other settings source draw neither a refusal nor a warning there. The authentication audit (config_check) checks the
+# copy for every launch, as it checks the settings files. The HKLM and HKCU policy keys, which Claude Code on WSL reads
+# through reg.exe, are not checked: hooks they stop show as the footer line and the warning at the account's next
+# guarded launch, and a status line they set as the guard's blindness, but a disableAllHooks there also stops the
+# guard's status line, so only a later session's usage record can report it, at the account's next guarded launch on
+# this host.
 REMOTE = "remote-settings.json"
 MACOS = sys.platform == "darwin"
 MDM_PREFERENCES = Path("/Library/Managed Preferences")
