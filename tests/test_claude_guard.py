@@ -18,6 +18,7 @@ and ssh shims first on PATH, git allowed the file protocol only and every proxy
 at a closed loopback port.
 """
 
+import errno
 import hashlib
 import importlib.util
 import json
@@ -26,6 +27,7 @@ from pathlib import Path
 import plistlib
 import pty
 import pwd
+import resource
 import select
 import shlex
 import shutil
@@ -165,9 +167,10 @@ class Fixture(unittest.TestCase):
             shutil.copytree(ROOT / part, target / part)
         return target
 
-    def run_launcher(self, args, env=None, tty=True, kit=None, cwd=None):
+    def run_launcher(self, args, env=None, tty=True, kit=None, cwd=None, preexec_fn=None):
         """(exit code, stdout, stderr) of claude-as ARGS in CWD (the project directory); standard output on a
-        pseudo-terminal when TTY. The launcher runs in a session of its own, without a controlling terminal."""
+        pseudo-terminal when TTY. The launcher runs in a session of its own, without a controlling terminal, after
+        PREEXEC_FN where given."""
         command = [str((kit or self.kit) / "bin/claude-as"), *args]
         master = slave = None
         if tty:
@@ -175,7 +178,7 @@ class Fixture(unittest.TestCase):
         try:
             result = subprocess.run(command, cwd=cwd or self.cwd, env=self.env | (env or {}), stdin=subprocess.DEVNULL,
                                     stdout=slave if tty else subprocess.PIPE, stderr=subprocess.PIPE, timeout=60,
-                                    start_new_session=True)
+                                    start_new_session=True, preexec_fn=preexec_fn)
             # Read while this end of the terminal is still open: some systems drop what is buffered once
             # every slave descriptor has closed. The fake writes far less than a terminal buffers.
             out = drain(master) if tty else result.stdout.decode("utf-8", "replace")
@@ -753,6 +756,20 @@ class Guarded(Fixture):
                                                     "permissions 0700 (File exists).\n"))
                 self.assertEqual(self.records(), [])
                 path.unlink()
+
+    def test_a_launch_whose_state_cannot_be_written_names_the_guard_directory(self):
+        """A write to the guard directory that fails, as on a full disk or a home directory at its quota, refuses the
+        launch naming that directory and the reason, not as a token problem; Claude Code is not started. Every file
+        write fails here (RLIMIT_FSIZE 0), the first of a guarded launch being its state file."""
+        def no_file_writes():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (0, resource.getrlimit(resource.RLIMIT_FSIZE)[1]))
+
+        code, out, err = self.run_launcher(["--reserve-5h", "10", "work"], {"FAKE_VERSIONS": os.devnull},
+                                           preexec_fn=no_file_writes)
+        self.assertEqual((code, out, err), (1, "", f"claude-as: {self.guard_dir}: cannot record this launch's usage "
+                                                   f"reserve state ({os.strerror(errno.EFBIG)}).\n"))
+        self.assertEqual(self.records(), [])
+        self.assertEqual(os.listdir(self.guard_dir), [])
 
 
 class Refusals(Fixture):

@@ -979,7 +979,10 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
     if warning:
         say(warning, "33")
     own = form.statusline or {"command": None, "padding": 0}
-    guard_launch.prepare(env, directory, "claude-as", account, policy, str(usage), now, statusline=own["command"])
+    try:
+        guard_launch.prepare(env, directory, "claude-as", account, policy, str(usage), now, statusline=own["command"])
+    except OSError as error:  # a full disk or a home directory at its quota, say
+        fail(f"{directory}: cannot record this launch's usage reserve state ({error.strerror or error}).")
     for name in REOPENING:
         env.pop(name, None)
     env.update(CLOSED)
