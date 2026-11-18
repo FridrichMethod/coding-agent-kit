@@ -2159,13 +2159,30 @@ class SandboxSetup(unittest.TestCase):
                 write(drop_ins / "notes.txt", json.dumps({"disableAllHooks": True}))
                 write(base / "etc/settings.json", json.dumps({"disableAllHooks": True}))
                 self.assertIsNone(managed_policy_stop())
-        # RealClaude asks before it runs any Claude Code (this one does not exist).
+        # RealClaude asks before it runs any Claude Code (this one does not exist), on any host but macOS, where it
+        # skips before it asks.
         reason = "the host's managed settings /x set disableAllHooks, so ..."
         with unittest.mock.patch(f"{__name__}.managed_policy_stop", lambda: reason), \
-                unittest.mock.patch.object(shutil, "which", lambda *args, **kwargs: "/nonexistent/claude"):
+                unittest.mock.patch.object(shutil, "which", lambda *args, **kwargs: "/nonexistent/claude"), \
+                unittest.mock.patch.object(sys, "platform", "linux"):
             with self.assertRaises(unittest.SkipTest) as caught:
                 RealClaude.setUpClass()
         self.assertEqual(str(caught.exception), reason)
+
+    def test_on_macos_the_real_claude_is_skipped_before_it_is_looked_for(self):
+        """On macOS a real Claude Code reads the login Keychain under the real user's name, which neither the sandbox's
+        HOME nor its CLAUDE_CONFIG_DIR keeps apart: RealClaude skips, naming the Keychain, before it looks for a Claude
+        Code on PATH or reads the host's managed settings."""
+        def looked(*args, **kwargs):
+            raise AssertionError("RealClaude looked for Claude Code or a managed policy on macOS")
+
+        with unittest.mock.patch(f"{__name__}.managed_policy_stop", looked), \
+                unittest.mock.patch.object(shutil, "which", looked), \
+                unittest.mock.patch.object(sys, "platform", "darwin"):
+            with self.assertRaises(unittest.SkipTest) as caught:
+                RealClaude.setUpClass()
+        self.assertEqual(str(caught.exception), "on macOS a real Claude Code reads the login Keychain, which neither "
+                                                "the sandbox's HOME nor its CLAUDE_CONFIG_DIR keeps apart")
 
     def test_a_windows_registry_policy_skips_the_real_claude_on_wsl(self):
         """Claude Code on WSL reads the Settings value of HKLM and HKCU\\SOFTWARE\\Policies\\ClaudeCode through
