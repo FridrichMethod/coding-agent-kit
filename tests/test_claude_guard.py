@@ -49,7 +49,6 @@ ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "sk-ant-oat01-" + "fabricated-guard-claude-" * 3
 ENROLLED = "sk-ant-oat01-" + "fabricated-enrolled-claude-" * 3  # what the fake's setup-token prints
 VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_AGENT_KIT_GUARD_PYTHON")
-USAGE_VARIABLES = ("CODING_AGENT_KIT_USAGE_FILE", "CODING_AGENT_KIT_TOKEN_ID", "CODING_AGENT_KIT_CLAUDE_PID")
 CLOSED = {"CLAUDE_DISABLE_ADOPT": "1", "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1"}  # set by a guarded launch only
 RESUME = "CLAUDE_CODE_RESUME_INTERRUPTED_TURN"  # removed by a guarded launch only
 PREFIX = "CLAUDE_CODE_SHELL_PREFIX"  # refused by a guarded launch
