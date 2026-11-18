@@ -17,11 +17,8 @@
 
 `codex-as NAME` and `claude-as NAME` run the native Codex or Claude Code CLI
 as a named account: its private stored credentials, your shared configuration
-and history. Optional usage reserves keep a percentage of each account's
-5-hour and weekly limits unused, through a reserve guard in the native CLI's
-own hooks. Three Claude Code helpers add a status line, terminal notifications
-and a Git hook guard. The kit installs on top of an existing `codex` or
-`claude` and never installs, updates or replaces either.
+and history. The kit installs on top of an existing `codex` or `claude` and
+never installs, updates or replaces either.
 
 ## Highlights
 
@@ -30,7 +27,7 @@ and a Git hook guard. The kit installs on top of an existing `codex` or
 <td width="33%" valign="top"><h4>One CLI, many accounts</h4>
 Each account keeps its own credentials in <code>secrets_dir</code>. Codex accounts share configuration, sessions, history and SQLite state, so a session resumes under another account; Claude accounts inherit your existing configuration.</td>
 <td width="33%" valign="top"><h4>The native CLI does the work</h4>
-Arguments go to the real <code>codex</code> or <code>claude</code>, and Codex's own token refresh writes through to the account's credentials. The kit implements no OAuth; it refuses what would change, revoke or bypass the account's login or split the shared state, and, with a reserve on, the launch forms its guard cannot cover.</td>
+Arguments go to the real <code>codex</code> or <code>claude</code>, and Codex's own token refresh writes through to the account's credentials. The kit implements no OAuth. It refuses what would change, revoke or bypass the account's login or split the shared state; with a reserve on, it also refuses launches the guard cannot watch, such as <code>claude-as NAME -p</code>.</td>
 <td width="33%" valign="top"><h4>Usage reserves</h4>
 <code>--reserve-weekly 20</code> keeps 20% of the weekly limit unused. The natives' own hooks refuse new prompts and tool calls at the reserve, and allow again once the window resets.</td>
 </tr>
@@ -57,17 +54,17 @@ flowchart LR
     guard -.->|"allow or refuse"| native
 ```
 
-- **Accounts.** Each account's credential stays in `secrets_dir` (`~/.secrets`);
-  Codex accounts share the configuration, sessions, history and SQLite state
-  of `codex_home` (`~/.codex`), and `claude-as` inherits your Claude Code
-  configuration ([layout](docs/account-launchers.md#codex-account-layout)).
+- **Accounts.** `secrets_dir` holds one credential per account; the
+  [account layout](docs/account-launchers.md#codex-account-layout) shows what
+  Codex accounts share.
 - **Reserve guard.** With a reserve on, the native gets the guard's hooks for
-  that one launch, and nothing is written to its own configuration. It is a
-  soft guard, not a hard limit: a streaming reply finishes, and each agent
-  running in parallel at the reserve finishes its reply and can make one more
-  request to report the refusal. Forms it cannot cover, such as
-  `claude-as NAME -p`, are refused; with both windows off, as by default, a
-  launch is unchanged ([usage reserves](docs/account-launchers.md#usage-reserves)).
+  that one launch; the kit writes nothing to the native's configuration (Codex
+  itself records your trust of the hooks). It is a soft guard, not a hard
+  limit: a streaming reply finishes, and each agent running in parallel at the
+  reserve finishes its reply and can make one more request to report the
+  refusal. Launch forms it cannot cover are refused; with both windows off, as
+  by default, a launch is unchanged
+  ([usage reserves](docs/account-launchers.md#usage-reserves)).
 
 ## Requirements
 
@@ -75,8 +72,8 @@ flowchart LR
 | --- | --- |
 | System | Linux or macOS; WSL counts as Linux. Native Windows is not supported. |
 | Runtime | Python 3.11 or newer, standard library only; Bash 3.2 or newer for `codex-as`, POSIX `sh` for `claude-as` and `install.sh`; Git and `tar` for the managed install |
-| `codex-as` | Codex CLI 0.161.0 or newer, also with usage reserves; no upper limit |
-| `claude-as` | Claude Code; token capture is audited for 2.1.296 (others fall back to a manual paste); usage reserves need 2.1.296 or newer, with no upper limit |
+| `codex-as` | Codex CLI 0.161.0 or newer, with or without usage reserves; no upper limit |
+| `claude-as` | Claude Code; enrolment captures the token automatically with 2.1.296 and asks you to paste it with other versions; usage reserves need 2.1.296 or newer; no upper limit |
 | Helpers | Node.js 22 or newer; Git is optional for the status line. Usage reserves need no Node. |
 | Optional | bash-completion or zsh for account-name completion |
 
@@ -101,22 +98,24 @@ codex-as --reserve-5h 10 --reserve-weekly 40 work
 "${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --uninstall
 ```
 
-Codex enrolment uses device login, which must be enabled in the account's
-Security settings or by the workspace admin
-([adding accounts](docs/account-launchers.md#daily-use-and-adding-accounts)).
-A launch with a reserve prints its policy on stderr before the native starts:
+- **Codex enrolment** uses device login, which must be enabled in the
+  account's Security settings or by the workspace admin
+  ([adding accounts](docs/account-launchers.md#daily-use-and-adding-accounts)).
+- **A launch with a reserve** prints its policy on stderr before the native
+  starts:
 
-```text
-codex-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly 40% (--reserve-weekly); hooks refuse new prompts and tool calls at a reserve.
-```
+  ```text
+  codex-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly 40% (--reserve-weekly); hooks refuse new prompts and tool calls at a reserve.
+  ```
 
-The first guarded interactive Codex launch on a host asks once, in Codex's
-"Hooks need review", to trust the guard's hooks: choose "Trust all and
-continue". To run a checkout instead, run `./install.sh` in a clone. Both
-installs take `--prefix DIR` for `DIR/bin`, and when they place links they
-print the zsh `fpath` line, the helper commands for Claude Code's
-`settings.json` and, when `DIR/bin` is not on `PATH`, a `PATH: add DIR/bin`
-line ([installation](docs/install.md)).
+- **Codex trust.** The first guarded interactive Codex launch on a host asks
+  once, in Codex's "Hooks need review", to trust the guard's hooks: choose
+  "Trust all and continue".
+- **A checkout install** is `./install.sh` run in a clone.
+- **`--prefix DIR`** links either install into `DIR/bin`. When an install
+  places links, it prints the zsh `fpath` line, the helper commands for Claude
+  Code's `settings.json` and, when `DIR/bin` is not on `PATH`, a
+  `PATH: add DIR/bin` line ([installation](docs/install.md)).
 
 ## Commands
 
