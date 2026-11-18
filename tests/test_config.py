@@ -1024,7 +1024,15 @@ class Launchers(unittest.TestCase):
                 for gone in ("--enroll-native", "native-login", "protected", "F12", "gate"):
                     self.assertNotIn(gone, result.stdout)
                 if tool == "codex-as":
-                    self.assertIn("Codex 0.161.0 or newer (0.169.0 or newer with reserves); no upper limit.", result.stdout)
+                    # One minimum for every launch: reserves need no newer Codex, so the help names no other version.
+                    self.assertIn("and Codex 0.161.0 or newer, also with reserves; no upper limit.", result.stdout)
+                    self.assertEqual(re.findall(r"\d+\.\d+\.\d+", "\n".join(result.stdout.splitlines()[:-1])), ["0.161.0"])
+                    self.assertIn("With a reserve on, goals are off; cloud, app-server, --ephemeral and other forms the "
+                                  "guard cannot check are refused.", result.stdout)
+                else:
+                    self.assertIn("and Claude Code 2.1.296 or newer with reserves; no upper limit.", result.stdout)
+                    self.assertIn("With a reserve on, forms the hooks cannot cover are refused (-p, redirected output, "
+                                  "--bg, agents, --settings).", result.stdout)
                 # A lone copy, a broken kit or a kit without docs answers with the URL.
                 write(lone / "bin" / tool, (ROOT / "bin" / tool).read_text(), 0o700)
                 result = self.run_tool([lone / "bin" / tool, "--help"])
@@ -1209,6 +1217,21 @@ class Launchers(unittest.TestCase):
                     result = self.run_tool([self.kit / "bin" / tool, *flags, *args])
                     self.assertEqual((result.returncode, result.stdout, result.stderr),
                                      (1, "", f"{tool}: incomplete install at {self.kit}\n"))
+        self.assertEqual(self.records(), [])
+
+    def test_a_kit_without_guard_launch_py_names_the_root(self):
+        """Both launchers load lib/coding-agent-kit/guard_launch.py for every launch, with a reserve or without
+        one, and codex-as also for its metadata queries: a kit copy without it refuses in one line, without a
+        traceback and before any native CLI."""
+        (self.kit / "lib/coding-agent-kit/guard_launch.py").unlink()
+        commands = [(tool, [*flags, *args]) for tool, args in (("codex-as", ["A", "exec", "x"]), ("claude-as", ["work"]))
+                    for flags in ([], ["--reserve-5h", "10"], ["--reserve-5h", "off", "--reserve-weekly", "off"])]
+        commands += [("codex-as", query) for query in (["--show-config"], ["--list"], ["--labels"], ["--info", "A"])]
+        for tool, args in commands:
+            with self.subTest(tool=tool, args=args):
+                result = self.run_tool([self.kit / "bin" / tool, *args])
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (1, "", f"{tool}: incomplete install at {self.kit}\n"))
         self.assertEqual(self.records(), [])
 
     def test_metadata_queries_start_nothing_and_ignore_launch_policy(self):

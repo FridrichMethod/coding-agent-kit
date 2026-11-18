@@ -70,6 +70,14 @@ REFUSED = {"--remote", "--remote-auth-token-env", "--oss", "--local-provider"}
 DESKTOP = sys.platform in {"darwin", "win32"}
 EXEC = {"exec", "exec-prompt", "exec-resume"}
 # Root subcommands and aliases of native Codex 0.163.0 and 0.169.0, hidden ones included, plus clap's help.
+# git-credential (hidden, from 0.169.0) with an OPERATION is a plain form, refused in no launch, whatever the
+# OPERATION: run_git_credential in codex-rs/cli/src/git_credential.rs (the same at rust-v0.169.0 and
+# rust-v0.171.0-alpha.12) reads Git's request and returns for store and erase ("Git approval/rejection
+# never stores another copy or changes the Codex login"), so, unlike logout, neither removes, replaces
+# or writes auth.json, the keyring or a credential store. Codex 0.161.0 to 0.168 take git-credential as their
+# root prompt: clap runs the TUI with it, or drops it for a subcommand after it (git-credential exec go runs
+# exec), and refuses any other word after it but help, its help subcommand. So with a reserve git-credential
+# is refused unless its first word is an OPERATION (which Git always passes) or help.
 COMMANDS = {
     "agents", "tcp-tunnel", "exec", "e", "review", "login", "git-credential", "logout", "mcp", "plugin",
     "app-server", "remote-control", "app", "completion", "update", "doctor", "sandbox",
@@ -77,6 +85,8 @@ COMMANDS = {
     "migrate-rollouts", "migrate-nfs-db", "unarchive", "fork", "cloud", "cloud-tasks",
     "responses-api-proxy", "stdio-to-uds", "exec-server", "features", "help",
 }
+# git-credential's OPERATION values (codex-rs/cli/src/git_credential.rs, 0.169.0).
+OPERATIONS = {"get", "store", "erase", "capability"}
 # The launcher sets these; the update check is off because its installer writes under CODEX_HOME.
 FIXED_KEYS = {"cli_auth_credentials_store", "sqlite_home", "check_for_update_on_startup"}
 # Replaces the ChatGPT login with an agent identity.
@@ -88,6 +98,9 @@ HOOK_FEATURES = ("hooks", "codex_hooks")
 INTERACTIVE = {None, "resume", "fork"}
 HEADLESS = {*EXEC, "review"}
 UNGUARDED = {"cloud", "app-server", "exec-server", "remote-control"}
+# app-server's schema generators (codex-rs/cli/src/main.rs, AppServerSubcommand, 0.169.0) write protocol
+# bindings and start no app server, so they are plain as the first word after app-server.
+SCHEMAS = {"generate-ts", "generate-json-schema", "generate-internal-json-schema"}
 PROFILE = re.compile(r"[A-Za-z0-9_-]+")  # native ProfileV2Name
 # uuid::Uuid::parse_str forms; anything else is a session name to native Codex.
 HYPHENATED = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -216,7 +229,8 @@ def arguments(args, config):
     mode, root, cwd = "interactive", True, Path.cwd()
     command, target, last, query, show_all = None, None, False, False, False
     no_daemon, others, words, unknown, bare, profile, forked = False, False, [], [], False, None, False
-    hooks_override = hooks_disabled = goals_on = ephemeral = ignore_user_config = worktree = False
+    hooks_override = hooks_disabled = goals_on = ephemeral = ignore_user_config = worktree = schema = False
+    known = 0  # how many unknown options came before the subcommand
     i = 0
     while i < len(args):
         arg = args[i]
@@ -224,6 +238,8 @@ def arguments(args, config):
         if arg == "--":
             if command in {"resume", "fork", "exec-resume"} and target is None and i < len(args):
                 target = args[i]
+            if command == "git-credential" and i < len(args):
+                words.append(args[i])  # its OPERATION from 0.169.0; before, clap refuses any word here
             break
         if arg.startswith("--"):
             flag, sep, value = arg.partition("=")
@@ -234,6 +250,11 @@ def arguments(args, config):
             flag, sep, value = arg, "", ""
         if flag in REFUSED:
             fail("unsupported option; profiles, remote/provider/auth overrides are refused.")
+        if flag == "--startup-sign-out" and command == "app-server":
+            # Removes auth.json and revokes the tokens (codex-cli 0.169.0). clap takes it only before app-server's
+            # subcommand, but a word before it may be the value of an option this scan does not know.
+            fail("unsupported option; app-server --startup-sign-out signs the account out and revokes its tokens, "
+                 "as logout does.")
         if flag in VALUES:
             if not sep:
                 if i == len(args):
@@ -274,7 +295,7 @@ def arguments(args, config):
                     query = bare = True  # help never runs the subcommand it describes
                     break
                 if arg in COMMANDS and (arg != "app" or DESKTOP):
-                    root, words = False, []
+                    root, words, known = False, [], len(unknown)
                     command = {"e": "exec", "a": "apply", "cloud-tasks": "cloud"}.get(arg, arg)
                     if command == "exec":
                         mode = "exec"
@@ -290,12 +311,15 @@ def arguments(args, config):
                 target = arg
             else:
                 words.append(arg)
+                # An option this scan does not know may have taken the word as its value (--cloud-skills-snapshot).
+                schema |= command == "app-server" and words == [arg] and arg in SCHEMAS and len(unknown) == known
                 if words == ["help"] and command in UNGUARDED - {"remote-control"} or (
                         command == "debug" and words == ["app-server", "help"]):
                     query = True  # these have subcommands too, so clap reads this word as their help subcommand
                     break
-                # Foreground remote-control and stdio app-server need no daemon; these manage one.
-                if command == "remote-control" or (command == "app-server" and "daemon" in words):
+                # Foreground remote-control and stdio app-server need no daemon; these manage one. After a schema
+                # generator, daemon is the generator's word (--out daemon).
+                if command == "remote-control" or (command == "app-server" and "daemon" in words and not schema):
                     fail("this command manages a Codex daemon; codex-as accounts run without one.")
                 if command == "features" and words[:1] == ["enable"] and arg in FEATURES:
                     fail("an authentication feature replaces the account login; it is refused.")
@@ -318,8 +342,11 @@ def arguments(args, config):
     rootless = bare or command in {"update", "completion"}
     if query or rootless:
         form = "plain"
-    elif command in UNGUARDED or (command == "debug" and words[:1] == ["app-server"]):
-        form = "refused"  # debug app-server send-message-v2 runs a turn through an app server
+    elif command in UNGUARDED and not schema or (command == "debug" and words[:1] == ["app-server"]) or (
+            command == "git-credential" and not (words and words[0] in {*OPERATIONS, "help"})):
+        # debug app-server send-message-v2 runs a turn through an app server; git-credential with no OPERATION as its
+        # first word is a prompt to Codex 0.161.0 to 0.168 (from 0.169.0 clap requires one and runs nothing else).
+        form = "refused"
     else:
         form = "interactive" if command in INTERACTIVE else "headless" if command in HEADLESS else "plain"
     exact = target is not None and not last and not query

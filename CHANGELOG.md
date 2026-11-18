@@ -6,8 +6,9 @@ Usage reserves become a guard on the natives' own hooks, which works with
 every account's own login and the natives' own folders, in place of the 0.8
 enforcement and the Claude login it needed, which leave the kit. A minor
 release that breaks the public contract: it removes an own option, a
-configuration table and public paths. A launch with both reserves off, as by
-default, is unchanged. A managed install takes it as a channel switch:
+configuration table and public paths, and adds public paths. A launch with
+both reserves off, as by default, starts the native with the same arguments
+and environment as before. A managed install takes it as a channel switch:
 `"${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update --channel 0.9`.
 
 Breaking changes:
@@ -38,6 +39,13 @@ Breaking changes:
   `sandbox_linux.py` and `sandbox_macos.py`; `lib/codex-as/protect.py`,
   `gate.py` and `reader.py`; and `lib/claude-as/native.py`, `policy.py`,
   `bearer.py`, `provider.py` and `protect.py`. No other path moved.
+- Two new public paths, which a copied install must include:
+  `lib/coding-agent-kit/guard.py` and `guard_launch.py`. Both launchers load
+  `guard_launch.py` on every launch (`codex-as` also for its metadata
+  queries), so a copy without it prints `incomplete install at ROOT`; a
+  guarded launch (a reserve on and a form that starts model work) also needs
+  `guard.py` and refuses the same way without it. Linked and managed
+  installs and checkouts are unaffected.
 
 Removed:
 
@@ -53,7 +61,8 @@ Removed:
   `<secrets_dir>/native-claude-accounts/NAME/{config,account.json}`.
 - The quota evaluator, its observation and verdict types, quota families and
   tunables in `lib/coding-agent-kit/reserve.py`, which keeps the reserve
-  flags, the policy resolution and the number and time formatting.
+  flags, the policy resolution and the number and time formatting, and holds
+  the guard's decision and messages.
 - The test suites `tests/sandbox.sh`, `gate.sh`, `supervise.sh`,
   `codex-reserve.sh` and `claude-reserve.sh`, their fixtures and their
   pre-commit hooks.
@@ -61,11 +70,202 @@ Removed:
 
 Added:
 
+- The reserve guard, which a guarded launch uses:
+  `lib/coding-agent-kit/guard.py`, the hook command that the launcher
+  injects for that one launch, one short process per hook event under the
+  launcher's own Python, and `lib/coding-agent-kit/guard_launch.py`, what
+  both launchers need to start such a launch. The launchers write nothing
+  to the configuration under `~/.claude` or `~/.codex`. While the account's
+  own usage data shows an enabled window at or below its reserve, the guard
+  refuses new prompts, which are not sent, and tool calls, which are denied
+  with the reason, and it allows again by itself once that window has reset.
+  A reading counts until its window resets, however old it is, and a Codex
+  reading above 100 percent counts as 100; in Claude Code the guard's status
+  line records only windows from 0 through 100 percent, like the status line
+  helper, so a window above 100 percent there is no reading, and a session
+  whose status line reports only such windows has no usage data (below). A
+  window without a current reading has nothing to check.
+- `claude-as` passes the guard in one `--settings` argument before the
+  caller's arguments: `SessionStart`, `UserPromptSubmit`, `PreToolUse` for
+  every tool and `Stop` hooks, and the guard as the launch's status line.
+  Claude Code hands its rate limits only to the status line, so the guard
+  records them there in the account's usage file `claude-NAME.usage.json`,
+  which `--info` reads, then runs the status line command of the user's
+  settings with the same input and prints its output: it needs no Node and
+  no wiring outside the kit. A denied tool call ends the turn, and a turn
+  that ends at a reserve stays ended, also beside a `Stop` hook of the
+  user's that would continue it. Claude Code also blocks a prompt or a tool
+  call whose hook cannot run (`"onFailure": "block"`).
+- `codex-as` passes the guard as `-c hooks.UserPromptSubmit=...` and
+  `-c hooks.PreToolUse=...` after its own `-c` values, with the same
+  definitions on every launch, account, host and kit release: Codex asks
+  once in "Hooks need review" to trust them and keeps that trust in the
+  shared `config.toml`. The guard reads the newest rate-limit snapshot in
+  the session's rollout since the launch started, whatever its limit family,
+  else the usage in the account record from earlier runs, each window told
+  by its length (300 or 10080 minutes), never by its slot. A guarded launch
+  turns goals off (`-c features.goals=false --disable goals`), since a goal
+  continues on its own after a denied tool call; a launch with both reserves
+  off keeps them.
+- A session without usage data is blocked, never before its first reply: a
+  Claude Code session whose status line has reported no usable window (from
+  0 through 100 percent, with a reset time) 120 seconds after the first sign
+  of a reply (a tool call or the end of a turn), as on an account that
+  reports no window, or with a status line input whose only windows are
+  above 100 percent; a Codex session whose rollout since the launch started
+  has a usage line, or at a prompt a model response, but no rate limits. An
+  account whose server reports no window needs its reserves set to `"off"`.
+- A guard that fails on a prompt or a tool call (an event it cannot read, a
+  launch format it does not know, any error) blocks it with a message that
+  names the error and the way out; on its other events a failing guard
+  stays silent.
+- Block messages give each window at its reserve with its remaining share,
+  its reserve and the time to its reset, or the cause of the missing data,
+  then what was stopped and the relaunch, for example
+  `claude-as --reserve-weekly off NAME --continue` or
+  `codex-as --reserve-5h off NAME resume --last`.
+- Hooks that the native does not run are reported where the kit can tell.
+  In Claude Code the guard's status line prints `reserve guard not running`
+  as the first footer line when its input has a usable window (the session
+  has had a reply) and no hook has run, and the next guarded launch of the
+  account warns `claude-as: NAME: an earlier launch ran without its usage
+  reserve guard: Claude Code did not run the injected hooks.` After a Codex
+  run, `codex-as` warns when the run's own sessions show that Codex did not
+  run the guard's hooks, and gives a notice when the session that shows it
+  may be another client's of the account; it also prints the guard's latest
+  block message after a headless run, since `codex exec` exits 0 either way
+  and shows no reason for a refused prompt.
+- Headless Codex runs with a reserve (`exec` in every form, `review`) are
+  refused until the guard's tool hook has run under Codex on this host,
+  since a headless run skips a hook that is not trusted without a word; a
+  marker in the guard directory records it, and goes when a run's own
+  sessions show that the hooks did not run.
+- A guarded `claude-as` launch keeps its session in its own process: it sets
+  `CLAUDE_DISABLE_ADOPT=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, since a
+  session in Claude Code's background process would run with the environment
+  and credential of whichever launch started that process, and removes
+  `CLAUDE_CODE_RESUME_INTERRUPTED_TURN`, which would re-run a turn that the
+  guard stopped.
+- Minimum versions for a guarded launch: Claude Code 2.1.296 or newer,
+  refused when older or when `claude --version` names no version; codex-cli
+  0.161.0 or newer, the minimum of every `codex-as` launch, with no other one
+  for reserves. Minimums only, with no upper bound.
+- The guard directory `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/guard/`,
+  owned and 0700: the state files of each guarded launch, which a guarded
+  launch removes 30 days after that launch started (`codex-as` also when its
+  own run ends), and the Codex marker. A managed install's guard is
+  reached through its `current` link, so a session keeps a guard across kit
+  updates.
+- `CODING_AGENT_KIT_GUARD`, `CODING_AGENT_KIT_GUARD_SCRIPT` and
+  `CODING_AGENT_KIT_GUARD_PYTHON`, the launcher's channel to its guard:
+  every launch removes them from the environment and only a guarded one sets
+  them. They are no interface for other programs.
+
 Changed:
 
+- The reserve flags and the `[usage_reserve]` tables turn the guard on for a
+  launch, which runs the native as usual, on every account and with the
+  natives' own folders; their syntax, values and resolution are unchanged.
+- With a reserve on, both launchers refuse a form the guard's hooks cannot
+  cover before the native starts, with exit 1 and one line that ends
+  `; to launch without usage reserves, run TOOL --reserve-5h off --reserve-weekly off NAME with the same arguments.`
+  Among them:
+  - `claude-as`: `-p`, `--print` and `--init-only`; a standard output that
+    is not a terminal; `--bg` and `--background`; the commands `agents`,
+    `attach`, `respawn`, `ultrareview`, `auto-mode critique`, `plugin eval`,
+    `mcp serve` and `gateway`; `remote`, `sync`, `bridge` and `daemon` as the
+    first argument; a `--settings` of the caller's; `--safe-mode` or `--bare`
+    before `--` as a separate word that is an option's value, as in
+    `--model --bare` (spelled `--model=--bare` it is no switch and launches;
+    as options, both are refused on every launch, with a reserve or
+    without); `CLAUDE_CODE_SAFE_MODE` or `CLAUDE_CODE_SIMPLE` set to anything
+    but off, or a non-empty `CLAUDE_CODE_SHELL_PREFIX`, in the environment or
+    a settings `env`; `disableAllHooks` in a user, project, local or managed
+    settings file, and `allowManagedHooksOnly`,
+    `strictPluginOnlyCustomization` or a `statusLine` in the machine's
+    managed settings; a settings `env` that reopens what a guarded launch
+    closes; a Claude Code older than 2.1.296.
+  - `codex-as`: `cloud`, `app-server`, `exec-server`, `remote-control` and
+    `debug app-server`; a `-c` or `--config` value under `hooks`;
+    `--disable hooks`, a `-c` value that turns the hooks feature off, or the
+    hooks feature turned off under `[features]` of a configuration file Codex
+    loads for the launch (shared, profile, project, system or managed); a
+    guard hook turned off under `[hooks.state]`; `--enable goals`, a `-c`
+    value that could turn goals on, or goals set to anything but false in a
+    managed layer; `--ephemeral`; `--ignore-user-config`; `--worktree`; a
+    login that names no ChatGPT user and workspace, as an API key login
+    does; a headless run before the tool hook has run on this host.
+- With a reserve on, the forms that start no model work launch as without
+  one: for `claude-as` a help or version option with no operand and the
+  commands that start no session (`doctor`, `update`, `mcp list` and
+  others), and for `codex-as` help and version and every subcommand that is
+  neither guarded nor refused.
+- A guarded launch prints `TOOL: usage reserves for NAME: ...; hooks refuse
+  new prompts and tool calls at a reserve.` on standard error before the
+  native starts.
 - The help texts: the reserve flags keep that percentage of a window unused,
-  and hooks refuse new prompts and tool calls at the reserve; the `codex-as`
-  help names codex-cli 0.169.0 or newer for reserves, with no upper limit.
+  and hooks refuse new prompts and tool calls at the reserve; one line names
+  forms refused with a reserve on (and, for `codex-as`, that goals are off);
+  `claude-as` names Claude Code 2.1.296 or newer for reserves and `codex-as`
+  codex-cli 0.161.0 or newer also with reserves, with no upper limit.
+- Every `codex-as` launch that can write sessions, with reserves or without,
+  appends one byte to the account's lease file
+  `<codex_home>/accounts/.locks/NAME.lock`, so that the check after a guarded
+  run can tell that another launch of the account arrived during it; a
+  launch that holds the lease alone first empties a file of 4096 bytes or
+  more.
+- AGENTS.md describes the reserve guard as an exception to the rule that
+  best effort falls back to plain native behavior: with a reserve on, a
+  session without usage data, a guard failure on a prompt or a tool call and
+  a form the hooks cannot cover block or are refused instead, apart from the
+  Codex case in the known limits below, and hooks that the native does not
+  run are reported where the kit can tell.
+
+Fixed:
+
+- The status line helper never replaces a stored reading by an older one:
+  it keeps a stored window that has not reset when the incoming one has the
+  same reset time and a lower percentage, an earlier reset time, or is
+  absent, by the guard's rule, so a session whose last reply is older does
+  not overwrite another session's newer reading. The usage file has no
+  lock: two status lines that write it at the same instant can let an older
+  reading replace a newer one until a run with a reading at least as new
+  writes it again.
+- The status line helper removes its temporary file when the write fails,
+  not only when the rename does, and judges leftover temporary files of the
+  usage file by the file times alone, which on a network home directory come
+  from the server's clock.
+- A metadata or usage file that another writer replaces while `--info` or a
+  launcher reads it is read again, up to three opens, instead of being
+  refused as unsafe.
+- After a run, `codex-as` records for `--info` a snapshot whose window is
+  reported above 100 percent, as 100 percent, where it skipped that
+  snapshot, and finds the run's rollouts also when the file server's clock
+  lags this host's.
+
+Known limits: the guard is a soft limit. A reply that is streaming finishes;
+usage data trails by one reply, and every agent running in parallel when a
+reserve is reached finishes its reply and gets one more request to report
+the denial, so the overshoot grows with the number of parallel agents. A
+process that calls the provider itself, a native that a tool starts inside
+the session, requests that no hook sees (compaction, Codex memory
+consolidation and reviewers) and Codex tool calls outside `PreToolUse`
+(`write_stdin`, hosted tools such as web search) go through, and a Codex
+guard that ends without an answer (one that cannot start at all, or a Ctrl-C
+while it starts) lets the event through, which the check after the run
+reports where it can tell. Clients without the launchers (plain `claude` or
+`codex`, IDE and desktop clients, native Windows) are unguarded. Claude Code
+under a server-managed setting or, on WSL, a Windows registry policy that
+sets `disableAllHooks` (sources the launch checks do not read for it) runs
+neither the guard's hooks nor its status line, so such a launch is unguarded
+with no footer line and no blind refusal, and a later guarded launch on the
+host warns of it only once a session has recorded the account's usage since.
+Once Codex has lost its trust of the guard's hooks, headless runs beside
+another client of the account can each go unguarded: where the check after a
+run cannot tell the run's sessions from that client's, it gives only a
+notice and keeps the marker. The same notice can also come while every hook
+runs, to a run that made no tool call or sent no prompt while another client
+of the account worked.
 
 ## 0.8.0
 
