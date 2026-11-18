@@ -9,9 +9,10 @@ records its argv and environment; a guarded launch needs a terminal on standard
 output, so those launches run with standard output on a pseudo-terminal.
 
 RealClaude runs the guard's hooks in the real Claude Code when one at or above
-the guard's minimum is on PATH (it skips with the reason otherwise, and when the
-host has managed settings or, on WSL, a Windows registry policy, which Claude
-Code applies over the sandbox): offline,
+the guard's minimum is on PATH (it skips with the reason otherwise, on macOS,
+where Claude Code reads the login Keychain, and when the host has managed
+settings or, on WSL, a Windows registry policy, which Claude Code applies over
+the sandbox): offline,
 against the loopback fake tests/fixtures/guard/claude_api.py, in a temporary
 HOME and configuration directory with an environment built from scratch, git
 and ssh shims first on PATH, git allowed the file protocol only and every proxy
@@ -1829,6 +1830,9 @@ class RealClaude(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        if sys.platform == "darwin":
+            raise unittest.SkipTest("on macOS a real Claude Code reads the login Keychain, which neither the sandbox's HOME "
+                                    "nor its CLAUDE_CONFIG_DIR keeps apart")
         found = shutil.which("claude")
         if not found:
             raise unittest.SkipTest("Claude Code (claude) is not on PATH")
