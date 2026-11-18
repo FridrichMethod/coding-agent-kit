@@ -76,11 +76,10 @@ Formatting:
         Decimal (never a bool), else None.
 
 Constants: WINDOWS ("five_hour", "weekly"), LABELS (their names in messages),
-DURATIONS (their lengths in seconds), FLAGS (flag to window), OFF, SOURCES,
-NUMBER (the flag value pattern), FLOOR (a Decimal context that rounds down),
-OK and AT_RESERVE (window statuses), TAILS (what each launcher appends to
-continue the session), STOPPED (what an event's block stopped) and CAUSES (why
-each launcher's guard can be blind).
+FLAGS (flag to window), OFF, SOURCES, NUMBER (the flag value pattern), FLOOR
+(a Decimal context that rounds down), OK and AT_RESERVE (window statuses),
+TAILS (what each launcher appends to continue the session), STOPPED (what an
+event's block stopped) and CAUSES (why each launcher's guard can be blind).
 """
 
 from dataclasses import dataclass
@@ -92,7 +91,6 @@ import re
 
 WINDOWS = ("five_hour", "weekly")
 LABELS = {"five_hour": "five-hour", "weekly": "weekly"}
-DURATIONS = {"five_hour": 5 * 3600, "weekly": 7 * 86400}  # seconds
 FLAGS = {"--reserve-5h": "five_hour", "--reserve-weekly": "weekly"}
 OFF = "off"
 SOURCES = ("invocation", "account", "global", "default")
