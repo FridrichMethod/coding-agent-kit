@@ -1083,9 +1083,34 @@ class CachedServerSettings(Fixture):
         if os.geteuid() != 0:
             self.cached({"disableAllHooks": True})
             self.remote.chmod(0)
-            code, out, err = self.run_launcher(["--reserve-5h", "10", "work"])
-            self.assertEqual((code, out, err), (1, "", MALFORMED))
+            for flags in (["--reserve-5h", "10"], []):
+                with self.subTest(flags=flags):
+                    code, out, err = self.run_launcher([*flags, "work"])
+                    self.assertEqual((code, out, err), (1, "", MALFORMED))
             self.assertEqual(self.records(), [])
+
+    def test_an_authentication_key_in_the_cache_is_refused_by_the_audit_for_every_launch(self):
+        """The copy refuses no launch for the keys that stop the guard, but the authentication audit refuses it, as it
+        refuses a settings file, for every launch: an authentication helper or login restriction, as an organization's
+        server-managed settings set them, or an env that sets an authentication or provider variable, or is no
+        object; with a reserve before any warning."""
+        pinned = ("claude-as: settings contain authentication helper/login/provider restrictions; no policy bypass "
+                  "performed.\n")
+        conflict = "claude-as: settings.env conflicts with account authentication (values hidden).\n"
+        for data, message in (({"forceLoginOrgUUID": "00000000-0000-0000-0000-000000000000"}, pinned),
+                              ({"forceLoginMethod": "claudeai", "disableAllHooks": True}, pinned),
+                              ({"apiKeyHelper": "/usr/local/bin/key"}, pinned), ({"allowedProviders": []}, pinned),
+                              ({"forceLoginGatewayUrl": "https://gateway.example"}, pinned),
+                              ({"env": {"ANTHROPIC_BASE_URL": "https://proxy.example"}}, conflict),
+                              ({"env": {"CLAUDE_CODE_USE_BEDROCK": "1"}, "statusLine": ORG_LINE}, conflict),
+                              ({"env": ["DISABLE_TELEMETRY"]}, conflict)):
+            for flags in (["--reserve-5h", "10"], []):
+                with self.subTest(data=data, flags=flags):
+                    self.cached(data)
+                    code, out, err = self.run_launcher([*flags, "work"])
+                    self.assertEqual((code, out, err), (1, "", message))
+        self.assertEqual(self.records(), [])
+        self.assertEqual(self.version_runs(), 0)
 
     def test_a_launch_without_a_reserve_or_session_gives_no_warning(self):
         self.cached({"disableAllHooks": True, "allowManagedHooksOnly": True, "statusLine": ORG_LINE})
@@ -1443,8 +1468,8 @@ class Settings(unittest.TestCase):
         """Claude Code ranks every managed source above --settings, so a statusLine there runs in place of the guard's,
         whose recorder then never runs: a guarded preflight finds it in the managed file, a drop-in, the macOS managed
         preferences and the inherited Windows policy, and check_form refuses naming the file. The cached server policy
-        in remote-settings.json, which describes whichever account fetched it last, refuses nothing: preflight keeps it
-        apart, for the warning of a guarded launch (CachedServerSettings)."""
+        in remote-settings.json, which describes whichever account fetched it last, refuses nothing for it: preflight
+        keeps it apart, for the warning of a guarded launch (CachedServerSettings)."""
         line = {"type": "command", "command": "org status"}
         reason = ("{} sets statusLine, which Claude Code runs in place of the usage reserve guard's status line, so the "
                   "guard would never see this account's usage")

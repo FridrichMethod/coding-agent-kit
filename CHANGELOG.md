@@ -147,8 +147,8 @@ Added:
   `strictPluginOnlyCustomization` (true, or a list naming hooks) or a
   `statusLine` that Claude Code accepts. The warning names the keys and
   their effect and says that the copy may be another account's, since
-  every `claude-as` account shares that directory; the copy refuses
-  nothing, and a launch without a reserve gives no warning.
+  every `claude-as` account shares that directory; the copy refuses no
+  launch for these keys, and a launch without a reserve gives no warning.
 - Headless Codex runs with a reserve (`exec` in every form, `review`) are
   refused until the guard's tool hook has run under Codex on this host,
   since a headless run skips a hook that is not trusted without a word; a
