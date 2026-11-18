@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import subprocess
@@ -227,6 +228,48 @@ class Store(unittest.TestCase):
         self.assertNotIn("\x9b", text)
         self.assertEqual(text.splitlines(), ["A (Codex)", "email   a@ex]0;ownedample.com", "plan    plus",
                                              "usage   not recorded yet"])
+
+    def test_info_paints_only_its_own_words(self):
+        # The launchers pass their colour policy as PAINT: the heading, missing
+        # data and each window's use are styled, a stored value never is (and
+        # holds no escape of its own), and without the styles the text is the
+        # plain one byte for byte.
+        def paint(text, style):
+            return f"\x1b[{style}m{text}\x1b[0m"
+
+        def sgr(style, text):
+            return f"\x1b[{style}m{text}\x1b[0m"
+
+        self.put("codex-A.json", {"email": "a@ex\x1b[31mample.com", "plan": "plus", "usage": {
+            "primary": {"used_percent": 69.6, "window_minutes": 300, "resets_at": NOW + 600},
+            "secondary": {"used_percent": 90, "window_minutes": 10080}, "seen_at": NOW - 60}})
+        self.put("claude-B.json", {"label": "bob@example.com"})
+        self.put("claude-B.usage.json", {"five_hour": {"used_percentage": 70, "resets_at": NOW - 60},
+                                         "seven_day": {"used_percentage": 89.9, "resets_at": NOW + 1800}})
+        cases = {
+            ("codex-as", "A"): [sgr(36, "A (Codex)"), "email   a@ex[31mample.com", "plan    plus",
+                                f"5h      {sgr(32, '70% used')}, resets 12:10 (in 10m)", f"weekly  {sgr(31, '90% used')}",
+                                "seen    1 min ago"],
+            ("claude-as", "B"): [sgr(36, "B (Claude)"), "label   bob@example.com", f"5h      {sgr(32, 'reset since 11:59')}",
+                                 f"weekly  {sgr(33, '90% used')}, resets 12:30 (in 30m)"],
+            ("codex-as", "C"): [sgr(36, "C (Codex)"), f"email   {sgr(33, 'not recorded yet')}",
+                                f"plan    {sgr(33, 'not recorded yet')}", f"usage   {sgr(33, 'not recorded yet')}"],
+            ("claude-as", "D"): [sgr(36, "D (Claude)"), f"label   {sgr(33, 'not set (claude-as --label D LABEL)')}",
+                                 f"usage   {sgr(33, 'not recorded yet')}"],
+        }
+        for (tool, name), expected in cases.items():
+            with self.subTest(tool=tool, name=name):
+                self.assertEqual(accounts.info(tool, name, self.config, NOW, paint).splitlines(), expected)
+                plain = [re.sub(r"\x1b\[[0-9;]*m", "", line) for line in expected]
+                self.assertEqual(accounts.info(tool, name, self.config, NOW).splitlines(), plain)
+
+    def test_a_windows_colour_follows_the_status_line(self):
+        # helpers/statusline.cjs usageColor: red from 90, yellow from 70, else green.
+        for used, style in ((0, "32"), (69.9, "32"), (70, "33"), (89.9, "33"), (90, "31"), (100, "31")):
+            with self.subTest(used=used):
+                self.assertEqual(accounts.used_style(used), style)
+        source = (ROOT / "helpers/statusline.cjs").read_text()
+        self.assertIn("return percentage >= 90 ? 31 : percentage >= 70 ? 33 : 32;", source)
 
     def test_times_beyond_the_calendar_are_ignored(self):
         for resets in (10**17, 10**19, 253402300800):

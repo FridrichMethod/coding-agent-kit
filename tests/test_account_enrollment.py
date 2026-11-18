@@ -6,6 +6,7 @@ import importlib.util
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import shutil
 import subprocess
@@ -218,10 +219,14 @@ os.execv(sys.argv[2], sys.argv[2:])
             self.assertRegex(tty, r'\x1b\[(?:1;)?32m')
             self.assertNotIn(CLAUDE_TOKEN, tty + out + err)
 
-    def test_help_and_errors_color_only_their_output_destination(self):
+    def test_help_errors_and_info_color_only_their_output_destination(self):
         baseline = {'TERM': 'xterm-256color', 'NO_COLOR': '', 'CODING_AGENT_KIT_COLOR': 'auto'}
+        (self.secret / 'claude-work').write_text(CLAUDE_TOKEN + '\n')
+        (self.secret / 'claude-work').chmod(0o600)
         for tool in ('codex-as', 'claude-as'):
-            for args, style, expected_code in [(['--help'], '36', 0), (['invalid/name'], '31', 2 if tool == 'codex-as' else 1)]:
+            account = 'B' if tool == 'codex-as' else 'work'
+            for args, style, expected_code in [(['--help'], '36', 0), (['invalid/name'], '31', 2 if tool == 'codex-as' else 1),
+                                               (['--info', account], '36', 0)]:
                 for attached, preferences, colored in [
                     (False, {}, False), (True, {}, True),
                     (False, {'CODING_AGENT_KIT_COLOR': 'always'}, True),
@@ -240,15 +245,35 @@ os.execv(sys.argv[2], sys.argv[2:])
                             self.assertIn('\x1b[0m', shown)
                         if attached:
                             self.assertEqual(out + err, '')
-                        elif args == ['--help']:
+                        elif args[0] in ('--help', '--info'):
                             self.assertEqual(err, '')
                         else:
                             self.assertEqual(out, '')
+                        if args[0] == '--info':
+                            # The styles wrap only the launcher's own words; the plain lines are unchanged.
+                            plain = re.sub(r'\x1b\[[0-9;]*m', '', shown).replace('\r\n', '\n')
+                            self.assertEqual(plain.splitlines()[0], f"{account} ({'Codex' if tool == 'codex-as' else 'Claude'})")
+                            self.assertIn('not recorded yet', plain)
+            # --info follows its own destination: a terminal on stderr alone leaves it plain.
+            master, slave = pty.openpty()
+            try:
+                result = subprocess.run([str(self.command_bin / tool), '--info', account], env=self.env | baseline,
+                                        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=slave,
+                                        text=True, timeout=5)
+            finally:
+                os.close(slave)
+                os.close(master)
+            self.assertEqual(result.returncode, 0)
+            self.assertNotIn('\x1b', result.stdout)
+            self.assertIn('not recorded yet', result.stdout)
             # Account-list output feeds completion even when color is forced: the
-            # launcher's listing and the helper that 0.1 completions still call.
+            # launcher's listings and the helper that 0.1 completions still call;
+            # --show-config stays plain too.
             helper = self.home / '.local/lib' / tool / ('check.py' if tool == 'codex-as' else 'launch.py')
             query = 'accounts' if tool == 'codex-as' else '--list-accounts'
             for command in ([str(self.command_bin / tool), '--list-accounts'],
+                            [str(self.command_bin / tool), '--labels'],
+                            [str(self.command_bin / tool), '--show-config'],
                             [sys.executable, '-I', '-B', str(helper), query]):
                 result = subprocess.run(command, env=self.env | baseline | {'CODING_AGENT_KIT_COLOR': 'always'},
                                         capture_output=True, text=True, timeout=5)

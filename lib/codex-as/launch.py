@@ -660,7 +660,8 @@ def main(args):
                 guard.fail("invalid account name (ASCII letters, digits, _ or -; no leading -).")
             if args[1] not in guard.accounts(config.secrets_dir):
                 guard.fail(f"no account {args[1]}.")
-            text = metadata.info("codex-as", args[1], config, time.time())
+            text = metadata.info("codex-as", args[1], config, time.time(),
+                                  lambda part, style: guard.styled(part, style, 1))
         elif args[0] == "--account-labels":
             text = "\n".join(metadata.labels("codex-as", guard.accounts(config.secrets_dir), config))
         else:
