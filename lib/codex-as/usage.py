@@ -2,9 +2,7 @@
 
 latest(root, ids, account, started, ended) gives the account record the last
 snapshot of a codex-as run; session(path, started) gives the reserve guard what
-one session's rollout shows since a launch started; ran_tools(root, ids,
-account, started, ended) tells codex-as whether a run made a call that a tool
-hook sees.
+one session's rollout shows since a launch started.
 
 The last snapshot of a run:
 
@@ -44,13 +42,6 @@ drift) is accounted and nothing else, so the guard is blind instead of open.
 - tools: a call a tool hook sees: a function_call other than the plain wait and
   write_stdin, a custom_tool_call or a local_shell_call; not web_search_call or
   tool_search_call.
-
-A run's calls (ran_tools): the rollouts latest() would read, minus guardian
-review threads, which run no user hook and never take a file's place, with a
-call as in session() stamped within the run. Each rollout is read back from
-its end, TAIL bytes at a time, until a chunk holds a line stamped before the
-run, so a call followed by any amount of output counts and the cost is what
-the run wrote plus one chunk (a rollout without readable times is read whole).
 """
 
 from datetime import datetime, timezone
@@ -362,44 +353,3 @@ def session(path, started):
             found["responded"] = True
             found["tools"] = found["tools"] or hooked(kind, ptype, payload)
     return found
-
-
-def ran_tools(root, ids, account, started, ended):
-    """Whether this run's rollouts of this account show a call that a tool hook sees.
-
-    IDS and ACCOUNT as for latest(); guardian review threads are skipped."""
-    ids = {thread for thread in ids if thread}
-    owned, heads = 0, 0
-    for path in candidates(root, ids, started, ended):
-        continued = NAME.fullmatch(path.name)[1] in ids
-        if owned == MAX_FILES or not continued and (account is None or heads == MAX_HEADS):
-            break
-        try:
-            with opened(path) as stream:
-                payload = meta(stream)
-                if not continued:
-                    heads += 1
-                    if created_by(payload) != account:
-                        continue
-                if payload is not None and payload.get("thread_source") == "guardian_review":
-                    continue  # no user hook runs there, and reviews must not crowd the run's own threads out
-                owned += 1
-                for lines in backwards(stream):
-                    older = False
-                    for raw in lines:
-                        found = parsed(raw) if b"_call" in raw else None
-                        if found is None:
-                            stamp = STAMP.match(raw)
-                            when = moment(stamp[1].decode("ascii", "replace")) if stamp else None
-                        else:
-                            line, kind, payload, ptype = found
-                            when = moment(line.get("timestamp"))
-                            if (hooked(kind, ptype, payload) and not inherited(line) and when is not None
-                                    and started - SLACK <= when <= ended + SLACK):
-                                return True
-                        older = older or when is not None and when < started - SLACK
-                    if older:
-                        break  # the lines before these are older still: the run wrote none of them
-        except OSError:
-            continue
-    return False

@@ -638,6 +638,53 @@ class RunAttribution(Fixture):
         self.assertEqual(self.threads(["exec", "go"], self.t0 - 1, self.t0 + 10), ([], [[path]], []))
         self.assertEqual(launch.session_meta(path)["id"], self.THREAD)
 
+    def test_a_call_followed_by_more_output_than_one_read_counts(self):
+        output = {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "call-1",
+                                                       "output": "x" * (2 * launch.usage.TAIL)}}
+        path = self.rollout(self.THREAD, [CALL, output, ANSWER])
+        self.assertEqual(launch.activity([path], self.t0 - 1, self.t0 + 10), (True, True, True))
+
+    def test_a_rollout_is_read_back_only_to_the_lines_before_the_run(self):
+        """activity() reads each rollout back from its end, usage.TAIL bytes at a time, and stops at the read that
+        reaches the lines from before the run, so its cost is what the run wrote plus one read; a call stamped
+        before the run, in that read, never counts."""
+        usage, old = launch.usage, time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(self.t0 - 3600))
+        reasoning = {"type": "response_item", "payload": {"type": "reasoning", "summary": [], "encrypted_content": ""}}
+
+        def lines(stamp, fill, count):
+            line = {**reasoning, "payload": {**reasoning["payload"], "encrypted_content": fill * 4096}}
+            return "".join(json.dumps({"timestamp": stamp, **line}) + "\n" for _ in range(count))
+
+        path = self.rollout(self.THREAD, [])
+        with path.open("a") as stream:
+            stream.write(lines(old, "y", 1200) + json.dumps({"timestamp": old, **CALL}) + "\n"
+                         + lines(self.stamp, "z", 600))
+        self.assertGreater(path.stat().st_size, 7 * usage.TAIL)
+        read, real = [], usage.opened
+
+        class Counted:
+            def __init__(self, stream):
+                self.stream = stream
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.stream.close()
+
+            def read(self, size=-1):
+                data = self.stream.read(size)
+                read.append(len(data))
+                return data
+
+            def __getattr__(self, name):
+                return getattr(self.stream, name)
+
+        with patch.object(usage, "opened", lambda path: Counted(real(path))):
+            self.assertEqual(launch.activity([path], self.t0 - 1, self.t0 + 10), (True, True, False))
+        # The lines of the run and the one read that reaches back before it.
+        self.assertLessEqual(sum(read), 4 * usage.TAIL)
+
     def test_only_a_regular_file_at_blocked_is_read(self):
         state = str(self.base / "codex-as-A-1-1")
         Path(state + ".blocked").mkdir()
