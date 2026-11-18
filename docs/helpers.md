@@ -123,7 +123,7 @@ node -e "require(require('os').homedir() + '/.claude/coding-agent-kit/statusline
 
 Each helper exports `main`, which does what running the file does.
 
-## Colour
+## Colour: launchers and status line
 
 The launchers style only their own messages: headings cyan, questions and
 warnings yellow, saves green, errors red. Native Codex and Claude output,
