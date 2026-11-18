@@ -99,8 +99,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'Forwards codex arguments after its own -c file-auth and sqlite_home flags; every command but' \
         'exec also gets -c check_for_update_on_startup=false and --no-daemon.' \
         'Root help or version, help, update and completion run as plain codex in <codex_home>.' \
-        'Refuses login (not login status), logout, agents, queue, app, daemon management' \
-        'and remote/provider/auth overrides; -p NAME uses <codex_home>/NAME.config.toml.' \
+        'Refuses login (not login status), logout, app-server --startup-sign-out, agents, queue, app,' \
+        'daemon management and remote/provider/auth overrides; -p NAME uses <codex_home>/NAME.config.toml.' \
         'Missing account: confirm [y/N], device login in empty temporary home, save, launch.' \
         'Root <codex_home>/auth.json stays native: codex-as never reads or changes it.' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
