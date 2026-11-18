@@ -16,13 +16,12 @@
 </div>
 
 `codex-as NAME` and `claude-as NAME` run the native Codex or Claude Code CLI
-as a named account, with that account's private stored credentials and your
-shared everyday configuration and history. Optional usage reserves keep a
-percentage of each account's 5-hour and weekly limits unused: the native
-CLI's own hooks, given for that launch, refuse new prompts and tool calls at
-the reserve. Three Claude Code helpers add a status line, terminal
-notifications and a Git hook guard. The kit installs on top of an existing
-`codex` or `claude` and never installs, updates or replaces either.
+as a named account: its private stored credentials, your shared configuration
+and history. Optional usage reserves keep a percentage of each account's
+5-hour and weekly limits unused, through a reserve guard in the native CLI's
+own hooks. Three Claude Code helpers add a status line, terminal notifications
+and a Git hook guard. The kit installs on top of an existing `codex` or
+`claude` and never installs, updates or replaces either.
 
 ## Highlights
 
@@ -30,8 +29,8 @@ notifications and a Git hook guard. The kit installs on top of an existing
 <tr>
 <td width="33%" valign="top"><h4>One CLI, many accounts</h4>
 Each account keeps its own credentials in <code>secrets_dir</code>. Codex accounts share configuration, sessions, history and SQLite state, so a session resumes under another account; Claude accounts inherit your existing configuration.</td>
-<td width="33%" valign="top"><h4>The native CLI, unchanged</h4>
-Arguments go to the real <code>codex</code> or <code>claude</code>. The kit implements no OAuth: it refuses what would change, revoke or bypass the account's login, and Codex's own token refresh writes through to the account's credentials.</td>
+<td width="33%" valign="top"><h4>The native CLI does the work</h4>
+Arguments go to the real <code>codex</code> or <code>claude</code>, and Codex's own token refresh writes through to the account's credentials. The kit implements no OAuth; it refuses what would change, revoke or bypass the account's login or split the shared state, and, with a reserve on, the launch forms its guard cannot cover.</td>
 <td width="33%" valign="top"><h4>Usage reserves</h4>
 <code>--reserve-weekly 20</code> keeps 20% of the weekly limit unused. The natives' own hooks refuse new prompts and tool calls at the reserve, and allow again once the window resets.</td>
 </tr>
@@ -53,26 +52,22 @@ flowchart LR
     secrets[("secrets_dir<br/>one credential per account")] --> launcher
     launcher -->|"the account's credential"| native["codex or claude<br/>the native CLI"]
     shared[("shared configuration,<br/>sessions and history")] <--> native
-    native -.->|"each prompt and tool call,<br/>with a reserve on"| guard["reserve guard<br/>guard.py"]
+    native -.->|"hooks: each prompt and tool call,<br/>with a reserve on"| guard["reserve guard<br/>the kit's hook command"]
     usage[("usage data the native<br/>already receives")] -.-> guard
     guard -.->|"allow or refuse"| native
 ```
 
-- **Accounts.** `codex-as` gives each account a fixed view in
-  `<codex_home>/accounts/NAME`, whose `auth.json` links to
-  `<secrets_dir>/codex-NAME.json`, and shares the configuration, sessions,
-  history and SQLite state from `<codex_home>`; the root
-  `<codex_home>/auth.json` stays native. `claude-as` starts Claude Code with
-  the `claude setup-token` OAuth token from `<secrets_dir>/claude-NAME`. The
-  defaults are `~/.codex` and `~/.secrets`.
-- **Reserve guard.** With a reserve on, the launcher gives the native the
-  guard's hooks for that one launch (`claude-as` in its own `--settings`,
-  `codex-as` as `-c` values) and writes no hook configuration to `~/.claude`
-  or `<codex_home>`. It is a soft guard, not a hard limit: a streaming reply
-  finishes, and every agent running in parallel at the reserve finishes its
-  reply and can make one more request to report the refusal. Launch forms the
-  guard cannot cover, such as `claude-as NAME -p`, are refused with a reserve
-  on. With both windows off, as by default, a launch is unchanged.
+- **Accounts.** Each account's credential stays in `secrets_dir` (`~/.secrets`);
+  Codex accounts share the configuration, sessions, history and SQLite state
+  of `codex_home` (`~/.codex`), and `claude-as` inherits your Claude Code
+  configuration ([layout](docs/account-launchers.md#codex-account-layout)).
+- **Reserve guard.** With a reserve on, the native gets the guard's hooks for
+  that one launch, and nothing is written to its own configuration. It is a
+  soft guard, not a hard limit: a streaming reply finishes, and each agent
+  running in parallel at the reserve finishes its reply and can make one more
+  request to report the refusal. Forms it cannot cover, such as
+  `claude-as NAME -p`, are refused; with both windows off, as by default, a
+  launch is unchanged ([usage reserves](docs/account-launchers.md#usage-reserves)).
 
 ## Requirements
 
@@ -85,10 +80,13 @@ flowchart LR
 | Helpers | Node.js 22 or newer; Git is optional for the status line. Usage reserves need no Node. |
 | Optional | bash-completion or zsh for account-name completion |
 
+[Installation requirements](docs/install.md#requirements) has the details, also on removing a 0.6 `install.ps1` install from Windows.
+
 ## Quick start
 
 ```sh
-# Install: a managed install that follows the newest patch release of the 0.9 channel
+# Install: a managed install that follows the newest patch release of the 0.9 channel;
+# it links the launchers into ~/.local/bin, which must be on PATH
 curl -fsSL https://raw.githubusercontent.com/FridrichMethod/coding-agent-kit/main/install.sh | sh -s -- --channel 0.9
 
 # Add and run accounts: a new name asks [y/N], logs in natively, saves the credentials and continues
@@ -98,26 +96,27 @@ claude-as personal
 # Keep 10% of the 5-hour and 40% of the weekly limit unused for this launch
 codex-as --reserve-5h 10 --reserve-weekly 40 work
 
-# Update to a newer patch of the channel, or remove the install (--purge: also the managed root)
+# Update to a newer patch, which never changes a public interface, or remove (--purge: also the managed root)
 "${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --update
 "${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-kit/current/install.sh" --uninstall
 ```
 
-A launch with a reserve prints its policy before the native starts, and the
-first guarded interactive Codex launch on a host asks once, in Codex's
-"Hooks need review", to trust the guard's hooks:
+Codex enrolment uses device login, which must be enabled in the account's
+Security settings or by the workspace admin
+([adding accounts](docs/account-launchers.md#daily-use-and-adding-accounts)).
+A launch with a reserve prints its policy on stderr before the native starts:
 
 ```text
 codex-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly 40% (--reserve-weekly); hooks refuse new prompts and tool calls at a reserve.
 ```
 
-`--update` moves only to a newer patch of the channel, and a patch never
-changes a public interface ([versioning](docs/development.md#versioning)).
-To run a checkout instead, clone the repository and run `./install.sh` in it,
-which links the launchers into `~/.local/bin` (`DIR/bin` with `--prefix DIR`)
-and their completions. Both installs print the zsh `fpath` line and the
-helper commands for Claude Code's `settings.json` when they place the links;
-[installation](docs/install.md) has every option, path and exit code.
+The first guarded interactive Codex launch on a host asks once, in Codex's
+"Hooks need review", to trust the guard's hooks: choose "Trust all and
+continue". To run a checkout instead, run `./install.sh` in a clone. Both
+installs take `--prefix DIR` for `DIR/bin`, and when they place links they
+print the zsh `fpath` line, the helper commands for Claude Code's
+`settings.json` and, when `DIR/bin` is not on `PATH`, a `PATH: add DIR/bin`
+line ([installation](docs/install.md)).
 
 ## Commands
 
@@ -125,6 +124,7 @@ helper commands for Claude Code's `settings.json` when they place the links;
 codex-as work resume --last
 codex-as work exec --json "Check the tests"
 claude-as personal -p "Check the tests"
+claude-as --label personal "me@example.com"
 ```
 
 | Command | What it does |
@@ -140,17 +140,16 @@ claude-as personal -p "Check the tests"
 | `-h`, `--help` | the help |
 | `-V`, `-v`, `--version` | the kit's release and install form, such as `coding-agent-kit 0.9.0 (managed v0.9.0, channel 0.9)`; `NAME --version` prints the native CLI's |
 
-The own options count only as the first argument, by exact match; native
-options go after NAME, and any other dash word before it is refused with a
-hint. The aliases `--list-accounts`, `--account-labels`, `--account-info`
-and `--set-label` work too.
+Own options count only as the first argument, by exact match; native options
+go after NAME, and any other dash word before it is refused with a hint
+([own options](docs/account-launchers.md#own-options): aliases, exit codes).
 
 ## Configuration
 
-One optional TOML file, `CODING_AGENT_KIT_CONFIG` if set, otherwise
-`${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml`, moves paths,
-names executables and sets usage reserves for every launch, globally or per
-account (`[usage_reserve]`). Without it the launchers use the defaults:
+One optional TOML file (`CODING_AGENT_KIT_CONFIG`, otherwise
+`${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml`) moves paths,
+names executables and sets usage reserves globally or per account
+(`[usage_reserve]`). Without it the launchers use the defaults:
 
 ```toml
 codex = "codex"            # executable: a name looked up on PATH, or an absolute or ~/ path
@@ -159,9 +158,8 @@ codex_home = "~/.codex"    # accounts live in codex_home/accounts
 secrets_dir = "~/.secrets"
 ```
 
-Choose `codex_home` and `secrets_dir` before the first enrolment;
-`--show-config` prints the values in effect. [Configuration](docs/configuration.md)
-has every rule and message.
+Choose `codex_home` and `secrets_dir` before the first enrolment
+([configuration](docs/configuration.md)).
 
 ## Claude Code helpers
 
@@ -175,8 +173,8 @@ has every rule and message.
 Opus | xhigh | coding-agent-kit (main) | ctx 38% | 13.7M used | ~$1.23 | 5h 88% left | weekly 58% left
 ```
 
-[Claude Code helpers](docs/helpers.md) covers each helper, how to wire them
-into `settings.json` and the colour policy (`CODING_AGENT_KIT_COLOR`).
+[Claude Code helpers](docs/helpers.md) covers each helper, its `settings.json`
+wiring and the colour of the launchers and the status line.
 
 ## Documentation
 
@@ -186,17 +184,16 @@ into `settings.json` and the colour policy (`CODING_AGENT_KIT_COLOR`).
 | [Account launchers](docs/account-launchers.md) | Adding accounts, own options, usage reserves, account layout, safety boundaries, metadata, completion and manual repair |
 | [codex-as](docs/codex-as.md) | Codex argument rules, daemon takeover, version compatibility, the Codex details of usage reserves and the differences from native Codex |
 | [Configuration](docs/configuration.md) | The configuration file: location, keys, `[usage_reserve]`, permissions, messages and moving `codex_home` |
-| [Claude Code helpers](docs/helpers.md) | Status line, session tokens, notifications, Git hook checks, `settings.json` wiring and colour |
+| [Claude Code helpers](docs/helpers.md) | Status line, session tokens, notifications, Git hook checks, `settings.json` wiring, and the colour of the launchers and the status line |
 | [Development](docs/development.md) | Tests, CI and versioning |
 
-The [documentation index](docs/README.md) lists every guide, and
-[CHANGELOG.md](CHANGELOG.md) every release.
+The [documentation index](docs/README.md) lists every guide, [CHANGELOG.md](CHANGELOG.md) every release.
 
 ## Contributing
 
 Develop in your own clone; `./tests/run.sh` and `pre-commit run --all-files`
 must pass. [Development](docs/development.md) describes the suites and CI,
-and [AGENTS.md](AGENTS.md) the rules every change keeps.
+[AGENTS.md](AGENTS.md) the rules every change keeps.
 
 ## License
 
