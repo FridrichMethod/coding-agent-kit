@@ -386,8 +386,13 @@ enrolment, and after moving `codex_home` export `CODEX_HOME` for plain
 
 The launchers style only their own messages: headings cyan, questions and
 warnings yellow, saves green, errors red. Native Codex and Claude output,
-completion lists and the output of `--list`, `--labels`, `--info` and
-`--show-config` are never styled.
+completion lists and the output of `--list`, `--labels` and `--show-config`
+are never styled. `--info` styles only its own words, under the same policy
+for its standard output: the heading cyan, missing data yellow, and each
+window's use in the status line's colours (green, yellow from 70%, red from
+90%). Stored emails, plans and labels stay plain. Under `auto` piped output
+stays plain too, so a preview that pipes `--info`, such as an fzf-tab one,
+sets `CODING_AGENT_KIT_COLOR=always` for it.
 
 - `CODING_AGENT_KIT_COLOR=auto` (also when unset or invalid) styles a message
   only when its destination is a terminal, so redirected logs stay plain;
