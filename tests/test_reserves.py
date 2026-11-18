@@ -275,8 +275,8 @@ class Messages(unittest.TestCase):
     def test_claude_blindness_and_the_stop_event(self):
         self.assertEqual(reserve.block_text("claude-as", "lab", reserve.Decision(False, "blind"), "stop", NOW),
             "claude-as: lab: no usage data since this session started, so its usage reserve cannot be checked "
-            "(the status line has reported no rate limits: this account reports none, or a server-managed setting "
-            "replaced the status line).\n"
+            "(the status line has reported no rate limits: this account reports none, or a server-managed or "
+            "registry policy replaced the status line).\n"
             "The work stops here.\nTo go on without reserves, exit and run:\n"
             "  claude-as --reserve-5h off --reserve-weekly off lab --continue\n"
             'To keep them off for this account, set them to "off" under [usage_reserve.claude_accounts.lab].')

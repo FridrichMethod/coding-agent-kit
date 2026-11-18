@@ -107,7 +107,7 @@ STOPPED = {
 }
 CAUSES = {
     "claude-as": "the status line has reported no rate limits: this account reports none, "
-                 "or a server-managed setting replaced the status line",
+                 "or a server-managed or registry policy replaced the status line",
     "codex-as": "the session's rollout shows no rate limits",
 }
 
