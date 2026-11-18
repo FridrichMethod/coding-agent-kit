@@ -2306,6 +2306,7 @@ class Sandbox:
 
     def __init__(self, base, codex):
         self.base = base
+        self.sessions = set()  # the sessions run() started: each one's leader's process id
         self.home, self.work, self.shims, self.bin = base / "home", base / "work", base / "shims", base / "bin"
         self.codex_home = self.home / ".codex"
         for path in (self.codex_home, self.work, self.shims, self.bin, base / "tmp", base / "run",
@@ -2352,6 +2353,7 @@ class Sandbox:
         """(exit code, stdout, stderr) of CODEX ARGS in a session of its own, which is killed afterwards."""
         child = subprocess.Popen([codex, *args], cwd=self.work, env=env, stdin=subprocess.DEVNULL,
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        self.sessions.add(child.pid)
         try:
             out, err = child.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -2363,17 +2365,28 @@ class Sandbox:
         return child.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
 
     def strays(self):
-        """Processes still running with this sandbox's CODEX_HOME or a Codex home under it (codex-as gives Codex
-        the account's, CODEX_HOME/accounts/NAME), killed; Linux only."""
+        """Processes of this sandbox still running, killed; Linux only. A process of the sandbox is one in a
+        session that run() started, or one of this user's whose working directory lies in the sandbox (a
+        process that left the session; Codex runs in the work directory). Only /proc/PID/stat and this user's
+        /proc/PID/cwd links are read: never another process's environment, command line or files."""
         if not os.path.isdir("/proc/self"):
             return []
-        needle, found = f"CODEX_HOME={self.codex_home}".encode(), []
+        found, uid, base = [], os.getuid(), str(self.base)
         for entry in filter(str.isdigit, os.listdir("/proc")):
+            pid = int(entry)
             try:
-                with open(f"/proc/{entry}/environ", "rb") as stream:
-                    if any(item == needle or item.startswith(needle + b"/") for item in stream.read().split(b"\0")):
-                        found.append(int(entry))
-            except OSError:
+                with open(f"/proc/{entry}/stat", "rb") as stream:
+                    # pid (comm) state ppid pgrp session ...: the fields after the command name.
+                    state, _, _, session = stream.read().rpartition(b")")[2].split()[:4]
+                if state == b"Z" or pid == os.getpid():
+                    continue
+                if int(session) in self.sessions:
+                    found.append(pid)
+                elif os.stat(f"/proc/{entry}").st_uid == uid:
+                    cwd = os.readlink(f"/proc/{entry}/cwd")
+                    if cwd == base or cwd.startswith(base + "/"):
+                        found.append(pid)
+            except (OSError, ValueError):
                 pass
         for pid in found:
             try:
@@ -2414,27 +2427,44 @@ class SandboxPath(unittest.TestCase):
             self.assertNotIn(str(tools), shim, "the git shim runs the caller's git")
             self.assertRegex(shim, r"(?m)^(exec /usr(/local)?/bin/git \"\$@\"|exit 127)$")
 
-    def test_strays_are_the_processes_of_the_sandbox_s_codex_homes(self):
-        """Sandbox.strays() finds and kills what still runs, in a session of its own too, with the sandbox's
-        CODEX_HOME or a Codex home under it (codex-as gives Codex the account's, CODEX_HOME/accounts/NAME), and
-        leaves a process whose CODEX_HOME only begins with the same text."""
+    def test_strays_are_found_by_session_and_working_directory(self):
+        """Sandbox.strays() finds and kills what a run left running without reading any process's environment: a
+        process in a session that run() started, with a process group of its own so the group kill misses it, and
+        one that left the session with its working directory in the sandbox. A process outside the sandbox, in a
+        directory whose path only begins with the sandbox's, stays."""
         if not os.path.isdir("/proc/self"):
             self.skipTest("Sandbox.strays() reads /proc, which this host does not have")
         with tempfile.TemporaryDirectory(prefix="codex-guard-sandbox-") as temp:
             base = Path(temp).resolve()
             write(base / "codex", "#!/bin/sh\n", 0o700)
             sandbox = Sandbox(base / "sandbox", base / "codex")
-            children = {}
-            for name, home in (("root", sandbox.codex_home), ("account", sandbox.codex_home / "accounts/A"),
-                               ("other", Path(f"{sandbox.codex_home}-other"))):
-                child = subprocess.Popen(["sleep", "60"], env={"PATH": "/usr/bin:/bin", "CODEX_HOME": str(home)},
-                                         stdin=subprocess.DEVNULL, start_new_session=True)
-                self.addCleanup(child.wait)
-                self.addCleanup(kill_group, child.pid)
-                children[name] = child.pid
-            self.assertEqual(sorted(sandbox.strays()), sorted((children["root"], children["account"])))
-            self.assertEqual(sandbox.strays(), [])
-            os.kill(children["other"], 0)  # still running
+            beside = base / "sandbox-other"
+            beside.mkdir()
+            outside = subprocess.Popen(["sleep", "60"], cwd=beside, stdin=subprocess.DEVNULL, start_new_session=True)
+            self.addCleanup(outside.wait)
+            self.addCleanup(outside.kill)
+            program = ("import subprocess, sys\n"
+                       "quiet = {'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}\n"
+                       "grouped = subprocess.Popen(['sleep', '60'], process_group=0, **quiet)\n"
+                       "detached = subprocess.Popen(['sleep', '60'], start_new_session=True, **quiet)\n"
+                       "print(grouped.pid, detached.pid)\n")
+            code, out, err = sandbox.run(sys.executable, ["-I", "-c", program], {"PATH": "/usr/bin:/bin"})
+            self.assertEqual(code, 0, err)
+            expected = sorted(map(int, out.split()))
+            opened, real_open = [], open
+
+            def recording_open(file, *args, **kwargs):
+                opened.append(str(file))
+                return real_open(file, *args, **kwargs)
+
+            with patch("builtins.open", recording_open):
+                self.assertEqual(sorted(sandbox.strays()), expected)
+            self.assertEqual([name for name in opened if not name.endswith("/stat")], [])
+            deadline = time.monotonic() + 10
+            while (left := sandbox.strays()) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertEqual(left, [])
+            self.assertIsNone(outside.poll())
 
     def test_the_proxy_recorder_sees_each_attempt_and_forwards_none(self):
         """RecordingProxy, which a RealCodex case puts in every proxy variable, records the request line of each
@@ -2623,7 +2653,7 @@ class RealCodex(unittest.TestCase):
                 self.assertEqual(runs[0][0], 0, runs[0][2])
                 self.assertTrue(runs[0][3], "Codex wrote no file")
                 self.assertEqual(runs[1], runs[0])
-        # strays() finds processes by CODEX_HOME, the account's home (home/.codex/accounts/A) included.
+        # strays() finds what the runs left by the session of each and by a working directory in the sandbox.
         self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
         self.assertEqual(list(home.rglob("rollout-*.jsonl*")), [], "a schema generator started a session")
         self.assertEqual(proxy.lines, [], "Codex tried to reach a host through a proxy")
