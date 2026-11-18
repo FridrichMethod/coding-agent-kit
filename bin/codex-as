@@ -118,7 +118,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'Usage reserves, only before NAME: --reserve-5h V, --reserve-weekly V (V 0 to 100, or off) keep that' \
         'percentage of the 5-hour or weekly limit unused: Codex hooks refuse new prompts and tool calls at the' \
         'reserve, until the window resets or a relaunch with the flag off.' \
-        'With a reserve on, goals are off; cloud, app-server, --ephemeral and other forms the guard cannot check are refused.' \
+        'With a reserve on, goals are off; cloud, app-server (but its schema generators), --ephemeral' \
+        'and other forms the guard cannot check are refused.' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_codex_as_docs"
     [ "$#" -gt 0 ] && exit 0

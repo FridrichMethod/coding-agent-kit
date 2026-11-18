@@ -223,8 +223,9 @@ Changed:
   new prompts and tool calls at a reserve.` on standard error before the
   native starts.
 - The help texts: the reserve flags keep that percentage of a window unused,
-  and hooks refuse new prompts and tool calls at the reserve; one line names
-  forms refused with a reserve on (and, for `codex-as`, that goals are off);
+  and hooks refuse new prompts and tool calls at the reserve; the help names
+  forms refused with a reserve on (and, for `codex-as`, that goals are off
+  and that `app-server` is refused but for its schema generators);
   `claude-as` names Claude Code 2.1.296 or newer for reserves and `codex-as`
   codex-cli 0.161.0 or newer also with reserves, with no upper limit; the
   `codex-as` help names `app-server --startup-sign-out` among the forms it
