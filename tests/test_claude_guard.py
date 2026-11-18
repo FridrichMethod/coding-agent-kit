@@ -121,12 +121,16 @@ def drain(fd):
     return output.decode("utf-8", "replace")
 
 
-def settings_of(command, padding=0):
-    """The --settings JSON of a guarded launch whose hook command is COMMAND (C3)."""
+SHOWN = ("refreshInterval", "hideVimModeIndicator")  # keys of the user's status line passed on beside padding
+
+
+def settings_of(command, padding=0, **shown):
+    """The --settings JSON of a guarded launch whose hook command is COMMAND (C3), its status line with PADDING and
+    SHOWN, the user's refreshInterval and hideVimModeIndicator where given."""
     def hook(kind, block):
         handler = {"type": "command", "command": f"{command} {kind}", "timeout": 20}
         return handler | ({"onFailure": "block"} if block else {})
-    return {"statusLine": {"type": "command", "command": f"{command} status", "padding": padding},
+    return {"statusLine": {"type": "command", "command": f"{command} status", "padding": padding, **shown},
             "hooks": {"SessionStart": [{"hooks": [hook("start", False)]}],
                       "UserPromptSubmit": [{"hooks": [hook("prompt", True)]}],
                       "PreToolUse": [{"matcher": "*", "hooks": [hook("tool", True)]}],
@@ -337,7 +341,8 @@ class Guarded(Fixture):
         self.assertEqual(record["argv"][:2], [str(self.fakes / "claude"), "--settings"])
         self.assertEqual(record["argv"][3:], args)
         settings = json.loads(record["argv"][2])
-        self.assertEqual(settings, settings_of(command, settings["statusLine"]["padding"]))
+        line = settings["statusLine"]
+        self.assertEqual(settings, settings_of(command, line["padding"], **{key: line[key] for key in SHOWN if key in line}))
         commands = [settings["statusLine"]["command"]] + [hook["command"] for groups in settings["hooks"].values()
                                                           for group in groups for hook in group["hooks"]]
         self.assertEqual([shlex.split(text) for text in commands],
@@ -378,8 +383,13 @@ class Guarded(Fixture):
         self.assert_guarded(record, value, ["-c"], None, "12.5")
 
     def test_the_users_status_line_is_chained_with_its_padding(self):
+        """The guard's status line runs the user's command and draws as the user's does: its padding, refreshInterval
+        and hideVimModeIndicator, merged from the user's, the project's and the local settings."""
         user = "printf '%s' \"it's the user's\""
         cases = (({"statusLine": {"type": "command", "command": user, "padding": 2}}, None, None, user, 2),
+                 ({"statusLine": {"type": "command", "command": user, "refreshInterval": 5, "hideVimModeIndicator": True}},
+                  {"statusLine": {"type": "command", "command": "project status", "refreshInterval": 0}}, None,
+                  "project status", 0, {"refreshInterval": 5, "hideVimModeIndicator": True}),
                  ({"statusLine": {"type": "command", "command": user}},
                   {"statusLine": {"type": "command", "command": "project status", "padding": 1}}, None,
                   "project status", 1),
@@ -392,7 +402,7 @@ class Guarded(Fixture):
                   {"statusLine": {"type": "command", "command": "project status"}},
                   {"statusLine": {"padding": 5}}, "project status", 2),
                  ({}, None, None, None, 0))
-        for user_data, project, local, command, padding in cases:
+        for user_data, project, local, command, padding, *shown in cases:
             with self.subTest(command=command, local=local):
                 self.user_settings(user_data)
                 for data, is_local in ((project, False), (local, True)):
@@ -403,7 +413,8 @@ class Guarded(Fixture):
                 record, value, _ = self.guarded(["--reserve-weekly", "10", "work"])
                 settings = self.assert_guarded(record, value, [], None, "10")
                 self.assertEqual(value.get("statusline"), command)
-                self.assertEqual(settings["statusLine"]["padding"], padding)
+                self.assertEqual(settings["statusLine"], {"type": "command", "command": settings["statusLine"]["command"],
+                                                          "padding": padding, **(shown[0] if shown else {})})
 
     def test_the_local_settings_are_read_where_claude_code_reads_them(self):
         """Claude Code reads the local settings at the root of the git repository the launch directory lies in, or
@@ -1571,20 +1582,41 @@ class Settings(unittest.TestCase):
             with self.subTest(rejected=line):
                 self.assertIsNone(launch.own_status_line([{"statusLine": line}]))
                 self.assertEqual(launch.own_status_line([user, {"statusLine": line}]), {"command": "user", "padding": 3})
-        # Accepted, with a padding that is no whole number of columns or is negative drawn as 0.
+        # Accepted, with a padding that is no whole number of columns or is negative drawn as 0, and a refreshInterval
+        # that Claude Code drops (no number of at least 1 second) left out.
         for line, padding in (({"type": "command", "command": "x", "padding": -1}, 0),
                               ({"type": "command", "command": "x", "padding": 1.5}, 0),
                               ({"type": "command", "command": "x", "padding": 0}, 0),
-                              ({"type": "command", "command": "x", "hideVimModeIndicator": True, "refreshInterval": "x",
-                                "other": 1}, 3)):
+                              ({"type": "command", "command": "x", "refreshInterval": "x", "other": 1}, 3)):
             with self.subTest(accepted=line):
                 self.assertEqual(launch.own_status_line([user, {"statusLine": line}]), {"command": "x", "padding": padding})
+        # refreshInterval and hideVimModeIndicator pass on, merged like the rest: one Claude Code drops (text, below 1
+        # second, a boolean, null) keeps an earlier one.
+        shown = {"statusLine": {"type": "command", "command": "user", "refreshInterval": 5, "hideVimModeIndicator": True}}
+        self.assertEqual(launch.own_status_line([shown]),
+                         {"command": "user", "padding": 0, "refreshInterval": 5, "hideVimModeIndicator": True})
+        for refresh in ("2", 0, 0.5, -3, True, None):
+            with self.subTest(refresh=refresh):
+                later = {"statusLine": {"type": "command", "command": "project", "refreshInterval": refresh,
+                                        "hideVimModeIndicator": False}}
+                self.assertEqual(launch.own_status_line([shown, later]),
+                                 {"command": "project", "padding": 0, "refreshInterval": 5, "hideVimModeIndicator": False})
+                self.assertEqual(launch.own_status_line([later]),
+                                 {"command": "project", "padding": 0, "hideVimModeIndicator": False})
+        for refresh in (1, 1.5, 3600):
+            with self.subTest(refresh=refresh):
+                later = {"statusLine": {"type": "command", "command": "project", "refreshInterval": refresh}}
+                self.assertEqual(launch.own_status_line([shown, later]),
+                                 {"command": "project", "padding": 0, "refreshInterval": refresh,
+                                  "hideVimModeIndicator": True})
 
     def test_guard_settings(self):
         script = "/kit o'clock/lib/coding-agent-kit/guard.py"
         command = shlex.join([sys.executable, "-I", "-B", "-S", script])
         self.assertEqual(json.loads(launch.guard_settings(script)), settings_of(command))
         self.assertEqual(json.loads(launch.guard_settings(script, 4)), settings_of(command, 4))
+        self.assertEqual(json.loads(launch.guard_settings(script, 1, refreshInterval=2.5, hideVimModeIndicator=True)),
+                         settings_of(command, 1, refreshInterval=2.5, hideVimModeIndicator=True))
         self.assertEqual(launch.guard_settings(script), json.dumps(settings_of(command), separators=(",", ":")))
 
 
