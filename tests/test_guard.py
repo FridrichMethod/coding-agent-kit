@@ -48,7 +48,7 @@ D = Decimal
 NOW = 1_800_000_000  # 2027-01-15T08:00:00Z
 STARTED = NOW - 600
 OK = (0, "", "")
-# The Codex hook commands of C3, as codex-as injects them.
+# The Codex hook commands, as codex-as injects them.
 CODEX_COMMAND = '"$CODING_AGENT_KIT_GUARD_PYTHON" -I -B -S "$CODING_AGENT_KIT_GUARD_SCRIPT" '
 WEEKLY_CLAUDE = ("claude-as: personal: weekly window 9% remaining, at or below its 10% reserve; "
                  "resets in 1h 0m (2027-01-15T09:00:00Z).\n")
@@ -147,7 +147,7 @@ class Fixture(unittest.TestCase):
         return guard.Launch(tool, account, enabled, STARTED, str(usage), str(state), marker, statusline)
 
     def environ(self, launch, **changes):
-        """The CODING_AGENT_KIT_GUARD value of LAUNCH, as C1 writes it, with CHANGES."""
+        """The CODING_AGENT_KIT_GUARD value of LAUNCH, as the launcher writes it, with CHANGES."""
         data = {"v": 1, "tool": launch.tool, "account": launch.account, "five_hour": None, "weekly": None,
                 "started": launch.started, "usage": launch.usage, "state": launch.state}
         for window, value in launch.enabled.items():
@@ -520,7 +520,7 @@ class ClaudeBlind(Fixture):
         self.assertFalse(self.state(launch, "reply").exists())
 
     def test_a_denying_tool_event_records_the_first_reply(self):
-        # After a STOP_TURN deny no Stop hook runs for that turn (R3), so the denying tool event records the reply.
+        # After a STOP_TURN deny no Stop hook runs for that turn, so the denying tool event records the reply.
         launch = self.launch(weekly="10")
         self.claude_usage(launch, seven_day=(91, NOW + 3600))
         text = WEEKLY_CLAUDE + STOPPED["tool"] + RELAUNCH_CLAUDE
@@ -708,7 +708,7 @@ class Codex(Fixture):
     def test_a_window_the_snapshot_does_not_name_comes_from_the_account_record(self):
         launch = self.launch("codex-as", five_hour="10", weekly="10")
         self.codex_record(launch, slot(95, 10080))
-        # window_minutes 0 occurs (R16): the snapshot's weekly slot is unusable, or absent, and the record has it.
+        # Codex can report window_minutes 0: the snapshot's weekly slot is unusable, or absent, and the record has it.
         for secondary in (slot(95, 0), None):
             transcript = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), secondary)])
             for kind in ("prompt", "tool"):

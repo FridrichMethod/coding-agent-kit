@@ -122,7 +122,7 @@ def drain(fd):
 
 
 def settings_of(command, padding=0):
-    """The --settings JSON of a guarded launch whose hook command is COMMAND (C3)."""
+    """The --settings JSON of a guarded launch whose hook command is COMMAND."""
     def hook(kind, block):
         handler = {"type": "command", "command": f"{command} {kind}", "timeout": 20}
         return handler | ({"onFailure": "block"} if block else {})
@@ -1694,8 +1694,7 @@ def registry_policy_stop():
 class Sandbox:
     """A Claude Code that reaches nothing of this host's user: a temporary HOME and configuration directory,
     an environment built from scratch, git and ssh shims first on PATH (and git allowed the file protocol only),
-    every proxy at a closed loopback port, no session bus, and its background features closed (probe results R0,
-    R8, R8D and R20)."""
+    every proxy at a closed loopback port, no session bus, and its background features closed."""
 
     def __init__(self, base, bindir):
         self.base, self.bindir = base, bindir
@@ -1790,7 +1789,7 @@ class Sandbox:
 
 
 class RealClaude(unittest.TestCase):
-    """The guard's hook contract against the real Claude Code, offline: the C3 settings as claude-as builds
+    """The guard's hook contract against the real Claude Code, offline: the --settings as claude-as builds
     them, a launch as claude-as exports it, and a loopback fake of the Messages API that answers from a
     script. claude -p is run directly on the native (only the launcher refuses headless forms); the status
     line and the terminal session are left to the live acceptance."""
@@ -1907,7 +1906,7 @@ class RealClaude(unittest.TestCase):
         self.assertIn("claude-as: work: weekly window 5% remaining, at or below its 10% reserve; resets in ", blocked)
         self.assertIn("\nThis prompt was not sent.\nTo use the reserve, exit and run:\n"
                       "  claude-as --reserve-weekly off work --continue", blocked)
-        # Claude Code shows the guard's message behind its own prefix (A8, probe result R6).
+        # Claude Code shows the guard's message behind its own prefix.
         self.assertEqual(code, 0, err)
         self.assertRegex(out, r"^UserPromptSubmit operation blocked by hook:\s\[")
         self.assertIn(f"guard.py' prompt]: {blocked}\n", out)
@@ -1931,7 +1930,7 @@ class RealClaude(unittest.TestCase):
     def test_a_tool_call_after_the_reserve_is_crossed_is_not_run(self):
         code, out, err, state, messages = self.run_claude("TOOL run the command", 50, cross=95)
         self.assertFalse(self.marker.exists(), "the tool call ran at the reserve")
-        # The turn ends at the denied call: no request carries its result (STOP_TURN, probe result R3).
+        # The turn ends at the denied call: no request carries its result (STOP_TURN).
         self.assertEqual([entry.get("scenario") for entry in messages if entry["body"].get("tools")], ["TOOL:call"])
         self.assertEqual((code, out.strip()), (0, ""), err)
         blocked = Path(state + ".blocked").read_text()
