@@ -24,7 +24,8 @@ lib/coding-agent-kit/guard_launch.py what both launchers need to start a guarded
 completions/{bash,zsh}/          account-name and own-option completion for both launchers
 helpers/*.cjs                    Claude Code helpers (Node)
 install.sh                       links a checkout's bin/ and completions/ into a prefix; the managed install
-docs/                            account-launchers.md, codex-as.md, configuration.md
+docs/                            account-launchers.md, codex-as.md, configuration.md (public);
+                                 README.md (index), install.md, helpers.md, development.md, assets/
 tests/                           suites, fixtures, runners, COVERAGE.md
 ```
 
