@@ -106,8 +106,8 @@ STOPPED = {
     "stop": "The work stops here.",
 }
 CAUSES = {
-    "claude-as": "the status line has reported no rate limits: the workspace is not trusted yet, "
-                 "or this account reports none",
+    "claude-as": "the status line has reported no rate limits: this account reports none, "
+                 "or a server-managed setting replaced the status line",
     "codex-as": "the session's rollout shows no rate limits",
 }
 

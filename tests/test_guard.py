@@ -545,8 +545,8 @@ class ClaudeBlind(Fixture):
     def test_the_blindness_text(self):
         self.assertEqual(self.blind_text("prompt"), (
             "claude-as: personal: no usage data since this session started, so its usage reserve cannot be checked "
-            "(the status line has reported no rate limits: the workspace is not trusted yet, or this account reports "
-            "none).\nThis prompt was not sent.\nTo go on without reserves, exit and run:\n"
+            "(the status line has reported no rate limits: this account reports none, or a server-managed setting "
+            "replaced the status line).\nThis prompt was not sent.\nTo go on without reserves, exit and run:\n"
             "  claude-as --reserve-5h off --reserve-weekly off personal --continue\n"
             'To keep them off for this account, set them to "off" under [usage_reserve.claude_accounts.personal].'))
 
