@@ -22,15 +22,14 @@ checkout of your own with `install.sh`, or link or copy its files.
 - Bash for `codex-as` (3.2 is enough), POSIX `sh` for `claude-as` and
   `install.sh`, and ordinary POSIX utilities. The managed install also needs
   Git and `tar`.
-- Codex CLI 0.161.0 or newer for `codex-as`, with no upper limit. Claude Code
-  for `claude-as`; its token capture is audited for 2.1.296, and other
-  versions fall back to an explicit manual paste.
+- Codex CLI 0.161.0 or newer for `codex-as`, the minimum of every launch,
+  with usage reserves or without. Claude Code for `claude-as`, and 2.1.296 or
+  newer for its usage reserves; its token capture at enrolment is audited for
+  2.1.296, and other versions fall back to an explicit manual paste. Neither
+  minimum has an upper limit.
 - Node.js 22 or newer for the helpers; Git is optional for the status line.
   Usage reserves need no Node.
 - Optional: bash-completion or zsh for account-name completion.
-- Usage reserves need Claude Code 2.1.296 or newer for `claude-as`, and for
-  `codex-as` codex-cli 0.161.0 or newer, the minimum of every launch, with no
-  upper limit.
 
 ## Managed install
 
