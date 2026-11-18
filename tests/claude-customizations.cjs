@@ -270,7 +270,7 @@ test('portable launchers resolve stowed helpers through a home path containing s
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'claude home '));
   try {
     // Each command names its install path under the home directory (the
-    // fixture, as README.md describes, uses ~/.claude/coding-agent-kit);
+    // fixture, as docs/helpers.md describes, uses ~/.claude/coding-agent-kit);
     // install the helper it names there.
     const execute = (command, input) => {
       const match = command.match(/^node -e "([^"]+)"$/);

@@ -183,7 +183,7 @@ After modifying any file, run `pre-commit run --all-files` to ensure changes pas
 - CI runs `./tests/run.sh --ci` on Linux (zsh and GNU Stow installed; the test step fails if the folded Stow cases of `standalone-e2e.sh` did not run) and on macOS (system Bash 3.2, `/bin/sh`); each job fails if the tests or hooks leave an untracked file.
 - `ci.yml` runs on pull requests, on pushes to `main` and on pushes to `ci/**` branches: check a change on a `ci/**` branch, then fast-forward `main` to that exact green commit and delete the branch. It also runs on pushed `v*` tags; only there (`GITHUB_REF_TYPE=tag`) the `ReleaseVersion` test checks the tags already on the checked-out commit, and fails unless each `vX.Y.Z` one names the launchers' release.
 - Agents land their own changes this way without a pull request and without asking before each push, merge or release tag, once the local suite, `pre-commit` and every job of that `ci.yml` run are green. They still ask before anything this file forbids or that cannot be undone: moving or deleting a tag, rewriting `main`, or deleting someone else's work.
-- If CI behavior affects contributors, update `README.md` in the same change.
+- If CI behavior affects contributors, update `docs/development.md` in the same change.
 
 ## Releases and tags
 

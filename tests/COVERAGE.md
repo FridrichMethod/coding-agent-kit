@@ -6,7 +6,7 @@ sources change.
 
 The suites read only the frozen fixtures in `tests/fixtures/`.
 `claude-settings.json` there holds only the Claude Code wiring of the three
-helpers, in the home-relative form README.md describes.
+helpers, in the home-relative form docs/helpers.md describes.
 Checks of what a consumer's own data contains and how it wires the kit stay
 with that consumer.
 

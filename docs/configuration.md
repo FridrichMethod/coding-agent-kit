@@ -262,9 +262,9 @@ with `chmod go-w FILE`.
 
 `TOOL` is `codex-as` or `claude-as`, and `FILE` the path from the location
 rules. Warnings are yellow and errors red under the launchers' colour policy
-(see the README). Every message is one line on stderr. No error prints a
-traceback or any of the file's contents; a TOML syntax error names only its
-position.
+(see [colour](helpers.md#colour)). Every message is one line on stderr. No
+error prints a traceback or any of the file's contents; a TOML syntax error
+names only its position.
 
 Warning, the run continues:
 
