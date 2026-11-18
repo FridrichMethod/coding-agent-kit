@@ -766,8 +766,12 @@ def main(args):
             try:
                 if guarding:
                     guard_launch.prune(directory, started)
-                    state = guard_launch.prepare(env, directory, "codex-as", account, policy, record, started,
-                                                 marker=marker)
+                    try:
+                        state = guard_launch.prepare(env, directory, "codex-as", account, policy, record, started,
+                                                     marker=marker)
+                    except OSError as error:  # a full disk or a home directory at its quota, say
+                        guard.fail(f"{directory}: cannot record this launch's usage reserve state "
+                                   f"({error.strerror or error}).")
                     print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls "
                                        "at a reserve.", "36", 2), file=sys.stderr)
                 # The span of this run's own lines, for the check after it.

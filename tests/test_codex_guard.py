@@ -22,6 +22,7 @@ this host's user it reads only the codex install's own files where they lie
 
 import base64
 import dataclasses
+import errno
 import fcntl
 import hashlib
 import importlib.util
@@ -29,6 +30,7 @@ import json
 import os
 from pathlib import Path
 import re
+import resource
 import shlex
 import shutil
 import signal
@@ -1042,11 +1044,11 @@ class GuardedLaunch(unittest.TestCase):
         path.write_text(text)
         path.chmod(0o600)
 
-    def run_codex(self, *args, env=None):
+    def run_codex(self, *args, env=None, preexec_fn=None):
         self.record.unlink(missing_ok=True)
         result = subprocess.run([str(self.kit / "bin/codex-as"), *args], cwd=self.cwd, env=self.env | (env or {}),
                                 stdin=subprocess.DEVNULL, text=True, capture_output=True, timeout=60,
-                                start_new_session=True)
+                                start_new_session=True, preexec_fn=preexec_fn)
         self.assertNotIn("fabricated-sensitive", result.stdout + result.stderr)
         return result
 
@@ -1101,6 +1103,27 @@ class GuardedLaunch(unittest.TestCase):
             with self.subTest(flags=flags, size=size, full=True):
                 self.assertEqual(self.run_codex(*flags, "A").returncode, 0)
                 self.assertEqual(lease.stat().st_size, size)
+
+    def test_a_launch_whose_state_cannot_be_written_names_the_guard_directory(self):
+        """A write to the guard directory that fails, as on a full disk or a home directory at its quota, refuses the
+        launch naming that directory and the reason, not as a credential problem; Codex is not started and the guard
+        directory holds no launch state. Every file write fails here (RLIMIT_FSIZE 0) once a first launch has set the
+        account up: the lease's byte and the account record are best effort, so the first write that fails is the
+        launch's state file."""
+        self.trusted()
+        self.assertEqual(self.run_codex("A", "exec", "go").returncode, 0)
+
+        def no_file_writes():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (0, resource.getrlimit(resource.RLIMIT_FSIZE)[1]))
+
+        for args in (["A", "exec", "go"], ["A", "fix it"]):
+            with self.subTest(args=args):
+                result = self.run_codex("--reserve-5h", "10", *args, preexec_fn=no_file_writes)
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (1, "", f"codex-as: {self.guard_dir}: cannot record this launch's usage reserve state "
+                                         f"({os.strerror(errno.EFBIG)}).\n"))
+                self.assertFalse(self.record.exists(), "Codex started")
+                self.assertEqual(self.launches(), [])
 
     def test_an_interactive_launch_gets_the_hooks_the_guard_and_goals_off(self):
         before = int(time.time())
