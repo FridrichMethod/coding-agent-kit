@@ -57,9 +57,14 @@ MANAGED_DIRECTORIES = (Path("/etc/claude-code/managed-settings.d"),
 # The machine's other policy sources that a launch with a usage reserve checks with them (machine_policies): on
 # macOS the managed preferences an MDM profile installs for the com.anthropic.claudecode domain, the machine's and
 # this user's; on WSL the Windows managed settings, which Claude Code takes in only when one of them sets
-# wslInheritsWindowsSettings. Server-managed settings and the HKLM and HKCU policy keys (which Claude Code on WSL
-# reads through reg.exe) are not checked: hooks they stop show as the footer line and the warning at the account's
-# next guarded launch.
+# wslInheritsWindowsSettings. The server-managed settings refuse nothing: Claude Code caches them in its configuration
+# directory (REMOTE), which every claude-as account shares, so the copy describes whichever account fetched it last,
+# and a guarded launch only warns, before Claude Code starts, of the keys there that would keep the guard from running
+# (cached_policy_warning). The HKLM and HKCU policy keys, which Claude Code on WSL reads through reg.exe, are not
+# checked: hooks they stop show as the footer line and the warning at the account's next guarded launch, and a status
+# line they set as the guard's blindness, but a disableAllHooks there also stops the guard's status line, so nothing
+# reports it.
+REMOTE = "remote-settings.json"
 MACOS = sys.platform == "darwin"
 MDM_PREFERENCES = Path("/Library/Managed Preferences")
 MDM_NAME = "com.anthropic.claudecode.plist"
@@ -439,6 +444,7 @@ class Form:
     dashed: bool = False  # the first or the second operand comes after --
     sources: dict = field(default_factory=dict)  # Path: parsed settings, for every settings file read
     statusline: object = None  # own_status_line() of the user, project and local settings (with a reserve)
+    remote: object = None  # (path, parsed settings) of the cached server-managed settings, when the file exists
 
 
 def preflight(args, kit, enrollment, guarded=False):
@@ -474,7 +480,9 @@ def preflight(args, kit, enrollment, guarded=False):
         # launch directory, the user's.
         form.statusline = own_status_line([form.sources.get(path) for path in (
             config / "settings.json", cwd / ".claude/settings.json", cwd / ".claude/settings.local.json", local)])
-    config_check(config / "remote-settings.json", enrollment=enrollment)
+    remote = config_check(config / REMOTE, enrollment=enrollment)
+    if remote is not None:
+        form.remote = (config / REMOTE, remote)
     if enrollment and (config / "remote-settings-helper-consent").exists():
         fail("managed policy helper present; automatic enrollment cannot preserve its loading chain.")
     if enrollment:
@@ -648,6 +656,29 @@ def own_status_line(sources):
         return None
     padding = line.get("padding", 0)
     return {"command": line["command"], "padding": padding if type(padding) is int and padding >= 0 else 0}
+
+
+def cached_policy_warning(account, path, settings):
+    """The warning a guarded launch of ACCOUNT gives, and launches anyway, when SETTINGS, the cached server-managed
+    settings parsed from PATH, would keep Claude Code from running the guard: a key of hook_keys for a managed source,
+    or a statusLine Claude Code accepts, which it runs in place of the guard's; None otherwise."""
+    keys = hook_keys(settings, managed=True)
+    line = isinstance(settings, dict) and accepted_status_line(settings.get("statusLine"))
+    named = keys + ["statusLine"] * line
+    if not named:
+        return None
+    listed = named[0] if len(named) == 1 else ", ".join(named[:-1]) + " and " + named[-1]
+    if "disableAllHooks" in keys or (keys and line):  # disableAllHooks stops every status line too
+        effect = ("Claude Code would run neither the usage reserve guard's hooks nor its status line: the reserve "
+                  "would not be enforced, and nothing would report it")
+    elif keys:
+        effect = "Claude Code would not run the usage reserve guard's hooks: the reserve would not be enforced"
+    else:
+        effect = ("Claude Code would run that status line in place of the usage reserve guard's: the guard would see "
+                  "no usage and block the session as blind two minutes after its first reply")
+    return (f"claude-as: {account}: {path}, Claude Code's cached server-managed settings, sets {listed}, so {effect}.\n"
+            "claude-as accounts share that cache, which holds the settings of the account that fetched them last, so "
+            "they may be another account's; launching anyway.")
 
 
 def guard_settings(script, padding=0):
@@ -926,7 +957,8 @@ def say(text, style):
 
 def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
     """Prepares the guarded launch in ENV (the guard's variables, the state of this launch, the closed
-    background) and returns the arguments that go before the caller's: the guard's --settings."""
+    background) and returns the arguments that go before the caller's: the guard's --settings. Warns first
+    of an earlier launch that ran without the guard and of cached server-managed settings that would stop it."""
     now = int(time.time())
     guard_launch.prune(directory, now)
     try:
@@ -940,6 +972,9 @@ def guard(env, metadata, guard_launch, policy, account, form, usage, directory):
     if guard_launch.unguarded(directory, "claude-as", account, recorded):
         say(f"claude-as: {account}: an earlier launch ran without its usage reserve guard: Claude Code did not run "
             "the injected hooks.", "33")
+    warning = form.remote and cached_policy_warning(account, *form.remote)
+    if warning:
+        say(warning, "33")
     own = form.statusline or {"command": None, "padding": 0}
     guard_launch.prepare(env, directory, "claude-as", account, policy, str(usage), now, statusline=own["command"])
     for name in REOPENING:

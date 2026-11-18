@@ -932,15 +932,6 @@ class Refusals(Fixture):
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.records()[-1]["env"][PREFIX], "/usr/bin/env -i")
 
-    def test_the_cached_server_policy_is_not_checked(self):
-        """remote-settings.json describes whichever account ran last; a policy that stops the hooks shows as no .ran.*,
-        and a status line there as the guard's blindness."""
-        write(self.home / ".claude/remote-settings.json",
-              json.dumps({"allowManagedHooksOnly": True, "disableAllHooks": True, "env": {RESUME: "1"},
-                          "statusLine": {"type": "command", "command": "org status"}}))
-        record, value, _ = self.guarded(["--reserve-5h", "10", "work"])
-        self.assertNotIn(RESUME, record["env"])
-
     def test_the_table_of_refused_forms(self):
         """launch.REFUSED and launch.LEADING are the lists of the forms a reserve refuses, and each has its test in
         RefusedForms."""
@@ -975,6 +966,139 @@ class Refusals(Fixture):
         for version in ("2.1.296 (Claude Code)", "2.1.325 (Claude Code)", "2.2.0 (Claude Code)", "10.0.0"):
             with self.subTest(version=version):
                 self.guarded(["--reserve-5h", "10", "work"], {"CLAUDE_FAKE_VERSION": version})
+
+
+# The warning of a guarded launch whose cached server-managed settings would keep Claude Code from running the guard.
+CACHED = ("claude-as: {account}: {path}, Claude Code's cached server-managed settings, sets {keys}, so {effect}.\n"
+          "claude-as accounts share that cache, which holds the settings of the account that fetched them last, so they "
+          "may be another account's; launching anyway.\n")
+NEITHER = ("Claude Code would run neither the usage reserve guard's hooks nor its status line: the reserve would not be "
+           "enforced, and nothing would report it")
+NO_HOOKS = "Claude Code would not run the usage reserve guard's hooks: the reserve would not be enforced"
+REPLACED = ("Claude Code would run that status line in place of the usage reserve guard's: the guard would see no usage "
+            "and block the session as blind two minutes after its first reply")
+ORG_LINE = {"type": "command", "command": "org status"}
+# Malformed: no file Claude Code can read, so the authentication audit refuses it for every launch.
+MALFORMED = "claude-as: missing, unreadable or malformed token/settings; no unsafe repair performed.\n"
+
+
+class CachedServerSettings(Fixture):
+    """Claude Code caches the server-managed settings in <its configuration directory>/remote-settings.json, a copy
+    of whichever account fetched them last, since claude-as accounts share that directory: a guarded launch warns
+    when the copy would keep the guard from running (a hook key of a managed source, or a statusLine Claude Code
+    accepts) and launches anyway; a launch without a reserve reads nothing more and says nothing."""
+
+    def setUp(self):
+        super().setUp()
+        self.remote = self.home / ".claude/remote-settings.json"
+
+    def cached(self, data):
+        self.remote.unlink(missing_ok=True)
+        write(self.remote, json.dumps(data))
+
+    def warned(self, data, keys, effect, env=None, path=None):
+        """A guarded launch with DATA cached: it warns of KEYS with EFFECT, then launches guarded as usual."""
+        self.cached(data)
+        record, value, err = self.guarded(["--reserve-5h", "10", "work"], env)
+        Guarded.assert_guarded(self, record, value, [], "10", None)
+        warning = CACHED.format(account="work", path=path or self.remote, keys=keys, effect=effect)
+        self.assertEqual(err, warning + "claude-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly off "
+                         "(default)" + LAUNCH_LINE)
+        return record
+
+    def test_each_key_that_stops_the_hooks_warns_and_launches(self):
+        strict = "strictPluginOnlyCustomization"
+        for data, keys, effect in (
+                ({"disableAllHooks": True}, "disableAllHooks", NEITHER),
+                ({"allowManagedHooksOnly": True}, "allowManagedHooksOnly", NO_HOOKS),
+                ({strict: True}, strict, NO_HOOKS),
+                ({strict: ["skills", "hooks"]}, strict, NO_HOOKS),
+                ({"allowManagedHooksOnly": True, strict: ["hooks"]}, f"allowManagedHooksOnly and {strict}", NO_HOOKS),
+                # disableAllHooks stops every status line, the organization's too.
+                ({"disableAllHooks": True, "statusLine": ORG_LINE}, "disableAllHooks and statusLine", NEITHER),
+                ({"disableAllHooks": True, "allowManagedHooksOnly": True, strict: True, "statusLine": ORG_LINE},
+                 f"disableAllHooks, allowManagedHooksOnly, {strict} and statusLine", NEITHER)):
+            with self.subTest(data=data):
+                self.warned(data, keys, effect)
+
+    def test_a_status_line_claude_code_accepts_warns_and_launches(self):
+        for line in (ORG_LINE, {"type": "command", "command": "org status", "padding": 1, "hideVimModeIndicator": True},
+                     {"type": "command", "command": ""}):
+            with self.subTest(line=line):
+                self.warned({"statusLine": line}, "statusLine", REPLACED)
+        # Beside a key that stops the hooks, neither the hooks nor a status line of the guard's would run.
+        for key, value in (("allowManagedHooksOnly", True), ("strictPluginOnlyCustomization", ["hooks"])):
+            with self.subTest(key=key):
+                self.warned({key: value, "statusLine": ORG_LINE}, f"{key} and statusLine", NEITHER)
+
+    def test_the_warning_follows_the_configuration_directory_and_the_colour_policy(self):
+        config = self.base / "config dir"
+        write(config / "remote-settings.json", json.dumps({"disableAllHooks": True}))
+        self.remote = config / "remote-settings.json"
+        self.warned({"disableAllHooks": True}, "disableAllHooks", NEITHER, {"CLAUDE_CONFIG_DIR": str(config)})
+        # The default directory's copy is not Claude Code's when CLAUDE_CONFIG_DIR names another directory.
+        write(self.home / ".claude/remote-settings.json", json.dumps({"disableAllHooks": True}))
+        self.remote.unlink()
+        _, _, err = self.guarded(["--reserve-5h", "10", "work"], {"CLAUDE_CONFIG_DIR": str(config)})
+        self.assertEqual(err, "claude-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly off (default)"
+                         + LAUNCH_LINE)
+        # Styled as the launcher's other warnings, the yellow of the earlier-launch warning.
+        self.remote = self.home / ".claude/remote-settings.json"
+        _, _, err = self.guarded(["--reserve-5h", "10", "work"], {"CODING_AGENT_KIT_COLOR": "always", "TERM": "xterm"})
+        warning = CACHED.format(account="work", path=self.remote, keys="disableAllHooks", effect=NEITHER)
+        self.assertTrue(err.startswith("\033[33m" + warning[:-1] + "\033[0m\n\033[36mclaude-as: usage reserves"), err)
+
+    def test_no_file_and_values_that_count_for_nothing_give_no_warning(self):
+        line = "claude-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly off (default)" + LAUNCH_LINE
+        _, _, err = self.guarded(["--reserve-5h", "10", "work"])
+        self.assertEqual(err, line)
+        for data in ({}, {"disableAllHooks": False, "allowManagedHooksOnly": False, "strictPluginOnlyCustomization": False},
+                     {"disableAllHooks": "true", "allowManagedHooksOnly": 1, "strictPluginOnlyCustomization": ["skills"]},
+                     {"strictPluginOnlyCustomization": "hooks"}, {"statusLine": None}, {"statusLine": "org status"},
+                     {"statusLine": {"type": "command"}}, {"statusLine": {"command": "org status"}},
+                     {"statusLine": {"type": "command", "command": "org status", "padding": "2"}},
+                     {"statusLine": {"type": "command", "command": "org status", "hideVimModeIndicator": 1}},
+                     {"permissions": {"deny": ["WebFetch"]}, "env": {"DISABLE_TELEMETRY": "1"}},
+                     # Its env is not checked either, unlike a settings file's (Settings).
+                     {"env": {RESUME: "1", "CLAUDE_CODE_SIMPLE": "1", "CLAUDE_CODE_SHELL_PREFIX": "wrap"}}):
+            with self.subTest(data=data):
+                self.cached(data)
+                record, value, err = self.guarded(["--reserve-5h", "10", "work"])
+                Guarded.assert_guarded(self, record, value, [], "10", None)
+                self.assertEqual(err, line)
+
+    def test_a_malformed_cache_is_refused_by_the_audit_as_before(self):
+        """A cache the authentication audit cannot read refuses every launch, with a reserve or without, before any
+        warning; the audit is unchanged."""
+        for text, message in (("{", MALFORMED), ("", MALFORMED),
+                              ("[]", "claude-as: unrecognized settings structure; no auth source changes performed.\n")):
+            for flags in (["--reserve-5h", "10"], []):
+                with self.subTest(text=text, flags=flags):
+                    self.remote.unlink(missing_ok=True)
+                    write(self.remote, text)
+                    code, out, err = self.run_launcher([*flags, "work"])
+                    self.assertEqual((code, out, err), (1, "", message))
+        self.assertEqual(self.records(), [])
+        if os.geteuid() != 0:
+            self.cached({"disableAllHooks": True})
+            self.remote.chmod(0)
+            code, out, err = self.run_launcher(["--reserve-5h", "10", "work"])
+            self.assertEqual((code, out, err), (1, "", MALFORMED))
+            self.assertEqual(self.records(), [])
+
+    def test_a_launch_without_a_reserve_or_session_gives_no_warning(self):
+        self.cached({"disableAllHooks": True, "allowManagedHooksOnly": True, "statusLine": ORG_LINE})
+        for flags in ([], ["--reserve-5h", "off", "--reserve-weekly", "off"]):
+            with self.subTest(flags=flags):
+                code, out, err = self.run_launcher([*flags, "work", "--model", "x"])
+                self.assertEqual((code, err), (0, ""))
+                self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), "--model", "x"])
+        # With a reserve, a command that starts no session launches as without one.
+        code, out, err = self.run_launcher(["--reserve-5h", "10", "work", "doctor"])
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(self.records()[-1]["argv"], [str(self.fakes / "claude"), "doctor"])
+        self.assertEqual(self.version_runs(), 0)
+        self.assertFalse(self.guard_dir.exists())
 
 
 OUTSIDE = "runs Claude Code outside its interactive session, where the usage reserve guard cannot stop it"
@@ -1099,6 +1223,28 @@ class Settings(unittest.TestCase):
             self.assertEqual(launch.hook_keys({strict: value}, managed=True), [], value)
         self.assertEqual(launch.hook_keys({"disableAllHooks": True, "allowManagedHooksOnly": True, strict: True},
                                           managed=True), ["disableAllHooks", "allowManagedHooksOnly", strict])
+
+    def test_the_warning_of_the_cached_server_policy(self):
+        """cached_policy_warning: the hook keys of a managed source and a statusLine Claude Code accepts, each named,
+        with the effect of them together; None for anything else."""
+        path = Path("/c/remote-settings.json")
+
+        def warning(keys, effect):
+            return CACHED.format(account="work", path=path, keys=keys, effect=effect)[:-1]
+
+        strict = "strictPluginOnlyCustomization"
+        for data, expected in (
+                ({"disableAllHooks": True}, warning("disableAllHooks", NEITHER)),
+                ({"allowManagedHooksOnly": True}, warning("allowManagedHooksOnly", NO_HOOKS)),
+                ({strict: ["hooks"]}, warning(strict, NO_HOOKS)),
+                ({"statusLine": ORG_LINE}, warning("statusLine", REPLACED)),
+                ({strict: True, "statusLine": ORG_LINE}, warning(f"{strict} and statusLine", NEITHER)),
+                ({"statusLine": ORG_LINE, "disableAllHooks": True, "allowManagedHooksOnly": True},
+                 warning("disableAllHooks, allowManagedHooksOnly and statusLine", NEITHER)),
+                ({}, None), ({"disableAllHooks": 1, strict: ["skills"], "statusLine": {"type": "static"}}, None),
+                (None, None), ([], None), ("disableAllHooks", None)):
+            with self.subTest(data=data):
+                self.assertEqual(launch.cached_policy_warning("work", path, data), expected)
 
     def test_the_managed_files(self):
         for path, managed in (("/etc/claude-code/managed-settings.json", True),
@@ -1296,7 +1442,8 @@ class Settings(unittest.TestCase):
         """Claude Code ranks every managed source above --settings, so a statusLine there runs in place of the guard's,
         whose recorder then never runs: a guarded preflight finds it in the managed file, a drop-in, the macOS managed
         preferences and the inherited Windows policy, and check_form refuses naming the file. The cached server policy
-        in remote-settings.json, which describes whichever account ran last, is not read for it."""
+        in remote-settings.json, which describes whichever account fetched it last, refuses nothing: preflight keeps it
+        apart, for the warning of a guarded launch (CachedServerSettings)."""
         line = {"type": "command", "command": "org status"}
         reason = ("{} sets statusLine, which Claude Code runs in place of the usage reserve guard's status line, so the "
                   "guard would never see this account's usage")
@@ -1343,6 +1490,11 @@ class Settings(unittest.TestCase):
                     place(remote)
                     self.assertEqual(sources(), {})
                     self.assertIsNone(self.check_form({remote: {"statusLine": line}}))
+                    for guarded in (True, False):
+                        form = launch.preflight([], kit, enrollment=False, guarded=guarded)
+                        self.assertEqual(form.remote, (remote, {"statusLine": line}))
+                    remote.unlink()
+                    self.assertIsNone(launch.preflight([], kit, enrollment=False, guarded=True).remote)
             finally:
                 os.chdir(previous)
 
