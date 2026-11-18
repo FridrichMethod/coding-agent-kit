@@ -138,12 +138,16 @@ takeover fixture, and 0.155.1 also fails the refresh writeback test and lacks
   `update` would install under its `CODEX_HOME`, and the update prompt is
   turned off in account launches for the same reason.
 - Refused: `login` and `logout`, which revoke the account's tokens (`login
-  status` and their `--help` pass); `agents`, `queue`, `app` (a subcommand
-  only on macOS and Windows; elsewhere a prompt word), any `remote-control`
-  subcommand and `app-server daemon`, which need or start a daemon in the
-  account home (foreground `remote-control` and other `app-server` modes
-  pass); `--remote`, `--remote-auth-token-env`, `--oss` and
-  `--local-provider`. Settings are checked by exact key: in `-c`, user and
+  status` and their `--help` pass), and `app-server --startup-sign-out`,
+  which signs the account out and revokes its tokens as `logout` does;
+  `agents`, `queue`, `app` (a subcommand only on macOS and Windows;
+  elsewhere a prompt word), any `remote-control` subcommand and
+  `app-server daemon`, which need or start a daemon in the account home
+  (foreground `remote-control` and other `app-server` modes pass, and so
+  does `daemon` as a schema generator's word, as in
+  `app-server generate-ts --out daemon`); `--remote`,
+  `--remote-auth-token-env`, `--oss` and `--local-provider`. Settings are
+  checked by exact key: in `-c`, user and
   system configuration and the `-p` profile file, `model_provider` other than
   `openai`, endpoint or credential keys of `model_providers.openai`,
   `chatgpt_base_url` and `openai_base_url`; everywhere, project configuration

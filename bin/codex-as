@@ -99,8 +99,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'Forwards codex arguments after its own -c file-auth and sqlite_home flags; every command but' \
         'exec also gets -c check_for_update_on_startup=false and --no-daemon.' \
         'Root help or version, help, update and completion run as plain codex in <codex_home>.' \
-        'Refuses login (not login status), logout, agents, queue, app, daemon management' \
-        'and remote/provider/auth overrides; -p NAME uses <codex_home>/NAME.config.toml.' \
+        'Refuses login (not login status), logout, app-server --startup-sign-out, agents, queue, app,' \
+        'daemon management and remote/provider/auth overrides; -p NAME uses <codex_home>/NAME.config.toml.' \
         'Missing account: confirm [y/N], device login in empty temporary home, save, launch.' \
         'Root <codex_home>/auth.json stays native: codex-as never reads or changes it.' \
         'Concurrent accounts and different sessions are supported; native thread locks are shared.' \
@@ -118,7 +118,8 @@ if [ "$#" -eq 0 ] || [ "$1" = --help ] || [ "$1" = -h ]; then
         'Usage reserves, only before NAME: --reserve-5h V, --reserve-weekly V (V 0 to 100, or off) keep that' \
         'percentage of the 5-hour or weekly limit unused: Codex hooks refuse new prompts and tool calls at the' \
         'reserve, until the window resets or a relaunch with the flag off.' \
-        'With a reserve on, goals are off; cloud, app-server, --ephemeral and other forms the guard cannot check are refused.' \
+        'With a reserve on, goals are off; cloud, app-server (but its schema generators), --ephemeral' \
+        'and other forms the guard cannot check are refused.' \
         'Configuration: ${XDG_CONFIG_HOME:-~/.config}/coding-agent-kit/config.toml; --show-config prints the effective values.' \
         "Details and manual repair: $_codex_as_docs"
     [ "$#" -gt 0 ] && exit 0

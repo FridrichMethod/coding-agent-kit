@@ -1027,8 +1027,12 @@ class Launchers(unittest.TestCase):
                     # One minimum for every launch: reserves need no newer Codex, so the help names no other version.
                     self.assertIn("and Codex 0.161.0 or newer, also with reserves; no upper limit.", result.stdout)
                     self.assertEqual(re.findall(r"\d+\.\d+\.\d+", "\n".join(result.stdout.splitlines()[:-1])), ["0.161.0"])
-                    self.assertIn("With a reserve on, goals are off; cloud, app-server, --ephemeral and other forms the "
-                                  "guard cannot check are refused.", result.stdout)
+                    # app-server's schema generators start no app server and launch as without a reserve.
+                    self.assertIn("With a reserve on, goals are off; cloud, app-server (but its schema generators), "
+                                  "--ephemeral\nand other forms the guard cannot check are refused.", result.stdout)
+                    # A logout under another name, refused in every launch.
+                    self.assertIn("Refuses login (not login status), logout, app-server --startup-sign-out, agents,",
+                                  result.stdout)
                 else:
                     self.assertIn("and Claude Code 2.1.296 or newer with reserves; no upper limit.", result.stdout)
                     self.assertIn("With a reserve on, forms the hooks cannot cover are refused (-p, redirected output, "

@@ -108,20 +108,28 @@ Added:
   continues on its own after a denied tool call; a launch with both reserves
   off keeps them.
 - A session without usage data is blocked, never before its first reply: a
-  Claude Code session whose status line has reported no usable window (from
+  Claude Code session whose status line has recorded no usable window (from
   0 through 100 percent, with a reset time) 120 seconds after the first sign
   of a reply (a tool call or the end of a turn), as on an account that
-  reports no window, or with a status line input whose only windows are
-  above 100 percent; a Codex session whose rollout since the launch started
-  has a usage line, or at a prompt a model response, but no rate limits. An
-  account whose server reports no window needs its reserves set to `"off"`.
+  reports no window, with a status line input whose only windows are above
+  100 percent, under a `statusLine` of the server-managed settings or, on
+  WSL, of a Windows registry policy, which Claude Code runs in place of the
+  guard's, or when the status line cannot write to the kit's state
+  directory (a full disk, a home directory at its quota); a Codex session
+  whose rollout since the launch started has a usage line, or at a prompt a
+  model response, but no rate limits. An account whose server reports no
+  window needs its reserves set to `"off"`.
 - A guard that fails on a prompt or a tool call (an event it cannot read, a
   launch format it does not know, any error) blocks it with a message that
   names the error and the way out; on its other events a failing guard
   stays silent.
 - Block messages give each window at its reserve with its remaining share,
-  its reserve and the time to its reset, or the cause of the missing data,
-  then what was stopped and the relaunch, for example
+  its reserve and the time to its reset, or the cause of the missing data
+  (`the status line has recorded no rate limits: this account reports
+  none, a server-managed or registry policy replaced the status line, or a
+  write to coding-agent-kit's state directory failed` for `claude-as`, `the
+  session's rollout shows no rate limits` for `codex-as`), then what was
+  stopped and the relaunch, for example
   `claude-as --reserve-weekly off NAME --continue` or
   `codex-as --reserve-5h off NAME resume --last`.
 - Hooks that the native does not run are reported where the kit can tell.
@@ -135,6 +143,15 @@ Added:
   may be another client's of the account; it also prints the guard's latest
   block message after a headless run, since `codex exec` exits 0 either way
   and shows no reason for a refused prompt.
+- A guarded `claude-as` launch warns on standard error before Claude Code
+  starts, and launches anyway, when Claude Code's cached server-managed
+  settings, `remote-settings.json` in its configuration directory, set
+  `disableAllHooks`, `allowManagedHooksOnly`,
+  `strictPluginOnlyCustomization` (true, or a list naming hooks) or a
+  `statusLine` that Claude Code accepts. The warning names the keys and
+  their effect and says that the copy may be another account's, since
+  every `claude-as` account shares that directory; the copy refuses no
+  launch for these keys, and a launch without a reserve gives no warning.
 - Headless Codex runs with a reserve (`exec` in every form, `review`) are
   refused until the guard's tool hook has run under Codex on this host,
   since a headless run skips a hook that is not trusted without a word; a
@@ -185,8 +202,11 @@ Changed:
     `strictPluginOnlyCustomization` or a `statusLine` in the machine's
     managed settings; a settings `env` that reopens what a guarded launch
     closes; a Claude Code older than 2.1.296.
-  - `codex-as`: `cloud`, `app-server`, `exec-server`, `remote-control` and
-    `debug app-server`; a `-c` or `--config` value under `hooks`;
+  - `codex-as`: `cloud`, `app-server` (but for its schema generators),
+    `exec-server`, `remote-control` and `debug app-server`;
+    `git-credential` unless its first word is an operation (`get`,
+    `store`, `erase`, `capability`) or `help`, since a Codex before
+    0.169.0 takes it as a prompt; a `-c` or `--config` value under `hooks`;
     `--disable hooks`, a `-c` value that turns the hooks feature off, or the
     hooks feature turned off under `[features]` of a configuration file Codex
     loads for the launch (shared, profile, project, system or managed); a
@@ -198,16 +218,21 @@ Changed:
 - With a reserve on, the forms that start no model work launch as without
   one: for `claude-as` a help or version option with no operand and the
   commands that start no session (`doctor`, `update`, `mcp list` and
-  others), and for `codex-as` help and version and every subcommand that is
-  neither guarded nor refused.
+  others), and for `codex-as` help and version, `app-server`'s schema
+  generators (`generate-ts`, `generate-json-schema`,
+  `generate-internal-json-schema`), `git-credential` with an operation or
+  `help`, and every subcommand that is neither guarded nor refused.
 - A guarded launch prints `TOOL: usage reserves for NAME: ...; hooks refuse
   new prompts and tool calls at a reserve.` on standard error before the
   native starts.
 - The help texts: the reserve flags keep that percentage of a window unused,
-  and hooks refuse new prompts and tool calls at the reserve; one line names
-  forms refused with a reserve on (and, for `codex-as`, that goals are off);
+  and hooks refuse new prompts and tool calls at the reserve; the help names
+  forms refused with a reserve on (and, for `codex-as`, that goals are off
+  and that `app-server` is refused but for its schema generators);
   `claude-as` names Claude Code 2.1.296 or newer for reserves and `codex-as`
-  codex-cli 0.161.0 or newer also with reserves, with no upper limit.
+  codex-cli 0.161.0 or newer also with reserves, with no upper limit; the
+  `codex-as` help names `app-server --startup-sign-out` among the forms it
+  refuses in every launch.
 - Every `codex-as` launch that can write sessions, with reserves or without,
   appends one byte to the account's lease file
   `<codex_home>/accounts/.locks/NAME.lock`, so that the check after a guarded
@@ -250,6 +275,12 @@ Fixed:
   reported above 100 percent, as 100 percent, where it skipped that
   snapshot, and finds the run's rollouts also when the file server's clock
   lags this host's.
+- `codex-as` refuses `app-server --startup-sign-out` in every launch, with a
+  reserve or without, as it refuses `logout`: it removes the account's
+  `auth.json` and revokes its tokens.
+- `codex-as NAME app-server generate-ts --out daemon`, and `daemon` after
+  any other schema generator, is no longer refused as daemon management:
+  there `daemon` is the generator's word.
 
 Known limits: the guard is a soft limit. A reply that is streaming finishes;
 usage data trails by one reply, and every agent running in parallel when a
@@ -264,16 +295,23 @@ while it starts) lets the event through, which the check after the run
 reports where it can tell. Clients without the launchers (plain `claude` or
 `codex`, IDE and desktop clients, native Windows) are unguarded. Claude Code
 under a server-managed setting or, on WSL, a Windows registry policy that
-sets `disableAllHooks` (sources the launch checks do not read for it) runs
-neither the guard's hooks nor its status line, so such a launch is unguarded
-with no footer line and no blind refusal, and a later guarded launch on the
-host warns of it only once a session has recorded the account's usage since.
+sets `disableAllHooks` runs neither the guard's hooks nor its status line,
+so such a launch is unguarded with no footer line and no blind refusal; a
+guarded launch warns of it beforehand only when the cached server-managed
+settings, which may be another account's, set it, and a later guarded
+launch on the host warns of it only once a session has recorded the
+account's usage since.
 Once Codex has lost its trust of the guard's hooks, headless runs beside
 another client of the account can each go unguarded: where the check after a
 run cannot tell the run's sessions from that client's, it gives only a
 notice and keeps the marker. The same notice can also come while every hook
 runs, to a run that made no tool call or sent no prompt while another client
-of the account worked.
+of the account worked. A TUI run that is otherwise alone counts as its own
+the older sessions of the account that a client without a codex-as lease
+(plain `codex`, the desktop app or an IDE extension, logged in as the same
+ChatGPT user and workspace) continues during it, and a TUI session such a
+`codex` starts in the run's directory, so their tool calls can give that
+run the warning, which removes the marker, when the run made none.
 
 ## 0.8.0
 
