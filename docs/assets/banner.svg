@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="t d">
+  <title id="t">coding-agent-kit</title>
+  <desc id="d">A terminal window: the coding-agent-kit name, its parts, two launcher commands, one native CLI fanning out to four accounts, and the status line helper's footer.</desc>
+  <style>
+    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace; }
+    .s { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+  </style>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="0.5" stop-color="#93c5fd"/>
+      <stop offset="1" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <clipPath id="w"><rect x="20" y="12" width="1160" height="336" rx="16"/></clipPath>
+  </defs>
+
+  <rect x="20" y="12" width="1160" height="336" rx="16" fill="#0f172a" stroke="#475569" stroke-width="2"/>
+  <g clip-path="url(#w)">
+    <rect x="20" y="12" width="1160" height="40" fill="#1e293b"/>
+    <rect x="20" y="308" width="1160" height="40" fill="#1e293b"/>
+  </g>
+  <circle cx="50" cy="32" r="7" fill="#f87171"/>
+  <circle cx="74" cy="32" r="7" fill="#fbbf24"/>
+  <circle cx="98" cy="32" r="7" fill="#4ade80"/>
+  <text x="600" y="37" text-anchor="middle" class="m" font-size="15" fill="#94a3b8">~/coding-agent-kit</text>
+
+  <text x="68" y="126" class="m" font-size="62" font-weight="700" fill="url(#g)">coding-agent-kit</text>
+  <text x="70" y="164" class="s" font-size="22" fill="#cbd5e1">Run Codex and Claude Code as any of your accounts.</text>
+
+  <g class="m" font-size="14" text-anchor="middle">
+    <rect x="70" y="182" width="96" height="28" rx="14" fill="#1e293b" stroke="#5eead4"/>
+    <text x="118" y="201" fill="#5eead4">codex-as</text>
+    <rect x="176" y="182" width="104" height="28" rx="14" fill="#1e293b" stroke="#fdba74"/>
+    <text x="228" y="201" fill="#fdba74">claude-as</text>
+    <rect x="290" y="182" width="144" height="28" rx="14" fill="#1e293b" stroke="#93c5fd"/>
+    <text x="362" y="201" fill="#93c5fd">usage reserves</text>
+    <rect x="444" y="182" width="118" height="28" rx="14" fill="#1e293b" stroke="#c4b5fd"/>
+    <text x="503" y="201" fill="#c4b5fd">status line</text>
+    <rect x="572" y="182" width="118" height="28" rx="14" fill="#1e293b" stroke="#f9a8d4"/>
+    <text x="631" y="201" fill="#f9a8d4">hook guard</text>
+  </g>
+
+  <g class="m" font-size="16">
+    <text y="250"><tspan x="70" fill="#4ade80">$</tspan><tspan x="92" fill="#e2e8f0">codex-as work resume --last</tspan><tspan x="490" fill="#64748b"># Codex as account "work"</tspan></text>
+    <text y="280"><tspan x="70" fill="#4ade80">$</tspan><tspan x="92" fill="#e2e8f0">claude-as --reserve-weekly 20 personal</tspan><tspan x="490" fill="#64748b"># keep 20% of the weekly limit</tspan></text>
+  </g>
+
+  <g fill="none" stroke-width="2" stroke-linecap="round" stroke-opacity="0.8">
+    <path d="M 990 170 C 1024 170, 1024 110, 1056 110" stroke="#5eead4"/>
+    <path d="M 990 170 C 1024 170, 1024 150, 1056 150" stroke="#93c5fd"/>
+    <path d="M 990 170 C 1024 170, 1024 190, 1056 190" stroke="#fdba74"/>
+    <path d="M 990 170 C 1024 170, 1024 230, 1056 230" stroke="#c4b5fd"/>
+  </g>
+  <rect x="840" y="150" width="150" height="40" rx="10" fill="#1e293b" stroke="#93c5fd" stroke-width="2"/>
+  <text x="915" y="175" text-anchor="middle" class="m" font-size="15" font-weight="700" fill="#e2e8f0">codex | claude</text>
+  <g>
+    <circle cx="1062" cy="110" r="7" fill="#5eead4"/>
+    <circle cx="1062" cy="150" r="7" fill="#93c5fd"/>
+    <circle cx="1062" cy="190" r="7" fill="#fdba74"/>
+    <circle cx="1062" cy="230" r="7" fill="#c4b5fd"/>
+  </g>
+  <g class="m" font-size="14" fill="#cbd5e1">
+    <text x="1078" y="115">work</text>
+    <text x="1078" y="155">personal</text>
+    <text x="1078" y="195">lab</text>
+    <text x="1078" y="235">borrowed</text>
+  </g>
+
+  <text x="44" y="333" class="m" font-size="14" fill="#94a3b8"><tspan fill="#22d3ee">Opus</tspan> | <tspan fill="#e879f9">xhigh</tspan> | <tspan fill="#60a5fa">coding-agent-kit (main)</tspan> | <tspan fill="#4ade80">ctx 38%</tspan> | 13.7M used | <tspan fill="#facc15">~$1.23</tspan> | <tspan fill="#4ade80">5h 88% left</tspan> | <tspan fill="#4ade80">weekly 58% left</tspan></text>
+</svg>
