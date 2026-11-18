@@ -111,12 +111,12 @@ first guarded interactive Codex launch on a host asks once, in Codex's
 codex-as: usage reserves for work: five-hour 10% (--reserve-5h), weekly 40% (--reserve-weekly); hooks refuse new prompts and tool calls at a reserve.
 ```
 
-A patch never changes a public interface
-([versioning](docs/development.md#versioning)). To run a checkout instead,
-clone the repository and run `./install.sh` in it, which links the launchers
-into `~/.local/bin` (`DIR/bin` with `--prefix DIR`) and their completions.
-Both installs print the zsh `fpath` line and the helper commands for Claude
-Code's `settings.json` when they place the links;
+`--update` moves only to a newer patch of the channel, and a patch never
+changes a public interface ([versioning](docs/development.md#versioning)).
+To run a checkout instead, clone the repository and run `./install.sh` in it,
+which links the launchers into `~/.local/bin` (`DIR/bin` with `--prefix DIR`)
+and their completions. Both installs print the zsh `fpath` line and the
+helper commands for Claude Code's `settings.json` when they place the links;
 [installation](docs/install.md) has every option, path and exit code.
 
 ## Commands
@@ -131,7 +131,7 @@ claude-as personal -p "Check the tests"
 | --- | --- |
 | `codex-as NAME [codex arguments...]` | Codex as account NAME |
 | `claude-as NAME [claude arguments...]` | Claude Code as account NAME |
-| `--reserve-5h V`, `--reserve-weekly V` | before NAME: keep V percent (0 through 100, or `off`) of that window unused for this launch |
+| `--reserve-5h V`, `--reserve-weekly V` | before NAME: keep V percent of the 5-hour or weekly limit unused for this launch (V from 0 through 100, or `off`) |
 | `-l`, `--list` | the account names, what completion offers |
 | `--labels` | `NAME<TAB>LABEL` lines: the email for Codex, the label for Claude |
 | `-i NAME`, `--info NAME` | the last-seen details of one account, offline: email, plan and usage for Codex, label and usage for Claude |
