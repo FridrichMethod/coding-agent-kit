@@ -63,7 +63,7 @@
     <text x="1078" y="115">work</text>
     <text x="1078" y="155">personal</text>
     <text x="1078" y="195">lab</text>
-    <text x="1078" y="235">borrowed</text>
+    <text x="1078" y="235">team</text>
   </g>
 
   <text x="44" y="333" class="m" font-size="14" fill="#94a3b8"><tspan fill="#22d3ee">Opus</tspan> | <tspan fill="#e879f9">xhigh</tspan> | <tspan fill="#60a5fa">coding-agent-kit (main)</tspan> | <tspan fill="#4ade80">ctx 38%</tspan> | 13.7M used | <tspan fill="#facc15">~$1.23</tspan> | <tspan fill="#4ade80">5h 88% left</tspan> | <tspan fill="#4ade80">weekly 58% left</tspan></text>
