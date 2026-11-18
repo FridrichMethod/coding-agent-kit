@@ -190,7 +190,7 @@ The settings checked are your `settings.json` and `settings.local.json` in the C
 Claude Code keeps a copy of the server-managed settings it last received in `remote-settings.json` in its configuration directory, which every claude-as account shares, so the copy holds the settings of whichever account received them last. When that copy sets `disableAllHooks`, `allowManagedHooksOnly`, `strictPluginOnlyCustomization` (true, or a list that names hooks) or a `statusLine` that Claude Code accepts, a guarded launch prints one warning on stderr before Claude Code starts, naming the file, the keys and their effect, and launches anyway:
 
 ```text
-claude-as: personal: /home/you/.claude/remote-settings.json, Claude Code's cached server-managed settings, sets disableAllHooks, so Claude Code would run neither the usage reserve guard's hooks nor its status line: the reserve would not be enforced, and nothing would report it.
+claude-as: personal: /home/you/.claude/remote-settings.json, Claude Code's cached server-managed settings, sets disableAllHooks, so Claude Code would run neither the usage reserve guard's hooks nor its status line: the reserve would not be enforced, and nothing in the session would report it.
 claude-as accounts share that cache, which holds the settings of the account that fetched them last, so they may be another account's; launching anyway.
 ```
 

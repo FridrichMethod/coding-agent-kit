@@ -972,8 +972,9 @@ class Refusals(Fixture):
 CACHED = ("claude-as: {account}: {path}, Claude Code's cached server-managed settings, sets {keys}, so {effect}.\n"
           "claude-as accounts share that cache, which holds the settings of the account that fetched them last, so they "
           "may be another account's; launching anyway.\n")
+# Nothing in the session reports it; a later session's usage record can, at the account's next guarded launch here.
 NEITHER = ("Claude Code would run neither the usage reserve guard's hooks nor its status line: the reserve would not be "
-           "enforced, and nothing would report it")
+           "enforced, and nothing in the session would report it")
 NO_HOOKS = "Claude Code would not run the usage reserve guard's hooks: the reserve would not be enforced"
 REPLACED = ("Claude Code would run that status line in place of the usage reserve guard's: the guard would see no usage "
             "and block the session as blind two minutes after its first reply")

@@ -54,16 +54,17 @@ MANAGED_FILES = (Path("/etc/claude-code/managed-settings.json"),
                  Path("/Library/Application Support/ClaudeCode/managed-settings.json"))
 MANAGED_DIRECTORIES = (Path("/etc/claude-code/managed-settings.d"),
                        Path("/Library/Application Support/ClaudeCode/managed-settings.d"))
-# The machine's other policy sources that a launch with a usage reserve checks with them (machine_policies): on
-# macOS the managed preferences an MDM profile installs for the com.anthropic.claudecode domain, the machine's and
-# this user's; on WSL the Windows managed settings, which Claude Code takes in only when one of them sets
-# wslInheritsWindowsSettings. The server-managed settings refuse nothing: Claude Code caches them in its configuration
-# directory (REMOTE), which every claude-as account shares, so the copy describes whichever account fetched it last,
-# and a guarded launch only warns, before Claude Code starts, of the keys there that would keep the guard from running
-# (cached_policy_warning). The HKLM and HKCU policy keys, which Claude Code on WSL reads through reg.exe, are not
+# The machine's other policy sources that a launch with a usage reserve checks with them (machine_policies): on macOS
+# the managed preferences an MDM profile installs for the com.anthropic.claudecode domain, the machine's and this
+# user's; on WSL the Windows managed settings, which Claude Code takes in only when one of them sets
+# wslInheritsWindowsSettings. The server-managed settings refuse no launch for the keys that keep the guard from
+# running: Claude Code caches them in its configuration directory (REMOTE), which every claude-as account shares, so the
+# copy describes whichever account fetched it last, and a guarded launch only warns, before Claude Code starts, of those
+# keys there (cached_policy_warning); the authentication audit (config_check) checks the copy for every launch, as
+# it checks the settings files. The HKLM and HKCU policy keys, which Claude Code on WSL reads through reg.exe, are not
 # checked: hooks they stop show as the footer line and the warning at the account's next guarded launch, and a status
-# line they set as the guard's blindness, but a disableAllHooks there also stops the guard's status line, so nothing
-# reports it.
+# line they set as the guard's blindness, but a disableAllHooks there also stops the guard's status line, so only a
+# later session's usage record can report it, at the account's next guarded launch on this host.
 REMOTE = "remote-settings.json"
 MACOS = sys.platform == "darwin"
 MDM_PREFERENCES = Path("/Library/Managed Preferences")
@@ -670,7 +671,7 @@ def cached_policy_warning(account, path, settings):
     listed = named[0] if len(named) == 1 else ", ".join(named[:-1]) + " and " + named[-1]
     if "disableAllHooks" in keys or (keys and line):  # disableAllHooks stops every status line too
         effect = ("Claude Code would run neither the usage reserve guard's hooks nor its status line: the reserve "
-                  "would not be enforced, and nothing would report it")
+                  "would not be enforced, and nothing in the session would report it")
     elif keys:
         effect = "Claude Code would not run the usage reserve guard's hooks: the reserve would not be enforced"
     else:
