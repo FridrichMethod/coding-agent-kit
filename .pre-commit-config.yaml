@@ -131,7 +131,7 @@ repos:
         entry: tests/account-info.sh
         language: script
         pass_filenames: false
-        files: ^(bin/.*|lib/.*|tests/(account-info\.sh|test_account_info\.py))$
+        files: ^(bin/.*|lib/.*|helpers/statusline\.cjs|tests/(account-info\.sh|test_account_info\.py))$
       - id: test-entrypoints
         name: test entry points and kit knob hygiene
         entry: tests/test-entrypoints.sh
