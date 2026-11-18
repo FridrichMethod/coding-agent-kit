@@ -106,8 +106,8 @@ STOPPED = {
     "stop": "The work stops here.",
 }
 CAUSES = {
-    "claude-as": "the status line has reported no rate limits: this account reports none, "
-                 "or a server-managed or registry policy replaced the status line",
+    "claude-as": "the status line has recorded no rate limits: this account reports none, a server-managed or "
+                 "registry policy replaced the status line, or a write to coding-agent-kit's state directory failed",
     "codex-as": "the session's rollout shows no rate limits",
 }
 

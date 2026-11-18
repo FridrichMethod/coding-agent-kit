@@ -108,25 +108,28 @@ Added:
   continues on its own after a denied tool call; a launch with both reserves
   off keeps them.
 - A session without usage data is blocked, never before its first reply: a
-  Claude Code session whose status line has reported no usable window (from
+  Claude Code session whose status line has recorded no usable window (from
   0 through 100 percent, with a reset time) 120 seconds after the first sign
   of a reply (a tool call or the end of a turn), as on an account that
   reports no window, with a status line input whose only windows are above
-  100 percent, or under a `statusLine` of the server-managed settings or,
-  on WSL, of a Windows registry policy, which Claude Code runs in place of
-  the guard's; a Codex session whose rollout since the launch started has a
-  usage line, or at a prompt a model response, but no rate limits. An
-  account whose server reports no window needs its reserves set to `"off"`.
+  100 percent, under a `statusLine` of the server-managed settings or, on
+  WSL, of a Windows registry policy, which Claude Code runs in place of the
+  guard's, or when the status line cannot write to the kit's state
+  directory (a full disk, a home directory at its quota); a Codex session
+  whose rollout since the launch started has a usage line, or at a prompt a
+  model response, but no rate limits. An account whose server reports no
+  window needs its reserves set to `"off"`.
 - A guard that fails on a prompt or a tool call (an event it cannot read, a
   launch format it does not know, any error) blocks it with a message that
   names the error and the way out; on its other events a failing guard
   stays silent.
 - Block messages give each window at its reserve with its remaining share,
   its reserve and the time to its reset, or the cause of the missing data
-  (`the status line has reported no rate limits: this account reports
-  none, or a server-managed or registry policy replaced the status line`
-  for `claude-as`, `the session's rollout shows no rate limits` for
-  `codex-as`), then what was stopped and the relaunch, for example
+  (`the status line has recorded no rate limits: this account reports
+  none, a server-managed or registry policy replaced the status line, or a
+  write to coding-agent-kit's state directory failed` for `claude-as`, `the
+  session's rollout shows no rate limits` for `codex-as`), then what was
+  stopped and the relaunch, for example
   `claude-as --reserve-weekly off NAME --continue` or
   `codex-as --reserve-5h off NAME resume --last`.
 - Hooks that the native does not run are reported where the kit can tell.

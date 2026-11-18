@@ -545,8 +545,9 @@ class ClaudeBlind(Fixture):
     def test_the_blindness_text(self):
         self.assertEqual(self.blind_text("prompt"), (
             "claude-as: personal: no usage data since this session started, so its usage reserve cannot be checked "
-            "(the status line has reported no rate limits: this account reports none, or a server-managed or "
-            "registry policy replaced the status line).\nThis prompt was not sent.\nTo go on without reserves, exit and run:\n"
+            "(the status line has recorded no rate limits: this account reports none, a server-managed or "
+            "registry policy replaced the status line, or a write to coding-agent-kit's state directory failed).\n"
+            "This prompt was not sent.\nTo go on without reserves, exit and run:\n"
             "  claude-as --reserve-5h off --reserve-weekly off personal --continue\n"
             'To keep them off for this account, set them to "off" under [usage_reserve.claude_accounts.personal].'))
 
@@ -1623,8 +1624,10 @@ class StatusLine(Fixture):
         self.assertFalse(Path(launch.usage).exists())
 
     def test_a_failed_write_leaves_no_seen_and_no_temporary_file(self):
-        # A home directory at its quota: the write fails, so the launch has no data and turns blind, never seen.
+        # A home directory at its quota: the write fails, so the launch has no data and turns blind, never seen,
+        # and the blindness message names the failed write among its causes.
         blind = reserve.block_text("claude-as", "personal", reserve.Decision(False, "blind"), "prompt", NOW)
+        self.assertIn("or a write to coding-agent-kit's state directory failed).", blind)
         for call, code in (("replace", errno.ENOSPC), ("fsync", errno.EDQUOT)):
             with self.subTest(call=call):
                 launch = self.launch(weekly="10", statusline="printf 'mine'")
