@@ -214,6 +214,14 @@ Changed:
   run can tell that another launch of the account arrived during it; a
   launch that holds the lease alone first empties a file of 4096 bytes or
   more.
+- `--info` styles its own words under the colour policy
+  (`CODING_AGENT_KIT_COLOR`, `NO_COLOR`, `TERM=dumb`) for its standard
+  output: the heading cyan, missing data yellow, and each window's use in
+  the status line helper's colours (green, yellow from 70%, red from 90%).
+  Stored emails and labels are never styled; piped or redirected output
+  stays plain, so a preview that pipes it sets
+  `CODING_AGENT_KIT_COLOR=always`. `--list`, `--labels` and `--show-config`
+  stay plain.
 - AGENTS.md describes the reserve guard as an exception to the rule that
   best effort falls back to plain native behavior: with a reserve on, a
   session without usage data, a guard failure on a prompt or a tool call and
