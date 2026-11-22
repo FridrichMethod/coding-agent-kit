@@ -184,16 +184,17 @@ def exit_status(result):
 def remember(config, layout, raw=None, plan=None, started=None, threads=()):
     """Best effort, for --account-info: this login's email and plan, and after a run the
     last rate limits its rollouts show (THREADS: the session ids of a guarded run, see run_threads).
-    Never fails a launch and writes no token. The rollouts are looked for from SKEW before STARTED,
-    as run_threads does, since a file server's clock may lag this host's: a snapshot of this account's
-    from up to that long before the run is a reading of it all the same, and the record takes the
-    newest by its own time."""
+    Never fails a launch and writes no token. A rollout is opened when its file time is at most SKEW
+    before STARTED, as run_threads opens them, since a file server's clock may lag this host's; a
+    snapshot counts only when its own line is stamped at or after STARTED, so what an earlier run left
+    in a session this run resumed, perhaps another account's, is never recorded as this account's.
+    The record takes the newest snapshot by its own time."""
     try:
         if raw is None:
             raw = guard.credential(layout.target)
         email, kind = storage.profile(raw)
         seen = None if plan is None else usage.latest(layout.root, {*plan.continued, *threads}, storage.owner(raw),
-                                                      started - SKEW, time.time())
+                                                      started, time.time(), skew=SKEW)
         # The old record is read only after the scan, just before the write, so a run of
         # this account that finished meanwhile keeps its newer snapshot.
         path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
@@ -353,7 +354,8 @@ RELEVANT = (b"token_count", b"response_item", b"token_usage_record")  # the line
 # A rollout is opened after a run when its file time is at most this many seconds before the run: on a
 # network home directory the file's time comes from the file server's clock, which may lag this host's
 # (Kerberos, under which NFSv4 often runs, refuses a skew above 5 minutes). The lines' own times, which
-# Codex writes with this host's clock, decide what is the run's.
+# Codex writes with this host's clock, decide what is the run's, for the check after the run (span) and
+# for the account record (remember): SKEW widens which files are opened, never which lines count.
 SKEW = 300
 CHUNK = 1 << 16
 

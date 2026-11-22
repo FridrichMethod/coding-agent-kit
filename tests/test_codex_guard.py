@@ -1603,18 +1603,18 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + printed))
                 self.assertEqual(self.marker.exists(), not printed)
 
-    def old_rollout(self, thread, seconds, source="cli", cwd=None):
+    def old_rollout(self, thread, seconds, source="cli", cwd=None, lines=(ANSWER,), **meta):
         """A rollout of this account's THREAD that started SECONDS ago (in CWD, by default the work
-        directory), as Codex left it then."""
+        directory), as Codex left it then: LINES after its session_meta line, whose fields META replaces."""
         then = time.time() - seconds
         day = self.root / "sessions" / time.strftime("%Y/%m/%d", time.localtime(then))
         day.mkdir(parents=True, exist_ok=True)
         path = day / ("rollout-" + time.strftime("%Y-%m-%dT%H-%M-%S", time.localtime(then)) + f"-{thread}.jsonl")
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(then))
         meta = {"id": thread, "session_id": thread, "timestamp": stamp, "cwd": str(cwd or self.cwd), "originator": "codex-tui",
-                "source": source, "thread_source": "user", "creator_user_id": USER, "creator_account_id": WORKSPACE}
+                "source": source, "thread_source": "user", "creator_user_id": USER, "creator_account_id": WORKSPACE, **meta}
         path.write_text("".join(json.dumps({"timestamp": stamp, **line}) + "\n"
-                                for line in ({"type": "session_meta", "payload": meta}, ANSWER)))
+                                for line in ({"type": "session_meta", "payload": meta}, *lines)))
         os.utime(path, (then, then))
         return path
 
@@ -1769,6 +1769,36 @@ class GuardedLaunch(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         usage = json.loads((self.state / "accounts/codex-A.json").read_text())["usage"]
         self.assertEqual((usage["primary"]["used_percent"], usage["primary"]["window_minutes"]), (30.0, 300))
+
+    def test_the_record_never_takes_what_another_account_left_in_a_resumed_session(self):
+        """A session resumed by id is the run's whoever created it, with its sub-agents, whose rollouts
+        name it as session_id. The snapshot that the account which ran it before left in a sub-agent's
+        rollout a minute before this run started is that account's reading, although the rollout's file
+        time lies within what a file server's clock may lag: after a run that got no reply, the account
+        record's usage stays absent, and an older reading of this account's stays as it is."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        record = self.state / "accounts/codex-A.json"
+        spawned = {"subagent": {"thread_spawn": {"parent_thread_id": THREAD, "depth": 1}}}
+        self.old_rollout(THREAD, 120, creator_user_id="user-fixture-B")
+        self.old_rollout(OTHER, 60, source=spawned, lines=[ANSWER, snapshot(90.0)], session_id=THREAD,
+                         thread_source="subagent", creator_user_id="user-fixture-B")
+        result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD)
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        stored = json.loads(record.read_text())
+        self.assertEqual(stored, {"email": "alice@example.com", "plan": "plus"})
+        kept = {"primary": {"used_percent": 20.0, "window_minutes": 300, "resets_at": int(time.time()) + 7200},
+                "secondary": None, "seen_at": int(time.time()) - 3600}
+        record.write_text(json.dumps({**stored, "usage": kept}))
+        result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD)
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        self.assertEqual(json.loads(record.read_text())["usage"], kept)
+        # What the run itself gets in that sub-agent's rollout is this account's.
+        [sub] = (self.root / "sessions").glob(f"*/*/*/rollout-*-{OTHER}.jsonl")
+        rollouts = [{"append": str(sub), "lines": [ANSWER, snapshot(31.0)]}]
+        result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD,
+                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        self.assertEqual(json.loads(record.read_text())["usage"]["primary"]["used_percent"], 31.0)
 
     def test_another_launch_of_the_account_never_hides_what_a_headless_run_wrote(self):
         """A headless run's own sessions are told by what wrote them (exec, this directory, a start during

@@ -341,8 +341,10 @@ class CodexUsage(unittest.TestCase):
         self.addCleanup(time.tzset)
         self.start, self.end = NOW - 600, NOW + 600
 
-    def latest(self, ids=(), account=(USER, WORKSPACE)):
-        return usage.latest(self.root, ids, account, self.start, self.end)
+    def latest(self, ids=(), account=(USER, WORKSPACE), skew=None):
+        if skew is None:
+            return usage.latest(self.root, ids, account, self.start, self.end)
+        return usage.latest(self.root, ids, account, self.start, self.end, skew=skew)
 
     def touch_all(self):
         for path in (self.root / "sessions").rglob("*"):
@@ -394,6 +396,47 @@ class CodexUsage(unittest.TestCase):
         path = rollout(self.root, THREAD, [(NOW, limits(30.0))])
         os.utime(path, (NOW - 3600, NOW - 3600))
         self.assertIsNone(self.latest())
+
+    def test_skew_opens_a_rollout_whose_file_time_lags_the_run(self):
+        """A file server's clock may lag this host's: SKEW seconds of it open a rollout whose file time
+        lies that long before the run, by its id or by its creator. Without SKEW it stays closed."""
+        path = rollout(self.root, THREAD, [(NOW, limits(21.0))])
+        for ids in ((), (THREAD,)):
+            with self.subTest(ids=ids):
+                os.utime(path, (self.start - 30, self.start - 30))
+                self.assertIsNone(self.latest(ids=ids))
+                self.assertIsNone(self.latest(ids=ids, skew=0))
+                self.assertIsNone(self.latest(ids=ids, skew=20))
+                self.assertEqual(self.latest(ids=ids, skew=300)["primary"]["used_percent"], 21.0)
+                # SKEW, and the SLACK every file time gets, bound it.
+                os.utime(path, (self.start - 300 - usage.SLACK, self.start - 300 - usage.SLACK))
+                self.assertEqual(self.latest(ids=ids, skew=300)["primary"]["used_percent"], 21.0)
+                os.utime(path, (self.start - 301 - usage.SLACK, self.start - 301 - usage.SLACK))
+                self.assertIsNone(self.latest(ids=ids, skew=300))
+
+    def test_skew_never_widens_the_lines_that_count(self):
+        """A snapshot counts by its own line's time, which Codex stamps with this host's clock: one from
+        before the run is another run's reading, of this account or of another, whatever SKEW opens."""
+        before = self.start - 60
+        resumed = rollout(self.root, RESUMED, [(before, limits(90.0))], creator=("user-fixture-B", "workspace-fixture-B"),
+                          stamp=before - 3600)
+        own = rollout(self.root, THREAD, [(before, limits(80.0)), (self.start - 1, limits(81.0))], stamp=before)
+        # Left as they were before the run, or written during it without a snapshot.
+        for mtime in (before, NOW):
+            for path in (resumed, own):
+                os.utime(path, (mtime, mtime))
+            for skew in (None, 300):
+                with self.subTest(mtime=mtime - self.start, skew=skew):
+                    self.assertIsNone(self.latest(ids=(RESUMED,), skew=skew))
+        # The run's own lines in the same rollouts count, from its first second on.
+        for path, when, used in ((resumed, NOW, 12.0), (own, self.start, 13.0)):
+            with open(path, "a") as stream:
+                stream.write(json.dumps({"timestamp": iso(when), "type": "event_msg",
+                                         "payload": {"type": "token_count", "info": None, "rate_limits": limits(used)}}) + "\n")
+            os.utime(path, (before, before))
+        self.assertEqual(self.latest(skew=300), {"primary": {"used_percent": 13.0, "window_minutes": 300, "resets_at": NOW + 3600},
+                                                 "secondary": None, "seen_at": self.start})
+        self.assertEqual(self.latest(ids=(RESUMED,), skew=300)["primary"]["used_percent"], 12.0)
 
     def test_only_regular_rollouts_are_opened(self):
         own = rollout(self.root, THREAD, [(NOW - 10, limits(20.0))])
@@ -893,6 +936,28 @@ class CodexLaunch(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(self.stored()["usage"]["primary"]["used_percent"], used)
 
+    def test_a_snapshot_from_before_the_run_is_never_recorded(self):
+        """A thread resumed by id is read whoever created it. The snapshot another account left in it a
+        minute before this run started is that account's reading: after a run that got no snapshot of its
+        own, the record's usage stays absent, and an older reading of this account's stays as it is."""
+        then = int(time.time()) - 60
+        path = rollout(self.home / ".codex", RESUMED, [(then, limits(90.0, 95.0))], stamp=then,
+                       day=time.strftime("%Y/%m/%d", time.gmtime(then)), creator=("user-fixture-B", WORKSPACE))
+        os.utime(path, (then, then))  # as the other account's Codex left it
+        result = self.run_codex("A", "exec", "resume", RESUMED, "go")
+        self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
+        self.assertEqual(self.stored(), {"email": "alice@example.com", "plan": "plus"})
+        kept = {"primary": {"used_percent": 20.0, "window_minutes": 300, "resets_at": then + 7200}, "secondary": None,
+                "seen_at": then - 3600}
+        self.state.write_text(json.dumps({"email": "alice@example.com", "plan": "plus", "usage": kept}))
+        result = self.run_codex("A", "exec", "resume", RESUMED, "go")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.stored()["usage"], kept)
+        # A snapshot of the run itself in that thread is recorded.
+        rollouts = [{"thread": RESUMED, "creator": ["user-fixture-B", WORKSPACE], "limits": [limits(31.0)]}]
+        self.run_codex("A", "exec", "resume", RESUMED, "go", env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
+        self.assertEqual(self.stored()["usage"]["primary"]["used_percent"], 31.0)
+
     def test_a_secrets_dir_in_the_state_directory_is_refused_before_any_write(self):
         secrets = self.home / "x/coding-agent-kit/accounts"
         secrets.mkdir(parents=True, mode=0o700)
@@ -949,7 +1014,7 @@ class Remember(unittest.TestCase):
             return {"primary": {"used_percent": 1.0, "window_minutes": 300, "resets_at": None}, "secondary": None,
                     "seen_at": seen}
 
-        def scan(root, ids, account, started, ended):
+        def scan(root, ids, account, started, ended, skew=0):
             # The other run finishes while this one still reads its rollouts.
             path = launch.metadata.directory(config, create=True) / "codex-A.json"
             launch.metadata.write(path, {"email": "a@example.com", "plan": "plus", "usage": snapshot(NOW + 100)})

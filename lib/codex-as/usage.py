@@ -1,8 +1,8 @@
 """Codex rate limits and activity, read from the session rollouts native Codex writes.
 
-latest(root, ids, account, started, ended) gives the account record the last
-snapshot of a codex-as run; session(path, started) gives the reserve guard what
-one session's rollout shows since a launch started.
+latest(root, ids, account, started, ended, skew=0) gives the account record the
+last snapshot of a codex-as run; session(path, started) gives the reserve guard
+what one session's rollout shows since a launch started.
 
 The last snapshot of a run:
 
@@ -16,6 +16,17 @@ internal; anything unexpected yields nothing. Only regular files are opened,
 never a FIFO, device or link, so nothing blocks after Codex exits. The threads
 this run continues come first, then the newest rollouts; at most MAX_FILES of
 this account's are read, after at most MAX_HEADS session_meta lines of others.
+
+The run has two bounds, one for each clock. A rollout is opened when its file
+time is at most SLACK + skew seconds before STARTED: on a network home directory
+that time is the file server's, whose clock may lag this host's by skew. A
+snapshot counts when its own line is stamped from STARTED to ENDED + SLACK:
+Codex stamps the lines with this host's clock, and codex-as takes STARTED, a
+whole second, before it starts Codex, so no line of the run is older. A snapshot
+that an earlier run left in a rollout this run opens (a resumed thread's, or one
+of its sub-agents') may be another account's reading and never counts, whatever
+skew is.
+
 Known gaps: a session switched inside Codex (/resume) is missed, and another
 account resuming, during the run, a thread this account created can be counted
 here.
@@ -59,7 +70,9 @@ FIRST_LINE = 1 << 20
 MAX_FILES = 8  # rollouts of this account read in one run
 MAX_HEADS = 64  # first lines of other rollouts read to find them
 LAST = 253402300800  # 10000-01-01 UTC: no calendar time from here on
-SLACK = 5  # seconds around the run, for clocks that tick between the launcher and Codex
+# Seconds of allowance at a run's edges: for a file's time before the run, for a snapshot's line after
+# it, and for the lines session() reads before a launch. Never for a snapshot's line before a run.
+SLACK = 5
 FAMILY = re.compile(r"[A-Za-z0-9_.-]{1,64}")  # a limit_id named in a message
 CALLS = ("function_call", "custom_tool_call", "local_shell_call")  # payload types a tool hook sees
 UNHOOKED = ("wait", "write_stdin")  # plain function_call names no tool hook sees
@@ -79,8 +92,9 @@ def days(start, end):
     return sorted(result)
 
 
-def candidates(root, ids, started, ended):
-    """Regular rollouts modified during the run: the threads of IDS first, then the newest."""
+def candidates(root, ids, started, ended, skew=0):
+    """Regular rollouts modified during the run, or at most SLACK + SKEW seconds before it: the
+    threads of IDS first, then the newest."""
     sessions = Path(root) / "sessions"
     found = set()
     for thread in ids:
@@ -94,7 +108,7 @@ def candidates(root, ids, started, ended):
             info = path.lstat()
         except OSError:
             continue
-        if match and stat.S_ISREG(info.st_mode) and info.st_mtime >= started - SLACK:
+        if match and stat.S_ISREG(info.st_mode) and info.st_mtime >= started - SLACK - skew:
             recent.append((match[1] not in ids, -info.st_mtime, str(path), path))
     return [path for *_, path in sorted(recent)]
 
@@ -194,7 +208,8 @@ def backwards(stream):
 
 
 def snapshots(stream, started, ended):
-    """(time, snapshot) of each usable token_count event in the rollout's tail."""
+    """(time, snapshot) of each usable token_count event in the rollout's tail whose line is stamped
+    from STARTED to ENDED + SLACK."""
     for raw in tail(stream)[0]:
         if b"token_count" not in raw:
             continue
@@ -205,7 +220,7 @@ def snapshots(stream, started, ended):
             if not isinstance(limits, dict) or limits.get("limit_id") not in (None, "codex"):
                 continue
             when = moment(line.get("timestamp"))
-            if when is None or not started - SLACK <= when <= ended + SLACK:
+            if when is None or not started <= when <= ended + SLACK:
                 continue
             windows = {key: window(limits.get(key)) for key in ("primary", "secondary")}
         except (ValueError, KeyError, TypeError, RecursionError):
@@ -214,14 +229,17 @@ def snapshots(stream, started, ended):
             yield when, windows
 
 
-def latest(root, ids, account, started, ended):
+def latest(root, ids, account, started, ended, skew=0):
     """The newest snapshot of this run: {"primary", "secondary", "seen_at"}, or None.
 
     IDS are the thread UUIDs this run resumed or recovered; ACCOUNT is the
-    (ChatGPT user, workspace) pair of this login, or None for an API key."""
+    (ChatGPT user, workspace) pair of this login, or None for an API key.
+    SKEW is how many seconds a file server's clock may lag this host's: it
+    widens which rollouts are opened (candidates), never which lines count
+    (snapshots)."""
     ids = {thread for thread in ids if thread}
     best, owned, heads = None, 0, 0
-    for path in candidates(root, ids, started, ended):
+    for path in candidates(root, ids, started, ended, skew):
         continued = NAME.fullmatch(path.name)[1] in ids
         # The threads of IDS come first: past them, only a creator match counts.
         if owned == MAX_FILES or not continued and (account is None or heads == MAX_HEADS):
