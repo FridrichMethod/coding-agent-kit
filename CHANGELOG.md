@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.1
+
+- After a run, `codex-as` no longer records a rate-limit snapshot from before
+  that run as the account's usage. 0.9.0 opened the rollouts written up to 300
+  seconds before the run started, for a file server whose clock lags this
+  host's, and counted the lines of those 300 seconds too. A session resumed by
+  id is read whoever created it, with a usage reserve its sub-agents' rollouts
+  as well, so the last snapshot that another account had left there became
+  this account's record: `--info` showed that account's windows, and the
+  reserve guard, which reads the record until the session has a snapshot of
+  its own, decided on them, refusing prompts and tool calls at a reserve this
+  account had not reached. The allowance for the file server's clock now
+  widens only which rollouts are opened. A snapshot counts when its own line
+  is stamped at or after the run's start, without the 5 seconds before it that
+  earlier releases allowed.
+- The update does not repair a record that 0.9.0 wrote this way: it stays
+  until a run of the account records a newer snapshot of its own, and the
+  guard counts it until the recorded window resets. Where the guard refuses a
+  session's first prompt on it, the relaunch that the message names, with that
+  window's reserve off, gets past it.
+
 ## 0.9.0
 
 Usage reserves become a guard on the natives' own hooks, which works with
