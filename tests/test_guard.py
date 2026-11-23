@@ -1182,32 +1182,58 @@ class Codex(Fixture):
                          (TAG, 50, NOW - 50))
 
     def test_notes_that_cannot_be_read_or_written_never_block(self):
-        records = turn(T0, NOW - 90, slot(50, 10080)) + turn(T1, NOW - 60, slot(60, 10080), end=False)
-        transcript = self.rollout(records, thread=THREAD)
+        # Another client's turn at the reserve since the launch started, then the launch's new turn: by the launch's
+        # turns nothing is known yet, by the lines since the start the other client's snapshot refuses. The
+        # launch's own turn at the reserve refuses either way.
+        theirs = self.rollout(turn(T0, NOW - 90, slot(95, 10080)) + [started(NOW - 20, T1), context(NOW - 20, T1)],
+                              thread=THREAD)
+        mine = self.rollout(turn(T2, NOW - 60, slot(95, 10080), end=False), thread=THREAD2)
+        events = [(transcript, kind, turn_id) for transcript, turn_id in ((theirs, T1), (mine, T2))
+                  for kind in ("prompt", "tool")]
+        bare = self.launch("codex-as", weekly="10")  # a launch without notes, as a 0.9.1 launcher starts it
+        by_time = {event: self.answer(event[1], bare, self.codex_event(*event)) for event in events}
+        self.assertEqual(by_time, {event: (2, "", self.threshold(event[1])) for event in events})
+        usage = guard.module("usage")
+        # Notes that cannot be read: the event is judged as without notes, and nothing is noted or attested.
         target = put(self.root / "notes elsewhere", f"o {TAG}\n")
-        for case in ("a directory", "a link", "a FIFO"):
+        for case in ("a directory", "a link", "a FIFO", "notes whose reading fails"):
             launch = self.launch("codex-as", weekly="10")
             notes = self.state(launch, "turns")
-            if case == "a directory":
-                notes.mkdir()
-            elif case == "a link":
-                notes.symlink_to(target)
-            else:
-                os.mkfifo(notes, 0o600)
-            for kind in ("prompt", "tool"):
-                with self.subTest(case=case, kind=kind):
-                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)), OK)
-            self.assertFalse(self.state(launch, "blocked").exists())
+            with contextlib.ExitStack() as stack:
+                if case == "a directory":
+                    notes.mkdir()
+                elif case == "a link":
+                    notes.symlink_to(target)
+                elif case == "a FIFO":
+                    os.mkfifo(notes, 0o600)
+                else:
+                    self.turns_file(launch)
+                    stack.enter_context(patch.object(usage, "turn_notes", side_effect=RuntimeError("boom")))
+                for event in events:
+                    with self.subTest(case=case, kind=event[1], turn=event[2]):
+                        self.assertEqual(self.answer(event[1], launch, self.codex_event(*event)), by_time[event])
+            self.assertFalse(self.attested(launch).exists(), "notes that could not be read were taken for a tag")
         self.assertEqual(target.read_text(), f"o {TAG}\n")
-        self.assertFalse(self.attested(launch).exists(), "notes that could not be read were taken for a tag")
-        if os.geteuid() == 0:
-            return  # root writes into a 0400 file
-        # A read-only file: the event's turn counts all the same, and nothing is written into it.
-        launch = self.launch("codex-as", weekly="10")
-        self.turns_file(launch).chmod(0o400)
-        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)), OK)
         self.assertEqual(self.notes(launch), f"o {TAG}\n")
-        self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 60)
+        # Notes that cannot be written: the event's turn counts all the same, the decision is the one writable
+        # notes give, and the launch's own snapshot is attested.
+        cases = ["a full disk", "an error of another kind"] + ([] if os.geteuid() == 0 else ["a read-only file"])
+        for case in cases:  # root writes into a 0400 file
+            launch = self.launch("codex-as", weekly="10")
+            self.turns_file(launch)
+            self.attested(launch).unlink(missing_ok=True)
+            with contextlib.ExitStack() as stack:
+                if case == "a read-only file":
+                    self.state(launch, "turns").chmod(0o400)
+                else:
+                    error = OSError(errno.ENOSPC, os.strerror(errno.ENOSPC)) if case == "a full disk" else TypeError("boom")
+                    stack.enter_context(patch.object(guard, "add_turn", side_effect=error))
+                for event in events:
+                    with self.subTest(case=case, kind=event[1], turn=event[2]):
+                        expected = OK if event[0] == theirs else (2, "", self.threshold(event[1]))
+                        self.assertEqual(self.answer(event[1], launch, self.codex_event(*event)), expected)
+            self.assertEqual(self.notes(launch), f"o {TAG}\n")
+            self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 95)
 
     def test_a_torn_note_does_not_take_the_next_one_with_it(self):
         launch = self.launch("codex-as", weekly="10")
@@ -1235,24 +1261,39 @@ class Codex(Fixture):
         self.assertEqual(self.notes(launch), full[:-2] + f"\nt {T1} {REL}\n")
 
     def test_a_failed_record_write_never_blocks(self):
-        transcript = self.rollout(turn(T1, NOW - 60, slot(95, 10080), end=False), thread=THREAD)
-        for case in ("a guard directory with mode 0755", "a directory in the file's place"):
+        # The launch's own turns: a reply below the reserve, and a later one at it. Whatever the write of the
+        # attested usage does, the first is allowed and the second refused by its threshold.
+        low = self.rollout(turn(T1, NOW - 60, slot(50, 10080), end=False), thread=THREAD)
+        high = self.rollout(turn(T2, NOW - 40, slot(95, 10080), end=False), thread=THREAD2)
+        usage = guard.module("usage")
+        for case in ("a guard directory with mode 0755", "a directory in the file's place", "keep fails to write",
+                     "keep raises an error of another kind", "the sweep after the write fails"):
             launch = self.launch("codex-as", weekly="10")
             self.turns_file(launch)
-            if case == "a directory in the file's place":
-                self.attested(launch).mkdir()
-            else:
-                self.guard_dir.chmod(0o755)
-                self.addCleanup(self.guard_dir.chmod, 0o700)
-            for kind in ("prompt", "tool"):
-                with self.subTest(case=case, kind=kind):
-                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)),
-                                     (2, "", self.threshold(kind)))
-            self.guard_dir.chmod(0o700)
-            self.assertFalse(self.attested(launch).is_file())
-            self.assertEqual(self.temporary_files(), [])
-            if self.attested(launch).is_dir():
-                self.attested(launch).rmdir()
+            with contextlib.ExitStack() as stack:
+                if case == "a directory in the file's place":
+                    self.attested(launch).mkdir()
+                    stack.callback(self.attested(launch).rmdir)
+                elif case == "a guard directory with mode 0755":
+                    self.guard_dir.chmod(0o755)
+                    self.addCleanup(self.guard_dir.chmod, 0o700)
+                    stack.callback(self.guard_dir.chmod, 0o700)
+                elif case == "the sweep after the write fails":
+                    stack.enter_context(patch.object(guard, "sweep", side_effect=RuntimeError("boom")))
+                else:
+                    error = OSError(errno.ENOSPC, os.strerror(errno.ENOSPC)) if case == "keep fails to write" \
+                        else RuntimeError("boom")
+                    stack.enter_context(patch.object(usage, "keep", side_effect=error))
+                for kind in ("prompt", "tool"):
+                    with self.subTest(case=case, kind=kind):
+                        self.assertEqual(self.answer(kind, launch, self.codex_event(low, kind, T1)), OK)
+                        self.assertEqual(self.answer(kind, launch, self.codex_event(high, kind, T2)),
+                                         (2, "", self.threshold(kind)))
+                self.assertEqual(self.temporary_files(), [])
+                if case == "the sweep after the write fails":  # the write itself took place
+                    self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 95)
+                    self.attested(launch).unlink()
+                self.assertFalse(self.attested(launch).is_file())
 
     def test_blindness_is_told_from_the_launch_s_turns(self):
         launch = self.launch("codex-as", weekly="10")

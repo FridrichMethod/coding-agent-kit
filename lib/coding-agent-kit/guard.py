@@ -507,8 +507,8 @@ def turns_of(launch, event, transcript):
             text = usage.turn_note(turn, rel)
             try:
                 add_turn(path, text if not raw or raw.endswith(b"\n") else b"\n" + text)
-            except OSError:
-                pass  # the turn still counts at this event
+            except Exception:
+                pass  # whatever failed, the turn still counts at this event
         return turn, known | {turn}, owner, rel
     except Exception:
         return None, None, None, None
