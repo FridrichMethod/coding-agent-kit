@@ -74,12 +74,18 @@ The decision (reserve.decide) per launch:
   there: the turns noted for that rollout and the event's (usage.session's
   "own" view), whenever they are stamped. It takes the lines since the launch
   started instead (the view of a launcher without notes) when any of the three
-  is missing, when the tail names no turn at all, and at a tool event whose
-  turn the tail does not name although it names others; a prompt whose turn
-  the tail does not name yet is judged by the launch's earlier turns there.
+  is missing, when the notes hold usage.NOTES bytes or more and not the
+  event's turn (the notes' tag still names the login), when the tail names no
+  turn at all, and at a tool event whose turn the tail does not name although
+  it names others; a prompt whose turn the tail does not name yet is judged by
+  the launch's earlier turns there.
   Of the view: its newest snapshot, each window named by its length (300
   minutes five_hour, 10080 weekly, others ignored) with the snapshot's limit
-  family. A general-family snapshot of the launch's own turns also goes into
+  family. When the launch's turns are the view and hold no snapshot, the
+  reading that a line longer than the tail left before the tail's first
+  naming line (usage.session's "before": that turn's, by one client per
+  thread) takes the snapshot's place in the decision, and is never attested.
+  A general-family snapshot of the launch's own turns also goes into
   the account's attested usage (usage.keep(), under the tag of the notes; any
   error there is no write). Without a snapshot, the account's attested usage
   (attested_path(): codex-usage-ACCOUNT.json beside the launches' state, read
@@ -94,7 +100,7 @@ The decision (reserve.decide) per launch:
   snapshot when the view has a token_count line (accounted), and on a prompt
   also when it shows a model response. No readable transcript is never blind.
   Notes that cannot be read or written never block: the event is then judged
-  as without notes, or with its turn counted in memory.
+  as without notes, or with its turn counted in memory, at that event only.
 
 Answers, as (exit code, stdout, stderr); a message goes to stderr with one newline:
 
@@ -486,10 +492,11 @@ def turns_of(launch, event, transcript):
 
     TURN is the event's turn_id when it is a turn id in UUID form (usage.TURN), REL the rollout's path below
     sessions/ (usage.relative), OWNER the tag of the launch's notes. TURNS is None without notes that can be read,
-    without TURN or without REL; otherwise the turns the notes hold for REL, and TURN. The first event of a turn in
-    a rollout appends "t TURN REL" to the notes (after a line feed when a cut write left the last line without
-    one) while they are smaller than usage.NOTES; a failed append changes nothing else. Any error gives
-    (None, None, None, None)."""
+    without TURN or without REL, and when the notes hold usage.NOTES bytes or more and not TURN for REL (no later
+    event could count it as the launch's, so the event is read by time); otherwise the turns the notes hold for
+    REL, and TURN. The first event of a turn in a rollout below that bound appends "t TURN REL" to the notes
+    (after a line feed when a cut write left the last line without one); a failed append changes nothing else.
+    Any error gives (None, None, None, None)."""
     try:
         usage = module("usage")
         turn = event.get("turn_id")
@@ -503,7 +510,9 @@ def turns_of(launch, event, transcript):
         if turn is None or rel is None:
             return turn, None, owner, rel
         known = noted.get(rel, set())
-        if turn not in known and len(raw) < usage.NOTES:
+        if turn not in known and len(raw) >= usage.NOTES:
+            return turn, None, owner, rel  # no later event could count the turn as the launch's: read it by time
+        if turn not in known:
             text = usage.turn_note(turn, rel)
             try:
                 add_turn(path, text if not raw or raw.endswith(b"\n") else b"\n" + text)
@@ -516,8 +525,9 @@ def turns_of(launch, event, transcript):
 
 def codex_view(kind, event, launch, now):
     """(readings, blind) from the launch's turns in the session's rollout, or from its lines since the launch
-    started; else from the account's attested usage. A general-family snapshot of the launch's own turns is
-    recorded in the attested usage on the way, best effort."""
+    started; else from the account's attested usage. Where the launch's turns hold no snapshot, the reading before
+    a cut tail's first naming line (the own view's "before") counts as theirs, never attested. A general-family
+    snapshot of the launch's own turns is recorded in the attested usage on the way, best effort."""
     usage = module("usage")  # loaded whatever the event says, so an incomplete install always fails
     if not isinstance(event, dict):
         raise ValueError("the event is not a JSON object")
@@ -542,8 +552,11 @@ def codex_view(kind, event, launch, now):
                     sweep(path)
         except Exception:
             pass  # the decision does not need the write
-    snapshot = windows(view["snapshot"], view["family"]) if view and view["snapshot"] else []
-    if snapshot and view["family"] is not None:
+    reading = view if view and view["snapshot"] else None
+    if own is not None and not own["snapshot"] and own.get("before"):
+        reading = own["before"]  # a line longer than the tail hid the turn's start: the lines before were its own
+    snapshot = windows(reading["snapshot"], reading["family"]) if reading else []
+    if snapshot and reading["family"] is not None:
         return snapshot, False  # another family's limit is the one the session's requests count against
     # Never the account record (launch.usage), which launches without hooks write too; another login's
     # attested usage is no reading for a launch that knows its own.
