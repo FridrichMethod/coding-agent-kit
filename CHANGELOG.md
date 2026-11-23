@@ -12,14 +12,16 @@
   longer judged on that snapshot, and one that resumes it within 5 seconds of
   a client that was killed in mid turn is no longer refused with
   `no usage data since this session started`.
-- After a run with a usage reserve whose hooks named turns, the account's
-  usage that `--info` shows comes from those turns only, whoever created the
-  thread, so a turn of another client in the same thread never counts: a
-  thread that this account created and another account continues no longer
-  feeds this account, and a thread of another creator that the run continued
-  without naming it (`resume --last`, the picker, `/resume`) now does. The
-  recorded time is then the reply's, not that of the later line that carries
-  its rate limits.
+- After a run with a usage reserve, `codex-as` reads the last 1 MiB of each
+  rollout that the guard's hooks were called in. When that part of one of
+  them names a turn, the account's usage that `--info` shows comes from the
+  turns those hooks named only, whoever created the thread, so in that part a
+  turn of another client in the same thread never counts: a thread that this
+  account created and another account continues no longer feeds this
+  account, and a thread of another creator that the run continued without
+  naming it (`resume --last`, the picker, `/resume`) now does. When those
+  turns hold no snapshot there, the stored usage stays. The recorded time is
+  then the reply's, not that of the later line that carries its rate limits.
 - Without a snapshot of its own (a session's first prompt, a sub-agent's
   first tool call), the Codex guard reads the account's attested usage,
   `codex-usage-NAME.json` in
@@ -41,12 +43,15 @@
   reserve, which a launch gets when the stored reading passes its reserves (a
   lower reserve, or that window's reserve off and another one on); the stored
   reset time; or removing `codex-usage-NAME.json`, which is always safe,
-  since the next such reply writes it again. The relaunch that a refusal
-  names, with the refused window's reserve off, gets past the refusal for
-  that launch. When that leaves no reserve on, the relaunch runs without
-  hooks and leaves the attested reading as it is: its exit still records the
-  account's usage that `--info` shows, which later sessions with a reserve
-  are no longer judged on.
+  since the next such reply writes it again. A session of the account that
+  still holds the old reading in its own turns writes it back at its next
+  prompt or tool call, so such sessions are closed, or relaunched with that
+  window's reserve off, before the file is removed. The relaunch that a
+  refusal names, with the refused window's reserve off, gets past the
+  refusal for that launch. When that leaves no reserve on, the relaunch runs
+  without hooks and leaves the attested reading as it is: its exit still
+  records the account's usage that `--info` shows, which later sessions with
+  a reserve are no longer judged on.
 - Sessions that 0.9.0 or 0.9.1 started run the new guard from their next hook
   event on, under the trust given before: the hook definitions are
   unchanged. They keep reading their rollout by time until they exit, read
@@ -56,11 +61,14 @@
   nothing in `guard/` and record the account's usage as before, with its
   known gaps: a session switched inside Codex (`/resume`) is missed, and
   another account that resumes, during the run, a thread this account
-  created can be counted. A launch with a reserve whose hooks named no turn,
-  as when Codex did not run them, records its usage the same way; of the
-  sessions that the check after the run finds, it reads by id only those this
-  account created, so a sub-agent's rollout that another account created in a
-  session resumed by id no longer counts.
+  created can be counted. A launch with a reserve whose hooks ran but whose
+  rollouts name no turn in their last 1 MiB (hook events without a turn id,
+  rollouts without turn ids in UUID form) records its usage the same way, so
+  a sub-agent's rollout that another account created in a session resumed by
+  id no longer counts. A launch with a usage reserve in which Codex ran none
+  of the guard's hooks, such as a session without a prompt, leaves the stored
+  usage as it is, where 0.9.1 recorded what it found by creator and time,
+  which could be another account's turn in a session this account created.
 
 ## 0.9.1
 

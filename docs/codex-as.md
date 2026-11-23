@@ -282,7 +282,12 @@ arguments:
   `transcript_path` names, and of it the lines of the launch's turns in that
   rollout: the event's own turn and the turns whose `turn_id` an earlier hook
   event of this launch carried with this rollout's path, which the launch's
-  `turns` file in the guard directory keeps. A line belongs to the turn that the last
+  `turns` file in the guard directory keeps. The guard adds a turn there at
+  the turn's first event in a rollout while the file holds less than 1 MiB;
+  a turn that it could not add (a full disk) counts at that turn's own
+  events only, and at a later turn's event or after the run it is none of
+  the launch's turns. Once the file holds 1 MiB, an event whose turn is not
+  in it is read by time (below). A line belongs to the turn that the last
   `task_started`, `turn_context` or `token_usage_record` line up to it names,
   until a `task_complete` or `turn_aborted` line ends that turn; only an id in
   UUID form names a turn, and an `item_completed` line, which can follow its
@@ -297,10 +302,20 @@ arguments:
   `codex` being the general one. A snapshot of the general family takes from
   the account's attested usage the windows it does not name, and is recorded
   there; one of another family stands alone, as the limit the session's
-  requests count against, and is never recorded. While the launch's turns
-  hold no snapshot, or one that names no window of a known length, a token
-  count without a usable window in them makes the session blind unless it is
-  a compaction's (at a prompt, a model response in them does too); a model
+  requests count against, and is never recorded. A line longer than the
+  part read, such as a tool output of more than 1 MiB, can leave a turn's
+  newest token count before the first line of the tail that names a turn.
+  When the tail starts within the file, its first naming line names one of
+  the launch's turns and is no `task_started`, and no `task_started`,
+  `task_complete` or `turn_aborted` line stands before that line, the
+  newest token count before it with a usable window and a readable time is
+  read as that turn's: while the launch's turns hold no snapshot, the guard
+  decides on that reading as on a snapshot, but it is never recorded,
+  neither in the attested usage nor after the run. While the launch's turns
+  hold no snapshot that names a window of a known length, nor such a
+  reading, a token count without a usable window in them makes the session
+  blind unless it is a compaction's (at a prompt, a model response in them
+  does too); a model
   response is a reasoning item, an assistant message, a `_call` item or a
   `token_usage_record` line. A format change fails closed: a snapshot that
   names no window of a known length counts as none, and a token count whose
@@ -311,7 +326,8 @@ arguments:
   needed before it, and records nothing, when the launch has no `turns` file
   or one it cannot read (coding-agent-kit 0.9.0 or 0.9.1 started the launch),
   when the event carries no turn id in UUID form or a path that is no rollout
-  below `sessions/`, when the tail names no turn at all, and at a tool call
+  below `sessions/`, when the `turns` file holds 1 MiB and the event's turn
+  is not in it, when the tail names no turn at all, and at a tool call
   whose turn is not among the turns the tail names. A prompt whose turn the
   tail does not name, while it names others, is judged by the launch's
   earlier turns there and the attested usage. When the rollout cannot be
@@ -334,8 +350,27 @@ arguments:
   `turns` file, and a write replaces another login's reading. The file has
   no lock, so two hooks that write it at the same instant can let the older
   reading stand until the next event. Nothing else writes it, a launch
-  without a reserve never opens it, and removing it is always safe
+  without a reserve never opens it, and removing it is always safe, though
+  a session of the account that still holds the old reading in its own
+  turns writes that reading back at its next prompt or tool call, so such
+  sessions are closed, or relaunched with that window's reserve off, first
   ([account launchers](account-launchers.md#what-it-does-not-stop)).
+- After Codex exits, codex-as reads the last 1 MiB of each rollout that the
+  launch's `turns` file names, at most 64 of them, the newest file time
+  first, and in each the turns noted for it, as the guard reads them. When
+  that part of one of these rollouts names a turn, noted or not, the record
+  that `--info` shows takes from each rollout the newest snapshot of its
+  noted turns, when that snapshot is of the general family, and of these
+  the newest, whoever created the thread, and nothing else: in that part a
+  turn of another client in the same thread never counts. When the noted
+  turns give no such snapshot there, the record keeps its stored usage.
+  When no such part names a turn (hook events without a turn id in UUID
+  form, rollouts without turn ids in that form, rollouts that are gone) and
+  the guard ran at a prompt or a tool call of the launch, codex-as reads
+  the run by creator and time, as it reads a launch without a reserve
+  ([account launchers](account-launchers.md#account-metadata)), and writes
+  no attested usage; when the guard ran at neither, the record keeps its
+  stored usage.
 - After a headless run (`exec`, `review`), codex-as prints the guard's latest
   refusal of that run on stderr, since `codex exec` exits 0 after a refused
   prompt or tool call and, for a refused prompt, shows no reason (for a
