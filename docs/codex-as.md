@@ -297,8 +297,17 @@ arguments:
   `codex` being the general one. A snapshot of the general family takes from
   the account's attested usage the windows it does not name, and is recorded
   there; one of another family stands alone, as the limit the session's
-  requests count against, and is never recorded. While the launch's turns
-  hold no snapshot, or one that names no window of a known length, a token
+  requests count against, and is never recorded. A line longer than the
+  part read, such as a tool output of more than 1 MiB, can leave a turn's
+  newest token count before the first line of the tail that names a turn.
+  So when the tail starts within the file, its first naming line names one
+  of the launch's turns and is no `task_started`, and no `task_started`,
+  `task_complete` or `turn_aborted` line stands before that line, the
+  newest token count before it with a usable window and a readable time is
+  that turn's reading: while the launch's turns hold no snapshot, the guard
+  decides on it as on a snapshot, but it is never recorded, neither in the
+  attested usage nor after the run. While the
+  launch's turns hold no snapshot, or one that names no window of a known length, a token
   count without a usable window in them makes the session blind unless it is
   a compaction's (at a prompt, a model response in them does too); a model
   response is a reasoning item, an assistant message, a `_call` item or a
