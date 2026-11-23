@@ -1040,6 +1040,54 @@ def id_token(claims):
     return "fake." + base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=") + ".fake"
 
 
+def login(name, user, workspace, email="alice@example.com"):
+    """The credential file's text of account NAME: ChatGPT user USER in workspace WORKSPACE (fabricated tokens)."""
+    claims = {"sub": f"fixture-{name}", "email": email,
+              "https://api.openai.com/auth": {"chatgpt_plan_type": "plus", "chatgpt_user_id": user}}
+    return json.dumps({"auth_mode": "chatgpt", "OPENAI_API_KEY": None, "last_refresh": "2026-10-01T00:00:00Z",
+                       "tokens": {"id_token": id_token(claims), "access_token": "fabricated-sensitive-access",
+                                  "refresh_token": "fabricated-sensitive-refresh", "account_id": workspace}})
+
+
+def tag(user, workspace):
+    """The tag of a login in a launch's notes and the attested usage: 16 hex digits of the SHA-256 of its user and
+    workspace."""
+    return hashlib.sha256(f"{user}\n{workspace}".encode()).hexdigest()[:16]
+
+
+TAG, TAG_B = tag(USER, WORKSPACE), tag("user-fixture-B", "workspace-fixture-B")
+
+
+def stamp_of(moment):
+    """A rollout line's timestamp for the epoch time MOMENT, as Codex writes one (milliseconds, truncated)."""
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(moment)) + ".%03dZ" % (int(moment * 1000) % 1000)
+
+
+def at(moment, lines):
+    """LINES stamped at MOMENT; a hook step is left as it is."""
+    return [line if "hook" in line else {"timestamp": stamp_of(moment), **line} for line in lines]
+
+
+def aged(moment, lines):
+    """LINES with every line before the last hook step stamped at MOMENT: the reply after that step is newer, by its own
+    second, than any reading a hook took before it, so the one recorded after the run replaces it."""
+    last = max((index for index, line in enumerate(lines) if "hook" in line), default=-1)
+    return at(moment, lines[:last]) + lines[last:]
+
+
+def usage_of(used, seen_at, minutes=300):
+    """A stored usage object: USED percent of a window of MINUTES that resets in an hour, read at SEEN_AT."""
+    return {"primary": {"used_percent": used, "window_minutes": minutes, "resets_at": int(time.time()) + 3600},
+            "secondary": None, "seen_at": seen_at}
+
+
+def reply_time(path, turn):
+    """The whole second of the last token_usage_record line of TURN in the rollout at PATH: a snapshot's time."""
+    rows = [json.loads(line) for line in Path(path).read_text().splitlines()]
+    stamps = [row["timestamp"] for row in rows if row["type"] == "token_usage_record" and row["payload"]["turn_id"] == turn]
+    return int(launch.usage.moment(stamps[-1]))
+
+
 # The lines of a turn as codex-cli 0.171.0 writes them. task_started, turn_context, token_usage_record, task_complete
 # and turn_aborted name the turn they stand in; item_completed names the turn its item began in, which can be a turn
 # that has ended. A step {"hook": KIND} is where Codex runs that hook (the fake: FAKE).
@@ -1122,6 +1170,168 @@ def copied_head(turn):
                                                                                      "turn_id": None}}]
 
 
+class Recording(Fixture):
+    """The account's usage after a run, in process: launch.noted_turns() reads a launch's notes of its turns, and
+    launch.remember() takes the run's snapshot from the noted turns of the rollouts its hooks named (recorded(),
+    usage.witnessed), whoever created the thread, writing it to the account record and to the attested usage under
+    the login's own tag; a run without carried turns is scanned as by every earlier release (usage.latest)."""
+
+    STATE = "codex-as-A-123-1700000000"
+
+    def setUp(self):
+        super().setUp()
+        self.guard_dir = launch.metadata.directory(self.config, create=True, name="guard")
+        self.record = launch.metadata.directory(self.config, create=True) / "codex-A.json"
+        self.attested = self.guard_dir / "codex-usage-A.json"
+        self.layout = layout.Layout(check, "A", self.config)
+        self.raw = login("A", USER, WORKSPACE)
+        self.now = time.time()
+        self.begun = self.now - 60
+
+    def rollout(self, thread, lines, creator=(USER, WORKSPACE), seconds=0):
+        """The rollout of THREAD below sessions/, its session_meta line written when it is new, with LINES (hook steps
+        left out) stamped SECONDS from now; (its path, its path below sessions/)."""
+        day = self.root / "sessions/2026/11/22"
+        day.mkdir(parents=True, exist_ok=True)
+        path = day / f"rollout-2026-11-22T10-00-00-{thread}.jsonl"
+        meta = {"id": thread, "session_id": thread, "timestamp": stamp_of(self.now + seconds), "cwd": str(self.cwd),
+                "source": "exec", "thread_source": "user", "creator_user_id": creator[0], "creator_account_id": creator[1]}
+        rows = ([] if path.exists() else [{"type": "session_meta", "payload": meta}]) + at(self.now + seconds, lines)
+        with path.open("a") as stream:
+            for row in rows:
+                if "hook" not in row:
+                    stream.write(json.dumps(row) + "\n")
+        return path, f"2026/11/22/{path.name}"
+
+    def notes(self, text):
+        """The launch's state prefix in the guard directory, its notes file holding TEXT (None: no notes file)."""
+        state = str(self.guard_dir / self.STATE)
+        Path(state + ".turns").unlink(missing_ok=True)
+        if text is not None:
+            Path(state + ".turns").write_text(text)
+        return state
+
+    def remember(self, state, raw=None, args=("exec", "go"), sessions=()):
+        """launch.remember() after a run of codex-as A ARGS with the launch state STATE and the rollouts of the run's
+        sessions SESSIONS; the account record then."""
+        launch.remember(self.config, self.layout, raw or self.raw, self.plan(list(args)), self.begun, state=state,
+                        sessions=sessions)
+        return json.loads(self.record.read_text()) if self.record.exists() else None
+
+    def test_noted_turns_reads_a_regular_bounded_file_only(self):
+        """The notes are read as .blocked is: never through a link, from a FIFO or from a directory, and at most
+        usage.NOTES + 1 bytes, of which the piece after the last line feed counts for nothing."""
+        rel = f"2026/11/22/rollout-2026-11-22T10-00-00-{THREAD}.jsonl"
+        first, second = f"t {TURN_1} {rel}\n", f"t {TURN_2} {rel}\n"
+        self.assertIsNone(launch.noted_turns(None))
+        state = self.notes(None)
+        self.assertIsNone(launch.noted_turns(state))
+        self.notes(f"o {TAG}\n" + first + second)
+        self.assertEqual(launch.noted_turns(state), (TAG, {rel: {TURN_1, TURN_2}}))
+        with patch.object(launch.usage, "NOTES", len(f"o {TAG}\n" + first)):
+            self.assertEqual(launch.noted_turns(state), (TAG, {rel: {TURN_1}}))
+        elsewhere = self.base / "notes elsewhere"
+        os.replace(state + ".turns", elsewhere)
+        os.symlink(elsewhere, state + ".turns")
+        self.assertIsNone(launch.noted_turns(state))
+        os.unlink(state + ".turns")
+        os.mkfifo(state + ".turns")
+        self.assertIsNone(launch.noted_turns(state))
+        os.unlink(state + ".turns")
+        os.mkdir(state + ".turns")
+        self.assertIsNone(launch.noted_turns(state))
+
+    def test_a_run_whose_hooks_named_turns_reads_only_those_rollouts_and_writes_both_files(self):
+        """The noted turn of a thread another account created counts; the turns of other clients before and after it
+        in that rollout do not, nor a newer snapshot of this account's in a rollout no hook named, which the scan of
+        a run without carried turns would take. The record and the attested usage get the same snapshot, stamped with
+        the time of its reply, and the attested usage names the login's tag, the rollout and the launch."""
+        other = ("user-fixture-B", "workspace-fixture-B")
+        _, rel = self.rollout(THREAD, literal_turn(TURN_2, THREAD, 90.0), creator=other, seconds=-30)
+        self.rollout(THREAD, literal_turn(TURN_1, THREAD, [30.0, 30.5, 31.0], resumed=True), seconds=-20)
+        self.rollout(THREAD, literal_turn(TURN_3, THREAD, 95.0, resumed=True), seconds=-10)
+        self.rollout(OTHER, literal_turn(TURN_3, OTHER, 50.0), seconds=-5)
+        reading = self.remember(self.notes(f"o {TAG}\nt {TURN_1} {rel}\n"))["usage"]
+        self.assertEqual((reading["primary"]["used_percent"], reading["primary"]["window_minutes"], reading["secondary"],
+                          reading["seen_at"]), (31.0, 300, None, int(self.now - 20)))
+        self.assertEqual(json.loads(self.attested.read_text()),
+                         {"owner": TAG, "usage": reading, "rollout": rel, "launch": self.STATE})
+        self.assertEqual(oct(self.attested.stat().st_mode & 0o777), "0o600")
+
+    def test_a_run_without_carried_turns_scans_as_before_and_never_writes_the_attested_usage(self):
+        """No state (a launch without a guard), notes with only the owner line (hooks that Codex did not run), and
+        noted turns that no rollout carries (a rollout without turn ids, one whose turns are all another's, a rollout
+        that does not exist): the record takes what the scan of every earlier release finds, here this account's
+        newest snapshot, and nothing writes the attested usage."""
+        _, rel = self.rollout(OTHER, [CALL, snapshot(50.0)], seconds=-10)
+        missing = f"2026/11/22/rollout-2026-11-22T10-00-00-{UUID}.jsonl"
+        for text in (None, f"o {TAG}\n", f"o {TAG}\nt {TURN_1} {rel}\nt {TURN_2} {missing}\n"):
+            with self.subTest(notes=text):
+                self.record.unlink(missing_ok=True)
+                state = None if text is None else self.notes(text)
+                self.assertEqual(self.remember(state)["usage"]["primary"]["used_percent"], 50.0)
+                self.assertFalse(self.attested.exists())
+        self.rollout(OTHER, literal_turn(TURN_3, OTHER, 52.0, resumed=True))
+        self.record.unlink()
+        self.assertEqual(self.remember(self.notes(f"o {TAG}\nt {TURN_1} {rel}\n"))["usage"]["primary"]["used_percent"],
+                         52.0)
+        self.assertFalse(self.attested.exists())
+
+    def test_a_run_without_carried_turns_reads_by_id_only_the_account_s_own_sessions_of_the_run(self):
+        """Without carried turns the scan reads by id, beside the thread the run resumed by id, the run's sessions whose
+        session_meta names this account as the creator (the check after the run tells them: a session resume --last
+        continued in an older date directory, say), never a sub-agent's rollout of a session another account created,
+        which holds that account's readings."""
+        older = self.root / "sessions/2026/09/01"
+        older.mkdir(parents=True)
+        spawned = {"subagent": {"thread_spawn": {"parent_thread_id": UUID, "depth": 1}}}
+        paths = {}
+        for thread, creator, source, used in ((THREAD, (USER, WORKSPACE), "cli", 40.0),
+                                              (OTHER, ("user-fixture-B", "workspace-fixture-B"), spawned, 90.0)):
+            paths[thread] = older / f"rollout-2026-09-01T10-00-00-{thread}.jsonl"
+            meta = {"id": thread, "session_id": UUID if isinstance(source, dict) else thread, "source": source,
+                    "timestamp": stamp_of(self.now - 80 * 86400), "cwd": str(self.cwd), "thread_source": "user",
+                    "creator_user_id": creator[0], "creator_account_id": creator[1]}
+            paths[thread].write_text("".join(json.dumps(row) + "\n" for row in at(self.now - 10, [
+                {"type": "session_meta", "payload": meta}, ANSWER, snapshot(used)])))
+        for sessions, used in (([], None), ([paths[OTHER]], None), ([paths[THREAD], paths[OTHER]], 40.0)):
+            with self.subTest(sessions=len(sessions), used=used):
+                self.record.unlink(missing_ok=True)
+                reading = self.remember(None, args=("resume", "--last"), sessions=sessions).get("usage")
+                self.assertEqual(reading and reading["primary"]["used_percent"], used)
+
+    def test_the_attested_usage_is_written_only_under_the_login_s_own_tag(self):
+        """The record takes the noted turns' snapshot whatever the notes' owner; the attested usage only when the login
+        read after the run has the tag the launcher noted at the start: not under another login's tag, nor without an
+        owner line, nor when the account's login changed during the run."""
+        _, rel = self.rollout(THREAD, literal_turn(TURN_1, THREAD, 33.0))
+        note = f"t {TURN_1} {rel}\n"
+        changed = login("A", "user-fixture-B", "workspace-fixture-B")
+        for text, raw in ((f"o {TAG_B}\n" + note, None), (note, None), (f"o {TAG}\n" + note, changed)):
+            with self.subTest(notes=text, changed=raw is not None):
+                self.record.unlink(missing_ok=True)
+                self.assertEqual(self.remember(self.notes(text), raw=raw)["usage"]["primary"]["used_percent"], 33.0)
+                self.assertFalse(self.attested.exists())
+        self.remember(self.notes(f"o {TAG}\n" + note))
+        self.assertEqual(json.loads(self.attested.read_text())["usage"]["primary"]["used_percent"], 33.0)
+
+    def test_a_failed_attested_write_still_writes_the_account_record(self):
+        """The attested usage is best effort on its own: a guard directory that is not 0700, or a directory in the
+        file's place, leaves it unwritten and the record still takes the snapshot."""
+        _, rel = self.rollout(THREAD, literal_turn(TURN_1, THREAD, 34.0))
+        state = self.notes(f"o {TAG}\nt {TURN_1} {rel}\n")
+        for case in ("mode 0755", "a directory"):
+            with self.subTest(case=case):
+                self.record.unlink(missing_ok=True)
+                if case == "mode 0755":
+                    self.guard_dir.chmod(0o755)
+                else:
+                    self.guard_dir.chmod(0o700)
+                    self.attested.mkdir()
+                self.assertEqual(self.remember(state)["usage"]["primary"]["used_percent"], 34.0)
+                self.assertFalse(self.attested.is_file())
+
+
 class GuardedLaunch(unittest.TestCase):
     """codex-as with a reserve on, from a kit copy, against a fake codex."""
 
@@ -1175,12 +1385,7 @@ class GuardedLaunch(unittest.TestCase):
     def credential(self, name, user, workspace, email="alice@example.com"):
         """The login of account NAME: ChatGPT user USER in workspace WORKSPACE (fabricated tokens)."""
         path = self.home / f".secrets/codex-{name}.json"
-        claims = {"sub": f"fixture-{name}", "email": email,
-                  "https://api.openai.com/auth": {"chatgpt_plan_type": "plus", "chatgpt_user_id": user}}
-        path.write_text(json.dumps({
-            "auth_mode": "chatgpt", "OPENAI_API_KEY": None, "last_refresh": "2026-10-01T00:00:00Z",
-            "tokens": {"id_token": id_token(claims), "access_token": "fabricated-sensitive-access",
-                       "refresh_token": "fabricated-sensitive-refresh", "account_id": workspace}}))
+        path.write_text(login(name, user, workspace, email))
         path.chmod(0o600)
         return path
 
@@ -1188,6 +1393,10 @@ class GuardedLaunch(unittest.TestCase):
         """The account's attested usage in the guard directory, or None while there is none."""
         path = self.guard_dir / f"codex-usage-{name}.json"
         return json.loads(path.read_text()) if path.exists() else None
+
+    def rel(self, path):
+        """A rollout's path below sessions/, as a launch's notes and the attested usage name it."""
+        return "/".join(Path(path).parts[-4:])
 
     def configure(self, text):
         path = self.home / ".config/coding-agent-kit/config.toml"
@@ -1924,11 +2133,12 @@ class GuardedLaunch(unittest.TestCase):
         self.assertEqual((usage["primary"]["used_percent"], usage["primary"]["window_minutes"]), (30.0, 300))
 
     def test_the_record_never_takes_what_another_account_left_in_a_resumed_session(self):
-        """A session resumed by id is the run's whoever created it, with its sub-agents, whose rollouts
-        name it as session_id. The snapshot that the account which ran it before left in a sub-agent's
-        rollout a minute before this run started is that account's reading, although the rollout's file
-        time lies within what a file server's clock may lag: after a run that got no reply, the account
-        record's usage stays absent, and an older reading of this account's stays as it is."""
+        """The snapshot that the account which ran a session before left in a sub-agent's rollout of it, a minute
+        before this run resumed the session by id, is that account's reading, although the rollout's file time lies
+        within what a file server's clock may lag: after a run that got no reply, the account record's usage stays
+        absent, and an older reading of this account's stays as it is. A run whose hook names no turn reads that
+        rollout, which another account created, not at all; one whose hook names a turn there takes that turn's
+        snapshot."""
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
         record = self.state / "accounts/codex-A.json"
         spawned = {"subagent": {"thread_spawn": {"parent_thread_id": THREAD, "depth": 1}}}
@@ -1945,13 +2155,21 @@ class GuardedLaunch(unittest.TestCase):
         result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD)
         self.assertEqual((result.returncode, result.stderr), (0, launch_line))
         self.assertEqual(json.loads(record.read_text())["usage"], kept)
-        # What the run itself gets in that sub-agent's rollout is this account's.
+        # A prompt hook whose event names no turn: the scan reads the resumed thread and this account's rollouts.
         [sub] = (self.root / "sessions").glob(f"*/*/*/rollout-*-{OTHER}.jsonl")
-        rollouts = [{"append": str(sub), "lines": [ANSWER, snapshot(31.0)]}]
+        rollouts = [{"append": str(sub), "lines": [ANSWER, snapshot(32.0)]}]
         result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD,
                                 env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
         self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        self.assertEqual(json.loads(record.read_text())["usage"], kept)
+        # What the run itself gets in a turn of that sub-agent's rollout that its hook named is this account's.
+        rollouts = [{"append": str(sub), "lines": [settings_applied(OTHER), started(TURN_1), context(TURN_1), PROMPT_STEP,
+                                                   ANSWER, usage_record(TURN_1, OTHER, THREAD), snapshot(31.0),
+                                                   completed(TURN_1)]}]
+        result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD, env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
         self.assertEqual(json.loads(record.read_text())["usage"]["primary"]["used_percent"], 31.0)
+        self.assertEqual(self.recorded()["turns"], f"o {TAG}\nt {TURN_1} {self.rel(sub)}\n")
 
     def test_another_launch_of_the_account_never_hides_what_a_headless_run_wrote(self):
         """A headless run's own sessions are told by what wrote them (exec, this directory, a start during
@@ -2385,7 +2603,7 @@ class GuardedLaunch(unittest.TestCase):
                         while not ready.exists() and time.monotonic() < deadline and child.poll() is None:
                             time.sleep(0.05)
                         self.assertTrue(ready.exists(), "Codex did not start")
-                        self.assertEqual(len(self.launches()), 1)
+                        self.assertEqual([name.rpartition(".")[2] for name in self.launches()], ["launched", "turns"])
                         (os.killpg if group else os.kill)(child.pid, signum)
                         out, err = child.communicate(timeout=60)
                     finally:
@@ -2847,6 +3065,7 @@ class RealCodex(unittest.TestCase):
         for directory in (state, self.accounts, self.guard_dir):
             directory.mkdir(parents=True, mode=0o700, exist_ok=True)
         self.record = self.accounts / "codex-A.json"
+        self.attested = self.guard_dir / "codex-usage-A.json"
         self.marker = self.guard_dir / f"codex-hooks-{FINGERPRINT}"
         self.calls = base / "shell calls"
         self.requests = base / "requests.jsonl"
@@ -2854,25 +3073,26 @@ class RealCodex(unittest.TestCase):
 
     def run_codex(self, prompt, recorded=None, sent=None, options=(), tail=(), root_options=(), started=None):
         """codex ROOT_OPTIONS exec OPTIONS --skip-git-repo-check TAIL PROMPT under the guard with the five-hour
-        reserve at 10: RECORDED percent of the five-hour window used in the account record of earlier runs, SENT
-        percent in the rate limits the fake sends with every answer (None: no record, no rate limits). STARTED is
-        the launch's start in epoch seconds, now by default. The guard runs behind WRAPPER (events()); the
-        requests returned are this run's."""
+        reserve at 10, as a launch of the login TAG whose notes of its turns codex-as made: RECORDED percent of the
+        five-hour window used in the account's attested usage of earlier runs, SENT percent in the rate limits the
+        fake sends with every answer (None: no attested usage, no rate limits). STARTED is the launch's start in
+        epoch seconds, now by default. The guard runs behind WRAPPER (events()); the requests returned are this
+        run's."""
         now = int(time.time())
         seen = len(self.requests.read_text().splitlines()) if self.requests.exists() else 0
         self.serve({} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]})
         if recorded is not None:
             window = {"used_percent": float(recorded), "window_minutes": 300, "resets_at": now + 3600}
-            load_kit_module(self.kit, "accounts").write(self.record, {
-                "email": "alice@example.com", "plan": "plus",
-                "usage": {"primary": window, "secondary": None, "seen_at": now - 60}})
+            load_kit_module(self.kit, "accounts").write(self.attested, {
+                "owner": TAG, "usage": {"primary": window, "secondary": None, "seen_at": now - 60},
+                "rollout": f"2026/11/22/rollout-2026-11-22T10-00-00-{UUID}.jsonl", "launch": "codex-as-A-1-1700000000"})
         guard_launch = load_kit_module(self.kit, "guard_launch")
         policy = self.reserve.Policy("codex-as", "A",
                                      self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
                                      self.reserve.Setting("weekly", None, "default"))
         env = self.sandbox.env()
         state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", "A", policy, str(self.record),
-                                     int(time.time()) if started is None else started, marker=str(self.marker))
+                                     int(time.time()) if started is None else started, marker=str(self.marker), turns=TAG)
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
         wrapper = self.sandbox.base / "guard wrapper.py"
         wrapper.write_text(WRAPPER.format(log=str(self.hook_log), guard=env["CODING_AGENT_KIT_GUARD_SCRIPT"]))

@@ -13,7 +13,7 @@ TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 if [[ "${1:-}" == --hook ]]; then
     shift
     set -- -k .LaunchForms. -k .Version. -k .HooksOff. -k .ManagedGoals. -k .HookState. \
-        -k .RunAttribution. -k .Hooks. -k .SandboxPath. -k .HookSelection. \
+        -k .RunAttribution. -k .Recording. -k .Hooks. -k .SandboxPath. -k .HookSelection. \
         -k .GuardedLaunch.test_an_interactive_launch_gets_the_hooks_the_guard_and_goals_off \
         -k .GuardedLaunch.test_a_headless_run_prints_the_guard_s_block_after_codex_exits \
         -k .GuardedLaunch.test_forms_the_hooks_cannot_see_are_refused \
