@@ -1075,8 +1075,8 @@ class Turns(unittest.TestCase):
                          {"snapshot": reading(NOW + 2, 30.0), "family": "codex_bengalfox"})
         # A token_count without a usable window, an inherited one and one whose time cannot be read are passed over.
         copied = dict(count(NOW + 2, weekly(84.0)), metadata={"inherited_user_message": True})
-        for odd in (count(NOW + 2), count(NOW + 2, None), copied, dict(count(0, weekly(84.0)), timestamp=None),
-                    dict(count(0, weekly(84.0)), timestamp="soon")):
+        for odd in (count(NOW + 2), count(NOW + 2, None), count(NOW + 2, limits(None)), copied,
+                    dict(count(0, weekly(84.0)), timestamp=None), dict(count(0, weekly(84.0)), timestamp="soon")):
             with self.subTest(odd=odd):
                 self.assertEqual(self.cut([*head, odd, named], {TURN_A})["before"], kept)
                 self.assertIsNone(self.cut([call(NOW + 1), odd, named], {TURN_A})["before"])
