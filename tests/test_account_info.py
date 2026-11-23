@@ -1492,14 +1492,33 @@ class Witnessed(unittest.TestCase):
         self.assertFalse(scan.is_alive(), "the read blocked on a FIFO")
         self.assertEqual(found[0], ((reading(NOW - 10, 40.0), rel, True), (None, None, False)))
 
-    def test_noted_turns_that_no_rollout_carries_are_told(self):
+    def test_a_rollout_is_viewed_when_its_tail_names_a_turn(self):
         _, plain = self.write(THREAD, [call(NOW - 10), count(NOW - 10, weekly(40.0))])  # a rollout without turn ids
         self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}}), (None, None, False))
-        _, theirs = self.write(OTHER, whole(NOW - 10, TURN_B, weekly(83.0, THEIRS)))  # ids it does not hold
-        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, theirs: {TURN_A}}), (None, None, False))
-        # A noted turn without a reply, as after a refused prompt, is carried and holds no snapshot.
+        # A tail that names turns, none of them noted, is viewed and gives nothing: what stands there is another's.
+        _, theirs = self.write(OTHER, whole(NOW - 10, TURN_B, weekly(83.0, THEIRS)))
+        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, theirs: {TURN_A}}), (None, None, True))
+        # A noted turn without a reply, as after a refused prompt, is viewed and holds no snapshot.
         _, refused = self.write(RESUMED, [started(NOW - 10, TURN_A), context(NOW - 10, TURN_A), complete(NOW - 9, TURN_A)])
         self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, refused: {TURN_A}}), (None, None, True))
+
+    def test_a_noted_turn_before_the_tail_lets_no_other_client_s_turn_count(self):
+        # The launch's noted turn, then another client's turn in the same thread with more than the tail of lines.
+        filler = [item(NOW - 49, "message", role="assistant", content="p" * 32768) for _ in range(usage.TAIL // 32768 + 1)]
+        theirs = [started(NOW - 50, TURN_B), context(NOW - 50, TURN_B), *filler, *reply(NOW - 48, TURN_B, weekly(90.0, THEIRS)),
+                  complete(NOW - 47, TURN_B)]
+        path, rel = self.write(THREAD, [*whole(NOW - 100, TURN_A, weekly(31.0)), *theirs])
+        self.assertGreater(path.stat().st_size, usage.TAIL)
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (None, None, True))
+        # Within the tail the noted turn decides.
+        _, near = self.write(OTHER, [*whole(NOW - 100, TURN_A, weekly(31.0)), *whole(NOW - 50, TURN_B, weekly(90.0, THEIRS))])
+        self.assertEqual(usage.witnessed(self.root, {near: {TURN_A}}), (reading(NOW - 99, 31.0), near, True))
+        # A tail that names no turn at all, here one line longer than the tail and another client's reading, is not
+        # viewed.
+        _, unnamed = self.write(RESUMED, [*whole(NOW - 100, TURN_A, weekly(31.0)),
+                                          item(NOW - 50, "function_call_output", call_id="call_0", output="x" * usage.TAIL),
+                                          call(NOW - 49), count(NOW - 48, weekly(90.0, THEIRS))])
+        self.assertEqual(usage.witnessed(self.root, {unnamed: {TURN_A}}), (None, None, False))
 
 
 CODEX_FAKE = r"""

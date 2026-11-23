@@ -1,14 +1,14 @@
 """Codex rate limits and activity, read from the session rollouts native Codex writes.
 
 latest(root, ids, account, started, ended, skew=0) gives the account record the
-last snapshot of a codex-as run whose hooks named no turn, and witnessed(root,
+last snapshot of a codex-as run without the turn view, and witnessed(root,
 notes, skew=0) that of a run whose hooks named turns, from those turns only.
 session(path, started, turns=None) gives the reserve guard what one session's
 rollout shows since a launch started and in the launch's own turns. merged()
 and keep() maintain the account's attested usage, the reading the guard falls
 back on.
 
-The last snapshot of a run whose hooks named no turn (latest):
+The last snapshot of a run without the turn view (latest):
 
 Best effort and offline: after native Codex exits, codex-as reads the tail of
 the shared session rollouts written during the run and keeps the newest
@@ -32,8 +32,9 @@ left in a rollout this run opens (a resumed thread's, or one of its
 sub-agents') may be another account's reading and never counts, whatever skew
 is and however shortly before the run it was written.
 
-Known gaps: latest() serves the runs whose hooks named no turn (a launch
-without a usage reserve, or hooks that Codex did not run). For them a session
+Known gaps: latest() serves a launch without a usage reserve, and a guarded
+run whose hooks ran but which witnessed() did not view (a guarded run in which
+Codex ran none of the guard's hooks records nothing). For them a session
 switched inside Codex (/resume) is missed, and another account resuming, during
 the run, a thread this account created can be counted here.
 
@@ -104,7 +105,10 @@ The last snapshot of a run whose hooks named turns (witnessed): of each noted
 rollout, regular files only, the newest file time first and at most WITNESSED,
 the own view of the turns noted for it, whoever created the thread; the newest
 snapshot of the general family wins, and reading stops at the first file whose
-time lies more than SLACK + skew seconds before it.
+time lies more than SLACK + skew seconds before it. The run is viewed when the
+tail of a rollout read names a turn at all; a tail that names only turns not
+noted for it gives nothing, since what stands there is not the run's. A missing
+rollout, a link and a tail that names no turn are not viewed.
 """
 
 from datetime import datetime, timezone
@@ -621,15 +625,17 @@ def keep(accounts, path, owner, snapshot, now, rollout, launch):
 
 
 def witnessed(root, notes, skew=0):
-    """(snapshot | None, REL | None, carried): a run's last snapshot from the turns its hooks named.
+    """(snapshot | None, REL | None, viewed): a run's last snapshot from the turns its hooks named.
 
     NOTES maps the REL of each rollout a hook event named to the turns noted for it (turn_notes).
     Each such regular file below ROOT/sessions is read, the newest file time first, at most
     WITNESSED, and of it only the own view (session()) of its own noted turns, whoever created the
-    thread and whenever the lines are stamped: a turn has one client. CARRIED is whether any of
-    them names one of its noted turns; the snapshot is the newest reading (seen_at) of the general
-    family among them, with the REL it came from. Reading stops at the first file whose time is
-    more than SLACK + SKEW seconds before the best reading found: it cannot hold a newer one."""
+    thread and whenever the lines are stamped: a turn has one client. VIEWED is whether the tail of
+    any file read names a turn at all (its own view is not None); one whose tail names turns, none
+    of them noted, is viewed and gives nothing, since what stands there is not this run's. The
+    snapshot is the newest reading (seen_at) of the general family among them, with the REL it
+    came from. Reading stops at the first file whose time is more than SLACK + SKEW seconds before
+    the best reading found: it cannot hold a newer one."""
     sessions = Path(root) / "sessions"
     files = []
     for rel, turns in notes.items():
@@ -641,16 +647,16 @@ def witnessed(root, notes, skew=0):
             continue  # missing
         if stat.S_ISREG(info.st_mode):  # never a link, FIFO, device or directory
             files.append((-info.st_mtime, rel, turns))
-    best, where, carried = None, None, False
+    best, where, viewed = None, None, False
     for newest, rel, turns in sorted(files, key=lambda entry: entry[:2])[:WITNESSED]:
         if best is not None and -newest < best["seen_at"] - SLACK - skew:
             break
         seen = session(sessions / rel, LAST, turns)  # LAST: the lines since a start count nothing
         own = seen["own"] if seen else None
-        if own is None or not own["turns"]:
-            continue
-        carried = True
+        if own is None:
+            continue  # a tail that names no turn: the turn view is not available here
+        viewed = True
         snapshot = own["snapshot"]
         if snapshot and own["family"] is None and (best is None or snapshot["seen_at"] > best["seen_at"]):
             best, where = snapshot, rel
-    return best, where, carried
+    return best, where, viewed
