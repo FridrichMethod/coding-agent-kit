@@ -1127,6 +1127,12 @@ class Codex(Fixture):
                     expected = OK if used == 85 else self.refused(launch, kind, ("weekly", used, None))
                     self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, turn_id)), expected)
                     self.assertEqual(self.attested(launch).read_text(), stored)
+        # A tool call whose turn the tail does not name reads the lines since the start, as it does without one.
+        theirs = self.rollout(self.long_output(50) + [ended(NOW - 170, T2)] + turn(T0, NOW - 160, slot(95, 10080)),
+                              thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(theirs, "tool", T3)),
+                         self.refused(launch, "tool", ("weekly", 95, None)))
+        self.assertEqual(self.attested(launch).read_text(), stored)
         # An output that the tail holds whole: the reading follows T2's first naming line and is T2's snapshot.
         whole = self.rollout(self.long_output(95, 300 << 10), thread=THREAD)
         self.assertEqual(self.answer("tool", launch, self.codex_event(whole, "tool", T2)),
