@@ -1,14 +1,14 @@
 """Codex rate limits and activity, read from the session rollouts native Codex writes.
 
 latest(root, ids, account, started, ended, skew=0) gives the account record the
-last snapshot of a codex-as run whose hooks named no turn, and witnessed(root,
+last snapshot of a codex-as run without the turn view, and witnessed(root,
 notes, skew=0) that of a run whose hooks named turns, from those turns only.
 session(path, started, turns=None) gives the reserve guard what one session's
 rollout shows since a launch started and in the launch's own turns. merged()
 and keep() maintain the account's attested usage, the reading the guard falls
 back on.
 
-The last snapshot of a run whose hooks named no turn (latest):
+The last snapshot of a run without the turn view (latest):
 
 Best effort and offline: after native Codex exits, codex-as reads the tail of
 the shared session rollouts written during the run and keeps the newest
@@ -32,8 +32,9 @@ left in a rollout this run opens (a resumed thread's, or one of its
 sub-agents') may be another account's reading and never counts, whatever skew
 is and however shortly before the run it was written.
 
-Known gaps: latest() serves the runs whose hooks named no turn (a launch
-without a usage reserve, or hooks that Codex did not run). For them a session
+Known gaps: latest() serves a launch without a usage reserve, and a guarded
+run whose hooks ran but which witnessed() did not view (a guarded run in which
+Codex ran none of the guard's hooks records nothing). For them a session
 switched inside Codex (/resume) is missed, and another account resuming, during
 the run, a thread this account created can be counted here.
 
@@ -81,14 +82,26 @@ drift) is accounted and nothing else, so the guard is blind instead of open.
   write_stdin, a custom_tool_call or a local_shell_call; not web_search_call or
   tool_search_call.
 - own: with TURNS, the same five keys over the lines of the turns in TURNS,
-  whenever they are stamped, and "turns", the turns of TURNS that the tail
-  names; None without TURNS or when no line of the tail names a turn. There a
-  token_count line is a snapshot only after a model response of its turn (one
-  before it can repeat what an earlier turn received) and carries the time of
-  the turn's last token_usage_record line, the reply its rate limits came with,
-  or its own time without one. A model response counts whatever its time; a
-  token_count with a usable window whose time cannot be read, or one without a
-  usable window outside a compaction, is accounted.
+  whenever they are stamped, "turns", the turns of TURNS that the tail names,
+  and "before" (below); None without TURNS or when no line of the tail names a
+  turn. There a token_count line is a snapshot only after a model response of
+  its turn (one before it can repeat what an earlier turn received) and carries
+  the time of the turn's last token_usage_record line, the reply its rate
+  limits came with, or its own time without one. A model response counts
+  whatever its time; a token_count with a usable window whose time cannot be
+  read, or one without a usable window outside a compaction, is accounted.
+- own "before": where a line longer than the tail cut it inside a turn, the
+  newest token_count line before the tail's first naming line that has a usable
+  window and a readable time and is not inherited, as {"snapshot": {"primary",
+  "secondary", "seen_at"}, "family"}, seen_at being the line's own time; only
+  when the tail was cut, no task_complete, turn_aborted or task_started event
+  (whatever id it carries) stands before that first naming line, and that line
+  is no task_started and names a turn of TURNS: one client writes a thread and
+  a turn begins with task_started, so the lines before it were that turn's.
+  Otherwise None. It is no snapshot of the turn (it may stand before the turn's
+  first response and repeat an earlier turn's reading), so it is never attested
+  or recorded; it serves the guard's decision where the own view has no
+  snapshot.
 
 The attested usage (merged, keep): guard/codex-usage-NAME.json, {"owner",
 "usage", "rollout", "launch"}, which the guard writes at an event whose own
@@ -97,14 +110,17 @@ turns its hooks named. The newest reading (seen_at) wins; a window that the
 newest snapshot does not name stays, by its length, while its reset lies ahead;
 unchanged windows (reset times at most TOLERANCE apart) are written again only
 AGAIN seconds apart; a seen_at more than SLACK seconds ahead of this host's
-clock is never stored, and a stored one is no reading. Another owner's file, or
-one that cannot be read, is replaced. There is no lock.
+clock is never stored, and a stored one gives way to the next reading. Another
+owner's file, or one that cannot be read, is replaced. There is no lock.
 
 The last snapshot of a run whose hooks named turns (witnessed): of each noted
 rollout, regular files only, the newest file time first and at most WITNESSED,
 the own view of the turns noted for it, whoever created the thread; the newest
 snapshot of the general family wins, and reading stops at the first file whose
-time lies more than SLACK + skew seconds before it.
+time lies more than SLACK + skew seconds before it. The run is viewed when the
+tail of a rollout read names a turn at all; a tail that names only turns not
+noted for it gives nothing, since what stands there is not the run's. A missing
+rollout, a link and a tail that names no turn are not viewed.
 """
 
 from datetime import datetime, timezone
@@ -471,8 +487,10 @@ def session(path, started, turns=None):
      "family": str | None, "accounted": bool, "responded": bool, "tools": bool, "own": dict | None}
 
     "own" is what the lines of the turns in TURNS (a set of turn ids, or None) show, whenever they
-    are stamped: the first five keys counted over those lines only, and "turns", the turns of TURNS
-    that the tail names. None when TURNS is None or no line of the tail names a turn."""
+    are stamped: the first five keys counted over those lines only, "turns", the turns of TURNS
+    that the tail names, and "before", {"snapshot", "family"} of the newest reading that precedes
+    the first line of a cut tail that names a turn, or None (the module docstring says when). None
+    when TURNS is None or no line of the tail names a turn."""
     try:
         with opened(Path(path)) as stream:
             lines, cut = tail(stream)
@@ -483,6 +501,8 @@ def session(path, started, turns=None):
     state = UNKNOWN if cut else CLEAR
     # The open turn, whether it has had a model response, and the time of its last token_usage_record.
     current, replied, asked, named, naming = None, False, None, set(), False
+    # Of a cut tail, the newest reading before its first naming line, while no turn began or ended there ("before").
+    prior, clean, ahead = None, cut, None
     for raw in lines:
         line = parsed(raw)
         if line is None:
@@ -495,12 +515,21 @@ def session(path, started, turns=None):
         if turns is not None:
             turn = turn_of(kind, ptype, payload)
             if turn is not None:
+                if not naming and clean and turn in turns and not (kind == "event_msg" and ptype == "task_started"):
+                    ahead = prior  # one client writes a thread: the lines before were this turn's
                 naming = True
                 if turn in turns:
                     named.add(turn)
                 if turn != current or kind == "event_msg" and ptype == "task_started":
                     replied, asked = False, None
                 current = turn
+            elif not naming and kind == "event_msg" and ptype in NAMING:
+                clean = False  # a turn began or ended, whatever id the line carries
+            elif not naming and kind == "event_msg" and ptype == "token_count" and when is not None:
+                limits = payload.get("rate_limits")
+                windows = usable(limits)
+                if windows:
+                    prior = {"snapshot": {**windows, "seen_at": int(when)}, "family": family_of(limits)}
             mine = current in turns
             if kind == "event_msg" and ptype in TURN_ENDS:
                 current, replied, asked = None, False, None  # what follows belongs to no turn
@@ -535,7 +564,7 @@ def session(path, started, turns=None):
         elif responded(kind, ptype, payload):
             found["responded"] = True
             found["tools"] = found["tools"] or hooked(kind, ptype, payload)
-    return {**found, "own": {**own, "turns": named} if naming else None}
+    return {**found, "own": {**own, "turns": named, "before": ahead} if naming else None}
 
 
 # -- the account's attested usage -----------------------------------------------
@@ -621,14 +650,16 @@ def keep(accounts, path, owner, snapshot, now, rollout, launch):
 
 
 def witnessed(root, notes, skew=0):
-    """(snapshot | None, REL | None, carried): a run's last snapshot from the turns its hooks named.
+    """(snapshot | None, REL | None, viewed): a run's last snapshot from the turns its hooks named.
 
     NOTES maps the REL of each rollout a hook event named to the turns noted for it (turn_notes).
     Each such regular file below ROOT/sessions is read, the newest file time first, at most
     WITNESSED, and of it only the own view (session()) of its own noted turns, whoever created the
-    thread and whenever the lines are stamped: a turn has one client. CARRIED is whether any of
-    them names one of its noted turns; the snapshot is the newest reading (seen_at) of the general
-    family among them, with the REL it came from. Reading stops at the first file whose time is
+    thread and whenever the lines are stamped: a turn has one client. VIEWED is whether the tail of
+    any file read names a turn at all (its own view is not None); one whose tail names turns, none
+    of them noted, is viewed and gives nothing, since what stands there is not this run's. The
+    snapshot is the newest reading (seen_at) of the general family among them, with the REL it
+    came from; the own view's "before" never counts. Reading stops at the first file whose time is
     more than SLACK + SKEW seconds before the best reading found: it cannot hold a newer one."""
     sessions = Path(root) / "sessions"
     files = []
@@ -641,16 +672,16 @@ def witnessed(root, notes, skew=0):
             continue  # missing
         if stat.S_ISREG(info.st_mode):  # never a link, FIFO, device or directory
             files.append((-info.st_mtime, rel, turns))
-    best, where, carried = None, None, False
+    best, where, viewed = None, None, False
     for newest, rel, turns in sorted(files, key=lambda entry: entry[:2])[:WITNESSED]:
         if best is not None and -newest < best["seen_at"] - SLACK - skew:
             break
         seen = session(sessions / rel, LAST, turns)  # LAST: the lines since a start count nothing
         own = seen["own"] if seen else None
-        if own is None or not own["turns"]:
-            continue
-        carried = True
+        if own is None:
+            continue  # a tail that names no turn: the turn view is not available here
+        viewed = True
         snapshot = own["snapshot"]
         if snapshot and own["family"] is None and (best is None or snapshot["seen_at"] > best["seen_at"]):
             best, where = snapshot, rel
-    return best, where, carried
+    return best, where, viewed
