@@ -1199,13 +1199,15 @@ class Recording(Fixture):
         self.raw = login("A", USER, WORKSPACE)
         self.now = time.time()
         self.begun = self.now - 60
+        # Today's day directory, as Codex names it from the clock: the scan of a run reads the days around it only.
+        self.day = time.strftime("%Y/%m/%d", time.localtime(self.now))
 
     def rollout(self, thread, lines, creator=(USER, WORKSPACE), seconds=0):
-        """The rollout of THREAD below sessions/, its session_meta line written when it is new, with LINES (hook steps
-        left out) stamped SECONDS from now; (its path, its path below sessions/)."""
-        day = self.root / "sessions/2026/11/22"
+        """The rollout of THREAD below sessions/, in today's day directory, its session_meta line written when it is
+        new, with LINES (hook steps left out) stamped SECONDS from now; (its path, its path below sessions/)."""
+        day = self.root / "sessions" / self.day
         day.mkdir(parents=True, exist_ok=True)
-        path = day / f"rollout-2026-11-22T10-00-00-{thread}.jsonl"
+        path = day / f"rollout-{time.strftime('%Y-%m-%dT%H-%M-%S', time.localtime(self.now))}-{thread}.jsonl"
         meta = {"id": thread, "session_id": thread, "timestamp": stamp_of(self.now + seconds), "cwd": str(self.cwd),
                 "source": "exec", "thread_source": "user", "creator_user_id": creator[0], "creator_account_id": creator[1]}
         rows = ([] if path.exists() else [{"type": "session_meta", "payload": meta}]) + at(self.now + seconds, lines)
@@ -1213,7 +1215,7 @@ class Recording(Fixture):
             for row in rows:
                 if "hook" not in row:
                     stream.write(json.dumps(row) + "\n")
-        return path, f"2026/11/22/{path.name}"
+        return path, f"{self.day}/{path.name}"
 
     def notes(self, text):
         """The launch's state prefix in the guard directory, its notes file holding TEXT (None: no notes file)."""
@@ -1276,7 +1278,7 @@ class Recording(Fixture):
         that does not exist): the record takes what the scan of every earlier release finds, here this account's
         newest snapshot, and nothing writes the attested usage."""
         _, rel = self.rollout(OTHER, [CALL, snapshot(50.0)], seconds=-10)
-        missing = f"2026/11/22/rollout-2026-11-22T10-00-00-{UUID}.jsonl"
+        missing = f"{self.day}/rollout-2026-11-22T10-00-00-{UUID}.jsonl"
         for text in (None, f"o {TAG}\n", f"o {TAG}\nt {TURN_1} {rel}\nt {TURN_2} {missing}\n"):
             with self.subTest(notes=text):
                 self.record.unlink(missing_ok=True)
