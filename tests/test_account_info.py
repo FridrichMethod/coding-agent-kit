@@ -579,7 +579,7 @@ def compaction(when):
             line(when, "turn_context", {"cwd": "/", "model": "m"}), count(when)]
 
 
-EMPTY = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False}
+EMPTY = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False, "own": None}
 
 
 class SessionRollout(unittest.TestCase):
@@ -826,6 +826,680 @@ class SessionRollout(unittest.TestCase):
         unreadable.chmod(0)
         if os.geteuid() != 0:
             self.assertIsNone(usage.session(unreadable, NOW))
+
+
+# Turn ids as native Codex makes them, UUIDs in lower case; the reset times of two accounts' weekly windows.
+TURN_A, TURN_B, TURN_C, TURN_P = ("019a0000-0000-7000-8000-0000000000" + end for end in ("a1", "b2", "c3", "d4"))
+OURS, THEIRS = NOW + 3600, NOW + 86400
+
+
+def weekly(used, resets=OURS):
+    """A rate_limits object of the general family whose only window is a weekly one."""
+    return dict(limits(None), limit_id="codex", primary=slot(used, 10080, resets))
+
+
+def event(when, kind, **fields):
+    """An event_msg line of payload type KIND."""
+    return line(when, "event_msg", {"type": kind, **fields})
+
+
+def started(when, turn):
+    """A turn's task_started line, its id in turn_id and in turn_attribution as codex-cli 0.171.0 writes it."""
+    return event(when, "task_started", turn_id=turn, turn_attribution={"turn_id": turn}, model_context_window=None)
+
+
+def context(when, turn):
+    return line(when, "turn_context", {"turn_id": turn, "cwd": "/", "model": "m"})
+
+
+def record(when, turn):
+    """The token_usage_record line of a model response."""
+    return line(when, "token_usage_record", {"turn_id": turn, "input_tokens": 1})
+
+
+def complete(when, turn):
+    return event(when, "task_complete", turn_id=turn, last_agent_message=None)
+
+
+def aborted(when, turn):
+    return event(when, "turn_aborted", turn_id=turn, reason="interrupted")
+
+
+def completed(when, turn):
+    """An item_completed line: it names the turn its item began in, which may have ended."""
+    return event(when, "item_completed", turn_id=turn, item={})
+
+
+def applied(when):
+    """The thread_settings_applied line a client writes before its first turn; it names no turn."""
+    return event(when, "thread_settings_applied", thread_id=THREAD)
+
+
+def reply(when, turn, rate):
+    """One model response of TURN with a tool call: the call, its token_usage_record, the call's
+    output, then the token_count with RATE."""
+    return [call(when), record(when, turn), item(when, "function_call_output", call_id="call_1", output=""),
+            count(when, rate)]
+
+
+def whole(when, turn, rate):
+    """A whole turn of one client, stamped from WHEN on: one reply with RATE, then its end."""
+    return [started(when, turn), context(when, turn), applied(when), item(when, "message", role="user", content=[]),
+            *reply(when + 1, turn, rate), complete(when + 2, turn)]
+
+
+def used(own):
+    """The weekly percentage of an own view's snapshot, or what stands in for it."""
+    return own and own["snapshot"] and own["snapshot"]["primary"]["used_percent"]
+
+
+NOTHING = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False}
+
+
+class Turns(unittest.TestCase):
+    """usage.session with a launch's turns: the own view, the lines in the turns its hooks named."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-turns-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.files = 0
+
+    def write(self, records):
+        self.files += 1
+        path = self.root / f"rollout-{self.files}.jsonl"
+        meta = {"id": THREAD, "timestamp": iso(NOW - 3600), "cwd": "/", "cli_version": "0.171.0"}
+        path.write_text("".join(json.dumps(record) + "\n" for record in [line(NOW - 3600, "session_meta", meta), *records]))
+        return path
+
+    def own(self, records, turns):
+        return usage.session(self.write(records), NOW, set(turns))["own"]
+
+    def cut(self, records, turns):
+        """The own view of a rollout whose tail starts inside a long line, then RECORDS."""
+        path = self.write([])
+        with open(path, "a") as stream:
+            stream.write(json.dumps(item(NOW, "function_call_output", call_id="call_0", output="x" * usage.TAIL)) + "\n")
+            stream.write("".join(json.dumps(record) + "\n" for record in records))
+        return usage.session(path, NOW, set(turns))["own"]
+
+    def test_a_line_counts_in_a_turn_the_launch_names(self):
+        self.assertEqual(self.own(whole(NOW + 10, TURN_A, weekly(40.0)), {TURN_A}), {
+            "snapshot": {"primary": slot(40.0, 10080), "secondary": None, "seen_at": NOW + 11},
+            "family": None, "accounted": True, "responded": True, "tools": True, "turns": {TURN_A}})
+        # No time bound: a turn's lines are the launch's whenever they are stamped.
+        self.assertEqual(used(self.own(whole(NOW - 7200, TURN_A, weekly(41.0)), {TURN_A})), 41.0)
+
+    def test_another_client_s_turn_in_the_same_rollout_never_counts(self):
+        theirs = whole(NOW + 10, TURN_B, weekly(83.0, THEIRS))
+        mine = whole(NOW + 20, TURN_A, weekly(40.0))
+        later = whole(NOW + 30, TURN_C, weekly(85.0, THEIRS))
+        found = usage.session(self.write([*theirs, *mine, *later]), NOW, {TURN_A})
+        self.assertEqual(found["snapshot"]["primary"]["used_percent"], 85.0)  # by time: the other client's
+        self.assertEqual(used(found["own"]), 40.0)
+        self.assertEqual(used(self.own([*theirs, *mine, *later], {TURN_B})), 83.0)
+        # The launch's turn before its first reply holds nothing of the other client's.
+        first = self.own([*theirs, applied(NOW + 20), started(NOW + 20, TURN_A), context(NOW + 20, TURN_A)], {TURN_A})
+        self.assertEqual(first, {**NOTHING, "turns": {TURN_A}})
+
+    def test_the_turn_id_is_read_from_task_started_also_inside_turn_attribution(self):
+        nested = event(NOW + 1, "task_started", turn_attribution={"turn_id": TURN_A})
+        self.assertEqual(used(self.own([nested, call(NOW + 2), count(NOW + 3, weekly(41.0))], {TURN_A})), 41.0)
+        for direct in (None, 7, [TURN_B], {"turn_id": TURN_B}):
+            with self.subTest(direct=direct):
+                payload = {"type": "task_started", "turn_id": direct, "turn_attribution": {"turn_id": TURN_A}}
+                self.assertEqual(usage.turn_of("event_msg", "task_started", payload), TURN_A)
+        # A turn_id that is a string decides, also one that names no turn.
+        for direct, turn in ((TURN_B, TURN_B), ("1", None)):
+            payload = {"type": "task_started", "turn_id": direct, "turn_attribution": {"turn_id": TURN_A}}
+            self.assertEqual(usage.turn_of("event_msg", "task_started", payload), turn)
+        # Only task_started carries the attribution.
+        for kind, ptype in (("turn_context", None), ("token_usage_record", None), ("event_msg", "task_complete"),
+                            ("event_msg", "turn_aborted")):
+            with self.subTest(kind=kind, ptype=ptype):
+                self.assertIsNone(usage.turn_of(kind, ptype, {"type": ptype, "turn_attribution": {"turn_id": TURN_A}}))
+
+    def test_only_a_uuid_names_a_turn(self):
+        naming = (("event_msg", "task_started"), ("turn_context", None), ("token_usage_record", None),
+                  ("event_msg", "task_complete"), ("event_msg", "turn_aborted"))
+        for kind, ptype in naming:
+            self.assertEqual(usage.turn_of(kind, ptype, {"type": ptype, "turn_id": TURN_A}), TURN_A)
+            for value in ("1", "auto-compact-0", TURN_A.upper(), TURN_A + "\n", " " + TURN_A, TURN_A[:-1] + "\u0661",
+                          7, 1.5, True, None, [TURN_A], {"turn_id": TURN_A}):
+                with self.subTest(kind=kind, ptype=ptype, value=value):
+                    self.assertIsNone(usage.turn_of(kind, ptype, {"type": ptype, "turn_id": value}))
+        for attribution in (TURN_A, [TURN_A], {"turn_id": "auto-compact-1"}, {"turn_id": TURN_A.upper()}):
+            with self.subTest(attribution=attribution):
+                self.assertIsNone(usage.turn_of("event_msg", "task_started", {"turn_attribution": attribution}))
+        for payload in (None, [], "x", 7):
+            self.assertIsNone(usage.turn_of("turn_context", None, payload))
+        self.assertIsNone(usage.turn_of(["turn_context"], None, {"turn_id": TURN_A}))
+        # A rollout whose ids are none of them a UUID has no own view.
+        odd = [event(NOW + 1, "task_started", turn_id="1"), call(NOW + 2), line(NOW + 2, "token_usage_record", {"turn_id": "1"}),
+               count(NOW + 3, weekly(83.0))]
+        self.assertIsNone(self.own(odd, {"1"}))
+        # auto-compact-N, which repeats in every session, on a turn_context between turns changes nothing.
+        compact = line(NOW + 5, "turn_context", {"turn_id": "auto-compact-0"})
+        mine = whole(NOW + 1, TURN_A, weekly(40.0))
+        self.assertEqual(used(self.own([*mine, compact, count(NOW + 5, weekly(83.0, THEIRS))], {TURN_A, "auto-compact-0"})), 40.0)
+
+    def test_an_item_completed_line_never_names_a_turn(self):
+        mine = whole(NOW + 1, TURN_A, weekly(40.0))
+        later = [started(NOW + 10, TURN_B), completed(NOW + 11, TURN_A), call(NOW + 12), count(NOW + 13, weekly(83.0, THEIRS))]
+        self.assertEqual(used(self.own(mine + later, {TURN_A})), 40.0)
+        after_end = [completed(NOW + 10, TURN_A), call(NOW + 11), count(NOW + 12, weekly(83.0, THEIRS))]
+        self.assertEqual(used(self.own(mine + after_end, {TURN_A})), 40.0)
+        for kind, ptype in (("event_msg", "item_completed"), ("event_msg", "token_count"), ("event_msg", "turn_done"),
+                            ("event_msg", "thread_settings_applied"), ("response_item", "function_call"),
+                            ("session_meta", None), ("compacted", None), ("world_state", None)):
+            with self.subTest(kind=kind, ptype=ptype):
+                self.assertIsNone(usage.turn_of(kind, ptype, {"type": ptype, "turn_id": TURN_A}))
+
+    def test_a_token_count_counts_only_after_a_response_of_its_turn(self):
+        # Before the turn's first response a token_count can repeat what the process received in an earlier turn.
+        self.assertEqual(self.own([started(NOW + 1, TURN_A), count(NOW + 2, weekly(83.0, THEIRS))], {TURN_A}),
+                         {**NOTHING, "turns": {TURN_A}})
+        # A response of an earlier turn does not make it a reply's reading.
+        mine = whole(NOW + 1, TURN_A, weekly(40.0))
+        self.assertEqual(used(self.own([*mine, started(NOW + 10, TURN_C), count(NOW + 11, weekly(83.0, THEIRS))],
+                                       {TURN_A, TURN_C})), 40.0)
+        # A turn interrupted after a response: the interrupt stamps what the client itself received.
+        interrupted = [started(NOW + 1, TURN_A), *reply(NOW + 2, TURN_A, weekly(40.0)), count(NOW + 3, weekly(41.0)),
+                       aborted(NOW + 4, TURN_A)]
+        self.assertEqual(used(self.own(interrupted, {TURN_A})), 41.0)
+
+    def test_a_token_count_between_turns_belongs_to_no_turn(self):
+        mine = whole(NOW + 1, TURN_A, weekly(40.0))
+        self.assertEqual(used(self.own([*mine, count(NOW + 10, weekly(83.0, THEIRS))], {TURN_A})), 40.0)
+        quiet = [started(NOW + 1, TURN_A), call(NOW + 2), record(NOW + 2, TURN_A), complete(NOW + 3, TURN_A), count(NOW + 4)]
+        found = self.own(quiet, {TURN_A})
+        self.assertEqual((found["accounted"], found["responded"]), (False, True))
+
+    def test_a_turn_without_an_end_line_ends_at_the_next_turn(self):
+        # A client ended by a signal writes no end line; the next client writes its settings, then its turn.
+        killed = [started(NOW + 1, TURN_A), *reply(NOW + 2, TURN_A, weekly(40.0)), applied(NOW + 5), started(NOW + 6, TURN_B),
+                  *reply(NOW + 7, TURN_B, weekly(83.0, THEIRS))]
+        self.assertEqual(used(self.own(killed, {TURN_A})), 40.0)
+        self.assertEqual(used(self.own(killed, {TURN_B})), 83.0)
+        # A task_started of the same id starts the turn again: a token_count before its first response is no reply's.
+        again = [started(NOW + 1, TURN_A), *reply(NOW + 2, TURN_A, weekly(40.0)), started(NOW + 5, TURN_A),
+                 count(NOW + 6, weekly(83.0, THEIRS))]
+        self.assertEqual(used(self.own(again, {TURN_A})), 40.0)
+
+    def test_an_end_event_ends_the_open_turn_whatever_id_it_carries(self):
+        opened = [started(NOW + 1, TURN_A), *reply(NOW + 2, TURN_A, weekly(40.0))]
+        for end in (aborted(NOW + 3, None), event(NOW + 3, "turn_aborted"), complete(NOW + 3, TURN_B),
+                    event(NOW + 3, "task_complete", turn_id="auto-compact-0")):
+            with self.subTest(end=end):
+                self.assertEqual(used(self.own([*opened, end, count(NOW + 4, weekly(83.0, THEIRS))], {TURN_A})), 40.0)
+        # An end event of another name ends nothing: it loses only the lines between turns, up to the next task_started.
+        renamed = [*opened, event(NOW + 3, "turn_done", turn_id=TURN_A), count(NOW + 4, weekly(41.0)), started(NOW + 5, TURN_B),
+                   *reply(NOW + 6, TURN_B, weekly(83.0, THEIRS))]
+        self.assertEqual(used(self.own(renamed, {TURN_A})), 41.0)
+
+    def test_a_copied_head_names_the_parent_s_turns_and_holds_nothing(self):
+        # A sub-agent's rollout starts with a copy of its parent's history: turn lines unmarked, response items
+        # marked inherited, a turn_aborted with a null id, and no token line.
+        head = [started(NOW - 600, TURN_P), context(NOW - 600, TURN_P), item(NOW - 599, "message", inherited=True, role="user"),
+                call(NOW - 599, inherited=True), item(NOW - 599, "message", inherited=True, role="assistant"),
+                complete(NOW - 598, TURN_P), aborted(NOW - 597, None)]
+        own = [started(NOW + 1, TURN_C), context(NOW + 1, TURN_C), *reply(NOW + 2, TURN_C, weekly(11.0))]
+        self.assertEqual(self.own(head + own, {TURN_P}), {**NOTHING, "turns": {TURN_P}})
+        self.assertEqual(used(self.own(head + own, {TURN_C})), 11.0)
+
+    def test_a_tail_cut_inside_a_turn_counts_from_the_first_line_that_names_it(self):
+        self.assertEqual(used(self.cut([record(NOW + 1, TURN_A), count(NOW + 2, weekly(42.0))], {TURN_A})), 42.0)
+        # What comes before the first line that names a turn belongs to none.
+        before = [call(NOW + 1), count(NOW + 2, weekly(83.0, THEIRS))]
+        self.assertIsNone(self.cut(before, {TURN_A}))
+        self.assertEqual(used(self.cut([*before, record(NOW + 3, TURN_A), count(NOW + 4, weekly(42.0))], {TURN_A})), 42.0)
+        self.assertEqual(used(self.cut([record(NOW + 1, TURN_A), count(NOW + 2, weekly(42.0)), *reply(NOW + 3, TURN_A, weekly(43.0))],
+                                       {TURN_A})), 43.0)
+
+    def test_a_tail_that_names_no_turn_has_no_own_view(self):
+        for records in ([], [call(NOW + 1), count(NOW + 2, weekly(40.0))],
+                        [completed(NOW + 1, TURN_A), call(NOW + 2), count(NOW + 3, weekly(40.0))],
+                        [line(NOW + 1, "turn_context", {"turn_id": TURN_A}, inherited=True), call(NOW + 2), count(NOW + 3, weekly(40.0))]):
+            with self.subTest(records=records):
+                self.assertIsNone(self.own(records, {TURN_A}))
+        # Without turns there is no own view at all.
+        path = self.write(whole(NOW + 1, TURN_A, weekly(40.0)))
+        self.assertIsNone(usage.session(path, NOW)["own"])
+        self.assertIsNone(usage.session(path, NOW, None)["own"])
+
+    def test_a_tail_that_names_only_other_turns_has_an_empty_own_view(self):
+        theirs = whole(NOW + 1, TURN_B, weekly(83.0, THEIRS))
+        self.assertEqual(self.own(theirs, {TURN_A}), {**NOTHING, "turns": set()})
+        self.assertEqual(self.own(theirs, set()), {**NOTHING, "turns": set()})
+
+    def test_a_snapshot_carries_the_time_of_its_reply(self):
+        # The token_count line is stamped when the response's call has ended: an hour later here.
+        late = [started(NOW + 1, TURN_A), call(NOW + 2), record(NOW + 3, TURN_A), count(NOW + 3603, weekly(90.0))]
+        self.assertEqual(self.own(late, {TURN_A})["snapshot"]["seen_at"], NOW + 3)
+        # Each reply takes its own record's time, as a whole second.
+        second = [call(NOW + 3604), dict(record(0, TURN_A), timestamp=iso(NOW + 3700, 900)), count(NOW + 3800, weekly(91.0))]
+        self.assertEqual(self.own(late + second, {TURN_A})["snapshot"], {"primary": slot(91.0, 10080), "secondary": None,
+                                                                         "seen_at": NOW + 3700})
+        # Without a record in the turn, the line's own time; a record of an earlier turn is not this one's.
+        bare = [started(NOW + 1, TURN_A), item(NOW + 2, "reasoning", summary=[]), count(NOW + 5, weekly(40.0))]
+        self.assertEqual(self.own(bare, {TURN_A})["snapshot"]["seen_at"], NOW + 5)
+        after = [complete(NOW + 3604, TURN_A), started(NOW + 3610, TURN_C), item(NOW + 3611, "reasoning", summary=[]),
+                 count(NOW + 3620, weekly(92.0))]
+        self.assertEqual(self.own(late + after, {TURN_A, TURN_C})["snapshot"]["seen_at"], NOW + 3620)
+
+    def test_blindness_is_told_from_the_launch_s_turns_alone(self):
+        # Another client's reply without rate limits makes the lines by time blind, never the own view.
+        theirs = [started(NOW + 1, TURN_B), call(NOW + 2), record(NOW + 2, TURN_B), count(NOW + 3), complete(NOW + 4, TURN_B)]
+        found = usage.session(self.write([*theirs, applied(NOW + 5), started(NOW + 5, TURN_A)]), NOW, {TURN_A})
+        self.assertEqual((found["snapshot"], found["accounted"], found["responded"]), (None, True, True))
+        self.assertEqual(found["own"], {**NOTHING, "turns": {TURN_A}})
+        # The launch's own reply without rate limits is.
+        mine = self.own([started(NOW + 1, TURN_A), call(NOW + 2), record(NOW + 2, TURN_A), count(NOW + 3)], {TURN_A})
+        self.assertEqual(mine, {**NOTHING, "accounted": True, "responded": True, "tools": True, "turns": {TURN_A}})
+        # A compaction's token_count in the launch's turn is not.
+        compacted = [started(NOW + 1, TURN_A), line(NOW + 2, "compacted", {"message": "", "replacement_history": []}),
+                     context(NOW + 2, TURN_A), count(NOW + 2)]
+        self.assertEqual(self.own(compacted, {TURN_A}), {**NOTHING, "turns": {TURN_A}})
+        # A token_count with a usable window whose time cannot be read is accounted and no snapshot.
+        drift = [started(NOW + 1, TURN_A), call(NOW + 2), dict(count(0, weekly(40.0)), timestamp=None)]
+        self.assertEqual(self.own(drift, {TURN_A}), {**NOTHING, "accounted": True, "responded": True, "tools": True,
+                                                     "turns": {TURN_A}})
+
+    def test_the_own_view_names_the_turns_the_tail_carries(self):
+        lines = whole(NOW + 1, TURN_A, weekly(40.0)) + whole(NOW + 10, TURN_B, weekly(83.0, THEIRS))
+        for turns, named in (({TURN_A, TURN_C}, {TURN_A}), ({TURN_A, TURN_B}, {TURN_A, TURN_B}), ({TURN_C}, set())):
+            with self.subTest(turns=turns):
+                self.assertEqual(self.own(lines, turns)["turns"], named)
+        # Back in a thread that another client continued: the launch's newest turn decides.
+        self.assertEqual(used(self.own(lines + whole(NOW + 20, TURN_C, weekly(44.0)), {TURN_A, TURN_C})), 44.0)
+
+    def test_the_lines_since_the_start_are_as_before_beside_the_own_view(self):
+        records = [*whole(NOW - 60, TURN_B, weekly(83.0, THEIRS)), *whole(NOW + 1, TURN_A, weekly(40.0)), count(NOW + 5),
+                   *compaction(NOW + 6), item(NOW + 7, "reasoning", inherited=True), started(NOW + 8, TURN_C)]
+        path = self.write(records)
+        plain = usage.session(path, NOW)
+        self.assertEqual(plain, dict(EMPTY, accounted=True, responded=True, tools=True,
+                                     snapshot={"primary": slot(40.0, 10080), "secondary": None, "seen_at": NOW + 2}))
+        for turns in ({TURN_A}, {TURN_B}, {TURN_C}, set()):
+            with self.subTest(turns=turns):
+                found = usage.session(path, NOW, turns)
+                self.assertIsNotNone(found["own"])
+                self.assertEqual(dict(found, own=None), plain)
+
+
+REL_A = f"2026/01/01/rollout-2026-01-01T12-00-00-{THREAD}.jsonl"
+TAG = "5f0c2a9e41d7b386"
+
+
+class Notes(unittest.TestCase):
+    """The notes of a launch's turns (STATE.turns), the tag of a login, and REL of a transcript."""
+
+    def test_relative_is_a_day_path_below_sessions(self):
+        for path in (f"/home/u/.codex/sessions/{REL_A}", Path(f"/home/u/.codex/sessions/{REL_A}"), f"/sessions/{REL_A}"):
+            with self.subTest(path=path):
+                self.assertEqual(usage.relative(path), REL_A)
+        fork = REL_A.replace(".jsonl", f"_{OTHER}.jsonl")
+        self.assertEqual(usage.relative(f"/c/sessions/{fork}"), fork)
+        digit = REL_A.replace("T12-", "T1\u0661-")  # a digit outside ASCII
+        for path in (f"/home/u/.codex/archived_sessions/{REL_A}", f"/c/sessions/x/{REL_A}", f"sessions/{REL_A}", REL_A,
+                     f"/c/sessions/{digit}", f"/c/sessions/{REL_A}.zst", f"/c/sessions/{REL_A.upper()}",
+                     f"/c/sessions/{REL_A}\n", f"/c/sessions/{REL_A}/", "", None, 7, f"/c/sessions/{REL_A}".encode()):
+            with self.subTest(path=path):
+                self.assertIsNone(usage.relative(path))
+
+    def test_turn_notes_reads_the_owner_and_the_turns_by_rollout(self):
+        other = REL_A.replace(THREAD, OTHER)
+        raw = (f"o {TAG}\nt {TURN_A} {REL_A}\nt {TURN_B} {REL_A}\nt {TURN_A} {other}\nt {TURN_A} {REL_A}\n").encode()
+        self.assertEqual(usage.turn_notes(raw), (TAG, {REL_A: {TURN_A, TURN_B}, other: {TURN_A}}))
+        self.assertEqual(usage.turn_notes(f"o {TAG}\n".encode()), (TAG, {}))
+        self.assertEqual(usage.turn_notes(bytearray(raw)), usage.turn_notes(raw))
+
+    def test_turn_notes_skips_what_it_cannot_read(self):
+        owner, good = f"o {TAG}\n".encode(), f"t {TURN_A} {REL_A}\n".encode()
+        found = (TAG, {REL_A: {TURN_A}})
+        cases = (
+            (b"", (None, {})),
+            (owner + b"x a later kind\n" + good + b"t\n\n" + f"t {TURN_B}\n".encode(), found),  # other kinds and shapes
+            (owner + good + f"t {TURN_B} {REL_A}".encode(), found),  # a torn last line
+            (owner[:-1], (None, {})),
+            (owner + f"t {TURN_B} {REL_A}\xff\n".encode("latin-1") + good, found),  # bytes outside ASCII
+            (owner + f"t {TURN_B} {REL_A.replace('T12-', 'T1' + chr(0x661) + '-')}\n".encode() + good, found),
+            (good + owner, (None, {REL_A: {TURN_A}})),  # an owner line that is not the first
+            (owner + b"o 0000000000000000\n" + good, found),
+            (owner.upper() + good, (None, {REL_A: {TURN_A}})),
+            (f"o {TAG} \n".encode() + good, (None, {REL_A: {TURN_A}})),
+            (owner + f"t {TURN_B} {REL_A} more\n".encode() + f"t  {TURN_B} {REL_A}\n".encode() + f"t {TURN_B}\t{REL_A}\n".encode()
+             + f"t {TURN_B} {REL_A}\r\n".encode() + f"t {TURN_B.upper()} {REL_A}\n".encode() + f"t {TURN_B} ../{REL_A}\n".encode()
+             + good, found),
+        )
+        for raw, want in cases:
+            with self.subTest(raw=raw):
+                self.assertEqual(usage.turn_notes(raw), want)
+        for raw in (None, f"o {TAG}\n", 7):
+            with self.subTest(raw=raw):
+                self.assertEqual(usage.turn_notes(raw), (None, {}))
+
+    def test_a_turn_note_is_one_ascii_line(self):
+        self.assertEqual(usage.turn_note(TURN_A, REL_A), f"t {TURN_A} {REL_A}\n".encode("ascii"))
+        longest = REL_A.replace(".jsonl", f"_{OTHER}.jsonl")
+        note = usage.turn_note(TURN_A, longest)
+        self.assertLessEqual(len(note), 160)
+        self.assertEqual((note.count(b"\n"), note.endswith(b"\n")), (1, True))
+        self.assertEqual(usage.turn_notes(f"o {TAG}\n".encode() + note), (TAG, {longest: {TURN_A}}))
+        for turn, rel in ((TURN_A.upper(), REL_A), ("auto-compact-0", REL_A), (None, REL_A), (7, REL_A), (TURN_A, None),
+                          (TURN_A, "../x"), (TURN_A, f"sessions/{REL_A}"), (TURN_A, REL_A + f"\nt {TURN_B} {REL_A}"),
+                          (TURN_A, Path(REL_A)), (TURN_A + " ", REL_A)):
+            with self.subTest(turn=turn, rel=rel):
+                with self.assertRaises(ValueError):
+                    usage.turn_note(turn, rel)
+
+    def test_tag_is_sixteen_hex_digits_of_user_and_workspace(self):
+        import hashlib
+
+        tag = usage.tag((USER, WORKSPACE))
+        self.assertEqual(tag, hashlib.sha256(f"{USER}\n{WORKSPACE}".encode("utf-8")).hexdigest()[:16])
+        self.assertTrue(usage.OWNER.fullmatch(tag))
+        self.assertNotEqual(usage.tag((USER, "workspace-other")), tag)
+        self.assertEqual(usage.tag(("\u00e9", "w")), hashlib.sha256("\u00e9\nw".encode("utf-8")).hexdigest()[:16])
+        self.assertIsNone(usage.tag(None))
+        # The guard loads usage.py at every event: hashlib only when a tag is made.
+        self.assertNotIn("hashlib", vars(usage))
+
+
+def reading(seen_at, used, minutes=10080, resets=OURS, secondary=None):
+    """A snapshot as usage.session builds one: one window in the first slot."""
+    return {"primary": slot(used, minutes, resets), "secondary": secondary, "seen_at": seen_at}
+
+
+class Merged(unittest.TestCase):
+    """usage.merged and usage.keep: the account's attested usage, guard/codex-usage-NAME.json."""
+
+    LAUNCH = "codex-as-A-4242-1767268000"
+
+    def setUp(self):
+        self.addCleanup(os.umask, os.umask(0o077))
+        tmp = tempfile.TemporaryDirectory(prefix="kit-attested-test-")
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name).resolve() / "guard"
+        self.dir.mkdir()
+        self.dir.chmod(0o700)
+        self.path = self.dir / "codex-usage-A.json"
+
+    def keep(self, snapshot, now=NOW, owner=TAG, path=None):
+        return usage.keep(accounts, self.path if path is None else path, owner, snapshot, now, REL_A, self.LAUNCH)
+
+    def stored(self):
+        return json.loads(self.path.read_text())
+
+    def test_the_newest_reading_wins(self):
+        self.assertEqual(usage.merged(None, reading(NOW, 10.0), NOW), reading(NOW, 10.0))
+        self.assertEqual(usage.merged(reading(NOW - 900, 95.0), reading(NOW, 90.0), NOW), reading(NOW, 90.0))
+        for seen_at in (NOW, NOW - 1):
+            with self.subTest(seen_at=seen_at - NOW):
+                self.assertIsNone(usage.merged(reading(NOW, 95.0), reading(seen_at, 90.0), NOW))
+        # A stored usage without a whole seen_at is none, windows and all.
+        five = slot(60.0, 300, NOW + 600)
+        for stored in ({}, [], "x", {"primary": five, "secondary": None}, {"primary": five, "secondary": None, "seen_at": float(NOW - 10)},
+                       {"primary": five, "secondary": None, "seen_at": True}, {"primary": five, "secondary": None, "seen_at": str(NOW)}):
+            with self.subTest(stored=stored):
+                self.assertEqual(usage.merged(stored, reading(NOW - 3600, 20.0), NOW), reading(NOW - 3600, 20.0))
+
+    def test_a_window_the_snapshot_does_not_name_is_kept_by_its_length_until_it_resets(self):
+        five = slot(60.0, 300, NOW + 600)
+        stored = {"primary": five, "secondary": slot(30.0, 10080), "seen_at": NOW - 10}
+        self.assertEqual(usage.merged(stored, reading(NOW, 31.0), NOW), reading(NOW, 31.0, secondary=five))
+        # By its length, not by its slot.
+        stored = {"primary": slot(30.0, 10080), "secondary": None, "seen_at": NOW - 10}
+        incoming = {"primary": None, "secondary": slot(61.0, 300, NOW + 600), "seen_at": NOW}
+        self.assertEqual(usage.merged(stored, incoming, NOW), dict(incoming, primary=slot(30.0, 10080)))
+        # Until it resets; a window without a reset time or a length, or one that is no window, is not kept.
+        for gone in (dict(five, resets_at=NOW), dict(five, resets_at=NOW - 1), dict(five, resets_at=None),
+                     dict(five, window_minutes=None), dict(five, used_percent="x")):
+            with self.subTest(gone=gone):
+                self.assertEqual(usage.merged({"primary": gone, "secondary": None, "seen_at": NOW - 10}, reading(NOW, 31.0), NOW),
+                                 reading(NOW, 31.0))
+        # A length the snapshot names is the snapshot's; with both slots taken a third length has no room.
+        both = {"primary": slot(62.0, 300, NOW + 600), "secondary": slot(32.0, 10080), "seen_at": NOW}
+        self.assertEqual(usage.merged({"primary": slot(1.0, 1440, NOW + 600), "secondary": five, "seen_at": NOW - 10}, both, NOW),
+                         both)
+
+    def test_reset_time_jitter_is_no_change(self):
+        stored = reading(NOW - 10, 50.0)
+        for resets in (OURS + 17, OURS - usage.TOLERANCE, OURS + usage.TOLERANCE):
+            with self.subTest(resets=resets - OURS):
+                self.assertIsNone(usage.merged(stored, reading(NOW, 50.0, resets=resets), NOW))
+        for incoming in (reading(NOW, 50.0, resets=OURS + usage.TOLERANCE + 1), reading(NOW, 51.0), reading(NOW, 50.0, resets=None)):
+            with self.subTest(incoming=incoming):
+                self.assertEqual(usage.merged(stored, incoming, NOW), incoming)
+        # Another length is another window: the stored one stays beside it, and the reading is new.
+        self.assertEqual(usage.merged(stored, reading(NOW, 50.0, minutes=300), NOW),
+                         reading(NOW, 50.0, minutes=300, secondary=slot(50.0, 10080)))
+        # Both without a reset time, and null slots on both sides, are alike.
+        self.assertIsNone(usage.merged(reading(NOW - 10, 50.0, resets=None), reading(NOW, 50.0, resets=None), NOW))
+        null_first = {"primary": None, "secondary": slot(50.0, 10080), "seen_at": NOW - 10}
+        self.assertIsNone(usage.merged(null_first, dict(null_first, seen_at=NOW), NOW))
+
+    def test_unchanged_windows_are_written_again_after_300_seconds(self):
+        self.assertEqual(usage.AGAIN, 300)
+        self.assertEqual(usage.merged(reading(NOW - 300, 50.0), reading(NOW, 50.0), NOW), reading(NOW, 50.0))
+        self.assertIsNone(usage.merged(reading(NOW - 299, 50.0), reading(NOW, 50.0), NOW))
+
+    def test_a_stored_time_ahead_of_the_clock_is_no_stored_reading(self):
+        # One line stamped by a clock that runs ahead would otherwise hold every later reading off.
+        ahead = {"primary": slot(95.0, 10080), "secondary": slot(60.0, 300, NOW + 600), "seen_at": NOW + 3600}
+        self.assertEqual(usage.merged(ahead, reading(NOW, 20.0), NOW), reading(NOW, 20.0))
+        self.assertEqual(usage.merged(dict(ahead, seen_at=NOW + usage.SLACK + 1), reading(NOW, 20.0), NOW), reading(NOW, 20.0))
+        self.assertIsNone(usage.merged(dict(ahead, seen_at=NOW + usage.SLACK), reading(NOW, 20.0), NOW))
+
+    def test_keep_writes_owner_usage_rollout_and_launch(self):
+        self.assertTrue(usage.keep(accounts, str(self.path), TAG, reading(NOW - 60, 40.0), NOW, REL_A, self.LAUNCH))
+        self.assertEqual(self.stored(), {"owner": TAG, "usage": reading(NOW - 60, 40.0), "rollout": REL_A, "launch": self.LAUNCH})
+        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
+        # A newer reading, through a Path, from another rollout of another launch; a stored window it does not
+        # name stays.
+        five = slot(60.0, 300, NOW + 600)
+        accounts.write(self.path, {"owner": TAG, "usage": reading(NOW - 60, 40.0, secondary=five), "rollout": REL_A, "launch": "x"})
+        other, launch = REL_A.replace(THREAD, OTHER), "codex-as-A-4343-1767268100"
+        self.assertTrue(usage.keep(accounts, self.path, TAG, reading(NOW, 41.0), NOW, other, launch))
+        self.assertEqual(self.stored(), {"owner": TAG, "usage": reading(NOW, 41.0, secondary=five), "rollout": other, "launch": launch})
+        # Nothing new: nothing written, and no temporary file left.
+        self.assertFalse(self.keep(reading(NOW, 41.0)))
+        self.assertFalse(self.keep(reading(NOW + 10, 41.0), now=NOW + 10))
+        self.assertEqual((self.stored()["usage"]["seen_at"], self.stored()["launch"]), (NOW, launch))
+        self.assertEqual(os.listdir(self.dir), ["codex-usage-A.json"])
+
+    def test_keep_replaces_another_owner_s_reading_and_an_unusable_file(self):
+        five = slot(60.0, 300, NOW + 600)
+        accounts.write(self.path, {"owner": "0" * 16, "usage": reading(NOW, 99.0, secondary=five), "rollout": REL_A, "launch": "x"})
+        self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+        self.assertEqual(self.stored(), {"owner": TAG, "usage": reading(NOW - 600, 20.0), "rollout": REL_A, "launch": self.LAUNCH})
+        for content in ("not json", "[]", "", json.dumps({"owner": TAG, "usage": "x"}), json.dumps({"owner": TAG}),
+                        json.dumps({"usage": reading(NOW, 99.0)})):
+            with self.subTest(content=content):
+                self.path.unlink()
+                self.path.write_text(content)
+                self.path.chmod(0o600)
+                self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+                self.assertEqual(self.stored()["usage"], reading(NOW - 600, 20.0))
+        # An unsafe file is replaced by a 0600 one, and a link in its place is replaced, never written through.
+        self.path.write_text(json.dumps({"owner": TAG, "usage": reading(NOW, 99.0)}))
+        self.path.chmod(0o644)
+        self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+        self.assertEqual((stat.S_IMODE(self.path.stat().st_mode), self.stored()["usage"]["primary"]["used_percent"]), (0o600, 20.0))
+        target = self.dir.parent / "elsewhere.json"
+        target.write_text("{}")
+        self.path.unlink()
+        self.path.symlink_to(target)
+        self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+        self.assertEqual((self.path.is_symlink(), target.read_text()), (False, "{}"))
+
+    def test_keep_refuses_another_file_name_an_unsafe_directory_and_another_tag(self):
+        snapshot = reading(NOW, 20.0)
+        for path in ("codex-usage-A.json", Path("guard/codex-usage-A.json"), self.dir / "codex-A.json",
+                     self.dir / "codex-usage-.json", self.dir / "codex-usage--A.json", self.dir / "claude-A.usage.json",
+                     self.dir / ".codex-usage-A.json.0123456789abcdef.tmp", self.dir / "codex-usage-A.json.tmp",
+                     self.dir / "codex-usage-A/B.json"):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    self.keep(snapshot, path=path)
+        for owner in (None, "", TAG.upper(), TAG[:-1], TAG + "0", TAG + "\n", 7, (USER, WORKSPACE)):
+            with self.subTest(owner=owner):
+                with self.assertRaises(ValueError):
+                    self.keep(snapshot, owner=owner)
+        self.dir.chmod(0o755)
+        with self.assertRaises(ValueError):
+            self.keep(snapshot)
+        self.dir.chmod(0o700)
+        link = self.dir.parent / "link"
+        link.symlink_to(self.dir)
+        with self.assertRaises(ValueError):
+            self.keep(snapshot, path=link / self.path.name)
+        with self.assertRaises(OSError):
+            self.keep(snapshot, path=self.dir.parent / "missing" / self.path.name)
+        self.assertEqual(os.listdir(self.dir), [])
+        # A failed write is an OSError; so is a directory in the file's place, which nothing replaces.
+        def full(path, data):
+            raise OSError(28, "No space left on device")
+
+        with self.assertRaises(OSError):
+            usage.keep(SimpleNamespace(read=accounts.read, write=full), self.path, TAG, snapshot, NOW, REL_A, self.LAUNCH)
+        self.path.mkdir()
+        with self.assertRaises(OSError):
+            self.keep(snapshot)
+        self.assertEqual((os.listdir(self.dir), os.listdir(self.path)), ([self.path.name], []))
+
+    def test_keep_never_stores_a_time_ahead_of_the_clock(self):
+        for seen_at in (NOW + usage.SLACK + 1, NOW + 3600, float(NOW), True, None, str(NOW)):
+            with self.subTest(seen_at=seen_at):
+                self.assertFalse(self.keep(dict(reading(0, 20.0), seen_at=seen_at)))
+        for snapshot in (None, {"primary": slot(20.0, 10080), "secondary": None}):
+            self.assertFalse(self.keep(snapshot))
+        self.assertFalse(self.path.exists())
+        self.assertTrue(self.keep(reading(NOW + usage.SLACK, 20.0)))
+        # A stored reading ahead of the clock gives way.
+        accounts.write(self.path, {"owner": TAG, "usage": reading(NOW + 3600, 99.0), "rollout": REL_A, "launch": "x"})
+        self.assertTrue(self.keep(reading(NOW, 21.0)))
+        self.assertEqual(self.stored()["usage"], reading(NOW, 21.0))
+
+
+class Witnessed(unittest.TestCase):
+    """usage.witnessed: after a run whose hooks named turns, its snapshot from those turns only."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-witnessed-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+
+    def write(self, thread, records, mtime=NOW, **more):
+        """A rollout below ROOT/sessions: session_meta, then RECORDS; (its path, its REL)."""
+        path = rollout(self.root, thread, [], **more)
+        with open(path, "a") as stream:
+            stream.write("".join(json.dumps(record) + "\n" for record in records))
+        os.utime(path, (mtime, mtime))
+        return path, path.relative_to(self.root / "sessions").as_posix()
+
+    def test_only_the_noted_turns_of_the_noted_rollouts_count(self):
+        _, rel = self.write(THREAD, [*whole(NOW - 100, TURN_B, weekly(83.0, THEIRS)), *whole(NOW - 50, TURN_A, weekly(40.0)),
+                                     *whole(NOW - 10, TURN_C, weekly(85.0, THEIRS))])
+        self.assertEqual(rel, REL_A)
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (reading(NOW - 49, 40.0), rel, True))
+        # A rollout that is not noted is not read, however new its reading.
+        _, other = self.write(OTHER, whole(NOW - 5, TURN_A, weekly(90.0)))
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (reading(NOW - 49, 40.0), rel, True))
+        # Of the noted ones the newest reading wins.
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}, other: {TURN_A}}), (reading(NOW - 4, 90.0), other, True))
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A, TURN_C}}), (reading(NOW - 9, 85.0, resets=THEIRS), rel, True))
+        self.assertEqual(usage.witnessed(self.root, {}), (None, None, False))
+
+    def test_a_thread_of_any_creator_counts(self):
+        for creator in (("user-fixture-B", "workspace-fixture-B"), (USER, "workspace-other"), None):
+            with self.subTest(creator=creator):
+                shutil.rmtree(self.root / "sessions", ignore_errors=True)
+                # No time bound either: a turn has one client, whenever its lines are stamped.
+                _, rel = self.write(RESUMED, [*whole(NOW - 86400, TURN_B, weekly(83.0, THEIRS)),
+                                              *whole(NOW - 86300, TURN_A, weekly(40.0))], creator=creator)
+                self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (reading(NOW - 86299, 40.0), rel, True))
+
+    def test_a_copy_of_a_noted_turn_in_another_rollout_never_counts(self):
+        _, parent = self.write(THREAD, whole(NOW - 100, TURN_P, weekly(40.0)))
+        # A sub-agent's rollout repeats its parent's turn lines; this one even a reading in that turn, newer than
+        # the parent's, then the sub-agent's own turn without a reply yet.
+        copy = [started(NOW - 10, TURN_P), call(NOW - 10), record(NOW - 10, TURN_P), count(NOW - 10, weekly(83.0, THEIRS)),
+                complete(NOW - 10, TURN_P), started(NOW - 5, TURN_C), context(NOW - 5, TURN_C)]
+        _, child = self.write(OTHER, copy)
+        self.assertEqual(usage.witnessed(self.root, {parent: {TURN_P}, child: {TURN_C}}), (reading(NOW - 99, 40.0), parent, True))
+        self.assertEqual(usage.witnessed(self.root, {child: {TURN_C}}), (None, None, True))
+
+    def test_another_family_s_snapshot_is_never_recorded(self):
+        spark = dict(weekly(30.0), limit_id="codex_bengalfox")
+        _, rel = self.write(THREAD, [started(NOW - 60, TURN_A), *reply(NOW - 59, TURN_A, weekly(40.0)),
+                                     *reply(NOW - 50, TURN_A, spark), complete(NOW - 49, TURN_A)])
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (None, None, True))
+        _, other = self.write(OTHER, whole(NOW - 100, TURN_C, weekly(41.0)))
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}, other: {TURN_C}}), (reading(NOW - 99, 41.0), other, True))
+
+    def test_the_newest_files_are_read_up_to_the_bound(self):
+        notes = {}
+        for number in range(usage.WITNESSED + 1):
+            # The newest file holds the oldest reading; the one past the bound, the newest reading of all.
+            past = number == usage.WITNESSED
+            seen = NOW - 100 if past else NOW - 3600 - number
+            _, rel = self.write(f"019a0000-0000-7000-8000-0000000020{number:02x}",
+                                whole(seen - 1, TURN_A, weekly(90.0 if past else float(number))), mtime=NOW - number)
+            notes[rel] = {TURN_A}
+        with patch.object(usage, "session", wraps=usage.session) as read:
+            found = usage.witnessed(self.root, notes)
+        self.assertEqual((found[0], found[2]), (reading(NOW - 3600, 0.0), True))
+        self.assertEqual((usage.WITNESSED, read.call_count), (64, 64))
+
+    def test_an_older_file_is_not_opened_once_a_newer_reading_is_found(self):
+        newer, new = self.write(THREAD, whole(NOW - 11, TURN_A, weekly(40.0)), mtime=NOW)
+        # A file whose time lies more than SLACK before the best reading cannot hold a newer one; this one does.
+        older, old = self.write(OTHER, whole(NOW - 6, TURN_A, weekly(90.0)), mtime=NOW - 10 - usage.SLACK - 1)
+        notes = {new: {TURN_A}, old: {TURN_A}}
+        with patch.object(usage, "session", wraps=usage.session) as read:
+            self.assertEqual(usage.witnessed(self.root, notes), (reading(NOW - 10, 40.0), new, True))
+        self.assertEqual([Path(call.args[0]) for call in read.call_args_list], [newer])
+        # Within SLACK it is read, and further back within SKEW, the file server's clock lag.
+        os.utime(older, (NOW - 10 - usage.SLACK, NOW - 10 - usage.SLACK))
+        self.assertEqual(usage.witnessed(self.root, notes), (reading(NOW - 5, 90.0), old, True))
+        os.utime(older, (NOW - 10 - usage.SLACK - 60, NOW - 10 - usage.SLACK - 60))
+        self.assertEqual(usage.witnessed(self.root, notes, skew=60), (reading(NOW - 5, 90.0), old, True))
+        self.assertEqual(usage.witnessed(self.root, notes, skew=59), (reading(NOW - 10, 40.0), new, True))
+
+    def test_a_link_or_a_missing_rollout_is_skipped(self):
+        _, rel = self.write(THREAD, whole(NOW - 11, TURN_A, weekly(40.0)))
+        sessions = self.root / "sessions"
+        elsewhere = self.root / "elsewhere"
+        target = rollout(elsewhere, RESUMED, [])
+        with open(target, "a") as stream:
+            stream.write("".join(json.dumps(record) + "\n" for record in whole(NOW - 6, TURN_A, weekly(90.0))))
+        linked = rel.replace(THREAD, RESUMED)
+        (sessions / linked).symlink_to(target)
+        fifo = rel.replace(THREAD, OTHER)
+        os.mkfifo(sessions / fifo)
+        self.addCleanup(CodexUsage.release, sessions / fifo)
+        folder = rel.replace(THREAD, "019a0000-0000-7000-8000-0000000000ee")
+        (sessions / folder).mkdir()
+        missing = rel.replace(THREAD, "019a0000-0000-7000-8000-0000000000ff")
+        outside = "../elsewhere/" + target.relative_to(elsewhere).as_posix()
+        others = {linked: {TURN_A}, fifo: {TURN_A}, folder: {TURN_A}, missing: {TURN_A}, outside: {TURN_A}}
+        found = []
+        scan = threading.Thread(target=lambda: found.append((usage.witnessed(self.root, {rel: {TURN_A}, **others}),
+                                                             usage.witnessed(self.root, others))), daemon=True)
+        scan.start()
+        scan.join(10)
+        self.assertFalse(scan.is_alive(), "the read blocked on a FIFO")
+        self.assertEqual(found[0], ((reading(NOW - 10, 40.0), rel, True), (None, None, False)))
+
+    def test_noted_turns_that_no_rollout_carries_are_told(self):
+        _, plain = self.write(THREAD, [call(NOW - 10), count(NOW - 10, weekly(40.0))])  # a rollout without turn ids
+        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}}), (None, None, False))
+        _, theirs = self.write(OTHER, whole(NOW - 10, TURN_B, weekly(83.0, THEIRS)))  # ids it does not hold
+        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, theirs: {TURN_A}}), (None, None, False))
+        # A noted turn without a reply, as after a refused prompt, is carried and holds no snapshot.
+        _, refused = self.write(RESUMED, [started(NOW - 10, TURN_A), context(NOW - 10, TURN_A), complete(NOW - 9, TURN_A)])
+        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, refused: {TURN_A}}), (None, None, True))
 
 
 CODEX_FAKE = r"""
