@@ -1,10 +1,14 @@
 """Codex rate limits and activity, read from the session rollouts native Codex writes.
 
 latest(root, ids, account, started, ended, skew=0) gives the account record the
-last snapshot of a codex-as run; session(path, started) gives the reserve guard
-what one session's rollout shows since a launch started.
+last snapshot of a codex-as run whose hooks named no turn, and witnessed(root,
+notes, skew=0) that of a run whose hooks named turns, from those turns only.
+session(path, started, turns=None) gives the reserve guard what one session's
+rollout shows since a launch started and in the launch's own turns. merged()
+and keep() maintain the account's attested usage, the reading the guard falls
+back on.
 
-The last snapshot of a run:
+The last snapshot of a run whose hooks named no turn (latest):
 
 Best effort and offline: after native Codex exits, codex-as reads the tail of
 the shared session rollouts written during the run and keeps the newest
@@ -28,9 +32,31 @@ left in a rollout this run opens (a resumed thread's, or one of its
 sub-agents') may be another account's reading and never counts, whatever skew
 is and however shortly before the run it was written.
 
-Known gaps: a session switched inside Codex (/resume) is missed, and another
-account resuming, during the run, a thread this account created can be counted
-here.
+Known gaps: latest() serves the runs whose hooks named no turn (a launch
+without a usage reserve, or hooks that Codex did not run). For them a session
+switched inside Codex (/resume) is missed, and another account resuming, during
+the run, a thread this account created can be counted here.
+
+Turns: each prompt and tool hook event of native Codex carries the id of its
+turn, and Codex writes that id into the rollout lines of the turn. A line
+belongs to the turn named by the last line, itself included, that names one
+(turn_of: a turn_context or token_usage_record line, or a task_started,
+task_complete or turn_aborted event, whose turn_id, for task_started also
+turn_attribution.turn_id, is a UUID in lower case; never an item_completed
+line, which can follow its turn's end), until a task_complete or turn_aborted
+event ends the open turn, whatever id it carries, or a task_started begins one.
+A turn has one client: native Codex lets one process at a time write a thread.
+
+The notes of a launch's turns (STATE.turns in the guard directory) are ASCII
+lines ended by a line feed: first "o OWNER", which the launcher writes once,
+OWNER being the tag of its login (tag: the first 16 hex digits of the SHA-256
+of the ChatGPT user and workspace joined by a line feed); then "t TURN REL",
+which the guard appends (turn_note) once per turn and rollout, REL being the
+last four components of the event's transcript_path below sessions/
+(relative). A reader (turn_notes) drops the piece after the last line feed,
+takes the owner from the first line only and skips any other form. A turn
+counts for the rollout it was noted with only: a sub-agent's rollout starts
+with a copy of its parent's turn lines.
 
 One session, for the guard (session): the tail of the rollout at PATH, without
 a first line the tail cut and a last line still being written, and of it the
@@ -54,13 +80,38 @@ drift) is accounted and nothing else, so the guard is blind instead of open.
 - tools: a call a tool hook sees: a function_call other than the plain wait and
   write_stdin, a custom_tool_call or a local_shell_call; not web_search_call or
   tool_search_call.
+- own: with TURNS, the same five keys over the lines of the turns in TURNS,
+  whenever they are stamped, and "turns", the turns of TURNS that the tail
+  names; None without TURNS or when no line of the tail names a turn. There a
+  token_count line is a snapshot only after a model response of its turn (one
+  before it can repeat what an earlier turn received) and carries the time of
+  the turn's last token_usage_record line, the reply its rate limits came with,
+  or its own time without one. A model response counts whatever its time; a
+  token_count with a usable window whose time cannot be read, or one without a
+  usable window outside a compaction, is accounted.
+
+The attested usage (merged, keep): guard/codex-usage-NAME.json, {"owner",
+"usage", "rollout", "launch"}, which the guard writes at an event whose own
+view holds a snapshot of the general family, and codex-as after a run from the
+turns its hooks named. The newest reading (seen_at) wins; a window that the
+newest snapshot does not name stays, by its length, while its reset lies ahead;
+unchanged windows (reset times at most TOLERANCE apart) are written again only
+AGAIN seconds apart; a seen_at more than SLACK seconds ahead of this host's
+clock is never stored, and a stored one is no reading. Another owner's file, or
+one that cannot be read, is replaced. There is no lock.
+
+The last snapshot of a run whose hooks named turns (witnessed): of each noted
+rollout, regular files only, the newest file time first and at most WITNESSED,
+the own view of the turns noted for it, whoever created the thread; the newest
+snapshot of the general family wins, and reading stops at the first file whose
+time lies more than SLACK + skew seconds before it.
 """
 
 from datetime import datetime, timezone
 import json
 import math
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import re
 import stat
 import time
@@ -81,6 +132,19 @@ TURN_EVENTS = ("task_started", "task_complete", "turn_aborted", "token_count")  
 STAMP = re.compile(rb'\{\s*"timestamp"\s*:\s*"([^"\\]{1,64})"')  # how native Codex starts each line
 NAME = re.compile(r"rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})"
                   r"(?:_[0-9a-f-]{36})?\.jsonl")
+# The notes of a launch's turns (STATE.turns) and the account's attested usage. Explicit [0-9] classes, matched
+# whole: \d takes digits outside ASCII.
+TURN = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}")  # a turn id as native Codex makes one
+OWNER = re.compile(r"[0-9a-f]{16}")  # the tag of a login (tag)
+REL = re.compile(r"[0-9]{4}/[0-9]{2}/[0-9]{2}/rollout-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}"
+                 r"-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:_[0-9a-f-]{36})?\.jsonl")  # a rollout below sessions/
+ATTESTED = re.compile(r"codex-usage-[A-Za-z0-9_][A-Za-z0-9_-]*\.json")
+NOTES = 1 << 20  # bytes of STATE.turns a reader takes, and the size at which a guard stops appending
+WITNESSED = 64  # rollouts read after a run whose hooks named turns
+TOLERANCE = 120  # seconds two reset times of one window may differ
+AGAIN = 300  # seconds after which an unchanged reading is written again
+NAMING = ("task_started", "task_complete", "turn_aborted")  # event_msg types that name their turn
+TURN_ENDS = ("task_complete", "turn_aborted")
 
 
 def days(start, end):
@@ -333,19 +397,92 @@ def hooked(kind, ptype, payload):
     return not (ptype == "function_call" and not payload.get("namespace") and payload.get("name") in UNHOOKED)
 
 
-def session(path, started):
+def tag(owner):
+    """The tag of a login: the first 16 hex digits of the SHA-256 of its (ChatGPT user, workspace)
+    pair joined by a line feed, as UTF-8; None for None (an API key)."""
+    if owner is None:
+        return None
+    import hashlib  # here, not at the top: the guard loads this module at every event
+
+    return hashlib.sha256("\n".join(owner).encode("utf-8")).hexdigest()[:16]
+
+
+def relative(path):
+    """REL of a transcript path (a str or a Path): its last four components, when the path has at
+    least six and the fifth from the end is sessions; None for anything else."""
+    if isinstance(path, PurePath):
+        path = str(path)
+    if not isinstance(path, str):
+        return None
+    parts = path.split("/")
+    rel = "/".join(parts[-4:])
+    return rel if len(parts) >= 6 and parts[-5] == "sessions" and REL.fullmatch(rel) else None
+
+
+def turn_note(turn, rel):
+    """The line of STATE.turns that notes TURN for the rollout REL; ValueError unless both match."""
+    if not (isinstance(turn, str) and TURN.fullmatch(turn) and isinstance(rel, str) and REL.fullmatch(rel)):
+        raise ValueError("not a turn id and a rollout below sessions/")
+    return f"t {turn} {rel}\n".encode("ascii")
+
+
+def turn_notes(raw):
+    """(owner tag or None, {rel: set of turn ids}) of the bytes of STATE.turns.
+
+    The piece after the last line feed is dropped (empty, or a line a full disk cut short); the
+    owner comes from the first line only; a line of any other form is skipped."""
+    owner, turns = None, {}
+    if not isinstance(raw, (bytes, bytearray)):
+        return owner, turns
+    for number, piece in enumerate(bytes(raw).split(b"\n")[:-1]):
+        try:
+            words = piece.decode("ascii").split(" ")
+        except UnicodeDecodeError:
+            continue
+        if number == 0 and len(words) == 2 and words[0] == "o" and OWNER.fullmatch(words[1]):
+            owner = words[1]
+        elif len(words) == 3 and words[0] == "t" and TURN.fullmatch(words[1]) and REL.fullmatch(words[2]):
+            turns.setdefault(words[2], set()).add(words[1])
+    return owner, turns
+
+
+def turn_of(kind, ptype, payload):
+    """The turn id a rollout line names, or None.
+
+    A turn_context or token_usage_record line, or an event_msg of NAMING, names the turn in its
+    payload's turn_id; a task_started also in turn_attribution.turn_id when turn_id is no string.
+    Only an id in UUID form names a turn; an item_completed line, which can follow its turn's end,
+    names none."""
+    if not isinstance(payload, dict) or not (kind in ("turn_context", "token_usage_record")
+                                             or kind == "event_msg" and ptype in NAMING):
+        return None
+    turn = payload.get("turn_id")
+    if not isinstance(turn, str) and kind == "event_msg" and ptype == "task_started":
+        attribution = payload.get("turn_attribution")
+        turn = attribution.get("turn_id") if isinstance(attribution, dict) else None
+    return turn if isinstance(turn, str) and TURN.fullmatch(turn) else None
+
+
+def session(path, started, turns=None):
     """What the rollout at PATH shows since STARTED, as the module docstring says; None when PATH
     is not a readable regular file.
 
     {"snapshot": {"primary": window|None, "secondary": window|None, "seen_at": int} | None,
-     "family": str | None, "accounted": bool, "responded": bool, "tools": bool}"""
+     "family": str | None, "accounted": bool, "responded": bool, "tools": bool, "own": dict | None}
+
+    "own" is what the lines of the turns in TURNS (a set of turn ids, or None) show, whenever they
+    are stamped: the first five keys counted over those lines only, and "turns", the turns of TURNS
+    that the tail names. None when TURNS is None or no line of the tail names a turn."""
     try:
         with opened(Path(path)) as stream:
             lines, cut = tail(stream)
     except (OSError, TypeError, ValueError):
         return None
     found = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False}
+    own = dict(found)
     state = UNKNOWN if cut else CLEAR
+    # The open turn, whether it has had a model response, and the time of its last token_usage_record.
+    current, replied, asked, named, naming = None, False, None, set(), False
     for raw in lines:
         line = parsed(raw)
         if line is None:
@@ -355,6 +492,33 @@ def session(path, started):
         if inherited(line):
             continue
         when = moment(line.get("timestamp"))
+        if turns is not None:
+            turn = turn_of(kind, ptype, payload)
+            if turn is not None:
+                naming = True
+                if turn in turns:
+                    named.add(turn)
+                if turn != current or kind == "event_msg" and ptype == "task_started":
+                    replied, asked = False, None
+                current = turn
+            mine = current in turns
+            if kind == "event_msg" and ptype in TURN_ENDS:
+                current, replied, asked = None, False, None  # what follows belongs to no turn
+            if mine and kind == "event_msg" and ptype == "token_count":
+                limits = payload.get("rate_limits")
+                windows = usable(limits)
+                if windows and replied and when is not None:
+                    seen = when if asked is None else asked  # the reply's time, not the line's
+                    own.update(snapshot={**windows, "seen_at": int(seen)}, family=family_of(limits), accounted=True)
+                elif windows and when is None or not windows and before not in (CONTEXT, UNKNOWN):
+                    own["accounted"] = True
+                # A window before the turn's first response is no reply's reading: it is ignored.
+            elif mine and responded(kind, ptype, payload):
+                replied = True
+                if kind == "token_usage_record" and when is not None:
+                    asked = when
+                own["responded"] = True
+                own["tools"] = own["tools"] or hooked(kind, ptype, payload)
         if when is None:
             if kind == "event_msg" and ptype == "token_count" or responded(kind, ptype, payload):
                 found["accounted"] = True  # format drift: usage at a time this reader cannot tell
@@ -371,4 +535,122 @@ def session(path, started):
         elif responded(kind, ptype, payload):
             found["responded"] = True
             found["tools"] = found["tools"] or hooked(kind, ptype, payload)
-    return found
+    return {**found, "own": {**own, "turns": named} if naming else None}
+
+
+# -- the account's attested usage -----------------------------------------------
+
+
+def alike(first, second):
+    """Whether two windows (as window() reads them, or None) are the same reading: both null, or
+    the same length and percentage with reset times at most TOLERANCE apart, or both without one."""
+    if first is None or second is None:
+        return first is second
+    if (first["window_minutes"], first["used_percent"]) != (second["window_minutes"], second["used_percent"]):
+        return False
+    if first["resets_at"] is None or second["resets_at"] is None:
+        return first["resets_at"] is second["resets_at"]
+    return abs(first["resets_at"] - second["resets_at"]) <= TOLERANCE
+
+
+def merged(stored, incoming, now):
+    """The usage to store when the snapshot INCOMING (as session() builds one) meets the STORED
+    usage (or None), or None to keep the stored one.
+
+    A stored seen_at that is no int, or lies more than SLACK seconds after NOW, is no stored usage.
+    The newest reading wins. A stored window whose length the result does not name stays, in a slot
+    the result leaves null, while its reset lies ahead. Unchanged windows are written again only
+    AGAIN seconds apart."""
+    last = stored.get("seen_at") if isinstance(stored, dict) else None
+    if type(last) is not int or last > now + SLACK:
+        stored, last = None, None  # none, or stamped by a clock that runs ahead
+    if last is not None and incoming["seen_at"] <= last:
+        return None
+    result = {"primary": incoming["primary"], "secondary": incoming["secondary"], "seen_at": incoming["seen_at"]}
+    old = {}
+    for key in ("primary", "secondary"):
+        try:
+            old[key] = window(stored.get(key)) if stored else None
+        except ValueError:
+            old[key] = None
+    named = {value["window_minutes"] for value in (result["primary"], result["secondary"]) if value}
+    for key in ("primary", "secondary"):  # by length, as the guard reads windows, not by slot
+        value = old[key]
+        if value and value["window_minutes"] and value["window_minutes"] not in named and (value["resets_at"] or 0) > now:
+            free = next((slot for slot in ("primary", "secondary") if result[slot] is None), None)
+            if free:
+                result[free] = value
+                named.add(value["window_minutes"])
+    if last is not None and incoming["seen_at"] - last < AGAIN and all(
+            alike(result[key], old[key]) for key in ("primary", "secondary")):
+        return None
+    return result
+
+
+def keep(accounts, path, owner, snapshot, now, rollout, launch):
+    """Merge SNAPSHOT into the account's attested usage at PATH (merged()); True when it wrote.
+
+    ACCOUNTS is the account metadata module, which reads and writes the file. PATH is a str or a
+    Path; OWNER the tag of the launch's login; ROLLOUT and LAUNCH say where the reading came from
+    (REL, the base name of the launch's state). ValueError when PATH is not an absolute
+    codex-usage-NAME.json in an owned, real 0700 directory, or OWNER is no tag. Nothing is written
+    when SNAPSHOT's seen_at is no int or lies more than SLACK seconds after NOW. A file that
+    ACCOUNTS cannot read counts as absent, and another owner's usage as none: both are replaced.
+    OSError when the write fails. There is no lock: two writers at one instant can let the older
+    reading stand until the next write."""
+    path = Path(path)
+    if not path.is_absolute() or not ATTESTED.fullmatch(path.name):
+        raise ValueError(f"{path}: not an attested usage file")
+    if not isinstance(owner, str) or not OWNER.fullmatch(owner):
+        raise ValueError("not the tag of a login")
+    folder = os.lstat(path.parent)
+    if not stat.S_ISDIR(folder.st_mode) or folder.st_uid != os.getuid() or stat.S_IMODE(folder.st_mode) != 0o700:
+        raise ValueError(f"{path.parent}: not an owned, real directory with permissions 0700")
+    seen = snapshot.get("seen_at") if isinstance(snapshot, dict) else None
+    if type(seen) is not int or seen > now + SLACK:
+        return False
+    try:
+        data = accounts.read(path)
+    except ValueError:
+        data = None  # unusable: replaced
+    stored = data.get("usage") if isinstance(data, dict) and data.get("owner") == owner else None
+    fresh = merged(stored, snapshot, now)
+    if fresh is None:
+        return False
+    return accounts.write(path, {"owner": owner, "usage": fresh, "rollout": rollout, "launch": launch})
+
+
+def witnessed(root, notes, skew=0):
+    """(snapshot | None, REL | None, carried): a run's last snapshot from the turns its hooks named.
+
+    NOTES maps the REL of each rollout a hook event named to the turns noted for it (turn_notes).
+    Each such regular file below ROOT/sessions is read, the newest file time first, at most
+    WITNESSED, and of it only the own view (session()) of its own noted turns, whoever created the
+    thread and whenever the lines are stamped: a turn has one client. CARRIED is whether any of
+    them names one of its noted turns; the snapshot is the newest reading (seen_at) of the general
+    family among them, with the REL it came from. Reading stops at the first file whose time is
+    more than SLACK + SKEW seconds before the best reading found: it cannot hold a newer one."""
+    sessions = Path(root) / "sessions"
+    files = []
+    for rel, turns in notes.items():
+        if not isinstance(rel, str) or not REL.fullmatch(rel):
+            continue
+        try:
+            info = os.lstat(sessions / rel)
+        except OSError:
+            continue  # missing
+        if stat.S_ISREG(info.st_mode):  # never a link, FIFO, device or directory
+            files.append((-info.st_mtime, rel, turns))
+    best, where, carried = None, None, False
+    for newest, rel, turns in sorted(files, key=lambda entry: entry[:2])[:WITNESSED]:
+        if best is not None and -newest < best["seen_at"] - SLACK - skew:
+            break
+        seen = session(sessions / rel, LAST, turns)  # LAST: the lines since a start count nothing
+        own = seen["own"] if seen else None
+        if own is None or not own["turns"]:
+            continue
+        carried = True
+        snapshot = own["snapshot"]
+        if snapshot and own["family"] is None and (best is None or snapshot["seen_at"] > best["seen_at"]):
+            best, where = snapshot, rel
+    return best, where, carried
