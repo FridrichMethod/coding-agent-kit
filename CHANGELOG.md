@@ -7,11 +7,13 @@
   Codex writes that turn's id into the rollout; the guard notes the turns that
   its launch's hooks were called for, and only a snapshot in one of them is
   the launch's own. What another client wrote in the same thread, before or
-  after, never counts for the guard's decision. A launch that resumes a
-  session within 5 seconds of another client's last snapshot there is no
-  longer judged on that snapshot, and one that resumes it within 5 seconds of
-  a client that was killed in mid turn is no longer refused with
-  `no usage data since this session started`.
+  after, never counts for the guard's decision, except where the rollout's
+  lines cannot be told by turn (`docs/codex-as.md` lists the cases): there
+  the guard reads the lines since the launch started, as 0.9.1 does. A
+  launch that resumes a session within 5 seconds of another client's last
+  snapshot there is no longer judged on that snapshot, and one that resumes
+  it within 5 seconds of a client that was killed in mid turn is no longer
+  refused with `no usage data since this session started`.
 - After a run with a usage reserve, `codex-as` reads the last 1 MiB of each
   rollout that the guard's hooks were called in. When that part of one of
   them names a turn, the account's usage that `--info` shows comes from the
