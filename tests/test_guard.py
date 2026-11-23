@@ -60,8 +60,18 @@ STOPPED = {"prompt": "This prompt was not sent.\n",
            "tool": "This tool call was stopped. Stop working now and tell the user why.\n",
            "stop": "The work stops here.\n"}
 TAG = "5f0c2a9e41d7b386"  # a login's owner tag, as the launcher writes it into STATE.turns
-THREAD = "019a0000-0000-7000-8000-00000000000a"
-REL = f"2026/01/01/rollout-2026-01-01T00-00-00-{THREAD}.jsonl"  # a rollout's path below sessions/
+OTHER_TAG = "0123456789abcdef"  # another login's
+THREAD, THREAD2, SUB = (f"019a0000-0000-7000-8000-00000000000{letter}" for letter in "abc")
+# Turn ids are UUIDs that native Codex makes per turn; in the cases T0 and T2 are another client's.
+T0, T1, T2, T3, S1 = (f"01a20000-0000-7000-8000-00000000000{digit}" for digit in "01239")
+
+
+def rel(thread):
+    """The path of THREAD's rollout below sessions/, as the guard notes it."""
+    return f"2026/01/01/rollout-2026-01-01T00-00-00-{thread}.jsonl"
+
+
+REL, REL2 = rel(THREAD), rel(THREAD2)
 
 
 def iso(epoch):
@@ -113,6 +123,44 @@ def shell_call(when):
                                          "call_id": "call_1"})
 
 
+# The lines that name a turn, in the shapes codex-cli 0.171.0 writes.
+
+def started(when, turn):
+    """A turn's task_started line, which also names it inside turn_attribution."""
+    return line(when, "event_msg", {"type": "task_started", "turn_id": turn, "turn_attribution": {"turn_id": turn}})
+
+
+def context(when, turn):
+    return line(when, "turn_context", {"turn_id": turn, "cwd": "/"})
+
+
+def usage_record(when, turn):
+    """The token_usage_record line of a model response."""
+    return line(when, "token_usage_record", {"turn_id": turn, "input_tokens": 1})
+
+
+def ended(when, turn, kind="task_complete"):
+    return line(when, "event_msg", {"type": kind, "turn_id": turn})
+
+
+def settings(when):
+    """The line a client writes as it takes a thread over, before its first turn there."""
+    return line(when, "event_msg", {"type": "thread_settings_applied", "thread_id": THREAD})
+
+
+def turn(turn_id, when, reading=None, rates=True, end=True, limit_id="codex"):
+    """One turn from its start at WHEN: with READING (a primary slot), or RATES False, a reply 10 seconds later,
+    its token_usage_record and a token_count a second after that with READING as its primary window (none
+    without RATES); with END its task_complete."""
+    lines = [started(when, turn_id), context(when, turn_id)]
+    if reading is not None or not rates:
+        lines += [reply(when + 10), usage_record(when + 10, turn_id),
+                  count(when + 11, reading, rates=rates, limit_id=limit_id)]
+    if end:
+        lines.append(ended(when + 12, turn_id))
+    return lines
+
+
 class Fixture(unittest.TestCase):
     """A guard directory and an accounts directory, both owned and 0700, in a temporary root. The caller's
     environment, which in-process status line runs pass on, gets a temporary HOME and loses the kit's own
@@ -136,7 +184,7 @@ class Fixture(unittest.TestCase):
             folder.mkdir(mode=0o700)
         self.launches = 0
 
-    def launch(self, tool="claude-as", account=None, five_hour=None, weekly=None, statusline=None):
+    def launch(self, tool="claude-as", account=None, five_hour=None, weekly=None, statusline=None, started=STARTED):
         """A Launch of TOOL with the reserves given as percent strings; each call gets its own state prefix."""
         account = account or ("personal" if tool == "claude-as" else "lab")
         self.launches += 1
@@ -146,8 +194,8 @@ class Fixture(unittest.TestCase):
             usage, marker = self.accounts / f"claude-{account}.usage.json", None
         else:
             usage, marker = self.accounts / f"codex-{account}.json", str(self.guard_dir / "codex-hooks-90aeb3ec484a2ca6")
-        state = self.guard_dir / f"{tool}-{account}-{4000 + self.launches}-{STARTED}"
-        return guard.Launch(tool, account, enabled, STARTED, str(usage), str(state), marker, statusline)
+        state = self.guard_dir / f"{tool}-{account}-{4000 + self.launches}-{started}"
+        return guard.Launch(tool, account, enabled, started, str(usage), str(state), marker, statusline)
 
     def environ(self, launch, **changes):
         """The CODING_AGENT_KIT_GUARD value of LAUNCH, as the launcher writes it, with CHANGES."""
@@ -188,21 +236,44 @@ class Fixture(unittest.TestCase):
             data["owner"] = owner
         return put(self.attested(launch), data, mode)
 
-    def rollout(self, records, name="rollout.jsonl"):
-        """A session rollout: its session_meta line from before the launch, then RECORDS."""
-        path = self.root / name
-        meta = line(STARTED - 3600, "session_meta", {"id": "019a0000-0000-7000-8000-00000000000a",
-                                                     "timestamp": iso(STARTED - 3600), "cli_version": "0.169.0"})
+    def attested_reading(self, launch):
+        """The usage in the account's attested usage file."""
+        return json.loads(self.attested(launch).read_text())["usage"]
+
+    def temporary_files(self):
+        return [path.name for path in self.guard_dir.iterdir() if path.name.endswith(".tmp")]
+
+    def rollout(self, records, name="rollout.jsonl", thread=None):
+        """A session rollout: its session_meta line from before the launch, then RECORDS. With THREAD it is that
+        thread's rollout below CODEX_HOME/sessions/, where the guard notes turns; else NAME in the root."""
+        path = self.root / name if thread is None else self.root / "codex" / "sessions" / rel(thread)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        meta = line(STARTED - 3600, "session_meta", {"id": thread or THREAD, "timestamp": iso(STARTED - 3600),
+                                                     "cli_version": "0.169.0"})
         path.write_text("".join(json.dumps(record) + "\n" for record in [meta, *records]))
         return path
 
-    def codex_event(self, transcript, kind="prompt"):
-        event = {"session_id": "019a0000-0000-7000-8000-00000000000a", "cwd": "/",
+    def codex_event(self, transcript, kind="prompt", turn=None, agent=None):
+        """A Codex hook event; TURN its turn_id, and in a sub-agent AGENT its agent_id: session_id stays the root's."""
+        event = {"session_id": THREAD, "cwd": "/",
                  "hook_event_name": {"prompt": "UserPromptSubmit", "tool": "PreToolUse"}.get(kind, "Stop"),
                  "transcript_path": None if transcript is None else str(transcript)}
         if kind == "prompt":
             event["prompt"] = "hello"
+        if turn is not None:
+            event["turn_id"] = turn
+        if agent is not None:
+            event["agent_id"], event["agent_type"] = agent, "worker"
         return event
+
+    def turns_file(self, launch, owner=TAG, turns=()):
+        """STATE.turns as the launcher creates it (OWNER None leaves its line out) and a guard's note of each
+        (turn, rollout path below sessions/) in TURNS."""
+        text = (f"o {owner}\n" if owner else "") + "".join(f"t {turn} {path}\n" for turn, path in turns)
+        return put(self.state(launch, "turns"), text)
+
+    def notes(self, launch):
+        return self.state(launch, "turns").read_text()
 
     def answer(self, kind, launch, event=None, now=NOW):
         return guard.answer(kind, {} if event is None else event, launch, now)
@@ -870,6 +941,18 @@ class Codex(Fixture):
         self.assertEqual(oct(Path(launch.marker).stat().st_mode & 0o777), "0o600")
         for name in ("reply", "seen", "blocked"):
             self.assertFalse(self.state(launch, name).exists(), name)
+        # With the launcher's notes: one line for the turn and, once the turn holds a snapshot, the attested usage.
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        before = set(os.listdir(self.guard_dir))
+        replied = self.rollout(turn(T1, NOW - 60, slot(50, 10080), end=False), thread=THREAD)
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(replied, kind, T1)), OK)
+        name = Path(launch.state).name
+        self.assertEqual(sorted(set(os.listdir(self.guard_dir)) - before),
+                         sorted([f"{name}.ran.prompt", f"{name}.ran.tool", "codex-usage-lab.json"]))
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\n")
+        self.assertEqual(self.temporary_files(), [])
 
     def test_a_stop_event_only_records_itself(self):
         launch = self.launch("codex-as", weekly="10")
@@ -880,6 +963,330 @@ class Codex(Fixture):
         self.assertTrue(self.state(launch, "ran.stop").is_file())
         self.assertFalse(Path(launch.marker).exists())
         self.assertFalse(self.state(launch, "blocked").exists())
+
+    # -- a launch's turns: STATE.turns, the event's turn_id and the rollout below sessions/
+
+    def test_an_event_notes_its_turn_once(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        transcript = self.rollout(turn(T1, NOW - 60, end=False), thread=THREAD)
+        for kind in ("prompt", "tool", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)), OK)
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\n")
+        # A turn the tail does not name yet is noted all the same, and a turn is noted once per rollout.
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T2)), OK)
+        other = self.rollout(turn(T1, NOW - 60, end=False), thread=THREAD2)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(other, "tool", T1)), OK)
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\nt {T2} {REL}\nt {T1} {REL2}\n")
+        self.assertTrue(self.notes(launch).isascii())
+
+    def test_without_the_launcher_s_notes_nothing_is_noted_and_the_lines_since_the_start_decide(self):
+        launch = self.launch("codex-as", weekly="10")
+        # Another client's turn since the launch started, then this launch's: a launcher without notes (0.9.1).
+        transcript = self.rollout(turn(T0, NOW - 60, slot(95, 10080)) + turn(T1, NOW - 20, end=False), thread=THREAD)
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)),
+                             (2, "", self.threshold(kind)))
+        self.assertFalse(self.state(launch, "turns").exists(), "the guard created the launcher's notes")
+        self.assertFalse(self.attested(launch).exists(), "a reading by time was attested")
+
+    def test_an_event_without_a_usable_turn_id_reads_the_lines_since_the_start(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        transcript = self.rollout(turn(T0, NOW - 60, slot(95, 10080)) + turn(T1, NOW - 20, end=False), thread=THREAD)
+        absent = object()
+        for value in (absent, None, "1", 1, 1.5, [T1], {"id": T1}, T1.upper(), "auto-compact-0", T1 + "\n", ""):
+            for kind in ("prompt", "tool"):
+                with self.subTest(turn_id=value, kind=kind):
+                    event = self.codex_event(transcript, kind)
+                    if value is not absent:
+                        event["turn_id"] = value
+                    self.assertEqual(self.answer(kind, launch, event), (2, "", self.threshold(kind)))
+        self.assertEqual(self.notes(launch), f"o {TAG}\n")
+        self.assertFalse(self.attested(launch).exists())
+
+    def test_a_snapshot_of_another_client_s_turn_never_decides(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        # Another client's turn, stamped since the launch started, before the launch's own turn ...
+        records = turn(T0, NOW - 90, slot(95, 10080)) + turn(T1, NOW - 60, slot(50, 10080))
+        transcript = self.rollout(records, thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)), OK)
+        # ... and one after it: the launch's next prompt is judged by its own earlier turn.
+        transcript = self.rollout(records + turn(T2, NOW - 40, slot(95, 10080)) + turn(T3, NOW - 20, end=False),
+                                  thread=THREAD)
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T3)), OK)
+        self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 50)
+        # Read by time, the other client's newest snapshot would have refused it.
+        self.assertEqual(self.answer("prompt", self.launch("codex-as", weekly="10"),
+                                     self.codex_event(transcript, "prompt", T3)), (2, "", self.threshold("prompt")))
+
+    def test_the_first_event_in_a_resumed_session_is_decided_by_the_attested_usage(self):
+        # The previous client's last snapshot is 2 seconds old, within the 5 seconds the lines by time allow; it was
+        # killed in mid turn (no end line), and its last token count may carry no rate limits.
+        launch = self.launch("codex-as", weekly="10", started=NOW - 1)
+        self.turns_file(launch)
+        for reading, rates in ((slot(95, 10080), True), (None, False)):
+            records = turn(T0, NOW - 13, reading, rates=rates, end=False)
+            transcript = self.rollout(records + [settings(NOW - 1), started(NOW - 1, T1), context(NOW - 1, T1)],
+                                      thread=THREAD)
+            with self.subTest(rates=rates):
+                self.attested(launch).unlink(missing_ok=True)
+                # Nothing attested: allowed, and not blind.
+                self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T1)), OK)
+                self.attested_usage(launch, slot(50, 10080))
+                self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T1)), OK)
+                self.attested_usage(launch, slot(95, 10080))
+                self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T1)),
+                                 (2, "", self.threshold("prompt")))
+
+    def test_a_prompt_whose_turn_the_tail_does_not_name_reads_only_the_noted_turns(self):
+        launch = self.launch("codex-as", weekly="10")
+        records = turn(T1, NOW - 90, slot(50, 10080)) + turn(T0, NOW - 60, slot(95, 10080))
+        transcript = self.rollout(records, thread=THREAD)
+        self.turns_file(launch, turns=[(T1, REL)])
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T2)), OK)
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\nt {T2} {REL}\n")
+        # Without an earlier turn of its own there, the attested usage decides.
+        self.turns_file(launch)
+        self.attested_usage(launch, slot(95, 10080))
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T3)),
+                         (2, "", self.threshold("prompt")))
+        self.attested(launch).unlink()
+        self.turns_file(launch)
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T3)), OK)
+
+    def test_a_tool_call_whose_turn_the_tail_does_not_name_reads_the_lines_since_the_start(self):
+        launch = self.launch("codex-as", weekly="10")
+        records = turn(T1, NOW - 90, slot(50, 10080)) + turn(T0, NOW - 60, slot(95, 10080))
+        transcript = self.rollout(records, thread=THREAD)
+        self.turns_file(launch, turns=[(T1, REL)])
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T2)),
+                         (2, "", self.threshold("tool")))
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\nt {T2} {REL}\n")
+        self.assertFalse(self.attested(launch).exists(), "a reading by time was attested")
+
+    def test_a_tail_without_turn_ids_reads_the_lines_since_the_start(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        transcript = self.rollout([reply(NOW - 30), count(NOW - 30, slot(95, 10080))], thread=THREAD)
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)),
+                             (2, "", self.threshold(kind)))
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\n")
+        # A transcript that is no rollout below sessions/ is read by time too, and noted nowhere.
+        plain = self.rollout(turn(T0, NOW - 60, slot(95, 10080)) + turn(T2, NOW - 20, end=False))
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(plain, "prompt", T2)),
+                         (2, "", self.threshold("prompt")))
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\n")
+        self.assertFalse(self.attested(launch).exists())
+
+    def test_turns_count_by_rollout(self):
+        launch = self.launch("codex-as", weekly="10")
+        transcript = self.rollout(turn(T1, NOW - 90, slot(95, 10080)) + turn(T2, NOW - 30, end=False), thread=THREAD)
+        # T1 is noted for another rollout, which repeats its id (as a sub-agent's copied head does).
+        self.turns_file(launch, turns=[(T1, REL2)])
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T2)), OK)
+        self.turns_file(launch, turns=[(T1, REL)])
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T2)),
+                         (2, "", self.threshold("prompt")))
+
+    def test_a_snapshot_of_the_launch_s_turn_decides_and_is_recorded(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        # The reply's token_usage_record is at NOW - 50, its token_count a second later.
+        transcript = self.rollout(turn(T1, NOW - 60, slot(95, 10080), end=False), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)),
+                         (2, "", self.threshold("tool")))
+        self.assertEqual(stat.S_IMODE(self.attested(launch).lstat().st_mode), 0o600)
+        self.assertEqual(json.loads(self.attested(launch).read_text()),
+                         {"owner": TAG, "usage": {"primary": slot(95, 10080), "secondary": None, "seen_at": NOW - 50},
+                          "rollout": REL, "launch": Path(launch.state).name})
+        self.assertEqual(self.temporary_files(), [])
+        # Another launch's first prompt, in a session of its own, is judged by it.
+        later = self.launch("codex-as", weekly="10")
+        self.turns_file(later)
+        fresh = self.rollout([started(NOW - 5, T2), context(NOW - 5, T2)], thread=THREAD2)
+        self.assertEqual(self.answer("prompt", later, self.codex_event(fresh, "prompt", T2)),
+                         (2, "", self.threshold("prompt")))
+
+    def test_another_family_s_snapshot_is_never_recorded(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        transcript = self.rollout(turn(T1, NOW - 60, slot(95, 10080), limit_id="spark", end=False), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)),
+                         (2, "", self.threshold("tool", "spark")))
+        self.assertFalse(self.attested(launch).exists())
+
+    def test_a_sub_agent_s_first_call_is_decided_by_what_another_session_recorded(self):
+        # Another launch of the account reads a reply in its root session at a tool call, and records it.
+        root = self.launch("codex-as", weekly="10")
+        self.turns_file(root)
+        parent = self.rollout(turn(T1, NOW - 60, slot(95, 10080), end=False), thread=THREAD)
+        self.assertEqual(self.answer("tool", root, self.codex_event(parent, "tool", T1)), (2, "", self.threshold("tool")))
+        # A sub-agent's rollout starts with a copy of its parent's history (the parent's turn lines, unmarked, an
+        # end event without an id, inherited response items, no token line), then its own turn at its first call,
+        # whose token_count follows the call's output.
+        inherited = {**reply(NOW - 50), "metadata": {"inherited_user_message": True}}
+        head = [started(NOW - 60, T1), context(NOW - 60, T1), inherited, ended(NOW - 55, T1),
+                ended(NOW - 55, None, "turn_aborted")]
+        own = [started(NOW - 10, S1), context(NOW - 10, S1), shell_call(NOW - 5), usage_record(NOW - 5, S1)]
+        sub = self.rollout(head + own, thread=SUB)
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch, turns=[(T1, REL)])
+        event = self.codex_event(sub, "tool", S1, agent=SUB)
+        self.assertEqual(event["session_id"], THREAD, "the event of a sub-agent names the root session")
+        self.assertEqual(self.answer("tool", launch, event), (2, "", self.threshold("tool")))
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\nt {S1} {rel(SUB)}\n")
+        # Without what the root recorded nothing is checked yet: the sub-agent's own first reply decides.
+        self.attested(launch).unlink()
+        self.assertEqual(self.answer("tool", launch, event), OK)
+
+    def test_two_launches_of_one_account_share_the_newest_reading(self):
+        one, two, three = (self.launch("codex-as", weekly="10") for _ in range(3))
+        for launch in (one, two, three):
+            self.turns_file(launch)
+        first = self.rollout(turn(T1, NOW - 200, slot(50, 10080), end=False), thread=THREAD)
+        second = self.rollout(turn(T2, NOW - 100, slot(95, 10080), end=False), thread=THREAD2)
+        self.assertEqual(self.answer("tool", one, self.codex_event(first, "tool", T1)), OK)
+        self.assertEqual(self.attested_reading(one)["seen_at"], NOW - 190)
+        self.assertEqual(self.answer("tool", two, self.codex_event(second, "tool", T2)), (2, "", self.threshold("tool")))
+        # The first launch's older reading never replaces the newer one.
+        self.assertEqual(self.answer("tool", one, self.codex_event(first, "tool", T1)), OK)
+        usage = self.attested_reading(one)
+        self.assertEqual((usage["primary"]["used_percent"], usage["seen_at"]), (95, NOW - 90))
+        fresh = self.rollout([started(NOW - 5, T3), context(NOW - 5, T3)], thread=SUB)
+        self.assertEqual(self.answer("prompt", three, self.codex_event(fresh, "prompt", T3)),
+                         (2, "", self.threshold("prompt")))
+
+    def test_another_login_s_attested_usage_is_no_reading(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        transcript = self.rollout([started(NOW - 5, T1), context(NOW - 5, T1)], thread=THREAD)
+        self.attested_usage(launch, slot(95, 10080), owner=OTHER_TAG)
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)), OK)
+        # A launch without notes knows no tag, and reads it whatever its owner.
+        older = self.launch("codex-as", weekly="10")
+        for owner in (OTHER_TAG, None):
+            with self.subTest(owner=owner):
+                self.attested_usage(launch, slot(95, 10080), owner=owner)
+                self.assertEqual(self.answer("prompt", older, self.codex_event(transcript, "prompt", T1)),
+                                 (2, "", self.threshold("prompt")))
+        # A reading of the launch's own turn replaces another login's.
+        self.attested_usage(launch, slot(95, 10080), owner=OTHER_TAG, seen_at=NOW - 10)
+        replied = self.rollout(turn(T1, NOW - 60, slot(50, 10080), end=False), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(replied, "tool", T1)), OK)
+        data = json.loads(self.attested(launch).read_text())
+        self.assertEqual((data["owner"], data["usage"]["primary"]["used_percent"], data["usage"]["seen_at"]),
+                         (TAG, 50, NOW - 50))
+
+    def test_notes_that_cannot_be_read_or_written_never_block(self):
+        records = turn(T0, NOW - 90, slot(50, 10080)) + turn(T1, NOW - 60, slot(60, 10080), end=False)
+        transcript = self.rollout(records, thread=THREAD)
+        target = put(self.root / "notes elsewhere", f"o {TAG}\n")
+        for case in ("a directory", "a link", "a FIFO"):
+            launch = self.launch("codex-as", weekly="10")
+            notes = self.state(launch, "turns")
+            if case == "a directory":
+                notes.mkdir()
+            elif case == "a link":
+                notes.symlink_to(target)
+            else:
+                os.mkfifo(notes, 0o600)
+            for kind in ("prompt", "tool"):
+                with self.subTest(case=case, kind=kind):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)), OK)
+            self.assertFalse(self.state(launch, "blocked").exists())
+        self.assertEqual(target.read_text(), f"o {TAG}\n")
+        self.assertFalse(self.attested(launch).exists(), "notes that could not be read were taken for a tag")
+        if os.geteuid() == 0:
+            return  # root writes into a 0400 file
+        # A read-only file: the event's turn counts all the same, and nothing is written into it.
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch).chmod(0o400)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)), OK)
+        self.assertEqual(self.notes(launch), f"o {TAG}\n")
+        self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 60)
+
+    def test_a_torn_note_does_not_take_the_next_one_with_it(self):
+        launch = self.launch("codex-as", weekly="10")
+        torn = f"o {TAG}\nt {T1} {REL}\nt {T2[:12]}"  # a write that a full disk cut short
+        put(self.state(launch, "turns"), torn)
+        transcript = self.rollout(turn(T3, NOW - 60, slot(50, 10080), end=False), thread=THREAD)
+        for _ in range(2):
+            self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T3)), OK)
+            self.assertEqual(self.notes(launch), torn + f"\nt {T3} {REL}\n")
+
+    def test_full_notes_take_no_more_lines_and_the_event_s_turn_still_counts(self):
+        launch = self.launch("codex-as", weekly="10")
+        limit, head = guard.module("usage").NOTES, f"o {TAG}\n"
+        full = head + "x" * (limit - len(head) - 1) + "\n"  # a line of a kind a later release may add
+        put(self.state(launch, "turns"), full)
+        transcript = self.rollout(turn(T1, NOW - 60, slot(95, 10080), end=False), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)),
+                         (2, "", self.threshold("tool")))
+        self.assertEqual(self.notes(launch), full)
+        self.assertEqual(json.loads(self.attested(launch).read_text())["owner"], TAG, "the turn did not count")
+        # A byte short of the bound, the note is taken.
+        put(self.state(launch, "turns"), full[:-2] + "\n")
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)),
+                         (2, "", self.threshold("tool")))
+        self.assertEqual(self.notes(launch), full[:-2] + f"\nt {T1} {REL}\n")
+
+    def test_a_failed_record_write_never_blocks(self):
+        transcript = self.rollout(turn(T1, NOW - 60, slot(95, 10080), end=False), thread=THREAD)
+        for case in ("a guard directory with mode 0755", "a directory in the file's place"):
+            launch = self.launch("codex-as", weekly="10")
+            self.turns_file(launch)
+            if case == "a directory in the file's place":
+                self.attested(launch).mkdir()
+            else:
+                self.guard_dir.chmod(0o755)
+                self.addCleanup(self.guard_dir.chmod, 0o700)
+            for kind in ("prompt", "tool"):
+                with self.subTest(case=case, kind=kind):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)),
+                                     (2, "", self.threshold(kind)))
+            self.guard_dir.chmod(0o700)
+            self.assertFalse(self.attested(launch).is_file())
+            self.assertEqual(self.temporary_files(), [])
+            if self.attested(launch).is_dir():
+                self.attested(launch).rmdir()
+
+    def test_blindness_is_told_from_the_launch_s_turns(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        blind = {kind: reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"), kind, NOW)
+                 for kind in ("prompt", "tool")}
+        # Another client's token counts without rate limits never make the launch blind ...
+        theirs = turn(T0, NOW - 90, rates=False)
+        transcript = self.rollout(theirs + [started(NOW - 30, T1), context(NOW - 30, T1)], thread=THREAD)
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)), OK)
+        # ... its own do, on both events, ...
+        mine = self.rollout(theirs + turn(T1, NOW - 30, rates=False, end=False), thread=THREAD)
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(mine, kind, T1)), (2, "", blind[kind]))
+        # ... and a model response of its own without one on a prompt only.
+        replied = self.rollout(theirs + [started(NOW - 30, T1), context(NOW - 30, T1), shell_call(NOW - 20),
+                                         usage_record(NOW - 20, T1)], thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(replied, "tool", T1)), OK)
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(replied, "prompt", T2)), (2, "", blind["prompt"]))
+
+    def test_no_readable_transcript_is_never_blind_with_notes_either(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        sessions = self.root / "codex" / "sessions"
+        linked = self.rollout(turn(T1, NOW - 60, rates=False, end=False), thread=THREAD)
+        folder, link, missing = (sessions / rel(thread) for thread in (THREAD2, SUB, T0))
+        folder.mkdir(parents=True)
+        link.symlink_to(linked)
+        for transcript in (None, missing, folder, link):
+            for kind in ("prompt", "tool"):
+                with self.subTest(transcript=transcript, kind=kind):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, T1)), OK)
+        self.assertFalse(self.attested(launch).exists())
 
 
 class Failure(Fixture):
@@ -1020,6 +1427,23 @@ class Main(Fixture):
         self.assertEqual((code, out), (2, ""))
         self.assertTrue(err.startswith("codex-as: lab: weekly window 5% remaining"), err)
         self.assertTrue(Path(launch.marker).is_file())
+
+    def test_a_codex_hook_run_as_codex_runs_it_notes_the_turn_and_records(self):
+        now = int(time.time())
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        transcript = self.rollout(turn(T1, now - 60, slot(95, 10080, now + 3600), end=False), thread=THREAD)
+        command, extra = self.commands(self.kit_copy(), "tool")["codex"]
+        environ = {**extra, **self.environ(launch, started=now - 120)}
+        code, out, err = self.run_guard(command, environ, json.dumps(self.codex_event(transcript, "tool", T1)).encode())
+        self.assertEqual((code, out), (2, ""))
+        self.assertTrue(err.startswith("codex-as: lab: weekly window 5% remaining"), err)
+        self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\n")
+        data = json.loads(self.attested(launch).read_text())
+        self.assertEqual((data["owner"], data["usage"]["seen_at"], data["rollout"], data["launch"]),
+                         (TAG, now - 50, REL, Path(launch.state).name))
+        self.assertEqual(stat.S_IMODE(self.attested(launch).lstat().st_mode), 0o600)
+        self.assertEqual(self.temporary_files(), [])
 
     def test_start_and_stop_print_nothing_and_exit_0(self):
         launch = self.launch(weekly="10")
