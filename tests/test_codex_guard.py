@@ -1375,7 +1375,7 @@ class Recording(Fixture):
         whoever wrote it, would take it."""
         other = ("user-fixture-B", "workspace-fixture-B")
         self.rollout(THREAD, literal_turn(TURN_2, THREAD, 92.0, calls=0, hooks=()), creator=other, seconds=-20)
-        mine =literal_turn(TURN_1, THREAD, None, calls=0, hooks=("prompt",), resumed=True)
+        mine = literal_turn(TURN_1, THREAD, None, calls=0, hooks=("prompt",), resumed=True)
         _, rel = self.rollout(THREAD, mine[:mine.index(PROMPT_STEP) + 1] + [aborted(TURN_1)], seconds=-10)
         record = self.remember(self.notes(f"o {TAG}\nt {TURN_1} {rel}\n", ("prompt",)), args=("resume", THREAD))
         self.assertEqual(record, {"email": "alice@example.com", "plan": "plus"})
