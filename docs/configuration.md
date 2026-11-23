@@ -39,8 +39,8 @@ The account metadata cache (see the account launchers documentation) is not
 configured here: it lives in `$XDG_STATE_HOME/coding-agent-kit/accounts/` when
 `XDG_STATE_HOME` is an absolute path, else in
 `$HOME/.local/state/coding-agent-kit/accounts/`, and the state of launches with
-a usage reserve in `guard/` beside it. A `state_dir` key is an unknown key and
-only warns.
+a usage reserve, with each Codex account's attested usage, in `guard/` beside
+it. A `state_dir` key is an unknown key and only warns.
 
 ## Format and keys
 
