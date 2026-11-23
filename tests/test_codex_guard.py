@@ -3513,6 +3513,41 @@ class RealCodex(unittest.TestCase):
         self.assert_state(state, (".ran.prompt", ".ran.tool"), ())
         self.assertTrue(self.marker.is_file(), "the tool hook made no marker")
 
+    def test_the_guard_notes_the_turn_and_records_the_run_s_snapshots(self):
+        """After a run with two tool calls the launch's notes name its one turn in the rollout the events named, and
+        the attested usage holds what the second call's tool hook read in that turn (the backend's reading, here at
+        the reserve, which stops that call), with the login's tag and the time of a token_usage_record line of that
+        turn. A second launch, whose start lies before the first launch's, resumes the thread with exec resume --last
+        while nothing is attested: its prompt is judged by its own turn, which holds no reading yet, and never by
+        the first launch's turn, so it is sent."""
+        earlier = int(time.time()) - 5
+        code, out, err, state, models = self.run_codex("TOOL run the command", sent=95)
+        self.assertEqual((code, out.strip()), (0, "TOOL-DONE"), err)
+        self.assertEqual(self.shell_calls(), 1)
+        events = self.events()
+        [turn] = {entry["event"]["turn_id"] for entry in events}
+        [transcript] = {entry["event"]["transcript_path"] for entry in events}
+        rel = launch.usage.relative(transcript)
+        self.assertEqual(rel, "/".join(Path(transcript).parts[-4:]))
+        self.assertEqual(Path(state + ".turns").read_text(), f"o {TAG}\nt {turn} {rel}\n")
+        rows = [json.loads(line) for line in Path(transcript).read_text().splitlines()]
+        replies = {int(launch.usage.moment(row["timestamp"])) for row in rows
+                   if row["type"] == "token_usage_record" and row["payload"]["turn_id"] == turn}
+        attested = json.loads(self.attested.read_text())
+        self.assertEqual((attested["owner"], attested["rollout"], attested["launch"]), (TAG, rel, os.path.basename(state)))
+        reading = attested["usage"]
+        self.assertEqual((reading["primary"]["used_percent"], reading["primary"]["window_minutes"],
+                          reading["secondary"]["used_percent"], reading["secondary"]["window_minutes"]),
+                         (95.0, 300, 20.0, 10080))
+        self.assertIn(reading["seen_at"], replies)
+        os.replace(self.attested, self.attested.with_name("moved away.json"))
+        code, out, err, second, models = self.run_codex("PLAIN again", sent=40, tail=("resume", "--last"), started=earlier)
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.assertEqual([entry["script"] for entry in models], ["PLAIN"])
+        self.assertFalse(os.path.exists(second + ".blocked"))
+        [prompt] = [entry for entry in self.events() if entry["event"]["turn_id"] != turn]
+        self.assertEqual(Path(second + ".turns").read_text(), f"o {TAG}\nt {prompt['event']['turn_id']} {rel}\n")
+
     def turns(self, rows):
         """{turn: [index of each row of that turn]}: a turn runs from its task_started to its task_complete or
         turn_aborted (or the next task_started)."""
