@@ -1191,6 +1191,17 @@ class Codex(Fixture):
         self.assertEqual(self.answer("prompt", later, self.codex_event(fresh, "prompt", T2)),
                          (2, "", self.threshold("prompt")))
 
+    def test_a_prompt_event_alone_attests_the_snapshot_of_the_launch_s_turns(self):
+        # A session without tool calls: the reply of the launch's turn T1 is attested at the prompt of T2.
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch, turns=[(T1, REL)])
+        transcript = self.rollout(turn(T1, NOW - 60, slot(50, 10080)) + [started(NOW - 5, T2), context(NOW - 5, T2)],
+                                  thread=THREAD)
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T2)), OK)
+        self.assertEqual(self.attested_reading(launch), {"primary": slot(50, 10080), "secondary": None,
+                                                         "seen_at": NOW - 50})
+        self.assertFalse(self.state(launch, "ran.tool").exists())
+
     def test_another_family_s_snapshot_is_never_recorded(self):
         launch = self.launch("codex-as", weekly="10")
         self.turns_file(launch)
