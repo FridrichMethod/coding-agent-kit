@@ -148,6 +148,16 @@ def settings(when):
     return line(when, "event_msg", {"type": "thread_settings_applied", "thread_id": THREAD})
 
 
+def completed(when, turn):
+    """An item_completed event: it carries its turn's id, but can follow the turn's end, so it names no turn."""
+    return line(when, "event_msg", {"type": "item_completed", "turn_id": turn})
+
+
+def output(when, size):
+    """A tool call's output of SIZE bytes, written as one rollout line."""
+    return line(when, "response_item", {"type": "function_call_output", "call_id": "call_1", "output": "A" * size})
+
+
 def turn(turn_id, when, reading=None, rates=True, end=True, limit_id="codex"):
     """One turn from its start at WHEN: with READING (a primary slot), or RATES False, a reply 10 seconds later,
     its token_usage_record and a token_count a second after that with READING as its primary window (none
@@ -1080,6 +1090,71 @@ class Codex(Fixture):
                          (2, "", self.threshold("prompt")))
         self.assertEqual(self.notes(launch), f"o {TAG}\nt {T1} {REL}\n")
         self.assertFalse(self.attested(launch).exists())
+
+    def long_output(self, used, size=None, limit_id="codex"):
+        """The launch's turn T1, ended at 80 percent of the weekly window used, and its turn T2 up to its second
+        tool call: the first call's output of SIZE bytes (by default longer than the tail, as a screenshot's base64
+        can be), the token_count of the response that read it, with USED percent of the weekly window, then that
+        response's call and token_usage_record."""
+        size = int(1.2 * guard.module("usage").TAIL) if size is None else size
+        return turn(T1, NOW - 300, slot(80, 10080)) + [
+            started(NOW - 200, T2), context(NOW - 200, T2), shell_call(NOW - 190), usage_record(NOW - 190, T2),
+            completed(NOW - 180, T2), output(NOW - 180, size), count(NOW - 179, None, slot(used, 10080), limit_id),
+            shell_call(NOW - 178), usage_record(NOW - 178, T2)]
+
+    def refused(self, launch, kind, *readings):
+        """The block of KIND that READINGS, (window, used, family) each, give LAUNCH."""
+        decision = reserve.decide(launch.enabled, [reserve.Reading(window, used, NOW + 3600, family)
+                                                   for window, used, family in readings], NOW)
+        return 2, "", reserve.block_text("codex-as", launch.account, decision, kind, NOW)
+
+    def test_after_an_output_longer_than_the_tail_the_reading_before_its_first_naming_line_decides(self):
+        # The tail starts inside the output line, so the response's token_count stands before the tail's first line
+        # that names a turn. No turn began or ended before that line, and it names the launch's turn T2: one client
+        # writes a thread, so the reading is T2's. It decides at every such event, on both kinds, but is never
+        # attested: such a reading may stand before the turn's first response and repeat an earlier turn's.
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch, turns=[(T1, REL), (T2, REL)])
+        self.attested_usage(launch, slot(80, 10080), seen_at=NOW - 289)
+        stored = self.attested(launch).read_text()
+        for used in (91, 95, 98, 99.5, 85):
+            # The next tool call of T2, and the prompt of T3 after T2 was interrupted there: without the reading,
+            # T2's response would leave the prompt blind and the tool call to the attested 80 percent.
+            interrupted = [ended(NOW - 170, T2, "turn_aborted"), started(NOW - 160, T3), context(NOW - 160, T3)]
+            for kind, after, turn_id in (("tool", [], T2), ("prompt", interrupted, T3)):
+                with self.subTest(used=used, kind=kind):
+                    transcript = self.rollout(self.long_output(used) + after, thread=THREAD)
+                    expected = OK if used == 85 else self.refused(launch, kind, ("weekly", used, None))
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind, turn_id)), expected)
+                    self.assertEqual(self.attested(launch).read_text(), stored)
+        # An output that the tail holds whole: the reading follows T2's first naming line and is T2's snapshot.
+        whole = self.rollout(self.long_output(95, 300 << 10), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(whole, "tool", T2)),
+                         self.refused(launch, "tool", ("weekly", 95, None)))
+        self.assertEqual(self.attested_reading(launch)["secondary"]["used_percent"], 95)
+
+    def test_the_reading_before_the_first_naming_line_counts_as_a_snapshot_would(self):
+        launch = self.launch("codex-as", five_hour="10", weekly="10")
+        self.turns_file(launch, turns=[(T1, REL), (T2, REL)])
+        # A newer reading of T2, after the tail's first naming line, is T2's snapshot: it decides, and is attested.
+        newer = self.rollout(self.long_output(95) + [completed(NOW - 170, T2), output(NOW - 170, 100),
+                                                     count(NOW - 169, None, slot(50, 10080))], thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(newer, "tool", T2)), OK)
+        self.assertEqual(self.attested_reading(launch)["secondary"]["used_percent"], 50)
+        # A window the reading does not name comes from the attested usage ...
+        self.attested_usage(launch, slot(95, 300), seen_at=NOW - 289)
+        low = self.rollout(self.long_output(20), thread=THREAD)
+        for kind, turn_id in (("tool", T2), ("prompt", T2)):
+            with self.subTest(kind=kind):
+                self.assertEqual(self.answer(kind, launch, self.codex_event(low, kind, turn_id)),
+                                 self.refused(launch, kind, ("five_hour", 95, None)))
+        # ... and another limit family's reading stands alone, named in the message.
+        spark = self.rollout(self.long_output(20, limit_id="spark"), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(spark, "tool", T2)), OK)
+        spark = self.rollout(self.long_output(95, limit_id="spark"), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(spark, "tool", T2)),
+                         self.refused(launch, "tool", ("weekly", 95, "spark")))
+        self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 95)
 
     def test_turns_count_by_rollout(self):
         launch = self.launch("codex-as", weekly="10")

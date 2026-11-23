@@ -79,7 +79,11 @@ The decision (reserve.decide) per launch:
   the tail does not name yet is judged by the launch's earlier turns there.
   Of the view: its newest snapshot, each window named by its length (300
   minutes five_hour, 10080 weekly, others ignored) with the snapshot's limit
-  family. A general-family snapshot of the launch's own turns also goes into
+  family. When the launch's turns are the view and hold no snapshot, the
+  reading that a line longer than the tail left before the tail's first
+  naming line (usage.session's "before": that turn's, by one client per
+  thread) takes the snapshot's place in the decision, and is never attested.
+  A general-family snapshot of the launch's own turns also goes into
   the account's attested usage (usage.keep(), under the tag of the notes; any
   error there is no write). Without a snapshot, the account's attested usage
   (attested_path(): codex-usage-ACCOUNT.json beside the launches' state, read
@@ -516,8 +520,9 @@ def turns_of(launch, event, transcript):
 
 def codex_view(kind, event, launch, now):
     """(readings, blind) from the launch's turns in the session's rollout, or from its lines since the launch
-    started; else from the account's attested usage. A general-family snapshot of the launch's own turns is
-    recorded in the attested usage on the way, best effort."""
+    started; else from the account's attested usage. Where the launch's turns hold no snapshot, the reading before
+    a cut tail's first naming line (the own view's "before") counts as theirs, never attested. A general-family
+    snapshot of the launch's own turns is recorded in the attested usage on the way, best effort."""
     usage = module("usage")  # loaded whatever the event says, so an incomplete install always fails
     if not isinstance(event, dict):
         raise ValueError("the event is not a JSON object")
@@ -542,8 +547,11 @@ def codex_view(kind, event, launch, now):
                     sweep(path)
         except Exception:
             pass  # the decision does not need the write
-    snapshot = windows(view["snapshot"], view["family"]) if view and view["snapshot"] else []
-    if snapshot and view["family"] is not None:
+    reading = view if view and view["snapshot"] else None
+    if own is not None and not own["snapshot"] and own.get("before"):
+        reading = own["before"]  # a line longer than the tail hid the turn's start: the lines before were its own
+    snapshot = windows(reading["snapshot"], reading["family"]) if reading else []
+    if snapshot and reading["family"] is not None:
         return snapshot, False  # another family's limit is the one the session's requests count against
     # Never the account record (launch.usage), which launches without hooks write too; another login's
     # attested usage is no reading for a launch that knows its own.
