@@ -485,3 +485,85 @@ def session(path, started, turns=None):
             found["responded"] = True
             found["tools"] = found["tools"] or hooked(kind, ptype, payload)
     return {**found, "own": {**own, "turns": named} if naming else None}
+
+
+# -- the account's attested usage -----------------------------------------------
+
+
+def alike(first, second):
+    """Whether two windows (as window() reads them, or None) are the same reading: both null, or
+    the same length and percentage with reset times at most TOLERANCE apart, or both without one."""
+    if first is None or second is None:
+        return first is second
+    if (first["window_minutes"], first["used_percent"]) != (second["window_minutes"], second["used_percent"]):
+        return False
+    if first["resets_at"] is None or second["resets_at"] is None:
+        return first["resets_at"] is second["resets_at"]
+    return abs(first["resets_at"] - second["resets_at"]) <= TOLERANCE
+
+
+def merged(stored, incoming, now):
+    """The usage to store when the snapshot INCOMING (as session() builds one) meets the STORED
+    usage (or None), or None to keep the stored one.
+
+    A stored seen_at that is no int, or lies more than SLACK seconds after NOW, is no stored usage.
+    The newest reading wins. A stored window whose length the result does not name stays, in a slot
+    the result leaves null, while its reset lies ahead. Unchanged windows are written again only
+    AGAIN seconds apart."""
+    last = stored.get("seen_at") if isinstance(stored, dict) else None
+    if type(last) is not int or last > now + SLACK:
+        stored, last = None, None  # none, or stamped by a clock that runs ahead
+    if last is not None and incoming["seen_at"] <= last:
+        return None
+    result = {"primary": incoming["primary"], "secondary": incoming["secondary"], "seen_at": incoming["seen_at"]}
+    old = {}
+    for key in ("primary", "secondary"):
+        try:
+            old[key] = window(stored.get(key)) if stored else None
+        except ValueError:
+            old[key] = None
+    named = {value["window_minutes"] for value in (result["primary"], result["secondary"]) if value}
+    for key in ("primary", "secondary"):  # by length, as the guard reads windows, not by slot
+        value = old[key]
+        if value and value["window_minutes"] and value["window_minutes"] not in named and (value["resets_at"] or 0) > now:
+            free = next((slot for slot in ("primary", "secondary") if result[slot] is None), None)
+            if free:
+                result[free] = value
+                named.add(value["window_minutes"])
+    if last is not None and incoming["seen_at"] - last < AGAIN and all(
+            alike(result[key], old[key]) for key in ("primary", "secondary")):
+        return None
+    return result
+
+
+def keep(accounts, path, owner, snapshot, now, rollout, launch):
+    """Merge SNAPSHOT into the account's attested usage at PATH (merged()); True when it wrote.
+
+    ACCOUNTS is the account metadata module, which reads and writes the file. PATH is a str or a
+    Path; OWNER the tag of the launch's login; ROLLOUT and LAUNCH say where the reading came from
+    (REL, the base name of the launch's state). ValueError when PATH is not an absolute
+    codex-usage-NAME.json in an owned, real 0700 directory, or OWNER is no tag. Nothing is written
+    when SNAPSHOT's seen_at is no int or lies more than SLACK seconds after NOW. A file that
+    ACCOUNTS cannot read counts as absent, and another owner's usage as none: both are replaced.
+    OSError when the write fails. There is no lock: two writers at one instant can let the older
+    reading stand until the next write."""
+    path = Path(path)
+    if not path.is_absolute() or not ATTESTED.fullmatch(path.name):
+        raise ValueError(f"{path}: not an attested usage file")
+    if not isinstance(owner, str) or not OWNER.fullmatch(owner):
+        raise ValueError("not the tag of a login")
+    folder = os.lstat(path.parent)
+    if not stat.S_ISDIR(folder.st_mode) or folder.st_uid != os.getuid() or stat.S_IMODE(folder.st_mode) != 0o700:
+        raise ValueError(f"{path.parent}: not an owned, real directory with permissions 0700")
+    seen = snapshot.get("seen_at") if isinstance(snapshot, dict) else None
+    if type(seen) is not int or seen > now + SLACK:
+        return False
+    try:
+        data = accounts.read(path)
+    except ValueError:
+        data = None  # unusable: replaced
+    stored = data.get("usage") if isinstance(data, dict) and data.get("owner") == owner else None
+    fresh = merged(stored, snapshot, now)
+    if fresh is None:
+        return False
+    return accounts.write(path, {"owner": owner, "usage": fresh, "rollout": rollout, "launch": launch})

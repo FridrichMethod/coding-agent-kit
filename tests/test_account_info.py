@@ -1206,6 +1206,182 @@ class Notes(unittest.TestCase):
         self.assertNotIn("hashlib", vars(usage))
 
 
+def reading(seen_at, used, minutes=10080, resets=OURS, secondary=None):
+    """A snapshot as usage.session builds one: one window in the first slot."""
+    return {"primary": slot(used, minutes, resets), "secondary": secondary, "seen_at": seen_at}
+
+
+class Merged(unittest.TestCase):
+    """usage.merged and usage.keep: the account's attested usage, guard/codex-usage-NAME.json."""
+
+    LAUNCH = "codex-as-A-4242-1767268000"
+
+    def setUp(self):
+        self.addCleanup(os.umask, os.umask(0o077))
+        tmp = tempfile.TemporaryDirectory(prefix="kit-attested-test-")
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name).resolve() / "guard"
+        self.dir.mkdir()
+        self.dir.chmod(0o700)
+        self.path = self.dir / "codex-usage-A.json"
+
+    def keep(self, snapshot, now=NOW, owner=TAG, path=None):
+        return usage.keep(accounts, self.path if path is None else path, owner, snapshot, now, REL_A, self.LAUNCH)
+
+    def stored(self):
+        return json.loads(self.path.read_text())
+
+    def test_the_newest_reading_wins(self):
+        self.assertEqual(usage.merged(None, reading(NOW, 10.0), NOW), reading(NOW, 10.0))
+        self.assertEqual(usage.merged(reading(NOW - 900, 95.0), reading(NOW, 90.0), NOW), reading(NOW, 90.0))
+        for seen_at in (NOW, NOW - 1):
+            with self.subTest(seen_at=seen_at - NOW):
+                self.assertIsNone(usage.merged(reading(NOW, 95.0), reading(seen_at, 90.0), NOW))
+        # A stored usage without a whole seen_at is none, windows and all.
+        five = slot(60.0, 300, NOW + 600)
+        for stored in ({}, [], "x", {"primary": five, "secondary": None}, {"primary": five, "secondary": None, "seen_at": float(NOW - 10)},
+                       {"primary": five, "secondary": None, "seen_at": True}, {"primary": five, "secondary": None, "seen_at": str(NOW)}):
+            with self.subTest(stored=stored):
+                self.assertEqual(usage.merged(stored, reading(NOW - 3600, 20.0), NOW), reading(NOW - 3600, 20.0))
+
+    def test_a_window_the_snapshot_does_not_name_is_kept_by_its_length_until_it_resets(self):
+        five = slot(60.0, 300, NOW + 600)
+        stored = {"primary": five, "secondary": slot(30.0, 10080), "seen_at": NOW - 10}
+        self.assertEqual(usage.merged(stored, reading(NOW, 31.0), NOW), reading(NOW, 31.0, secondary=five))
+        # By its length, not by its slot.
+        stored = {"primary": slot(30.0, 10080), "secondary": None, "seen_at": NOW - 10}
+        incoming = {"primary": None, "secondary": slot(61.0, 300, NOW + 600), "seen_at": NOW}
+        self.assertEqual(usage.merged(stored, incoming, NOW), dict(incoming, primary=slot(30.0, 10080)))
+        # Until it resets; a window without a reset time or a length, or one that is no window, is not kept.
+        for gone in (dict(five, resets_at=NOW), dict(five, resets_at=NOW - 1), dict(five, resets_at=None),
+                     dict(five, window_minutes=None), dict(five, used_percent="x")):
+            with self.subTest(gone=gone):
+                self.assertEqual(usage.merged({"primary": gone, "secondary": None, "seen_at": NOW - 10}, reading(NOW, 31.0), NOW),
+                                 reading(NOW, 31.0))
+        # A length the snapshot names is the snapshot's; with both slots taken a third length has no room.
+        both = {"primary": slot(62.0, 300, NOW + 600), "secondary": slot(32.0, 10080), "seen_at": NOW}
+        self.assertEqual(usage.merged({"primary": slot(1.0, 1440, NOW + 600), "secondary": five, "seen_at": NOW - 10}, both, NOW),
+                         both)
+
+    def test_reset_time_jitter_is_no_change(self):
+        stored = reading(NOW - 10, 50.0)
+        for resets in (OURS + 17, OURS - usage.TOLERANCE, OURS + usage.TOLERANCE):
+            with self.subTest(resets=resets - OURS):
+                self.assertIsNone(usage.merged(stored, reading(NOW, 50.0, resets=resets), NOW))
+        for incoming in (reading(NOW, 50.0, resets=OURS + usage.TOLERANCE + 1), reading(NOW, 51.0), reading(NOW, 50.0, resets=None)):
+            with self.subTest(incoming=incoming):
+                self.assertEqual(usage.merged(stored, incoming, NOW), incoming)
+        # Another length is another window: the stored one stays beside it, and the reading is new.
+        self.assertEqual(usage.merged(stored, reading(NOW, 50.0, minutes=300), NOW),
+                         reading(NOW, 50.0, minutes=300, secondary=slot(50.0, 10080)))
+        # Both without a reset time, and null slots on both sides, are alike.
+        self.assertIsNone(usage.merged(reading(NOW - 10, 50.0, resets=None), reading(NOW, 50.0, resets=None), NOW))
+        null_first = {"primary": None, "secondary": slot(50.0, 10080), "seen_at": NOW - 10}
+        self.assertIsNone(usage.merged(null_first, dict(null_first, seen_at=NOW), NOW))
+
+    def test_unchanged_windows_are_written_again_after_300_seconds(self):
+        self.assertEqual(usage.AGAIN, 300)
+        self.assertEqual(usage.merged(reading(NOW - 300, 50.0), reading(NOW, 50.0), NOW), reading(NOW, 50.0))
+        self.assertIsNone(usage.merged(reading(NOW - 299, 50.0), reading(NOW, 50.0), NOW))
+
+    def test_a_stored_time_ahead_of_the_clock_is_no_stored_reading(self):
+        # One line stamped by a clock that runs ahead would otherwise hold every later reading off.
+        ahead = {"primary": slot(95.0, 10080), "secondary": slot(60.0, 300, NOW + 600), "seen_at": NOW + 3600}
+        self.assertEqual(usage.merged(ahead, reading(NOW, 20.0), NOW), reading(NOW, 20.0))
+        self.assertEqual(usage.merged(dict(ahead, seen_at=NOW + usage.SLACK + 1), reading(NOW, 20.0), NOW), reading(NOW, 20.0))
+        self.assertIsNone(usage.merged(dict(ahead, seen_at=NOW + usage.SLACK), reading(NOW, 20.0), NOW))
+
+    def test_keep_writes_owner_usage_rollout_and_launch(self):
+        self.assertTrue(usage.keep(accounts, str(self.path), TAG, reading(NOW - 60, 40.0), NOW, REL_A, self.LAUNCH))
+        self.assertEqual(self.stored(), {"owner": TAG, "usage": reading(NOW - 60, 40.0), "rollout": REL_A, "launch": self.LAUNCH})
+        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
+        # A newer reading, through a Path, from another rollout of another launch; a stored window it does not
+        # name stays.
+        five = slot(60.0, 300, NOW + 600)
+        accounts.write(self.path, {"owner": TAG, "usage": reading(NOW - 60, 40.0, secondary=five), "rollout": REL_A, "launch": "x"})
+        other, launch = REL_A.replace(THREAD, OTHER), "codex-as-A-4343-1767268100"
+        self.assertTrue(usage.keep(accounts, self.path, TAG, reading(NOW, 41.0), NOW, other, launch))
+        self.assertEqual(self.stored(), {"owner": TAG, "usage": reading(NOW, 41.0, secondary=five), "rollout": other, "launch": launch})
+        # Nothing new: nothing written, and no temporary file left.
+        self.assertFalse(self.keep(reading(NOW, 41.0)))
+        self.assertFalse(self.keep(reading(NOW + 10, 41.0), now=NOW + 10))
+        self.assertEqual((self.stored()["usage"]["seen_at"], self.stored()["launch"]), (NOW, launch))
+        self.assertEqual(os.listdir(self.dir), ["codex-usage-A.json"])
+
+    def test_keep_replaces_another_owner_s_reading_and_an_unusable_file(self):
+        five = slot(60.0, 300, NOW + 600)
+        accounts.write(self.path, {"owner": "0" * 16, "usage": reading(NOW, 99.0, secondary=five), "rollout": REL_A, "launch": "x"})
+        self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+        self.assertEqual(self.stored(), {"owner": TAG, "usage": reading(NOW - 600, 20.0), "rollout": REL_A, "launch": self.LAUNCH})
+        for content in ("not json", "[]", "", json.dumps({"owner": TAG, "usage": "x"}), json.dumps({"owner": TAG}),
+                        json.dumps({"usage": reading(NOW, 99.0)})):
+            with self.subTest(content=content):
+                self.path.unlink()
+                self.path.write_text(content)
+                self.path.chmod(0o600)
+                self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+                self.assertEqual(self.stored()["usage"], reading(NOW - 600, 20.0))
+        # An unsafe file is replaced by a 0600 one, and a link in its place is replaced, never written through.
+        self.path.write_text(json.dumps({"owner": TAG, "usage": reading(NOW, 99.0)}))
+        self.path.chmod(0o644)
+        self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+        self.assertEqual((stat.S_IMODE(self.path.stat().st_mode), self.stored()["usage"]["primary"]["used_percent"]), (0o600, 20.0))
+        target = self.dir.parent / "elsewhere.json"
+        target.write_text("{}")
+        self.path.unlink()
+        self.path.symlink_to(target)
+        self.assertTrue(self.keep(reading(NOW - 600, 20.0)))
+        self.assertEqual((self.path.is_symlink(), target.read_text()), (False, "{}"))
+
+    def test_keep_refuses_another_file_name_an_unsafe_directory_and_another_tag(self):
+        snapshot = reading(NOW, 20.0)
+        for path in ("codex-usage-A.json", Path("guard/codex-usage-A.json"), self.dir / "codex-A.json",
+                     self.dir / "codex-usage-.json", self.dir / "codex-usage--A.json", self.dir / "claude-A.usage.json",
+                     self.dir / ".codex-usage-A.json.0123456789abcdef.tmp", self.dir / "codex-usage-A.json.tmp",
+                     self.dir / "codex-usage-A/B.json"):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    self.keep(snapshot, path=path)
+        for owner in (None, "", TAG.upper(), TAG[:-1], TAG + "0", TAG + "\n", 7, (USER, WORKSPACE)):
+            with self.subTest(owner=owner):
+                with self.assertRaises(ValueError):
+                    self.keep(snapshot, owner=owner)
+        self.dir.chmod(0o755)
+        with self.assertRaises(ValueError):
+            self.keep(snapshot)
+        self.dir.chmod(0o700)
+        link = self.dir.parent / "link"
+        link.symlink_to(self.dir)
+        with self.assertRaises(ValueError):
+            self.keep(snapshot, path=link / self.path.name)
+        with self.assertRaises(OSError):
+            self.keep(snapshot, path=self.dir.parent / "missing" / self.path.name)
+        self.assertEqual(os.listdir(self.dir), [])
+        # A failed write is an OSError; so is a directory in the file's place, which nothing replaces.
+        def full(path, data):
+            raise OSError(28, "No space left on device")
+
+        with self.assertRaises(OSError):
+            usage.keep(SimpleNamespace(read=accounts.read, write=full), self.path, TAG, snapshot, NOW, REL_A, self.LAUNCH)
+        self.path.mkdir()
+        with self.assertRaises(OSError):
+            self.keep(snapshot)
+        self.assertEqual((os.listdir(self.dir), os.listdir(self.path)), ([self.path.name], []))
+
+    def test_keep_never_stores_a_time_ahead_of_the_clock(self):
+        for seen_at in (NOW + usage.SLACK + 1, NOW + 3600, float(NOW), True, None, str(NOW)):
+            with self.subTest(seen_at=seen_at):
+                self.assertFalse(self.keep(dict(reading(0, 20.0), seen_at=seen_at)))
+        for snapshot in (None, {"primary": slot(20.0, 10080), "secondary": None}):
+            self.assertFalse(self.keep(snapshot))
+        self.assertFalse(self.path.exists())
+        self.assertTrue(self.keep(reading(NOW + usage.SLACK, 20.0)))
+        # A stored reading ahead of the clock gives way.
+        accounts.write(self.path, {"owner": TAG, "usage": reading(NOW + 3600, 99.0), "rollout": REL_A, "launch": "x"})
+        self.assertTrue(self.keep(reading(NOW, 21.0)))
+        self.assertEqual(self.stored()["usage"], reading(NOW, 21.0))
+
+
 CODEX_FAKE = r"""
 import json, os, pathlib, sys, time
 if sys.argv[1:] == ["--version"]:
