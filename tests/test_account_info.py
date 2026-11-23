@@ -893,7 +893,8 @@ def used(own):
     return own and own["snapshot"] and own["snapshot"]["primary"]["used_percent"]
 
 
-NOTHING = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False}
+# An own view that holds nothing: the five keys over no line, and no reading before a cut tail's first naming line.
+NOTHING = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False, "before": None}
 
 
 class Turns(unittest.TestCase):
@@ -926,7 +927,7 @@ class Turns(unittest.TestCase):
     def test_a_line_counts_in_a_turn_the_launch_names(self):
         self.assertEqual(self.own(whole(NOW + 10, TURN_A, weekly(40.0)), {TURN_A}), {
             "snapshot": {"primary": slot(40.0, 10080), "secondary": None, "seen_at": NOW + 11},
-            "family": None, "accounted": True, "responded": True, "tools": True, "turns": {TURN_A}})
+            "family": None, "accounted": True, "responded": True, "tools": True, "turns": {TURN_A}, "before": None})
         # No time bound: a turn's lines are the launch's whenever they are stamped.
         self.assertEqual(used(self.own(whole(NOW - 7200, TURN_A, weekly(41.0)), {TURN_A})), 41.0)
 
@@ -1049,12 +1050,65 @@ class Turns(unittest.TestCase):
 
     def test_a_tail_cut_inside_a_turn_counts_from_the_first_line_that_names_it(self):
         self.assertEqual(used(self.cut([record(NOW + 1, TURN_A), count(NOW + 2, weekly(42.0))], {TURN_A})), 42.0)
-        # What comes before the first line that names a turn belongs to none.
-        before = [call(NOW + 1), count(NOW + 2, weekly(83.0, THEIRS))]
+        # What comes before the first line that names a turn belongs to none: no snapshot, nothing accounted, no
+        # call of the turn. The newest reading there is kept apart as "before".
+        before = [call(NOW + 1), count(NOW + 2, weekly(83.0))]
         self.assertIsNone(self.cut(before, {TURN_A}))
-        self.assertEqual(used(self.cut([*before, record(NOW + 3, TURN_A), count(NOW + 4, weekly(42.0))], {TURN_A})), 42.0)
+        self.assertEqual(self.cut([*before, record(NOW + 3, TURN_A)], {TURN_A}),
+                         {**NOTHING, "responded": True, "turns": {TURN_A},
+                          "before": {"snapshot": reading(NOW + 2, 83.0), "family": None}})
+        found = self.cut([*before, record(NOW + 3, TURN_A), count(NOW + 4, weekly(42.0))], {TURN_A})
+        self.assertEqual((used(found), found["before"]), (42.0, {"snapshot": reading(NOW + 2, 83.0), "family": None}))
         self.assertEqual(used(self.cut([record(NOW + 1, TURN_A), count(NOW + 2, weekly(42.0)), *reply(NOW + 3, TURN_A, weekly(43.0))],
                                        {TURN_A})), 43.0)
+
+    def test_a_cut_tail_has_a_reading_before_its_first_naming_line_only_inside_a_noted_turn(self):
+        head, named = [call(NOW + 1), count(NOW + 2, weekly(83.0))], record(NOW + 3, TURN_A)
+        kept = {"snapshot": reading(NOW + 2, 83.0), "family": None}
+        self.assertEqual(self.cut([*head, named], {TURN_A})["before"], kept)
+        # The newest such reading, with its own line's time and its own family; a line that names no turn in UUID
+        # form (an automatic compaction's turn_context) leaves it.
+        spark = dict(weekly(30.0), limit_id="codex_bengalfox")
+        compact = line(NOW + 2, "turn_context", {"turn_id": "auto-compact-0"})
+        self.assertEqual(self.cut([count(NOW, weekly(82.0)), *head, compact, named], {TURN_A})["before"], kept)
+        self.assertEqual(self.cut([*head, count(NOW + 2, spark), named], {TURN_A})["before"],
+                         {"snapshot": reading(NOW + 2, 30.0), "family": "codex_bengalfox"})
+        # A token_count without a usable window, an inherited one and one whose time cannot be read are passed over.
+        copied = dict(count(NOW + 2, weekly(84.0)), metadata={"inherited_user_message": True})
+        for odd in (count(NOW + 2), count(NOW + 2, None), copied, dict(count(0, weekly(84.0)), timestamp=None),
+                    dict(count(0, weekly(84.0)), timestamp="soon")):
+            with self.subTest(odd=odd):
+                self.assertEqual(self.cut([*head, odd, named], {TURN_A})["before"], kept)
+                self.assertIsNone(self.cut([call(NOW + 1), odd, named], {TURN_A})["before"])
+        # Not where the tail is not cut: there the lines before the first naming line are another turn's.
+        self.assertIsNone(self.own([*head, named], {TURN_A})["before"])
+        # Not where a turn ended or began before the first naming line, whatever id the line carries, before or after
+        # the reading.
+        for edge in (complete(NOW + 2, None), aborted(NOW + 2, None), event(NOW + 2, "turn_aborted"),
+                     complete(NOW + 2, "auto-compact-0"), event(NOW + 2, "task_started", turn_id="1"),
+                     event(NOW + 2, "task_started")):
+            with self.subTest(edge=edge):
+                self.assertIsNone(self.cut([*head, edge, named], {TURN_A})["before"])
+                self.assertIsNone(self.cut([edge, *head, named], {TURN_A})["before"])
+        # Not where the first naming line is a task_started, even of a noted turn, or names a turn outside TURNS; an end
+        # event of a noted turn is that turn's end, and what precedes it is the turn's.
+        self.assertIsNone(self.cut([*head, started(NOW + 3, TURN_A), named], {TURN_A})["before"])
+        for first in (record(NOW + 3, TURN_B), context(NOW + 3, TURN_B), complete(NOW + 3, TURN_B)):
+            with self.subTest(first=first):
+                self.assertIsNone(self.cut([*head, first, named], {TURN_A})["before"])
+        self.assertEqual(self.cut([*head, complete(NOW + 3, TURN_A), started(NOW + 4, TURN_C), context(NOW + 4, TURN_C)],
+                                  {TURN_A, TURN_C})["before"], kept)
+        # A sub-agent's copied head names its parent's turn, which is not noted for its rollout.
+        self.assertIsNone(self.cut([*head, context(NOW + 3, TURN_P), complete(NOW + 3, TURN_P), aborted(NOW + 3, None),
+                                    started(NOW + 4, TURN_C), context(NOW + 4, TURN_C)], {TURN_C})["before"])
+        # It never changes the rest of the own view, nor the lines since the start.
+        path = self.write([])
+        with open(path, "a") as stream:
+            stream.write(json.dumps(item(NOW, "function_call_output", call_id="call_0", output="x" * usage.TAIL)) + "\n")
+            stream.write("".join(json.dumps(record) + "\n" for record in [*head, named]))
+        found = usage.session(path, NOW, {TURN_A})
+        self.assertEqual(found["own"], {**NOTHING, "responded": True, "turns": {TURN_A}, "before": kept})
+        self.assertEqual(dict(found, own=None), usage.session(path, NOW))
 
     def test_a_tail_that_names_no_turn_has_no_own_view(self):
         for records in ([], [call(NOW + 1), count(NOW + 2, weekly(40.0))],
@@ -1501,6 +1555,14 @@ class Witnessed(unittest.TestCase):
         # A noted turn without a reply, as after a refused prompt, is viewed and holds no snapshot.
         _, refused = self.write(RESUMED, [started(NOW - 10, TURN_A), context(NOW - 10, TURN_A), complete(NOW - 9, TURN_A)])
         self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, refused: {TURN_A}}), (None, None, True))
+
+    def test_the_reading_before_a_cut_tail_s_first_naming_line_is_never_recorded(self):
+        # A tool output longer than the tail, then the noted turn's reading and its next reply's record.
+        path, rel = self.write(THREAD, [item(NOW - 20, "function_call_output", call_id="call_0", output="x" * usage.TAIL),
+                                        call(NOW - 19), count(NOW - 18, weekly(83.0)), record(NOW - 17, TURN_A)])
+        self.assertEqual(usage.session(path, usage.LAST, {TURN_A})["own"]["before"],
+                         {"snapshot": reading(NOW - 18, 83.0), "family": None})
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (None, None, True))
 
     def test_a_noted_turn_before_the_tail_lets_no_other_client_s_turn_count(self):
         # The launch's noted turn, then another client's turn in the same thread with more than the tail of lines.
