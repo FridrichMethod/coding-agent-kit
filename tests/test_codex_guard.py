@@ -1256,7 +1256,19 @@ class Recording(Fixture):
         self.assertIsNone(launch.noted_turns(state))
         os.unlink(state + ".turns")
         os.mkfifo(state + ".turns")
-        self.assertIsNone(launch.noted_turns(state))
+        # Read in a thread: a reader that waits on the FIFO fails the case instead of hanging the suite.
+        found = []
+        reader = threading.Thread(target=lambda: found.append(launch.noted_turns(state)), daemon=True)
+        reader.start()
+        reader.join(10)
+        waited = reader.is_alive()
+        if waited:  # a writer's open lets a reader that waits in open() go
+            try:
+                os.close(os.open(state + ".turns", os.O_WRONLY | os.O_NONBLOCK))
+            except OSError:
+                pass
+        self.assertFalse(waited, "the notes were waited on as a FIFO")
+        self.assertEqual(found, [None])
         os.unlink(state + ".turns")
         os.mkdir(state + ".turns")
         self.assertIsNone(launch.noted_turns(state))
