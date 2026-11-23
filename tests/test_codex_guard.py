@@ -851,7 +851,7 @@ class HookSelection(unittest.TestCase):
 
 
 FAKE = r'''
-import json, os, pathlib, signal, subprocess, sys, time, tomllib
+import json, os, pathlib, re, signal, subprocess, sys, time, tomllib
 if sys.argv[1:] == ["--version"]:
     print(os.environ.get("FAKE_VERSION", "codex-cli 0.169.0"))
     if os.environ.get("FAKE_BREAK"):
@@ -866,7 +866,20 @@ if os.environ.get("FAKE_READY"):
 launch = os.environ.get("CODING_AGENT_KIT_GUARD")
 state = json.loads(launch)["state"] if launch else None
 record = {"args": args, "env": dict(os.environ), "launched": bool(state) and os.path.isfile(state + ".launched"),
-          "hooks": []}
+          "hooks": [], "events": []}
+names = {"prompt": "UserPromptSubmit", "tool": "PreToolUse"}
+
+
+def run_hook(kind, event):
+    """The guard's hook as Codex runs it: the command of the -c value through a shell, the event on stdin.
+    Without that -c value (a launch without reserves) Codex runs no such hook."""
+    value = next((arg for arg in args if arg.startswith(f"hooks.{names[kind]}=")), None)
+    if value is None:
+        return
+    command = tomllib.loads("v = " + value.partition("=")[2])["v"][0]["hooks"][0]["command"]
+    done = subprocess.run(["/bin/sh", "-c", command], input=json.dumps(event), capture_output=True, text=True)
+    record["hooks"].append([kind, done.returncode, done.stdout, done.stderr])
+    record["events"].append(event)
 # FAKE_PAUSE: [READY, GO]: says it runs, then waits for GO before it does anything else.
 pause = json.loads(os.environ.get("FAKE_PAUSE", "null"))
 if pause:
@@ -885,13 +898,29 @@ home = pathlib.Path(os.environ["CODEX_HOME"])
 # As native Codex writes them: the TUI's threads come from "cli", exec's and review's from "exec".
 source = "exec" if {"exec", "e", "review"} & set(args) else "cli"
 transcripts = []
+
+
+def stamped(then):
+    """Milliseconds, truncated, as native Codex stamps its lines."""
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(then)) + ".%03dZ" % (int(then * 1000) % 1000)
+
+
 for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
     now = time.time()
-    # Milliseconds, truncated, as native Codex stamps its lines; "offset" seconds later for a writer whose clock runs ahead.
-    then = now + item.get("offset", 0)
-    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(then)) + ".%03dZ" % (int(then * 1000) % 1000)
+    # "offset" seconds later for a writer whose clock runs ahead.
+    stamp = stamped(now + item.get("offset", 0))
     if "append" in item:  # a resumed thread: Codex appends to its rollout, wherever it lies
         path, lines = pathlib.Path(item["append"]), item["lines"]
+        found = re.search(r"-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:_[0-9a-f-]{36})?\.jsonl$", path.name)
+        try:  # what the hooks of the session that continues it name, from its session_meta line
+            with open(path) as stream:
+                existing = json.loads(stream.readline())["payload"]
+        except (OSError, ValueError, KeyError, TypeError):
+            existing = {}
+        existing = existing if isinstance(existing, dict) else {}
+        thread = item.get("thread") or (found[1] if found else None)
+        session = item.get("session_id") or existing.get("session_id") or thread
+        spawned = item.get("source", existing.get("source"))
     else:
         day = home / "sessions" / time.strftime("%Y/%m/%d", time.localtime(now))
         day.mkdir(parents=True, exist_ok=True)
@@ -907,23 +936,48 @@ for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
         if "padding" in item:  # long base instructions: a session_meta line of more than one read
             meta["base_instructions"] = {"text": "x" * item["padding"]}
         lines = [{"type": "session_meta", "payload": meta}, *item["lines"]]
-    with open(path, "a") as stream:
-        for line in lines:
-            stream.write(json.dumps({"timestamp": stamp, **line}) + "\n")
+        thread, session, spawned = item["thread"], meta["session_id"], meta["source"]
+    # A step {"hook": KIND, ...} among the lines: Codex has written the lines before it, then runs that hook for
+    # this rollout and the turn of its last task_started line, as codex-cli 0.171.0 does; the step's other keys
+    # replace fields of the event (null removes one). The lines after it are stamped when they are written.
+    turn, written = None, []
+    for line in [*lines, None]:
+        if line is not None and "hook" not in line:
+            written.append(line)
+            payload = line.get("payload") if isinstance(line.get("payload"), dict) else {}
+            if line.get("type") == "event_msg" and payload.get("type") == "task_started":
+                attribution = payload.get("turn_attribution")
+                turn = payload.get("turn_id", attribution.get("turn_id") if isinstance(attribution, dict) else None)
+            continue
+        with open(path, "a") as stream:
+            for row in written:
+                stream.write(json.dumps({"timestamp": stamp, **row}) + "\n")
+        written = []
+        if line is None:
+            break
+        event = {"hook_event_name": names[line["hook"]], "cwd": os.getcwd(), "transcript_path": str(path),
+                 "session_id": session, "turn_id": turn, "model": "fixture-model", "permission_mode": "default"}
+        if line["hook"] == "tool":
+            event.update(tool_name="Bash", tool_input={"command": "true"}, tool_use_id="call-1")
+        else:
+            event["prompt"] = "go"
+        if isinstance(spawned, dict):  # a sub-agent: its own thread, beside the root's session_id
+            event.update(agent_id=thread, agent_type="default")
+        for key, value in line.items():
+            if key != "hook":
+                event[key] = value
+        run_hook(line["hook"], {key: value for key, value in event.items() if value is not None})
+        stamp = stamped(time.time() + item.get("offset", 0))
     if "mtime" in item:  # the file's time as a file server sets it whose clock is "mtime" seconds off
         os.utime(path, (now + item["mtime"], now + item["mtime"]))
     transcripts.append(str(path))
-# The guard's hooks as Codex runs them: the command of the -c value through a shell, the event on stdin.
-names = {"prompt": "UserPromptSubmit", "tool": "PreToolUse"}
+# The guard's hooks as Codex runs them after every rollout is written, with events that name no turn.
 for kind in json.loads(os.environ.get("FAKE_HOOKS", "[]")):
-    value = next(arg for arg in args if arg.startswith(f"hooks.{names[kind]}="))
-    command = tomllib.loads("v = " + value.partition("=")[2])["v"][0]["hooks"][0]["command"]
     event = {"hook_event_name": names[kind], "cwd": os.getcwd(),
              "transcript_path": transcripts[0] if transcripts else None}
     if kind == "tool":
         event.update(tool_name="Bash", tool_input={"command": "true"})
-    done = subprocess.run(["/bin/sh", "-c", command], input=json.dumps(event), capture_output=True, text=True)
-    record["hooks"].append([kind, done.returncode, done.stdout, done.stderr])
+    run_hook(kind, event)
 # A block message as the guard leaves it, or something else in its place.
 blocked = json.loads(os.environ.get("FAKE_BLOCKED", "null"))
 if blocked is not None:
@@ -935,6 +989,11 @@ if blocked is not None:
         os.mkdir(state + ".blocked")
     else:
         os.mkfifo(state + ".blocked")
+# The launch's notes of the turns its hooks were called for, as Codex leaves them when it exits.
+try:
+    record["turns"] = pathlib.Path(state + ".turns").read_text() if state else None
+except OSError:
+    record["turns"] = None
 pathlib.Path(os.environ["FAKE_RECORD"]).write_text(json.dumps(record))
 print("fake codex ran")
 sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
@@ -942,6 +1001,8 @@ sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 USER, WORKSPACE = "user-fixture-A", "workspace-fixture-A"
 THREAD = "019a0000-0000-7000-8000-00000000000a"
 OTHER = "019a0000-0000-7000-8000-0000000000bb"  # another session of the account
+# Turn ids as Codex makes them, one per submission.
+TURN_1, TURN_2, TURN_3 = (f"019a0000-0000-7000-9000-00000000000{digit}" for digit in "123")
 LAUNCH_LINE = "codex-as: usage reserves for A: {policy}; hooks refuse new prompts and tool calls at a reserve.\n"
 WITHOUT = "; to launch without usage reserves, run codex-as --reserve-5h off --reserve-weekly off {account} with the same arguments.\n"
 # After a run whose own sessions show that Codex did not run a hook, and after one that may have written a session
@@ -979,6 +1040,88 @@ def id_token(claims):
     return "fake." + base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=") + ".fake"
 
 
+# The lines of a turn as codex-cli 0.171.0 writes them. task_started, turn_context, token_usage_record, task_complete
+# and turn_aborted name the turn they stand in; item_completed names the turn its item began in, which can be a turn
+# that has ended. A step {"hook": KIND} is where Codex runs that hook (the fake: FAKE).
+PROMPT_STEP, TOOL_STEP = {"hook": "prompt"}, {"hook": "tool"}
+WORLD = {"type": "world_state", "payload": {}}
+OUTPUT = {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "call-1", "output": "done"}}
+INHERITED = {"metadata": {"inherited_user_message": True}}
+
+
+def started(turn):
+    """The line that opens a turn; the id stands in it twice."""
+    return {"type": "event_msg", "payload": {
+        "type": "task_started", "turn_id": turn, "root_turn_id": turn, "model_context_window": 258400,
+        "collaboration_mode_kind": "default",
+        "turn_attribution": {"turn_id": turn, "root_turn_id": turn, "turn_trigger": "exec"}}}
+
+
+def context(turn, cwd=None):
+    """The turn_context line of a turn: its id, and the session's working directory at that turn."""
+    payload = {"turn_id": turn, "root_turn_id": turn, "model": "fixture-model"}
+    return {"type": "turn_context", "payload": payload if cwd is None else {**payload, "cwd": str(cwd)}}
+
+
+def usage_record(turn, thread, root=None):
+    """The token_usage_record line Codex writes right after a response's items; ROOT is the session's root thread."""
+    return {"type": "token_usage_record", "payload": {"thread_id": thread, "turn_id": turn, "session_id": root or thread,
+                                                      "root_turn_id": turn, "response_id": "resp_fixture"}}
+
+
+def completed(turn):
+    return {"type": "event_msg", "payload": {"type": "task_complete", "turn_id": turn, "root_turn_id": turn,
+                                             "last_agent_message": "done"}}
+
+
+def aborted(turn):
+    return {"type": "event_msg", "payload": {"type": "turn_aborted", "turn_id": turn, "reason": "interrupted"}}
+
+
+def item_completed(turn, thread):
+    return {"type": "event_msg", "payload": {"type": "item_completed", "thread_id": thread, "turn_id": turn}}
+
+
+def settings_applied(thread):
+    """The line a client writes when it takes up a thread, before its turn starts; it names no turn."""
+    return {"type": "event_msg", "payload": {"type": "thread_settings_applied", "thread_id": thread}}
+
+
+def said(role, text):
+    return {"type": "response_item", "payload": {"type": "message", "role": role,
+                                                 "content": [{"type": "input_text", "text": text}]}}
+
+
+def literal_turn(turn, thread, used, calls=2, hooks=("prompt", "tool"), resumed=False, root=None, cwd=None):
+    """One turn as codex-cli 0.171.0 writes it: in a new session its head and the thread_settings_applied line, in a
+    resumed one the thread_settings_applied line of the client that takes the thread up, then task_started and
+    turn_context; the prompt hook (a step, when "prompt" is in HOOKS); the prompt; CALLS tool calls, each response's
+    token_usage_record before the call's tool hook (when "tool" is in HOOKS), and its token_count after the call's
+    output; the answer, its record and its token_count; task_complete. USED is the five-hour percentage every
+    token_count shows, or a list of CALLS + 1, one per response; None is a reply without rate limits."""
+    readings = list(used) if isinstance(used, (list, tuple)) else [used] * (calls + 1)
+    counts = [NO_LIMITS if percent is None else snapshot(percent) for percent in readings]
+    if resumed:
+        lines = [settings_applied(thread), started(turn), context(turn, cwd)]
+    else:
+        lines = [started(turn), said("developer", "instructions"), said("user", "<environment_context>"), WORLD,
+                 context(turn, cwd), settings_applied(thread)]
+    lines += [PROMPT_STEP] if "prompt" in hooks else []
+    lines += [said("user", "go"), item_completed(turn, thread)]
+    for count in counts[:-1]:
+        lines += [CALL, usage_record(turn, thread, root), *([TOOL_STEP] if "tool" in hooks else []),
+                  item_completed(turn, thread), OUTPUT, count]
+    return lines + [item_completed(turn, thread), ANSWER, usage_record(turn, thread, root), counts[-1], completed(turn)]
+
+
+def copied_head(turn):
+    """What a sub-agent's rollout starts with (fork_turns all): a copy of its parent's history, whose turn lines name
+    the parent's TURN unmarked, a copied turn_aborted without an id, response items marked inherited, no token line."""
+    return [started(turn), {**said("user", "go"), **INHERITED}, context(turn), {**CALL, **INHERITED},
+            {**ANSWER, **INHERITED}, completed(turn), {"type": "event_msg", "payload": {"type": "turn_aborted",
+                                                                                     "turn_id": None}}]
+
+
 class GuardedLaunch(unittest.TestCase):
     """codex-as with a reserve on, from a kit copy, against a fake codex."""
 
@@ -1010,14 +1153,7 @@ class GuardedLaunch(unittest.TestCase):
         self.home.chmod(0o700)
         (self.root / "config.toml").write_text('model = "fixture-model"\n')
         (self.home / ".secrets").mkdir(mode=0o700)
-        credential = self.home / ".secrets/codex-A.json"
-        claims = {"sub": "fixture-A", "email": "alice@example.com",
-                  "https://api.openai.com/auth": {"chatgpt_plan_type": "plus", "chatgpt_user_id": USER}}
-        credential.write_text(json.dumps({
-            "auth_mode": "chatgpt", "OPENAI_API_KEY": None, "last_refresh": "2026-10-01T00:00:00Z",
-            "tokens": {"id_token": id_token(claims), "access_token": "fabricated-sensitive-access",
-                       "refresh_token": "fabricated-sensitive-refresh", "account_id": WORKSPACE}}))
-        credential.chmod(0o600)
+        self.credential("A", USER, WORKSPACE)
         fakes = self.base / "fake bin"
         fakes.mkdir()
         (fakes / "codex").write_text(f"#!{sys.executable}\n" + FAKE)
@@ -1035,6 +1171,23 @@ class GuardedLaunch(unittest.TestCase):
         self.marker = self.guard_dir / f"codex-hooks-{FINGERPRINT}"
         self.store = 'cli_auth_credentials_store="file"'
         self.sqlite = "sqlite_home=" + json.dumps(str(self.root))
+
+    def credential(self, name, user, workspace, email="alice@example.com"):
+        """The login of account NAME: ChatGPT user USER in workspace WORKSPACE (fabricated tokens)."""
+        path = self.home / f".secrets/codex-{name}.json"
+        claims = {"sub": f"fixture-{name}", "email": email,
+                  "https://api.openai.com/auth": {"chatgpt_plan_type": "plus", "chatgpt_user_id": user}}
+        path.write_text(json.dumps({
+            "auth_mode": "chatgpt", "OPENAI_API_KEY": None, "last_refresh": "2026-10-01T00:00:00Z",
+            "tokens": {"id_token": id_token(claims), "access_token": "fabricated-sensitive-access",
+                       "refresh_token": "fabricated-sensitive-refresh", "account_id": workspace}}))
+        path.chmod(0o600)
+        return path
+
+    def attested(self, name="A"):
+        """The account's attested usage in the guard directory, or None while there is none."""
+        path = self.guard_dir / f"codex-usage-{name}.json"
+        return json.loads(path.read_text()) if path.exists() else None
 
     def configure(self, text):
         path = self.home / ".config/coding-agent-kit/config.toml"
@@ -2299,6 +2452,36 @@ class GuardedLaunch(unittest.TestCase):
                          (1, "", "codex-as: Codex version 0.161.0 or newer is required; found codex-cli 0.160.9.\n"))
         self.assertFalse(self.record.exists())
 
+    def test_the_fake_runs_each_hook_step_for_the_turn_it_stands_in(self):
+        """The fixture: at a hook step the fake runs the guard's hook for the rollout it writes, with the turn of the
+        last task_started line before the step and the session's id; a sub-agent's event carries the root's
+        session_id beside its own thread as agent_id, as codex-cli 0.171.0 sends them. A launch without reserves
+        runs no hook."""
+        self.trusted()
+        spawned = {"subagent": {"thread_spawn": {"parent_thread_id": THREAD, "depth": 1}}}
+        rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": literal_turn(TURN_1, THREAD, 20.0, calls=1)},
+                    {"thread": OTHER, "creator": [USER, WORKSPACE], "session_id": THREAD, "source": spawned,
+                     "thread_source": "subagent", "lines": [*copied_head(TURN_1), *literal_turn(
+                         TURN_2, OTHER, 20.0, calls=1, hooks=("tool",), resumed=True, root=THREAD)]}]
+        result = self.run_codex("--reserve-5h", "10", "A", "exec", "go", env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        record = self.recorded()
+        self.assertEqual([hook[:2] for hook in record["hooks"]], [["prompt", 0], ["tool", 0], ["tool", 0]])
+        [main] = (self.root / "sessions").glob(f"*/*/*/rollout-*-{THREAD}.jsonl")
+        [sub] = (self.root / "sessions").glob(f"*/*/*/rollout-*-{OTHER}.jsonl")
+        # Codex names the rollout through its home, the account's, whose sessions directory links the shared one.
+        self.assertEqual([(event["hook_event_name"], os.path.realpath(event["transcript_path"]), event["turn_id"],
+                           event["session_id"], event.get("agent_id"), event.get("agent_type"))
+                          for event in record["events"]],
+                         [("UserPromptSubmit", str(main), TURN_1, THREAD, None, None),
+                          ("PreToolUse", str(main), TURN_1, THREAD, None, None),
+                          ("PreToolUse", str(sub), TURN_2, THREAD, OTHER, "default")])
+        self.assertEqual(len(main.read_text().splitlines()), 1 + len(literal_turn(TURN_1, THREAD, 20.0, calls=1)) - 2)
+        result = self.run_codex("A", "exec", "go", env={"FAKE_ROLLOUTS": json.dumps(rollouts[:1])})
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
+        self.assertEqual((self.recorded()["hooks"], self.recorded()["events"]), ([], []))
+
     def test_a_kit_without_the_guard_is_an_incomplete_install(self):
         (self.kit / "lib/coding-agent-kit/guard.py").unlink()
         result = self.run_codex("--reserve-5h", "10", "A")
@@ -2496,6 +2679,37 @@ class Sandbox:
         return found
 
 
+# What RealCodex puts in place of guard.py: it writes down each hook event the real Codex hands it (fabricated data
+# only), and what the transcript the event names holds at that moment, then runs the real guard with the same input
+# and passes its answer on.
+WRAPPER = r'''
+import json, os, subprocess, sys
+LOG, GUARD = {log!r}, {guard!r}
+raw = sys.stdin.buffer.read()
+entry = {{"kind": sys.argv[1]}}
+try:
+    event = json.loads(raw)
+    entry["event"] = event
+    path = event.get("transcript_path")
+    if isinstance(path, str) and os.path.isfile(path):
+        with open(path, "rb") as stream:
+            lines = stream.read().split(b"\n")[:-1]  # complete lines only
+        entry["lines"] = len(lines)
+        rows = [json.loads(line) for line in lines]
+        entry["started"] = [row["payload"].get("turn_id") for row in rows
+                            if row.get("type") == "event_msg" and row.get("payload", {{}}).get("type") == "task_started"]
+except Exception as error:
+    entry["error"] = repr(error)
+done = subprocess.run([sys.executable, "-I", "-B", "-S", GUARD, sys.argv[1]], input=raw, capture_output=True)
+entry["answer"] = [done.returncode, done.stderr.decode("utf-8", "replace")]
+with open(LOG, "a") as stream:
+    stream.write(json.dumps(entry) + "\n")
+sys.stdout.buffer.write(done.stdout)
+sys.stderr.buffer.write(done.stderr)
+sys.exit(done.returncode)
+'''
+
+
 def load_kit_module(kit, name):
     spec = importlib.util.spec_from_file_location(f"codex_guard_real_{name}", kit / f"lib/coding-agent-kit/{name}.py")
     module = importlib.util.module_from_spec(spec)
@@ -2636,12 +2850,16 @@ class RealCodex(unittest.TestCase):
         self.marker = self.guard_dir / f"codex-hooks-{FINGERPRINT}"
         self.calls = base / "shell calls"
         self.requests = base / "requests.jsonl"
+        self.hook_log = base / "hook events.jsonl"
 
-    def run_codex(self, prompt, recorded=None, sent=None, options=()):
-        """codex exec OPTIONS PROMPT under the guard with the five-hour reserve at 10: RECORDED percent of
-        the five-hour window used in the account record of earlier runs, SENT percent in the rate limits
-        the fake sends with every answer (None: no record, no rate limits)."""
+    def run_codex(self, prompt, recorded=None, sent=None, options=(), tail=(), root_options=(), started=None):
+        """codex ROOT_OPTIONS exec OPTIONS --skip-git-repo-check TAIL PROMPT under the guard with the five-hour
+        reserve at 10: RECORDED percent of the five-hour window used in the account record of earlier runs, SENT
+        percent in the rate limits the fake sends with every answer (None: no record, no rate limits). STARTED is
+        the launch's start in epoch seconds, now by default. The guard runs behind WRAPPER (events()); the
+        requests returned are this run's."""
         now = int(time.time())
+        seen = len(self.requests.read_text().splitlines()) if self.requests.exists() else 0
         self.serve({} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]})
         if recorded is not None:
             window = {"used_percent": float(recorded), "window_minutes": 300, "resets_at": now + 3600}
@@ -2653,17 +2871,20 @@ class RealCodex(unittest.TestCase):
                                      self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
                                      self.reserve.Setting("weekly", None, "default"))
         env = self.sandbox.env()
-        state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", "A", policy, str(self.record), int(time.time()),
-                                     marker=str(self.marker))
+        state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", "A", policy, str(self.record),
+                                     int(time.time()) if started is None else started, marker=str(self.marker))
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
+        wrapper = self.sandbox.base / "guard wrapper.py"
+        wrapper.write_text(WRAPPER.format(log=str(self.hook_log), guard=env["CODING_AGENT_KIT_GUARD_SCRIPT"]))
+        env["CODING_AGENT_KIT_GUARD_SCRIPT"] = str(wrapper)
         # The values codex-as passes before the caller's arguments, and the stand-in for the user's trust.
-        args = [*(word for value in launch.GUARD_HOOKS for word in ("-c", value)), *launch.GOALS_OFF,
-                "--dangerously-bypass-hook-trust", "exec", *options, "--skip-git-repo-check", prompt]
+        args = [*(word for value in launch.GUARD_HOOKS for word in ("-c", value)), *launch.GOALS_OFF, *root_options,
+                "--dangerously-bypass-hook-trust", "exec", *options, "--skip-git-repo-check", *tail, prompt]
         code, out, err = self.sandbox.run(self.codex, args, env)
         self.assertEqual(self.sandbox.strays(), [], "Codex left a process behind")
         refused = [line for line in self.sandbox.netlog.read_text().splitlines() if line.startswith("REFUSED ssh")]
         self.assertEqual(refused, [], "Codex tried to reach a host through ssh")
-        lines = self.requests.read_text().splitlines() if self.requests.exists() else []
+        lines = self.requests.read_text().splitlines()[seen:] if self.requests.exists() else []
         models = [entry for entry in map(json.loads, lines) if entry["path"].endswith("/responses")]
         # Without the flags, codex-cli 0.169.0 offers get_goal, create_goal and update_goal here.
         for entry in models:
@@ -2684,6 +2905,17 @@ class RealCodex(unittest.TestCase):
 
     def shell_calls(self):
         return len(self.calls.read_text().splitlines()) if self.calls.exists() else 0
+
+    def events(self):
+        """What WRAPPER wrote down of each hook event, oldest first."""
+        return [json.loads(line) for line in self.hook_log.read_text().splitlines()] if self.hook_log.exists() else []
+
+    def rollouts(self):
+        """{path: [rows]} of every rollout in the sandbox's Codex home."""
+        found = {}
+        for path in (self.sandbox.codex_home / "sessions").glob("*/*/*/rollout-*.jsonl"):
+            found[path] = [json.loads(line) for line in path.read_text().splitlines()]
+        return found
 
     def assert_state(self, state, present, absent):
         for name in present:
@@ -2813,6 +3045,123 @@ class RealCodex(unittest.TestCase):
         self.assertEqual((code, out.strip()), (0, "TOOL-DONE"), err)
         self.assert_state(state, (".ran.prompt", ".ran.tool"), ())
         self.assertTrue(self.marker.is_file(), "the tool hook made no marker")
+
+    def turns(self, rows):
+        """{turn: [index of each row of that turn]}: a turn runs from its task_started to its task_complete or
+        turn_aborted (or the next task_started)."""
+        found, current = {}, None
+        for index, row in enumerate(rows):
+            payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+            if row["type"] == "event_msg" and payload.get("type") == "task_started":
+                current = payload.get("turn_id")
+            if current is not None:
+                found.setdefault(current, []).append(index)
+            if row["type"] == "event_msg" and payload.get("type") in ("task_complete", "turn_aborted"):
+                current = None
+        return found
+
+    def test_the_hook_events_name_the_turn_and_an_existing_transcript(self):
+        """Each prompt and tool event names its turn (a UUID), the session and the rollout it writes, which lies
+        below sessions/ in a day directory; when the hook runs, that rollout already holds the turn's task_started
+        line; and task_started (also in turn_attribution), turn_context, token_usage_record and task_complete
+        carry the same id. For a root session session_id is its thread. The guard tells the launch's turns by
+        these facts."""
+        code, out, err, state, models = self.run_codex("TOOL run the command", sent=50)
+        self.assertEqual((code, out.strip()), (0, "TOOL-DONE"), err)
+        events = self.events()
+        self.assertEqual([entry["kind"] for entry in events], ["prompt", "tool", "tool"])
+        [(path, rows)] = self.rollouts().items()
+        thread = rows[0]["payload"]["id"]
+        common = {"session_id", "turn_id", "transcript_path", "cwd", "hook_event_name", "model", "permission_mode"}
+        for entry in events:
+            with self.subTest(kind=entry["kind"]):
+                event = entry["event"]
+                extra = {"prompt"} if entry["kind"] == "prompt" else {"tool_name", "tool_input", "tool_use_id"}
+                self.assertLessEqual(common | extra, set(event))
+                self.assertNotIn("agent_id", event)
+                self.assertRegex(event["turn_id"], f"^{TURN_ID.pattern}$")
+                self.assertEqual((event["transcript_path"], event["session_id"]), (str(path), thread))
+                self.assertEqual(entry["started"][-1], event["turn_id"], "the turn's task_started was not written yet")
+                parts = Path(event["transcript_path"]).parts
+                self.assertEqual(parts[-5], "sessions")
+                self.assertRegex("/".join(parts[-4:]), f"^{REL_PATH.pattern}$")
+        [turn] = {entry["event"]["turn_id"] for entry in events}
+        self.assertEqual(list(self.turns(rows)), [turn])
+        named = [row for row in rows if row["type"] in ("turn_context", "token_usage_record") or row["type"] == "event_msg"
+                 and row["payload"].get("type") in ("task_started", "task_complete", "turn_aborted")]
+        self.assertEqual([row["payload"].get("turn_id") for row in named], [turn] * len(named))
+        self.assertEqual([row["payload"]["turn_attribution"]["turn_id"] for row in named
+                          if row["payload"].get("type") == "task_started"], [turn])
+        self.assertEqual(sorted({row["type"] for row in named}), ["event_msg", "token_usage_record", "turn_context"])
+
+    def test_the_last_token_count_precedes_the_turn_s_end(self):
+        """A token_count line carries no turn id: it stands inside its turn, after a token_usage_record of that
+        turn, and the turn's last one comes right before its task_complete; none stands between two turns, also
+        when a second launch resumes the thread. So the turn a snapshot belongs to is told by its place."""
+        code, out, err, *_ = self.run_codex("TOOL run the command", sent=50)
+        self.assertEqual((code, out.strip()), (0, "TOOL-DONE"), err)
+        code, out, err, *_ = self.run_codex("PLAIN again", sent=40, tail=("resume", "--last"))
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        [(path, rows)] = self.rollouts().items()
+        turns = self.turns(rows)
+        self.assertEqual(len(turns), 2)
+        inside = {index for indexes in turns.values() for index in indexes}
+        counts = [index for index, row in enumerate(rows)
+                  if row["type"] == "event_msg" and row["payload"].get("type") == "token_count"]
+        self.assertEqual(len(counts), 4)
+        self.assertLessEqual(set(counts), inside, "a token_count line between turns")
+        for turn, indexes in turns.items():
+            with self.subTest(turn=turn):
+                own = [index for index in counts if index in indexes]
+                records = [index for index in indexes if rows[index]["type"] == "token_usage_record"]
+                self.assertTrue(own and records and records[0] < own[0], "no response before the turn's token_count")
+                self.assertEqual(rows[indexes[-1]]["payload"].get("type"), "task_complete")
+                self.assertEqual(own[-1], indexes[-1] - 1, "the turn's last token_count is not right before its end")
+
+    def test_a_sub_agent_s_hook_names_its_own_rollout_and_turn(self):
+        """A sub-agent that the model spawns (collaboration.spawn_agent, --enable multi_agent_v2): its tool events name
+        its own rollout and its own turn, whose task_started is there at the hook, with the root's session_id and
+        its own thread as agent_id; no prompt event runs for its turn. Its rollout starts with a copy of the root's
+        history, whose turn lines name the root's turn unmarked and hold no token line, so a turn id stands in two
+        rollouts and the guard counts a noted turn for one rollout only."""
+        if "multi_agent_v2" not in self.features:
+            self.skipTest("this Codex has no multi_agent_v2 feature, which offers collaboration.spawn_agent")
+        code, out, err, state, models = self.run_codex("SPAWN a helper", sent=50, root_options=("--enable", "multi_agent_v2"))
+        self.assertEqual((code, out.strip()), (0, "SPAWN-DONE"), err)
+        self.assertEqual(sorted({entry["script"] for entry in models}), ["CHILD", "SPAWN"])
+        found = self.rollouts()
+        roots = [path for path, rows in found.items() if rows[0]["payload"].get("thread_source") == "user"]
+        subs = [path for path, rows in found.items() if rows[0]["payload"].get("thread_source") == "subagent"]
+        self.assertEqual((len(roots), len(subs)), (1, 1), sorted(found))
+        root, sub = found[roots[0]], found[subs[0]]
+        root_thread, sub_thread = root[0]["payload"]["id"], sub[0]["payload"]["id"]
+        events = self.events()
+        mine = [entry for entry in events if entry["event"]["transcript_path"] == str(subs[0])]
+        theirs = [entry for entry in events if entry["event"]["transcript_path"] == str(roots[0])]
+        self.assertEqual(len(mine) + len(theirs), len(events))
+        self.assertEqual([entry["kind"] for entry in mine], ["tool"], "the sub-agent's events")
+        [root_turn] = {entry["event"]["turn_id"] for entry in theirs}
+        event = mine[0]["event"]
+        self.assertEqual((event["session_id"], event["agent_id"]), (root_thread, sub_thread))
+        self.assertIn("agent_type", event)
+        self.assertRegex(event["turn_id"], f"^{TURN_ID.pattern}$")
+        self.assertNotEqual(event["turn_id"], root_turn)
+        self.assertEqual(mine[0]["started"][-1], event["turn_id"])
+        self.assertEqual(sub[0]["payload"]["session_id"], root_thread)
+        turns = self.turns(sub)
+        self.assertEqual(list(turns), [root_turn, event["turn_id"]], "the copied head names the root's turn first")
+        head = turns[root_turn]
+        self.assertFalse([index for index in head if sub[index]["type"] == "token_usage_record"
+                          or sub[index]["type"] == "event_msg" and sub[index]["payload"].get("type") == "token_count"],
+                         "the copied head holds a token line")
+        self.assertTrue([index for index in turns[event["turn_id"]] if sub[index]["type"] == "event_msg"
+                         and sub[index]["payload"].get("type") == "token_count"], "the sub-agent's turn has no token_count")
+
+
+# A turn id as Codex makes it (a UUID in lower case), and the part of a rollout's path below sessions/.
+TURN_ID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}")
+REL_PATH = re.compile(r"[0-9]{4}/[0-9]{2}/[0-9]{2}/rollout-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}-"
+                      r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:_[0-9a-f-]{36})?\.jsonl")
 
 
 if __name__ == "__main__":

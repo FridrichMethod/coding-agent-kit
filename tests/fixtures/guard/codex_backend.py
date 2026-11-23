@@ -16,7 +16,15 @@ keyword in the request's user and developer messages:
           TOOL-DONE. Codex writes a response's token_count line after the
           response's tool outputs, so only the second call's PreToolUse hook
           sees the rate limits of an earlier response in the rollout.
+  SPAWN   a call of collaboration.spawn_agent (offered with --enable
+          multi_agent_v2) that starts a sub-agent on a copy of the history;
+          after its output a call of collaboration.wait_agent; after that
+          output, SPAWN-DONE.
   other   one text message, FIXTURE-ANSWER
+
+A request whose x-codex-turn-metadata header names an agent other than /root
+is a sub-agent's: whatever its messages hold, it is answered with one call of
+the shell tool running CMD, and after that call's output with CHILD-DONE.
 
 Every answer carries the rate limits of --limits the way the real backend
 sends them, as response headers that Codex turns into the rollout's
@@ -26,9 +34,9 @@ the same for secondary. --limits is JSON {"primary": [USED, MINUTES, RESET_IN],
 no headers. A GET of .../models answers an empty list; any other request a 404.
 
 Every request is appended to --log as one JSON line: the method, the path, the
-script chosen, the names of the tools the request offers, and the text of the
-tool output it ends with (null when it ends with something else). No header
-value and no other part of the body is logged.
+script chosen (CHILD for a sub-agent's), the names of the tools the request
+offers, and the text of the tool output it ends with (null when it ends with
+something else). No header value and no other part of the body is logged.
 """
 
 import argparse
@@ -42,10 +50,14 @@ import sys
 import threading
 import time
 
-KEYWORD = re.compile(r"\b(PLAIN|TOOL)\b")
+KEYWORD = re.compile(r"\b(PLAIN|TOOL|SPAWN)\b")
 OUTPUTS = ("function_call_output", "custom_tool_call_output")
 SHELLS = (("exec_command", lambda cmd: {"cmd": cmd}), ("shell_command", lambda cmd: {"command": cmd}),
           ("shell", lambda cmd: {"command": ["/bin/sh", "-c", cmd]}))
+# The calls SPAWN makes, one per answer, each after the output of the one before: (namespace, name, arguments).
+SPAWNS = (("collaboration", "spawn_agent", {"task_name": "helper", "message": "run the command", "fork_turns": "all"}),
+          ("collaboration", "wait_agent", {"timeout_ms": 20000}))
+CHILD = "call_child_"  # the call ids of a sub-agent's own calls, which its copy of the history never holds
 
 
 def texts(item):
@@ -97,23 +109,44 @@ def message(text, number):
             "content": [{"type": "output_text", "text": text}]}
 
 
-def answer(request, number, shell):
-    """(script, the items of the answer) for one model request."""
-    items = [item for item in request.get("input") or [] if isinstance(item, dict)]
-    script = script_of(items)
-    if script == "PLAIN":
-        return script, [message("PLAIN-ANSWER", number)]
-    if script != "TOOL":
-        return script, [message("FIXTURE-ANSWER", number)]
-    start = max((index for index, item in enumerate(items) if script_of([item]) == "TOOL"), default=0)
-    if sum(item.get("type") in OUTPUTS for item in items[start:]) >= 2:
-        return script, [message("TOOL-DONE", number)]
-    tools = offered(request)
+def call(name, arguments, call_id, number, namespace=None):
+    item = {"type": "function_call", "name": name, "arguments": json.dumps(arguments), "call_id": call_id,
+            "id": f"fc_fixture_{number}"}
+    return {**item, "namespace": namespace} if namespace else item
+
+
+def shell_call(tools, shell, number, prefix="call_fixture_"):
     for name, arguments in SHELLS:
         if tools.get(name, {}).get("type") == "function":
-            return script, [{"type": "function_call", "name": name, "arguments": json.dumps(arguments(shell)),
-                             "call_id": f"call_fixture_{number}", "id": f"fc_fixture_{number}"}]
-    return script, [message("NO-SHELL-OFFERED", number)]
+            return call(name, arguments(shell), f"{prefix}{number}", number)
+    return message("NO-SHELL-OFFERED", number)
+
+
+def answer(request, number, shell, agent=None):
+    """(script, the items of the answer) for one model request; AGENT is the agent its turn metadata names."""
+    items = [item for item in request.get("input") or [] if isinstance(item, dict)]
+    script = script_of(items)
+    tools = offered(request)
+    if agent not in (None, "", "/root"):  # a sub-agent's request
+        if any(item.get("type") in OUTPUTS and str(item.get("call_id")).startswith(CHILD) for item in items):
+            return "CHILD", [message("CHILD-DONE", number)]
+        return "CHILD", [shell_call(tools, shell, number, CHILD)]
+    if script == "PLAIN":
+        return script, [message("PLAIN-ANSWER", number)]
+    if script not in ("TOOL", "SPAWN"):
+        return script, [message("FIXTURE-ANSWER", number)]
+    start = max((index for index, item in enumerate(items) if script_of([item]) == script), default=0)
+    done = sum(item.get("type") in OUTPUTS for item in items[start:])
+    if script == "SPAWN":
+        if done >= len(SPAWNS):
+            return script, [message("SPAWN-DONE", number)]
+        namespace, name, arguments = SPAWNS[done]
+        if f"{namespace}.{name}" not in tools:
+            return script, [message("NO-SPAWN-OFFERED", number)]
+        return script, [call(name, arguments, f"call_fixture_{number}", number, namespace)]
+    if done >= 2:
+        return script, [message("TOOL-DONE", number)]
+    return script, [shell_call(tools, shell, number)]
 
 
 def events(items, number):
@@ -175,7 +208,12 @@ class Fake:
                     except ValueError:
                         request = {}
                     request = request if isinstance(request, dict) else {}
-                    script, items = answer(request, number, fake.shell)
+                    try:
+                        turn = json.loads(self.headers.get("x-codex-turn-metadata") or "{}")
+                    except ValueError:
+                        turn = {}
+                    agent = turn.get("agent_name") if isinstance(turn, dict) else None
+                    script, items = answer(request, number, fake.shell, agent)
                     inputs = [item for item in request.get("input") or [] if isinstance(item, dict)]
                     last = inputs[-1] if inputs else {}
                     entry.update(script=script, tools=sorted(offered(request)),
