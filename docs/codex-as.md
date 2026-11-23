@@ -282,7 +282,12 @@ arguments:
   `transcript_path` names, and of it the lines of the launch's turns in that
   rollout: the event's own turn and the turns whose `turn_id` an earlier hook
   event of this launch carried with this rollout's path, which the launch's
-  `turns` file in the guard directory keeps. A line belongs to the turn that the last
+  `turns` file in the guard directory keeps. The guard adds a turn there at
+  the turn's first event in a rollout while the file holds less than 1 MiB;
+  a turn that it could not add (a full disk) counts at that turn's own
+  events only, and at a later turn's event or after the run it is none of
+  the launch's turns. Once the file holds 1 MiB, an event whose turn is not
+  in it is read by time (below). A line belongs to the turn that the last
   `task_started`, `turn_context` or `token_usage_record` line up to it names,
   until a `task_complete` or `turn_aborted` line ends that turn; only an id in
   UUID form names a turn, and an `item_completed` line, which can follow its
@@ -320,7 +325,8 @@ arguments:
   needed before it, and records nothing, when the launch has no `turns` file
   or one it cannot read (coding-agent-kit 0.9.0 or 0.9.1 started the launch),
   when the event carries no turn id in UUID form or a path that is no rollout
-  below `sessions/`, when the tail names no turn at all, and at a tool call
+  below `sessions/`, when the `turns` file holds 1 MiB and the event's turn
+  is not in it, when the tail names no turn at all, and at a tool call
   whose turn is not among the turns the tail names. A prompt whose turn the
   tail does not name, while it names others, is judged by the launch's
   earlier turns there and the attested usage. When the rollout cannot be
