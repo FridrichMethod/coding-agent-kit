@@ -2229,39 +2229,87 @@ class GuardedLaunch(unittest.TestCase):
         """A guarded launch of A whose hooks ran, in a thread A created that another account's client continues
         before and after A's turn in it: the guard reads A's turn alone (the other account's 90 percent a moment
         before the prompt would refuse it at a five-hour reserve of 10), and the record and the attested usage get
-        A's own reading, never the other account's newer one."""
+        A's own reading, never the other account's newer one. The same in the shape of the evidence: A runs a session
+        of its own while the other account continues, during A's run, an earlier session that A created; the other
+        account's newer reading there reaches neither A's record nor its attested usage, while a run of A whose hooks
+        never ran is scanned as by every earlier release and takes it, the known gap of runs without noted turns."""
         self.trusted()
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        record = self.state / "accounts/codex-A.json"
         path = self.old_rollout(THREAD, 600)
-        theirs = lambda turn, used: {"append": str(path), "lines": literal_turn(turn, THREAD, used, hooks=(), resumed=True)}
+        theirs = lambda path, thread, turn, used: {
+            "append": str(path), "lines": literal_turn(turn, thread, used, hooks=(), resumed=True)}
         own = aged(time.time() - 3, literal_turn(TURN_1, THREAD, [28.0, 29.0, 30.0], resumed=True, cwd=self.cwd))
-        rollouts = [theirs(TURN_2, 90.0), {"append": str(path), "lines": own}, theirs(TURN_3, 95.0)]
+        rollouts = [theirs(path, THREAD, TURN_2, 90.0), {"append": str(path), "lines": own}, theirs(path, THREAD, TURN_3, 95.0)]
         result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD, env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
         self.assertEqual((result.returncode, result.stderr), (0, launch_line))
         self.assertEqual([hook[:2] for hook in self.recorded()["hooks"]], [["prompt", 0], ["tool", 0], ["tool", 0]])
-        usage = json.loads((self.state / "accounts/codex-A.json").read_text())["usage"]
+        usage = json.loads(record.read_text())["usage"]
         self.assertEqual((usage["primary"]["used_percent"], usage["seen_at"]), (30.0, reply_time(path, TURN_1)))
         self.assertEqual(self.attested()["usage"], usage)
+        shutil.rmtree(self.root / "sessions")
+        record.unlink()
+        (self.guard_dir / "codex-usage-A.json").unlink()
+        older = self.old_rollout(OTHER, 600)
+        moment = time.time() - 3
+        for hooks in (("prompt", "tool"), ()):
+            with self.subTest(hooks=hooks):
+                # Without hooks A's lines are stamped before the run, so the scan finds only the other account's.
+                lines = literal_turn(TURN_1, THREAD, [36.0, 37.0, 38.0], hooks=hooks, cwd=self.cwd)
+                lines = aged(moment, lines) if hooks else at(moment, lines)
+                rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": lines},
+                            theirs(older, OTHER, TURN_2, 90.0)]
+                result = self.run_codex("--reserve-5h", "10", "A", "exec", "go",
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                [path] = (self.root / "sessions").glob(f"*/*/*/rollout-*-{THREAD}.jsonl")
+                usage = json.loads(record.read_text())["usage"]
+                if hooks:
+                    self.assertEqual(result.stderr, launch_line)
+                    self.assertEqual((usage["primary"]["used_percent"], usage["seen_at"]), (38.0, reply_time(path, TURN_1)))
+                    self.assertEqual(self.attested()["usage"], usage)
+                else:
+                    self.assertEqual(self.recorded()["turns"], f"o {TAG}\n")
+                    self.assertEqual(usage["primary"]["used_percent"], 90.0)
+                path.unlink()
+                record.unlink()
 
     def test_a_resume_without_a_reply_records_nothing(self):
         """The shape of the false block: a session another account created, whose sub-agent's rollout names it as
         session_id and holds that account's snapshots, from a minute before this run and from during it, resumed by
         id by a run that sends no prompt. No hook names a turn, so the run is scanned as by every earlier release,
         and the sub-agent's rollout, which another account created, is not read: the record's usage stays absent and
-        nothing is attested (the check after the run reports the hooks the sub-agent's reply went without)."""
+        nothing is attested (the check after the run reports the hooks the sub-agent's reply went without). With a
+        prompt that is interrupted before its reply, the hook names this run's turn, and what the other account wrote
+        in the session and in the sub-agent's rollout as this launch began, in the launch's own second and after the
+        moment Codex started, lies in turns that no hook of this launch named: the prompt is not judged on it (its 92
+        percent would refuse it at a five-hour reserve of 10, as the lines since the launch started show), and
+        nothing of it is recorded or attested."""
         self.trusted()
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        record = self.state / "accounts/codex-A.json"
         theirs = {"creator_user_id": "user-fixture-B", "creator_account_id": "workspace-fixture-B"}
         spawned = {"subagent": {"thread_spawn": {"parent_thread_id": THREAD, "depth": 1}}}
-        self.old_rollout(THREAD, 120, **theirs)
+        main = self.old_rollout(THREAD, 120, **theirs)
         sub = self.old_rollout(OTHER, 60, source=spawned, lines=[ANSWER, snapshot(90.0)], session_id=THREAD,
                                thread_source="subagent", **theirs)
         rollouts = [{"append": str(sub), "lines": [ANSWER, snapshot(91.0)]}]
         result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD, env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
         self.assertEqual((result.returncode, result.stderr), (0, launch_line + WARNING.format("the guard's hooks")))
-        self.assertEqual(json.loads((self.state / "accounts/codex-A.json").read_text()),
-                         {"email": "alice@example.com", "plan": "plus"})
+        self.assertEqual(json.loads(record.read_text()), {"email": "alice@example.com", "plan": "plus"})
         self.assertEqual(self.recorded()["turns"], f"o {TAG}\n")
+        self.assertIsNone(self.attested())
+        mine = literal_turn(TURN_1, THREAD, None, calls=0, hooks=("prompt",), resumed=True, cwd=self.cwd)
+        rollouts = [{"append": str(main), "lines": literal_turn(TURN_2, THREAD, 92.0, calls=0, hooks=(), resumed=True)},
+                    {"append": str(sub), "lines": [ANSWER, snapshot(93.0)]},
+                    {"append": str(main), "lines": mine[:mine.index(PROMPT_STEP) + 1] + [aborted(TURN_1)]}]
+        result = self.run_codex("--reserve-5h", "10", "A", "resume", THREAD, env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
+        self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+        self.assertEqual([hook[:2] for hook in self.recorded()["hooks"]], [["prompt", 0]])
+        started = json.loads(self.recorded()["env"]["CODING_AGENT_KIT_GUARD"])["started"]
+        self.assertEqual(launch.usage.session(str(main), started)["snapshot"]["primary"]["used_percent"], 92.0)
+        self.assertEqual(json.loads(record.read_text()), {"email": "alice@example.com", "plan": "plus"})
+        self.assertEqual(self.recorded()["turns"], f"o {TAG}\nt {TURN_1} {self.rel(main)}\n")
         self.assertIsNone(self.attested())
 
     def test_the_last_reply_is_recorded_when_the_run_exits(self):
@@ -2311,18 +2359,21 @@ class GuardedLaunch(unittest.TestCase):
                 self.assertEqual(self.attested()["rollout"], self.rel(sub if hooks else main))
 
     def test_the_first_prompt_is_checked_against_the_attested_usage(self):
-        """The false block of 0.9.0: the account record names a foreign reading at the reserve, which no longer
-        refuses a session's first prompt, as the guard reads the attested usage instead; an attested reading of this
-        login at the reserve refuses it."""
+        """The false block of 0.9.0: the account record names a foreign reading of a window used up, which no longer
+        refuses a session's first prompt while nothing is attested, as the guard reads the attested usage instead; an
+        attested reading of this login at the reserve refuses it, beside an account record of a fresh window. The
+        guard neither blocks nor allows on the account record."""
         self.trusted()
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
-        self.seed(self.state / "accounts/codex-A.json",
-                  {"email": "alice@example.com", "plan": "plus", "usage": usage_of(95.0, int(time.time()) - 60)})
+        record = self.state / "accounts/codex-A.json"
+        self.seed(record, {"email": "alice@example.com", "plan": "plus", "usage": usage_of(100.0, int(time.time()) - 60)})
         rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE],
                      "lines": literal_turn(TURN_1, THREAD, 20.0, calls=0, hooks=("prompt",), cwd=self.cwd)}]
         result = self.run_codex("--reserve-5h", "10", "A", "exec", "go", env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
         self.assertEqual((result.returncode, result.stderr), (0, launch_line))
         self.assertEqual([hook[:2] for hook in self.recorded()["hooks"]], [["prompt", 0]])
+        self.assertIsNone(self.recorded()["attested"])
+        self.seed(record, {"email": "alice@example.com", "plan": "plus", "usage": usage_of(0.0, int(time.time()))})
         self.seed(self.guard_dir / "codex-usage-A.json",
                   {"owner": TAG, "usage": usage_of(95.0, int(time.time()) - 60), "rollout": self.rel(next(
                       (self.root / "sessions").glob("*/*/*/rollout-*.jsonl"))), "launch": "codex-as-A-1-1700000000"})
@@ -3318,13 +3369,14 @@ class RealCodex(unittest.TestCase):
         self.requests = base / "requests.jsonl"
         self.hook_log = base / "hook events.jsonl"
 
-    def run_codex(self, prompt, recorded=None, sent=None, options=(), tail=(), root_options=(), started=None):
+    def run_codex(self, prompt, recorded=None, sent=None, options=(), tail=(), root_options=(), started=None,
+                  account="A", tag=TAG):
         """codex ROOT_OPTIONS exec OPTIONS --skip-git-repo-check TAIL PROMPT under the guard with the five-hour
-        reserve at 10, as a launch of the login TAG whose notes of its turns codex-as made: RECORDED percent of the
-        five-hour window used in the account's attested usage of earlier runs, SENT percent in the rate limits the
-        fake sends with every answer (None: no attested usage, no rate limits). STARTED is the launch's start in
-        epoch seconds, now by default. The guard runs behind WRAPPER (events()); the requests returned are this
-        run's."""
+        reserve at 10, as a launch of ACCOUNT by the login TAG whose notes of its turns codex-as made: RECORDED
+        percent of the five-hour window used in account A's attested usage of earlier runs, SENT percent in the rate
+        limits the fake sends with every answer (None: no attested usage, no rate limits). STARTED is the launch's
+        start in epoch seconds, now by default. The guard runs behind WRAPPER (events()); the requests returned are
+        this run's."""
         now = int(time.time())
         seen = len(self.requests.read_text().splitlines()) if self.requests.exists() else 0
         self.serve({} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]})
@@ -3334,12 +3386,13 @@ class RealCodex(unittest.TestCase):
                 "owner": TAG, "usage": {"primary": window, "secondary": None, "seen_at": now - 60},
                 "rollout": f"2026/11/22/rollout-2026-11-22T10-00-00-{UUID}.jsonl", "launch": "codex-as-A-1-1700000000"})
         guard_launch = load_kit_module(self.kit, "guard_launch")
-        policy = self.reserve.Policy("codex-as", "A",
+        policy = self.reserve.Policy("codex-as", account,
                                      self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
                                      self.reserve.Setting("weekly", None, "default"))
         env = self.sandbox.env()
-        state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", "A", policy, str(self.record),
-                                     int(time.time()) if started is None else started, marker=str(self.marker), turns=TAG)
+        state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", account, policy,
+                                     str(self.accounts / f"codex-{account}.json"),
+                                     int(time.time()) if started is None else started, marker=str(self.marker), turns=tag)
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
         wrapper = self.sandbox.base / "guard wrapper.py"
         wrapper.write_text(WRAPPER.format(log=str(self.hook_log), guard=env["CODING_AGENT_KIT_GUARD_SCRIPT"]))
@@ -3383,6 +3436,106 @@ class RealCodex(unittest.TestCase):
         for path in (self.sandbox.codex_home / "sessions").glob("*/*/*/rollout-*.jsonl"):
             found[path] = [json.loads(line) for line in path.read_text().splitlines()]
         return found
+
+    def creator(self, path, user, workspace):
+        """Name the ChatGPT user USER in WORKSPACE as the creator in the session_meta line of the rollout at PATH: the
+        sandbox holds no credential, so Codex names none, and the scan of every earlier release goes by the creator."""
+        rows = path.read_text().splitlines(keepends=True)
+        line = json.loads(rows[0])
+        self.assertEqual(line["type"], "session_meta")
+        line["payload"].update(creator_user_id=user, creator_account_id=workspace)
+        path.write_text(json.dumps(line) + "\n" + "".join(rows[1:]))
+
+    def remember(self, state, begun, args):
+        """launch.remember() as codex-as A ARGS runs it after Codex exits: the login of USER in WORKSPACE, the
+        sandbox's Codex home, the launch state STATE in the guard directory and the moment BEGUN before Codex started;
+        the account record then."""
+        env = {name: value for name, value in os.environ.items() if name not in KIT_KNOBS}
+        env.update(HOME=str(self.sandbox.home), XDG_STATE_HOME=str(self.sandbox.base / "state"),
+                   XDG_CONFIG_HOME=str(self.sandbox.base / "xdg/config"))
+        with patch.dict(os.environ, env, clear=True):
+            config = settings.load()
+        self.assertEqual((config.codex_home, config.state_dir), (self.sandbox.codex_home, self.accounts.parent))
+        launch.remember(config, layout.Layout(check, "A", config), login("A", USER, WORKSPACE),
+                        check.arguments(list(args), config), begun, state=state)
+        return json.loads(self.record.read_text())
+
+    def noted(self, state, tag=TAG):
+        """[(turn, rollout path)] of the notes of the launch with STATE, below their owner line, which must be TAG."""
+        owner, *notes = Path(state + ".turns").read_text().splitlines()
+        self.assertEqual(owner, f"o {tag}")
+        return [(note.split(" ")[1], self.sandbox.codex_home / "sessions" / note.split(" ")[2]) for note in notes]
+
+    def test_a_session_another_login_ran_gives_this_login_nothing(self):
+        """Path A of the false block, against the real Codex: login B's launch runs a session whose sub-agent gets
+        B's readings (90 percent of the five-hour window); then login A's launch, whose start lies before all of that,
+        resumes the session by id with a prompt whose reply carries no rate limits. The lines since A's launch
+        started, in the session and in its sub-agent's rollout, hold B's reading, which would refuse A's prompt at a
+        five-hour reserve of 10. A's prompt is judged by its own turn and sent, and after the run nothing of B's
+        reaches A's record or attested usage."""
+        if "multi_agent_v2" not in self.features:
+            self.skipTest("this Codex has no multi_agent_v2 feature, which offers collaboration.spawn_agent")
+        earlier = int(time.time()) - 1
+        code, out, err, theirs, _ = self.run_codex("SPAWN a helper", sent=90, root_options=("--enable", "multi_agent_v2"),
+                                                   account="B", tag=TAG_B)
+        self.assertEqual((code, out.strip()), (0, "SPAWN-DONE"), err)
+        found = self.rollouts()
+        [root] = [path for path, rows in found.items() if rows[0]["payload"].get("thread_source") == "user"]
+        [sub] = [path for path, rows in found.items() if rows[0]["payload"].get("thread_source") == "subagent"]
+        thread = found[root][0]["payload"]["id"]
+        begun = time.time()
+        code, out, err, state, models = self.run_codex("PLAIN go on", tail=("resume", thread), started=earlier)
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.assertEqual([entry["script"] for entry in models], ["PLAIN"])
+        self.assertFalse(os.path.exists(state + ".blocked"))
+        for path in (root, sub):
+            self.creator(path, "user-fixture-B", "workspace-fixture-B")
+            self.assertEqual(launch.usage.session(str(path), earlier)["snapshot"]["primary"]["used_percent"], 90.0)
+        [(turn, path)] = self.noted(state)
+        self.assertEqual(path, root)
+        self.assertNotIn(turn, {note[0] for note in self.noted(theirs, TAG_B)})
+        record = self.remember(state, begun, ["exec", "--skip-git-repo-check", "resume", thread, "PLAIN go on"])
+        self.assertEqual(record, {"email": "alice@example.com", "plan": "plus"})
+        self.assertFalse(self.attested.exists())
+
+    def test_only_this_login_s_turns_feed_its_run_whoever_created_the_thread(self):
+        """Path B, against the real Codex: login A's launch continues a thread that login B created, and B continues a
+        thread that A created, after A's turn and before A's run is recorded. A's record and attested usage take A's
+        own reply in B's thread (40 percent of the five-hour window), with the time of that reply, and never B's
+        newer reading in A's thread (90 percent), which the scan of a run whose hooks named no turn takes as A's,
+        since A created that thread."""
+        def created(prompt, **launch):
+            before = set(self.rollouts())
+            code, out, err, state, _ = self.run_codex(prompt, **launch)
+            self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+            [path] = set(self.rollouts()) - before
+            return path
+        mine = created("PLAIN one", sent=30)
+        yours = created("PLAIN two", sent=70, account="B", tag=TAG_B)
+        thread = self.rollouts()[yours][0]["payload"]["id"]
+        begun = time.time()
+        code, out, err, state, _ = self.run_codex("PLAIN three", sent=40, tail=("resume", thread))
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        code, out, err, _, _ = self.run_codex("PLAIN four", sent=90, tail=("resume", self.rollouts()[mine][0]["payload"]["id"]),
+                                              account="B", tag=TAG_B)
+        self.assertEqual((code, out.strip()), (0, "PLAIN-ANSWER"), err)
+        self.creator(mine, USER, WORKSPACE)
+        self.creator(yours, "user-fixture-B", "workspace-fixture-B")
+        [(turn, path)] = self.noted(state)
+        self.assertEqual(path, yours)
+        record = self.remember(state, begun, ["exec", "--skip-git-repo-check", "resume", thread, "PLAIN three"])
+        reading = record["usage"]
+        self.assertEqual((reading["primary"]["used_percent"], reading["primary"]["window_minutes"],
+                          reading["secondary"]["used_percent"]), (40.0, 300, 20.0))
+        replies = [row["timestamp"] for row in self.rollouts()[yours]
+                   if row["type"] == "token_usage_record" and row["payload"]["turn_id"] == turn]
+        self.assertEqual(reading["seen_at"], int(launch.usage.moment(replies[-1])))
+        self.assertEqual(json.loads(self.attested.read_text()), {"owner": TAG, "usage": reading,
+                                                                 "rollout": launch.usage.relative(yours),
+                                                                 "launch": os.path.basename(state)})
+        scanned = launch.usage.latest(self.sandbox.codex_home, set(), (USER, WORKSPACE), begun - launch.STAMPED,
+                                      time.time(), skew=launch.SKEW)
+        self.assertEqual(scanned["primary"]["used_percent"], 90.0)
 
     def assert_state(self, state, present, absent):
         for name in present:
