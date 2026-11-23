@@ -4,9 +4,10 @@ Public API (load this file by path; it is never on sys.path):
 
     directory(config, create=False, name="accounts") -> Path
         config.state_dir / NAME: "accounts" for the metadata below, "guard"
-        for the usage reserve guard's launch state (guard_launch.py). With
-        create, makes it 0700 (and its parents under the launcher's umask)
-        and checks that it is an owned, real 0700 directory whose parent
+        for the usage reserve guard's launch state (guard_launch.py) and each
+        Codex account's attested usage. With create, makes it 0700 (and its
+        parents under the launcher's umask) and checks that it is an owned,
+        real 0700 directory whose parent
         other users cannot change: owned by this user or root, no other
         write, and group write only by the user's private group without an
         access ACL (config.py's rule). Either way it raises ValueError when
@@ -48,6 +49,12 @@ Files under directory(config), with their writers:
                             reserve guard's status line (guard.py record()), which
                             both keep a stored window that has not reset against an
                             older reading, and read, merge and write it with no lock.
+and under directory(config, name="guard"), beside the launches' state:
+    codex-usage-NAME.json   the Codex account's attested usage, which only the
+                            reserve guard reads, from two writers: the guard at a
+                            prompt or tool event, and codex-as after a run whose
+                            hooks named turns, both from the turns of their own
+                            launch through usage.keep(), with no lock.
 Times in them come from a token, a Codex rollout or the status line, never
 from the launcher's clock; one from year 10000 on is ignored.
 """

@@ -1782,6 +1782,7 @@ DAY = 86400
 GONE = 4_194_400  # a process id above every host's limit (Linux 2**22, macOS 99999): a launch that has ended
 VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_AGENT_KIT_GUARD_PYTHON")
 MARKER = "codex-hooks-90aeb3ec484a2ca6"
+TAG = "5f0c2a9e41d7b386"  # a login's owner tag, as the launcher writes it into STATE.turns
 
 
 def policy(tool, account, five_hour=None, weekly=None):
@@ -1950,6 +1951,116 @@ class GuardLaunch(Fixture):
                                  str(self.accounts / "claude-personal.usage.json"), self.started)
         self.assertFalse(target.exists())
         self.assertEqual(env, {})
+
+    def test_prepare_creates_the_turns_file_for_codex_only(self):
+        record, marker = str(self.accounts / "codex-lab.json"), str(self.guard_dir / MARKER)
+        on = policy("codex-as", "lab", weekly=D(10))
+        for mask in (0o077, 0o277, 0o000):
+            with self.subTest(umask=oct(mask)):
+                env, previous = {}, os.umask(mask)
+                try:
+                    state = guard_launch.prepare(env, self.guard_dir, "codex-as", "lab", on, record,
+                                                 self.started + mask, marker=marker, turns=TAG)
+                finally:
+                    os.umask(previous)
+                notes = Path(state + ".turns").lstat()
+                self.assertTrue(stat.S_ISREG(notes.st_mode))
+                self.assertEqual(stat.S_IMODE(notes.st_mode), 0o600)
+                self.assertEqual(Path(state + ".turns").read_bytes(), f"o {TAG}\n".encode("ascii"))
+                self.assertTrue(Path(state + ".launched").is_file())
+                # The launch JSON does not name the notes: the guard finds them beside the state.
+                self.assertEqual(json.loads(env["CODING_AGENT_KIT_GUARD"]),
+                                 {"v": 1, "tool": "codex-as", "account": "lab", "five_hour": None, "weekly": "10",
+                                  "started": self.started + mask, "usage": record, "state": state, "marker": marker})
+        # Without a tag no notes file is made: the launch runs as under a launcher that has none.
+        state = guard_launch.prepare({}, self.guard_dir, "codex-as", "lab", on, record, self.started + 1000,
+                                     marker=marker)
+        self.assertTrue(Path(state + ".launched").is_file())
+        self.assertFalse(os.path.lexists(state + ".turns"))
+        usage = str(self.accounts / "claude-personal.usage.json")
+        cases = {
+            "a tag in upper case": ("codex-as", "lab", on, record, {"marker": marker, "turns": TAG.upper()}),
+            "a short tag": ("codex-as", "lab", on, record, {"marker": marker, "turns": TAG[:15]}),
+            "a long tag": ("codex-as", "lab", on, record, {"marker": marker, "turns": TAG + "0"}),
+            "a tag with a line feed": ("codex-as", "lab", on, record, {"marker": marker, "turns": TAG + "\n"}),
+            "a tag as bytes": ("codex-as", "lab", on, record, {"marker": marker, "turns": TAG.encode()}),
+            "an empty tag": ("codex-as", "lab", on, record, {"marker": marker, "turns": ""}),
+            "a Claude tag": ("claude-as", "personal", policy("claude-as", "personal", weekly=D(10)), usage,
+                             {"turns": TAG}),
+        }
+        for reason, (tool, account, resolved, path, extra) in cases.items():
+            with self.subTest(reason=reason):
+                env = {name: "inherited" for name in VARIABLES}
+                with self.assertRaises(ValueError):
+                    guard_launch.prepare(env, self.guard_dir, tool, account, resolved, path, self.started + 2000,
+                                         **extra)
+                self.assertEqual(env, {}, "an inherited guard variable survived a refusal")
+        self.assertFalse([name for name in self.names() if f"-{self.started + 2000}." in name], "a refusal left state")
+
+    def test_prepare_removes_launched_when_the_turns_file_cannot_be_created(self):
+        record, marker = str(self.accounts / "codex-lab.json"), str(self.guard_dir / MARKER)
+        on = policy("codex-as", "lab", weekly=D(10))
+        prefix = self.guard_dir / f"codex-as-lab-{os.getpid()}-{self.started}"
+        target = self.root / "elsewhere"
+        Path(str(prefix) + ".turns").symlink_to(target)
+        env = {name: "inherited" for name in VARIABLES}
+        with self.assertRaises(OSError):
+            guard_launch.prepare(env, self.guard_dir, "codex-as", "lab", on, record, self.started, marker=marker,
+                                 turns=TAG)
+        self.assertFalse(target.exists())
+        self.assertEqual(env, {})
+        self.assertEqual(self.names(), [prefix.name + ".turns"], "the launch's .launched was left behind")
+        Path(str(prefix) + ".turns").unlink()
+        # A write that a full disk refuses: neither file stays.
+        real, writes = os.write, []
+
+        def write(fd, data):
+            writes.append(data)
+            if data.startswith(b"o "):
+                raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+            return real(fd, data)
+
+        with patch.object(guard_launch.os, "write", write), self.assertRaises(OSError):
+            guard_launch.prepare(env, self.guard_dir, "codex-as", "lab", on, record, self.started, marker=marker,
+                                 turns=TAG)
+        self.assertEqual(writes[-1], f"o {TAG}\n".encode("ascii"))
+        self.assertEqual(env, {})
+        self.assertEqual(self.names(), [])
+
+    def test_forget_and_prune_remove_the_turns_file(self):
+        env, record, marker = {}, str(self.accounts / "codex-lab.json"), str(self.guard_dir / MARKER)
+        state = guard_launch.prepare(env, self.guard_dir, "codex-as", "lab", policy("codex-as", "lab", weekly=D(10)),
+                                     record, self.started, marker=marker, turns=TAG)
+        self.assertEqual(self.names(), sorted(os.path.basename(state) + suffix for suffix in (".launched", ".turns")))
+        guard_launch.forget(state)
+        self.assertEqual(self.names(), [])
+        # The account's attested usage and its temporary files are no launch's state.
+        attested = ["codex-usage-lab.json", ".codex-usage-lab.json.0123456789abcdef.tmp"]
+        for name in attested:
+            (self.guard_dir / name).write_text("")
+        one = self.state_files("codex-as", "lab", 4001, self.started, "launched", "turns", "ran.tool")
+        # An older prune() leaves the notes of a launch whose other state it removed.
+        old = self.state_files("codex-as", "lab", 4002, self.started - 30 * DAY - 1, "turns")
+        kept = self.state_files("codex-as", "lab", 4003, self.started - DAY, "launched", "turns")
+        guard_launch.forget(one)
+        guard_launch.prune(self.guard_dir, self.started)
+        self.assertFalse(os.path.lexists(old + ".turns"))
+        self.assertEqual(self.names(), sorted(attested + [os.path.basename(kept) + suffix
+                                                          for suffix in (".launched", ".turns")]))
+
+    def test_launch_state_names_take_the_turns_file_and_never_the_attested_usage(self):
+        for name, prefix in (("codex-as-lab-4001-1800000000.turns", "codex-as-lab-4001-1800000000"),
+                             ("claude-as-personal-7-1800000000.turns", "claude-as-personal-7-1800000000"),
+                             ("codex-usage-lab.json", None), ("codex-usage-lab-4001-1800000000.turns", None),
+                             (".codex-usage-lab.json.0123456789abcdef.tmp", None),
+                             ("codex-as-lab-4001-1800000000.turns.tmp", None),
+                             ("codex-as-lab-4001-1800000000.turn", None)):
+            with self.subTest(name=name):
+                parsed = guard_launch.STATE.fullmatch(name)
+                self.assertEqual(parsed and parsed["prefix"], prefix)
+        self.assertTrue(guard_launch.OWNER.fullmatch(TAG))
+        for tag in (TAG.upper(), TAG[:15], TAG + "0", "g" * 16):
+            self.assertFalse(guard_launch.OWNER.fullmatch(tag), tag)
 
     def state_files(self, tool, account, pid, started, *suffixes, host=None):
         """Launch state as the launcher and the guard leave it, with HOST (by default this one) named in

@@ -20,19 +20,25 @@ of its own, and takes every path from its caller:
         Removes VARIABLES from the mapping ENV. Every launch does this first,
         so a launch without a reserve never passes a guard on.
     prepare(env, directory, tool, account, policy, usage, started, *, marker=None,
-            statusline=None) -> str
+            statusline=None, turns=None) -> str
         clear(env), then creates STATE.launched (owned 0600, never through a
-        link, holding this host's name, os.uname().nodename) and sets
-        VARIABLES for the launch; returns STATE, the launch's prefix
-        DIRECTORY/TOOL-ACCOUNT-PID-STARTED (PID is this process, which
-        claude-as replaces by the native and codex-as keeps). DIRECTORY is the
-        absolute guard directory (accounts.directory(config, create=True,
-        name="guard")); POLICY is reserve.resolve()'s Policy of TOOL and ACCOUNT
-        with at least one window on; USAGE is the absolute path of the Claude
-        usage file or the Codex account record; STARTED the launch's epoch
-        second. MARKER (codex-as, required) is the absolute path of the
-        host-wide "the tool hook has run" marker; STATUSLINE (claude-as,
-        optional) is the user's own status line command. The JSON:
+        link, holding this host's name, os.uname().nodename), with TURNS also
+        STATE.turns, and sets VARIABLES for the launch; returns STATE, the
+        launch's prefix DIRECTORY/TOOL-ACCOUNT-PID-STARTED (PID is this
+        process, which claude-as replaces by the native and codex-as keeps).
+        DIRECTORY is the absolute guard directory (accounts.directory(config,
+        create=True, name="guard")); POLICY is reserve.resolve()'s Policy of
+        TOOL and ACCOUNT with at least one window on; USAGE is the absolute
+        path of the Claude usage file or the Codex account record; STARTED the
+        launch's epoch second. MARKER (codex-as, required) is the absolute
+        path of the host-wide "the tool hook has run" marker; STATUSLINE
+        (claude-as, optional) is the user's own status line command. TURNS
+        (codex-as, optional) is the login's tag, 16 lower-case hex digits
+        (OWNER, as usage.tag() makes it): STATE.turns is then created after
+        STATE.launched, owned 0600 and never through a link, holding the one
+        line "o TURNS" and a line feed, and the guard appends to it the turns
+        that Codex runs the launch's hooks for. Without TURNS no notes file is
+        made and the guard reads the session by time. The JSON:
 
             {"v":1,"tool":TOOL,"account":ACCOUNT,"five_hour":PERCENT|null,
              "weekly":PERCENT|null,"started":STARTED,"usage":USAGE,"state":STATE,
@@ -40,15 +46,20 @@ of its own, and takes every path from its caller:
 
         with marker and statusline only when given, and PERCENT as
         reserve.percent() writes it, which guard.launch_of() reads back to the
-        same Decimal. ValueError (with ENV cleared and nothing created) for
-        anything the guard could not read; OSError when STATE.launched cannot
-        be created.
+        same Decimal; TURNS never changes it. ValueError (with ENV cleared and
+        nothing created) for anything the guard could not read, a TURNS of
+        another shape and a TURNS for claude-as; OSError when STATE.launched
+        or STATE.turns cannot be created (with ENV cleared and STATE.launched
+        removed again).
     forget(state) -> None
-        Removes the state files of the launch with prefix STATE; best effort.
+        Removes the state files of the launch with prefix STATE, STATE.turns
+        among them; best effort.
     prune(directory, now) -> None
         Removes the launch state of every launch in DIRECTORY that started
         more than KEEP seconds (30 days) before NOW, judged by the start time
-        in its name; the Codex markers and anything else stay. Best effort.
+        in its name, STATE.turns among it; the Codex markers, each Codex
+        account's attested usage (codex-usage-NAME.json) and anything else
+        stay. Best effort.
     unguarded(directory, tool, account, recorded_at) -> bool
         True when an earlier launch of TOOL and ACCOUNT left STATE.launched,
         no STATE.ran.* and a sign of a reply: STATE.seen, or, for a launch
@@ -62,9 +73,11 @@ of its own, and takes every path from its caller:
         this process (the current one) is never counted.
 
 State files in the guard directory, named PREFIX.SUFFIX (guard.py writes all
-but .launched): launched (the launch's host name), ran.KIND, reply, seen,
-blocked, and blocked.HEX.tmp that a cancelled write of blocked leaves. Markers
-are named codex-hooks-FINGERPRINT.
+but .launched): launched (the launch's host name), turns (codex-as: created by
+the launcher, appended by the guard at each prompt and tool event), ran.KIND,
+reply, seen, blocked, and blocked.HEX.tmp that a cancelled write of blocked
+leaves. Markers are named codex-hooks-FINGERPRINT; a Codex account's attested
+usage, codex-usage-NAME.json, is no launch's state.
 """
 
 import importlib.util
@@ -84,7 +97,8 @@ LAST = 253402300800  # 10000-01-01 UTC: no calendar time from here on
 KEEP = 30 * 86400  # seconds a launch's state is kept after its start
 STATE = re.compile(r"(?P<prefix>(?P<tool>claude-as|codex-as)-(?P<account>[A-Za-z0-9_][A-Za-z0-9_-]*)"
                    r"-(?P<pid>[0-9]+)-(?P<started>[0-9]+))"
-                   r"\.(?P<suffix>launched|ran\.[a-z]+|reply|seen|blocked|blocked\.[0-9a-f]+\.tmp)")
+                   r"\.(?P<suffix>launched|turns|ran\.[a-z]+|reply|seen|blocked|blocked\.[0-9a-f]+\.tmp)")
+OWNER = re.compile(r"[0-9a-f]{16}")  # a login's tag in STATE.turns, as usage.tag() makes it
 
 # python3 -I puts no script directory on sys.path: siblings load by path from the real file.
 LIB = Path(os.path.realpath(__file__)).parent.parent
@@ -127,7 +141,21 @@ def _absolute(value, what):
     return value
 
 
-def prepare(env, directory, tool, account, policy, usage, started, *, marker=None, statusline=None):
+def _created(path, content):
+    """PATH created (owned 0600 whatever the umask, never through a link) holding the bytes CONTENT; removed
+    again when the write fails."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        os.fchmod(fd, 0o600)  # whatever the umask took: unguarded() and the guard read it back
+        os.write(fd, content)
+    except BaseException:
+        os.unlink(path)
+        raise
+    finally:
+        os.close(fd)
+
+
+def prepare(env, directory, tool, account, policy, usage, started, *, marker=None, statusline=None, turns=None):
     clear(env)
     if tool not in TOOLS:
         raise ValueError(f"unknown launcher {tool!r}")
@@ -157,6 +185,8 @@ def prepare(env, directory, tool, account, policy, usage, started, *, marker=Non
         raise ValueError("only codex-as has a hook marker")
     if statusline is not None and (tool != "claude-as" or not isinstance(statusline, str)):
         raise ValueError("only claude-as has a status line command, as a string")
+    if turns is not None and (tool != "codex-as" or not isinstance(turns, str) or not OWNER.fullmatch(turns)):
+        raise ValueError("only codex-as notes turns, under a tag of 16 lower-case hex digits")
     state = os.path.join(directory, f"{tool}-{account}-{os.getpid()}-{started}")
     launch = {"v": 1, "tool": tool, "account": account, **reserves, "started": started, "usage": usage,
               "state": state}
@@ -169,15 +199,13 @@ def prepare(env, directory, tool, account, policy, usage, started, *, marker=Non
     python = sys.executable
     if not python or not os.path.isabs(python):
         raise ValueError("the launcher's interpreter has no absolute path")
-    fd = os.open(state + ".launched", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
-    try:
-        os.fchmod(fd, 0o600)  # whatever the umask took: unguarded() reads the host back
-        os.write(fd, _host().encode("utf-8", "surrogateescape"))
-    except BaseException:
-        os.unlink(state + ".launched")
-        raise
-    finally:
-        os.close(fd)
+    _created(state + ".launched", _host().encode("utf-8", "surrogateescape"))
+    if turns is not None:
+        try:
+            _created(state + ".turns", f"o {turns}\n".encode("ascii"))
+        except BaseException:
+            os.unlink(state + ".launched")
+            raise
     env["CODING_AGENT_KIT_GUARD"], env["CODING_AGENT_KIT_GUARD_SCRIPT"] = value, guard
     env["CODING_AGENT_KIT_GUARD_PYTHON"] = python
     return state
