@@ -1356,6 +1356,19 @@ class Recording(Fixture):
                 reading = self.remember(state, args=args).get("usage")
                 self.assertEqual(reading and reading["primary"]["used_percent"], used)
 
+    def test_a_viewed_rollout_without_a_snapshot_keeps_the_scan_out(self):
+        """A prompt interrupted before its reply, in a thread another account created that the run resumed by id: the
+        prompt hook named the launch's turn, so the rollout is viewed, and what that account wrote there since the run
+        began (92 percent) is neither recorded nor attested, although the scan, which reads a thread resumed by id
+        whoever wrote it, would take it."""
+        other = ("user-fixture-B", "workspace-fixture-B")
+        self.rollout(THREAD, literal_turn(TURN_2, THREAD, 92.0, calls=0, hooks=()), creator=other, seconds=-20)
+        mine =literal_turn(TURN_1, THREAD, None, calls=0, hooks=("prompt",), resumed=True)
+        _, rel = self.rollout(THREAD, mine[:mine.index(PROMPT_STEP) + 1] + [aborted(TURN_1)], seconds=-10)
+        record = self.remember(self.notes(f"o {TAG}\nt {TURN_1} {rel}\n", ("prompt",)), args=("resume", THREAD))
+        self.assertEqual(record, {"email": "alice@example.com", "plan": "plus"})
+        self.assertFalse(self.attested.exists())
+
     def test_the_attested_usage_is_written_only_under_the_login_s_own_tag(self):
         """The record takes the noted turns' snapshot whatever the notes' owner; the attested usage only when the login
         read after the run has the tag the launcher noted at the start: not under another login's tag, nor without an
