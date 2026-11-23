@@ -20,7 +20,9 @@ and the launch from the environment, reads the usage data the native already
 has, decides with reserve.decide() and answers in the native's hook contract.
 It loads reserve.py and accounts.py beside it, and for codex-as
 ../codex-as/usage.py, by path; it reads no configuration file and no other
-environment variable: every path comes from the launch.
+environment variable: every path comes from the launch. For codex-as it also
+reads and appends the launch's STATE.turns, and reads and writes the account's
+attested usage beside the launches' state.
 
 The launch (CODING_AGENT_KIT_GUARD, compact JSON the launcher writes):
 
@@ -30,8 +32,9 @@ The launch (CODING_AGENT_KIT_GUARD, compact JSON the launcher writes):
      "marker": ABSOLUTE PATH (codex-as), "statusline": COMMAND (claude-as, optional)}
 
     PERCENT is a reserve as reserve.percent() writes it ("10", "12.5"); null is
-    off. usage is the Claude usage file or the Codex account record; state is
-    this launch's prefix in the guard directory. Without the variable the guard
+    off. usage is the Claude usage file or the Codex account record, which the
+    Codex guard does not read; state is this launch's prefix in the guard
+    directory. Without the variable the guard
     allows and prints nothing. Any other "v", or a value that does not parse as
     above, is a guard failure named "launch format" (unknown keys are ignored).
 
@@ -44,6 +47,19 @@ State files beside the prefix, each created once, owned and 0600 whatever the um
     STATE.blocked   the latest block message, replaced at each block
     MARKER          Codex, at a tool event: the tool hook has run on this host
 
+and one file the guard appends to, and one it replaces, both best effort:
+
+    STATE.turns     Codex: created by the launcher (guard_launch.prepare(turns=)),
+                    whose first line "o TAG" names the login; at each prompt and
+                    tool event the guard appends "t TURN REL", the event's turn in
+                    the rollout below sessions/ that it names, once per turn and
+                    rollout, with one write, while the file is below usage.NOTES
+                    bytes. The guard never creates it: without it nothing is noted.
+    codex-usage-ACCOUNT.json  Codex, beside the launches' state: the account's
+                    attested usage (usage.keep()), which the guard and codex-as
+                    write from the turns of their own launch and every guarded
+                    session of the account reads.
+
 The decision (reserve.decide) per launch:
 
 - claude-as reads the account's usage file (accounts.read; a window needs a
@@ -52,18 +68,33 @@ The decision (reserve.decide) per launch:
   not exist: the session has had a reply and its status line has reported no
   rate limits since.
 - codex-as reads the session's rollout (usage.session on the event's
-  transcript_path, since the launch started): its newest snapshot, each window
-  named by its length (300 minutes five_hour, 10080 weekly, others ignored)
-  with the snapshot's limit family; without one, the account record's usage
-  from earlier runs, minus windows without a reset time. A snapshot of the
-  general family takes from the record the windows it does not name (an
-  unusable slot, as with window_minutes 0); one of another family stands
-  alone, as the limit the session's requests count against. A snapshot that
-  names no window of a known length counts as none, so a change of format fails
-  closed like a token_count line without rate limits. The launch is blind
-  without a snapshot when the rollout has a token_count line (accounted), and
-  on a prompt also when it shows a model response. No readable transcript is
-  never blind.
+  transcript_path) by the launch's turns. With the launcher's STATE.turns, a
+  turn_id in UUID form and a transcript below sessions/, it notes the event's
+  turn for that rollout (turns_of) and takes the lines of the launch's turns
+  there: the turns noted for that rollout and the event's (usage.session's
+  "own" view), whenever they are stamped. It takes the lines since the launch
+  started instead (the view of a launcher without notes) when any of the three
+  is missing, when the tail names no turn at all, and at a tool event whose
+  turn the tail does not name although it names others; a prompt whose turn
+  the tail does not name yet is judged by the launch's earlier turns there.
+  Of the view: its newest snapshot, each window named by its length (300
+  minutes five_hour, 10080 weekly, others ignored) with the snapshot's limit
+  family. A general-family snapshot of the launch's own turns also goes into
+  the account's attested usage (usage.keep(), under the tag of the notes; any
+  error there is no write). Without a snapshot, the account's attested usage
+  (attested_path(): codex-usage-ACCOUNT.json beside the launches' state, read
+  with accounts.read(); an unusable file is no reading, and so is a file of
+  another login when the notes name a tag), minus windows without a reset
+  time, and never the account record. A snapshot of the general family takes
+  from the attested usage the windows it does not name (an unusable slot, as
+  with window_minutes 0); one of another family stands alone, as the limit the
+  session's requests count against. A snapshot that names no window of a
+  known length counts as none, so a change of format fails closed like a
+  token_count line without rate limits. The launch is blind without a
+  snapshot when the view has a token_count line (accounted), and on a prompt
+  also when it shows a model response. No readable transcript is never blind.
+  Notes that cannot be read or written never block: the event is then judged
+  as without notes, or with its turn counted in memory.
 
 Answers, as (exit code, stdout, stderr); a message goes to stderr with one newline:
 
@@ -128,6 +159,10 @@ tool, and is silent elsewhere: the guard checks the version before it imports
 anything but sys.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
+attested_path(launch) (the Codex account's attested usage), turns_of(launch,
+event, transcript) (the event's turn, the launch's turns in its rollout, the
+notes' tag and the rollout's path; notes the turn), read_turns(path) and
+add_turn(path, data) (STATE.turns),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
 footer), handle(kind, raw, env, now) (an event's answer from its raw stdin;
 never raises), interrupted(kind, env) (the answer after a KeyboardInterrupt),
@@ -415,26 +450,111 @@ def windows(slots, family=None, reset_required=False):
     return readings
 
 
-def codex_view(kind, event, launch):
-    """(readings, blind) from the session's rollout, else from the account record."""
+def attested_path(launch):
+    """The account's attested usage: codex-usage-ACCOUNT.json beside the launches' state."""
+    return os.path.join(os.path.dirname(launch.state), f"codex-usage-{launch.account}.json")
+
+
+def read_turns(path):
+    """The bytes of the launch's notes at PATH (STATE.turns), at most usage.NOTES + 1; None unless PATH is a
+    regular file that can be read (never through a link, never waiting on a FIFO)."""
+    limit = module("usage").NOTES
+    try:
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC), "rb") as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                return None
+            return stream.read(limit + 1)
+    except OSError:
+        return None
+
+
+def add_turn(path, data):
+    """Append the bytes DATA to the launch's notes at PATH in one write. Never creates the file, follows a link or
+    waits on a FIFO; OSError when it fails or the write is short."""
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise OSError(f"{os.path.basename(path)}: not a regular file")
+        if os.write(fd, data) != len(data):
+            raise OSError(f"{os.path.basename(path)}: a short write")
+    finally:
+        os.close(fd)
+
+
+def turns_of(launch, event, transcript):
+    """(turn, turns, owner, rel) of a Codex hook EVENT whose transcript_path is TRANSCRIPT; best effort.
+
+    TURN is the event's turn_id when it is a turn id in UUID form (usage.TURN), REL the rollout's path below
+    sessions/ (usage.relative), OWNER the tag of the launch's notes. TURNS is None without notes that can be read,
+    without TURN or without REL; otherwise the turns the notes hold for REL, and TURN. The first event of a turn in
+    a rollout appends "t TURN REL" to the notes (after a line feed when a cut write left the last line without
+    one) while they are smaller than usage.NOTES; a failed append changes nothing else. Any error gives
+    (None, None, None, None)."""
+    try:
+        usage = module("usage")
+        turn = event.get("turn_id")
+        turn = turn if isinstance(turn, str) and usage.TURN.fullmatch(turn) else None
+        rel = usage.relative(transcript)
+        path = launch.state + ".turns"
+        raw = read_turns(path)
+        if raw is None:
+            return turn, None, None, rel
+        owner, noted = usage.turn_notes(raw)
+        if turn is None or rel is None:
+            return turn, None, owner, rel
+        known = noted.get(rel, set())
+        if turn not in known and len(raw) < usage.NOTES:
+            text = usage.turn_note(turn, rel)
+            try:
+                add_turn(path, text if not raw or raw.endswith(b"\n") else b"\n" + text)
+            except Exception:
+                pass  # whatever failed, the turn still counts at this event
+        return turn, known | {turn}, owner, rel
+    except Exception:
+        return None, None, None, None
+
+
+def codex_view(kind, event, launch, now):
+    """(readings, blind) from the launch's turns in the session's rollout, or from its lines since the launch
+    started; else from the account's attested usage. A general-family snapshot of the launch's own turns is
+    recorded in the attested usage on the way, best effort."""
     usage = module("usage")  # loaded whatever the event says, so an incomplete install always fails
     if not isinstance(event, dict):
         raise ValueError("the event is not a JSON object")
     transcript = event.get("transcript_path")
     if transcript is not None and not isinstance(transcript, str):
         raise ValueError("transcript_path is not a string")
-    seen = usage.session(transcript, launch.started) if transcript else None
-    snapshot = windows(seen["snapshot"], seen["family"]) if seen and seen["snapshot"] else []
-    if snapshot and seen["family"] is not None:
+    turn, turns, owner, rel = turns_of(launch, event, transcript)
+    seen = usage.session(transcript, launch.started, turns) if transcript else None
+    try:
+        own = seen["own"] if seen else None
+        if own is not None and kind == "tool" and turn not in own["turns"]:
+            own = None  # a tool call's turn is long on disk: the hook's id is not the rollout's; time decides
+    except Exception:
+        own = None
+    view = own if own is not None else seen
+    if own is not None and owner is not None:
+        try:
+            if own["snapshot"] and own["family"] is None:
+                path = Path(attested_path(launch))
+                if usage.keep(module("accounts"), path, owner, own["snapshot"], now, rel,
+                              os.path.basename(launch.state)):
+                    sweep(path)
+        except Exception:
+            pass  # the decision does not need the write
+    snapshot = windows(view["snapshot"], view["family"]) if view and view["snapshot"] else []
+    if snapshot and view["family"] is not None:
         return snapshot, False  # another family's limit is the one the session's requests count against
-    record = stored(launch.usage)
-    last = record.get("usage") if isinstance(record, dict) else None
+    # Never the account record (launch.usage), which launches without hooks write too; another login's
+    # attested usage is no reading for a launch that knows its own.
+    record = stored(attested_path(launch))
+    last = record.get("usage") if isinstance(record, dict) and owner in (None, record.get("owner")) else None
     kept = windows(last, reset_required=True) if isinstance(last, dict) else []
-    if snapshot:  # the record's reading of a window the snapshot does not name (window_minutes 0 occurs)
+    if snapshot:  # the stored reading of a window the snapshot does not name (window_minutes 0 occurs)
         named = {reading.window for reading in snapshot}
         return snapshot + [reading for reading in kept if reading.window not in named], False
     # No snapshot, or one without a window of a known length.
-    return kept, bool(seen) and (seen["accounted"] or kind == "prompt" and seen["responded"])
+    return kept, bool(view) and (view["accounted"] or kind == "prompt" and view["responded"])
 
 
 # -- the status line ----------------------------------------------------------------
@@ -655,7 +775,7 @@ def answer(kind, event, launch, now):
         if launch.tool == "codex-as":
             if kind == "tool" and launch.marker:
                 mark(launch.marker)
-            readings, blind = codex_view(kind, event, launch)
+            readings, blind = codex_view(kind, event, launch, now)
         else:
             if kind != "prompt":
                 mark(launch.state + ".reply", str(int(now)))
