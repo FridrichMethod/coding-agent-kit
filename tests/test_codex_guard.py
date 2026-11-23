@@ -1369,6 +1369,17 @@ class Recording(Fixture):
         self.assertEqual(record, {"email": "alice@example.com", "plan": "plus"})
         self.assertFalse(self.attested.exists())
 
+    def test_the_noted_rollouts_are_read_with_the_file_server_s_clock_allowance(self):
+        """launch.recorded() passes SKEW to usage.witnessed: a noted rollout whose file time lies a minute before the
+        reading found in another noted rollout, as a file server whose clock lags this host's sets it, is still read,
+        and its newer reading is the run's."""
+        newer, first = self.rollout(THREAD, literal_turn(TURN_1, THREAD, 50.0, calls=0), seconds=-5)
+        older, second = self.rollout(OTHER, literal_turn(TURN_2, OTHER, 30.0, calls=0), seconds=-10)
+        lagging = older.stat().st_mtime - 70
+        os.utime(newer, (lagging, lagging))
+        reading = self.remember(self.notes(f"o {TAG}\nt {TURN_1} {first}\nt {TURN_2} {second}\n"))["usage"]
+        self.assertEqual((reading["primary"]["used_percent"], reading["seen_at"]), (50.0, int(self.now - 5)))
+
     def test_the_attested_usage_is_written_only_under_the_login_s_own_tag(self):
         """The record takes the noted turns' snapshot whatever the notes' owner; the attested usage only when the login
         read after the run has the tag the launcher noted at the start: not under another login's tag, nor without an
