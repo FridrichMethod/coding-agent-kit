@@ -20,6 +20,11 @@
   guard counts it until the recorded window resets. Where the guard refuses a
   session's first prompt on it, the relaunch that the message names, with that
   window's reserve off, gets past it.
+- The guard's own reading of a session is unchanged: it counts the lines
+  stamped from 5 seconds before the launch started. A launch that resumes a
+  session within 5 seconds of another account's last snapshot there is judged
+  on that snapshot until a reply brings one of its own. The snapshot never
+  becomes this account's record, so a relaunch is not judged on it.
 
 ## 0.9.0
 
