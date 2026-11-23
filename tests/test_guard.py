@@ -1273,6 +1273,33 @@ class Codex(Fixture):
         self.assertEqual((data["owner"], data["usage"]["primary"]["used_percent"], data["usage"]["seen_at"]),
                          (TAG, 50, NOW - 50))
 
+    def test_the_notes_tag_counts_without_a_usable_turn_id_and_notes_without_one_attest_nothing(self):
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        below = self.rollout([started(NOW - 5, T1), context(NOW - 5, T1)], thread=THREAD)
+        plain = self.rollout([started(NOW - 5, T1), context(NOW - 5, T1)])  # no rollout below sessions/
+        unusable = [(below, None), (below, "auto-compact-0"), (below, T1 + "\n"), (plain, T1)]
+        events = [(path, kind, turn_id) for path, turn_id in unusable for kind in ("prompt", "tool")]
+        # An event read by time knows the login from the notes all the same: another login's attested usage is no
+        # reading for it, and its own login's decides.
+        for owner, refuses in ((OTHER_TAG, False), (TAG, True)):
+            self.attested_usage(launch, slot(95, 10080), owner=owner)
+            for path, kind, turn_id in events:
+                with self.subTest(owner=owner, transcript=path.name, turn_id=turn_id, kind=kind):
+                    self.assertEqual(self.answer(kind, launch, self.codex_event(path, kind, turn_id)),
+                                     (2, "", self.threshold(kind)) if refuses else OK)
+        self.assertEqual(self.notes(launch), f"o {TAG}\n")
+        # Notes without an owner line name no login: the launch's turns decide, and nothing is attested.
+        self.attested(launch).unlink()
+        untagged = self.launch("codex-as", weekly="10")
+        self.turns_file(untagged, owner=None)
+        replied = self.rollout(turn(T1, NOW - 60, slot(95, 10080), end=False), thread=THREAD)
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, untagged, self.codex_event(replied, kind, T1)),
+                             (2, "", self.threshold(kind)))
+        self.assertEqual(self.notes(untagged), f"t {T1} {REL}\n")
+        self.assertEqual(sorted(path.name for path in self.guard_dir.iterdir() if "codex-usage" in path.name), [])
+
     def test_notes_that_cannot_be_read_or_written_never_block(self):
         # Another client's turn at the reserve since the launch started, then the launch's new turn: by the launch's
         # turns nothing is known yet, by the lines since the start the other client's snapshot refuses. The
