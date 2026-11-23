@@ -1186,7 +1186,8 @@ class Recording(Fixture):
     """The account's usage after a run, in process: launch.noted_turns() reads a launch's notes of its turns, and
     launch.remember() takes the run's snapshot from the noted turns of the rollouts its hooks named (recorded(),
     usage.witnessed), whoever created the thread, writing it to the account record and to the attested usage under
-    the login's own tag; a run without carried turns is scanned as by every earlier release (usage.latest)."""
+    the login's own tag. A guarded run that viewed none of those rollouts is scanned as by every earlier release
+    (usage.latest) when a hook ran, and records nothing when none ran; a run without a guard is scanned."""
 
     STATE = "codex-as-A-123-1700000000"
 
@@ -1199,35 +1200,42 @@ class Recording(Fixture):
         self.raw = login("A", USER, WORKSPACE)
         self.now = time.time()
         self.begun = self.now - 60
+        # Today's day directory, as Codex names it from the clock: the scan of a run reads the days around it only.
+        self.day = time.strftime("%Y/%m/%d", time.localtime(self.now))
 
-    def rollout(self, thread, lines, creator=(USER, WORKSPACE), seconds=0):
-        """The rollout of THREAD below sessions/, its session_meta line written when it is new, with LINES (hook steps
-        left out) stamped SECONDS from now; (its path, its path below sessions/)."""
-        day = self.root / "sessions/2026/11/22"
-        day.mkdir(parents=True, exist_ok=True)
-        path = day / f"rollout-2026-11-22T10-00-00-{thread}.jsonl"
-        meta = {"id": thread, "session_id": thread, "timestamp": stamp_of(self.now + seconds), "cwd": str(self.cwd),
+    def rollout(self, thread, lines, creator=(USER, WORKSPACE), seconds=0, days=0):
+        """The rollout of THREAD below sessions/ of a session that started DAYS ago, in the day directory of that day
+        (today's by default), its session_meta line written when it is new, with LINES (hook steps left out) stamped
+        SECONDS from now; (its path, its path below sessions/)."""
+        begun = self.now - days * 86400
+        day = time.strftime("%Y/%m/%d", time.localtime(begun))
+        (self.root / "sessions" / day).mkdir(parents=True, exist_ok=True)
+        name = f"rollout-{time.strftime('%Y-%m-%dT%H-%M-%S', time.localtime(begun))}-{thread}.jsonl"
+        path = self.root / "sessions" / day / name
+        meta = {"id": thread, "session_id": thread, "timestamp": stamp_of(begun + seconds), "cwd": str(self.cwd),
                 "source": "exec", "thread_source": "user", "creator_user_id": creator[0], "creator_account_id": creator[1]}
         rows = ([] if path.exists() else [{"type": "session_meta", "payload": meta}]) + at(self.now + seconds, lines)
         with path.open("a") as stream:
             for row in rows:
                 if "hook" not in row:
                     stream.write(json.dumps(row) + "\n")
-        return path, f"2026/11/22/{path.name}"
+        return path, f"{day}/{path.name}"
 
-    def notes(self, text):
-        """The launch's state prefix in the guard directory, its notes file holding TEXT (None: no notes file)."""
+    def notes(self, text, ran=()):
+        """The launch's state prefix in the guard directory, its notes file holding TEXT (None: no notes file), and a
+        STATE.ran.KIND file for each KIND of RAN, the hooks that ran, as the guard leaves them."""
         state = str(self.guard_dir / self.STATE)
-        Path(state + ".turns").unlink(missing_ok=True)
+        for name in (".turns", ".ran.prompt", ".ran.tool"):
+            Path(state + name).unlink(missing_ok=True)
         if text is not None:
             Path(state + ".turns").write_text(text)
+        for kind in ran:
+            Path(state + ".ran." + kind).touch()
         return state
 
-    def remember(self, state, raw=None, args=("exec", "go"), sessions=()):
-        """launch.remember() after a run of codex-as A ARGS with the launch state STATE and the rollouts of the run's
-        sessions SESSIONS; the account record then."""
-        launch.remember(self.config, self.layout, raw or self.raw, self.plan(list(args)), self.begun, state=state,
-                        sessions=sessions)
+    def remember(self, state, raw=None, args=("exec", "go")):
+        """launch.remember() after a run of codex-as A ARGS with the launch state STATE; the account record then."""
+        launch.remember(self.config, self.layout, raw or self.raw, self.plan(list(args)), self.begun, state=state)
         return json.loads(self.record.read_text()) if self.record.exists() else None
 
     def test_noted_turns_reads_a_regular_bounded_file_only(self):
@@ -1248,7 +1256,19 @@ class Recording(Fixture):
         self.assertIsNone(launch.noted_turns(state))
         os.unlink(state + ".turns")
         os.mkfifo(state + ".turns")
-        self.assertIsNone(launch.noted_turns(state))
+        # Read in a thread: a reader that waits on the FIFO fails the case instead of hanging the suite.
+        found = []
+        reader = threading.Thread(target=lambda: found.append(launch.noted_turns(state)), daemon=True)
+        reader.start()
+        reader.join(10)
+        waited = reader.is_alive()
+        if waited:  # a writer's open lets a reader that waits in open() go
+            try:
+                os.close(os.open(state + ".turns", os.O_WRONLY | os.O_NONBLOCK))
+            except OSError:
+                pass
+        self.assertFalse(waited, "the notes were waited on as a FIFO")
+        self.assertEqual(found, [None])
         os.unlink(state + ".turns")
         os.mkdir(state + ".turns")
         self.assertIsNone(launch.noted_turns(state))
@@ -1256,7 +1276,7 @@ class Recording(Fixture):
     def test_a_run_whose_hooks_named_turns_reads_only_those_rollouts_and_writes_both_files(self):
         """The noted turn of a thread another account created counts; the turns of other clients before and after it
         in that rollout do not, nor a newer snapshot of this account's in a rollout no hook named, which the scan of
-        a run without carried turns would take. The record and the attested usage get the same snapshot, stamped with
+        a run that viewed no rollout would take. The record and the attested usage get the same snapshot, stamped with
         the time of its reply, and the attested usage names the login's tag, the rollout and the launch."""
         other = ("user-fixture-B", "workspace-fixture-B")
         _, rel = self.rollout(THREAD, literal_turn(TURN_2, THREAD, 90.0), creator=other, seconds=-30)
@@ -1270,47 +1290,107 @@ class Recording(Fixture):
                          {"owner": TAG, "usage": reading, "rollout": rel, "launch": self.STATE})
         self.assertEqual(oct(self.attested.stat().st_mode & 0o777), "0o600")
 
-    def test_a_run_without_carried_turns_scans_as_before_and_never_writes_the_attested_usage(self):
-        """No state (a launch without a guard), notes with only the owner line (hooks that Codex did not run), and
-        noted turns that no rollout carries (a rollout without turn ids, one whose turns are all another's, a rollout
-        that does not exist): the record takes what the scan of every earlier release finds, here this account's
-        newest snapshot, and nothing writes the attested usage."""
-        _, rel = self.rollout(OTHER, [CALL, snapshot(50.0)], seconds=-10)
-        missing = f"2026/11/22/rollout-2026-11-22T10-00-00-{UUID}.jsonl"
-        for text in (None, f"o {TAG}\n", f"o {TAG}\nt {TURN_1} {rel}\nt {TURN_2} {missing}\n"):
-            with self.subTest(notes=text):
-                self.record.unlink(missing_ok=True)
-                state = None if text is None else self.notes(text)
-                self.assertEqual(self.remember(state)["usage"]["primary"]["used_percent"], 50.0)
-                self.assertFalse(self.attested.exists())
-        self.rollout(OTHER, literal_turn(TURN_3, OTHER, 52.0, resumed=True))
-        self.record.unlink()
-        self.assertEqual(self.remember(self.notes(f"o {TAG}\nt {TURN_1} {rel}\n"))["usage"]["primary"]["used_percent"],
-                         52.0)
-        self.assertFalse(self.attested.exists())
+    def test_a_run_s_record_follows_what_its_hooks_named(self):
+        """One sub-case per rule of launch.remember() after a run; none writes the attested usage. Without a guard, the
+        scan of every earlier release (usage.latest), here this account's newest snapshot. After a guarded run that
+        viewed a rollout its hooks named, whose last MiB names a turn, the noted turns alone: a tail that names only
+        other clients' turns leaves the stored usage as it is, also when the noted turn lies more than the tail before
+        the rollout's end, in a thread this account created and in one another account created that the run resumed by
+        id. After a guarded run that viewed none, the scan when a hook ran (events without a turn id, a rollout without
+        turn ids in UUID form, a noted rollout that does not exist), and nothing when no hook ran, not even this
+        account's own snapshot. The scan never reads an older session this account created in which another account
+        wrote during the run."""
+        stored = usage_of(20.0, int(self.now) - 3600)
+        other = ("user-fixture-B", "workspace-fixture-B")
+        older, theirs = "019a0000-0000-7000-8000-0000000000cc", "019a0000-0000-7000-8000-0000000000dd"
 
-    def test_a_run_without_carried_turns_reads_by_id_only_the_account_s_own_sessions_of_the_run(self):
-        """Without carried turns the scan reads by id, beside the thread the run resumed by id, the run's sessions whose
-        session_meta names this account as the creator (the check after the run tells them: a session resume --last
-        continued in an older date directory, say), never a sub-agent's rollout of a session another account created,
-        which holds that account's readings."""
+        def after(state, args=("exec", "go")):
+            """The record's usage after launch.remember() over a record that holds STORED: "stored" when it stays."""
+            self.attested.unlink(missing_ok=True)
+            launch.metadata.write(self.record, {"email": "alice@example.com", "plan": "plus", "usage": stored})
+            reading = self.remember(state, args=args)["usage"]
+            self.assertFalse(self.attested.exists())
+            return "stored" if reading == stored else reading["primary"]["used_percent"]
+
+        _, own = self.rollout(OTHER, [CALL, snapshot(50.0)], seconds=-10)
+        _, plain = self.rollout(THREAD, literal_turn("1", THREAD, 45.0), seconds=-20)  # turn ids not in UUID form
+        self.rollout(older, literal_turn(TURN_2, older, 90.0, hooks=(), resumed=True), days=3, seconds=-5)
+        missing = f"{self.day}/rollout-2026-11-22T10-00-00-{UUID}.jsonl"
+        with self.subTest(rule="no guard: the scan"):
+            self.assertEqual(after(None), 50.0)
+        with self.subTest(rule="guarded, viewed nothing, a hook ran: the scan"):
+            for text, ran in ((f"o {TAG}\n", ("prompt",)), (f"o {TAG}\nt {TURN_1} {plain}\n", ("prompt", "tool")),
+                              (f"o {TAG}\nt {TURN_1} {missing}\n", ("tool",))):
+                self.assertEqual(after(self.notes(text, ran)), 50.0, text)
+        with self.subTest(rule="guarded, viewed nothing, no hook ran: nothing"):
+            for text in (None, f"o {TAG}\n"):
+                self.assertEqual(after(self.notes(text)), "stored", text)
+        shutil.rmtree(self.root / "sessions")
+        with self.subTest(rule="guarded, viewed: the noted turns alone"):
+            # The noted turn's thread holds only another client's turn: what stands there is not this launch's.
+            _, own = self.rollout(OTHER, [CALL, snapshot(50.0)], seconds=-10)
+            self.rollout(OTHER, literal_turn(TURN_3, OTHER, 52.0, resumed=True), seconds=-8)
+            # Another account's turn of more than the part read after the noted turn, in a thread this account created
+            # and in one another account created, which the run resumed by id.
+            cases = [(f"o {TAG}\nt {TURN_1} {own}\n", ("exec", "go"))]
+            for thread, creator, args in ((THREAD, (USER, WORKSPACE), ("exec", "go")), (theirs, other, ("resume", theirs))):
+                if creator == other:
+                    self.rollout(thread, literal_turn(TURN_3, thread, 70.0), creator=other, seconds=-120)
+                _, rel = self.rollout(thread, literal_turn(TURN_1, thread, [30.0, 30.5, 31.0], resumed=creator == other),
+                                      creator=creator, seconds=-40)
+                foreign = literal_turn(TURN_2, thread, 90.0, resumed=True)
+                foreign[3:3] = [said("assistant", "p" * 32768)] * (launch.usage.TAIL // 32768 + 1)
+                self.rollout(thread, foreign, seconds=-5)
+                cases.append((f"o {TAG}\nt {TURN_1} {rel}\n", args))
+            for text, args in cases:
+                self.assertEqual(after(self.notes(text, ("prompt", "tool")), args), "stored", (text, args))
+
+    def test_the_scan_of_a_guarded_run_reads_by_id_only_the_thread_it_resumed(self):
+        """A guarded run whose hooks ran but named no turn is scanned as a run without a guard: by id it reads the
+        thread it resumed by id and nothing else, neither an older session of this account in the date directory of
+        its own day, which resume --last continued, nor a sub-agent's rollout that another account created, also when
+        the run resumed that sub-agent's session by id."""
         older = self.root / "sessions/2026/09/01"
         older.mkdir(parents=True)
         spawned = {"subagent": {"thread_spawn": {"parent_thread_id": UUID, "depth": 1}}}
-        paths = {}
         for thread, creator, source, used in ((THREAD, (USER, WORKSPACE), "cli", 40.0),
                                               (OTHER, ("user-fixture-B", "workspace-fixture-B"), spawned, 90.0)):
-            paths[thread] = older / f"rollout-2026-09-01T10-00-00-{thread}.jsonl"
             meta = {"id": thread, "session_id": UUID if isinstance(source, dict) else thread, "source": source,
                     "timestamp": stamp_of(self.now - 80 * 86400), "cwd": str(self.cwd), "thread_source": "user",
                     "creator_user_id": creator[0], "creator_account_id": creator[1]}
-            paths[thread].write_text("".join(json.dumps(row) + "\n" for row in at(self.now - 10, [
-                {"type": "session_meta", "payload": meta}, ANSWER, snapshot(used)])))
-        for sessions, used in (([], None), ([paths[OTHER]], None), ([paths[THREAD], paths[OTHER]], 40.0)):
-            with self.subTest(sessions=len(sessions), used=used):
+            (older / f"rollout-2026-09-01T10-00-00-{thread}.jsonl").write_text("".join(
+                json.dumps(row) + "\n" for row in at(self.now - 10, [{"type": "session_meta", "payload": meta}, ANSWER,
+                                                                      snapshot(used)])))
+        state = self.notes(f"o {TAG}\n", ("prompt",))
+        for args, used in ((("resume", "--last"), None), (("resume", UUID), None), (("resume", THREAD), 40.0)):
+            with self.subTest(args=args, used=used):
                 self.record.unlink(missing_ok=True)
-                reading = self.remember(None, args=("resume", "--last"), sessions=sessions).get("usage")
+                reading = self.remember(state, args=args).get("usage")
                 self.assertEqual(reading and reading["primary"]["used_percent"], used)
+
+    def test_a_viewed_rollout_without_a_snapshot_keeps_the_scan_out(self):
+        """A prompt interrupted before its reply, in a thread another account created that the run resumed by id: the
+        prompt hook named the launch's turn, so the rollout is viewed, and what that account wrote there since the run
+        began (92 percent) is neither recorded nor attested, although the scan, which reads a thread resumed by id
+        whoever wrote it, would take it."""
+        other = ("user-fixture-B", "workspace-fixture-B")
+        self.rollout(THREAD, literal_turn(TURN_2, THREAD, 92.0, calls=0, hooks=()), creator=other, seconds=-20)
+        mine =literal_turn(TURN_1, THREAD, None, calls=0, hooks=("prompt",), resumed=True)
+        _, rel = self.rollout(THREAD, mine[:mine.index(PROMPT_STEP) + 1] + [aborted(TURN_1)], seconds=-10)
+        record = self.remember(self.notes(f"o {TAG}\nt {TURN_1} {rel}\n", ("prompt",)), args=("resume", THREAD))
+        self.assertEqual(record, {"email": "alice@example.com", "plan": "plus"})
+        self.assertFalse(self.attested.exists())
+
+    def test_the_noted_rollouts_are_read_with_the_file_server_s_clock_allowance(self):
+        """launch.recorded() passes SKEW to usage.witnessed: a noted rollout whose file time lies a minute before the
+        reading found in another noted rollout, as a file server whose clock lags this host's sets it, is still read,
+        and its newer reading is the run's."""
+        newer, first = self.rollout(THREAD, literal_turn(TURN_1, THREAD, 50.0, calls=0), seconds=-5)
+        older, second = self.rollout(OTHER, literal_turn(TURN_2, OTHER, 30.0, calls=0), seconds=-10)
+        lagging = older.stat().st_mtime - 70
+        os.utime(newer, (lagging, lagging))
+        reading = self.remember(self.notes(f"o {TAG}\nt {TURN_1} {first}\nt {TURN_2} {second}\n"))["usage"]
+        self.assertEqual((reading["primary"]["used_percent"], reading["seen_at"]), (50.0, int(self.now - 5)))
 
     def test_the_attested_usage_is_written_only_under_the_login_s_own_tag(self):
         """The record takes the noted turns' snapshot whatever the notes' owner; the attested usage only when the login
@@ -2144,16 +2224,31 @@ class GuardedLaunch(unittest.TestCase):
         self.assertEqual(self.launches(), [])
 
     def test_the_record_takes_the_snapshot_of_a_resumed_older_session(self):
-        """The account record of the guard's fallback reading gets the run's snapshot also from a session
-        it resumed by --last whose rollout lies in an older date directory."""
-        self.trusted()
-        older = self.old_rollout(THREAD, 2 * 86400)
-        rollouts = [{"append": str(older), "lines": [ANSWER, snapshot(30.0)]}]
-        result = self.run_codex("--reserve-5h", "10", "A", "resume", "--last",
-                                env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": '["prompt"]'})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        usage = json.loads((self.state / "accounts/codex-A.json").read_text())["usage"]
-        self.assertEqual((usage["primary"]["used_percent"], usage["primary"]["window_minutes"]), (30.0, 300))
+        """The account record gets the run's snapshot also from a session it resumed by --last whose rollout lies in an
+        older date directory, through the turn the prompt hook named there; the same run in which Codex ran no hook
+        records nothing, and the check after the run warns."""
+        launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
+        record = self.state / "accounts/codex-A.json"
+        for hooks in (("prompt",), ()):
+            with self.subTest(hooks=hooks):
+                if (self.root / "sessions").exists():
+                    shutil.rmtree(self.root / "sessions")
+                record.unlink(missing_ok=True)
+                self.trusted()
+                older = self.old_rollout(THREAD, 2 * 86400)
+                lines = literal_turn(TURN_1, THREAD, 30.0, calls=0, hooks=hooks, resumed=True, cwd=self.cwd)
+                result = self.run_codex("--reserve-5h", "10", "A", "resume", "--last",
+                                        env={"FAKE_ROLLOUTS": json.dumps([{"append": str(older), "lines": lines}])})
+                if hooks:
+                    self.assertEqual((result.returncode, result.stderr), (0, launch_line))
+                    self.assertEqual(self.recorded()["turns"], f"o {TAG}\nt {TURN_1} {self.rel(older)}\n")
+                    usage = json.loads(record.read_text())["usage"]
+                    self.assertEqual((usage["primary"]["used_percent"], usage["primary"]["window_minutes"]), (30.0, 300))
+                else:
+                    self.assertEqual((result.returncode, result.stderr),
+                                     (0, launch_line + WARNING.format("the guard's hooks")))
+                    self.assertEqual(self.recorded()["turns"], f"o {TAG}\n")
+                    self.assertEqual(json.loads(record.read_text()), {"email": "alice@example.com", "plan": "plus"})
 
     def test_the_record_never_takes_what_another_account_left_in_a_resumed_session(self):
         """The snapshot that the account which ran a session before left in a sub-agent's rollout of it, a minute
@@ -2231,8 +2326,9 @@ class GuardedLaunch(unittest.TestCase):
         before the prompt would refuse it at a five-hour reserve of 10), and the record and the attested usage get
         A's own reading, never the other account's newer one. The same in the shape of the evidence: A runs a session
         of its own while the other account continues, during A's run, an earlier session that A created; the other
-        account's newer reading there reaches neither A's record nor its attested usage, while a run of A whose hooks
-        never ran is scanned as by every earlier release and takes it, the known gap of runs without noted turns."""
+        account's newer reading there reaches neither A's record nor its attested usage. A run of A in which Codex ran
+        no hook records nothing; one whose hooks ran with events that name no turn is scanned as by every earlier
+        release and takes it, the known gap of runs whose turns cannot be read."""
         self.trusted()
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
         record = self.state / "accounts/codex-A.json"
@@ -2252,33 +2348,32 @@ class GuardedLaunch(unittest.TestCase):
         (self.guard_dir / "codex-usage-A.json").unlink()
         older = self.old_rollout(OTHER, 600)
         moment = time.time() - 3
-        for hooks in (("prompt", "tool"), ()):
-            with self.subTest(hooks=hooks):
-                # Without hooks A's lines are stamped before the run, so the scan finds only the other account's.
+        for hooks, events in ((("prompt", "tool"), []), ((), []), ((), ["prompt"])):
+            with self.subTest(hooks=hooks, events=events):
+                # Without hook steps A's lines are stamped before the run, so the scan finds only the other account's.
                 lines = literal_turn(TURN_1, THREAD, [36.0, 37.0, 38.0], hooks=hooks, cwd=self.cwd)
                 lines = aged(moment, lines) if hooks else at(moment, lines)
                 rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": lines},
                             theirs(older, OTHER, TURN_2, 90.0)]
                 result = self.run_codex("--reserve-5h", "10", "A", "exec", "go",
-                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": json.dumps(events)})
                 self.assertEqual(result.returncode, 0, result.stderr)
                 [path] = (self.root / "sessions").glob(f"*/*/*/rollout-*-{THREAD}.jsonl")
-                usage = json.loads(record.read_text())["usage"]
+                usage = json.loads(record.read_text()).get("usage")
                 if hooks:
                     self.assertEqual(result.stderr, launch_line)
                     self.assertEqual((usage["primary"]["used_percent"], usage["seen_at"]), (38.0, reply_time(path, TURN_1)))
                     self.assertEqual(self.attested()["usage"], usage)
                 else:
                     self.assertEqual(self.recorded()["turns"], f"o {TAG}\n")
-                    self.assertEqual(usage["primary"]["used_percent"], 90.0)
+                    self.assertEqual(usage and usage["primary"]["used_percent"], 90.0 if events else None)
                 path.unlink()
                 record.unlink()
 
     def test_a_resume_without_a_reply_records_nothing(self):
         """The shape of the false block: a session another account created, whose sub-agent's rollout names it as
         session_id and holds that account's snapshots, from a minute before this run and from during it, resumed by
-        id by a run that sends no prompt. No hook names a turn, so the run is scanned as by every earlier release,
-        and the sub-agent's rollout, which another account created, is not read: the record's usage stays absent and
+        id by a run that sends no prompt. No hook runs, so nothing is recorded: the record's usage stays absent and
         nothing is attested (the check after the run reports the hooks the sub-agent's reply went without). With a
         prompt that is interrupted before its reply, the hook names this run's turn, and what the other account wrote
         in the session and in the sub-agent's rollout as this launch began, in the launch's own second and after the
@@ -2384,23 +2479,26 @@ class GuardedLaunch(unittest.TestCase):
         self.assertRegex(message, r"^codex-as: A: five-hour window 5% remaining, at or below its 10% reserve; resets in ")
         self.assertEqual((result.returncode, result.stderr), (0, launch_line + message))
 
-    def test_a_run_whose_hooks_never_ran_feeds_only_the_account_record(self):
-        """A guarded run in which Codex ran no hook leaves the notes with their owner line only: the record takes the
-        scan's snapshot as before, the attested usage stays byte for byte, and the check after the run warns."""
+    def test_a_run_whose_hooks_never_ran_records_nothing(self):
+        """A guarded run in which Codex ran no hook leaves the notes with their owner line only: the record keeps its
+        stored usage, not even the run's own snapshot replaces it, the attested usage stays byte for byte, and the
+        check after the run warns."""
         self.trusted()
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
         path = self.guard_dir / "codex-usage-A.json"
         self.seed(path, {"owner": TAG, "usage": usage_of(15.0, int(time.time()) - 60),
                          "rollout": f"2026/11/22/rollout-2026-11-22T10-00-00-{UUID}.jsonl", "launch": "codex-as-A-1-1"})
         before = (path.read_bytes(), path.stat().st_mtime_ns)
+        stored = usage_of(25.0, int(time.time()) - 3600)
+        record = self.state / "accounts/codex-A.json"
+        self.seed(record, {"email": "alice@example.com", "plan": "plus", "usage": stored})
         rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE],
                      "lines": literal_turn(TURN_1, THREAD, 33.0, hooks=(), cwd=self.cwd)}]
         result = self.run_codex("--reserve-5h", "10", "A", "exec", "go", env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
         self.assertEqual((result.returncode, result.stderr), (0, launch_line + WARNING.format("the guard's hooks")))
         self.assertEqual(self.recorded()["turns"], f"o {TAG}\n")
         self.assertEqual((path.read_bytes(), path.stat().st_mtime_ns), before)
-        usage = json.loads((self.state / "accounts/codex-A.json").read_text())["usage"]
-        self.assertEqual(usage["primary"]["used_percent"], 33.0)
+        self.assertEqual(json.loads(record.read_text())["usage"], stored)
 
     def test_a_hook_event_without_a_turn_id_feeds_only_the_account_record(self):
         """Hook events whose turn_id is absent or no UUID ("1", a number) are read by time as 0.9.1 reads them: nothing
@@ -2834,8 +2932,10 @@ class GuardedLaunch(unittest.TestCase):
     def test_a_file_server_s_clock_never_hides_the_run_s_rollouts(self):
         """On a network home directory a rollout's file time comes from the file server's clock: one that
         lags this host's by 30 seconds still has its lines, stamped by Codex on this host, read, and the
-        account record takes its snapshot."""
-        warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's hooks "
+        account record takes its snapshot: through the scan of a run whose prompt hook ran with an event that
+        names no turn (exec, the TUI), and through the turn the prompt hook named in a session that resume --last
+        continued in an older date directory."""
+        warning = ("codex-as: A: the usage reserve was not enforced in this run: Codex did not run the guard's tool hook "
                    "(not trusted, disabled, or managed hooks only). Start codex-as A interactively and trust them in "
                    "\"Hooks need review\".\n")
         launch_line = LAUNCH_LINE.format(policy="five-hour 10% (--reserve-5h), weekly off (default)")
@@ -2846,13 +2946,17 @@ class GuardedLaunch(unittest.TestCase):
                 # A snapshot replaces the record's only when newer by its own second.
                 (self.state / "accounts/codex-A.json").unlink(missing_ok=True)
                 self.trusted()
-                lines = [CALL, snapshot(21.0 + number)]
                 if args[:1] == ["resume"]:
+                    lines = literal_turn(TURN_1, THREAD, 21.0 + number, calls=1, hooks=("prompt",), resumed=True,
+                                         cwd=self.cwd)
                     rollouts = [{"append": str(self.old_rollout(THREAD, 2 * 86400)), "lines": lines, "mtime": -30}]
+                    events = []
                 else:
+                    lines = [CALL, snapshot(21.0 + number)]
                     rollouts = [{"thread": THREAD, "creator": [USER, WORKSPACE], "lines": lines, "mtime": -30}]
+                    events = ["prompt"]
                 result = self.run_codex("--reserve-5h", "10", "A", *args,
-                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": "[]"})
+                                        env={"FAKE_ROLLOUTS": json.dumps(rollouts), "FAKE_HOOKS": json.dumps(events)})
                 self.assertEqual((result.returncode, result.stderr), (0, launch_line + warning))
                 self.assertFalse(self.marker.exists())
                 usage = json.loads((self.state / "accounts/codex-A.json").read_text())["usage"]
@@ -3375,8 +3479,9 @@ class RealCodex(unittest.TestCase):
         reserve at 10, as a launch of ACCOUNT by the login TAG whose notes of its turns codex-as made: RECORDED
         percent of the five-hour window used in account A's attested usage of earlier runs, SENT percent in the rate
         limits the fake sends with every answer (None: no attested usage, no rate limits). STARTED is the launch's
-        start in epoch seconds, now by default. The guard runs behind WRAPPER (events()); the requests returned are
-        this run's."""
+        start in epoch seconds, now by default: then, while a launch of ACCOUNT by this process holds that second's
+        state name (codex-as-ACCOUNT-PID-SECOND), the next second, so each launch of a test has its own state, as each
+        codex-as process has. The guard runs behind WRAPPER (events()); the requests returned are this run's."""
         now = int(time.time())
         seen = len(self.requests.read_text().splitlines()) if self.requests.exists() else 0
         self.serve({} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]})
@@ -3390,9 +3495,14 @@ class RealCodex(unittest.TestCase):
                                      self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
                                      self.reserve.Setting("weekly", None, "default"))
         env = self.sandbox.env()
+        if started is None:
+            started = int(time.time())
+            if os.path.lexists(self.guard_dir / f"codex-as-{account}-{os.getpid()}-{started}.launched"):
+                time.sleep(max(0.0, started + 1 - time.time()))
+                started += 1
         state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", account, policy,
-                                     str(self.accounts / f"codex-{account}.json"),
-                                     int(time.time()) if started is None else started, marker=str(self.marker), turns=tag)
+                                     str(self.accounts / f"codex-{account}.json"), started, marker=str(self.marker),
+                                     turns=tag)
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
         wrapper = self.sandbox.base / "guard wrapper.py"
         wrapper.write_text(WRAPPER.format(log=str(self.hook_log), guard=env["CODING_AGENT_KIT_GUARD_SCRIPT"]))

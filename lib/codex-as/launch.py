@@ -207,17 +207,19 @@ def noted_turns(state):
 
 
 def recorded(layout, raw, state):
-    """(snapshot or None, carried) of a guarded run from the turns its hooks named (noted_turns of STATE):
+    """(snapshot or None, viewed) of a guarded run from the turns its hooks named (noted_turns of STATE):
     the newest snapshot of the general family in those turns of the rollouts those hooks were called in,
-    whoever created the thread, and whether any such rollout carries a noted turn (usage.witnessed).
-    (None, False) without a noted turn: no guard, hooks that Codex did not run, or a guard older than the
-    notes. A snapshot found also goes into the account's attested usage, codex-usage-NAME.json beside the
-    launch's state, when RAW, the login read after the run, has the tag the launcher noted at the start;
-    that write is best effort on its own, so it never keeps the account record from its snapshot."""
+    whoever created the thread, and whether the part read of any such rollout, its last usage.TAIL bytes,
+    names a turn at all (usage.witnessed): that rollout is viewed, and what stands there outside the noted
+    turns is not this launch's, so a viewed rollout without a snapshot of them gives none. (None, False)
+    without a noted turn: no guard, hooks that Codex did not run or whose events named no turn, or a guard
+    older than the notes. A snapshot found also goes into the account's attested usage, codex-usage-NAME.json
+    beside the launch's state, when RAW, the login read after the run, has the tag the launcher noted at the
+    start; that write is best effort on its own, so it never keeps the account record from its snapshot."""
     notes = noted_turns(state)
     if not notes or not notes[1]:
         return None, False
-    snapshot, rel, carried = usage.witnessed(layout.root, notes[1], skew=SKEW)
+    snapshot, rel, viewed = usage.witnessed(layout.root, notes[1], skew=SKEW)
     if snapshot is not None and notes[0] is not None:
         try:
             if usage.tag(storage.owner(raw)) == notes[0]:
@@ -225,48 +227,37 @@ def recorded(layout, raw, state):
                            snapshot, time.time(), rel, os.path.basename(state))
         except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, UnicodeError, RecursionError):
             pass
-    return snapshot, carried
+    return snapshot, viewed
 
 
-def created(paths, owner):
-    """The threads of the rollouts at PATHS whose session_meta names OWNER, a (ChatGPT user, workspace)
-    pair, as the creator; none for an OWNER of None."""
-    found = set()
-    for path in paths if owner is not None else ():
-        try:
-            if usage.created_by(session_meta(path)) == owner:
-                found.add(usage.NAME.fullmatch(path.name)[1])
-        except OSError:
-            continue
-    return found
-
-
-def remember(config, layout, raw=None, plan=None, begun=None, state=None, sessions=()):
+def remember(config, layout, raw=None, plan=None, begun=None, state=None):
     """Best effort, for --account-info: this login's email and plan, and after a run (PLAN) the last
-    rate limits that belong to the run. Never fails a launch and writes no token. After a guarded run
-    whose hooks named turns (STATE, the launch's prefix in the guard directory, or None without a guard)
-    they come from those turns alone, whoever created the thread, and go into the account's attested
-    usage as well (recorded). After any other run they come from the scan of every earlier release,
-    which reads by id the thread the run resumed or recovered and, of SESSIONS (the rollouts of a
-    guarded run's sessions, see run_threads), those this account created, such as an older session that
-    resume --last continued in the date directory of its own day: never a sub-agent's rollout of a
-    session another account created. BEGUN is the moment before Codex started; a rollout is opened when
-    its file time is at most SKEW before BEGUN, as run_threads opens them, since a file server's clock
-    may lag this host's; a snapshot counts only when its own line is stamped from BEGUN on, to the
-    millisecond as in span, so what an earlier run left in a session this run resumed, perhaps another
-    account's and perhaps an instant before this launch, is never recorded as this account's. The record
-    takes the newest snapshot by its own time."""
+    rate limits that belong to the run. Never fails a launch and writes no token. STATE is the launch's
+    prefix in the guard directory, or None without a guard. After a run without a guard they come from
+    the scan of every earlier release (usage.latest), which reads by id the thread the run resumed or
+    recovered, and this account's rollouts of the days around the run by their creator. After a guarded
+    run that viewed a rollout its hooks named (recorded) they come from the noted turns alone, whoever
+    created the thread, and go into the account's attested usage as well; no snapshot there leaves the
+    stored usage as it is. After a guarded run that viewed none they come from the scan when a hook ran
+    (STATE.ran.prompt or STATE.ran.tool: hook events without a turn id, or rollouts without turn ids, so
+    the turns cannot be read), and the stored usage stays when none ran (a session without a prompt, or
+    hooks that Codex did not run, which the check after the run reports). BEGUN is the moment before
+    Codex started; the scan opens a rollout when its file time is at most SKEW before BEGUN, as
+    run_threads opens them, since a file server's clock may lag this host's, and counts a snapshot only
+    when its own line is stamped from BEGUN on, to the millisecond as in span, so what an earlier run
+    left in a session this run resumed, perhaps another account's and perhaps an instant before this
+    launch, is never recorded as this account's. The record takes the newest snapshot by its own time."""
     try:
         if raw is None:
             raw = guard.credential(layout.target)
         email, kind = storage.profile(raw)
         seen = None
         if plan is not None:
-            seen, carried = recorded(layout, raw, state)
-            if not carried:
-                owner = storage.owner(raw)
-                seen = usage.latest(layout.root, {*plan.continued, *created(sessions, owner)}, owner, begun - STAMPED,
-                                    time.time(), skew=SKEW)
+            seen, viewed = recorded(layout, raw, state)
+            ran = state is not None and any(os.path.lexists(f"{state}.ran.{hook}") for hook in ("prompt", "tool"))
+            if not viewed and (state is None or ran):
+                seen = usage.latest(layout.root, set(plan.continued), storage.owner(raw), begun - STAMPED, time.time(),
+                                    skew=SKEW)
         # The old record is read only after the scan, just before the write, so a run of
         # this account that finished meanwhile keeps its newer snapshot.
         path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
@@ -428,9 +419,10 @@ RELEVANT = (b"token_count", b"response_item", b"token_usage_record")  # the line
 # network home directory the file's time comes from the file server's clock, which may lag this host's
 # (Kerberos, under which NFSv4 often runs, refuses a skew above 5 minutes). The lines' own times, which
 # Codex writes with this host's clock, decide what is the run's, for the check after the run (span) and
-# for the account record of a run whose hooks named no turn (usage.latest); after one whose hooks did, the
-# noted turns decide, and usage.witnessed stops at a rollout whose file time lies more than usage.SLACK +
-# SKEW before the newest reading it found. SKEW widens which files are opened, never which lines count.
+# for the account record of a run that the scan records (usage.latest, see remember); after a guarded run
+# that viewed a rollout its hooks named, the noted turns decide, and usage.witnessed stops at a rollout
+# whose file time lies more than usage.SLACK + SKEW before the newest reading it found. SKEW widens which
+# files are opened, never which lines count.
 SKEW = 300
 CHUNK = 1 << 16
 
@@ -860,7 +852,7 @@ def main(args):
                     print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls "
                                        "at a reserve.", "36", 2), file=sys.stderr)
                 # The span of this run's own lines, for the check after it and for the account record of a run
-                # whose hooks named no turn.
+                # that the scan records.
                 begun = time.time()
                 result = run_native(command, env, layout.fd)
                 ended = time.time()
@@ -871,8 +863,7 @@ def main(args):
             alone = post_run(layout, baseline) and alone and layout.size == arrived
             threads = None if state is None else this_run(layout, plan, baseline, begun, ended, alone)
             if os.path.lexists(layout.target):
-                remember(config, layout, plan=plan, begun=begun, state=state,
-                         sessions=[path for kind in threads or () for group in kind for path in group])
+                remember(config, layout, plan=plan, begun=begun, state=state)
             if state is not None:
                 after_guarded(plan, account, state, marker, threads, begun, ended)
         finally:
