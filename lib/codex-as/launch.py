@@ -5,7 +5,9 @@ is guarded: it gets the reserve guard's hooks (GUARD_HOOKS, as -c values before
 the caller's arguments) and goals off (GOALS_OFF), the guard's variables and a
 file for the notes of the turns Codex runs those hooks for, headed by the
 login's tag (guard_launch.prepare), and, after Codex exits, the account's
-usage from those turns (remember) and a check that Codex ran the hooks.
+usage (remember: from those turns when a rollout the hooks named shows a
+turn, by creator and time when none does but a hook ran, else nothing) and a
+check that Codex ran the hooks.
 """
 
 import fcntl
