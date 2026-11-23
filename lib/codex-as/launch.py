@@ -2,8 +2,10 @@
 
 With a usage reserve on, a launch that runs Codex's model work in this process
 is guarded: it gets the reserve guard's hooks (GUARD_HOOKS, as -c values before
-the caller's arguments) and goals off (GOALS_OFF), the guard's variables
-(guard_launch.prepare) and, after Codex exits, a check that Codex ran them.
+the caller's arguments) and goals off (GOALS_OFF), the guard's variables and a
+file for the notes of the turns Codex runs those hooks for, headed by the
+login's tag (guard_launch.prepare), and, after Codex exits, the account's
+usage from those turns (remember) and a check that Codex ran the hooks.
 """
 
 import fcntl
@@ -181,21 +183,90 @@ def exit_status(result):
     return 128 - result
 
 
-def remember(config, layout, raw=None, plan=None, begun=None, threads=()):
-    """Best effort, for --account-info: this login's email and plan, and after a run the
-    last rate limits its rollouts show (THREADS: the session ids of a guarded run, see run_threads).
-    Never fails a launch and writes no token. BEGUN is the moment before Codex started. A rollout is
-    opened when its file time is at most SKEW before BEGUN, as run_threads opens them, since a file
-    server's clock may lag this host's; a snapshot counts only when its own line is stamped from BEGUN
-    on, to the millisecond as in span, so what an earlier run left in a session this run resumed,
-    perhaps another account's and perhaps an instant before this launch, is never recorded as this
-    account's. The record takes the newest snapshot by its own time."""
+def noted_turns(state):
+    """(owner tag or None, {rollout below sessions/: set of turns}) of the notes of the guarded launch with
+    prefix STATE (STATE.turns), as usage.turn_notes() reads them; None without a state or a notes file, and
+    on any error. Read as blocked_message() reads STATE.blocked: never through a link, a regular file only,
+    at most usage.NOTES + 1 bytes."""
+    try:
+        fd = os.open(state + ".turns", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except (OSError, TypeError):
+        return None
+    try:
+        regular = stat.S_ISREG(os.fstat(fd).st_mode)
+    except OSError:
+        regular = False
+    if not regular:
+        os.close(fd)
+        return None
+    try:
+        with os.fdopen(fd, "rb") as stream:
+            return usage.turn_notes(stream.read(usage.NOTES + 1))
+    except (OSError, ValueError, TypeError, AttributeError, UnicodeError, RecursionError):
+        return None
+
+
+def recorded(layout, raw, state):
+    """(snapshot or None, carried) of a guarded run from the turns its hooks named (noted_turns of STATE):
+    the newest snapshot of the general family in those turns of the rollouts those hooks were called in,
+    whoever created the thread, and whether any such rollout carries a noted turn (usage.witnessed).
+    (None, False) without a noted turn: no guard, hooks that Codex did not run, or a guard older than the
+    notes. A snapshot found also goes into the account's attested usage, codex-usage-NAME.json beside the
+    launch's state, when RAW, the login read after the run, has the tag the launcher noted at the start;
+    that write is best effort on its own, so it never keeps the account record from its snapshot."""
+    notes = noted_turns(state)
+    if not notes or not notes[1]:
+        return None, False
+    snapshot, rel, carried = usage.witnessed(layout.root, notes[1], skew=SKEW)
+    if snapshot is not None and notes[0] is not None:
+        try:
+            if usage.tag(storage.owner(raw)) == notes[0]:
+                usage.keep(metadata, Path(os.path.dirname(state)) / f"codex-usage-{layout.name}.json", notes[0],
+                           snapshot, time.time(), rel, os.path.basename(state))
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, UnicodeError, RecursionError):
+            pass
+    return snapshot, carried
+
+
+def created(paths, owner):
+    """The threads of the rollouts at PATHS whose session_meta names OWNER, a (ChatGPT user, workspace)
+    pair, as the creator; none for an OWNER of None."""
+    found = set()
+    for path in paths if owner is not None else ():
+        try:
+            if usage.created_by(session_meta(path)) == owner:
+                found.add(usage.NAME.fullmatch(path.name)[1])
+        except OSError:
+            continue
+    return found
+
+
+def remember(config, layout, raw=None, plan=None, begun=None, state=None, sessions=()):
+    """Best effort, for --account-info: this login's email and plan, and after a run (PLAN) the last
+    rate limits that belong to the run. Never fails a launch and writes no token. After a guarded run
+    whose hooks named turns (STATE, the launch's prefix in the guard directory, or None without a guard)
+    they come from those turns alone, whoever created the thread, and go into the account's attested
+    usage as well (recorded). After any other run they come from the scan of every earlier release,
+    which reads by id the thread the run resumed or recovered and, of SESSIONS (the rollouts of a
+    guarded run's sessions, see run_threads), those this account created, such as an older session that
+    resume --last continued in the date directory of its own day: never a sub-agent's rollout of a
+    session another account created. BEGUN is the moment before Codex started; a rollout is opened when
+    its file time is at most SKEW before BEGUN, as run_threads opens them, since a file server's clock
+    may lag this host's; a snapshot counts only when its own line is stamped from BEGUN on, to the
+    millisecond as in span, so what an earlier run left in a session this run resumed, perhaps another
+    account's and perhaps an instant before this launch, is never recorded as this account's. The record
+    takes the newest snapshot by its own time."""
     try:
         if raw is None:
             raw = guard.credential(layout.target)
         email, kind = storage.profile(raw)
-        seen = None if plan is None else usage.latest(layout.root, {*plan.continued, *threads}, storage.owner(raw),
-                                                      begun - STAMPED, time.time(), skew=SKEW)
+        seen = None
+        if plan is not None:
+            seen, carried = recorded(layout, raw, state)
+            if not carried:
+                owner = storage.owner(raw)
+                seen = usage.latest(layout.root, {*plan.continued, *created(sessions, owner)}, owner, begun - STAMPED,
+                                    time.time(), skew=SKEW)
         # The old record is read only after the scan, just before the write, so a run of
         # this account that finished meanwhile keeps its newer snapshot.
         path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
@@ -288,7 +359,8 @@ def unguardable(account, plan):
 
 def guarded(config, account, plan, layout):
     """The checks of a guarded launch that read the Codex configuration and the guard's directory, all
-    before a missing account is offered a login. Returns (guard directory, marker, account record)."""
+    before a missing account is offered a login. Returns (guard directory, marker, account record); the
+    record's path goes into the launch, though the Codex guard reads the account's attested usage."""
     off = storage.hooks_off(guard, layout.root, plan.cwd, plan.profile, layout.home)
     if off is not None:
         refuse(account, f"{off} turns the hooks feature off under [features], so Codex would not run the usage "
@@ -356,7 +428,9 @@ RELEVANT = (b"token_count", b"response_item", b"token_usage_record")  # the line
 # network home directory the file's time comes from the file server's clock, which may lag this host's
 # (Kerberos, under which NFSv4 often runs, refuses a skew above 5 minutes). The lines' own times, which
 # Codex writes with this host's clock, decide what is the run's, for the check after the run (span) and
-# for the account record (remember): SKEW widens which files are opened, never which lines count.
+# for the account record of a run whose hooks named no turn (usage.latest); after one whose hooks did, the
+# noted turns decide, and usage.witnessed stops at a rollout whose file time lies more than usage.SLACK +
+# SKEW before the newest reading it found. SKEW widens which files are opened, never which lines count.
 SKEW = 300
 CHUNK = 1 << 16
 
@@ -746,6 +820,14 @@ def main(args):
             guard.fail("account has active clients and authentication needs repair; close all account clients first.")
         # Revalidate after EX->SH, whose conversion may release the lock briefly.
         baseline = layout.validate()
+        tag = None
+        if guarding:
+            # The login's tag heads the launch's notes of its turns: the guard and the run's record attest a
+            # reading for this login only (also for an account this launch just enrolled).
+            try:
+                tag = usage.tag(storage.owner(baseline))
+            except (ValueError, KeyError, TypeError, AttributeError, IndexError, UnicodeError, RecursionError):
+                tag = None
         remember(config, layout, baseline)
         if plan.profile is not None:
             layout.link_profile(plan.profile)
@@ -771,13 +853,14 @@ def main(args):
                     guard_launch.prune(directory, started)
                     try:
                         state = guard_launch.prepare(env, directory, "codex-as", account, policy, record, started,
-                                                     marker=marker)
+                                                     marker=marker, turns=tag)
                     except OSError as error:  # a full disk or a home directory at its quota, say
                         guard.fail(f"{directory}: cannot record this launch's usage reserve state "
                                    f"({error.strerror or error}).")
                     print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls "
                                        "at a reserve.", "36", 2), file=sys.stderr)
-                # The span of this run's own lines, for the check after it and for the account record.
+                # The span of this run's own lines, for the check after it and for the account record of a run
+                # whose hooks named no turn.
                 begun = time.time()
                 result = run_native(command, env, layout.fd)
                 ended = time.time()
@@ -787,10 +870,9 @@ def main(args):
             # client of the account at the run's start or end, and none arrived meanwhile.
             alone = post_run(layout, baseline) and alone and layout.size == arrived
             threads = None if state is None else this_run(layout, plan, baseline, begun, ended, alone)
-            groups = [group for kind in threads for group in kind] if threads else ()
             if os.path.lexists(layout.target):
-                remember(config, layout, plan=plan, begun=begun,
-                         threads={usage.NAME.fullmatch(path.name)[1] for group in groups for path in group})
+                remember(config, layout, plan=plan, begun=begun, state=state,
+                         sessions=[path for kind in threads or () for group in kind for path in group])
             if state is not None:
                 after_guarded(plan, account, state, marker, threads, begun, ended)
         finally:
