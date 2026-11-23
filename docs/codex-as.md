@@ -359,14 +359,15 @@ arguments:
   launch's `turns` file names, at most 64 of them, the newest file time
   first, and in each the turns noted for it, as the guard reads them. When
   that part of one of these rollouts names a turn, noted or not, the record
-  that `--info` shows takes the newest general-family snapshot of the noted
-  turns, whoever created the thread, and nothing else: in that part a turn
-  of another client in the same thread never counts. When the noted turns
-  hold no snapshot there, the record keeps its stored usage. When no such
-  part names a turn (hook events without a turn id in UUID form, rollouts
-  without turn ids in that form, rollouts that are gone) and the guard ran
-  at a prompt or a tool call of the launch, codex-as reads the run by
-  creator and time, as it reads a launch without a reserve
+  that `--info` shows takes from each rollout the newest snapshot of its
+  noted turns, when that snapshot is of the general family, and of these
+  the newest, whoever created the thread, and nothing else: in that part a
+  turn of another client in the same thread never counts. When the noted
+  turns give no such snapshot there, the record keeps its stored usage.
+  When no such part names a turn (hook events without a turn id in UUID
+  form, rollouts without turn ids in that form, rollouts that are gone) and
+  the guard ran at a prompt or a tool call of the launch, codex-as reads
+  the run by creator and time, as it reads a launch without a reserve
   ([account launchers](account-launchers.md#account-metadata)), and writes
   no attested usage; when the guard ran at neither, the record keeps its
   stored usage.
