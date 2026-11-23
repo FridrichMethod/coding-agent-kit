@@ -1319,21 +1319,35 @@ class Codex(Fixture):
             self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T3)), OK)
             self.assertEqual(self.notes(launch), torn + f"\nt {T3} {REL}\n")
 
-    def test_full_notes_take_no_more_lines_and_the_event_s_turn_still_counts(self):
+    def test_full_notes_take_no_more_lines_and_a_turn_they_do_not_hold_is_read_by_time(self):
         launch = self.launch("codex-as", weekly="10")
-        limit, head = guard.module("usage").NOTES, f"o {TAG}\n"
-        full = head + "x" * (limit - len(head) - 1) + "\n"  # a line of a kind a later release may add
+        limit, head, mine = guard.module("usage").NOTES, f"o {TAG}\n", f"t {T1} {REL}\n"
+        full = head + mine + "x" * (limit - len(head) - len(mine) - 1) + "\n"  # a line of a kind a later release may add
         put(self.state(launch, "turns"), full)
-        transcript = self.rollout(turn(T1, NOW - 60, slot(95, 10080), end=False), thread=THREAD)
-        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)),
-                         (2, "", self.threshold("tool")))
+        # The launch's turn T1 below the reserve, then another client's turn at it, both since the launch started.
+        records = turn(T1, NOW - 90, slot(50, 10080)) + turn(T0, NOW - 60, slot(95, 10080))
+        transcript = self.rollout(records, thread=THREAD)
+        # A turn that the full notes hold keeps the launch's turns: T1's reading decides and is attested.
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)), OK)
+        self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 50)
+        # A turn they cannot take any more is read by time, as a launch without notes reads: no later event could
+        # count it as the launch's. The other client's reading refuses it, and nothing is noted or attested.
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T2)),
+                         (2, "", self.threshold("prompt")))
         self.assertEqual(self.notes(launch), full)
-        self.assertEqual(json.loads(self.attested(launch).read_text())["owner"], TAG, "the turn did not count")
-        # A byte short of the bound, the note is taken.
+        self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 50)
+        # The notes' tag still counts: another login's attested usage is no reading for that event.
+        fresh = self.rollout([started(NOW - 5, T2), context(NOW - 5, T2)], thread=THREAD)
+        self.attested_usage(launch, slot(95, 10080), owner=OTHER_TAG)
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(fresh, "prompt", T2)), OK)
+        self.attested_usage(launch, slot(95, 10080))
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(fresh, "prompt", T2)),
+                         (2, "", self.threshold("prompt")))
+        # A byte short of the bound, the note is taken and the launch's turns decide.
         put(self.state(launch, "turns"), full[:-2] + "\n")
-        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)),
-                         (2, "", self.threshold("tool")))
-        self.assertEqual(self.notes(launch), full[:-2] + f"\nt {T1} {REL}\n")
+        transcript = self.rollout(records, thread=THREAD)
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript, "prompt", T2)), OK)
+        self.assertEqual(self.notes(launch), full[:-2] + f"\nt {T2} {REL}\n")
 
     def test_a_failed_record_write_never_blocks(self):
         # The launch's own turns: a reply below the reserve, and a later one at it. Whatever the write of the
