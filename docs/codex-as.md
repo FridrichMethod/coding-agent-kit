@@ -233,7 +233,9 @@ arguments:
   the reserves, the start time, the paths of the account's record, of the
   launch's state and of the marker below), they are the launcher's channel to
   its guard, no interface for other programs; every codex-as launch first
-  removes inherited ones.
+  removes inherited ones. Of a hook event the guard reads two fields,
+  `transcript_path` and `turn_id`. The path of the account's record stays in
+  the launch and the Codex guard does not read it.
 - The two hook values are the same on every launch, account, host and kit
   release, because Codex trusts a hook by a hash of its definition. "Trust all"
   in "Hooks need review" writes these records into the shared
@@ -277,22 +279,63 @@ arguments:
   under either Codex runs none of the guard's hooks, which the check after the
   run reports.
 - The guard reads at most the last 1 MiB of the rollout that the event's
-  `transcript_path` names, and of it the lines stamped from 5 seconds before
-  the launch started; lines a sub-agent inherited from its parent never count.
-  A snapshot is the newest `token_count` line with at least one usable window
-  (a finite percentage of 0 or more, above 100 counting as 100); its limit
-  family is its own `limit_id`, `codex` being the general one. A snapshot of
-  the general family takes from the account's record the windows it does not
-  name; one of another family stands alone, as the limit the session's
-  requests count against. While the session has no snapshot, or one that
-  names no window of a known length, a token count without a usable window
-  makes it blind unless it is a compaction's (at a prompt, a model response
-  does too); a model response is a reasoning item, an assistant message, a
-  `_call` item or a `token_usage_record` line. A format change fails closed: a snapshot that
-  names no window of a known length counts as none, and a token count or a
-  model response whose time cannot be read counts as a token count without
-  rate limits. When the rollout cannot be read, the guard uses the account's
-  record, and the session is never blind.
+  `transcript_path` names, and of it the lines of the launch's turns in that
+  rollout: the event's own turn and the turns whose `turn_id` an earlier hook
+  event of this launch carried with this rollout's path, which the launch's
+  `turns` file in the guard directory keeps. A line belongs to the turn that the last
+  `task_started`, `turn_context` or `token_usage_record` line up to it names,
+  until a `task_complete` or `turn_aborted` line ends that turn; only an id in
+  UUID form names a turn, and an `item_completed` line, which can follow its
+  turn's end, names none. Lines a sub-agent inherited from its parent never
+  count, and the turn lines that Codex copies into a sub-agent's rollout name
+  the parent's turns, which are the launch's in the parent's rollout only. A
+  snapshot is the newest `token_count` line of those turns with at least one
+  usable window (a finite percentage of 0 or more, above 100 counting as 100)
+  that a model response of its turn precedes; it carries the time, to the
+  second, of the turn's last `token_usage_record` line before it (its own
+  time when the turn has none), and its limit family is its own `limit_id`,
+  `codex` being the general one. A snapshot of the general family takes from
+  the account's attested usage the windows it does not name, and is recorded
+  there; one of another family stands alone, as the limit the session's
+  requests count against, and is never recorded. While the launch's turns
+  hold no snapshot, or one that names no window of a known length, a token
+  count without a usable window in them makes the session blind unless it is
+  a compaction's (at a prompt, a model response in them does too); a model
+  response is a reasoning item, an assistant message, a `_call` item or a
+  `token_usage_record` line. A format change fails closed: a snapshot that
+  names no window of a known length counts as none, and a token count whose
+  time cannot be read counts as one without rate limits, as does, where the
+  guard reads by time, a model response whose time cannot be read. The guard
+  reads by time instead, the lines stamped from 5 seconds before the launch
+  started, each snapshot with its own line's time and no model response
+  needed before it, and records nothing, when the launch has no `turns` file
+  or one it cannot read (coding-agent-kit 0.9.0 or 0.9.1 started the launch),
+  when the event carries no turn id in UUID form or a path that is no rollout
+  below `sessions/`, when the tail names no turn at all, and at a tool call
+  whose turn is not among the turns the tail names. A prompt whose turn the
+  tail does not name, while it names others, is judged by the launch's
+  earlier turns there and the attested usage. When the rollout cannot be
+  read, the guard uses the account's attested usage, and the session is never
+  blind.
+- The account's attested usage is `codex-usage-NAME.json` in the guard
+  directory, a 0600 file replaced atomically: `owner`, `usage` in the shape
+  of the account record's, and the `rollout` and `launch` the reading came
+  from. The guard writes it at an event whose view holds a general-family
+  snapshot of the launch's own turns, and codex-as after a run from the turns
+  its hooks named, when the login after the run is the one the launch started
+  with. The newest reading by `seen_at` wins; a window that the newest
+  snapshot does not name stays while its reset lies ahead; unchanged windows
+  (reset times up to 120 seconds apart count as unchanged) are written again
+  only 300 seconds apart; a reading stamped more than 5 seconds ahead of this
+  host's clock is never stored, and one stored that way gives way to the next
+  reading. `owner` is the first 16 hex digits of the SHA-256 of the login's
+  ChatGPT user and workspace: a launch reads the file only when it names the
+  launch's login, or whatever it names when the launch has no readable
+  `turns` file, and a write replaces another login's reading. The file has
+  no lock, so two hooks that write it at the same instant can let the older
+  reading stand until the next event. Nothing else writes it, a launch
+  without a reserve never opens it, and removing it is always safe
+  ([account launchers](account-launchers.md#what-it-does-not-stop)).
 - After a headless run (`exec`, `review`), codex-as prints the guard's latest
   refusal of that run on stderr, since `codex exec` exits 0 after a refused
   prompt or tool call and, for a refused prompt, shows no reason (for a
