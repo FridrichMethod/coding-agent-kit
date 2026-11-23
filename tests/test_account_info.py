@@ -1382,6 +1382,126 @@ class Merged(unittest.TestCase):
         self.assertEqual(self.stored()["usage"], reading(NOW, 21.0))
 
 
+class Witnessed(unittest.TestCase):
+    """usage.witnessed: after a run whose hooks named turns, its snapshot from those turns only."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="kit-witnessed-test-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+
+    def write(self, thread, records, mtime=NOW, **more):
+        """A rollout below ROOT/sessions: session_meta, then RECORDS; (its path, its REL)."""
+        path = rollout(self.root, thread, [], **more)
+        with open(path, "a") as stream:
+            stream.write("".join(json.dumps(record) + "\n" for record in records))
+        os.utime(path, (mtime, mtime))
+        return path, path.relative_to(self.root / "sessions").as_posix()
+
+    def test_only_the_noted_turns_of_the_noted_rollouts_count(self):
+        _, rel = self.write(THREAD, [*whole(NOW - 100, TURN_B, weekly(83.0, THEIRS)), *whole(NOW - 50, TURN_A, weekly(40.0)),
+                                     *whole(NOW - 10, TURN_C, weekly(85.0, THEIRS))])
+        self.assertEqual(rel, REL_A)
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (reading(NOW - 49, 40.0), rel, True))
+        # A rollout that is not noted is not read, however new its reading.
+        _, other = self.write(OTHER, whole(NOW - 5, TURN_A, weekly(90.0)))
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (reading(NOW - 49, 40.0), rel, True))
+        # Of the noted ones the newest reading wins.
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}, other: {TURN_A}}), (reading(NOW - 4, 90.0), other, True))
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A, TURN_C}}), (reading(NOW - 9, 85.0, resets=THEIRS), rel, True))
+        self.assertEqual(usage.witnessed(self.root, {}), (None, None, False))
+
+    def test_a_thread_of_any_creator_counts(self):
+        for creator in (("user-fixture-B", "workspace-fixture-B"), (USER, "workspace-other"), None):
+            with self.subTest(creator=creator):
+                shutil.rmtree(self.root / "sessions", ignore_errors=True)
+                # No time bound either: a turn has one client, whenever its lines are stamped.
+                _, rel = self.write(RESUMED, [*whole(NOW - 86400, TURN_B, weekly(83.0, THEIRS)),
+                                              *whole(NOW - 86300, TURN_A, weekly(40.0))], creator=creator)
+                self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (reading(NOW - 86299, 40.0), rel, True))
+
+    def test_a_copy_of_a_noted_turn_in_another_rollout_never_counts(self):
+        _, parent = self.write(THREAD, whole(NOW - 100, TURN_P, weekly(40.0)))
+        # A sub-agent's rollout repeats its parent's turn lines; this one even a reading in that turn, newer than
+        # the parent's, then the sub-agent's own turn without a reply yet.
+        copy = [started(NOW - 10, TURN_P), call(NOW - 10), record(NOW - 10, TURN_P), count(NOW - 10, weekly(83.0, THEIRS)),
+                complete(NOW - 10, TURN_P), started(NOW - 5, TURN_C), context(NOW - 5, TURN_C)]
+        _, child = self.write(OTHER, copy)
+        self.assertEqual(usage.witnessed(self.root, {parent: {TURN_P}, child: {TURN_C}}), (reading(NOW - 99, 40.0), parent, True))
+        self.assertEqual(usage.witnessed(self.root, {child: {TURN_C}}), (None, None, True))
+
+    def test_another_family_s_snapshot_is_never_recorded(self):
+        spark = dict(weekly(30.0), limit_id="codex_bengalfox")
+        _, rel = self.write(THREAD, [started(NOW - 60, TURN_A), *reply(NOW - 59, TURN_A, weekly(40.0)),
+                                     *reply(NOW - 50, TURN_A, spark), complete(NOW - 49, TURN_A)])
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}}), (None, None, True))
+        _, other = self.write(OTHER, whole(NOW - 100, TURN_C, weekly(41.0)))
+        self.assertEqual(usage.witnessed(self.root, {rel: {TURN_A}, other: {TURN_C}}), (reading(NOW - 99, 41.0), other, True))
+
+    def test_the_newest_files_are_read_up_to_the_bound(self):
+        notes = {}
+        for number in range(usage.WITNESSED + 1):
+            # The newest file holds the oldest reading; the one past the bound, the newest reading of all.
+            past = number == usage.WITNESSED
+            seen = NOW - 100 if past else NOW - 3600 - number
+            _, rel = self.write(f"019a0000-0000-7000-8000-0000000020{number:02x}",
+                                whole(seen - 1, TURN_A, weekly(90.0 if past else float(number))), mtime=NOW - number)
+            notes[rel] = {TURN_A}
+        with patch.object(usage, "session", wraps=usage.session) as read:
+            found = usage.witnessed(self.root, notes)
+        self.assertEqual((found[0], found[2]), (reading(NOW - 3600, 0.0), True))
+        self.assertEqual((usage.WITNESSED, read.call_count), (64, 64))
+
+    def test_an_older_file_is_not_opened_once_a_newer_reading_is_found(self):
+        newer, new = self.write(THREAD, whole(NOW - 11, TURN_A, weekly(40.0)), mtime=NOW)
+        # A file whose time lies more than SLACK before the best reading cannot hold a newer one; this one does.
+        older, old = self.write(OTHER, whole(NOW - 6, TURN_A, weekly(90.0)), mtime=NOW - 10 - usage.SLACK - 1)
+        notes = {new: {TURN_A}, old: {TURN_A}}
+        with patch.object(usage, "session", wraps=usage.session) as read:
+            self.assertEqual(usage.witnessed(self.root, notes), (reading(NOW - 10, 40.0), new, True))
+        self.assertEqual([Path(call.args[0]) for call in read.call_args_list], [newer])
+        # Within SLACK it is read, and further back within SKEW, the file server's clock lag.
+        os.utime(older, (NOW - 10 - usage.SLACK, NOW - 10 - usage.SLACK))
+        self.assertEqual(usage.witnessed(self.root, notes), (reading(NOW - 5, 90.0), old, True))
+        os.utime(older, (NOW - 10 - usage.SLACK - 60, NOW - 10 - usage.SLACK - 60))
+        self.assertEqual(usage.witnessed(self.root, notes, skew=60), (reading(NOW - 5, 90.0), old, True))
+        self.assertEqual(usage.witnessed(self.root, notes, skew=59), (reading(NOW - 10, 40.0), new, True))
+
+    def test_a_link_or_a_missing_rollout_is_skipped(self):
+        _, rel = self.write(THREAD, whole(NOW - 11, TURN_A, weekly(40.0)))
+        sessions = self.root / "sessions"
+        elsewhere = self.root / "elsewhere"
+        target = rollout(elsewhere, RESUMED, [])
+        with open(target, "a") as stream:
+            stream.write("".join(json.dumps(record) + "\n" for record in whole(NOW - 6, TURN_A, weekly(90.0))))
+        linked = rel.replace(THREAD, RESUMED)
+        (sessions / linked).symlink_to(target)
+        fifo = rel.replace(THREAD, OTHER)
+        os.mkfifo(sessions / fifo)
+        self.addCleanup(CodexUsage.release, sessions / fifo)
+        folder = rel.replace(THREAD, "019a0000-0000-7000-8000-0000000000ee")
+        (sessions / folder).mkdir()
+        missing = rel.replace(THREAD, "019a0000-0000-7000-8000-0000000000ff")
+        outside = "../elsewhere/" + target.relative_to(elsewhere).as_posix()
+        others = {linked: {TURN_A}, fifo: {TURN_A}, folder: {TURN_A}, missing: {TURN_A}, outside: {TURN_A}}
+        found = []
+        scan = threading.Thread(target=lambda: found.append((usage.witnessed(self.root, {rel: {TURN_A}, **others}),
+                                                             usage.witnessed(self.root, others))), daemon=True)
+        scan.start()
+        scan.join(10)
+        self.assertFalse(scan.is_alive(), "the read blocked on a FIFO")
+        self.assertEqual(found[0], ((reading(NOW - 10, 40.0), rel, True), (None, None, False)))
+
+    def test_noted_turns_that_no_rollout_carries_are_told(self):
+        _, plain = self.write(THREAD, [call(NOW - 10), count(NOW - 10, weekly(40.0))])  # a rollout without turn ids
+        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}}), (None, None, False))
+        _, theirs = self.write(OTHER, whole(NOW - 10, TURN_B, weekly(83.0, THEIRS)))  # ids it does not hold
+        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, theirs: {TURN_A}}), (None, None, False))
+        # A noted turn without a reply, as after a refused prompt, is carried and holds no snapshot.
+        _, refused = self.write(RESUMED, [started(NOW - 10, TURN_A), context(NOW - 10, TURN_A), complete(NOW - 9, TURN_A)])
+        self.assertEqual(usage.witnessed(self.root, {plain: {TURN_A}, refused: {TURN_A}}), (None, None, True))
+
+
 CODEX_FAKE = r"""
 import json, os, pathlib, sys, time
 if sys.argv[1:] == ["--version"]:

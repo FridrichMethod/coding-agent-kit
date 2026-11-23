@@ -567,3 +567,39 @@ def keep(accounts, path, owner, snapshot, now, rollout, launch):
     if fresh is None:
         return False
     return accounts.write(path, {"owner": owner, "usage": fresh, "rollout": rollout, "launch": launch})
+
+
+def witnessed(root, notes, skew=0):
+    """(snapshot | None, REL | None, carried): a run's last snapshot from the turns its hooks named.
+
+    NOTES maps the REL of each rollout a hook event named to the turns noted for it (turn_notes).
+    Each such regular file below ROOT/sessions is read, the newest file time first, at most
+    WITNESSED, and of it only the own view (session()) of its own noted turns, whoever created the
+    thread and whenever the lines are stamped: a turn has one client. CARRIED is whether any of
+    them names one of its noted turns; the snapshot is the newest reading (seen_at) of the general
+    family among them, with the REL it came from. Reading stops at the first file whose time is
+    more than SLACK + SKEW seconds before the best reading found: it cannot hold a newer one."""
+    sessions = Path(root) / "sessions"
+    files = []
+    for rel, turns in notes.items():
+        if not isinstance(rel, str) or not REL.fullmatch(rel):
+            continue
+        try:
+            info = os.lstat(sessions / rel)
+        except OSError:
+            continue  # missing
+        if stat.S_ISREG(info.st_mode):  # never a link, FIFO, device or directory
+            files.append((-info.st_mtime, rel, turns))
+    best, where, carried = None, None, False
+    for newest, rel, turns in sorted(files, key=lambda entry: entry[:2])[:WITNESSED]:
+        if best is not None and -newest < best["seen_at"] - SLACK - skew:
+            break
+        seen = session(sessions / rel, LAST, turns)  # LAST: the lines since a start count nothing
+        own = seen["own"] if seen else None
+        if own is None or not own["turns"]:
+            continue
+        carried = True
+        snapshot = own["snapshot"]
+        if snapshot and own["family"] is None and (best is None or snapshot["seen_at"] > best["seen_at"]):
+            best, where = snapshot, rel
+    return best, where, carried
