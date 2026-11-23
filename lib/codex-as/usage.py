@@ -110,8 +110,8 @@ turns its hooks named. The newest reading (seen_at) wins; a window that the
 newest snapshot does not name stays, by its length, while its reset lies ahead;
 unchanged windows (reset times at most TOLERANCE apart) are written again only
 AGAIN seconds apart; a seen_at more than SLACK seconds ahead of this host's
-clock is never stored, and a stored one is no reading. Another owner's file, or
-one that cannot be read, is replaced. There is no lock.
+clock is never stored, and a stored one gives way to the next reading. Another
+owner's file, or one that cannot be read, is replaced. There is no lock.
 
 The last snapshot of a run whose hooks named turns (witnessed): of each noted
 rollout, regular files only, the newest file time first and at most WITNESSED,
