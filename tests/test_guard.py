@@ -1202,6 +1202,22 @@ class Codex(Fixture):
                                                          "seen_at": NOW - 50})
         self.assertFalse(self.state(launch, "ran.tool").exists())
 
+    def test_a_write_of_the_attested_usage_sweeps_its_stale_temporary_files(self):
+        # What a guard killed inside its write left (a hook's timeout, Codex exiting): STALE seconds older than the
+        # file just written, by the file times. Another writer's fresh file, and another account's, stay.
+        launch = self.launch("codex-as", weekly="10")
+        self.turns_file(launch)
+        stale = put(self.guard_dir / ".codex-usage-lab.json.0123abcd.tmp", "half")
+        fresh = put(self.guard_dir / ".codex-usage-lab.json.4567cdef.tmp", "half")
+        other = put(self.guard_dir / ".codex-usage-lab-2.json.89abcdef.tmp", "half")
+        old = time.time() - guard.STALE - 60
+        for path in (stale, other):
+            os.utime(path, (old, old))
+        transcript = self.rollout(turn(T1, NOW - 60, slot(50, 10080), end=False), thread=THREAD)
+        self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T1)), OK)
+        self.assertEqual(self.attested_reading(launch)["primary"]["used_percent"], 50)
+        self.assertEqual(sorted(self.temporary_files()), sorted([fresh.name, other.name]))
+
     def test_another_family_s_snapshot_is_never_recorded(self):
         launch = self.launch("codex-as", weekly="10")
         self.turns_file(launch)
