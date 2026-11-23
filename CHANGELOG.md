@@ -57,7 +57,10 @@
   known gaps: a session switched inside Codex (`/resume`) is missed, and
   another account that resumes, during the run, a thread this account
   created can be counted. A launch with a reserve whose hooks named no turn,
-  as when Codex did not run them, records its usage the same way.
+  as when Codex did not run them, records its usage the same way; of the
+  sessions that the check after the run finds, it reads by id only those this
+  account created, so a sub-agent's rollout that another account created in a
+  session resumed by id no longer counts.
 
 ## 0.9.1
 
