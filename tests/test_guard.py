@@ -59,6 +59,9 @@ RELAUNCH_CODEX = "To use the reserve, exit and run:\n  codex-as --reserve-weekly
 STOPPED = {"prompt": "This prompt was not sent.\n",
            "tool": "This tool call was stopped. Stop working now and tell the user why.\n",
            "stop": "The work stops here.\n"}
+TAG = "5f0c2a9e41d7b386"  # a login's owner tag, as the launcher writes it into STATE.turns
+THREAD = "019a0000-0000-7000-8000-00000000000a"
+REL = f"2026/01/01/rollout-2026-01-01T00-00-00-{THREAD}.jsonl"  # a rollout's path below sessions/
 
 
 def iso(epoch):
@@ -172,6 +175,18 @@ class Fixture(unittest.TestCase):
         """The account record codex-as keeps, with the usage of an earlier run."""
         usage = {"primary": primary, "secondary": secondary, "seen_at": NOW - 7200}
         return put(Path(launch.usage), {"email": "lab@example.com", "plan": "plus", "usage": usage})
+
+    def attested(self, launch):
+        """The path of the account's attested usage, beside the launches' state."""
+        return self.guard_dir / f"codex-usage-{launch.account}.json"
+
+    def attested_usage(self, launch, primary=None, secondary=None, owner=TAG, seen_at=NOW - 7200, mode=0o600):
+        """The account's attested usage as a guard of an earlier launch wrote it; OWNER None leaves the tag out."""
+        data = {"usage": {"primary": primary, "secondary": secondary, "seen_at": seen_at}, "rollout": REL,
+                "launch": f"codex-as-{launch.account}-3999-{STARTED - 3600}"}
+        if owner is not None:
+            data["owner"] = owner
+        return put(self.attested(launch), data, mode)
 
     def rollout(self, records, name="rollout.jsonl"):
         """A session rollout: its session_meta line from before the launch, then RECORDS."""
@@ -659,9 +674,9 @@ class Codex(Fixture):
         launch = self.launch("codex-as", weekly="10")
         transcript = self.rollout([count(NOW - 90, slot(95, 10080)), count(NOW - 30, slot(50, 10080))])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
-        self.codex_record(launch, slot(95, 10080))
-        # The session's snapshot, not the account record from earlier runs, decides while there is one,
-        # also when the snapshot is of another limit family.
+        self.attested_usage(launch, slot(95, 10080))
+        # The session's snapshot, not the account's attested usage, decides while there is one, also when the
+        # snapshot is of another limit family.
         self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
         spark = self.rollout([count(NOW - 30, slot(50, 10080), limit_id="spark")])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(spark)), OK)
@@ -674,14 +689,14 @@ class Codex(Fixture):
         for primary, secondary in ((slot(97, None), None), (slot(97, 60), None), (slot(97, 60), slot(97, 1440))):
             with self.subTest(primary=primary, secondary=secondary):
                 transcript = self.rollout([reply(NOW - 30), count(NOW - 30, primary, secondary)])
-                Path(launch.usage).unlink(missing_ok=True)
+                self.attested(launch).unlink(missing_ok=True)
                 # Nothing the guard can judge by: the session is blind, as after a token count without rate limits.
                 for kind in ("prompt", "tool"):
                     self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
                                      (2, "", reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"),
                                                                 kind, NOW)))
-                # The account record from earlier runs still decides its threshold.
-                self.codex_record(launch, slot(95, 10080))
+                # The account's attested usage still decides its threshold.
+                self.attested_usage(launch, slot(95, 10080))
                 for kind in ("prompt", "tool"):
                     self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
                                      (2, "", self.threshold(kind)))
@@ -701,14 +716,15 @@ class Codex(Fixture):
                 with self.subTest(transcript=transcript.name, kind=kind):
                     self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)),
                                      exhausted(window, kind))
-        # The account record from earlier runs, too.
-        self.codex_record(launch, slot(100.5, 10080))
+        # The account's attested usage, too.
+        self.attested_usage(launch, slot(100.5, 10080))
         self.assertEqual(self.answer("prompt", launch, self.codex_event(self.rollout([]))), exhausted("weekly", "prompt"))
 
-    def test_a_window_the_snapshot_does_not_name_comes_from_the_account_record(self):
+    def test_a_window_the_snapshot_does_not_name_comes_from_the_attested_usage(self):
         launch = self.launch("codex-as", five_hour="10", weekly="10")
-        self.codex_record(launch, slot(95, 10080))
-        # Codex can report window_minutes 0: the snapshot's weekly slot is unusable, or absent, and the record has it.
+        self.attested_usage(launch, slot(95, 10080))
+        # Codex can report window_minutes 0: the snapshot's weekly slot is unusable, or absent, and the attested
+        # usage has it.
         for secondary in (slot(95, 0), None):
             transcript = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), secondary)])
             for kind in ("prompt", "tool"):
@@ -718,39 +734,68 @@ class Codex(Fixture):
         # Where the snapshot names the window, the snapshot decides.
         both = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), slot(50, 10080))])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(both)), OK)
-        # Another limit family's snapshot is the limit the session's requests count against: the general record's
+        # Another limit family's snapshot is the limit the session's requests count against: the attested general
         # windows stay out, also those the snapshot does not name.
         spark = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), None, limit_id="spark")])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(spark)), OK)
-        # A record window without a reset time is no reading here either.
-        self.codex_record(launch, slot(95, 10080, None))
+        # An attested window without a reset time is no reading here either.
+        self.attested_usage(launch, slot(95, 10080, None))
         partial = self.rollout([reply(NOW - 30), count(NOW - 30, slot(20, 300), slot(95, 0))])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(partial)), OK)
 
-    def test_without_a_snapshot_the_account_record_decides_minus_readings_without_a_reset(self):
+    def test_without_a_snapshot_the_attested_usage_decides_minus_readings_without_a_reset(self):
         launch = self.launch("codex-as", weekly="10")
         transcript = self.rollout([])
         self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
-        self.codex_record(launch, slot(95, 10080, None))
+        self.attested_usage(launch, slot(95, 10080, None))
         self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
-        self.codex_record(launch, slot(95, 10080, NOW - 1))
+        self.attested_usage(launch, slot(95, 10080, NOW - 1))
         self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
-        self.codex_record(launch, slot(20, 300), slot(95, 10080))
+        self.attested_usage(launch, slot(20, 300), slot(95, 10080))
         self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), (2, "", self.threshold("prompt")))
         self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool")),
                          (2, "", self.threshold("tool")))
 
-    def test_an_unusable_record_is_no_reading(self):
+    def test_attested_usage_of_no_use_is_no_reading(self):
         launch = self.launch("codex-as", weekly="10")
+        transcript = self.rollout([])
         for content, mode in (("garbage", 0o600), ('{"usage": 7}', 0o600), ('{"usage": {"primary": 7}}', 0o600),
-                              (json.dumps({"usage": {"primary": slot(95, 10080)}}), 0o640)):
-            with self.subTest(content=content):
-                put(Path(launch.usage), content, mode)
-                self.assertEqual(self.answer("prompt", launch, self.codex_event(None)), OK)
+                              (json.dumps({"owner": TAG, "usage": {"primary": slot(95, 10080)}}), 0o640),
+                              (json.dumps({"owner": TAG, "usage": {"primary": slot(95, 10080, None)}}), 0o600),
+                              (json.dumps({"owner": TAG, "usage": {"primary": slot(95, 10080, NOW)}}), 0o600),
+                              (json.dumps({"owner": TAG, "usage": {"primary": slot(95, 10080, NOW - 1)}}), 0o600)):
+            with self.subTest(content=content, mode=oct(mode)):
+                put(self.attested(launch), content, mode)
+                for kind in ("prompt", "tool"):
+                    for path in (None, transcript):
+                        self.assertEqual(self.answer(kind, launch, self.codex_event(path, kind)), OK)
+        # A directory, or a link to another account's file, in its place.
+        self.attested(launch).unlink()
+        self.attested(launch).mkdir()
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
+        self.attested(launch).rmdir()
+        self.attested(launch).symlink_to(self.attested_usage(self.launch("codex-as", "lab-2"), slot(95, 10080)))
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
+
+    def test_the_stored_reading_is_the_attested_usage_never_the_account_record(self):
+        launch = self.launch("codex-as", weekly="10")
+        transcript = self.rollout([])
+        # The record that --info shows, which launches without hooks write too, never decides.
+        self.codex_record(launch, slot(95, 10080))
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)), OK)
+        self.attested_usage(launch, slot(95, 10080))
+        Path(launch.usage).unlink()
+        for kind in ("prompt", "tool"):
+            self.assertEqual(self.answer(kind, launch, self.codex_event(transcript, kind)), (2, "", self.threshold(kind)))
+        # The attested usage is the launch's account's, beside the launches' state: another account's never decides.
+        self.attested(launch).rename(self.attested(self.launch("codex-as", "lab-2")))
+        self.assertEqual(self.answer("prompt", launch, self.codex_event(transcript)), OK)
+        self.assertEqual(guard.attested_path(launch), str(self.guard_dir / "codex-usage-lab.json"))
 
     def test_token_counts_without_rate_limits_are_blind_on_both_events(self):
         launch = self.launch("codex-as", weekly="10")
-        self.codex_record(launch, slot(20, 10080))
+        self.attested_usage(launch, slot(20, 10080))
         blind = {kind: reserve.block_text("codex-as", "lab", reserve.Decision(False, "blind"), kind, NOW)
                  for kind in ("prompt", "tool")}
         for records in ([reply(NOW - 30), count(NOW - 30, rates=False)], [count(NOW - 30)],
@@ -1051,7 +1096,7 @@ class Main(Fixture):
         elsewhere. SIGINT reaches the guard as a terminal's Ctrl-C would, also from a suite started with it ignored
         (a shell's background job)."""
         launch = self.launch("codex-as", weekly="10")
-        self.codex_record(launch, slot(95, 10080, int(time.time()) + 3600))
+        self.attested_usage(launch, slot(95, 10080, int(time.time()) + 3600))
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), **self.environ(launch)}
         self.addCleanup(signal.signal, signal.SIGINT, signal.getsignal(signal.SIGINT))
         signal.signal(signal.SIGINT, signal.default_int_handler)
@@ -1782,7 +1827,6 @@ DAY = 86400
 GONE = 4_194_400  # a process id above every host's limit (Linux 2**22, macOS 99999): a launch that has ended
 VARIABLES = ("CODING_AGENT_KIT_GUARD", "CODING_AGENT_KIT_GUARD_SCRIPT", "CODING_AGENT_KIT_GUARD_PYTHON")
 MARKER = "codex-hooks-90aeb3ec484a2ca6"
-TAG = "5f0c2a9e41d7b386"  # a login's owner tag, as the launcher writes it into STATE.turns
 
 
 def policy(tool, account, five_hour=None, weekly=None):

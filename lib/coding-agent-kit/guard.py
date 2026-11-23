@@ -30,8 +30,9 @@ The launch (CODING_AGENT_KIT_GUARD, compact JSON the launcher writes):
      "marker": ABSOLUTE PATH (codex-as), "statusline": COMMAND (claude-as, optional)}
 
     PERCENT is a reserve as reserve.percent() writes it ("10", "12.5"); null is
-    off. usage is the Claude usage file or the Codex account record; state is
-    this launch's prefix in the guard directory. Without the variable the guard
+    off. usage is the Claude usage file or the Codex account record, which the
+    Codex guard does not read; state is this launch's prefix in the guard
+    directory. Without the variable the guard
     allows and prints nothing. Any other "v", or a value that does not parse as
     above, is a guard failure named "launch format" (unknown keys are ignored).
 
@@ -54,9 +55,11 @@ The decision (reserve.decide) per launch:
 - codex-as reads the session's rollout (usage.session on the event's
   transcript_path, since the launch started): its newest snapshot, each window
   named by its length (300 minutes five_hour, 10080 weekly, others ignored)
-  with the snapshot's limit family; without one, the account record's usage
-  from earlier runs, minus windows without a reset time. A snapshot of the
-  general family takes from the record the windows it does not name (an
+  with the snapshot's limit family; without one, the account's attested usage
+  (attested_path(): codex-usage-ACCOUNT.json beside the launches' state, read
+  with accounts.read(); an unusable file is no reading), minus windows without
+  a reset time, and never the account record. A snapshot of the general
+  family takes from the attested usage the windows it does not name (an
   unusable slot, as with window_minutes 0); one of another family stands
   alone, as the limit the session's requests count against. A snapshot that
   names no window of a known length counts as none, so a change of format fails
@@ -128,6 +131,7 @@ tool, and is silent elsewhere: the guard checks the version before it imports
 anything but sys.
 
 Public API: Launch, launch_of(env), answer(kind, event, launch, now),
+attested_path(launch) (the Codex account's attested usage),
 record(path, limits, now) (True when it wrote), status(raw, launch, now) (the
 footer), handle(kind, raw, env, now) (an event's answer from its raw stdin;
 never raises), interrupted(kind, env) (the answer after a KeyboardInterrupt),
@@ -415,8 +419,13 @@ def windows(slots, family=None, reset_required=False):
     return readings
 
 
-def codex_view(kind, event, launch):
-    """(readings, blind) from the session's rollout, else from the account record."""
+def attested_path(launch):
+    """The account's attested usage: codex-usage-ACCOUNT.json beside the launches' state."""
+    return os.path.join(os.path.dirname(launch.state), f"codex-usage-{launch.account}.json")
+
+
+def codex_view(kind, event, launch, now):
+    """(readings, blind) from the session's rollout, else from the account's attested usage."""
     usage = module("usage")  # loaded whatever the event says, so an incomplete install always fails
     if not isinstance(event, dict):
         raise ValueError("the event is not a JSON object")
@@ -427,10 +436,11 @@ def codex_view(kind, event, launch):
     snapshot = windows(seen["snapshot"], seen["family"]) if seen and seen["snapshot"] else []
     if snapshot and seen["family"] is not None:
         return snapshot, False  # another family's limit is the one the session's requests count against
-    record = stored(launch.usage)
+    # Never the account record (launch.usage), which launches without hooks write too.
+    record = stored(attested_path(launch))
     last = record.get("usage") if isinstance(record, dict) else None
     kept = windows(last, reset_required=True) if isinstance(last, dict) else []
-    if snapshot:  # the record's reading of a window the snapshot does not name (window_minutes 0 occurs)
+    if snapshot:  # the stored reading of a window the snapshot does not name (window_minutes 0 occurs)
         named = {reading.window for reading in snapshot}
         return snapshot + [reading for reading in kept if reading.window not in named], False
     # No snapshot, or one without a window of a known length.
@@ -655,7 +665,7 @@ def answer(kind, event, launch, now):
         if launch.tool == "codex-as":
             if kind == "tool" and launch.marker:
                 mark(launch.marker)
-            readings, blind = codex_view(kind, event, launch)
+            readings, blind = codex_view(kind, event, launch, now)
         else:
             if kind != "prompt":
                 mark(launch.state + ".reply", str(int(now)))
