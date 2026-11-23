@@ -43,12 +43,15 @@
   reserve, which a launch gets when the stored reading passes its reserves (a
   lower reserve, or that window's reserve off and another one on); the stored
   reset time; or removing `codex-usage-NAME.json`, which is always safe,
-  since the next such reply writes it again. The relaunch that a refusal
-  names, with the refused window's reserve off, gets past the refusal for
-  that launch. When that leaves no reserve on, the relaunch runs without
-  hooks and leaves the attested reading as it is: its exit still records the
-  account's usage that `--info` shows, which later sessions with a reserve
-  are no longer judged on.
+  since the next such reply writes it again. A session of the account that
+  still holds the old reading in its own turns writes it back at its next
+  prompt or tool call, so such sessions are closed, or relaunched with that
+  window's reserve off, before the file is removed. The relaunch that a
+  refusal names, with the refused window's reserve off, gets past the
+  refusal for that launch. When that leaves no reserve on, the relaunch runs
+  without hooks and leaves the attested reading as it is: its exit still
+  records the account's usage that `--info` shows, which later sessions with
+  a reserve are no longer judged on.
 - Sessions that 0.9.0 or 0.9.1 started run the new guard from their next hook
   event on, under the trust given before: the hook definitions are
   unchanged. They keep reading their rollout by time until they exit, read

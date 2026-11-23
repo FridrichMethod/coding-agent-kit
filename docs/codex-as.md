@@ -349,7 +349,10 @@ arguments:
   `turns` file, and a write replaces another login's reading. The file has
   no lock, so two hooks that write it at the same instant can let the older
   reading stand until the next event. Nothing else writes it, a launch
-  without a reserve never opens it, and removing it is always safe
+  without a reserve never opens it, and removing it is always safe, though
+  a session of the account that still holds the old reading in its own
+  turns writes that reading back at its next prompt or tool call, so such
+  sessions are closed, or relaunched with that window's reserve off, first
   ([account launchers](account-launchers.md#what-it-does-not-stop)).
 - After Codex exits, codex-as reads the last 1 MiB of each rollout that the
   launch's `turns` file names, at most 64 of them, the newest file time
