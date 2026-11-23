@@ -181,20 +181,21 @@ def exit_status(result):
     return 128 - result
 
 
-def remember(config, layout, raw=None, plan=None, started=None, threads=()):
+def remember(config, layout, raw=None, plan=None, begun=None, threads=()):
     """Best effort, for --account-info: this login's email and plan, and after a run the
     last rate limits its rollouts show (THREADS: the session ids of a guarded run, see run_threads).
-    Never fails a launch and writes no token. A rollout is opened when its file time is at most SKEW
-    before STARTED, as run_threads opens them, since a file server's clock may lag this host's; a
-    snapshot counts only when its own line is stamped at or after STARTED, so what an earlier run left
-    in a session this run resumed, perhaps another account's, is never recorded as this account's.
-    The record takes the newest snapshot by its own time."""
+    Never fails a launch and writes no token. BEGUN is the moment before Codex started. A rollout is
+    opened when its file time is at most SKEW before BEGUN, as run_threads opens them, since a file
+    server's clock may lag this host's; a snapshot counts only when its own line is stamped from BEGUN
+    on, to the millisecond as in span, so what an earlier run left in a session this run resumed,
+    perhaps another account's and perhaps an instant before this launch, is never recorded as this
+    account's. The record takes the newest snapshot by its own time."""
     try:
         if raw is None:
             raw = guard.credential(layout.target)
         email, kind = storage.profile(raw)
         seen = None if plan is None else usage.latest(layout.root, {*plan.continued, *threads}, storage.owner(raw),
-                                                      started, time.time(), skew=SKEW)
+                                                      begun - STAMPED, time.time(), skew=SKEW)
         # The old record is read only after the scan, just before the write, so a run of
         # this account that finished meanwhile keeps its newer snapshot.
         path = metadata.directory(config, create=True) / f"codex-{layout.name}.json"
@@ -760,7 +761,7 @@ def main(args):
     except BaseException:
         layout.close()
         raise
-    # One start time for the guard and the record of this run.
+    # The guard's start time, a whole second: it names this launch's state and bounds what its hooks read.
     started, state = int(time.time()), None
     # The launch's state exists only under Supervision, so a signal never leaves it behind.
     with Supervision():
@@ -776,7 +777,7 @@ def main(args):
                                    f"({error.strerror or error}).")
                     print(guard.styled("codex-as: " + policy.describe() + "; hooks refuse new prompts and tool calls "
                                        "at a reserve.", "36", 2), file=sys.stderr)
-                # The span of this run's own lines, for the check after it.
+                # The span of this run's own lines, for the check after it and for the account record.
                 begun = time.time()
                 result = run_native(command, env, layout.fd)
                 ended = time.time()
@@ -788,7 +789,7 @@ def main(args):
             threads = None if state is None else this_run(layout, plan, baseline, begun, ended, alone)
             groups = [group for kind in threads for group in kind] if threads else ()
             if os.path.lexists(layout.target):
-                remember(config, layout, plan=plan, started=started,
+                remember(config, layout, plan=plan, begun=begun,
                          threads={usage.NAME.fullmatch(path.name)[1] for group in groups for path in group})
             if state is not None:
                 after_guarded(plan, account, state, marker, threads, begun, ended)

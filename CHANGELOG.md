@@ -13,8 +13,8 @@
   its own, decided on them, refusing prompts and tool calls at a reserve this
   account had not reached. The allowance for the file server's clock now
   widens only which rollouts are opened. A snapshot counts when its own line
-  is stamped at or after the run's start, without the 5 seconds before it that
-  earlier releases allowed.
+  is stamped from the moment `codex-as` starts Codex on, to the millisecond,
+  without the 5 seconds before the launch that earlier releases allowed.
 - The update does not repair a record that 0.9.0 wrote this way: it stays
   until a run of the account records a newer snapshot of its own, and the
   guard counts it until the recorded window resets. Where the guard refuses a

@@ -300,8 +300,9 @@ THREAD, OTHER, RESUMED = ("019a0000-0000-7000-8000-00000000000a", "019a0000-0000
                           "019a0000-0000-7000-8000-00000000000c")
 
 
-def iso(epoch):
-    return time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(epoch))
+def iso(epoch, milliseconds=0):
+    """A line's time as native Codex stamps it: the whole second EPOCH and MILLISECONDS past it."""
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(epoch)) + ".%03dZ" % milliseconds
 
 
 def limits(primary, secondary=None, limit_id=None):
@@ -325,6 +326,13 @@ def rollout(root, thread, lines, day="2026/01/01", creator=(USER, WORKSPACE), st
     with open(path, "a") as stream:
         stream.write("".join(json.dumps(record) + "\n" for record in records))
     return path
+
+
+def append(path, stamp, rate):
+    """One more token_count line at the end of the rollout at PATH, stamped STAMP (see iso)."""
+    with open(path, "a") as stream:
+        stream.write(json.dumps({"timestamp": stamp, "type": "event_msg",
+                                 "payload": {"type": "token_count", "info": None, "rate_limits": rate}}) + "\n")
 
 
 class CodexUsage(unittest.TestCase):
@@ -437,6 +445,24 @@ class CodexUsage(unittest.TestCase):
         self.assertEqual(self.latest(skew=300), {"primary": {"used_percent": 13.0, "window_minutes": 300, "resets_at": NOW + 3600},
                                                  "secondary": None, "seen_at": self.start})
         self.assertEqual(self.latest(ids=(RESUMED,), skew=300)["primary"]["used_percent"], 12.0)
+
+    def test_the_lines_bound_is_exact_below_a_second(self):
+        """Native Codex stamps its lines in milliseconds: a snapshot stamped one millisecond before the
+        start never counts, in a thread resumed by id or in one of this account's, and one stamped at the
+        start does."""
+        for ids in ((), (THREAD,)):
+            with self.subTest(ids=ids):
+                shutil.rmtree(self.root / "sessions", ignore_errors=True)
+                path = rollout(self.root, THREAD, [], stamp=self.start - 3600)
+                append(path, iso(self.start - 1, 999), limits(80.0))
+                os.utime(path, (NOW, NOW))
+                for skew in (None, 300):
+                    self.assertIsNone(self.latest(ids=ids, skew=skew))
+                append(path, iso(self.start), limits(13.0))
+                os.utime(path, (NOW, NOW))
+                self.assertEqual(self.latest(ids=ids, skew=300), {
+                    "primary": {"used_percent": 13.0, "window_minutes": 300, "resets_at": NOW + 3600},
+                    "secondary": None, "seen_at": self.start})
 
     def test_only_regular_rollouts_are_opened(self):
         own = rollout(self.root, THREAD, [(NOW - 10, limits(20.0))])
@@ -814,7 +840,8 @@ if os.environ.get("FAKE_PROBE"):
     pathlib.Path(os.environ["FAKE_PROBE"]).write_text(state.read_text() if state.exists() else "absent")
 for item in json.loads(os.environ.get("FAKE_ROLLOUTS", "[]")):
     now = time.time() + item.get("offset", 0)
-    stamp = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(now))
+    # Milliseconds, truncated, as native Codex stamps its lines.
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + ".%03dZ" % (int(now * 1000) % 1000)
     day = home / "sessions" / time.strftime("%Y/%m/%d", time.localtime(now))
     day.mkdir(parents=True, exist_ok=True)
     path = day / ("rollout-" + time.strftime("%Y-%m-%dT%H-%M-%S", time.localtime(now)) + "-" + item["thread"] + ".jsonl")
@@ -958,6 +985,21 @@ class CodexLaunch(unittest.TestCase):
         self.run_codex("A", "exec", "resume", RESUMED, "go", env={"FAKE_ROLLOUTS": json.dumps(rollouts)})
         self.assertEqual(self.stored()["usage"]["primary"]["used_percent"], 31.0)
 
+    def test_a_snapshot_from_the_moment_before_the_launch_is_never_recorded(self):
+        """The run's own lines begin when codex-as starts Codex, not with the wall-clock second of the
+        launch: the snapshot another account's client wrote in the resumed thread the moment before
+        codex-as was started, early in a second so that the launch normally begins within the same one,
+        is that account's reading as much as one from a minute before."""
+        while time.time() % 1 > 0.1:
+            time.sleep(0.005)
+        then = time.time()
+        path = rollout(self.home / ".codex", RESUMED, [], stamp=int(then) - 3600,
+                       day=time.strftime("%Y/%m/%d", time.gmtime(then)), creator=("user-fixture-B", WORKSPACE))
+        append(path, iso(then, int(then * 1000) % 1000), limits(90.0, 95.0))
+        result = self.run_codex("A", "exec", "resume", RESUMED, "go")
+        self.assertEqual((result.returncode, result.stdout), (0, "fake codex ran\n"), result.stderr)
+        self.assertEqual(self.stored(), {"email": "alice@example.com", "plan": "plus"})
+
     def test_a_secrets_dir_in_the_state_directory_is_refused_before_any_write(self):
         secrets = self.home / "x/coding-agent-kit/accounts"
         secrets.mkdir(parents=True, mode=0o700)
@@ -995,20 +1037,27 @@ class CodexLaunch(unittest.TestCase):
 
 
 class Remember(unittest.TestCase):
-    """codex-as's metadata write in process, racing another run of the same account."""
+    """codex-as's metadata write in process: racing another run of the same account, and the bound of
+    the run's own lines."""
 
-    def test_a_newer_record_written_during_the_scan_is_kept(self):
+    def setUp(self):
         self.addCleanup(os.umask, os.umask(0o077))
-        launch = load("kit_codex_launch_under_test", "lib/codex-as/launch.py")
+        self.launch = load("kit_codex_launch_under_test", "lib/codex-as/launch.py")
         tmp = tempfile.TemporaryDirectory(prefix="kit-remember-test-")
         self.addCleanup(tmp.cleanup)
-        base = Path(tmp.name).resolve()
-        config = SimpleNamespace(state_dir=base / "state", secrets_dir=base / "secrets")
-        layout = SimpleNamespace(name="A", root=base, target=base / "unused")
-        plan = SimpleNamespace(continued=(), resume_id=None, recover_id=None)
+        self.base = Path(tmp.name).resolve()
+        self.config = SimpleNamespace(state_dir=self.base / "state", secrets_dir=self.base / "secrets")
+        self.layout = SimpleNamespace(name="A", root=self.base, target=self.base / "unused")
         claims = {"email": "a@example.com", "https://api.openai.com/auth": {"chatgpt_plan_type": "plus",
                                                                            "chatgpt_user_id": USER}}
-        raw = json.dumps({"tokens": {"id_token": id_token(claims), "account_id": WORKSPACE}}).encode()
+        self.raw = json.dumps({"tokens": {"id_token": id_token(claims), "account_id": WORKSPACE}}).encode()
+
+    def stored(self):
+        return json.loads((self.config.state_dir / "accounts/codex-A.json").read_text())
+
+    def test_a_newer_record_written_during_the_scan_is_kept(self):
+        launch, config = self.launch, self.config
+        plan = SimpleNamespace(continued=(), resume_id=None, recover_id=None)
 
         def snapshot(seen):
             return {"primary": {"used_percent": 1.0, "window_minutes": 300, "resets_at": None}, "secondary": None,
@@ -1021,9 +1070,27 @@ class Remember(unittest.TestCase):
             return snapshot(NOW)
 
         with patch.object(launch.usage, "latest", scan):
-            launch.remember(config, layout, raw, plan, NOW - 60)
-        stored = json.loads((config.state_dir / "accounts/codex-A.json").read_text())
-        self.assertEqual(stored["usage"]["seen_at"], NOW + 100)
+            launch.remember(config, self.layout, self.raw, plan, NOW - 60)
+        self.assertEqual(self.stored()["usage"]["seen_at"], NOW + 100)
+
+    def test_the_run_s_lines_begin_when_codex_started_to_the_millisecond(self):
+        """The record takes the lines stamped from the moment before Codex started (BEGUN), less the
+        millisecond a truncated stamp can lose: never a line that another account's client wrote into the
+        resumed thread earlier in that same second, or one millisecond too early; the line written at
+        BEGUN, stamped just before it, counts."""
+        launch = self.launch
+        second = int(time.time()) - 60
+        begun = second + 0.7 + 0.4 * launch.STAMPED
+        path = rollout(self.base, RESUMED, [], stamp=second - 3600, creator=("user-fixture-B", WORKSPACE),
+                       day=time.strftime("%Y/%m/%d", time.gmtime(second)))
+        plan = SimpleNamespace(continued=(RESUMED,), resume_id=RESUMED, recover_id=None)
+        for milliseconds, used, recorded in ((300, 90.0, None), (699, 91.0, None), (700, 12.0, 12.0)):
+            with self.subTest(milliseconds=milliseconds):
+                append(path, iso(second, milliseconds), limits(used))
+                launch.remember(self.config, self.layout, self.raw, plan, begun)
+                usage = self.stored().get("usage")
+                self.assertEqual(usage and (usage["primary"]["used_percent"], usage["seen_at"]),
+                                 recorded and (recorded, second))
 
 
 if __name__ == "__main__":

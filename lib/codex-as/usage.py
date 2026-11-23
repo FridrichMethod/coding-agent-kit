@@ -21,11 +21,12 @@ The run has two bounds, one for each clock. A rollout is opened when its file
 time is at most SLACK + skew seconds before STARTED: on a network home directory
 that time is the file server's, whose clock may lag this host's by skew. A
 snapshot counts when its own line is stamped from STARTED to ENDED + SLACK:
-Codex stamps the lines with this host's clock, and codex-as takes STARTED, a
-whole second, before it starts Codex, so no line of the run is older. A snapshot
-that an earlier run left in a rollout this run opens (a resumed thread's, or one
-of its sub-agents') may be another account's reading and never counts, whatever
-skew is.
+Codex stamps the lines with this host's clock, in milliseconds, truncated, and
+codex-as passes as STARTED the moment before it starts Codex less that one
+millisecond, so no line of the run is older. A snapshot that an earlier run
+left in a rollout this run opens (a resumed thread's, or one of its
+sub-agents') may be another account's reading and never counts, whatever skew
+is and however shortly before the run it was written.
 
 Known gaps: a session switched inside Codex (/resume) is missed, and another
 account resuming, during the run, a thread this account created can be counted
