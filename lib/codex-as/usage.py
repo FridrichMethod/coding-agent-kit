@@ -1,10 +1,14 @@
 """Codex rate limits and activity, read from the session rollouts native Codex writes.
 
 latest(root, ids, account, started, ended, skew=0) gives the account record the
-last snapshot of a codex-as run; session(path, started) gives the reserve guard
-what one session's rollout shows since a launch started.
+last snapshot of a codex-as run whose hooks named no turn, and witnessed(root,
+notes, skew=0) that of a run whose hooks named turns, from those turns only.
+session(path, started, turns=None) gives the reserve guard what one session's
+rollout shows since a launch started and in the launch's own turns. merged()
+and keep() maintain the account's attested usage, the reading the guard falls
+back on.
 
-The last snapshot of a run:
+The last snapshot of a run whose hooks named no turn (latest):
 
 Best effort and offline: after native Codex exits, codex-as reads the tail of
 the shared session rollouts written during the run and keeps the newest
@@ -28,9 +32,31 @@ left in a rollout this run opens (a resumed thread's, or one of its
 sub-agents') may be another account's reading and never counts, whatever skew
 is and however shortly before the run it was written.
 
-Known gaps: a session switched inside Codex (/resume) is missed, and another
-account resuming, during the run, a thread this account created can be counted
-here.
+Known gaps: latest() serves the runs whose hooks named no turn (a launch
+without a usage reserve, or hooks that Codex did not run). For them a session
+switched inside Codex (/resume) is missed, and another account resuming, during
+the run, a thread this account created can be counted here.
+
+Turns: each prompt and tool hook event of native Codex carries the id of its
+turn, and Codex writes that id into the rollout lines of the turn. A line
+belongs to the turn named by the last line, itself included, that names one
+(turn_of: a turn_context or token_usage_record line, or a task_started,
+task_complete or turn_aborted event, whose turn_id, for task_started also
+turn_attribution.turn_id, is a UUID in lower case; never an item_completed
+line, which can follow its turn's end), until a task_complete or turn_aborted
+event ends the open turn, whatever id it carries, or a task_started begins one.
+A turn has one client: native Codex lets one process at a time write a thread.
+
+The notes of a launch's turns (STATE.turns in the guard directory) are ASCII
+lines ended by a line feed: first "o OWNER", which the launcher writes once,
+OWNER being the tag of its login (tag: the first 16 hex digits of the SHA-256
+of the ChatGPT user and workspace joined by a line feed); then "t TURN REL",
+which the guard appends (turn_note) once per turn and rollout, REL being the
+last four components of the event's transcript_path below sessions/
+(relative). A reader (turn_notes) drops the piece after the last line feed,
+takes the owner from the first line only and skips any other form. A turn
+counts for the rollout it was noted with only: a sub-agent's rollout starts
+with a copy of its parent's turn lines.
 
 One session, for the guard (session): the tail of the rollout at PATH, without
 a first line the tail cut and a last line still being written, and of it the
@@ -54,6 +80,31 @@ drift) is accounted and nothing else, so the guard is blind instead of open.
 - tools: a call a tool hook sees: a function_call other than the plain wait and
   write_stdin, a custom_tool_call or a local_shell_call; not web_search_call or
   tool_search_call.
+- own: with TURNS, the same five keys over the lines of the turns in TURNS,
+  whenever they are stamped, and "turns", the turns of TURNS that the tail
+  names; None without TURNS or when no line of the tail names a turn. There a
+  token_count line is a snapshot only after a model response of its turn (one
+  before it can repeat what an earlier turn received) and carries the time of
+  the turn's last token_usage_record line, the reply its rate limits came with,
+  or its own time without one. A model response counts whatever its time; a
+  token_count with a usable window whose time cannot be read, or one without a
+  usable window outside a compaction, is accounted.
+
+The attested usage (merged, keep): guard/codex-usage-NAME.json, {"owner",
+"usage", "rollout", "launch"}, which the guard writes at an event whose own
+view holds a snapshot of the general family, and codex-as after a run from the
+turns its hooks named. The newest reading (seen_at) wins; a window that the
+newest snapshot does not name stays, by its length, while its reset lies ahead;
+unchanged windows (reset times at most TOLERANCE apart) are written again only
+AGAIN seconds apart; a seen_at more than SLACK seconds ahead of this host's
+clock is never stored, and a stored one is no reading. Another owner's file, or
+one that cannot be read, is replaced. There is no lock.
+
+The last snapshot of a run whose hooks named turns (witnessed): of each noted
+rollout, regular files only, the newest file time first and at most WITNESSED,
+the own view of the turns noted for it, whoever created the thread; the newest
+snapshot of the general family wins, and reading stops at the first file whose
+time lies more than SLACK + skew seconds before it.
 """
 
 from datetime import datetime, timezone
