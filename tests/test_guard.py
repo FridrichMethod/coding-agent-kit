@@ -1409,6 +1409,42 @@ class Codex(Fixture):
             self.assertEqual(self.answer("tool", launch, self.codex_event(transcript, "tool", T3)), OK)
             self.assertEqual(self.notes(launch), torn + f"\nt {T3} {REL}\n")
 
+    def test_add_turn_appends_to_an_existing_regular_file_only(self):
+        data = f"t {T1} {REL}\n".encode("ascii")
+        notes = put(self.root / "notes", f"o {TAG}\n")
+        guard.add_turn(str(notes), data)
+        written = f"o {TAG}\nt {T1} {REL}\n"
+        self.assertEqual(notes.read_text(), written)
+        # It never creates the file (a hook still running after codex-as removed the launch's state) ...
+        missing = self.root / "missing"
+        with self.assertRaises(OSError):
+            guard.add_turn(str(missing), data)
+        self.assertFalse(os.path.lexists(missing))
+        # ... never writes through a link ...
+        link = self.root / "link"
+        link.symlink_to(notes)
+        with self.assertRaises(OSError):
+            guard.add_turn(str(link), data)
+        self.assertEqual(notes.read_text(), written)
+        # ... and never into a directory or a FIFO: without a reader it fails at once instead of waiting for one,
+        # and with one, which this case holds open, it writes nothing.
+        folder = self.root / "folder"
+        folder.mkdir()
+        with self.assertRaises(OSError):
+            guard.add_turn(str(folder), data)
+        fifo = self.root / "fifo"
+        os.mkfifo(fifo, 0o600)
+        self.assertIsInstance(self.unblocked(lambda: guard.add_turn(str(fifo), data), fifo)[1], OSError)
+        reader = os.open(fifo, os.O_RDWR | os.O_NONBLOCK)  # a reader and a writer, never blocks (Linux, macOS)
+        try:
+            with self.assertRaises(OSError):
+                guard.add_turn(str(fifo), data)
+            with self.assertRaises(BlockingIOError, msg="add_turn wrote into a FIFO"):
+                os.read(reader, 4096)
+        finally:
+            os.close(reader)
+        self.assertEqual(sorted(path.name for path in folder.iterdir()), [])
+
     def test_full_notes_take_no_more_lines_and_a_turn_they_do_not_hold_is_read_by_time(self):
         launch = self.launch("codex-as", weekly="10")
         limit, head, mine = guard.module("usage").NOTES, f"o {TAG}\n", f"t {T1} {REL}\n"
