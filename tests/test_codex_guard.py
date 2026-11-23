@@ -3479,8 +3479,9 @@ class RealCodex(unittest.TestCase):
         reserve at 10, as a launch of ACCOUNT by the login TAG whose notes of its turns codex-as made: RECORDED
         percent of the five-hour window used in account A's attested usage of earlier runs, SENT percent in the rate
         limits the fake sends with every answer (None: no attested usage, no rate limits). STARTED is the launch's
-        start in epoch seconds, now by default. The guard runs behind WRAPPER (events()); the requests returned are
-        this run's."""
+        start in epoch seconds, now by default: then, while a launch of ACCOUNT by this process holds that second's
+        state name (codex-as-ACCOUNT-PID-SECOND), the next second, so each launch of a test has its own state, as each
+        codex-as process has. The guard runs behind WRAPPER (events()); the requests returned are this run's."""
         now = int(time.time())
         seen = len(self.requests.read_text().splitlines()) if self.requests.exists() else 0
         self.serve({} if sent is None else {"primary": [sent, 300, 3600], "secondary": [20.0, 10080, 86400]})
@@ -3494,9 +3495,14 @@ class RealCodex(unittest.TestCase):
                                      self.reserve.Setting("five_hour", self.reserve.flag_value("10"), "invocation"),
                                      self.reserve.Setting("weekly", None, "default"))
         env = self.sandbox.env()
+        if started is None:
+            started = int(time.time())
+            if os.path.lexists(self.guard_dir / f"codex-as-{account}-{os.getpid()}-{started}.launched"):
+                time.sleep(max(0.0, started + 1 - time.time()))
+                started += 1
         state = guard_launch.prepare(env, str(self.guard_dir), "codex-as", account, policy,
-                                     str(self.accounts / f"codex-{account}.json"),
-                                     int(time.time()) if started is None else started, marker=str(self.marker), turns=tag)
+                                     str(self.accounts / f"codex-{account}.json"), started, marker=str(self.marker),
+                                     turns=tag)
         self.assertEqual(env["CODING_AGENT_KIT_GUARD_SCRIPT"], str(self.kit / "lib/coding-agent-kit/guard.py"))
         wrapper = self.sandbox.base / "guard wrapper.py"
         wrapper.write_text(WRAPPER.format(log=str(self.hook_log), guard=env["CODING_AGENT_KIT_GUARD_SCRIPT"]))
