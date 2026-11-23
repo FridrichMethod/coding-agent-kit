@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.9.2
+
+- With a usage reserve, `codex-as` and its guard tell a session's rate limits
+  by turn, not by time. Each hook event of native Codex names its turn, and
+  Codex writes that turn's id into the rollout; the guard notes the turns that
+  its launch's hooks were called for, and only a snapshot in one of them is
+  the launch's own. What another client wrote in the same thread, before or
+  after, never counts for the guard's decision. A launch that resumes a
+  session within 5 seconds of another client's last snapshot there is no
+  longer judged on that snapshot, and one that resumes it within 5 seconds of
+  a client that was killed in mid turn is no longer refused with
+  `no usage data since this session started`.
+- After a run with a usage reserve whose hooks named turns, the account's
+  usage that `--info` shows comes from those turns only, whoever created the
+  thread, so a turn of another client in the same thread never counts: a
+  thread that this account created and another account continues no longer
+  feeds this account, and a thread of another creator that the run continued
+  without naming it (`resume --last`, the picker, `/resume`) now does. The
+  recorded time is then the reply's, not that of the later line that carries
+  its rate limits.
+- Without a snapshot of its own (a session's first prompt, a sub-agent's
+  first tool call), the Codex guard reads the account's attested usage,
+  `codex-usage-NAME.json` in
+  `${XDG_STATE_HOME:-~/.local/state}/coding-agent-kit/guard/`, and no longer
+  the record that `--info` shows, which launches without a reserve write too.
+  Only launches of this release with a usage reserve write the attested
+  usage, from their own turns: their guard at its hook events, and `codex-as`
+  when Codex exits. The newest reading wins.
+- Right after the update nothing is attested, so such an event has nothing
+  to be checked against and goes through, until a launch of this release with
+  a usage reserve has read a reply of the account. From its first reply on, a
+  session is judged on its own snapshots as before. A wrong record that an
+  earlier release wrote no longer refuses anything; `--info` shows it until a
+  run of the account records a newer snapshot.
+- An attested reading that is no longer true (a window that the provider
+  reset before its reset time) refuses events without a snapshot of their
+  own, such as the first prompt of each new session with a reserve, until one
+  of these ends it: a newer reply read by a session of the account with a
+  reserve, which a launch gets when the stored reading passes its reserves (a
+  lower reserve, or that window's reserve off and another one on); the stored
+  reset time; or removing `codex-usage-NAME.json`, which is always safe,
+  since the next such reply writes it again. The relaunch that a refusal
+  names, with the refused window's reserve off, gets past the refusal for
+  that launch. When that leaves no reserve on, the relaunch runs without
+  hooks and leaves the attested reading as it is: its exit still records the
+  account's usage that `--info` shows, which later sessions with a reserve
+  are no longer judged on.
+- Sessions that 0.9.0 or 0.9.1 started run the new guard from their next hook
+  event on, under the trust given before: the hook definitions are
+  unchanged. They keep reading their rollout by time until they exit, read
+  the attested usage too, and attest nothing; their launchers record the
+  account's usage at exit as before.
+- Launches without a usage reserve are as in 0.9.1: they pass no hooks, open
+  nothing in `guard/` and record the account's usage as before, with its
+  known gaps: a session switched inside Codex (`/resume`) is missed, and
+  another account that resumes, during the run, a thread this account
+  created can be counted. A launch with a reserve whose hooks named no turn,
+  as when Codex did not run them, records its usage the same way.
+
 ## 0.9.1
 
 - After a run, `codex-as` no longer records a rate-limit snapshot from before
