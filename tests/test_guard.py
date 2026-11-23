@@ -1316,6 +1316,30 @@ class Codex(Fixture):
         self.assertEqual(self.notes(untagged), f"t {T1} {REL}\n")
         self.assertEqual(sorted(path.name for path in self.guard_dir.iterdir() if "codex-usage" in path.name), [])
 
+    def unblocked(self, call, fifo):
+        """(result, exception) of CALL, run in a thread that gets 10 seconds: a call that waits on the FIFO fails the
+        case instead of hanging the suite, and is let go when the case ends."""
+        def release():
+            try:
+                os.close(os.open(fifo, os.O_RDWR | os.O_NONBLOCK))  # both ends: a waiting reader or writer returns
+            except OSError:
+                pass
+
+        self.addCleanup(release)
+        outcome = []
+
+        def run():
+            try:
+                outcome.append((call(), None))
+            except Exception as error:
+                outcome.append((None, error))
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        worker.join(10)
+        self.assertFalse(worker.is_alive(), f"a call waited on the FIFO {fifo.name}")
+        return outcome[0]
+
     def test_notes_that_cannot_be_read_or_written_never_block(self):
         # Another client's turn at the reserve since the launch started, then the launch's new turn: by the launch's
         # turns nothing is known yet, by the lines since the start the other client's snapshot refuses. The
@@ -1341,6 +1365,12 @@ class Codex(Fixture):
                     notes.symlink_to(target)
                 elif case == "a FIFO":
                     os.mkfifo(notes, 0o600)
+                    # Without a writer, a reader that waited would fail here instead of hanging the suite ...
+                    self.assertEqual(self.unblocked(lambda: guard.read_turns(str(notes)), notes), (None, None))
+                    # ... and held open with notes in it, the events below return, and must not take them.
+                    writer = os.open(notes, os.O_RDWR | os.O_NONBLOCK)  # never blocks (Linux, macOS)
+                    stack.callback(os.close, writer)
+                    os.write(writer, f"o {TAG}\nt {T1} {REL}\n".encode("ascii"))
                 else:
                     self.turns_file(launch)
                     stack.enter_context(patch.object(usage, "turn_notes", side_effect=RuntimeError("boom")))
