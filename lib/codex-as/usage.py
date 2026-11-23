@@ -60,7 +60,7 @@ from datetime import datetime, timezone
 import json
 import math
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import re
 import stat
 import time
@@ -81,6 +81,19 @@ TURN_EVENTS = ("task_started", "task_complete", "turn_aborted", "token_count")  
 STAMP = re.compile(rb'\{\s*"timestamp"\s*:\s*"([^"\\]{1,64})"')  # how native Codex starts each line
 NAME = re.compile(r"rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})"
                   r"(?:_[0-9a-f-]{36})?\.jsonl")
+# The notes of a launch's turns (STATE.turns) and the account's attested usage. Explicit [0-9] classes, matched
+# whole: \d takes digits outside ASCII.
+TURN = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}")  # a turn id as native Codex makes one
+OWNER = re.compile(r"[0-9a-f]{16}")  # the tag of a login (tag)
+REL = re.compile(r"[0-9]{4}/[0-9]{2}/[0-9]{2}/rollout-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}"
+                 r"-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?:_[0-9a-f-]{36})?\.jsonl")  # a rollout below sessions/
+ATTESTED = re.compile(r"codex-usage-[A-Za-z0-9_][A-Za-z0-9_-]*\.json")
+NOTES = 1 << 20  # bytes of STATE.turns a reader takes, and the size at which a guard stops appending
+WITNESSED = 64  # rollouts read after a run whose hooks named turns
+TOLERANCE = 120  # seconds two reset times of one window may differ
+AGAIN = 300  # seconds after which an unchanged reading is written again
+NAMING = ("task_started", "task_complete", "turn_aborted")  # event_msg types that name their turn
+TURN_ENDS = ("task_complete", "turn_aborted")
 
 
 def days(start, end):
@@ -333,19 +346,92 @@ def hooked(kind, ptype, payload):
     return not (ptype == "function_call" and not payload.get("namespace") and payload.get("name") in UNHOOKED)
 
 
-def session(path, started):
+def tag(owner):
+    """The tag of a login: the first 16 hex digits of the SHA-256 of its (ChatGPT user, workspace)
+    pair joined by a line feed, as UTF-8; None for None (an API key)."""
+    if owner is None:
+        return None
+    import hashlib  # here, not at the top: the guard loads this module at every event
+
+    return hashlib.sha256("\n".join(owner).encode("utf-8")).hexdigest()[:16]
+
+
+def relative(path):
+    """REL of a transcript path (a str or a Path): its last four components, when the path has at
+    least six and the fifth from the end is sessions; None for anything else."""
+    if isinstance(path, PurePath):
+        path = str(path)
+    if not isinstance(path, str):
+        return None
+    parts = path.split("/")
+    rel = "/".join(parts[-4:])
+    return rel if len(parts) >= 6 and parts[-5] == "sessions" and REL.fullmatch(rel) else None
+
+
+def turn_note(turn, rel):
+    """The line of STATE.turns that notes TURN for the rollout REL; ValueError unless both match."""
+    if not (isinstance(turn, str) and TURN.fullmatch(turn) and isinstance(rel, str) and REL.fullmatch(rel)):
+        raise ValueError("not a turn id and a rollout below sessions/")
+    return f"t {turn} {rel}\n".encode("ascii")
+
+
+def turn_notes(raw):
+    """(owner tag or None, {rel: set of turn ids}) of the bytes of STATE.turns.
+
+    The piece after the last line feed is dropped (empty, or a line a full disk cut short); the
+    owner comes from the first line only; a line of any other form is skipped."""
+    owner, turns = None, {}
+    if not isinstance(raw, (bytes, bytearray)):
+        return owner, turns
+    for number, piece in enumerate(bytes(raw).split(b"\n")[:-1]):
+        try:
+            words = piece.decode("ascii").split(" ")
+        except UnicodeDecodeError:
+            continue
+        if number == 0 and len(words) == 2 and words[0] == "o" and OWNER.fullmatch(words[1]):
+            owner = words[1]
+        elif len(words) == 3 and words[0] == "t" and TURN.fullmatch(words[1]) and REL.fullmatch(words[2]):
+            turns.setdefault(words[2], set()).add(words[1])
+    return owner, turns
+
+
+def turn_of(kind, ptype, payload):
+    """The turn id a rollout line names, or None.
+
+    A turn_context or token_usage_record line, or an event_msg of NAMING, names the turn in its
+    payload's turn_id; a task_started also in turn_attribution.turn_id when turn_id is no string.
+    Only an id in UUID form names a turn; an item_completed line, which can follow its turn's end,
+    names none."""
+    if not isinstance(payload, dict) or not (kind in ("turn_context", "token_usage_record")
+                                             or kind == "event_msg" and ptype in NAMING):
+        return None
+    turn = payload.get("turn_id")
+    if not isinstance(turn, str) and kind == "event_msg" and ptype == "task_started":
+        attribution = payload.get("turn_attribution")
+        turn = attribution.get("turn_id") if isinstance(attribution, dict) else None
+    return turn if isinstance(turn, str) and TURN.fullmatch(turn) else None
+
+
+def session(path, started, turns=None):
     """What the rollout at PATH shows since STARTED, as the module docstring says; None when PATH
     is not a readable regular file.
 
     {"snapshot": {"primary": window|None, "secondary": window|None, "seen_at": int} | None,
-     "family": str | None, "accounted": bool, "responded": bool, "tools": bool}"""
+     "family": str | None, "accounted": bool, "responded": bool, "tools": bool, "own": dict | None}
+
+    "own" is what the lines of the turns in TURNS (a set of turn ids, or None) show, whenever they
+    are stamped: the first five keys counted over those lines only, and "turns", the turns of TURNS
+    that the tail names. None when TURNS is None or no line of the tail names a turn."""
     try:
         with opened(Path(path)) as stream:
             lines, cut = tail(stream)
     except (OSError, TypeError, ValueError):
         return None
     found = {"snapshot": None, "family": None, "accounted": False, "responded": False, "tools": False}
+    own = dict(found)
     state = UNKNOWN if cut else CLEAR
+    # The open turn, whether it has had a model response, and the time of its last token_usage_record.
+    current, replied, asked, named, naming = None, False, None, set(), False
     for raw in lines:
         line = parsed(raw)
         if line is None:
@@ -355,6 +441,33 @@ def session(path, started):
         if inherited(line):
             continue
         when = moment(line.get("timestamp"))
+        if turns is not None:
+            turn = turn_of(kind, ptype, payload)
+            if turn is not None:
+                naming = True
+                if turn in turns:
+                    named.add(turn)
+                if turn != current or kind == "event_msg" and ptype == "task_started":
+                    replied, asked = False, None
+                current = turn
+            mine = current in turns
+            if kind == "event_msg" and ptype in TURN_ENDS:
+                current, replied, asked = None, False, None  # what follows belongs to no turn
+            if mine and kind == "event_msg" and ptype == "token_count":
+                limits = payload.get("rate_limits")
+                windows = usable(limits)
+                if windows and replied and when is not None:
+                    seen = when if asked is None else asked  # the reply's time, not the line's
+                    own.update(snapshot={**windows, "seen_at": int(seen)}, family=family_of(limits), accounted=True)
+                elif windows and when is None or not windows and before not in (CONTEXT, UNKNOWN):
+                    own["accounted"] = True
+                # A window before the turn's first response is no reply's reading: it is ignored.
+            elif mine and responded(kind, ptype, payload):
+                replied = True
+                if kind == "token_usage_record" and when is not None:
+                    asked = when
+                own["responded"] = True
+                own["tools"] = own["tools"] or hooked(kind, ptype, payload)
         if when is None:
             if kind == "event_msg" and ptype == "token_count" or responded(kind, ptype, payload):
                 found["accounted"] = True  # format drift: usage at a time this reader cannot tell
@@ -371,4 +484,4 @@ def session(path, started):
         elif responded(kind, ptype, payload):
             found["responded"] = True
             found["tools"] = found["tools"] or hooked(kind, ptype, payload)
-    return found
+    return {**found, "own": {**own, "turns": named} if naming else None}
